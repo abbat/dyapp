@@ -221,6 +221,9 @@ The Android place picker test picks Germany, refuses to save unlisted text, pick
 the "Berl" suggestions, checks the country and place in the publish dialog, then clears the
 country and checks both are gone from the dialog. The iOS `testPlacePickerSavesOnlyASuggestedPlace` searches for
 Germany, refuses unlisted text, picks Berlin from the "Berl" suggestions and previews it.
+Android profile tests also check exact retained input after native rejection: invalid/nonnumeric
+height, overlong or bidi-control About text, and reversed/nonnumeric seeking ages. Publishing stays
+disabled for these unsaved edits; assertions follow the completed-save signal rather than elapsed time.
 The Android publish test checks that closing the dialog clears both confirmations and an unsaved
 edit disables publishing until saved, then confirms both, runs the proof without an active network
 and expects the localized not-connected failure, retry label and cleared confirmations.

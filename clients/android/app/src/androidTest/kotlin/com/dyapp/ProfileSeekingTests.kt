@@ -36,6 +36,12 @@ class ProfileSeekingTests {
         compose.onNodeWithTag("profile-seeking-age-to").performScrollTo().performTextReplacement(to)
     }
 
+    private fun assertAges(from: String, to: String) {
+        compose.onNodeWithTag("profile-seeking-age-from").performScrollTo().assertTextContains(from, substring = false)
+        compose.onNodeWithTag("profile-seeking-age-to").performScrollTo().assertTextContains(to, substring = false)
+        compose.onNodeWithTag("profile-publish").performScrollTo().assertIsNotEnabled()
+    }
+
     private fun openPublish() {
         compose.onNodeWithTag("profile-publish").performScrollTo().performClick()
     }
@@ -86,8 +92,10 @@ class ProfileSeekingTests {
         compose.openProfileEditor()
         typeAges("40", "30")
         save(R.string.profile_seeking_invalid)
+        assertAges("40", "30")
         typeAges("x", "")
         save(R.string.profile_seeking_invalid)
+        assertAges("x", "")
         typeAges("25", "")
         compose.onNodeWithTag("profile-seeking-gender-$woman").performScrollTo().performClick()
         save(R.string.profile_saved)

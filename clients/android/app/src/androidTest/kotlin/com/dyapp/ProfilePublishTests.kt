@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.ComposeTestRule
@@ -123,6 +124,10 @@ class ProfilePublishTests {
         compose.onNodeWithTag("profile-height").performScrollTo().performTextReplacement(height)
         compose.saveProfile()
         compose.onNodeWithTag("profile-status").assertTextEquals(string(status))
+        compose.onNodeWithTag("profile-height").performScrollTo().assertTextContains(height, substring = false)
+        if (status != R.string.profile_saved) {
+            compose.onNodeWithTag("profile-publish").performScrollTo().assertIsNotEnabled()
+        }
     }
 
     @Test
@@ -145,6 +150,10 @@ class ProfilePublishTests {
         // A touch can miss: the keyboard raised by the field may still be moving the form.
         compose.saveProfile()
         compose.onNodeWithTag("profile-status").assertTextEquals(string(status))
+        compose.onNodeWithTag("profile-about").performScrollTo().assertTextContains(about, substring = false)
+        if (status != R.string.profile_saved) {
+            compose.onNodeWithTag("profile-publish").performScrollTo().assertIsNotEnabled()
+        }
     }
 
     @Test
