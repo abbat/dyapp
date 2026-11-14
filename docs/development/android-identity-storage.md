@@ -39,18 +39,27 @@ the OS gives the app no chance to warn, and the non-exportable key cannot be bac
 
 ## App-lock record (storage component)
 
-`AppLockStore` persists an app-wide `app-lock` file beside the identity slots in
+`AppLockStore` is a facade over common native `MobileAppLock`; the Rust core owns mode,
+enrollment, attempts, changes, recovery and legacy record framing. Each operation retains a native
+handle through completion under the existing app-wide IO lock. `AppLockFiles` implements only
+protected local callbacks for an app-wide `app-lock` file beside the identity slots in
 `noBackupFilesDir`. Its dedicated Android Keystore alias is `dyapp-app-lock`; it does not
-change or authenticate the per-slot identity wrapping keys. The 49-byte Rust Argon2id verifier
-record and a failure count share one AES-GCM wrapped blob, replaced atomically after each attempt.
+change or authenticate per-slot identity wrapping keys. The 49-byte Argon2id verifier and two-byte
+version/failure header share the existing AES-GCM wrapped blob, replaced atomically after attempts.
 The count is persisted before checking a PIN; five failures require an OS device-credential
 check. Corrupt or unreadable files fail closed and are never treated as a fresh install.
 `mode` reports the saved choice: `PIN` when a record exists, else `BIOMETRIC` when the empty
 `app-lock-biometric` marker exists, else `OFF` after the empty `app-lock-skipped` marker, else
 `NEW` for first-launch setup. `skip` writes the skip marker, and clearing the lock also writes it
 so setup is not offered again. The app uses either a PIN or biometrics, never both:
-`useBiometric` writes its marker before it deletes any PIN record, and a reset writes a new PIN
-before it deletes the marker, so a crash mid-switch leaves the app locked with the PIN.
+`useBiometric` atomically writes and syncs its marker and directory before core can remove a PIN;
+a reset writes a new PIN before removing the biometric marker. An interrupted switch retains PIN
+or biometric protection, with PIN precedence when both exist. PIN/marker writes and removals
+complete directory sync before acknowledging success. IO errors can occur after an atomic change
+committed: they do not prove rollback and must not trigger automatic retries.
+Reads and temporary-file opens do not follow symlinks; encrypted reads are bounded to 256 bytes.
+Only confirmed missing entries mean absence; invalid roots, access failures or malformed storage
+must not fabricate fresh setup.
 Setup and the settings screen without a PIN offer **Use device biometrics** only when
 `canAuthenticate(BIOMETRIC_STRONG)` succeeds, and explain enrolment when none is enrolled. In
 biometric mode the app unlocks, and opens its lock settings, only after a `BiometricPrompt`
@@ -65,8 +74,11 @@ OS check. Without a device screen lock the button is disabled and the screen exp
 must be restored. `change` replaces or clears the PIN only when the current PIN,
 counted as one attempt, verifies; `MainActivity.setPin` calls it from `LockSettingsScreen`
 (and `enroll` when no PIN is set). `onDevice` uses
-`PlatformKeyStore` with a dedicated alias and the common Rust FFI Argon2id functions; JVM tests
-inject fake implementations.
+`PlatformKeyStore` with a dedicated alias and the core-backed native lock. Pure JVM tests cover
+opaque protected IO, byte limits, symlinks and failure/sync boundaries; shared core tests cover
+counter/authentication policy. `NativeAppLockStoreTests` adds isolated legacy wrapped-record and
+callback integration scenarios. Those require actual Android execution; compilation does not prove
+JNI, UI or OS-authentication acceptance.
 `AppLockLifecycle` now models fresh-process locking, the 60-second background grace and the
 five-minute foreground inactivity deadline from a monotonic clock. `MainActivity` checks it
 before constructing `MainScreen`, refreshes on foreground/background and input events, and

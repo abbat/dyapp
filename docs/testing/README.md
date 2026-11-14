@@ -532,6 +532,13 @@ the remaining budget rather than a fixed retry count and retain final rows in fa
 one manifest and the repository's lossless-alpha WebP seed. Compilation is not execution evidence;
 the existing native Android suite must run this scenario before release acceptance.
 
+Android `NativeAppLockStoreTests` uses isolated cache files and actual common native callbacks:
+legacy wrapped PIN records, failure counts across reopened facades, failed marker-sync refusal and
+corrupt-record fail-closed behavior. Pure JVM `AppLockStoreTests` now covers opaque protected
+file IO only; the shared core owns and tests authentication/counter policy. Existing
+`AppLockUITests` and `LockSetupTests` retain UI/OS-prompt acceptance. These Android instrumentation
+scenarios still need execution evidence; SDK compilation is insufficient.
+
 | Platform | Command | Runs where |
 |----------|---------|------------|
 | Android unit (1 JUnit) | `make ui-test-android` | Docker, local + CI |

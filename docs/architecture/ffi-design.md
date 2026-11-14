@@ -886,8 +886,8 @@ or returns constants.
 | `MlsNewGroup` | Record | `group: MlsGroup`, `welcome: Vec<u8>` | The new group and the Welcome for the added devices. |
 | `MlsGroup` | Object | `id()`, `members()`, `encrypt(device, plaintext)`, `process(device, message, profiles) -> Result<MlsReceived, CoreError>`, `remove_revoked(device, profiles)`, `export_secret(device, label, context, length)` | One group; each call takes its `MlsDevice`. `MlsReceived` is `Message { sender, plaintext }` or `Commit`. |
 | `hash_app_pin` | function | `(pin: String) -> Result<Vec<u8>, CoreError>` | Six-to-64 ASCII decimal digits to a 49-byte record: format 1, random 16-byte salt, 32-byte Argon2id tag (64 MiB, three passes, four lanes). Store the record in device-only protected storage. |
-| `verify_app_pin` | function | `(pin: String, record: Vec<u8>) -> Result<bool, CoreError>` | Constant-time tag comparison; `false` for a wrong PIN, error for invalid PIN/record or KDF failure. The platform counts failed attempts, including errors. Both calls block and belong off the UI thread. |
-| `MobileAppLock` | Object | `new(format, storage)`, `mode`, `enroll`, `attempt`, `change(current, new_pin)`, `reset_after_device_credential`, `skip`, `use_biometric` | Owns the common core state. Blocking methods retain storage through completion and serialize the handle; no profile/node operations. Recovery/biometric changes require the platform's fresh OS authentication. Platform adoption is planned. |
+| `verify_app_pin` | function | `(pin: String, record: Vec<u8>) -> Result<bool, CoreError>` | Constant-time tag comparison; `false` for a wrong PIN, error for invalid PIN/record or KDF failure. Callers must enforce retry limits; use `MobileAppLock` for persisted admission. Both calls block and belong off the UI thread. |
+| `MobileAppLock` | Object | `new(format, storage)`, `mode`, `enroll`, `attempt`, `change(current, new_pin)`, `reset_after_device_credential`, `skip`, `use_biometric` | Owns the common core state. Blocking methods retain storage through completion and serialize the handle; no profile/node operations. Recovery/biometric changes require the platform's fresh OS authentication. Android facade adoption is implemented; iOS adoption and actual platform execution remain pending. |
 | `MobileAppLockStorage` | Callback | `read_entry -> Option<Vec<u8>>`, `write_entry(entry, data)`, `remove_entry(entry)` | Protected local IO with atomic durable writes; confirmed absence differs from failure. Raw records cross only this IO boundary, not UI results. No plaintext PINs or callback reentry. |
 | `AppLockStorageError` | Error | `Failed { reason }` | Structured callback error; reasons must omit PINs/verifier bytes. Failure does not prove rollback. |
 | `MobileAppLockFormat` | Enum | `Android`, `Ios` | Selects an existing storage layout without migration. |
@@ -1031,8 +1031,10 @@ The boundary is **not** secure today; see
   also zeroizes its owned verifier buffer. UI and UniFFI temporary copies remain platform-owned.
   The app must clear its input and protect the verifier. The core `app_lock::AppLock` implements
   mode/enroll/attempt/change/recovery/skip/biometric rules. Common native `MobileAppLock` exposes
-  those rules through protected local IO callbacks; platform adoption is still planned. The
-  existing verifier-only API does not store state.
+  those rules through protected local IO callbacks. Android `AppLockStore` now delegates to it
+  under the existing app-wide IO lock; Kotlin retains protected IO and UI enum projections.
+  iOS adoption is planned, and actual Android native/UI execution remains an acceptance gate.
+  The existing verifier-only API does not store state.
 - Core app-lock storage preserves both existing layouts: Android's 51-byte PIN record and separate
   Skip/biometric markers, and iOS's 52-byte PIN or 3-byte Off/biometric record. It does not migrate
   or reset stored locks. Android PIN presence takes precedence over markers after an interrupted

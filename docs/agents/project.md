@@ -148,6 +148,11 @@ which duplicates WebP's `quick-error` 2 under cargo-deny. Subprocess property te
 an explicit feature and dependency-policy decision; no `PROPTEST_FORK`/`PROPTEST_TIMEOUT`
 overrides are supported by the current configuration.
 
+Protected-store callbacks must distinguish absent entries from IO failures. Java `Files.exists`
+can return false when metadata access fails; validate the root and use `readAttributes`, treating
+only `NoSuchFileException` for an entry as absence. Marker writes need the same file/directory sync
+as protected records before a core transition may remove the previous lock.
+
 Notification admission uses core `mail_notices` snapshots: actual unread items plus unanswered
 likes after mute/block filtering. The Android tab badge also counts read unanswered requests;
 that badge is not a notification count. A failed notification snapshot must not prevent mail work.
