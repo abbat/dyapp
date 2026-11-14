@@ -215,6 +215,9 @@ jobs:
       contents: read
     environment: android-release
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: android-release-unsigned
@@ -239,6 +242,10 @@ jobs:
             --key-pass env:ANDROID_RELEASE_PASSWORD --out "$apk" \
             build/android-unsigned/app-release-unsigned.apk
           "$apksigner" verify --verbose --print-certs "$apk"
+          python3 -B tools/scripts/check-hardening.py --android-apk "$apk"
+          zipalign="${apksigner%/apksigner}/zipalign"
+          test -x "$zipalign"
+          "$zipalign" -c -P 16 4 "$apk"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-release-signed

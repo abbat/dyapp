@@ -11,6 +11,24 @@ The Android app requires Android 12 or later. There is no Google developer accou
 
 The tagged release workflow builds an unsigned APK without secrets, then signs it in a separate GitHub Actions job using the `android-release` environment. It verifies the APK signature, includes the signed `dyapp-X.Y.Z-android.apk` in `SHA256SUMS` and the release provenance attestation, and publishes it only if signing succeeds. Manual workflow runs build but do not publish or sign. No signed APK is available until the release key and CI secrets below are provisioned and the first tag succeeds.
 
+## Release hardening
+
+After signing, the release job runs
+`python3 -B tools/scripts/check-hardening.py --android-apk SIGNED.apk`.
+Both `arm64-v8a` and `x86_64` must contain the core. Every packaged JNI library,
+including dependencies, must be a 64-bit shared ELF of the matching architecture,
+with a non-executable stack, full RELRO, no RPATH/RUNPATH or text relocations,
+a `__stack_chk_fail` canary import from C code, and no writable executable load.
+Every load segment must have at least 16 KiB alignment and matching file/virtual
+page offsets. A canary import does not prove that all Rust functions use canaries.
+
+The same job runs `zipalign -c -P 16 4 SIGNED.apk` from the selected signing
+Build-Tools directory, checking packaging alignment independently of ELF alignment.
+Failures prevent artifact publication; rebuild the offending library or fix
+packaging before signing again. See the [Android compatibility guidance](https://developer.android.com/guide/practices/page-sizes).
+These checks do not establish runtime compatibility; device execution remains
+required, and a newer NDK alone does not validate third-party prebuilt libraries.
+
 ## Signing key setup for the release maintainer
 
 Before the first release, create one long-lived PKCS#12 signing key outside CI with alias `dyapp` and validity of at least 25 years. Make independent offline backups of both the keystore and its password, and test that a backup can sign and verify a disposable APK. Losing this key prevents normal updates of existing installations. Do not commit the key or put it in an issue or log.
