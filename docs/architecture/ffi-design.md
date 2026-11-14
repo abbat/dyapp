@@ -302,6 +302,11 @@ blocking completion; UI cancellation still requires the caller's presentation ge
 Network connection, desktop cancellation checks between async stages and binary/record projection
 remain in the adapter.
 
+Shared `sticker_picker::page`/`thumbnail` produce at most eight 96px RGBA choices in manifest
+order, with authoritative bounds and labels. Desktop only projects their existing JSON fields.
+Native picker-page exports and shared recent-choice resolution remain planned; collection listings
+and individual full-frame reads are already available but are separate APIs.
+
 Common native `receive` also runs bounded core sticker-pack responses and admitted downloads
 after applying the mailbox, retaining the same session/identity operation through completion.
 Only explicitly persisted download intents are processed. Completed saves add to the returned

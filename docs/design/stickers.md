@@ -255,6 +255,11 @@ desktop recovery of unreadable packs. Missing is false; post-unlink failures req
 refresh and never imply rollback. Other packs, chat history and outbox remain untouched.
 Mobile picker/collection wiring remains planned.
 
+Shared `sticker_picker::page` and `thumbnail` own manifest-order eight-entry pages and
+96px RGBA resizing through the bounded core decoder. Desktop maps these results to its existing
+JSON without media calculations. Shared recent-choice resolution and native picker-page exports
+remain planned; full saved-frame and collection exports do not substitute for bounded picker pages.
+
 Shared `sticker_media` owns current full-key selection, identity/content revalidation,
 authenticated local-source lookup, automatic-download admission and decoded completion/cache
 retention. Desktop and common native `ChatSession.chat_sticker_frame` delegate these rules

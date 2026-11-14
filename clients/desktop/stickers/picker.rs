@@ -1,11 +1,9 @@
 //! Bounded picker pages resize validated pixels; peer encodings and capabilities stay native.
 use super::{local_store, owner_matches};
 use crate::{chats, IdentityState};
-use dyapp_client::sticker_pack::Pack;
+use dyapp_client::{sticker_pack::Pack, sticker_picker};
 use serde::Serialize;
-
-const PAGE_SIZE: usize = 8;
-const THUMBNAIL_SIDE: u32 = 96;
+use sticker_picker::PAGE_SIZE;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -31,40 +29,40 @@ pub(crate) struct PageView {
     next: Option<usize>,
 }
 
+impl From<sticker_picker::Choice> for StickerView {
+    fn from(value: sticker_picker::Choice) -> Self {
+        Self {
+            index: value.index,
+            emoji: value.emoji,
+            frame: ThumbnailFrame {
+                width: value.frame.width,
+                height: value.frame.height,
+                pixels: value.frame.pixels,
+            },
+        }
+    }
+}
+impl From<sticker_picker::Page> for PageView {
+    fn from(value: sticker_picker::Page) -> Self {
+        Self {
+            pack_id: value.pack_id,
+            name: value.name,
+            total: value.total,
+            entries: value.entries.into_iter().map(Into::into).collect(),
+            next: value.next,
+        }
+    }
+}
+
 pub(crate) fn thumbnail(pack: &Pack, index: usize) -> Result<StickerView, String> {
-    let entry = pack.stickers().get(index).ok_or("invalidIndex")?;
-    let frame = dyapp_client::sticker_webp::decode::first_frame(
-        pack.sticker_bytes(index).ok_or("invalidIndex")?,
-    )
-    .map_err(|_| "corrupted")?;
-    let rgba =
-        image::RgbaImage::from_raw(frame.width, frame.height, frame.pixels).ok_or("corrupted")?;
-    let small = image::imageops::thumbnail(&rgba, THUMBNAIL_SIDE, THUMBNAIL_SIDE);
-    Ok(StickerView {
-        index,
-        emoji: entry.emoji.clone(),
-        frame: ThumbnailFrame {
-            width: small.width(),
-            height: small.height(),
-            pixels: small.into_raw(),
-        },
-    })
+    sticker_picker::thumbnail(pack, index)
+        .map(Into::into)
+        .map_err(|e| e.to_string())
 }
 fn page(pack: &Pack, after: usize) -> Result<PageView, String> {
-    let total = pack.stickers().len();
-    if after > total {
-        return Err("invalidIndex".into());
-    }
-    let end = (after + PAGE_SIZE).min(total);
-    Ok(PageView {
-        pack_id: *pack.id(),
-        name: pack.name().into(),
-        total,
-        entries: (after..end)
-            .map(|index| thumbnail(pack, index))
-            .collect::<Result<_, _>>()?,
-        next: (end < total).then_some(end),
-    })
+    sticker_picker::page(pack, after)
+        .map(Into::into)
+        .map_err(|e| e.to_string())
 }
 
 /// One validated saved pack, with at most eight 96px RGBA thumbnails per response.

@@ -36,6 +36,7 @@ pub mod session;
 pub mod sticker_manifest;
 pub mod sticker_media;
 pub mod sticker_pack;
+pub mod sticker_picker;
 pub mod sticker_requests;
 pub mod sticker_tar;
 pub mod sticker_webp;
