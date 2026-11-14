@@ -234,6 +234,11 @@ desktop recovery of unreadable packs. Missing is false; post-unlink failures req
 refresh and never imply rollback. Other packs, chat history and outbox remain untouched.
 Mobile picker/collection wiring remains planned.
 
+Shared `sticker_media` owns current full-key selection, identity/content revalidation,
+authenticated local-source lookup, automatic-download admission and decoded completion/cache
+retention. Desktop delegates these rules to core; native mobile chat-frame retrieval remains
+planned. OS network reports, connection transport and display projection stay in adapters.
+
 ### Receive
 
 The client looks the hash up in its packs and cache. If absent, it fetches under the

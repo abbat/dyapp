@@ -6,7 +6,7 @@ use dyapp_client::{
     sticker_webp::decode::Frame,
     store::{
         messages::{ChatSticker, MessageKey},
-        originals, Conversation, Store,
+        Store,
     },
 };
 use dyapp_identity::{
@@ -33,36 +33,11 @@ impl Selection {
         }
     }
 }
-fn selected_in(items: Vec<ChatSticker>, selected: &Selection) -> Result<ChatSticker, String> {
-    let key = selected.key();
-    items
-        .into_iter()
-        .find(|item| item.key == key)
-        .ok_or_else(|| "unknownMessage".into())
-}
+
 pub(crate) fn selected(store: &Store, selection: &Selection) -> Result<ChatSticker, String> {
-    if selection.peer_id == store.owner_peer_id() {
-        return Err("ownPeer".into());
-    }
-    if store
-        .blocked(&selection.peer_id)
-        .map_err(|e| e.to_string())?
-    {
-        return Err("blocked".into());
-    }
-    if store
-        .conversation(&selection.peer_id)
-        .map_err(|e| e.to_string())?
-        == Conversation::None
-    {
-        return Err("unknownPeer".into());
-    }
-    selected_in(
-        store
-            .current_chat_stickers(&selection.peer_id)
-            .map_err(|e| e.to_string())?,
-        selection,
-    )
+    dyapp_client::sticker_media::select(store, &selection.peer_id, &selection.key())
+        .map(|snapshot| snapshot.message().clone())
+        .map_err(|error| error.to_string())
 }
 pub(crate) fn frame_bytes(frame: Frame) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(8 + frame.pixels.len());
@@ -71,62 +46,29 @@ pub(crate) fn frame_bytes(frame: Frame) -> Vec<u8> {
     bytes.extend(frame.pixels);
     bytes
 }
-fn current(
+
+async fn fetch(
     dir: &Path,
-    identity: &Identity,
-    selection: &Selection,
-) -> Result<(Store, ChatSticker), String> {
-    let store = chats::open(dir, identity)?;
-    let item = selected(&store, selection)?;
-    Ok((store, item))
-}
-fn retain(
-    dir: &Path,
-    identity: &Identity,
-    selection: &Selection,
-    item: &ChatSticker,
-    key: &[u8; 32],
-    bytes: &[u8],
+    descriptor: &attachment::Attachment,
+    stop: impl Fn() -> bool,
 ) -> Result<Vec<u8>, String> {
-    let (store, latest) = current(dir, identity, selection)?;
-    if latest.sticker != item.sticker {
-        return Err("unknownMessage".into());
+    if stop() {
+        return Err("Identity changed".into());
     }
-    let frame = latest.sticker.first_frame(bytes).map_err(|_| "corrupted")?;
-    if let Some(descriptor) = latest.sticker.download() {
-        if store
-            .media_cache_config()
-            .map_err(|e| e.to_string())?
-            .enabled
-        {
-            // As with photos, failed retention must not prevent displaying validated pixels.
-            if originals::keep(dir, key, descriptor, bytes).is_ok() {
-                let _ = store.sweep_originals(dir);
-            }
-        }
+    let active = network::load(dir, Settings::Active)
+        .map_err(|error| error.to_string())?
+        .ok_or("notConnected")?;
+    let mut nodes = profile::reachable(&active).await?;
+    if stop() {
+        return Err("Identity changed".into());
     }
-    Ok(frame_bytes(frame))
-}
-fn saved_frame(
-    store: &Store,
-    dir: &Path,
-    identity: &Identity,
-    selection: &Selection,
-    item: &ChatSticker,
-    key: &[u8; 32],
-) -> Option<Result<Vec<u8>, String>> {
-    let pack = store
-        .saved_sticker_pack(key, &item.sticker.pack_id)
-        .ok()??;
-    let index = pack
-        .stickers()
-        .iter()
-        .position(|entry| entry.sha256 == item.sticker.sha256)?;
-    Some(
-        pack.sticker_bytes(index)
-            .ok_or_else(|| "corrupted".to_owned())
-            .and_then(|bytes| retain(dir, identity, selection, item, key, bytes)),
-    )
+    let bytes = attachment::fetch(&mut nodes, descriptor)
+        .await
+        .map_err(chat_photos::code)?;
+    if stop() {
+        return Err("Identity changed".into());
+    }
+    Ok(bytes)
 }
 
 async fn original(
@@ -141,50 +83,35 @@ async fn original(
     if stop() {
         return Err("Identity changed".into());
     }
-    let (store, item) = current(dir, identity, selection)?;
+    let store = chats::open(dir, identity)?;
+    let snapshot =
+        dyapp_client::sticker_media::select(&store, &selection.peer_id, &selection.key())
+            .map_err(|error| error.to_string())?;
     let key = {
         // Media reads do not advance MLS; serialize only first-time sealing-key creation.
         let _guard = gate.lock().map_err(|_| "Session state unavailable")?;
         crate::sealing_key(root, dir, &store)?
     };
-    if let Some(bytes) = item
-        .sticker
-        .download()
-        .and_then(|descriptor| originals::read(dir, &key, descriptor))
+    if let Some(frame) = snapshot
+        .local(&store, dir, &key)
+        .map_err(|error| error.to_string())?
     {
-        return retain(dir, identity, selection, &item, &key, &bytes);
+        return Ok(frame_bytes(frame));
     }
-    if let Some(frame) = saved_frame(&store, dir, identity, selection, &item, &key) {
-        return frame;
+    let descriptor = snapshot.download().ok_or("notFound")?;
+    if !manual
+        && !snapshot
+            .auto_download(&store, chat_photos::metered().await)
+            .map_err(|error| error.to_string())?
+    {
+        return Err("onTap".into());
     }
-    let descriptor = item.sticker.download().ok_or("notFound")?;
-    if !manual {
-        let mode = store.auto_download().map_err(|e| e.to_string())?;
-        let contact = store
-            .conversation(&selection.peer_id)
-            .map_err(|e| e.to_string())?
-            == Conversation::Open;
-        if !attachment::auto_download(mode, chat_photos::metered().await, contact) {
-            return Err("onTap".into());
-        }
-    }
-    if stop() {
-        return Err("Identity changed".into());
-    }
-    let active = network::load(dir, Settings::Active)
-        .map_err(|e| e.to_string())?
-        .ok_or("notConnected")?;
-    let mut nodes = profile::reachable(&active).await?;
-    if stop() {
-        return Err("Identity changed".into());
-    }
-    let bytes = attachment::fetch(&mut nodes, descriptor)
-        .await
-        .map_err(chat_photos::code)?;
-    if stop() {
-        return Err("Identity changed".into());
-    }
-    retain(dir, identity, selection, &item, &key, &bytes)
+    let bytes = fetch(dir, descriptor, &stop).await?;
+    let current = chats::open(dir, identity)?;
+    snapshot
+        .finish(&current, dir, &key, &bytes)
+        .map(frame_bytes)
+        .map_err(|error| error.to_string())
 }
 
 /// Binary frame: width and height as little-endian u32, followed by bounded RGBA8 pixels.

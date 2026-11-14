@@ -293,6 +293,13 @@ refresh the collection rather than assume rollback or automatically retry. Inval
 rejected before collection storage work; no chat mail or network publication is staged. Android
 forwarding/sticker presentation and native CI verification remain planned.
 
+Shared `sticker_media::select` binds the complete stored message key to its identity/conversation.
+Its snapshot reads authenticated local originals/saved packs, applies automatic-download policy
+using the adapter's OS network report, and revalidates current metadata before decoding/cache
+retention. Cache-write failure does not discard validated pixels. Desktop uses this core boundary;
+common native chat-sticker retrieval still needs wiring. Network connection, cancellation checks
+between async stages and binary/record projection remain in the adapter.
+
 `Session::submit_interaction(_with)` separately returns an optional committed
 `InteractionSubmission`: the actual protocol event plus its node delivery result. `None` retains
 the no-event meaning for a suppressed daily view or a non-like without a joined group. Errors

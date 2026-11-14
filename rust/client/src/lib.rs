@@ -34,6 +34,7 @@ pub mod search_input;
 pub mod seeds;
 pub mod session;
 pub mod sticker_manifest;
+pub mod sticker_media;
 pub mod sticker_pack;
 pub mod sticker_tar;
 pub mod sticker_webp;

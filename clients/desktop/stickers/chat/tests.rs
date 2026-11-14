@@ -32,24 +32,13 @@ fn fixture() -> (ChatSticker, Selection, Vec<u8>) {
 }
 
 #[test]
-fn message_selection_requires_exact_group_author_and_id() {
-    let (item, mut selection, _) = fixture();
-    assert!(selected_in(vec![item.clone()], &selection).unwrap() == item);
-    for field in 0..3 {
-        match field {
-            0 => selection.group_id = vec![10],
-            1 => {
-                selection.group_id = vec![9];
-                selection.author = "other".into();
-            }
-            _ => {
-                selection.author = "peer".into();
-                selection.id = [9; 16];
-            }
-        }
-        assert!(selected_in(vec![item.clone()], &selection).is_err());
-    }
-    assert!(selected_in(vec![], &selection).is_err());
+fn message_selection_projects_the_full_native_key() {
+    let (item, selection, _) = fixture();
+    let key = selection.key();
+    assert_eq!(key.group, selection.group_id);
+    assert_eq!(key.author, selection.author);
+    assert_eq!(key.id, selection.id);
+    assert!(key == item.key);
 }
 
 #[test]
