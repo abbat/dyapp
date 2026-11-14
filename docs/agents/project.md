@@ -236,6 +236,10 @@ WebKit can also retain focus on a disabled button until hidden layout is applied
 handle that element as well as the body, while preserving focus the user moved elsewhere.
 A lightweight DOM stub may miss this behavior; run the same smoke in the prepared WebKit
 prototype image with mocked IPC when testing focus or native disclosure events.
+A hash-only WebKit navigation is same-document and does not fire `load`. A probe
+that needs a fresh prototype document must use a distinct query URL and await load;
+otherwise observe the actual same-document transition. Native paste checks await
+input completion rather than treating the paste command's return as success.
 
 Before the first app release, stored client databases have no compatibility promise. Change the
 version-1 schema directly and remove obsolete database migration paths; do not spend work on
