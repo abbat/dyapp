@@ -1019,9 +1019,20 @@ The boundary is **not** secure today; see
   validation, the version-1 49-byte verifier, Argon2id parameters and constant-time comparison to
   `dyapp_client::app_lock::pin`. Rust zeroizes owned PINs and computed tags; native verification
   also zeroizes its owned verifier buffer. UI and UniFFI temporary copies remain platform-owned.
-  The app must clear its input, protect the verifier, and currently enforce the five-attempt
-  device-credential gate. Moving the attempt state machine and the existing Android/iOS outer
-  storage-record formats into core is planned; this verifier API does not store state.
+  The app must clear its input and protect the verifier. The core `app_lock::AppLock` implements
+  mode/enroll/attempt/change/recovery/skip/biometric rules; the common native object and platform
+  adoption are still planned. The existing verifier-only API does not store state.
+- Core app-lock storage preserves both existing layouts: Android's 51-byte PIN record and separate
+  Skip/biometric markers, and iOS's 52-byte PIN or 3-byte Off/biometric record. It does not migrate
+  or reset stored locks. Android PIN presence takes precedence over markers after an interrupted
+  switch. Protected local `Vault` IO must provide atomic durable writes; no callback receives a
+  plaintext PIN. OS authentication remains the caller's responsibility before recovery or a
+  protected biometric-mode change.
+- A core app-lock handle serializes the entire read/increment/write/verify/reset operation.
+  An attempt is persisted even before verifier input errors; five failures prohibit further PIN
+  verification, and Unlocked requires a completed counter reset. Platforms must also serialize
+  distinct handles addressing the same storage (retain Android's app-wide IO lock). Protected-IO
+  errors do not prove rollback or refund an attempt; the core does not automatically retry them.
 - **Plaintext crosses FFI by necessity.** The UI owns what the user types and
   what is displayed, so message text and profile values always pass in
   plaintext (`send_message(peer_id, text)`, `update_field`). The target is that
