@@ -1,58 +1,30 @@
 //! Per-identity bootstrap settings and the seed check behind the first-run connection screen;
-//! mirrors the Android FFI `ConnectionCheck`. A check saves the draft first, so a crash keeps the
+//! delegates to the same core checker as native clients. A check saves the draft first, so a crash keeps the
 //! user's rows, and only a check that reached a node of the network can be activated.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 use std::time::Duration;
 
-use dyapp_client::seeds::{self, Row};
+use dyapp_client::cancellation::Cancellation;
+use dyapp_client::network_check::{self, Checks, Error as CheckError};
+use dyapp_client::seeds::Row;
 use dyapp_identity::network::{self, Network, Settings};
 use dyapp_p2p_net::seed::SeedError;
-use tokio::sync::oneshot;
 
 #[derive(Default)]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct NetworkState {
-    // Stops the running check; a second concurrent check takes it over.
-    cancel: Mutex<Option<oneshot::Sender<()>>>,
-    // A successful check belongs to one active-network epoch.
-    checked: Mutex<CheckContext>,
-}
-
-#[derive(Default)]
-struct CheckContext {
-    epoch: u64,
-    last: Option<(PathBuf, Network)>,
+    checks: Checks,
 }
 
 impl NetworkState {
     /// A successful check is valid only for the active identity generation.
     #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn clear_checked(&self) -> Result<(), String> {
-        let mut checked = self.checked.lock().map_err(|e| e.to_string())?;
-        checked.epoch = checked.epoch.wrapping_add(1);
-        checked.last = None;
-        Ok(())
-    }
-
-    pub(crate) fn check_epoch(&self) -> Result<u64, String> {
-        Ok(self.checked.lock().map_err(|e| e.to_string())?.epoch)
-    }
-
-    pub(crate) fn remember_connected(
-        &self,
-        epoch: u64,
-        dir: PathBuf,
-        draft: Network,
-    ) -> Result<(), String> {
-        let mut checked = self.checked.lock().map_err(|e| e.to_string())?;
-        if checked.epoch != epoch {
-            return Err("cancelled".into());
-        }
-        checked.last = Some((dir, draft));
-        Ok(())
+        self.checks
+            .clear_checked()
+            .map_err(|error| error.to_string())
     }
 }
 
@@ -127,68 +99,41 @@ pub async fn check(
     wait: Duration,
     transition_started: impl FnOnce() -> Result<bool, String>,
 ) -> Result<Vec<HashMap<&'static str, String>>, String> {
-    let epoch = state.check_epoch()?;
-    let draft = Network::from(draft);
-    network::save(&dir, Settings::Draft, &draft).map_err(|e| e.to_string())?;
-    let (stop, stopped) = oneshot::channel();
-    *state.cancel.lock().map_err(|e| e.to_string())? = Some(stop);
-    // A transition may have signalled cancellation before this sender was registered.
-    if transition_started()? {
-        return Err("cancelled".into());
-    }
-    let rows = tokio::select! {
-        rows = seeds::check(&draft, wait) => rows,
-        _ = stopped => return Err("cancelled".into()),
-    };
-    let rows = match rows {
-        Ok(rows) => rows,
-        Err(seeds::CheckError::NoSeeds) => return Err("empty".into()),
-        Err(seeds::CheckError::Name(reason)) => return Err(format!("invalidNetwork: {reason}")),
-        Err(error) => return Err(error.to_string()),
-    };
-    if rows.iter().any(|row| matches!(row, Row::Connected(_))) {
-        state.remember_connected(epoch, dir, draft)?;
-    }
-    Ok(rows.into_iter().map(describe).collect())
+    let cancellation = Cancellation::new();
+    state
+        .checks
+        .check(dir, draft.into(), wait, &cancellation, || {
+            transition_started().map_err(CheckError::Failed)
+        })
+        .await
+        .map(|rows| rows.into_iter().map(describe).collect())
+        .map_err(|error| error.to_string())
 }
 
 /// Stops a running check, which then fails with `cancelled`; the saved files stay as they were.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn cancel(state: &NetworkState) {
-    if let Some(stop) = state
-        .cancel
-        .lock()
-        .ok()
-        .and_then(|mut cancel| cancel.take())
-    {
-        let _ = stop.send(());
-    }
+    state.checks.cancel();
 }
 
 /// Dials the active settings of `dir` as the app opens; `true` when a node of the network
 /// answered, `false` when none did or nothing is active. Never touches the saved files.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn connect(dir: &Path, wait: Duration) -> Result<bool, String> {
-    let Some(active) = network::load(dir, Settings::Active).map_err(|e| e.to_string())? else {
-        return Ok(false);
-    };
-    let rows = seeds::check(&active, wait).await.unwrap_or_default();
-    Ok(rows.iter().any(|row| matches!(row, Row::Connected(_))))
+    network_check::connect(dir, wait)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 /// Makes the last draft of `dir` that reached a node the active configuration; `notChecked`
 /// when no check of this folder did.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn activate(state: &NetworkState, dir: &Path) -> Result<Draft, String> {
-    let mut checked = state.checked.lock().map_err(|e| e.to_string())?;
-    let network = match &checked.last {
-        Some((checked_dir, network)) if checked_dir == dir => network.clone(),
-        _ => return Err("notChecked".into()),
-    };
-    network::save(dir, Settings::Active, &network).map_err(|e| e.to_string())?;
-    checked.epoch = checked.epoch.wrapping_add(1);
-    checked.last = None;
-    Ok(network.into())
+    state
+        .checks
+        .activate(dir)
+        .map(Into::into)
+        .map_err(|error| error.to_string())
 }
 
 #[cfg(test)]
@@ -197,16 +142,26 @@ mod tests {
     use std::net::TcpListener;
 
     fn temp_dir(tag: &str) -> PathBuf {
-        // Parallel Windows tests can read the same clock value.
-        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let dir = std::env::temp_dir().join(format!("dyapp-desktop-network-{tag}-{nanos}-{n}"));
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../build/desktop-network-tests")
+            .join(tag)
+            .join(dyapp_identity::Identity::generate().peer_id());
         std::fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    fn reserved_endpoint() -> (TcpListener, std::net::UdpSocket) {
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        loop {
+            let tcp = TcpListener::bind("127.0.0.1:0").unwrap();
+            match std::net::UdpSocket::bind(tcp.local_addr().unwrap()) {
+                Ok(udp) => return (tcp, udp),
+                Err(error)
+                    if error.kind() == std::io::ErrorKind::AddrInUse
+                        && std::time::Instant::now() < deadline => {}
+                Err(error) => panic!("reserve TCP/QUIC fixture: {error}"),
+            }
+        }
     }
 
     fn draft(seeds: &[&str], name: &str) -> Draft {
@@ -217,16 +172,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn only_a_connected_check_activates_and_drafts_are_saved() {
+    async fn failed_checks_keep_drafts_without_allowing_activation() {
         let (dir, state) = (temp_dir("check"), NetworkState::default());
         assert_eq!(load(&dir, "draft"), Ok(None));
         assert!(load(&dir, "other").is_err());
         assert_eq!(activate(&state, &dir), Err("notChecked".into()));
 
-        let closed = TcpListener::bind("127.0.0.1:0")
-            .unwrap()
-            .local_addr()
-            .unwrap();
+        let (silent, _udp) = reserved_endpoint();
+        let closed = silent.local_addr().unwrap();
         let unreachable = draft(&[&closed.to_string(), "seed"], "");
         let wait = Duration::from_secs(2);
         let rows = check(&state, dir.clone(), unreachable.clone(), wait, || Ok(false))
@@ -248,44 +201,6 @@ mod tests {
         )
         .await;
         assert!(bad_name.unwrap_err().starts_with("invalidNetwork: "));
-
-        // A remembered success never activates another identity's folder.
-        let other = draft(&["seed:1"], "");
-        state.checked.lock().unwrap().last = Some((dir.clone(), other.clone().into()));
-        assert_eq!(
-            activate(&state, &temp_dir("other")),
-            Err("notChecked".into())
-        );
-        assert_eq!(activate(&state, &dir), Ok(other.clone()));
-        assert_eq!(load(&dir, "active"), Ok(Some(other)));
-        assert_eq!(activate(&state, &dir), Err("notChecked".into()));
-        state.clear_checked().unwrap();
-        assert_eq!(activate(&state, &dir), Err("notChecked".into()));
-    }
-
-    #[test]
-    fn late_success_cannot_restore_a_consumed_network_check() {
-        let (dir, state) = (temp_dir("check-epoch"), NetworkState::default());
-        let first = draft(&["seed:1"], "first");
-        let old_epoch = state.check_epoch().unwrap();
-        state
-            .remember_connected(old_epoch, dir.clone(), first.clone().into())
-            .unwrap();
-        assert_eq!(activate(&state, &dir), Ok(first));
-        let next = draft(&["seed:2"], "next");
-        assert_eq!(
-            state.remember_connected(old_epoch, dir.clone(), next.clone().into()),
-            Err("cancelled".into())
-        );
-        assert_eq!(activate(&state, &dir), Err("notChecked".into()));
-        state
-            .remember_connected(
-                state.check_epoch().unwrap(),
-                dir.clone(),
-                next.clone().into(),
-            )
-            .unwrap();
-        assert_eq!(activate(&state, &dir), Ok(next));
     }
 
     #[tokio::test]
@@ -293,10 +208,8 @@ mod tests {
         let dir = temp_dir("launch");
         let wait = Duration::from_secs(2);
         assert_eq!(connect(&dir, wait).await, Ok(false));
-        let closed = TcpListener::bind("127.0.0.1:0")
-            .unwrap()
-            .local_addr()
-            .unwrap();
+        let (silent, _udp) = reserved_endpoint();
+        let closed = silent.local_addr().unwrap();
         let down = draft(&[&closed.to_string()], "");
         network::save(&dir, Settings::Active, &down.clone().into()).unwrap();
         assert_eq!(connect(&dir, wait).await, Ok(false));
@@ -332,24 +245,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn cancel_stops_a_running_check() {
+    async fn cancel_at_registration_wins_without_a_readiness_sleep() {
         let (dir, state) = (temp_dir("cancel"), NetworkState::default());
-        // Accepts TCP but never answers the handshake, so the check waits for the minute.
-        let mute = TcpListener::bind("127.0.0.1:0").unwrap();
-        let silent = draft(&[&mute.local_addr().unwrap().to_string()], "");
-        let started = std::time::Instant::now();
-        let running = check(&state, dir, silent, Duration::from_secs(60), || Ok(false));
-        let stop = async {
-            loop {
-                tokio::time::sleep(Duration::from_millis(100)).await;
-                cancel(&state);
-            }
-        };
-        let result = tokio::select! {
-            result = running => result,
-            () = stop => unreachable!(),
-        };
+        let draft = draft(&["not an address"], "");
+        let result = check(&state, dir.clone(), draft.clone(), Duration::ZERO, || {
+            cancel(&state);
+            Ok(false)
+        })
+        .await;
         assert_eq!(result, Err("cancelled".into()));
-        assert!(started.elapsed() < Duration::from_secs(30));
+        assert_eq!(load(&dir, "draft"), Ok(Some(draft)));
+        assert_eq!(activate(&state, &dir), Err("notChecked".into()));
     }
 }

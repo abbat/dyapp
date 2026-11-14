@@ -158,6 +158,10 @@ lock while a Sessions lease is held can introduce a lock cycle through the main 
 Sticker manifests may repeat an image hash with different emoji labels. Recent-sticker lookup
 must match both hash and emoji within the PackID to preserve the selected fallback/accessibility label.
 
+Seed probes dial TCP and QUIC for a row's port. An unreachable/silent endpoint fixture must
+retain both TCP and UDP reservations through completion; dropping an ephemeral listener or
+reserving TCP alone lets another parallel test answer the probe.
+
 Timed receive fixtures must use a local wall time consistent with their staged HLC (derive it
 from the core timestamp or inject matching clocks). Mixing a live session HLC with a fixed historical
 wall time fails skew admission before reaching the behavior under test.

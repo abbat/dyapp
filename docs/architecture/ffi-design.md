@@ -962,6 +962,14 @@ The first-run connection surface (`load_network` to `ConnectionCheck`) follows t
 it checks seeds but keeps no connection open. Platform UI must not treat the `PeerConnection`
 label object as a working network connection.
 
+Desktop and common native adapters delegate draft checking and activation to
+`dyapp_client::network_check::Checks`. A new check saves its draft and invalidates any previous
+success. Only a connected result from the current, uncancelled attempt may authorize activation,
+only for that directory, and successful activation consumes that authorization. Cancellation or
+identity-transition invalidation prevents late completion from restoring it. Adapters retain
+identity admission through actual work, map typed errors/rows, and keep platform runtimes and UI
+readiness callbacks; the core checker never operates an installation node.
+
 ### Native symbols
 
 The library's C ABI is UniFFI-internal (`nm -D libdyapp_ffi.so`):

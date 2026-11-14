@@ -19,6 +19,7 @@ pub mod interactions;
 pub mod link;
 pub mod mail_notices;
 pub mod media_ownership;
+pub mod network_check;
 pub mod photo;
 pub mod places;
 mod prepared;

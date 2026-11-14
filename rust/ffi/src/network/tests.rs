@@ -116,9 +116,30 @@ fn connected_draft(dir: &str, check: &ConnectionCheck) {
         name: String::new(),
     };
     let rows = check.run(reachable.clone(), 5000).unwrap();
-    assert_eq!(rows, vec![SeedRow::Connected { peer_id: peer }]);
+    assert_eq!(
+        rows,
+        vec![SeedRow::Connected {
+            peer_id: peer.clone()
+        }]
+    );
     assert_eq!(load_network(dir.to_owned(), NetworkFile::Active), Ok(None));
+    assert_eq!(
+        check.run(
+            NetworkSettings {
+                seeds: vec![],
+                name: String::new()
+            },
+            0
+        ),
+        Err(CheckError::Empty)
+    );
+    assert_eq!(check.activate(), Err(CheckError::NotChecked));
+    assert_eq!(
+        check.run(reachable.clone(), 5000).unwrap(),
+        vec![SeedRow::Connected { peer_id: peer }]
+    );
     assert_eq!(check.activate(), Ok(reachable.clone()));
+    assert_eq!(check.activate(), Err(CheckError::NotChecked));
     assert_eq!(
         load_network(dir.to_owned(), NetworkFile::Active),
         Ok(Some(reachable))

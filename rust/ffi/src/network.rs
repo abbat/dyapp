@@ -7,13 +7,13 @@
 use crate::slot_operation::SlotWorker;
 use crate::MobileIdentityRegistry;
 use dyapp_client::cancellation::Cancellation;
-use dyapp_client::seeds::{self, Row};
+use dyapp_client::network_check::{Checks, Error as NetworkCheckError};
+use dyapp_client::seeds::Row;
 use dyapp_identity::network::{self, Network, Settings};
 use dyapp_p2p_net::seed::SeedError;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::oneshot;
 
 /// Seed rows and network name, as stored for one identity.
 #[derive(Clone, Debug, PartialEq, Eq, uniffi::Record)]
@@ -118,6 +118,18 @@ pub enum CheckError {
     },
 }
 
+impl From<NetworkCheckError> for CheckError {
+    fn from(error: NetworkCheckError) -> Self {
+        match error {
+            NetworkCheckError::Empty => Self::Empty,
+            NetworkCheckError::InvalidNetwork(reason) => Self::InvalidNetwork { reason },
+            NetworkCheckError::Cancelled => Self::Cancelled,
+            NetworkCheckError::NotChecked => Self::NotChecked,
+            NetworkCheckError::Failed(reason) => Self::Failed { reason },
+        }
+    }
+}
+
 #[expect(
     clippy::needless_pass_by_value,
     reason = "map_err transfers ownership of its source error into this adapter"
@@ -161,10 +173,7 @@ fn settings(file: NetworkFile) -> Settings {
 pub struct ConnectionCheck {
     dir: PathBuf,
     runtime: tokio::runtime::Runtime,
-    // Stops the running check; a second concurrent run takes it over.
-    cancel: Mutex<Option<oneshot::Sender<()>>>,
-    // The last draft that reached a node of its network.
-    checked: Mutex<Option<Network>>,
+    checks: Checks,
     binding: Option<SlotWorker>,
 }
 
@@ -211,14 +220,7 @@ impl ConnectionCheck {
     /// Stops a running check, which then fails with `Cancelled`; the saved files stay as they
     /// were.
     pub fn cancel(&self) {
-        if let Some(stop) = self
-            .cancel
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .take()
-        {
-            let _ = stop.send(());
-        }
+        self.checks.cancel();
     }
 
     /// Makes the last draft that reached a node the identity's active configuration.
@@ -233,14 +235,10 @@ impl ConnectionCheck {
             .map(SlotWorker::operation)
             .transpose()
             .map_err(failed)?;
-        let checked = self
-            .checked
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .clone();
-        let network = checked.ok_or(CheckError::NotChecked)?;
-        network::save(&self.dir, Settings::Active, &network).map_err(failed)?;
-        Ok(network.into())
+        self.checks
+            .activate(&self.dir)
+            .map(Into::into)
+            .map_err(Into::into)
     }
 }
 
@@ -253,8 +251,7 @@ impl ConnectionCheck {
         Ok(Arc::new(Self {
             dir: dir.into(),
             runtime,
-            cancel: Mutex::new(None),
-            checked: Mutex::new(None),
+            checks: Checks::default(),
             binding,
         }))
     }
@@ -297,39 +294,19 @@ impl ConnectionCheck {
         if cancellation.is_cancelled() {
             return Err(CheckError::Cancelled);
         }
-        let draft = Network::from(draft);
-        network::save(&self.dir, Settings::Draft, &draft).map_err(failed)?;
-        let (stop, stopped) = oneshot::channel();
-        *self.cancel.lock().unwrap_or_else(PoisonError::into_inner) = Some(stop);
-        ready();
-        let rows = self.runtime.block_on(async {
-            tokio::select! {
-                biased;
-                () = cancellation.cancelled() => None,
-                _ = stopped => None,
-                rows = seeds::check(&draft, Duration::from_millis(wait_ms.into())) => Some(rows),
-            }
-        });
-        self.record_rows(draft, rows.ok_or(CheckError::Cancelled)?)
-    }
-
-    fn record_rows(
-        &self,
-        draft: Network,
-        rows: Result<Vec<Row>, seeds::CheckError>,
-    ) -> Result<Vec<SeedRow>, CheckError> {
-        let rows = match rows {
-            Ok(rows) => rows,
-            Err(seeds::CheckError::NoSeeds) => return Err(CheckError::Empty),
-            Err(seeds::CheckError::Name(reason)) => {
-                return Err(CheckError::InvalidNetwork { reason })
-            }
-            Err(error) => return Err(failed(error)),
-        };
-        if rows.iter().any(|row| matches!(row, Row::Connected(_))) {
-            *self.checked.lock().unwrap_or_else(PoisonError::into_inner) = Some(draft);
-        }
-        Ok(rows.into_iter().map(Into::into).collect())
+        self.runtime
+            .block_on(self.checks.check(
+                self.dir.clone(),
+                draft.into(),
+                Duration::from_millis(wait_ms.into()),
+                cancellation,
+                || {
+                    ready();
+                    Ok(false)
+                },
+            ))
+            .map(|rows| rows.into_iter().map(Into::into).collect())
+            .map_err(Into::into)
     }
 }
 
