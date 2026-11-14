@@ -62,6 +62,9 @@ also exercises a detached removal button: rendering uses its stable reference, p
 control and its handlers for a later current-identity row. Dialog readiness
 requires both visible and open state, not only the hidden attribute.
 The removal close handler ignores an old queued event after a newer opening becomes active.
+Sticker removal waits for an explicit post-removal list-request signal before asserting loading,
+then releases that held response before checking completion. The admission step has its own
+named failure deadline through `timedChecks`; it does not assume a microtask count.
 
 The mixed-profile node fixture writes its LF-only network configuration as bytes on every OS;
 its regression intercepts the next native launch while simulating Windows text translation.

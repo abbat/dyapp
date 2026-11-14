@@ -136,16 +136,20 @@
       // Use a fresh fixture whose first read has one row, then deletion leaves no rows.
       let deleted = false;
       const refreshed = deferred();
+      const refreshStarted = deferred();
+      const readiness = smoke.timedChecks({ removalRefreshStarted: () => refreshStarted.promise });
       await ui.open(async (command) => {
         if (command === 'remove_saved_sticker_pack') {
           deleted = true;
           return true;
         }
-        return deleted ? refreshed.promise : page;
+        if (!deleted) return page;
+        refreshStarted.resolve();
+        return refreshed.promise;
       });
       button().click();
       get('remove-confirm').click();
-      await Promise.resolve();
+      await readiness.removalRefreshStarted();
       check(
         get('status').textContent === appApi.strings['stickers.loading'],
         'Refresh was confirmed before reading',
