@@ -13,7 +13,7 @@ use dyapp_client::store::originals;
 use dyapp_client::Error;
 use dyapp_p2p_net::proto::Status;
 
-fn fetch_error(error: Error) -> CoreError {
+pub(super) fn fetch_error(error: Error) -> CoreError {
     match error {
         Error::Status(Status::NotFound) => failed("notFound"),
         Error::Attachment(_) => failed("corrupted"),

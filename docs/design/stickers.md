@@ -236,8 +236,10 @@ Mobile picker/collection wiring remains planned.
 
 Shared `sticker_media` owns current full-key selection, identity/content revalidation,
 authenticated local-source lookup, automatic-download admission and decoded completion/cache
-retention. Desktop delegates these rules to core; native mobile chat-frame retrieval remains
-planned. OS network reports, connection transport and display projection stay in adapters.
+retention. Desktop and common native `ChatSession.chat_sticker_frame` delegate these rules
+to core. Native results contain actual dimensions and RGBA8 only; full stored message identity
+is required and an explicit tap supplies manual download permission. OS network reports,
+connection transport and display projection stay in adapters. Mobile chat rendering remains planned.
 
 ### Receive
 

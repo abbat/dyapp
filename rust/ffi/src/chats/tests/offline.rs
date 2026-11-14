@@ -1,7 +1,7 @@
 use super::favorites::Fixture;
 use super::*;
 
-fn establish(f: &Fixture) -> String {
+pub(super) fn establish(f: &Fixture) -> String {
     let peer = Identity::generate();
     let key = Identity::generate();
     let device = dyapp_messaging::mls::Device::new(&peer, key.public_key(), 1).unwrap();
@@ -64,7 +64,7 @@ fn established_native_text_queues_without_an_active_network() {
     assert_eq!(rows.last().unwrap().text.as_deref(), Some("offline native"));
 }
 
-fn snapshot(f: &Fixture) -> (Option<Vec<u8>>, Vec<Vec<u8>>) {
+pub(super) fn snapshot(f: &Fixture) -> (Option<Vec<u8>>, Vec<Vec<u8>>) {
     let session = f.chats.session.lock().unwrap();
     let store = session.store();
     let writes = store

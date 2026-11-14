@@ -1,4 +1,4 @@
-//! Sticker metadata only; transport descriptors and pixels stay in the core.
+//! Sticker metadata only; compressed media and transport descriptors stay in the core.
 
 use super::ChatDelivery;
 

@@ -41,6 +41,8 @@ mod sticker_collection;
 pub use sticker_collection::{SavedStickerPackEntry, SavedStickerPackPage, SavedStickerPackState};
 mod sticker_import;
 pub use sticker_import::{sticker_import_byte_limit, SavedStickerPackImport};
+mod sticker_original;
+pub use sticker_original::ChatStickerFrame;
 mod sticker_frame;
 pub use sticker_frame::SavedStickerFrame;
 mod sticker_view;

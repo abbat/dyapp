@@ -18,6 +18,8 @@ mod sticker_collection;
 mod sticker_frame;
 #[path = "tests/sticker_import.rs"]
 mod sticker_import;
+#[path = "tests/sticker_original.rs"]
+mod sticker_original;
 
 #[test]
 fn a_full_node_gets_its_own_publish_code() {
