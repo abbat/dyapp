@@ -10,7 +10,7 @@ import kotlinx.coroutines.withContext
  * The action runs in its caller's context, but inherits the IO child's cancellation/ownership.
  * Never return or otherwise retain the handle beyond the action's lifetime.
  */
-internal suspend fun <T : AutoCloseable, R> withNativeResource(create: () -> T, action: suspend (T) -> R): R {
+internal suspend fun <T : AutoCloseable, V> withNativeResource(create: () -> T, action: suspend (T) -> V): V {
     val caller = currentCoroutineContext().minusKey(Job)
     return withContext(Dispatchers.IO) {
         create().use { resource ->
