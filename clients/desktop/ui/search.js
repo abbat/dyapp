@@ -783,6 +783,7 @@ domById('view-block', HTMLButtonElement).addEventListener('click', () => {
 const searchError = domById('search-error', HTMLDivElement);
 /** @param {string} key @param {string} details */
 const showSearchError = (key, details) => {
+  searchRetry.hidden = key === 'search.offline';
   domById('search-error-text', HTMLParagraphElement).textContent = strings[key];
   domById('search-failures', HTMLPreElement).textContent = details;
   searchError.hidden = false;

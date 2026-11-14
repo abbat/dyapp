@@ -226,7 +226,7 @@ keeps the prior network.
 | Failures | `search-failures` | Collapsed details |
 | Copy details | `copy-search-details` | |
 | Open Network | `search-open-network` | Offline only |
-| Retry | `search-retry` | |
+| Retry | `search-retry` | Hidden when no network is active; Open Network is offered instead. Restored for other retryable or partial failures |
 
 ## Found profile
 

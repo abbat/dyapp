@@ -511,16 +511,44 @@ const checkMutualFilter = async () => {
     throw new Error(`mutual search: ${status}`);
 };
 const searchOnLoopback = (() => {
+  const checkRecoveryActions = async (offline, partial = false) => {
+    await appBindings.runSearch((command) => {
+      if (command === 'contact_names') return Promise.resolve([]);
+      if (partial)
+        return Promise.resolve({
+          profiles: [],
+          offered: [],
+          filters: {},
+          partial: true,
+          failures: [],
+        });
+      return Promise.reject(offline ? 'notConnected' : 'nodeFailed');
+    });
+    const expected = partial ? 'search.partialError' : offline ? 'search.offline' : 'search.error';
+    if (
+      !shown('search-error') ||
+      byId('search-error-text').textContent !== appApi.strings[expected] ||
+      shown('search-retry') === offline ||
+      shown('search-open-network') !== offline
+    ) {
+      throw new Error('Search recovery actions retained another failure state');
+    }
+  };
   const checkDisconnectedSearch = async (status) => {
     if (
       status !== appApi.strings['search.notConnected'] ||
       !shown('search-error') ||
       !shown('search-open-network') ||
+      shown('search-retry') ||
       searchFailures() !== 'notConnected'
     ) {
       throw new Error(`search without a network: ${status}, details ${searchFailures()}`);
     }
     await smoke.shot('search-not-connected');
+    await checkRecoveryActions(false);
+    await checkRecoveryActions(true);
+    await checkRecoveryActions(false, true);
+    await checkRecoveryActions(true);
     await openArea('chats-area');
     await appApi.chatsDone;
     if (
