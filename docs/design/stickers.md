@@ -325,8 +325,9 @@ recall already queued packets. Retry/stop do not advance MLS. The desktop now re
 visible received stickers in open chats. Add pack stages locally, then starts the existing mailbox
 pass without waiting for its network result. Waiting/downloading/failure states expose Stop waiting;
 Retry keeps an answer, and invalid answers can explicitly request a fresh copy. Quota/storage
-recovery opens the collection manager. Unrelated claimed hashes cannot be requested again from
-that message. Action errors read back status before enabling recovery; a generation conflict never
+recovery opens the collection manager. A storage failure without a generation offers Refresh and
+Manage, not Retry; a missing clicked sticker never offers Retry or Fresh. Unrelated claimed hashes
+cannot be requested again from that message. Action errors read back status before enabling recovery; a generation conflict never
 retries itself. Closing the chat leaves intent queued, while full Clear chat cancels it.
 
 The recipient accepts an answer only for a request it has pending in this chat. The pack must hash

@@ -75,7 +75,10 @@ The [zero-baseline rule for changed files](../development/practices.md#rules-sha
 also applies to UI work: fix every baseline violation in the affected screens
 across checked languages, widths, themes and text sizes, and remove resolved
 accessibility/reflow and layout entries in the same change. Do not invent new
-UI rules; ask the maintainer when a criterion needs clarification.
+UI rules; ask the maintainer when a criterion needs clarification. A new UI/UX rule
+requires an explicit maintainer decision with its rework cost (screens × platforms × tests);
+until then, follow the existing contract. Before removing UI rationale, preserve the
+established decision in a regression test or screen-contract line.
 
 ## What is automated
 

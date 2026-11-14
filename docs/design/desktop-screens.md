@@ -33,9 +33,11 @@ identity lease keeps the slot open. Lists return 32-entry pages with sizes and i
 
 ## Sticker collection
 
-The shipped composer opens the `sticker-manager` dialog, containing the card
-`sticker-collection` and native disclosure `sticker-packs`. Its Cancel/Escape closes
-the manager and restores composer focus. The collection no longer sits in Settings.
+The shipped composer opens the `sticker-picker` dialog with recents, saved-pack choices,
+eight labelled image buttons per page, Previous/Next and Cancel. Manage packs opens
+`sticker-manager`, containing `sticker-collection` and native disclosure `sticker-packs`;
+Cancel/Escape returns to the picker. Closing the picker restores composer focus.
+The collection no longer sits in Settings.
 `sticker-import` opens a TAR picker; cancelling it changes nothing. The browser must
 refuse files above 8 MiB before reading them. `sticker-refresh` restarts listing from
 the first page; `sticker-next` opens the next 32-entry page. Loading and import
@@ -50,7 +52,10 @@ and identifies unreadable entries by short PackID while retaining them.
 `sticker-unknown` explains space occupied by unrecognized or interrupted files.
 Quota failure preserves the collection and asks for a smaller pack. Importing does
 not publish or send anything. The shipped controller now connects these controls to local
-commands. Sending remains planned.
+commands. A durable picker send closes the picker while preserving the text draft;
+delivery status stays in the thread. Pack choices are ordinary buttons with an announced
+selected state, and long names wrap without clipping their distinguishing suffix.
+[Sticker flows](stickers.md#flows) retain the typed request/retry/stop and media-fallback contract.
 
 ### Confirmed pack removal
 
