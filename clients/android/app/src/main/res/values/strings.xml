@@ -98,6 +98,7 @@
     <string name="rename_failed">Could not save the name: %1$s</string>
     <string name="notice_channel">New messages</string>
     <string name="notice_new_message">New message</string>
+    <string name="notice_sticker">Sticker</string>
     <string name="settings_notices">Privacy and notifications</string>
     <string name="notice_toggle">New messages and likes</string>
     <string name="notice_content">What a notice shows</string>

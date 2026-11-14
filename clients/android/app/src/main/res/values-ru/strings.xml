@@ -97,6 +97,7 @@
     <string name="rename_failed">Не удалось сохранить имя: %1$s</string>
     <string name="notice_channel">Новые сообщения</string>
     <string name="notice_new_message">Новое сообщение</string>
+    <string name="notice_sticker">Стикер</string>
     <string name="settings_notices">Приватность и уведомления</string>
     <string name="notice_toggle">Новые сообщения и лайки</string>
     <string name="notice_content">Что показывать в уведомлении</string>

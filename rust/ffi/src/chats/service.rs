@@ -1,9 +1,8 @@
 //! Existing native chat commands; registry admission lives in creation.
 
 use super::{
-    failed, likes_in, listed_own, own_profile, publish_failed, reads, refill_if_due, ChatHistory,
-    ChatLikeAttempt, ChatLikes, ChatMessage, ChatRow, ChatSession, ChatState, ChatSubmission,
-    KEY_PACKAGES,
+    failed, likes_in, listed_own, publish_failed, reads, ChatHistory, ChatLikeAttempt, ChatLikes,
+    ChatMessage, ChatRow, ChatSession, ChatState, ChatSubmission, KEY_PACKAGES,
 };
 use crate::contact_names::fetch_profiles;
 use crate::profile_network::{
@@ -11,7 +10,6 @@ use crate::profile_network::{
 };
 use crate::{CoreError, FoundProfile};
 use dyapp_client::{chat::MAX_TEXT_BYTES, interactions::Kind, session::Session};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 #[uniffi::export]
 impl ChatSession {
@@ -300,45 +298,6 @@ impl ChatSession {
     /// Returns an error if the session lock, own profile, clock, active network, staged-write retry
     /// or mailbox/pack-job processing fails. Token refill and photo renewal are best effort.
     pub fn receive(&self) -> Result<u32, CoreError> {
-        let mut guard = self.session.lock().map_err(failed)?;
-        // The guard stays on this thread; the session it lends moves to the network thread.
-        let session: &mut Session = &mut guard;
-        let own = own_profile(session.store(), &self.key.identity)?;
-        let network = active_network(&self.dir)?;
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(failed)?;
-        let now_ms = i64::try_from(now.as_millis()).map_err(failed)?;
-        on_network_stack(|| {
-            self.runtime.block_on(async {
-                let mut node = connect(&network).await?;
-                session
-                    .retry_due(std::slice::from_mut(&mut node), now_ms, &self.seal_key)
-                    .await
-                    .map_err(failed)?;
-                let changed = self.receive_mailbox(session, &mut node, own).await?;
-                refill_if_due(session, &mut node, now.as_secs(), &self.seal_key).await?;
-                // Best effort like the refill, as on the desktop: once the first publish made a
-                // last-resort package it rotates or repeats, and the photo hold renews daily.
-                if matches!(session.store().last_resort(), Ok(Some(_))) {
-                    let _ = session
-                        .keep_last_resort(
-                            &mut node,
-                            &self.device_key.identity,
-                            now.as_secs(),
-                            &self.seal_key,
-                        )
-                        .await;
-                }
-                let _ = dyapp_client::publish::refresh_photos(
-                    session.store(),
-                    &mut node,
-                    &self.key.identity,
-                    now.as_secs(),
-                )
-                .await;
-                Ok(changed)
-            })
-        })
+        self.receive_pass(None).map(|pass| pass.changed)
     }
 }

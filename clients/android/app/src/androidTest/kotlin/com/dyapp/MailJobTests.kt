@@ -33,6 +33,18 @@ class MailJobTests {
     }
 
     @Test
+    fun theCoreStickerBodyIsLocalizedAndThePublicVersionStillHidesIt() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val text = "\uD83D\uDE3A " + context.getString(R.string.notice_sticker)
+        val admitted = uniffi.dyapp.ChatMailNotice("peer-abcdef", text)
+        val notice = mailNotice(context, noticeLines(admitted))
+        assertEquals(text, notice.extras.getCharSequence(Notification.EXTRA_TEXT))
+        val public = checkNotNull(notice.publicVersion)
+        assertEquals(context.getString(R.string.app_name), public.extras.getString(Notification.EXTRA_TITLE))
+        assertNull(public.extras.getCharSequence(Notification.EXTRA_TEXT))
+    }
+
+    @Test
     fun theSettingAddsTheSenderAndTextButNotOnASecureLockScreen() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val named = mailNotice(context, NoticeLines("@abc", null))

@@ -6,6 +6,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import uniffi.dyapp.ChatItem
+import uniffi.dyapp.ChatMailNotice
+import uniffi.dyapp.ChatNotice
 import uniffi.dyapp.ChatState
 import uniffi.dyapp.ChatSticker
 import uniffi.dyapp.ChatSubmission
@@ -24,7 +26,7 @@ class NativeStickerExchangeTests {
                 assertTrue(imported.added)
                 val expected = sender.session.savedStickerFrame(imported.packId, 0u)
                 val id = submittedId(sender.session.submitSavedSticker(receiver.peerId, imported.packId, 0u))
-                val sticker = awaitSticker(receiver, sender, id)
+                val sticker = awaitSticker(receiver, sender, id, stickerNoticeText())
                 assertArrayEquals(imported.packId, sticker.packId)
                 assertEquals("\uD83D\uDE3A", sticker.emoji)
                 assertEquals("Android native cats", sticker.packName)
@@ -52,6 +54,12 @@ class NativeStickerExchangeTests {
         sender.awaitMessage(receiver.peerId, "sticker reply") { it.text == "sticker reply" }
         assertEquals(ChatState.OPEN, sender.session.state(receiver.peerId))
         assertEquals(ChatState.OPEN, receiver.session.state(sender.peerId))
+        sender.session.sendText(receiver.peerId, "older private words")
+        receiver.awaitMessage(sender.peerId, "retained unread text") { it.text == "older private words" }
+        val last = checkNotNull(receiver.session.chatRows().single { it.peerId == sender.peerId }.lastMessage)
+        assertEquals("older private words", last.text)
+        assertTrue(last.unread)
+        receiver.session.setNotice(ChatNotice.TEXT)
     }
 
     private fun submittedId(value: ChatSubmission): ByteArray = when (value) {
@@ -59,8 +67,15 @@ class NativeStickerExchangeTests {
         is ChatSubmission.Queued -> value.id // Completed receive passes retry these exact writes.
     }
 
-    private fun awaitSticker(receiver: TestPeer, sender: TestPeer, id: ByteArray): ChatSticker {
+    private fun awaitSticker(
+        receiver: TestPeer,
+        sender: TestPeer,
+        id: ByteArray,
+        expectedNotice: String? = null,
+    ): ChatSticker {
         var found: ChatSticker? = null
+        var admitted: ChatMailNotice? = null
+        val label = InstrumentationRegistry.getInstrumentation().targetContext.getString(R.string.notice_sticker)
         PeerTransition("native sticker from ${sender.peerId}").await(
             ready = {
                 found = receiver.session.chatItems(sender.peerId).filterIsInstance<ChatItem.Sticker>()
@@ -70,11 +85,17 @@ class NativeStickerExchangeTests {
             },
             advance = {
                 sender.session.receive()
-                receiver.session.receive()
+                receiver.session.receiveWithNotice(label).notice?.takeIf { it.peerId == sender.peerId }?.let {
+                    admitted = it
+                }
             }
         )
+        if (expectedNotice != null) assertEquals(expectedNotice, checkNotNull(admitted).text)
         return checkNotNull(found)
     }
+
+    private fun stickerNoticeText() = "\uD83D\uDE3A " +
+        InstrumentationRegistry.getInstrumentation().targetContext.getString(R.string.notice_sticker)
 
     private fun assertOriginal(receiver: TestPeer, sticker: ChatSticker, expected: SavedStickerFrame) {
         val frame = receiver.session.chatStickerFrame(

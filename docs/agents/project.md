@@ -158,6 +158,10 @@ lock while a Sessions lease is held can introduce a lock cycle through the main 
 Sticker manifests may repeat an image hash with different emoji labels. Recent-sticker lookup
 must match both hash and emoji within the PackID to preserve the selected fallback/accessibility label.
 
+Timed receive fixtures must use a local wall time consistent with their staged HLC (derive it
+from the core timestamp or inject matching clocks). Mixing a live session HLC with a fixed historical
+wall time fails skew admission before reaching the behavior under test.
+
 Importer boundary tests use literal protocol byte limits and assert the specific rejection
 stage. Using the production limit in a fixture, or accepting a later digest/decoder failure,
 can hide a broken size guard; validate inclusive limits and each independent invalid operand.

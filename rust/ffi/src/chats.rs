@@ -28,6 +28,8 @@ pub use forward::{ChatForwardError, ChatForwardSource};
 mod like_submission;
 mod service;
 pub use like_submission::{ChatLikeAttempt, ChatLikeState};
+mod mail_pass;
+pub use mail_pass::{ChatMailNotice, ChatMailPass};
 mod media_cache;
 mod notices;
 mod original;

@@ -8,6 +8,8 @@ mod contact_notes;
 mod favorites;
 #[path = "tests/forwarding.rs"]
 mod forwarding;
+#[path = "tests/mail_pass.rs"]
+mod mail_pass;
 #[path = "tests/offline.rs"]
 mod offline;
 #[path = "tests/saved_sticker.rs"]

@@ -7,47 +7,20 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import uniffi.dyapp.ChatNotice
-import uniffi.dyapp.ChatRow
-import uniffi.dyapp.ChatSession
-import uniffi.dyapp.ChatState
+import uniffi.dyapp.ChatMailNotice
 
 private const val MAIL_CHANNEL = "mail"
 
 // One fixed id, so each notice replaces the previous one.
 internal const val MAIL_NOTICE_ID = 1
 
-// The most of a message a notice shows; the rest waits in the app.
-private const val NOTICE_TEXT_CHARS = 200L
-
-/** What a notice counts, as on desktop: unread items and unanswered likes, muted peers left out. */
-internal fun noticeCount(chats: ChatSession, all: List<ChatRow> = chats.chatRows()): ULong {
-    val (muted, rows) = all.partition { it.muted }
-    val mutedPeers = muted.mapTo(HashSet()) { it.peerId }
-    return chatsBadge(rows) + chats.likedYou().count { it !in mutedPeers }.toULong()
-}
-
-/** The sender's short Peer ID and, for [ChatNotice.TEXT], the message a notice adds. */
+/** Core-admitted sender/body rendered with the existing local name and blank-body fallback. */
 internal data class NoticeLines(val sender: String, val text: String?)
 
-/**
- * The lines [notice] allows for the newest unmuted row with more unread than in [before]; null keeps
- * the fixed text. Only an open chat adds them: a request or a like would put a stranger's words on
- * the screen unasked.
- */
-internal fun noticeLines(notice: ChatNotice, before: List<ChatRow>, after: List<ChatRow>): NoticeLines? {
-    val adds = notice == ChatNotice.NAME || notice == ChatNotice.TEXT
-    // ponytail: the FFI row has no attachment, so a newer unread attachment shows the last unread text.
-    val row = after.firstOrNull { row ->
-        !row.muted && row.unreadCount > before.find { it.peerId == row.peerId }?.unreadCount ?: 0uL
-    }?.takeIf { adds && it.state == ChatState.OPEN } ?: return null
-    val text = row.lastMessage?.takeIf { notice == ChatNotice.TEXT && it.unread }?.text
-    return NoticeLines(shortPeerId(row.peerId), text?.let(::oneLine)?.ifBlank { null })
+/** Null means the core's fixed notice. Kotlin does not select peers, count mail or inspect history. */
+internal fun noticeLines(notice: ChatMailNotice): NoticeLines? = notice.peerId?.let { peer ->
+    NoticeLines(shortPeerId(peer), notice.text?.ifBlank { null })
 }
-
-// At most NOTICE_TEXT_CHARS code points on one line: a peer chooses this text.
-private fun oneLine(text: String) = text.codePoints().limit(NOTICE_TEXT_CHARS).toArray()
-    .joinToString("") { if (Character.isISOControl(it)) " " else String(Character.toChars(it)) }
 
 /**
  * The notice: the fixed "New message" text, or the [lines] the setting allows. The public version

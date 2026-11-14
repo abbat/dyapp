@@ -8,7 +8,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.os.Build
 import android.util.Log
-import uniffi.dyapp.ChatNotice
 import uniffi.dyapp.CoreException
 import uniffi.dyapp.SearchOutboxWake
 import java.util.concurrent.ConcurrentHashMap
@@ -90,14 +89,8 @@ internal fun receiveMail(context: Context) {
     runCatching {
         val opened = RustBridge.slots(context).open() as? Opened.Ready ?: return
         RustBridge.withChats(opened) {
-            val old = it.chatRows()
-            val before = noticeCount(it, old)
-            it.receive()
-            val new = it.chatRows()
-            val notice = it.notice()
-            if (noticeCount(it, new) > before && notice != ChatNotice.OFF) {
-                postMailNotice(context, noticeLines(notice, old, new))
-            }
+            val notice = it.receiveWithNotice(context.getString(R.string.notice_sticker)).notice
+            if (notice != null) postMailNotice(context, noticeLines(notice))
         }
     }.onFailure { Log.i(MAIL_LOG_TAG, "Background receive failed: ${it.javaClass.simpleName}") }
 }
