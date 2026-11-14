@@ -261,7 +261,8 @@ triggers another submission. The connected path still verifies the peer profile.
 cannot discover remote revocations it has not received.
 
 Common native `submit_text`, `submit_edit_text`, `submit_delete_text` and
-`submit_chat_photo` return `ChatSubmission::Accepted` or `Queued` with the committed ID;
+`submit_chat_photo` and `submit_saved_sticker` return `ChatSubmission::Accepted` or `Queued`
+with the committed ID;
 pre-commit failures remain errors. The adapter only converts core outcomes and operation-specific
 error codes. Legacy native send/edit/delete methods keep strict delivery errors through the same
 path. Android transports the native result through its identity lease: Accepted/Queued clear the
@@ -269,8 +270,11 @@ submitted text/photo draft, while a pre-commit error keeps it. A stale edit targ
 submission instead of falling back to a new message. Photo drafts never infer commitment from
 localized status text. Profile-link sharing uses the same typed text result; its initial history
 read checks open-chat eligibility only. Its dialog records completion from the native outcome,
-independently of localized status details. Forward/sticker send integration and native CI
-verification remain planned.
+independently of localized status details. Common native saved-sticker submission authenticates
+an identity-local pack through core storage, then delegates upload reservations, descriptor reuse,
+open-chat policy and durable submission to `Session::submit_pack_sticker_to`. Selection bounds
+are checked before networking; no encryption key or release capability crosses the boundary.
+Android forwarding/sticker send presentation and native CI verification remain planned.
 
 `Session::submit_interaction(_with)` separately returns an optional committed
 `InteractionSubmission`: the actual protocol event plus its node delivery result. `None` retains
@@ -763,6 +767,7 @@ or returns constants.
 | | method | `chat_photo_auto(peer_id: String) -> Result<bool, CoreError>` | Whether full chat originals may load without a tap now: shared download setting, current platform network report and an open conversation are required. Strangers never auto-download, even with Always; blocked peers err `blocked`. Original retrieval uses the separate method below. |
 | | method | `receive() -> Result<u32, CoreError>` | Over the active network: resends the staged writes that are due, applies this device's mailbox and refills tokens when due, then, best effort as on the desktop, keeps the last-resort key package and runs the daily photo keep refresh. Returns how many events changed a chat. Senders' profiles are fetched from the node on each call; an envelope whose owner has none there waits in the mailbox for the next call. |
 | | method | `chat_rows() -> Result<Vec<ChatRow>, CoreError>`, `chat_history(peer_id: String) -> Result<ChatHistory, CoreError>` | The local projection, no network. Rows leave out blocked peers; a history for a blocked peer errs `blocked`. Both carry `muted`. In a history, `read` on an own live text says the peer's read receipt covers it (the desktop rule); rows leave it false. |
+| | method | `submit_saved_sticker(peer_id: String, pack_id: Vec<u8>, index: u32) -> Result<ChatSubmission, CoreError>` | Send an authenticated saved-pack entry through core upload and open-chat submission. A queued result retains its committed ID; never resubmit it. Pre-commit failures remain errors, even if an upload reservation was persisted. Invalid hash length, missing pack and invalid index fail before network access; foreign or corrupt saved files are preserved. Call off the UI thread. |
 | | method | `forward_text(source: ChatForwardSource, target_peer_id: String) -> Result<ChatSubmission, ChatForwardError>` | Forward current local text into another open chat, as on Linux. Source carries peer, group, stored author and logical message ID; core verifies the full live key, source visibility and target eligibility. UI never supplies the forwarded body or a verified original-author claim. The new message is authored by this identity and carries the existing forwarded marker. Typed errors are pre-commit refusals/backend failure. `Queued` is already committed with its stable ID and exact retry bytes; do not submit a second copy. |
 | | method | `contact_note(peer_id: String) -> Result<String, ContactNoteError>`, `set_contact_note(peer_id: String, note: String) -> Result<(), ContactNoteError>` | Identity-bound private notes without a profile fetch or peer signal. Core preserves clean NFC text, case and LF lines up to 2000 code points, and stages own-device sync. Empty text explicitly clears; blocked contacts retain read/write access. Typed errors are `InvalidPeer`, `OwnPeer`, `InvalidText` or `Failed { reason }`; a failed read is never empty. Notes and favorites require canonical lowercase peer IDs at the shared core application boundary; signed wire validation and existing stored rows are unchanged. |
 | | method | `favorite_peers() -> Result<Vec<String>, FavoriteError>`, `favorite_state(peer_id: String) -> Result<bool, FavoriteError>`, `set_favorite(peer_id: String, saving: bool) -> Result<(), FavoriteError>` | Private identity-bound favorites. The shared client core validates peer IDs, rejects self and blocked saves, and stages own-device sync without contacting the peer. Listing hides blocked peers; state reads and removal remain offline and work for them. Typed errors are `InvalidPeer`, `OwnPeer`, `Blocked` or `Failed { reason }`; storage failure is never an empty list or false flag. Tauri uses the same core policy. |

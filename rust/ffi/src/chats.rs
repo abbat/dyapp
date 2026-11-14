@@ -42,6 +42,7 @@ pub use photos::chat_photo_hours_left;
 pub use sticker_view::ChatSticker;
 mod reads;
 mod send_photo;
+mod send_sticker;
 mod submission;
 pub use submission::ChatSubmission;
 mod view;

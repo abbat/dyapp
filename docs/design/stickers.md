@@ -216,6 +216,10 @@ Desktop `send_saved_sticker` now checks the viewed identity and selected saved p
 then uses the same session gate, open-profile/network path and error codes as photos. It returns
 the queued message ID after durable staging. The desktop picker invokes this command; exact-head
 native/live-node acceptance remains a CI obligation.
+Common UniFFI `ChatSession.submit_saved_sticker` loads the owner-authenticated saved pack
+and delegates to `Session::submit_pack_sticker_to`, returning typed `Accepted`/`Queued`
+with the committed logical ID. Selection refusals stage no chat message; an upload refusal
+can retain its core reservation. Mobile picker/collection wiring remains planned.
 
 ### Receive
 

@@ -10,6 +10,8 @@ mod favorites;
 mod forwarding;
 #[path = "tests/offline.rs"]
 mod offline;
+#[path = "tests/saved_sticker.rs"]
+mod saved_sticker;
 
 #[test]
 fn a_full_node_gets_its_own_publish_code() {

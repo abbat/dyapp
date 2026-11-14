@@ -36,7 +36,7 @@ fn sealed(
     Ok((media, blob))
 }
 
-fn send_error(error: session::Error) -> CoreError {
+pub(super) fn send_error(error: session::Error) -> CoreError {
     match error {
         session::Error::Client(Error::Status(Status::Full)) => failed("full"),
         session::Error::Client(Error::Status(Status::TooLarge)) => failed("tooLarge"),
