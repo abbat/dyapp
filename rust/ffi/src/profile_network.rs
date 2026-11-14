@@ -430,53 +430,76 @@ mod tests {
 
     #[test]
     fn hide_needs_a_node_and_keeps_the_draft_fields() {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let dir = std::env::temp_dir().join(format!("dyapp-ffi-hide-{nanos}"));
-        std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.to_str().unwrap().to_owned();
-        let key = IdentityKey::generate();
-        let shown = ProfileVisibility {
-            version: 0,
-            hidden: false,
-        };
-        assert_eq!(
-            profile_visibility(path.clone(), key.clone()).unwrap(),
-            shown
-        );
-        assert!(!dir.join("client.db").exists());
-        let draft = PublicProfileDraft {
-            gender: 1,
-            ..Default::default()
-        };
-        crate::save_profile_draft(path.clone(), key.clone(), draft.clone()).unwrap();
-        let publisher = ProfilePublisher::new(path.clone()).unwrap();
-        assert_eq!(
-            publisher.hide(key.clone()).unwrap_err().to_string(),
-            "notConnected"
-        );
-        assert_eq!(
-            profile_visibility(path.clone(), key.clone()).unwrap(),
-            shown
-        );
         let (port, peer) = crate::network::tests::node();
-        let network = Network {
-            seeds: vec![format!("127.0.0.1:{port}/{peer}")],
-            name: String::new(),
-        };
-        network::save(&dir, Settings::Active, &network).unwrap();
-        let hidden = ProfileVisibility {
-            version: 1,
-            hidden: true,
-        };
-        assert_eq!(publisher.hide(key.clone()).unwrap(), hidden);
-        assert_eq!(
-            profile_visibility(path.clone(), key.clone()).unwrap(),
-            hidden
-        );
-        assert_eq!(crate::load_profile_draft(path, key).unwrap(), Some(draft));
+        for (interests, canonical) in [
+            (None, vec![]),
+            (Some(vec![]), vec![]),
+            (
+                Some(vec!["  MuSiC  ".into(), "Cafe\u{301}".into()]),
+                vec!["music".into(), "caf\u{e9}".into()],
+            ),
+        ] {
+            let key = IdentityKey::generate();
+            let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../build/native-profile-hide")
+                .join(key.peer_id());
+            std::fs::create_dir_all(&dir).unwrap();
+            let path = dir.to_str().unwrap().to_owned();
+            let shown = ProfileVisibility {
+                version: 0,
+                hidden: false,
+            };
+            assert_eq!(
+                profile_visibility(path.clone(), key.clone()).unwrap(),
+                shown
+            );
+            assert!(!dir.join("client.db").exists());
+            let draft = PublicProfileDraft {
+                gender: 1,
+                name: "Preserved name".into(),
+                about: "Preserved draft".into(),
+                interests,
+                ..Default::default()
+            };
+            crate::save_profile_draft(path.clone(), key.clone(), draft.clone()).unwrap();
+            // None is preserve-on-save input; loaded native drafts always expose Some.
+            let saved = PublicProfileDraft {
+                interests: Some(canonical),
+                ..draft
+            };
+            assert_eq!(
+                crate::load_profile_draft(path.clone(), key.clone()).unwrap(),
+                Some(saved.clone())
+            );
+            let publisher = ProfilePublisher::new(path.clone()).unwrap();
+            assert_eq!(
+                publisher.hide(key.clone()).unwrap_err().to_string(),
+                "notConnected"
+            );
+            assert_eq!(
+                profile_visibility(path.clone(), key.clone()).unwrap(),
+                shown
+            );
+            assert_eq!(
+                crate::load_profile_draft(path.clone(), key.clone()).unwrap(),
+                Some(saved.clone())
+            );
+            let network = Network {
+                seeds: vec![format!("127.0.0.1:{port}/{peer}")],
+                name: String::new(),
+            };
+            network::save(&dir, Settings::Active, &network).unwrap();
+            let hidden = ProfileVisibility {
+                version: 1,
+                hidden: true,
+            };
+            assert_eq!(publisher.hide(key.clone()).unwrap(), hidden);
+            assert_eq!(
+                profile_visibility(path.clone(), key.clone()).unwrap(),
+                hidden
+            );
+            assert_eq!(crate::load_profile_draft(path, key).unwrap(), Some(saved));
+        }
     }
 
     #[test]
