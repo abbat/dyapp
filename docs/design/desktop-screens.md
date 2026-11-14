@@ -334,16 +334,16 @@ A received photo shows its local preview over a caption with its type, size and,
 of the 168-hour node retention, the time left of the original, unless this computer keeps it. Without a preview, or with one that
 cannot be decoded, the caption stands alone. Before the conversation is accepted, a preview stays
 blurred until Show photo. Photos offer no edit, delete or forward. Download original fetches it on a tap and shows it at
-up to 480 pixels. An opened original stays sealed on this computer up to the limit in Settings →
-Photos (do not keep, 256 MiB by default, or 1 GiB), the longest unopened leaving first, and such a
+up to 480 pixels. An opened original stays sealed on this computer while Keep is enabled, within
+Settings → Photos' numeric MiB budget, the longest unopened leaving first, and such a
 photo opens by itself in any download mode, past the retention too. A lower limit asks first, then
 erases what no longer fits at once; Clear chat erases the chat's originals.
-A failed fetch offers a retry; an original no node holds shows "No longer available", and one that
-fails its checks "This photo cannot be shown". In an open chat with an accepted person, originals
+A transient fetch failure offers a retry; an original no node holds shows "No longer available", and one that
+fails its checks "This photo cannot be shown". These two permanent outcomes offer no retry. In an open chat with an accepted person, originals
 also download by themselves under Settings → Photos: unless the network is metered or unknown (the
 default), always, or only on request. A switch to an unmetered network picks up what waited at the
-next mail pass. The composer sends one photo at a time. [Profile photos](profile-photos.md) remain
-planned for this UI. An own, live text can be edited; the dialog
+next mail pass. The composer sends one photo at a time. The separate editor and gallery use the
+[profile photos](profile-photos.md) contract. An own, live text can be edited; the dialog
 starts with its current text, keeps an unstaged draft on failure, and shows a pending delivery
 status when the edit was staged locally. Delete is available on live own text only; confirmation
 warns that the peer, nodes, other devices and backups may keep copies. The local history shows a
