@@ -2,7 +2,7 @@
 // WBR nodes add visual chunk boundaries without changing textContent or copied text.
 /** @param {Record<string, string>} strings */
 const createIdentifierFormatter = (strings) => {
-  /** @type {WeakMap<Element, { text: string, nodes: number }>} */
+  /** @type {WeakMap<Element, { text: string, nodes: Node[] }>} */
   const previous = new WeakMap();
   const segmenter =
     typeof Intl.Segmenter === 'function'
@@ -33,7 +33,12 @@ const createIdentifierFormatter = (strings) => {
       return;
     const raw = element.textContent ?? '';
     const cached = previous.get(element);
-    if (cached?.text === raw && cached.nodes === element.childNodes.length) return;
+    if (
+      cached?.text === raw &&
+      cached.nodes.length === element.childNodes.length &&
+      cached.nodes.every((node, index) => element.childNodes[index] === node)
+    )
+      return;
     const characters = charactersForIdentifier(raw);
     const nodes = [];
     for (let start = 0; start < characters.length; start += 8) {
@@ -44,7 +49,7 @@ const createIdentifierFormatter = (strings) => {
       nodes.push(chunk);
     }
     element.replaceChildren(...nodes);
-    previous.set(element, { text: raw, nodes: element.childNodes.length });
+    previous.set(element, { text: raw, nodes: [...element.childNodes] });
   };
   return format;
 };

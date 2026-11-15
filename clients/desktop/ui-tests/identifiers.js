@@ -1,4 +1,16 @@
 (() => {
+  const checkShortIdentifierReplacement = async (code, formatted, check) => {
+    for (const short of ['@3f9c2a', '@3f9c2a']) {
+      code.textContent = short;
+      await formatted(short);
+      check(
+        code.textContent === short &&
+          code.querySelectorAll('.identifier-chunk').length === 1 &&
+          !code.querySelector('wbr'),
+        'Equal short identifier replacement lost its chunk',
+      );
+    }
+  };
   const checkIdentifierContent = async (code, selection, formatted, check) => {
     check(typeof Intl.Segmenter === 'function', 'Target engine lacks grapheme segmentation');
     const raw = '0123456789abcdef'.repeat(4);
@@ -20,6 +32,7 @@
     check(selection.toString() === raw, 'Visual identifier selection changed copied text');
     code.textContent = raw; // Replacing a value with the same text must restore lost break nodes.
     await formatted(raw);
+    await checkShortIdentifierReplacement(code, formatted, check);
     const unicode = '👩‍👩‍👧‍👦'.repeat(9) + 'e\u0301'.repeat(9);
     code.textContent = unicode;
     await formatted(unicode);
@@ -91,7 +104,7 @@
     };
     const formatted = (raw, target = code) =>
       new Promise((resolve, reject) => {
-        const ready = () => target.textContent === raw && target.querySelector('wbr');
+        const ready = () => target.textContent === raw && target.querySelector('.identifier-chunk');
         if (ready()) {
           resolve();
           return;

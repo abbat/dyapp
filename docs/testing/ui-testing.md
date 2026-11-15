@@ -117,6 +117,9 @@ The shared `installIdentifiers(strings, targetCode)` can observe a single code e
 invocation still observes the document body. Native smoke checks initial and replacement formatting
 with detached siblings, so the body's default observer cannot mask a scope error or change the
 outside sibling. Each replacement awaits its actual mutation signal with a fresh failure deadline.
+The smoke also replaces a short one-chunk ID with the same text: formatting must restore the chunk
+even when the replacement has the same raw value and child count. Cache reuse requires the same
+child nodes, since node counts alone cannot distinguish a formatted chunk from a new text node.
 Android Clear target checks preserve name, labelled full raw-copy ID and consequence order, including
 wrong/missing target, markup, label, order and chunk counterexamples. Tall-dialog checks require
 supported safe centering and reachable text/control bounds at real enlarged text sizes.
