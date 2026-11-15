@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 
 use super::IdentityState;
 use crate::search::{Found, ProfileCache, SearchState};
-use dyapp_client::scores::Scores;
+use dyapp_client::contact_verification::{self, Ticket};
 use dyapp_client::store::Store;
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
@@ -161,20 +161,16 @@ pub fn contact_safety_number(
 /// lock covers the write, so network activation cannot pass between the check and the mark.
 fn mark(
     cache: &Mutex<ProfileCache>,
-    epoch: u64,
+    ticket: Ticket,
     store: &Store,
-    peer_id: &str,
     fetched: VerifiedProfile,
 ) -> Result<Found, String> {
-    let peer = crate::chats::accept_peer(cache, epoch, peer_id, fetched)?;
-    if peer.profile.deleted || peer.profile.version == 0 {
-        return Err("unpublished".into());
-    }
-    let cache = cache.lock().map_err(|e| e.to_string())?;
-    if !cache.current(epoch) {
-        return Err("notConnected".into());
-    }
-    store.set_verified(&peer).map_err(|e| e.to_string())?;
+    let peer = cache
+        .lock()
+        .map_err(|e| e.to_string())?
+        .context
+        .confirm(store, ticket, fetched)
+        .map_err(|e| e.to_string())?;
     Ok(Found::from(&peer))
 }
 
@@ -191,28 +187,23 @@ async fn confirm(
     identity: &Identity,
     peer_id: &str,
 ) -> Result<Found, String> {
-    let own = identity.peer_id();
-    if peer_id == own {
-        return Err("ownPeer".into());
-    }
-    if dyapp_identity::safety::safety_number_for_peer_ids(&own, peer_id).is_none() {
-        return Err("invalid Peer ID".into());
-    }
     let store = Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())?;
-    // Capture the context before loading settings: activation saves settings and advances this
-    // epoch under the same cache lock.
-    let epoch = cache.lock().map_err(|e| e.to_string())?.epoch();
-    let active = network::load(dir, Settings::Active)
-        .map_err(|e| e.to_string())?
-        .ok_or("notConnected")?;
-    let mut nodes = crate::profile::reachable(&active).await?;
-    if nodes.is_empty() {
-        return Err("notConnected".into());
-    }
-    let fetched = dyapp_client::profiles::newest(&mut Scores::default(), &mut nodes, peer_id)
+    let (ticket, active) = {
+        // Activation uses this same guard; never pair an old ticket with new settings.
+        let cache = cache.lock().map_err(|e| e.to_string())?;
+        let ticket = cache
+            .context
+            .begin(&store, peer_id)
+            .map_err(|e| e.to_string())?;
+        let active = network::load(dir, Settings::Active)
+            .map_err(|e| e.to_string())?
+            .ok_or("notConnected")?;
+        (ticket, active)
+    };
+    let fetched = contact_verification::fetch(&active, peer_id)
         .await
-        .map_err(|_| "unavailable")?;
-    mark(cache, epoch, &store, peer_id, fetched)
+        .map_err(|e| e.to_string())?;
+    mark(cache, ticket, &store, fetched)
 }
 
 /// Records the caller's confirmed comparison with `peer_id`; see `confirm`.
@@ -238,11 +229,13 @@ pub async fn confirm_contact(
 /// Whether the owner of the cached profile is marked verified. With no cached profile the page
 /// shows no mark until a search or chat fetches one.
 fn marked(cache: &Mutex<ProfileCache>, store: &Store, peer_id: &str) -> Result<bool, String> {
-    let (_, profiles) = cache.lock().map_err(|e| e.to_string())?.snapshot();
-    match profiles.get(peer_id) {
-        Some(peer) => store.verified(peer).map_err(|e| e.to_string()),
-        None => Ok(false),
-    }
+    Ok(cache
+        .lock()
+        .map_err(|e| e.to_string())?
+        .context
+        .state(store, peer_id)
+        .map_err(|e| e.to_string())?
+        .verified)
 }
 
 /// Reads the mark for the profile on screen; see `marked`.
@@ -279,8 +272,14 @@ pub fn contact_new_device(
     let lease = state.lease()?;
     let (identity, dir) = lease.active();
     let store = Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())?;
-    marked(&searching.0, &store, &peer_id)?;
-    store.new_device(&peer_id).map_err(|e| e.to_string())
+    Ok(searching
+        .0
+        .lock()
+        .map_err(|e| e.to_string())?
+        .context
+        .state(&store, &peer_id)
+        .map_err(|e| e.to_string())?
+        .new_device)
 }
 
 /// Ends the notice after the user acknowledged it in the chat.
@@ -321,7 +320,7 @@ pub fn unverify_contact(
 
 #[cfg(test)]
 mod tests {
-    use super::{confirm, mark, marked, matrix_for_peer_ids, scan_frame, QrMatrix};
+    use super::{confirm, mark, marked, matrix_for_peer_ids, scan_frame, QrMatrix, Ticket};
     use crate::search::ProfileCache;
     use dyapp_client::store::Store;
     use dyapp_identity::network::{self, Network, Settings};
@@ -423,6 +422,10 @@ mod tests {
         );
     }
 
+    fn begin(cache: &Mutex<ProfileCache>, store: &Store, peer: &str) -> Ticket {
+        cache.lock().unwrap().context.begin(store, peer).unwrap()
+    }
+
     fn signed(owner: &Identity, version: u64) -> VerifiedProfile {
         let profile = Profile {
             version,
@@ -458,9 +461,9 @@ mod tests {
     #[test]
     fn only_a_current_published_profile_gets_the_verified_mark() {
         let (me, bob, carol) = (
-            Identity::generate(),
-            Identity::generate(),
-            Identity::generate(),
+            Identity::from_secret(&[1; 32]),
+            Identity::from_secret(&[2; 32]),
+            Identity::from_secret(&[3; 32]),
         );
         let (dir, store) = temp_store("mark", &me);
         let peer = bob.peer_id();
@@ -473,18 +476,21 @@ mod tests {
             (signed(&bob, 1), "staleProfile"),
         ];
         for (fetched, error) in refused {
-            assert_eq!(mark(&cache, 0, &store, &peer, fetched), Err(error.into()));
+            let ticket = begin(&cache, &store, &peer);
+            assert_eq!(mark(&cache, ticket, &store, fetched), Err(error.into()));
         }
         assert!(!store.verified(&current).unwrap());
 
-        let found = mark(&cache, 0, &store, &peer, current.clone()).unwrap();
+        let ticket = begin(&cache, &store, &peer);
+        let found = mark(&cache, ticket, &store, current.clone()).unwrap();
         assert_eq!(found.version, 3);
         assert!(store.verified(&current).unwrap());
 
+        let dave = Identity::from_secret(&[4; 32]);
+        let ticket = begin(&cache, &store, &dave.peer_id());
         cache.lock().unwrap().clear();
-        let dave = Identity::generate();
         assert_eq!(
-            mark(&cache, 0, &store, &dave.peer_id(), signed(&dave, 1)),
+            mark(&cache, ticket, &store, signed(&dave, 1)),
             Err("notConnected".into())
         );
         let tombstone = Profile {
@@ -492,9 +498,9 @@ mod tests {
             ..Profile::tombstone(2, 0, 0)
         };
         let tombstone = dyapp_profile::verify(&tombstone.sign(&dave)).unwrap();
-        let epoch = cache.lock().unwrap().epoch();
+        let ticket = begin(&cache, &store, &dave.peer_id());
         assert_eq!(
-            mark(&cache, epoch, &store, &dave.peer_id(), tombstone.clone()),
+            mark(&cache, ticket, &store, tombstone.clone()),
             Err("unpublished".into())
         );
         assert!(!store.verified(&tombstone).unwrap());
@@ -502,9 +508,41 @@ mod tests {
         std::fs::remove_dir_all(dir).unwrap();
     }
 
+    #[test]
+    fn terminal_authority_hides_the_mark_and_invalid_targets_are_rejected() {
+        let (me, bob) = (
+            Identity::from_secret(&[1; 32]),
+            Identity::from_secret(&[2; 32]),
+        );
+        let (dir, store) = temp_store("terminal", &me);
+        let cache = Mutex::<ProfileCache>::default();
+        let peer = bob.peer_id();
+        let ticket = begin(&cache, &store, &peer);
+        mark(&cache, ticket, &store, signed(&bob, 3)).unwrap();
+        assert!(marked(&cache, &store, &peer).unwrap());
+        let tombstone = Profile {
+            previous: Some(dyapp_profile::ProfileCondition::default()),
+            ..Profile::tombstone(2, 0, 0)
+        };
+        cache
+            .lock()
+            .unwrap()
+            .context
+            .accept(dyapp_profile::verify(&tombstone.sign(&bob)).unwrap())
+            .unwrap();
+        assert!(!marked(&cache, &store, &peer).unwrap());
+        assert_eq!(marked(&cache, &store, &me.peer_id()), Err("ownPeer".into()));
+        assert_eq!(marked(&cache, &store, "bad"), Err("invalid Peer ID".into()));
+        drop(store);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
     #[tokio::test]
     async fn confirmation_needs_a_reachable_seed_and_another_valid_peer() {
-        let (me, bob) = (Identity::generate(), Identity::generate());
+        let (me, bob) = (
+            Identity::from_secret(&[1; 32]),
+            Identity::from_secret(&[2; 32]),
+        );
         let (dir, store) = temp_store("offline", &me);
         let cache = Mutex::default();
         let (own, peer) = (me.peer_id(), bob.peer_id());
@@ -512,12 +550,8 @@ mod tests {
         assert_eq!(run(&own).await, Err("ownPeer".into()));
         assert_eq!(run("nope").await, Err("invalid Peer ID".into()));
         assert_eq!(run(&peer).await, Err("notConnected".into()));
-        let closed = std::net::TcpListener::bind("127.0.0.1:0")
-            .unwrap()
-            .local_addr()
-            .unwrap();
         let offline = Network {
-            seeds: vec![closed.to_string()],
+            seeds: vec!["127.0.0.1:0".into()],
             name: String::new(),
         };
         network::save(&dir, Settings::Active, &offline).unwrap();

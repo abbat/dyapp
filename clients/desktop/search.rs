@@ -37,7 +37,7 @@ pub struct SearchState(pub Arc<Mutex<ProfileCache>>);
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct ProfileCache {
     epoch: u64,
-    context: Context,
+    pub(crate) context: Context,
     pub photos: PhotoCache,
 }
 

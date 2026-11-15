@@ -214,8 +214,10 @@ still fail ordinary-account authorization. Without a tombstone the highest obser
 answering seeds may conceal other records. Missing nodes and missing valid profiles are separate
 notConnected/unavailable failures. All target operations reuse canonical private-peer validation.
 Desktop search/profile storage now uses the same core Context inside its existing epoch/photo
-cache. Clearing that cache also invalidates core comparison tickets. Tauri verification-command
-delegation and canonical directory-registry integration remain planned.
+cache. Clearing that cache also invalidates core comparison tickets. Tauri confirmation captures
+a core ticket and active settings under the cache guard, fetches through the common multi-seed
+selector and commits through Context; mark/device-notice reads also use core state. Canonical
+directory-registry integration and unverify/acknowledgement delegation remain planned.
 Native ProfileSearcher workers now retain this shared context for search and cached contact names.
 Bulk display fetch holds its guard from active-network loading through cache admission; it remains
 a display helper and cannot authorize a safety-number confirmation.
