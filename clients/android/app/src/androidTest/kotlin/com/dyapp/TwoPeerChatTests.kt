@@ -9,10 +9,12 @@ import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
@@ -36,6 +38,27 @@ internal fun ComposeTestRule.waitForThreadText(text: String) = runCatching {
 internal fun ownPeerId(): String {
     val slots = RustBridge.slots(InstrumentationRegistry.getInstrumentation().targetContext)
     return (slots.open() as Opened.Ready).peerId
+}
+
+private fun ComposeTestRule.reopenSharedCard(peer: TestPeer, me: String, card: SemanticsMatcher) {
+    runCatching {
+        // A shell exists before IO finishes; enabled composing observes the loaded snapshot.
+        awaitNode(hasTestTag("chat-input") and isEnabled())
+        onNodeWithTag("chat-thread").performScrollToNode(card)
+        // Both messages contain this link; reveal the currently composed match before tapping.
+        onAllNodes(card).onFirst().performScrollTo().performClick()
+        awaitNode(hasTestTag("view-share"))
+    }.onFailure { failure ->
+        val thread = runCatching { textsIn("chat-thread").take(8) }.getOrNull()
+        val status = runCatching { texts("chat-status") }.getOrNull()
+        val received = runCatching {
+            peer.session.chatHistory(me).messages
+                .filter { it.author == me }
+                .map { it.text?.take(100) }
+                .takeLast(8)
+        }.getOrNull()
+        throw AssertionError("Shared card: thread=$thread, status=$status, delivered=$received", failure)
+    }
 }
 
 /** Two identities on the runner's node: this app's and a [TestPeer] the test drives through the FFI. */
@@ -150,12 +173,7 @@ class TwoPeerChatTests {
         val message = compose.activity.getString(R.string.view_message)
         compose.waitUntil(CHECK_WAIT_MS) { compose.shown(hasText(message)) }
         compose.onNodeWithText(message).performClick()
-        compose.waitUntil(CHECK_WAIT_MS) { compose.shown(hasTestTag("chat-thread")) }
-        // The thread shell appears before its IO snapshot; wait for a rendered card.
-        compose.waitUntil(CHECK_WAIT_MS) { compose.shown(card) }
-        // Both messages contain the link; either card must open the same verified profile.
-        compose.onAllNodes(card)[0].performClick()
-        compose.waitUntil(CHECK_WAIT_MS) { compose.shown(hasTestTag("view-share")) }
+        compose.reopenSharedCard(peer, me, card)
         compose.onNodeWithTag("view-back").performClick()
         compose.waitForThreadText("Hello back")
     }

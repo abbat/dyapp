@@ -158,8 +158,11 @@ restoring Off. This persistence check does not depend on a tap coordinate during
 Android profile-sharing coverage extends the existing two-peer request/reply test:
 the peer sends a profile link, the app opens it, shares through the destination
 picker, and checks delivery in the peer's history before testing card/back
-navigation. On returning to the chat it waits for a rendered card with a deadline; the thread
-shell alone does not mean the asynchronous history snapshot has loaded.
+navigation. On returning to the chat it waits for the enabled composer, which observes a loaded
+history snapshot, then reveals the card through lazy-list semantics and taps its current bounds.
+The thread shell alone does not establish readiness. Failure context includes bounded thread,
+status and delivered-message text. Separate production-bubble tests reveal and tap incoming
+and own cards after newer messages, including the own-message menu wrapper.
 It also opens a link to an unpublished peer and checks the unavailable
 state, retry and return to the thread. Separate dialog tests exercise empty,
 failed, queued and busy states.
