@@ -108,6 +108,26 @@ class CiSetupTest(unittest.TestCase):
         self.assertEqual(commands[2][:2], ["docker", "create"])
         self.assertTrue(commands[2][2].startswith("rhysd/actionlint@sha256:"))
 
+    def test_fuzz_jobs_use_only_build_prerequisites(self) -> None:
+        for name in ("fuzz.yml", "ci-base.yml"):
+            with self.subTest(workflow=name):
+                workflow = yaml.safe_load(
+                    (ROOT / ".github/workflows" / name).read_text()
+                )
+                steps = workflow["jobs"]["fuzz"]["steps"]
+                setup = next(
+                    step for step in steps if step.get("name") == "setup"
+                )
+                self.assertEqual(
+                    setup["run"], "bash tools/scripts/ci-setup.sh rust-build"
+                )
+                self.assertTrue(
+                    any(
+                        step.get("with", {}).get("tool") == "cargo-fuzz@0.13.2"
+                        for step in steps
+                    )
+                )
+
     def test_reproducibility_selects_both_build_profiles(self) -> None:
         workflow = yaml.safe_load(
             (ROOT / ".github/workflows/reproducible.yml").read_text()
