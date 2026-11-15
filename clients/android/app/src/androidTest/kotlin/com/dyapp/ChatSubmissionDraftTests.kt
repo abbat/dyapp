@@ -1,12 +1,53 @@
 package com.dyapp
 
 import androidx.compose.runtime.mutableStateOf
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import uniffi.dyapp.ChatSubmission
+import java.io.File
+import kotlin.coroutines.CoroutineContext
 
 class ChatSubmissionDraftTests {
+    @Test
+    fun missingEditTargetNeverDispatchesANewMessageOrChangesTheDrafts() {
+        val form = ChatForm(mutableStateOf("edited text"))
+        form.editing.value = "missing target"
+        form.held.value = "held draft"
+        val previousStatus = ChatStatus(R.string.chat_edit_failed, "previous failure")
+        form.status = previousStatus
+        val pending = ArrayDeque<Runnable>()
+        val dispatcher = object : CoroutineDispatcher() {
+            override fun dispatch(context: CoroutineContext, block: Runnable) {
+                pending.addLast(block)
+            }
+        }
+        val scope = CoroutineScope(Job() + dispatcher)
+        // A presentation-only owner: this test must never open its native registry or storage.
+        val slot = Slot("stale-edit", File("build/unopened-stale-edit"), SlotState.READY)
+        val feed = ChatFeed(Opened.Ready(slot, "me"))
+        try {
+            scope.sendDraft(form, feed, "peer", emptyList())
+            assertTrue("A missing edit target dispatched a submission", pending.isEmpty())
+            assertFalse(form.sending)
+            assertSame(previousStatus, form.status)
+            assertEquals("edited text", form.draft.value)
+            assertEquals("held draft", form.held.value)
+            assertEquals("missing target", form.editing.value)
+        } finally {
+            scope.cancel()
+            // Cancellation drains a mistakenly dispatched task without running native IO.
+            while (pending.isNotEmpty()) pending.removeFirst().run()
+        }
+    }
+
     @Test
     fun rejectedTextKeepsTheDraftAndCommittedTextClearsIt() {
         val form = ChatForm(mutableStateOf("draft"))

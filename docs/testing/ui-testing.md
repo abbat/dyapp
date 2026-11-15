@@ -297,6 +297,11 @@ A second Android publish test checks and activates the emulator runner's loopbac
 (`10.0.2.2:33445`), publishes a saved draft and expects the signed readback on the form, then deletes the
 `network` and `network-draft` files so the other tests still start without an active network.
 
+Android draft-submission tests also pass an absent edit target to the production send path with
+an observed coroutine queue. It must dispatch no operation and preserve the edited text, held draft,
+target and status. The unopened presentation owner never accesses native storage; failure cleanup
+cancels and drains queued work instead of relying on timing.
+
 Android photo-confirmation regression tests invoke the production dialog's semantic callbacks
 before recomposition: Send/Send/Cancel must retain one admitted draft, and Cancel/Send must leave
 no draft or busy operation. Sender start/release signals control refusal and queued retry;

@@ -231,6 +231,9 @@ require the requested document's initialisation marker before measuring or accep
 Main-world WebKit UserScript probes need a private function scope: top-level declarations can
 collide with the page's own bindings. Resolve injected dynamic imports against `location.href`;
 the injected script itself may have no usable module URL.
+Transport probe JSON through script-message or evaluation-completion callbacks: WebKit can truncate
+long document titles. A decode error must fail the phase immediately, rather than leave it waiting
+for an unrelated completion deadline.
 
 Dialog `close()` clears `open` before its queued close event updates other visibility state.
 Tests must await close completion before reopening and require open plus visible readiness.
