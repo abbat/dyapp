@@ -106,6 +106,9 @@ Android network-policy tests use public API 31 `NetworkCapabilities.capabilities
 `addCapability`/`removeCapability` on `NetworkCapabilities` are hidden SDK APIs. Keep these
 tests independent of an emulator's live connection and callback timing.
 
+Detekt auto-correction rewrites every input file, including unchanged files. With a read-only
+checkout and writable overlays, scope its `--input` to those exact writable files.
+
 When changing Kotlin member APIs, search both qualified calls and unqualified calls inside
 extension functions. `ChatFeedActions.shareProfile` uses `history(peer)` and `send(peer, text)`
 without a receiver. `make lint-android` does not resolve method signatures; native Android CI

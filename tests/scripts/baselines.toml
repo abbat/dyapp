@@ -74,8 +74,6 @@ score = 72.2
 "com.dyapp.ProfileRemovalTests removeAnywayRemovesWithoutANode" = 2026-11-12
 # Android: after Save the network status kept the draft hint instead of the saved notice; the retry passed.
 "com.dyapp.NetworkDraftTests savedDraftSurvivesRestartAndFailedRowsBlockContinue" = 2026-11-13
-# Android: after the tap the read receipt switch did not show On within 5 s; the retry passed.
-"com.dyapp.ReadReceiptsTests theReadReceiptSwitchIsOffByDefaultAndStored" = 2026-11-12
 # iOS: the local-node check showed no row outcome within 30 s; the retry passed.
 "ChatsUITests testPeerRequestRepliesEditsClearsAndBlocks()" = 2026-11-21
 # iOS: the tap on the age field gave it no keyboard focus; the retry passed.

@@ -150,6 +150,11 @@ They wait for `document.fonts.ready` and two animation frames, with a
 text through input events and compares the field's current bounds and focus as Send
 appears/disappears; it does not assume a window coordinate or add a layout sleep.
 
+The Android read-receipt persistence test waits for the native-loaded enabled switch, invokes
+its semantic toggle action, then observes the completed state before reading native storage.
+Each transition uses the shared readiness deadline; recreation verifies persisted On before
+restoring Off. This persistence check does not depend on a tap coordinate during layout changes.
+
 Android profile-sharing coverage extends the existing two-peer request/reply test:
 the peer sends a profile link, the app opens it, shares through the destination
 picker, and checks delivery in the peer's history before testing card/back
