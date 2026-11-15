@@ -42,7 +42,7 @@ RUN cargo install cargo-ndk --version 4.1.2 --locked
 FROM android-base-tools AS jna-native-builder
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    autoconf automake libtool && rm -rf /var/lib/apt/lists/*
+    autoconf automake libtool libltdl-dev && rm -rf /var/lib/apt/lists/*
 COPY tools/jna-native.json /opt/jna-build/tools/jna-native.json
 COPY tools/scripts/jna_source.py tools/scripts/jna_native.py tools/scripts/jna_aar.py \
     tools/scripts/check-hardening.py /opt/jna-build/tools/scripts/
