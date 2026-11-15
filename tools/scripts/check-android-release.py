@@ -31,6 +31,13 @@ def verify(path: Path, kind: str) -> qc.AndroidArtifact:
         names = archive.namelist()
         if len(names) != len(set(names)):
             raise ValueError(f"{kind}: duplicate ZIP entries")
+        for name in names:
+            if not (name.startswith(f"{prefix}lib/") and name.endswith(".so")):
+                continue
+            parts = name.removeprefix(prefix).split("/")
+            if len(parts) != 3 or parts[1] not in ABIS:
+                raise ValueError(f"{kind}: unsupported native ABI: {name}")
+            libraries[name] = ABIS[parts[1]]
         for name in [manifest, dex, *libraries]:
             if name not in names or archive.getinfo(name).file_size == 0:
                 raise ValueError(f"{kind}: missing or empty {name}")

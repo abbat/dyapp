@@ -197,8 +197,9 @@ does not set `dyapp.prebuiltRust` and does not skip `lintVitalAnalyzeRelease`.
 
 `build.log` retains Gradle output. On success `packages.json` records APK/AAB
 bytes, SHA-256 and the required arm64-v8a/x86_64 entries. The verifier requires
-nonempty manifest/dex/library members, rejects duplicate ZIP names and checks
-64-bit little-endian ELF machine identifiers for the native libraries. This is
+nonempty manifest/dex/library members, rejects duplicate ZIP names and native ABIs
+outside arm64-v8a/x86_64, and checks 64-bit little-endian ELF machine identifiers
+for every native library, including dependency AAR payloads. This is
 structural verification, not a signature, full executable or installation test.
 The runner expects `app-release-unsigned.apk` and `app-release.aab` and copies
 both verified packages into the report directory. `release-sizes.yml` runs it on

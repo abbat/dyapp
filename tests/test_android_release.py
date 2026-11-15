@@ -48,10 +48,16 @@ def fixture(
 
 
 class AndroidPackages(unittest.TestCase):
+    build = ROOT / "build/android-release-tests"
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.build.mkdir(parents=True, exist_ok=True)
+
     def test_both_formats_require_both_correct_native_architectures(
         self,
     ) -> None:
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(dir=self.build) as directory:
             path = Path(directory) / "package.zip"
             for kind in ("apk", "aab"):
                 with self.subTest(kind=kind):
@@ -74,8 +80,44 @@ class AndroidPackages(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, "duplicate"):
                         CHECK.verify(path, kind)
 
+    def test_dependencies_require_supported_abis_and_matching_elfs(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(dir=self.build) as directory:
+            path = Path(directory) / "package.zip"
+            for kind in ("apk", "aab"):
+                prefix = "" if kind == "apk" else "base/"
+                fixture(path, kind)
+                with zipfile.ZipFile(path) as archive:
+                    valid = archive.read(f"{prefix}lib/x86_64/libdyapp_ffi.so")
+                wrong = bytearray(valid)
+                wrong[18:20] = CHECK.ABIS["arm64-v8a"].to_bytes(2, "little")
+                narrow = bytearray(valid)
+                narrow[4] = 1
+                cases: list[tuple[str, bytes | bytearray, str | None]] = [
+                    ("x86_64/libjnidispatch.so", valid, None),
+                    ("armeabi-v7a/libjnidispatch.so", valid, "unsupported"),
+                    ("x86/libjnidispatch.so", valid, "unsupported"),
+                    ("mips64/libjnidispatch.so", valid, "unsupported"),
+                    ("x86_64/nested/libjnidispatch.so", valid, "unsupported"),
+                    ("x86_64/libjnidispatch.so", wrong, "architecture"),
+                    ("x86_64/libjnidispatch.so", narrow, "architecture"),
+                    ("x86_64/libjnidispatch.so", valid[:32], "architecture"),
+                    ("x86_64/libjnidispatch.so", b"", "empty"),
+                ]
+                for native, data, error in cases:
+                    with self.subTest(kind=kind, native=native, error=error):
+                        fixture(path, kind)
+                        with zipfile.ZipFile(path, "a") as archive:
+                            archive.writestr(f"{prefix}lib/{native}", data)
+                        if error is None:
+                            CHECK.verify(path, kind)
+                        else:
+                            with self.assertRaisesRegex(ValueError, error):
+                                CHECK.verify(path, kind)
+
     def test_empty_or_absent_payload_and_invalid_zip_fail(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(dir=self.build) as directory:
             path = Path(directory) / "app.apk"
             with zipfile.ZipFile(path, "w") as archive:
                 archive.writestr("AndroidManifest.xml", b"")

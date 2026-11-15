@@ -141,6 +141,8 @@ def debugAbis = providers.gradleProperty('dyapp.debugAbis').map { it.split(',') 
 ['debug', 'release'].each { buildType ->
     def jniLibs = "$rustOut/$buildType/jniLibs"
     def abis = buildType == 'debug' ? debugAbis : ['arm64-v8a', 'x86_64']
+    // Dependency AARs must not advertise architectures without the selected Rust core.
+    android.buildTypes.getByName(buildType).ndk.abiFilters.addAll(abis)
     def cargoNdk = tasks.register("cargoNdk${buildType.capitalize()}", Exec) {
         onlyIf { !prebuiltRust }
         workingDir rustRoot

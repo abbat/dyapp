@@ -56,9 +56,11 @@ the NDK (`ANDROID_NDK_HOME`, r29 `29.0.14206865`) and a host C toolchain;
 `tests/docker/Dockerfile.android-test` installs all of them. The property
 `-Pdyapp.prebuiltRust` skips both tasks and reuses `build/rust` from an earlier
 build; the Docker unit-test run uses it because it has no Rust sources.
-`-Pdyapp.debugAbis=x86_64` (a comma-separated ABI list) limits `cargoNdkDebug`;
-the Docker test build passes it because its debug packages run only on the x86_64
-emulator. Release always builds both ABIs.
+`-Pdyapp.debugAbis=x86_64` (a comma-separated ABI list) limits both `cargoNdkDebug`
+and debug native-library packaging; the Docker test build passes it because its debug
+packages run only on the x86_64 emulator. Each build type applies the same ABI list to
+cargo-ndk and Gradle `ndk.abiFilters`, so dependency AARs cannot add architectures without
+the corresponding core. Release always builds and packages only arm64-v8a and x86_64.
 
 ## Apple
 
