@@ -201,7 +201,10 @@ cannot write a new mark. Equal-version records keep the held authority. State ob
 the durable new-device notice through Store before returning both flags; acknowledgement and
 unverify preserve device memory. A failed mark write does not imply the cache remained unchanged.
 
-The core context/state API is implemented; native UniFFI exports and desktop adoption remain planned.
+The core context/state API is implemented; native confirmation exports and desktop adoption remain planned.
+Native ProfileSearcher workers now retain this shared context for search and cached contact names.
+Bulk display fetch holds its guard from active-network loading through cache admission; it remains
+a display helper and cannot authorize a safety-number confirmation.
 Core contact_verification::shared retains one context for each canonical identity directory;
 independent worker handles share its lock and cache, while weak registry entries retain no idle
 identity. NetworkChecks activation holds that guard and clears the context before attempting the

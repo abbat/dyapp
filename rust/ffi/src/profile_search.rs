@@ -8,7 +8,7 @@ use crate::profile_publish::today;
 use crate::slot_operation::SlotWorker;
 use crate::{CoreError, MobileIdentityOperation, MobileIdentityRegistry};
 use crate::{IdentityKey, PublicProfileDraft};
-use dyapp_client::profiles::Profiles;
+use dyapp_client::contact_verification::{self, Context};
 use dyapp_client::search::{Employer, SearchFailure};
 use dyapp_p2p_net::proto;
 use dyapp_p2p_net::search_results::{mutual_conditions, Filter};
@@ -263,7 +263,7 @@ pub struct ProfileSearcher {
     pub(crate) dir: PathBuf,
     pub(crate) runtime: tokio::runtime::Runtime,
     /// Verified profiles from searches and fetches; see `contact_names`.
-    pub(crate) cache: Mutex<Profiles>,
+    pub(crate) cache: Arc<Mutex<Context>>,
     /// Other people's photos in memory; see `peer_photos`.
     pub(crate) photos: Mutex<PhotoCache>,
     binding: Option<SlotWorker>,
@@ -304,10 +304,11 @@ impl ProfileSearcher {
             .enable_all()
             .build()
             .map_err(failed)?;
+        let cache = contact_verification::shared(std::path::Path::new(&dir)).map_err(failed)?;
         Ok(Arc::new(Self {
             dir: dir.into(),
             runtime,
-            cache: Mutex::new(Profiles::default()),
+            cache,
             photos: Mutex::default(),
             binding,
         }))

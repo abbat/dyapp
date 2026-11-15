@@ -127,8 +127,18 @@ impl ProfileSearcher {
             return Ok(Vec::new());
         }
         let _operation = self.admit(None)?;
-        let found = fetch_profiles(&self.runtime, &self.dir, peer_ids)?;
+        self.fetch_and_cache(|| fetch_profiles(&self.runtime, &self.dir, peer_ids))
+    }
+}
+
+impl ProfileSearcher {
+    fn fetch_and_cache(
+        &self,
+        fetch: impl FnOnce() -> Result<Vec<VerifiedProfile>, CoreError>,
+    ) -> Result<Vec<FoundProfile>, CoreError> {
+        // Activation uses this same guard: an older fetch cannot populate a new context.
         let mut cache = self.cache.lock().map_err(failed)?;
+        let found = fetch()?;
         Ok(found
             .into_iter()
             .map(|verified| {
@@ -139,9 +149,7 @@ impl ProfileSearcher {
             })
             .collect())
     }
-}
 
-impl ProfileSearcher {
     fn read_contact_names(
         &self,
         key: &IdentityKey,
@@ -151,10 +159,14 @@ impl ProfileSearcher {
         let store = Store::open(&self.dir.join("client.db"), &key.identity).map_err(failed)?;
         peer_ids
             .into_iter()
-            .map(|peer_id| view(&store, cache.get(&peer_id), peer_id))
+            .map(|peer_id| view(&store, cache.profiles().get(&peer_id), peer_id))
             .collect()
     }
 }
+
+#[cfg(test)]
+#[path = "contact_names/shared_context_tests.rs"]
+mod shared_context_tests;
 
 #[cfg(test)]
 mod tests {

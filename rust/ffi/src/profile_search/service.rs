@@ -74,7 +74,7 @@ impl ProfileSearcher {
         let network = active_network(&self.dir)?;
         let conditions: Vec<proto::Condition> = conditions.into_iter().map(Into::into).collect();
         let (offered, mut failures, mut results) =
-            self.query(&network, &conditions, limit, &cache, &hidden)?;
+            self.query(&network, &conditions, limit, cache.profiles(), &hidden)?;
         Employer::from(employer).retain(&mut results.profiles);
         compatibility::rank(&own, &mut results.profiles);
         let profiles = results
