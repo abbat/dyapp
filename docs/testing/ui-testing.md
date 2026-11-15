@@ -1,5 +1,11 @@
 # UI Testing: Practical Guide
 
+Android profile-share navigation targets the success dialog action by
+`profile-share-open-chat`, then awaits the chat route and loaded composer as separate transitions.
+The two-peer journey retains bounded active tags/bounds and delivery details on failure.
+`ProfileShareDialogTests` physically clicks that action with a same-label background button,
+covering Accepted and Queued outcomes, exact destination, dialog close and no second send.
+
 Swift `ProfileDraftStoreTests` exercise raw profile inputs through the real shared parsers:
 optional and impossible birth parts, height bounds, numeric overflow, seeking normalization,
 unknown gender refusal and clearing disabled malformed fields. These deterministic input cases

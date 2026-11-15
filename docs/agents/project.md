@@ -58,6 +58,8 @@ another identity. Permission state is rechecked for every request; no IP/DNS pol
 into Kotlin. Pure callback tests do not prove API 37 socket enforcement: device coverage remains
 required. SDK-jar probes must compile main/debug and androidTest as separate Kotlin modules with
 the main jar as a friend path: merging source sets can falsely conflict on private/internal constants.
+Compile the actual device-test helper sources in that test module too; an existing Gradle output
+directory can lack their classes/metadata and produce false unresolved or private-constant errors.
 See [Android guidance](https://developer.android.com/privacy-and-security/local-network-permission).
 
 Android's theme paints the system-bar background and consumes safe-drawing insets at the

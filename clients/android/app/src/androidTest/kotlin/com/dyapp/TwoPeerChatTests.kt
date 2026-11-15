@@ -1,6 +1,8 @@
 package com.dyapp
 
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
@@ -11,7 +13,6 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
@@ -40,10 +41,23 @@ internal fun ownPeerId(): String {
     return (slots.open() as Opened.Ready).peerId
 }
 
+private fun ComposeTestRule.taggedBounds() = runCatching {
+    onAllNodes(
+        SemanticsMatcher("tagged") { SemanticsProperties.TestTag in it.config },
+        useUnmergedTree = true
+    ).fetchSemanticsNodes().take(40).map { "${it.config[SemanticsProperties.TestTag]}:${it.boundsInRoot}" }
+}.getOrNull()
+
 private fun ComposeTestRule.reopenSharedCard(peer: TestPeer, me: String, card: SemanticsMatcher) {
+    var stage = "share destination action"
     runCatching {
+        awaitNode(hasTestTag(PROFILE_SHARE_OPEN_CHAT_TAG) and isEnabled()).assertIsDisplayed().performClick()
+        stage = "chat route"
+        awaitNode(hasTestTag("chat"))
+        stage = "loaded chat"
         // A shell exists before IO finishes; enabled composing observes the loaded snapshot.
         awaitNode(hasTestTag("chat-input") and isEnabled())
+        stage = "shared card in loaded chat"
         onNodeWithTag("chat-thread").performScrollToNode(card)
         // Both messages contain this link; reveal the currently composed match before tapping.
         onAllNodes(card).onFirst().performScrollTo().performClick()
@@ -57,7 +71,10 @@ private fun ComposeTestRule.reopenSharedCard(peer: TestPeer, me: String, card: S
                 .map { it.text?.take(100) }
                 .takeLast(8)
         }.getOrNull()
-        throw AssertionError("Shared card: thread=$thread, status=$status, delivered=$received", failure)
+        throw AssertionError(
+            "Shared card $stage: tags=${taggedBounds()}, thread=$thread, status=$status, delivered=$received",
+            failure
+        )
     }
 }
 
@@ -170,9 +187,6 @@ class TwoPeerChatTests {
         compose.onNodeWithTag("view-share").performScrollTo().performClick()
         compose.onNodeWithTag("profile-share-${peer.peerId}").performClick()
         peer.awaitMessage(me, "the shared profile") { it.text == link }
-        val message = compose.activity.getString(R.string.view_message)
-        compose.waitUntil(CHECK_WAIT_MS) { compose.shown(hasText(message)) }
-        compose.onNodeWithText(message).performClick()
         compose.reopenSharedCard(peer, me, card)
         compose.onNodeWithTag("view-back").performClick()
         compose.waitForThreadText("Hello back")

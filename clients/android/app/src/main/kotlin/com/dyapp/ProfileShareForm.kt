@@ -19,6 +19,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+internal const val PROFILE_SHARE_OPEN_CHAT_TAG = "profile-share-open-chat"
+
 internal class ProfileShareForm {
     var shown by mutableStateOf(false)
     var sending by mutableStateOf(false)
@@ -76,7 +78,7 @@ internal fun ProfileShareDialog(
                 TextButton({
                     form.shown = false
                     openChat(target)
-                }) { Text(stringResource(R.string.view_message)) }
+                }, Modifier.testTag(PROFILE_SHARE_OPEN_CHAT_TAG)) { Text(stringResource(R.string.view_message)) }
             }
         },
         dismissButton = {
