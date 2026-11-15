@@ -14,6 +14,8 @@ pub use app_lock::{
     AppLockStorageError, MobileAppLock, MobileAppLockEntry, MobileAppLockFormat, MobileAppLockMode,
     MobileAppLockStorage, MobilePinAttempt,
 };
+mod app_lock_timer;
+pub use app_lock_timer::{MobileAppLockEvent, MobileAppLockSnapshot, MobileAppLockTimer};
 mod chat_composer;
 pub use chat_composer::{chat_composer_policy, ChatComposerPolicy};
 mod chat_links;
