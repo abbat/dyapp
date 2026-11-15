@@ -431,7 +431,8 @@ uses an injected clock to cover deadline reset, late completion and error propag
 waiting for real time. Android instrumentation CI must also run the real two-peer journeys.
 `ChatStickerHistoryTests` exercise the existing mixed-history fallback through `MediaChatContent`
 with adjacent text and both own/peer stickers, in English and Russian. Literal long pack names
-are located through semantic list scrolling; no pixel position or media download is needed.
+are located through semantic list scrolling and checked against the actual text layout's visual
+overflow result; no pixel position or media download is needed.
 This covers fallback presentation, while native sticker exchange and planned picker/image UI
 retain their separate acceptance.
 The queued outcome of a send has no two-peer test:
