@@ -417,6 +417,11 @@ match, messages, edits and deletes the text, and the peer receives each change; 
 blocks the peer and Chats shows the block note. After opening the match's chat, the test waits
 for the composer's enabled semantics with a deadline: navigation can finish before the IO history
 load, and Compose idleness alone does not cover that load.
+Android publishes local chat history before sending network read receipts. Refreshes coalesce behind
+an active local read instead of cancelling it; changing the conversation cancels its presentation
+owner, so a late native result cannot update the new conversation. `ChatReadEffectsTests` control
+read and acknowledgement completion independently: refresh during a read, delayed receipt delivery,
+late completion after owner replacement, and a failed read followed by a successful refresh.
 `TestPeer.awaitMessage` checks applied history and advances through completed synchronous FFI
 mailbox receives, without an artificial polling delay. Receive/history errors fail immediately.
 Each message/edit/delete transition starts a fresh monotonic failure deadline; a late operation

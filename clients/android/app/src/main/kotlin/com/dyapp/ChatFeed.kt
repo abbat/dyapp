@@ -77,7 +77,7 @@ internal class ChatFeed(internal val opened: Opened.Ready) {
             { photos.auto(peer) },
             { photo -> photos.send(peer, photo) }
         )
-    }.also { markRead(peer) }
+    }
 
     /** Core commitment results stay distinct from pre-commit failures and display status. */
     fun send(peer: String, text: String) = change { it.submitText(peer, text) }

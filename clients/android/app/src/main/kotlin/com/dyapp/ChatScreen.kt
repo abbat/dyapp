@@ -26,7 +26,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -39,8 +38,6 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import uniffi.dyapp.ChatDelivery
 import uniffi.dyapp.ChatHistory
 import uniffi.dyapp.ChatMessage
@@ -106,19 +103,11 @@ internal fun ChatScreen(
     onProfile: () -> Unit,
     onBack: () -> Unit,
 ) {
-    var snapshot by remember { mutableStateOf<ChatThreadSnapshot?>(null) }
-    val history = snapshot?.history
     val form = rememberChatForm()
+    val snapshot = rememberChatSnapshot(feed, peer, form)
+    val history = snapshot?.history
     val scope = rememberCoroutineScope()
     val photos = LocalPeerPhotos.current
-    LaunchedEffect(feed.version) {
-        withContext(Dispatchers.IO) { runCatching { feed.thread(peer) } }
-            .onSuccess { shown ->
-                if (history == null) form.status = null
-                snapshot = shown
-            }
-            .onFailure { if (history == null) form.status = ChatStatus(R.string.chat_load_failed, it.toString()) }
-    }
     BackHandler(onBack = onBack)
     val actions = ChatActions(
         onSend = { scope.sendDraft(form, feed, peer, history?.messages.orEmpty()) },
