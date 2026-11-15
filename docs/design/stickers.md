@@ -248,7 +248,9 @@ never becomes an application failure or permission to blindly resubmit. Success 
 or no-op, not delivery. Android has a non-UI real-node instrumentation scenario for native
 import/send, explicit pack save, authenticated collection/frame, bounded picker page, resend and
 recent-choice readback with hidden controls.
-Its device execution remains release acceptance work; mobile action UI remains planned.
+The ordinary Android instrumentation suite runs this scenario through JNI against its real node,
+including privacy checks for older unread text. It verifies the backend path; mobile action UI,
+reboot/upgrade and idle-policy acceptance remain separate work.
 
 Common `MobileIdentityOperation.remove_saved_sticker_pack` removes only an explicitly confirmed
 PackID through core storage. It needs identity admission but no chat/media sealing key, matching
