@@ -14,6 +14,8 @@ mod mail_pass;
 mod offline;
 #[path = "tests/photo_original.rs"]
 mod photo_original;
+#[path = "tests/photo_submission.rs"]
+mod photo_submission;
 #[path = "tests/saved_sticker.rs"]
 mod saved_sticker;
 #[path = "tests/sticker_collection.rs"]

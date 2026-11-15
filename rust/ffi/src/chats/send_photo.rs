@@ -8,7 +8,6 @@ use crate::peer_photos::reachable;
 use crate::profile_network::{active_network, on_network_stack};
 use crate::CoreError;
 use dyapp_client::attachment::{self, Attachment};
-use dyapp_client::photo::prepare::{validate_original, Purpose};
 use dyapp_client::session;
 use dyapp_client::store::Conversation;
 use dyapp_client::Error;
@@ -20,20 +19,7 @@ fn sealed(
     width: u32,
     height: u32,
 ) -> Result<(Attachment, Vec<u8>), CoreError> {
-    if !photo.starts_with(&[0xff, 0xd8]) {
-        return Err(failed("unsupported"));
-    }
-    validate_original(photo, width, height, Purpose::Chat).map_err(|_| failed("corrupted"))?;
-    if !preview.is_empty() {
-        crate::check_preview(preview.clone())?;
-    }
-    let (mut media, blob) = attachment::seal(photo).map_err(failed)?;
-    media.preview = preview;
-    media.mime = "image/jpeg".into();
-    media.width = width;
-    media.height = height;
-    media.check().map_err(failed)?;
-    Ok((media, blob))
+    attachment::prepared::seal(photo, preview, width, height).map_err(failed)
 }
 
 pub(super) fn send_error(error: session::Error) -> CoreError {

@@ -304,7 +304,12 @@ Core lookup tests additionally distinguish equal author/ID values across two gro
 original tests cover JPEG/PNG, unspecified and mismatched dimensions, literal sealed-byte/pixel
 boundaries, cache validation, block/clear during a selected fetch, owner isolation and deterministic
 cache write failure. Public native tests reopen both JPEG and PNG with unspecified geometry offline.
-These tests do not exercise actual platform image decoders. The embedded
+These tests do not exercise actual platform image decoders. Shared prepared-photo tests cover
+outgoing descriptor/encryption roundtrips, JPEG geometry, optional preview and separate chat/profile
+budgets. Public native photo-submission tests require own/blocked/non-open/unpublished, malformed
+input and no-network refusals to preserve exact history, sealed MLS state and outbox bytes through
+both strict and committed-result exports; these are pre-upload boundaries, not live node acceptance.
+The embedded
 desktop photo-identity regression holds one original response while completing the other group,
 then releases it and redraws both from a warm cache; it checks full IPC selectors and routing
 through completion promises without sleeps or pixel-color locators.

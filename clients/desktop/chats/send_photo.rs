@@ -14,24 +14,13 @@ use dyapp_p2p_net::proto::Status;
 
 use crate::search::ProfileCache;
 
-const JPEG_START: [u8; 2] = [0xFF, 0xD8];
-
 fn sealed(
     photo: &[u8],
     preview: Vec<u8>,
     width: u32,
     height: u32,
 ) -> Result<(Attachment, Vec<u8>), String> {
-    if !photo.starts_with(&JPEG_START) {
-        return Err("unsupported".into());
-    }
-    crate::chat_photos::check_image(photo)?;
-    let (mut attachment, blob) = attachment::seal(photo).map_err(|e| e.to_string())?;
-    attachment.preview = preview;
-    attachment.mime = "image/jpeg".into();
-    attachment.width = width;
-    attachment.height = height;
-    Ok((attachment, blob))
+    attachment::prepared::seal(photo, preview, width, height).map_err(|error| error.to_string())
 }
 
 /// The page's code for a node refusal; anything else is shown as it is.
@@ -122,13 +111,16 @@ mod tests {
     #[test]
     fn only_a_jpeg_is_sealed_with_its_claims() {
         let photo = encoded(ImageFormat::Jpeg);
-        let (sent, blob) = sealed(&photo, vec![1], 3, 2).unwrap();
+        let preview = encoded(ImageFormat::Jpeg);
+        let (sent, blob) = sealed(&photo, preview.clone(), 3, 2).unwrap();
         assert_eq!(attachment::open(&sent, &blob).unwrap(), photo);
         assert_eq!(
             (sent.mime.as_str(), sent.width, sent.height),
             ("image/jpeg", 3, 2)
         );
-        assert_eq!(sent.preview, [1]);
+        assert_eq!(sent.preview, preview);
+        assert!(sealed(&photo, vec![1], 3, 2).is_err());
+        assert_eq!(sealed(&photo, Vec::new(), 2, 3).unwrap_err(), "corrupted");
         let refused = sealed(&encoded(ImageFormat::Png), Vec::new(), 3, 2);
         assert_eq!(refused.unwrap_err(), "unsupported");
         assert_eq!(

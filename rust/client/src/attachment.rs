@@ -3,6 +3,7 @@
 //! [`Attachment`] goes inside the MLS message; only its members can fetch, check and open the blob.
 
 pub mod original;
+pub mod prepared;
 
 use crate::Error;
 use aes_gcm::aead::{Aead, KeyInit, Payload};

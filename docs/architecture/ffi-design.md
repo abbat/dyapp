@@ -316,6 +316,10 @@ The iOS pipeline switch remains planned.
 64-million-pixel cap and descriptor/frame dimension agreement before native decoding.
 Mobile chat send retains the composer budget of 6,000,000 bytes; profile validation retains
 its separate 1 MiB limit. Incoming chat originals use the shared attachment policy below.
+`dyapp_client::attachment::prepared::seal` validates the outgoing JPEG, exact nonzero dimensions
+and optional bounded JPEG preview, then encrypts and builds the descriptor. Native and Tauri send
+adapters both delegate; Tauri passes the output of its preceding shared RGBA preparation. A node
+upload refusal precedes message commitment, while a committed delivery failure retains its ID.
 Framing checks do not replace the platform decoder's validation of compressed pixel data.
 
 `dyapp_client::attachment::original::stored` owns blocked-peer admission and exact stored-photo
