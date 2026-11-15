@@ -195,6 +195,8 @@ wall time fails skew admission before reaching the behavior under test.
 `Store::draft_chat_text` proposes a timestamp without committing clock advancement. A trusted
 record-only fixture must choose ordering HLCs explicitly from stored messages; sequential draft
 calls or a later wall-clock read do not guarantee a later history position.
+Node acceptance keeps ordinary mailbox writes durable until recipient receipts, with slower retries.
+Submission tests compare prepared IDs/bytes; `Accepted` does not imply an empty outbox.
 
 Importer boundary tests use literal protocol byte limits and assert the specific rejection
 stage. Using the production limit in a fixture, or accepting a later digest/decoder failure,

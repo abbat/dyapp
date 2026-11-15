@@ -35,6 +35,32 @@ impl Fixture {
             wrapped,
         }
     }
+
+    pub(super) fn reopen(self) -> Self {
+        let Fixture {
+            chats,
+            key,
+            device,
+            dir,
+            wrapped,
+        } = self;
+        drop(chats);
+        let chats = ChatSession::open(
+            dir.clone(),
+            key.clone(),
+            device.clone(),
+            Arc::new(TestStore),
+            wrapped.clone(),
+        )
+        .unwrap();
+        Fixture {
+            chats,
+            key,
+            device,
+            dir,
+            wrapped,
+        }
+    }
 }
 
 #[test]

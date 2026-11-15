@@ -1,7 +1,7 @@
 //! Public photo reads over trusted stored history; this is not upload or MLS receive coverage.
 use super::favorites::Fixture;
 use super::offline::{establish, snapshot};
-use super::{ChatSession, Store, TestStore};
+use super::{ChatSession, Store};
 use crate::{ChatItem, ChatPhoto, CoreError};
 use dyapp_client::attachment::{self, Attachment};
 use dyapp_client::chat::{AttachmentMessage, Body};
@@ -10,7 +10,6 @@ use dyapp_client::store::originals;
 use image::{ImageFormat, RgbImage};
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 fn jpeg() -> Vec<u8> {
     let mut bytes = Cursor::new(Vec::new());
@@ -97,32 +96,6 @@ fn keep(f: &Fixture, attachment: &Attachment, bytes: &[u8]) -> PathBuf {
     files.pop().unwrap()
 }
 
-fn reopen(f: Fixture) -> Fixture {
-    let Fixture {
-        chats,
-        key,
-        device,
-        dir,
-        wrapped,
-    } = f;
-    drop(chats);
-    let chats = ChatSession::open(
-        dir.clone(),
-        key.clone(),
-        device.clone(),
-        Arc::new(TestStore),
-        wrapped.clone(),
-    )
-    .unwrap();
-    Fixture {
-        chats,
-        key,
-        device,
-        dir,
-        wrapped,
-    }
-}
-
 fn ids(items: &[ChatItem]) -> Vec<Vec<u8>> {
     items
         .iter()
@@ -161,7 +134,7 @@ fn populated_photo_history_and_cached_original_survive_native_reopen_offline() {
     assert_eq!(read(&f.chats, &peer, &item).unwrap(), bytes);
     assert_eq!(snapshot(&f), before);
 
-    let f = reopen(f);
+    let f = f.reopen();
     assert_eq!(ids(&f.chats.chat_items(peer.clone()).unwrap()), expected);
     assert_eq!(f.chats.chat_photos(peer.clone()).unwrap(), [item.clone()]);
     assert_eq!(read(&f.chats, &peer, &item).unwrap(), bytes);
@@ -293,7 +266,7 @@ fn incoming_jpeg_and_png_with_unspecified_geometry_reopen_from_cache_offline() {
         // MIME claims do not override the actual format; zero geometry is valid on the wire.
         let (item, attachment) = record(&f, &peer, &bytes, 0, 0);
         keep(&f, &attachment, &bytes);
-        let f = reopen(f);
+        let f = f.reopen();
         let before = snapshot(&f);
         assert_eq!(read(&f.chats, &peer, &item).unwrap(), bytes);
         assert_eq!(snapshot(&f), before);

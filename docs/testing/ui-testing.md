@@ -309,6 +309,13 @@ outgoing descriptor/encryption roundtrips, JPEG geometry, optional preview and s
 budgets. Public native photo-submission tests require own/blocked/non-open/unpublished, malformed
 input and no-network refusals to preserve exact history, sealed MLS state and outbox bytes through
 both strict and committed-result exports; these are pre-upload boundaries, not live node acceptance.
+A separate loopback libp2p responder exercises the public photo submission over actual signed
+attach/blob/mailbox requests: upload FULL/TooLarge preserves state, post-upload mailbox refusal
+retains one ID and exact retry bytes after reopening, and accepted submission fetches the exact
+uploaded original before reopening its sealed cache offline. Listener readiness and completed wire
+responses drive transitions; unrelated swarm traffic does not renew failure deadlines. Queue retry
+uses a fresh responder after disk reopening, and stop signals plus thread joins own teardown.
+This controlled responder does not prove production node quotas/auth policy, peer MLS receive or JNI.
 The embedded
 desktop photo-identity regression holds one original response while completing the other group,
 then releases it and redraws both from a warm cache; it checks full IPC selectors and routing
