@@ -271,6 +271,16 @@ contact comparison tickets on same-settings activation, rejected requests and se
 after replacement, so late search/chat results cannot repopulate the cache. UI callback guards are specified in the
 [desktop runtime lifecycle](../design/desktop-runtime-lifecycle.md).
 
+## Client update metadata
+
+`dyapp_client::updates::feed` parses bounded schema-1 stable feed bytes into typed
+platform releases, rejects ambiguous/unsupported known metadata and constructs
+only fixed official release information pages. It has no HTTP, persistence or
+notification side effects. A parsed feed is not authenticated release evidence;
+transport-origin checks, rollback state and platform-pinned delivery remain
+separate requirements. Native update exports and client controls stay disabled
+until live-feed integration is verified.
+
 ## Shared peer-photo cache
 
 dyapp_client::peer_photo_cache::Cache owns the 256-thumbnail / 8-full-image LRU limits, missing-hash

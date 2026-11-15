@@ -3,10 +3,11 @@
 Status: client checks and live Pages verification are pending.
 No client currently checks for updates. The tagged release workflow packages
 `dyappd`, Linux and Windows clients, and stages a verified client update feed.
-The shared Rust client core now provides strict stable-version parsing and pure
-check-cadence rules in `rust/client/src/updates.rs`. It has no network or storage
-side effects. Platform apps still need to persist check state, run timers,
-coalesce requests and fetch a live verified feed before enabling controls.
+The shared Rust client core now provides strict stable-version parsing, pure
+check-cadence rules and bounded feed-schema validation in `rust/client/src/updates.rs`
+and `updates/feed.rs`. These have no network or storage side effects. Shared-core transport validation, persisted app-wide state and request coalescing
+remain planned. Platform adapters still need lifecycle/timer hooks to invoke that
+API after live-feed verification, before enabling controls.
 
 ## Goal and boundary
 
@@ -73,6 +74,21 @@ tag reads the last deployed feed. It reads the
 prior feed from the fixed HTTPS URL without redirects, with a 64 KiB limit.
 A 404 is accepted only for the initial `v0.0.1` tag; later missing or malformed
 prior feeds fail the release workflow. Server-only tags keep prior client targets.
+
+### Client data boundary
+
+`updates::feed::Feed::parse` admits at most 64 KiB and requires schema 1 and the
+stable channel. Known target records have only version, matching tag and a
+supported string method. Duplicate fields/target IDs, extra known-target fields
+(including URLs and unknown compatibility requirements), malformed versions and
+unsupported methods fail closed. Unknown future target IDs are ignored.
+
+The typed result constructs the official information page from validated numeric
+version components. Missing targets remain absent; parsing does not prove an
+installed version is current. It authenticates neither hosting origin nor
+publisher, and a store method still needs a separately verified pinned listing.
+Transport-origin validation, persisted rollback/cadence state, native exports and
+client activation remain pending. Offline parsing does not enable any check.
 
 ### Offline feed generator checkpoint
 

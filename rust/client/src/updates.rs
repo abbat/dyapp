@@ -1,4 +1,7 @@
-//! Pure stable-version and update-check cadence rules. The app owns persistence and HTTP.
+//! Pure stable-version, feed-schema and update-check cadence rules.
+//! Transport and persistence integration are not implemented here.
+
+pub mod feed;
 
 /// A stable release version, compared by numeric components.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
