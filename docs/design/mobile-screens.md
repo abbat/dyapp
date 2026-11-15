@@ -156,7 +156,9 @@ The IDs inside each section are the desktop ones; only the frame differs.
   flow, see [desktop-screens.md](desktop-screens.md#linking-this-computer).
 - Settings, `settings`: `settings-identities` (`settings-remove`, `settings-remove-2`,
   `settings-create`), the `lock-settings` row, `blocked` (`retry-revocation-1`, `unblock-1`, `blocked-none`), `passed` (`unpass-1`,
-  `passed-none`), `theme` (`theme-system`,
+  `passed-none`). In the static prototype, blocked and passed rows wrap their actions when
+  their intrinsic text widths exceed the card; identifiers retain space and action labels remain
+  complete at enlarged text sizes. Appearance uses `theme` (`theme-system`,
   `theme-light`, `theme-dark`) and `language` (`language-system`, `language-en`, `language-ru`),
   `privacy` (`send-views`, `send-read-receipts`, `send-typing`, `presence-audience`,
   `message-notifications`, `notice-content` with `notice-fixed`, `notice-name` and `notice-text`)

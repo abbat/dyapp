@@ -434,6 +434,20 @@ pre {
   display: flex;
   flex-direction: column;
 }
+#blocked .list-item,
+#passed .list-item {
+  flex-wrap: wrap;
+}
+#blocked .list-item code.grow,
+#passed .list-item code.grow {
+  flex: 1 1 auto;
+  min-width: min-content;
+}
+#blocked .list-item .btn,
+#passed .list-item .btn {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
 .ellipsis {
   white-space: nowrap;
   overflow: hidden;
