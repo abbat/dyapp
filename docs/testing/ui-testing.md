@@ -32,6 +32,8 @@ profile, including lanes without a separate node binary. A local own-profile car
 real safety UI, native QR and clipboard commands; it does not establish online search or peer
 authentication coverage. Geometry checks cover hidden status, visible status and QR preview.
 Unknown non-empty smoke steps fail explicitly; the runner checks that rejection separately.
+Linux, Windows and macOS CI retain `desktop-ui-results.json` with named case results alongside
+the captured diagnostic output; a green job alone does not establish coverage of a named case.
 Native keyboard checks wait for document focus through the window focus event and a deadline;
 restoring a desktop window also requests native focus. Opaque modal accessibility audits temporarily
 hide background paint outside the active dialog, preserving layout and restoring inline visibility

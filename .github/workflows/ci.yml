@@ -123,6 +123,7 @@ jobs:
           name: linux-check-output
           path: |
             build/platform-check-output/
+            ${{ runner.temp }}/desktop-ui-results.json
             build/complexity/linux/*/clippy.stderr
             build/complexity/linux/*/clippy.jsonl
             build/complexity/linux/*/report.json
