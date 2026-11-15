@@ -312,6 +312,9 @@ Core unit tests cover header limits and actual first-frame decoding: RGB/RGBA,
 transparent rejection, first-frame animation behavior, corrupt compressed content,
 and the 512-pixel output boundary. A 54-byte lossy VP8 vector and its expected RGBA
 were generated independently with libwebp 1.5.0; encoder parameters are in the test.
+The fuzz corpus also retains an animation whose first VP8 frame has only its header;
+its RIFF/frame lengths remain valid. A core regression requires successful container checks
+followed by actual decoder rejection, covering corrupt animation beyond the header guard.
 These small vectors do not establish representative CPU/memory or release-size cost.
 Decoder fuzzing is configured in the push and nightly suites; successful CI runs
 and representative measurements remain release checks.

@@ -101,6 +101,19 @@ fn animation_decodes_only_the_first_canvas() {
 }
 
 #[test]
+fn corrupt_animated_pixels_reach_the_decoder_and_are_refused() {
+    let bytes = include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/fuzz/corpus/sticker_webp/corrupt-animated.webp"
+    ));
+    check_header(bytes).unwrap();
+    assert!(matches!(
+        first_frame(bytes),
+        Err("invalid WebP" | "invalid WebP first frame")
+    ));
+}
+
+#[test]
 fn valid_header_does_not_authorize_corrupt_pixels() {
     let bytes = encoded(&[20, 30, 40], 1, 1, ColorType::Rgb8);
     let payload = &bytes[20..25]; // VP8L signature and dimension header, no pixels.
