@@ -1,167 +1,119 @@
 import XCTest
 
-/// Form rows outside the screen are created only once scrolled into view, so drag the form up
-/// (`above`: down, for a row above the screen) until `element` can be tapped or `timeout` passes,
-/// with at least twelve drags.
+/// Virtual rows are revealed with completed native gestures and fresh geometry per step.
 @MainActor
 @discardableResult
 func reveal(
     _ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterval = 30,
     above: Bool = false
 ) -> XCUIElement {
-    let deadline = Date().addingTimeInterval(timeout)
-    // A row's identifier can reach each text in it, and a frame read from an element with two
-    // matches fails the test.
     let row = element.firstMatch
-    // Drag in the upper half, where the keyboard of an edited field does not reach, and in the
-    // right margin, so a text editor under the finger does not scroll its own text instead.
-    let drag = { (from: CGFloat, to: CGFloat) in
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: from))
-            .press(
-                forDuration: 0.05,
-                thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: to)))
-    }
-    // A drag takes about 6 s on a slow CI simulator, so a timeout alone can stop short of a row
-    // a dozen drags down the form with doubled strings; that many always run.
-    var drags = 0
-    // A row's frame and `isHittable` fail the test when the row vanished since `exists`, and
-    // `isHittable` does so for a row of a screen still sliding in, with an empty frame. A
-    // snapshot throws instead and gives existence and frame at once.
-    let onScreen = { () -> CGRect? in
-        guard let frame = try? row.snapshot().frame, !frame.isEmpty, app.frame.intersects(frame)
-        else { return nil }
-        return frame
-    }
-    // `up` drags the form down, toward rows above the screen.
-    let search = { (up: Bool, most: Int) in
-        var made = 0
-        while !(onScreen() != nil && row.isHittable) && made < most
-            && (Date() < deadline || drags < 12)
-        {
-            if up { drag(0.2, 0.35) } else { drag(0.35, 0.2) }
-            drags += 1
-            made += 1
+    var deadline = Date().addingTimeInterval(timeout)
+    var visited = Set<String>()
+    while Date() < deadline {
+        let visible = revealViewport(app)
+        let frame = try? row.snapshot().frame
+        if let frame, revealFits(frame, in: visible), row.isHittable { return element }
+        let anchors = revealAnchors(app, visible: visible)
+        let state = "\(visible)|\(anchors)"
+        guard visited.insert(state).inserted,
+            let drag = revealDrag(
+                anchors: anchors.map(\.frame), visible: visible,
+                target: frame.flatMap { $0.isEmpty ? nil : $0 },
+                above: above)
+        else {
+            XCTFail(
+                "Cannot reveal \(row.identifier): frame=\(String(describing: frame)), viewport=\(visible)"
+            )
+            return element
         }
-    }
-    search(above, .max)
-    // A row under the navigation bar, or past the form's end above the App lock button and the
-    // keyboard, still reports hittable, but a tap on its centre lands on what covers it. So move
-    // it by its own frame. This drag can lose the row: the form jumps back to its top, or the
-    // drag overshoots and the row is past the screen's edge it was moved toward. So look that way
-    // first, then search again; a later pass moves the row found after such a jump.
-    for _ in 0..<3 {
-        guard let found = onScreen() else { break }
-        let area = visibleArea(of: app)
-        let centre = found.midY
-        guard centre < area.lowerBound + halfRow || centre > area.upperBound - halfRow else {
-            break
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        let originFrame = app.frame
+        func coordinate(_ point: CGPoint) -> XCUICoordinate {
+            origin.withOffset(
+                CGVector(dx: point.x - originFrame.minX, dy: point.y - originFrame.minY))
         }
-        print("reveal: \(row.identifier) at \(found), visible y \(area), dragging")
-        let span = area.upperBound - area.lowerBound - 2 * halfRow
-        let distance = min(max(centre - (area.lowerBound + area.upperBound) / 2, -span), span)
-        let start = distance > 0 ? area.upperBound - halfRow : area.lowerBound + halfRow
-        let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0))
-        edge.withOffset(CGVector(dx: 0, dy: start))
-            .press(
-                forDuration: 0.05,
-                thenDragTo: edge.withOffset(CGVector(dx: 0, dy: start - distance)))
-        if onScreen() == nil { search(distance > 0, 3) }
-        search(above, .max)
+        coordinate(drag.start).press(forDuration: 0, thenDragTo: coordinate(drag.end))
+        let nextVisible = revealViewport(app)
+        let next = "\(nextVisible)|\(revealAnchors(app, visible: nextVisible))"
+        guard next != state else {
+            XCTFail("Form made no scroll progress revealing \(row.identifier), viewport=\(visible)")
+            return element
+        }
+        deadline = Date().addingTimeInterval(timeout)
     }
+    XCTFail("Reveal deadline exceeded for \(row.identifier)")
     return element
 }
 
-/// A tap on a row's centre this close to the visible area's edge can land on what covers the row.
-private let halfRow: CGFloat = 22
-
-/// Where a form row can take a tap: the form runs under the navigation bar and ends above the App
-/// lock button, and the keyboard can cover it too. Read it anew each time: the keyboard moves it.
 @MainActor
-private func visibleArea(of app: XCUIApplication) -> ClosedRange<CGFloat> {
-    let bar = app.navigationBars.firstMatch
-    let keyboard = app.keyboards.firstMatch
-    // Older iOS builds a form from a table.
-    let form =
-        app.collectionViews.firstMatch.exists
-        ? app.collectionViews.firstMatch : app.tables.firstMatch
-    let top = bar.exists ? bar.frame.maxY : app.frame.minY
-    let bottom = min(
-        form.exists ? form.frame.maxY : app.frame.maxY,
-        keyboard.exists ? keyboard.frame.minY : app.frame.maxY)
-    // A small area, as under a sheet: fall back to the whole screen rather than a broken range.
-    return top < bottom ? top...bottom : app.frame.minY...app.frame.maxY
+private func ready(_ control: XCUIElement, timeout: TimeInterval = 10) -> Bool {
+    let result = XCTWaiter.wait(
+        for: [
+            XCTNSPredicateExpectation(
+                predicate: NSPredicate(
+                    format: "exists == true AND enabled == true AND hittable == true"),
+                object: control)
+        ], timeout: timeout)
+    XCTAssertEqual(result, .completed, "Control not ready: \(control.identifier)")
+    return result == .completed
 }
 
-/// Reveals a field of a form that is off while its draft loads: a tap then gives it no focus.
+/// Draft loading, scrolling and focus readiness are independent completed transitions.
 @MainActor
 func revealEditable(_ field: XCUIElement, in app: XCUIApplication) {
     reveal(field, in: app)
-    XCTAssertEqual(
-        XCTWaiter.wait(
-            for: [
-                XCTNSPredicateExpectation(
-                    predicate: NSPredicate(format: "enabled == true"), object: field
-                )
-            ], timeout: 30), .completed, app.debugDescription)
+    guard ready(field, timeout: 30) else { return }
     reveal(field, in: app)
 }
 
-/// Reveals a form switch and taps it: its row's centre is the label; newer iOS nests the tappable
-/// switch inside the row, older iOS has none and the switch sits at the trailing edge.
+/// Tap the actual native switch once; never retry a toggle that might hide a real state reset.
+@MainActor
+private func setSwitch(
+    _ toggle: XCUIElement, value: String, in app: XCUIApplication, above: Bool = false
+) -> Bool {
+    reveal(toggle, in: app, above: above)
+    guard ready(toggle) else { return false }
+    if toggle.value as? String == value { return true }
+    let nested = toggle.switches.firstMatch
+    let control = nested.exists ? nested : toggle
+    guard ready(control) else { return false }
+    control.tap()
+    let result = XCTWaiter.wait(
+        for: [
+            XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "value == %@", value), object: toggle)
+        ], timeout: 10)
+    XCTAssertEqual(
+        result, .completed,
+        "Switch \(toggle.identifier) did not reach \(value); row=\(String(describing: toggle.value)), control=\(String(describing: control.value))"
+    )
+    return result == .completed
+}
+
 @MainActor
 func flip(_ toggle: XCUIElement, in app: XCUIApplication, above: Bool = false) {
     reveal(toggle, in: app, above: above)
-    let knob = toggle.switches.firstMatch
-    if knob.exists {
-        knob.tap()
-    } else {
-        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+    guard ready(toggle), let value = toggle.value as? String, ["0", "1"].contains(value) else {
+        XCTFail("Switch has no ready binary state: \(toggle.identifier)")
+        return
     }
+    _ = setSwitch(toggle, value: value == "0" ? "1" : "0", in: app, above: above)
 }
 
-/// Give both fresh confirmations, then start the proof and publish.
+/// Confirm the required state, observe each completion, then start proof and publication.
 @MainActor
 func publish(_ app: XCUIApplication) {
     for id in ["profile-confirm-adult", "profile-confirm-public"] {
-        let toggle = app.switches[id]
-        reveal(toggle, in: app)
-        XCTAssertEqual(
-            XCTWaiter.wait(
-                for: [
-                    XCTNSPredicateExpectation(
-                        predicate: NSPredicate(format: "enabled == true"), object: toggle
-                    )
-                ], timeout: 10), .completed)
-        // The row's centre is its label; newer iOS nests the tappable switch inside the row,
-        // older iOS has none and the switch sits at the trailing edge.
-        let knob = toggle.switches.firstMatch
-        if knob.exists {
-            knob.tap()
-        } else {
-            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
-        }
-        XCTAssertEqual(
-            XCTWaiter.wait(
-                for: [
-                    XCTNSPredicateExpectation(
-                        predicate: NSPredicate(format: "value == '1'"), object: toggle
-                    )
-                ], timeout: 10), .completed)
+        guard setSwitch(app.switches[id], value: "1", in: app) else { return }
     }
     let button = app.buttons["profile-prepare-publish"]
     reveal(button, in: app)
-    XCTAssertEqual(
-        XCTWaiter.wait(
-            for: [
-                XCTNSPredicateExpectation(
-                    predicate: NSPredicate(format: "enabled == true"), object: button
-                )
-            ], timeout: 10), .completed)
+    guard ready(button) else { return }
     button.tap()
 }
 
-/// Fast typing into the SwiftUI text editor reorders characters on a slow simulator, so type
-/// one character per call: each call first waits for the app to go idle.
+/// Per-character native calls await app idleness; fast TextEditor typing can reorder input.
 @MainActor
 func typeSlowly(_ text: String, into element: XCUIElement) {
     for character in text { element.typeText(String(character)) }

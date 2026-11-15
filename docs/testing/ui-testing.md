@@ -13,7 +13,12 @@ need native iOS CI; Swift formatting/lint alone does not prove binding execution
 
 `RevealGeometryTests` checks form-scroll planning against actual label rectangles, viewport edges,
 keyboard-reduced space and partially covered or oversized rows. These pure geometry cases run in
-native iOS CI; integration with the accessibility-driven form helper remains a separate check.
+native iOS CI. `reveal` recalculates the form viewport and noneditable accessibility-label anchors
+for every completed native drag, resets its failure deadline only after changed geometry, and
+rejects repeated/no-progress states. Switch helpers await the actual native control's enabled and
+hittable state, tap once, and observe the required value; publication never blindly toggles an
+already-confirmed value. Chat journeys stop at their first failed preparation assertion.
+Native execution remains CI-only; Swift lint does not establish simulator behaviour.
 
 Linux, Windows and macOS injected desktop smoke suites require the opt-in Cargo feature `ui-smoke`.
 `linux-test.sh` and native Windows CI enable it explicitly; ordinary builds and release packages

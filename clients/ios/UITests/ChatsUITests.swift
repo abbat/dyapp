@@ -3,6 +3,11 @@ import XCTest
 // XCUIApplication is main-actor isolated.
 @MainActor
 final class ChatsUITests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        continueAfterFailure = false
+    }
+
     /// A fresh identity has empty lists, and the row counts come without any fetch.
     func testNewIdentityHasEmptyLists() {
         let app = XCUIApplication()
