@@ -1,0 +1,36 @@
+repositories {
+    maven { url = uri('repo') }
+}
+configurations.create('probe') {
+    canBeConsumed = false
+    canBeResolved = true
+}
+def probeManifest = new JsonSlurper().parse(file('prepared/manifest.json'))
+dependencies {
+    probe(probeManifest.coordinate + '@aar')
+}
+tasks.register('verifyJnaTransform') {
+    doLast {
+        def artifact = configurations.probe.singleFile
+        assert HardenedJnaTransform.sha256(artifact.bytes) == probeManifest.sha256
+        def components = configurations.probe.incoming.resolutionResult.allComponents
+        assert components.any { it.id.displayName == probeManifest.coordinate }
+        def cases = new JsonSlurper().parse(file('cases.json'))
+        def original = file('repo/net/java/dev/jna/jna/' +
+            probeManifest.coordinate.split(':')[-1] + '/' + probeManifest.upstream_filename)
+        cases.each { sample ->
+            boolean refused = false
+            try {
+                HardenedJnaTransform.verifiedArtifact(original, file(sample.directory))
+            } catch (Exception failure) {
+                assert failure.message.contains(sample.message): failure.toString()
+                refused = true
+            }
+            assert refused: "Accepted invalid JNA fixture ${sample.name}"
+        }
+        file('report.json').text = groovy.json.JsonOutput.toJson([
+            cases: cases.size(), coordinate: probeManifest.coordinate,
+            sha256: HardenedJnaTransform.sha256(artifact.bytes)
+        ])
+    }
+}

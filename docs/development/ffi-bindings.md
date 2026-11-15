@@ -83,8 +83,16 @@ both API 31 slices and checks their JNI exports against the original AAR. Work a
 NDK paths must contain no spaces or make metacharacters. The pinned native API
 version is checked against the original Java bytecode rather than the upstream
 Makefile default. The output manifest records source, Java, native and AAR hashes.
-Gradle consumption of this prepared artifact remains planned; ordinary app builds
-currently resolve the upstream JNA AAR.
+The app applies `clients/android/harden-jna.gradle`: a cacheable AAR transform keeps
+`net.java.dev.jna:jna` as the Maven component and verifies the schema, Maven version,
+original/prepared AAR hashes, all non-JNI resources and both JNI hashes before copying
+prepared bytes. Other AARs pass through. Missing or mismatched prepared input fails
+the build without a fallback to the original JNI library. Local verification can set
+`-Pdyapp.jnaNativeDir=/absolute/prepared/directory`; normal builds use the image path.
+The Android unit suite runs `tests/scripts/check-jna-transform.py` against pinned
+Gradle and cached real JNA artifacts: positive resolution, invalid provenance/payloads
+and cache invalidation after a changed prepared artifact. Reports retain the two
+Gradle logs; successful checks print one summary line.
 
 ## Apple
 

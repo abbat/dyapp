@@ -85,3 +85,4 @@ RUN cd clients/android && ./gradlew --no-daemon -Pdyapp.debugAbis=x86_64 \
     rm -rf ../../build/android/app/outputs/apk/release ../../build/android/app/outputs/bundle/release
 COPY tools/scripts tools/scripts
 COPY tests/scripts tests/scripts
+COPY tests/fixtures/jna-transform.gradle tests/fixtures/jna-transform.gradle

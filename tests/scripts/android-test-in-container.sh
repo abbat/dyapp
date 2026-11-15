@@ -51,6 +51,7 @@ case "${1:?suite required}" in
         # The Rust sources are not copied here: reuse the core and bindings of the build suite.
         sh ./gradlew --offline --no-daemon --rerun-tasks -Pdyapp.prebuiltRust :app:testDebugUnitTest
         python3 /app/tests/scripts/check-junit-results.py /tmp/build/android/app/test-results/testDebugUnitTest
+        python3 -B /app/tests/scripts/check-jna-transform.py --work "$report_dir/jna-transform"
         ;;
     emulator)
         export ANDROID_USER_HOME=/home/appuser/.android

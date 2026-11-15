@@ -3,6 +3,8 @@ plugins {
     id 'org.jetbrains.kotlin.plugin.compose'
 }
 
+apply from: '../harden-jna.gradle'
+
 kotlin {
     compilerOptions {
         allWarningsAsErrors = true
