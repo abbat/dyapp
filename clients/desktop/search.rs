@@ -415,28 +415,8 @@ mod tests {
             name: String::new(),
         };
         network::save(&dir, Settings::Active, &first).unwrap();
-        let verified = verified_fixture_profile;
-        let prior_profile = verified(&Identity::from_secret(&[2; 32]));
-        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
-        let (resume_tx, resume_rx) = tokio::sync::oneshot::channel();
-        let cache = Arc::clone(&state.0);
-        let worker = tokio::spawn(async move {
-            let (epoch, _) = cache.lock().unwrap().snapshot().unwrap();
-            started_tx.send(()).unwrap();
-            resume_rx.await.unwrap();
-            project_current(&cache, epoch, vec![prior_profile])
-        });
-        tokio::time::timeout(Duration::from_secs(5), started_rx)
-            .await
-            .unwrap()
-            .unwrap();
-        let current = verified(&Identity::from_secret(&[3; 32]));
-        assert!(state
-            .0
-            .lock()
-            .unwrap()
-            .accept_if_current(initial_epoch, current)
-            .unwrap());
+        let (resume_tx, worker) = paused_projection(&state, fixture(2)).await;
+        assert!(accept(&state, initial_epoch, fixture(3)));
         connect_check(&checks, &dir, &second).await;
         assert_eq!(
             state.activate_network(&checks, &dir).unwrap().seeds,
@@ -456,14 +436,41 @@ mod tests {
             Err("notConnected".into())
         );
         let new_epoch = state.0.lock().unwrap().snapshot().unwrap().0;
-        assert!(state
-            .0
-            .lock()
-            .unwrap()
-            .accept_if_current(new_epoch, verified(&Identity::from_secret(&[4; 32])))
-            .unwrap());
+        assert!(accept(&state, new_epoch, fixture(4)));
         assert_eq!(state.0.lock().unwrap().snapshot().unwrap().1.all().len(), 1);
         assert_reactivation_invalidates_profiles(&state, &checks, &dir, &second).await;
+    }
+
+    fn fixture(secret: u8) -> VerifiedProfile {
+        verified_fixture_profile(&Identity::from_secret(&[secret; 32]))
+    }
+
+    fn accept(state: &SearchState, epoch: u64, profile: VerifiedProfile) -> bool {
+        state.0.lock().unwrap().accept_if_current(epoch, profile).unwrap()
+    }
+
+    /// Starts projecting `profile` for the current epoch and pauses it until the sender fires.
+    async fn paused_projection(
+        state: &SearchState,
+        profile: VerifiedProfile,
+    ) -> (
+        tokio::sync::oneshot::Sender<()>,
+        tokio::task::JoinHandle<Result<Vec<Found>, String>>,
+    ) {
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (resume_tx, resume_rx) = tokio::sync::oneshot::channel();
+        let cache = Arc::clone(&state.0);
+        let worker = tokio::spawn(async move {
+            let (epoch, _) = cache.lock().unwrap().snapshot().unwrap();
+            started_tx.send(()).unwrap();
+            resume_rx.await.unwrap();
+            project_current(&cache, epoch, vec![profile])
+        });
+        tokio::time::timeout(Duration::from_secs(5), started_rx)
+            .await
+            .unwrap()
+            .unwrap();
+        (resume_tx, worker)
     }
 
     /// A public-network node on its own thread, as the native network tests use; returns its seed row.

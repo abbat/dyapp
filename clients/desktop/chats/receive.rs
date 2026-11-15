@@ -64,16 +64,7 @@ pub async fn receive(
         .pages(&mut session, &mut node, device_key, &seal_key, &stop)
         .await?;
     if !stop() {
-        let nodes = std::slice::from_mut(&mut node);
-        session
-            .respond_sticker_pack_requests(nodes, identity, &seal_key, &stop)
-            .await
-            .map_err(|error| error.to_string())?;
-        // Controls remain hidden; a completed save only asks the UI to refresh local data.
-        changed += session
-            .download_sticker_packs(nodes, &seal_key, stop)
-            .await
-            .map_err(|error| error.to_string())?;
+        changed += exchange_packs(&mut session, &mut node, identity, &seal_key, stop).await?;
     }
     refill_if_due(&mut session, &mut node, &seal_key).await?;
     // Rotates or repeats the package once the first profile publish made one; a failure stays due.
@@ -88,6 +79,26 @@ pub async fn receive(
     pass.refresh_own(&mut session, &mut node, identity, &seal_key, now)
         .await;
     Ok(changed)
+}
+
+/// Answers authorized sticker pack requests, then saves downloaded packs; returns completed saves.
+async fn exchange_packs(
+    session: &mut Session,
+    node: &mut dyapp_client::Node,
+    identity: &Identity,
+    seal_key: &[u8; 32],
+    stop: impl Fn() -> bool,
+) -> Result<usize, String> {
+    let nodes = std::slice::from_mut(node);
+    session
+        .respond_sticker_pack_requests(nodes, identity, seal_key, &stop)
+        .await
+        .map_err(|error| error.to_string())?;
+    // Controls remain hidden; a completed save only asks the UI to refresh local data.
+    session
+        .download_sticker_packs(nodes, seal_key, stop)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 fn published_profile(
