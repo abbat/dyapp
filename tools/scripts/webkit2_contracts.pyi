@@ -30,7 +30,11 @@ class SnapshotRegion(GObject.GEnum):
     VISIBLE = 0
     FULL_DOCUMENT = 1
 
+class Settings(Protocol):
+    def set_zoom_text_only(self, zoom_text_only: bool) -> None: ...
+
 class WebView(Gtk.Container):
+    def set_zoom_level(self, zoom_level: float) -> None: ...
     def load_uri(self, uri: str) -> None: ...
     def call_async_javascript_function(
         self,

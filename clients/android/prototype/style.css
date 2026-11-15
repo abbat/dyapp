@@ -122,22 +122,27 @@ code {
   flex-direction: column;
 }
 .appbar {
-  height: 64px;
+  min-height: 64px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
-  padding: 0 8px 0 16px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-2) 16px;
   background: var(--bg);
 }
 .appbar .title {
   font: 400 22px / 28px var(--font);
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 .status {
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 32px;
+  gap: var(--space-2);
+  min-height: 32px;
+  max-width: 100%;
   padding: 0 12px;
   border-radius: 8px;
   border: 1px solid var(--outline-v);
@@ -146,6 +151,7 @@ code {
   font: 500 12px var(--font);
 }
 .dot {
+  flex: none;
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -158,6 +164,7 @@ code {
   background: var(--warn);
 }
 .icon-btn {
+  flex: none;
   width: 48px;
   height: 48px;
   display: grid;
@@ -177,8 +184,8 @@ code {
 }
 .navbar {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  height: 80px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  min-height: 80px;
   padding: 12px 0 16px;
   background: var(--surface);
 }
@@ -187,14 +194,20 @@ code {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
+  min-width: 0;
   border: 0;
   background: none;
   color: var(--muted);
   font: 500 12px / 16px var(--font);
   padding: 0;
 }
+.nav-item > span:not(.pill, .badge) {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
 .nav-item .pill {
+  flex: none;
   width: 56px;
   height: 32px;
   border-radius: 16px;
@@ -209,7 +222,7 @@ code {
 }
 .badge {
   min-width: 16px;
-  height: 16px;
+  min-height: 16px;
   padding: 0 4px;
   border-radius: 8px;
   background: var(--error);
@@ -236,6 +249,11 @@ code {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+.field > input + .caption,
+.field > textarea + .caption,
+.field > select + .caption {
+  margin-block-start: var(--space-1);
 }
 .field > label {
   font-size: 12px;
@@ -562,6 +580,9 @@ code.grow.identifier {
   border-radius: 28px 28px 0 0;
   padding: 8px 16px 24px;
 }
+#identity-menu .list-item + .list-item {
+  margin-block-start: var(--space-2);
+}
 .sheet::before {
   content: "";
   display: block;
@@ -575,15 +596,17 @@ code.grow.identifier {
 /* Detail screens: a back bar instead of the top app bar, photos, and the chat thread. */
 .backbar {
   position: relative;
-  height: 64px;
+  min-height: 64px;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
   padding: 0 4px;
 }
 .backbar .title {
   font: 400 22px / 28px var(--font);
   flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .backbar .peer {
   flex: 1;

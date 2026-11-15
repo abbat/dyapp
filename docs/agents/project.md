@@ -125,6 +125,9 @@ Shared accessibility helpers need both native `SCRIPTS` registration and prototy
 registration. Prototype-only calibration modules are imported by the Python keyboard-fixture
 runner, with a fresh completion deadline per case; its audit bridge is test-only.
 Bind DOM-node identity before asynchronous audit rechecks: the same selector may name a replacement.
+WebKit2 GTK3 overrides `Gtk.Widget.get_settings()` with a non-null `WebKit2.Settings` result.
+Its consumed typing contract uses a call-site cast to the WebKit settings protocol; declaring that
+incompatible return type as a subclass override fails strict mypy. Keep `set_zoom_level` on WebView.
 
 UniFFI callback/record member names must avoid target-language keywords. UniFFI 0.32.2 can
 leak Swift backtick escaping into C callback fields; regenerate the Swift header and compile

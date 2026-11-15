@@ -863,9 +863,12 @@ one theme, text scale or language.
 `ui-test.sh prototype-android` (`make ui-prototype-android`) does the same for
 `clients/android/prototype/index.html` with the same image: every state of
 [Mobile screens](../design/mobile-screens.md) in English and Russian, light and dark, at 360 and
-412 px wide, saved to `build/ux-research/prototype-android/<state>[-dark]-<lang>-<width>.png`.
-The desktop prototype is mounted too, because the Android one loads its strings. The layout check
-runs with the `android` baseline.
+412 px wide, at normal and 200% text-only WebKit zoom. Enlarged-text names include `--text200`:
+`build/ux-research/prototype-android/<state>[-dark][--text200]-<lang>-<width>.png`.
+The capture rejects text outside the actual bounds of top/back-bar titles, status chips, navigation
+labels and unread badges. This uses font readiness and rendered text rectangles, not colour samples
+or guessed positions. The desktop prototype is mounted too, because the Android one loads its strings.
+The layout check runs with the `android` baseline.
 
 ### Reports on the host
 

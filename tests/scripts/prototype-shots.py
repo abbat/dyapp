@@ -25,7 +25,7 @@ import threading
 
 from prototype_progress import Progress
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import gi
 
@@ -77,13 +77,36 @@ MEASURE = """JSON.stringify((() => {
   if (location.pathname.includes('/android/')) {
     for (const scrim of document.querySelectorAll('.scrim:not([hidden])')) {
       const cover = scrim.getBoundingClientRect();
-      const dialog = scrim.querySelector('[role=dialog]').getBoundingClientRect();
+      const dialog = scrim.querySelector('[role=dialog]')
+          .getBoundingClientRect();
       if (cover.top > 0 || cover.left > 0
           || cover.right < innerWidth || cover.bottom < innerHeight)
         throw new Error('Android modal scrim does not cover viewport');
       if (dialog.bottom <= 0 || dialog.top >= innerHeight
           || (scrim.scrollTop === 0 && dialog.top < cover.top))
         throw new Error('Android modal starts outside reachable viewport');
+    }
+    const shellText = document.querySelectorAll(
+      '.appbar .title, .backbar .title, .status, .nav-item > span:not(.pill)');
+    for (const node of shellText) {
+      const bounds = node.getBoundingClientRect();
+      if (!bounds.width || !bounds.height) continue;
+      const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+      let text;
+      while ((text = walker.nextNode())) {
+        if (!text.textContent.trim() || text.parentElement.closest('[hidden]'))
+          continue;
+        const range = document.createRange();
+        range.selectNodeContents(text);
+        for (const ink of range.getClientRects()) {
+          if (ink.width && (ink.left < bounds.left - 1 / 64
+              || ink.right > bounds.right + 1 / 64
+              || ink.top < bounds.top - 1 / 64
+              || ink.bottom > bounds.bottom + 1 / 64))
+            throw new Error('Android shell text exceeds its control: '
+                + (node.id || node.className));
+        }
+      }
     }
   }
   const input = document.getElementById('chat-input');
@@ -356,7 +379,7 @@ SCREENS = requested or ALL_SCREENS
 # Phone widths for Android: a small and a common one.
 WIDTHS = [360, 412] if PLATFORM == "android" else [320, 440, 1280]
 THEMES = ["light", "dark"]
-TEXT_SCALES = [100] if PLATFORM == "android" else [100, 200]
+TEXT_SCALES = [100, 200]
 LANGS = ["en", "ru"]
 HEIGHT = 800
 SOURCE, OUT = f"/{PLATFORM}/prototype/index.html", "/shots"
@@ -492,6 +515,10 @@ def next_job() -> None:
     phase("load")
     window.resize(width, HEIGHT)
     view.set_size_request(width, HEIGHT)
+    if PLATFORM == "android":
+        # WebKit overrides GTK with a different settings type.
+        cast("WebKit2.Settings", view.get_settings()).set_zoom_text_only(True)
+        view.set_zoom_level(scale / 100)
     # A changed hash alone is a same-page jump with no load event,
     # so the query differs too.
     view.load_uri(

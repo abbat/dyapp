@@ -31,7 +31,8 @@ Control IDs and states for every screen of the Android client. The static protot
 every state below, no logic, not shipped. It reuses the desktop prototype wording
 (`clients/desktop/prototype/strings.js`) and overrides only the Android lines in its own
 `strings.js`. `make ui-prototype-android` saves every state in English and Russian, light and
-dark, at 360 and 412 px to `build/ux-research/prototype-android/<state>[-dark]-<lang>-<width>.png`
+dark, at 360 and 412 px and normal/200% text-only zoom to
+`build/ux-research/prototype-android/<state>[-dark][--text200]-<lang>-<width>.png`
 ([UI testing](../testing/ui-testing.md#android-prototype-screenshots)).
 [v0.0.1 client screens](v0.0.1-client-screens.md) holds the behaviour contracts;
 [desktop screens](desktop-screens.md) the same IDs for the desktop shell.
@@ -42,6 +43,10 @@ this page is an id or a data-on state in the prototype. The prototype wording is
 `clients/android/app/src/main/res`.
 
 ## Layout
+
+In the static prototype, top/back bars and navigation grow with enlarged text instead of clipping
+it. Navigation labels and unread badges remain complete; distinct controls, hints and identity-sheet
+rows retain the spacing required by the [review criteria](review-criteria.md#layout-l1-l2).
 
 Phones get one screen at a time. Five top-level sections sit in a bottom navigation bar; each has
 a top app bar with its title, the connection status and the identity avatar. Detail
