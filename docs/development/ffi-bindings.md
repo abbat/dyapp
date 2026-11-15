@@ -62,6 +62,16 @@ packages run only on the x86_64 emulator. Each build type applies the same ABI l
 cargo-ndk and Gradle `ndk.abiFilters`, so dependency AARs cannot add architectures without
 the corresponding core. Release always builds and packages only arm64-v8a and x86_64.
 
+`python3 tools/scripts/jna_aar.py` takes `--source ORIGINAL.aar`,
+`--native-dir JNI_DIRECTORY`, `--output HARDENED.aar` and `--report REPORT.json`.
+It prepares a deterministic JNA AAR from
+protected `arm64-v8a/libjnidispatch.so` and `x86_64/libjnidispatch.so`. It checks both
+libraries with the shared Android ELF policy, preserves every non-JNI member byte,
+and records the original AAR, Java archive, output and native-library hashes.
+Invalid native/AAR inputs are rejected before output creation; existing outputs are
+never overwritten. Default Docker/Gradle consumption of this prepared AAR remains
+planned; ordinary builds currently resolve the upstream JNA AAR.
+
 ## Apple
 
 `tools/scripts/build-apple-core.sh [ios|ios-device|all] [debug|release]` runs
