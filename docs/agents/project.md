@@ -132,8 +132,13 @@ incompatible return type as a subclass override fails strict mypy. Keep `set_zoo
 UniFFI callback/record member names must avoid target-language keywords. UniFFI 0.32.2 can
 leak Swift backtick escaping into C callback fields; regenerate the Swift header and compile
 it as C with Clang after callback changes. Binding generation alone does not validate it.
+Compile a translation unit that includes the header; backticks in generated comments are harmless.
+The cached Android tools image supplies NDK Clang when the Rust dev image has no Clang.
 Kotlin binding output follows its package directory (for example `uniffi/dyapp/dyapp.kt`).
 Verify new APIs and compile that generated file; a stale flat copy can hide missing coverage.
+For a bindings-only Kotlin compile, use the cached compiler's POM dependencies, the SDK Android
+jar and AndroidX annotations. Use classes.jar from the app-declared JNA AAR, not an older JNA jar
+used by Gradle tooling: the latter can lack UniFFI's cleaner API.
 In data-bearing Kotlin enums, UniFFI 0.32.2 emits fieldless variants as singleton objects
 (for example `ChatPreviewBody.Empty`); payload variants have constructors. Required record
 fields also need updates in hand-built unit/androidTest fixtures and any Swift initializers.

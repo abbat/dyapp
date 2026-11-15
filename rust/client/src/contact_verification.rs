@@ -8,6 +8,8 @@ use std::sync::Arc;
 
 mod registry;
 pub use registry::shared;
+mod fetch;
+pub use fetch::{fetch, FetchError};
 
 /// Why a comparison cannot become a verified-contact mark.
 #[derive(Debug, thiserror::Error)]
@@ -91,13 +93,8 @@ impl Context {
     /// # Errors
     /// Rejects the local owner and invalid Peer IDs without changing local state.
     pub fn begin(&self, store: &Store, peer: &str) -> Result<Ticket, Error> {
+        target(store, peer)?;
         let owner = store.owner_peer_id();
-        if owner == peer {
-            return Err(Error::OwnPeer);
-        }
-        if dyapp_identity::safety::safety_number_for_peer_ids(owner, peer).is_none() {
-            return Err(Error::InvalidPeer);
-        }
         Ok(Ticket {
             context: Arc::clone(&self.context),
             owner: owner.to_owned(),
@@ -143,8 +140,9 @@ impl Context {
     /// Observe cached devices before reading the mark and notice; no cache means no mark.
     ///
     /// # Errors
-    /// Returns a local state read/write error; device observation may update the notice.
+    /// Rejects invalid/own targets or local state failures; observation may update the notice.
     pub fn state(&self, store: &Store, peer: &str) -> Result<State, Error> {
+        target(store, peer)?;
         let verified = match self.profiles.get(peer) {
             Some(profile) if !profile.profile.deleted && profile.profile.version != 0 => {
                 store.verified(profile)?
@@ -156,6 +154,13 @@ impl Context {
             new_device: store.new_device(peer)?,
         })
     }
+}
+
+fn target(store: &Store, peer: &str) -> Result<(), Error> {
+    crate::private_peer::check(store, peer).map_err(|error| match error {
+        crate::private_peer::TargetError::Invalid => Error::InvalidPeer,
+        crate::private_peer::TargetError::Own => Error::OwnPeer,
+    })
 }
 
 impl Session {
@@ -183,16 +188,18 @@ impl Session {
     /// Remove the mark while preserving observed devices and any existing notice.
     ///
     /// # Errors
-    /// Returns a local database error.
+    /// Rejects invalid/own targets and returns local database errors.
     pub fn unverify_contact(&self, peer: &str) -> Result<(), Error> {
+        target(self.store(), peer)?;
         Ok(self.store().clear_verified(peer)?)
     }
 
     /// Acknowledge the notice without changing the mark or device memory.
     ///
     /// # Errors
-    /// Returns a local database error.
+    /// Rejects invalid/own targets and returns local database errors.
     pub fn acknowledge_contact_devices(&self, peer: &str) -> Result<(), Error> {
+        target(self.store(), peer)?;
         Ok(self.store().acknowledge_new_device(peer)?)
     }
 }

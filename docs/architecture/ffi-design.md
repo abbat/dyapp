@@ -201,7 +201,16 @@ cannot write a new mark. Equal-version records keep the held authority. State ob
 the durable new-device notice through Store before returning both flags; acknowledgement and
 unverify preserve device memory. A failed mark write does not imply the cache remained unchanged.
 
-The core context/state API is implemented; native confirmation exports and desktop adoption remain planned.
+The core context/state API is implemented. Native ChatSession exposes confirm_contact,
+contact_verification, unverify_contact and acknowledge_contact_devices with a verification/notice
+record. The session retains its canonical shared context even without a live search worker;
+identity/directory come from the session, never an external searcher or platform profile DTO.
+Confirmation captures its core ticket and active settings under the context guard, releases that
+guard during fetch, then rechecks and commits through the core Session. Core fetch queries every
+reachable configured seed row and selects the highest observed Rust-verified profile; answering
+seeds may still conceal a later version. Missing nodes and missing valid profiles are separate
+notConnected/unavailable failures. All target operations reuse canonical private-peer validation.
+Desktop adoption and native protocol integration verification remain planned.
 Native ProfileSearcher workers now retain this shared context for search and cached contact names.
 Bulk display fetch holds its guard from active-network loading through cache admission; it remains
 a display helper and cannot authorize a safety-number confirmation.

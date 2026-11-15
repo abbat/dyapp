@@ -45,6 +45,7 @@ impl ChatSession {
             .enable_all()
             .build()
             .map_err(failed)?;
+        let contact_context = dyapp_client::contact_verification::shared(&dir).map_err(failed)?;
         Ok(Arc::new(Self {
             dir,
             key,
@@ -52,6 +53,7 @@ impl ChatSession {
             runtime,
             seal_key,
             session: Mutex::new(session),
+            contact_context,
             _operation: operation,
         }))
     }

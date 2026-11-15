@@ -19,6 +19,8 @@ use zeroize::Zeroizing;
 
 mod actions;
 mod contact_notes;
+mod verification;
+pub use verification::ContactVerificationState;
 mod creation;
 pub use contact_notes::ContactNoteError;
 mod favorites;
@@ -140,6 +142,7 @@ pub struct ChatSession {
     runtime: tokio::runtime::Runtime,
     seal_key: Zeroizing<[u8; 32]>,
     session: Mutex<Session>,
+    contact_context: Arc<Mutex<dyapp_client::contact_verification::Context>>,
     // Drop after the session and all key owners, retaining file locks through completion.
     _operation: Option<dyapp_client::identity_slots::ChatOperation>,
 }
