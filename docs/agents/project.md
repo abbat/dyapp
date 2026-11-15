@@ -441,7 +441,9 @@ Docker layer copying that registry into the existing prepared image preserves it
 and cached build outputs; rebuilding the full toolchain image is unnecessary. Keep the old image
 tag for recovery and do not remove caches or images without confirmation.
 
-- The FFI profile service is unfinished: native editors use shared choices and local drafts; publication is not wired to it yet.
+- Native profile publication is wired through `ChatSession.publish_profile` to the shared Rust
+  session; Android owns its confirmation/progress presentation. Pending device and release checks
+  remain separate from implemented bindings.
 - Docs must describe what the code does now; mark plans as plans.
 - Code changes need an agreed scope; a docs task does not authorise code fixes.
 - Production Rust has a fixed `unwrap`/`expect`/`panic!` budget per crate. Return `Result` for
