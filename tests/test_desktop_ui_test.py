@@ -114,6 +114,8 @@ class SmokeInventoryTest(unittest.TestCase):
             "criteria.js": "prototype-shots.py",
             "criteria-text.js": "prototype-shots.py",
             "prototype-keyboard.js": "prototype_keyboard.py",
+            "prototype-popups.js": "prototype_keyboard_fixtures.py",
+            "prototype-collections.js": "prototype_keyboard_fixtures.py",
         }
         scripts = UI.parents[1] / "tests/scripts"
         for name, consumer in prototype_helpers.items():
