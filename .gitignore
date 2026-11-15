@@ -33,3 +33,6 @@ tests/fuzz/coverage/
 # Gradle and Kotlin project caches.
 .gradle/
 .kotlin/
+
+# Local skill drafts (specs, plans); their text lives in beads
+.internal/
