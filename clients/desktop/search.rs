@@ -446,7 +446,12 @@ mod tests {
     }
 
     fn accept(state: &SearchState, epoch: u64, profile: VerifiedProfile) -> bool {
-        state.0.lock().unwrap().accept_if_current(epoch, profile).unwrap()
+        state
+            .0
+            .lock()
+            .unwrap()
+            .accept_if_current(epoch, profile)
+            .unwrap()
     }
 
     /// Starts projecting `profile` for the current epoch and pauses it until the sender fires.
