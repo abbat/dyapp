@@ -948,6 +948,9 @@ import { installIdentifiers } from '../ui/identifiers.js';
 installIdentifiers(window.strings);
 </script>
 <script type="module" src="profile-choice-fixture.js"></script>
-<script type="module" src="collection-fixture.js"></script>
+<script type="module">
+import { installCollections } from './collection-fixture.js';
+installCollections(window.strings);
+</script>
 </body>
 </html>

@@ -5,12 +5,6 @@ import {
 } from '../ui/settings-collection-view.js';
 
 export const collections = new Map();
-const words = Object.fromEntries(
-  ['search', 'previous', 'next', 'refresh', 'failed', 'empty', 'page'].map((key) => [
-    key,
-    window.strings[`settings.collection.${key}`],
-  ]),
-);
 let epoch = 0;
 const invalidate = (records) => {
   if (!records.length) return;
@@ -24,8 +18,7 @@ navigation.observe(document.documentElement, {
 });
 const syncNavigation = () => invalidate(navigation.takeRecords());
 
-const render = (state) => renderCollectionView(state, words);
-const bindRefresh = (state) => {
+const bindRefresh = (state, render) => {
   state.refresh.addEventListener('click', () => {
     syncNavigation();
     const generation = epoch;
@@ -58,7 +51,8 @@ const bindRefresh = (state) => {
       });
   });
 };
-const create = (name, id) => {
+const create = (name, id, words) => {
+  const render = (state) => renderCollectionView(state, words);
   const list = document.getElementById(id);
   // Reusing nodes preserves the prototype keyboard module's bound dialog openers.
   const records = [...list.children].map((row) => ({
@@ -79,8 +73,16 @@ const create = (name, id) => {
     refreshed: undefined,
   };
   bindCollectionNavigation(state, render);
-  bindRefresh(state);
+  bindRefresh(state, render);
   collections.set(name, state);
   render(state);
 };
-for (const [name, id] of Object.entries(collectionIds)) create(name, id);
+export const installCollections = (strings, names = Object.keys(collectionIds)) => {
+  const words = Object.fromEntries(
+    ['search', 'previous', 'next', 'refresh', 'failed', 'empty', 'page'].map((key) => [
+      key,
+      strings[`settings.collection.${key}`],
+    ]),
+  );
+  for (const name of names) create(name, collectionIds[name], words);
+};

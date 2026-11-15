@@ -203,6 +203,10 @@ never whitespace, so textContent/copy contracts stay raw. Install one observer f
 or use disjoint scopes: overlapping instances can repeatedly replace each other's cached nodes.
 The observer watches only text/child changes and disconnects while formatting to avoid its own edits.
 
+Prototype collection fixtures call `installCollections(strings, names)` once after localisation.
+The default installs all four desktop collections; Android passes its three explicit collection names.
+Reuse original row nodes and the shared refresh epoch checks so dialog handlers and view ownership survive paging.
+
 Prototype proof manifests must bind the served URL to the mounted asset path: the standard Android
 runner uses `/assets/android/prototype`, while paired probes may use `/assets/baseline/android/prototype`.
 Valid PNG files and source hashes alone cannot distinguish a real screen from an HTTP error page;
