@@ -324,18 +324,24 @@ impl Store {
     /// a fresh check, so it also ends a new-device notice.
     ///
     /// # Errors
-    /// Returns database errors if reading or updating the peer state fails.
+    /// Rejects a profile below the durable observed version; returns database errors
+    /// if reading or updating peer state fails.
     pub fn set_verified(&self, profile: &VerifiedProfile) -> Result<(), Error> {
-        self.db.execute(
+        let changed = self.db.execute(
             "INSERT INTO `peers` (`peer_id`, `seen_devices`, `seen_version`, `verified`)
              VALUES (?1, ?2, ?3, 1)
              ON CONFLICT (`peer_id`) DO UPDATE SET
                  `seen_devices` = excluded.`seen_devices`,
                  `seen_version` = excluded.`seen_version`,
                  `verified` = 1,
-                 `new_device` = 0",
+                 `new_device` = 0
+             WHERE `peers`.`seen_version` IS NULL
+                 OR excluded.`seen_version` >= `peers`.`seen_version`",
             params![profile.peer_id, device_keys(profile), version(profile)],
         )?;
+        if changed == 0 {
+            return Err(Error::ProfileCompletionSuperseded);
+        }
         Ok(())
     }
 

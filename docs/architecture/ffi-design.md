@@ -186,6 +186,28 @@ The Android, iOS and macOS apps link the library. Linux and Windows call
 `dyapp-identity` directly; their [storage choice and capability checks](../development/desktop-identity-storage.md)
 are implemented in the Tauri shell, outside this UniFFI contract.
 
+## Shared contact confirmation core
+
+The shared client exposes contact_verification::Context and Session delegation for confirmation,
+verification/device-notice state, acknowledgement and unverify. A context holds ordinary verified
+profiles; a one-use ticket binds the local Store owner, requested Peer ID and current context.
+The adapter captures it before fetching the highest observed signed profile and confirms under
+the same lock used for identity/network activation. Clearing that context replaces an opaque
+in-memory capability, so switching away and back cannot revive an earlier ticket.
+
+Confirmation reuses Profiles authority/rollback checks and the existing Store device-observation
+rules. Wrong owner/target, changed context, rejected authority and unpublished/deleted profiles
+cannot write a new mark. Equal-version records keep the held authority. State observation raises
+the durable new-device notice through Store before returning both flags; acknowledgement and
+unverify preserve device memory. A failed mark write does not imply the cache remained unchanged.
+
+The core context/state API is implemented; native UniFFI exports and desktop adoption remain planned.
+Exact durable version floors across the full unsigned wire range and legacy clamped metadata are
+not complete yet and block adoption. The current Store comparison protects its representable range.
+Adapters must bind the same identity/directory, invalidate the context on activation, and provide
+Rust-verified profiles rather than reconstructed platform DTOs. A signed display result alone
+does not establish that it is the highest profile observed in the current network.
+
 ## Current desktop runtime ownership
 
 The Tauri shell stores the selected identity and slot directory in one admission gate.
