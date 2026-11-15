@@ -87,6 +87,7 @@ class MainActivity : ComponentActivity() {
         // An unreadable verifier must fail closed, never start a new unlocked session.
         lock = runCatching { store.mode() }.getOrDefault(StoredLock.PIN)
         val lockOn = lock == StoredLock.PIN || lock == StoredLock.BIOMETRIC
+        appLock.close()
         appLock = AppLockLifecycle(lockOn, SystemClock::elapsedRealtime)
         obscureSnapshot(lockOn)
         refreshLock()
@@ -159,6 +160,7 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         networkAccess.close()
         timer.removeCallbacks(deadline)
+        appLock.close()
         super.onDestroy()
     }
 

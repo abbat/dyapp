@@ -8,6 +8,8 @@ import android.hardware.biometrics.BiometricPrompt
 import android.os.Build
 import android.os.CancellationSignal
 import android.view.WindowManager
+import uniffi.dyapp.MobileAppLockEvent
+import uniffi.dyapp.MobileAppLockTimer
 
 /**
  * Ask the OS for the device screen lock, or with [biometric] for strong biometrics first
@@ -25,7 +27,9 @@ internal fun Activity.confirmDeviceCredential(biometric: Boolean, onSuccess: () 
             CancellationSignal(),
             mainExecutor,
             object : BiometricPrompt.AuthenticationCallback() {
-                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) = onSuccess()
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    if (!isDestroyed) onSuccess()
+                }
             }
         )
 }
@@ -54,89 +58,48 @@ internal fun Activity.obscureSnapshot(hidden: Boolean) {
 
 /**
  * App-wide lock timing, driven by a monotonic millisecond clock such as elapsedRealtime.
- * The UI calls [refresh] at each event and schedules the next [millisUntilLock] deadline.
+ * The core observes expiration on every event/read; UI schedules the next [millisUntilLock] deadline.
  */
-class AppLockLifecycle(pinEnabled: Boolean, private val now: () -> Long) {
-    private var enabled = pinEnabled
-    private var locked = pinEnabled // Every fresh process starts locked when a PIN exists.
-    private var backgroundAt: Long? = null
-    private var lastInteractionAt = now()
+class AppLockLifecycle(pinEnabled: Boolean, private val now: () -> Long) : AutoCloseable {
+    // elapsedRealtime is nonnegative; reject invalid injected clocks before unsigned lifting.
+    private val time get() = now().also { check(it >= 0) }.toULong()
+    private val core = MobileAppLockTimer(pinEnabled, time)
+    private val snapshot get() = core.snapshot(time)
 
     /** Whether a PIN protects the current app session. */
-    val isPinEnabled: Boolean get() = enabled
+    val isPinEnabled: Boolean get() = snapshot.enabled
 
     /** Current lock state after applying any elapsed deadline. */
-    val isLocked: Boolean get() {
-        refresh()
-        return locked
-    }
+    val isLocked: Boolean get() = snapshot.locked
 
     /** Whether the app-switcher snapshot must hide private content. */
-    val snapshotObscured: Boolean get() = backgroundAt != null
+    val snapshotObscured: Boolean get() = snapshot.obscured
 
-    /** Call as soon as the activity backgrounds; the snapshot must be covered before the grace ends. */
-    fun onBackground() {
-        refresh()
-        backgroundAt = now()
-    }
+    /** Forward an actual platform background transition. */
+    fun onBackground() = transition(MobileAppLockEvent.BACKGROUND)
 
-    /** A quick return preserves unlock; an expired grace period requires a new unlock. */
-    fun onForeground() {
-        refresh()
-        backgroundAt = null
-        lastInteractionAt = now()
-    }
+    /** Forward an actual platform foreground transition. */
+    fun onForeground() = transition(MobileAppLockEvent.FOREGROUND)
 
-    /** A late event cannot extend a deadline that has already expired. */
-    fun onInteraction() {
-        refresh()
-        if (backgroundAt == null && !locked) lastInteractionAt = now()
-    }
+    /** Forward actual user interaction; core checks expiration first. */
+    fun onInteraction() = transition(MobileAppLockEvent.INTERACTION)
 
-    /** Call after a successful PIN or OS unlock. */
-    fun onUnlocked() {
-        check(enabled && backgroundAt == null) { "Unlock requires a foreground app PIN" }
-        locked = false
-        lastInteractionAt = now()
-    }
+    /** Call after successful foreground PIN or OS authentication. */
+    fun onUnlocked() = transition(MobileAppLockEvent.UNLOCKED)
 
-    /** Call after successful enrollment; the user remains in the current unlocked session. */
-    fun onPinEnrolled() {
-        enabled = true
-        locked = false
-        lastInteractionAt = now()
-    }
+    /** Call after successful enrollment or authorized protected-mode change. */
+    fun onPinEnrolled() = transition(MobileAppLockEvent.ENROLLED)
 
     /** Call only after an authorized setting change. */
-    fun onPinCleared() {
-        enabled = false
-        locked = false
-    }
+    fun onPinCleared() = transition(MobileAppLockEvent.CLEARED)
 
-    /** Apply elapsed-time deadlines without relying on wall clock or saved activity state. */
-    fun refresh() {
-        if (!enabled || locked) return
-        val start = backgroundAt
-        val elapsed = now() - (start ?: lastInteractionAt)
-        val limit = if (start == null) FOREGROUND_IDLE_MS else BACKGROUND_GRACE_MS
-        if (elapsed >= limit) locked = true
-    }
+    /** Core-derived scheduling delay; all valid delays fit in platform milliseconds. */
+    fun millisUntilLock(): Long? = snapshot.remainingMs?.toLong()
 
-    /** Time until the next lock; null when disabled or already locked. */
-    fun millisUntilLock(): Long? {
-        refresh()
-        if (!enabled || locked) return null
-        val start = backgroundAt
-        val limit = if (start == null) FOREGROUND_IDLE_MS else BACKGROUND_GRACE_MS
-        return (limit - (now() - (start ?: lastInteractionAt))).coerceAtLeast(0)
-    }
+    /** Release this Activity-owned native timer. */
+    override fun close() = core.close()
 
-    /** Lock deadlines shared by the activity and its UI timer. */
-    companion object {
-        /** Time a backgrounded app may remain unlocked. */
-        const val BACKGROUND_GRACE_MS = 60_000L
-
-        /** Maximum unlocked foreground idle time. */
-        const val FOREGROUND_IDLE_MS = 5 * 60_000L
+    private fun transition(event: MobileAppLockEvent) {
+        core.transition(event, time)
     }
 }

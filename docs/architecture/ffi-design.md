@@ -1186,8 +1186,10 @@ The boundary is **not** secure today; see
   uses checked elapsed arithmetic. Platforms supply monotonic milliseconds and authorized events;
   remaining time is absent while disabled or locked. Common `MobileAppLockTimer` serializes the
   core state and projects `MobileAppLockEvent` and `MobileAppLockSnapshot`; it owns no clock,
-  credential or scheduler. Android timer adoption is planned; current Kotlin lifecycle timing
-  still runs independently until that migration lands.
+  credential or scheduler. Android `AppLockLifecycle` delegates events and reads to this handle;
+  Activity retains its clock and Handler scheduling, releases the handle on replacement/destruction,
+  and ignores OS authentication callbacks after destruction. Lifecycle regressions run through JNI
+  in `androidTest`, retaining their injected monotonic clock and all original assertions.
 - Core app-lock storage preserves both existing layouts: Android's 51-byte PIN record and separate
   Skip/biometric markers, and iOS's 52-byte PIN or 3-byte Off/biometric record. It does not migrate
   or reset stored locks. Android PIN presence takes precedence over markers after an interrupted

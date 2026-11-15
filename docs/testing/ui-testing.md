@@ -356,6 +356,9 @@ Host Rust tests also call the public native photo history/original exports over 
 metadata and a sealed cache. They check mixed ordering, reopening offline, full message selectors,
 block/clear refusal, malformed image framing or descriptor geometry, and a torn cache without
 changing MLS/outbox state. These Store fixtures do not prove upload, MLS receive or JNI execution.
+Android `AppLockLifecycleTests` exercises the core timer through the production native facade.
+Its injected monotonic clock preserves quick-return, exact grace/idle expiration, late-input,
+enrollment and clear assertions without sleeps; every fixture closes its native handle.
 Android `NativeOriginalDecodeTests` passes directly encoded PNG and JPEG originals through the
 production `ImageDecoder` and JNI header plan, checks actual dimensions and rejects truncated
 format signatures with the existing safe error. It does not run outgoing preparation, which
