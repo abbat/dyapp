@@ -276,7 +276,9 @@ MISSED   rust/messaging/src/mls.rs:79:5: replace verify_member -> Result<String,
 
 Locally, run it after committing and before pushing, since it diffs against `origin/main`. Each
 mutant rebuilds the package and runs its tests (about a minute in `dyapp-bootstrap`). Changes to
-test code alone produce no mutants.
+test code alone produce no mutants. Platform JNI/UI tests do not run in cargo-mutants' Rust
+package test command: exported contract values also need an independent expectation in their
+own crate's tests, rather than comparison only with the constant that implements them.
 
 **Exceptions.** Fix a missed mutant with a test. When a mutant cannot be caught, for example
 because it makes the code hang, mark the item `#[mutants::skip]` (or narrower,

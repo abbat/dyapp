@@ -1,6 +1,11 @@
 use super::*;
 
 #[test]
+fn native_profile_photo_limit_preserves_the_six_photo_contract() {
+    assert_eq!(profile_photo_limit(), 6);
+}
+
+#[test]
 fn native_decode_plans_preserve_purpose_and_source_boundaries() {
     assert_eq!(photo_picked_byte_limit(), 64 * 1024 * 1024);
     for (purpose, side) in [(PhotoPurpose::Profile, 2048), (PhotoPurpose::Chat, 2560)] {
