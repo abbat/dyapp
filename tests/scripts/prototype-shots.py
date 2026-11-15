@@ -75,6 +75,9 @@ MEASURE = """JSON.stringify((() => {
       || (e.tagName === 'CODE' && style(e).display === 'block');
   const found = [];
   if (location.pathname.includes('/android/')) {
+    if (document.documentElement.dataset.screen
+        !== (location.hash.slice(1) || 'profile'))
+      throw new Error('Android prototype screen did not initialise');
     for (const node of document.querySelectorAll('[hidden]')) {
       if (style(node).display !== 'none')
         throw new Error('Android hidden state overridden: ' + name(node));
@@ -104,6 +107,17 @@ MEASURE = """JSON.stringify((() => {
           || bounds.left < 0 || bounds.right > innerWidth)
         throw new Error('Android native dialog exceeds viewport');
     }
+    const language = document.getElementById('language');
+    const choices = document.querySelectorAll(
+      '#language-picker .choice-options .btn');
+    if (!(language instanceof HTMLSelectElement)
+        || !language.hidden || language.options[0]?.value !== ''
+        || language.options.length < 2
+        || language.options.length !== choices.length
+        || [...language.options].some((option, index) =>
+          !option.textContent.trim() || (index > 0 && !option.value)
+          || option.textContent !== choices[index].textContent))
+      throw new Error('Android language choice presentation incomplete');
     const year = document.getElementById('birth-year');
     if (year?.getBoundingClientRect().width && year.value) {
       const metrics = document.createElement('canvas').getContext('2d');
@@ -374,6 +388,7 @@ ANDROID = [
     "chat-cleared",
     "delete-dialog",
     "settings",
+    "settings-language-dialog",
     "lock-settings",
     "switcher",
     "remove-dialog",

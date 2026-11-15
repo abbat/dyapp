@@ -123,13 +123,13 @@
 
 <!-- App shell: every screen after first run. Detail screens (a found profile, a chat, the app
      lock settings) bring their own back bar and hide the navigation bar. -->
-<div class="app" data-on="profile profile-hidden profile-goal-dialog publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error profile-view profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog settings switcher remove-dialog remove-offline lock-settings">
+<div class="app" data-on="profile profile-hidden profile-goal-dialog publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error profile-view profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog settings settings-language-dialog switcher remove-dialog remove-offline lock-settings">
   <header class="appbar" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog lock-settings">
     <span class="title"><span data-on="profile profile-hidden profile-goal-dialog publish-dialog publish-progress switcher" data-t="nav.profile"></span>
       <span data-on="search search-loading search-empty search-error" data-t="nav.search"></span>
       <span data-on="chats" data-t="nav.chats"></span>
       <span data-on="network network-checking network-error" data-t="nav.network"></span>
-      <span data-on="settings remove-dialog remove-offline" data-t="nav.settings"></span></span>
+      <span data-on="settings settings-language-dialog remove-dialog remove-offline" data-t="nav.settings"></span></span>
     <!-- Connected means one compatible node answered; it opens Network. -->
     <button type="button" class="status" id="connection-status">
       <span class="dot" data-off="search-error network-checking"></span>
@@ -374,7 +374,7 @@ search providers asked: 0 of 3</pre>
     </section>
 
     <!-- Settings: identities, app lock, appearance, privacy, node. -->
-    <section id="settings" class="content" style="padding:0" data-on="settings remove-dialog remove-offline">
+    <section id="settings" class="content" style="padding:0" data-on="settings settings-language-dialog remove-dialog remove-offline">
       <div class="card" id="settings-identities">
         <h2 data-t="settings.identities"></h2>
         <div class="list-item"><span class="avatar photo" aria-hidden="true"></span>
@@ -411,11 +411,9 @@ search providers asked: 0 of 3</pre>
           <label class="choice"><input type="radio" name="theme" id="theme-light"><span data-t="settings.theme.light"></span></label>
           <label class="choice"><input type="radio" name="theme" id="theme-dark"><span data-t="settings.theme.dark"></span></label>
         </fieldset>
-        <fieldset id="language"><legend data-t="settings.language"></legend>
-          <label class="choice"><input type="radio" name="language" id="language-system" checked><span data-t="settings.theme.system"></span></label>
-          <label class="choice"><input type="radio" name="language" id="language-en"><span>English</span></label>
-          <label class="choice"><input type="radio" name="language" id="language-ru"><span>Русский</span></label>
-        </fieldset>
+        <div class="field"><label for="language" data-t="settings.language"></label>
+          <select id="language"><option value="" data-t="settings.theme.system"></option></select>
+        </div>
       </div>
       <div class="card" id="privacy">
         <h2 data-t="settings.privacy"></h2>
@@ -482,7 +480,7 @@ search providers asked: 0 of 3</pre>
       <span class="badge" id="chats-unread" data-ta="chats.unread">3</span></button>
     <button type="button" class="nav-item" id="nav-network" data-current="network network-checking network-error">
       <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-network"/></svg></span><span data-t="nav.network"></span></button>
-    <button type="button" class="nav-item" id="nav-settings" data-current="settings remove-dialog remove-offline">
+    <button type="button" class="nav-item" id="nav-settings" data-current="settings settings-language-dialog remove-dialog remove-offline">
       <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-settings"/></svg></span><span data-t="nav.settings"></span></button>
   </nav>
 
@@ -653,7 +651,15 @@ enhanceChoice(
   t['action.cancel'],
   () => 0,
 );
+const language = document.getElementById('language');
+for (const [code, catalogue] of Object.entries(STRINGS)) {
+  const name = catalogue['language.name'];
+  if (typeof name !== 'string' || !name.trim()) throw new Error('Language catalogue name missing');
+  language.append(new Option(name, code));
+}
+enhanceChoice(language, document.querySelector('label[for="language"]'), t['action.cancel'], () => 0);
 if (screen === 'profile-goal-dialog') document.getElementById('profile-goal-choice').click();
+if (screen === 'settings-language-dialog') document.getElementById('language-choice').click();
 </script>
 </body>
 </html>

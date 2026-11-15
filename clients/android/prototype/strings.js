@@ -1,6 +1,8 @@
 // Android wording over the desktop prototype strings (loaded first); the shipped strings live in
 // app/src/main/res. Only keys that differ on Android or exist only here.
 Object.assign(STRINGS.en, {
+  'language.name': 'English',
+  'privacy.hint': 'These settings stay on this device and apply to this identity only.',
   'nav.back': 'Back',
   'storage.kind.system': 'Android Keystore',
   'storage.android': 'The key is kept in Android Keystore on this device.',
@@ -34,6 +36,8 @@ Object.assign(STRINGS.en, {
     'A block hides someone from your search and chats and revokes their network tokens. They are not told. Retry the revocation if it is still pending.',
 });
 Object.assign(STRINGS.ru, {
+  'language.name': 'Русский',
+  'privacy.hint': 'Эти настройки хранятся на этом устройстве и действуют только для этой личности.',
   'nav.back': 'Назад',
   'storage.kind.system': 'Хранилище ключей Android',
   'storage.android': 'Ключ хранится в хранилище ключей Android на этом устройстве.',

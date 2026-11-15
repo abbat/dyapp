@@ -3,7 +3,8 @@
 The approved settings direction is the category hub in
 [desktop screens](desktop-screens.md#settings-and-removal), with collection lists on separate
 screens, immediate switches and a numeric media-cache budget. Mobile hub implementation and
-prototype changes remain planned; the current mobile states below are unchanged.
+category changes remain planned. The Android prototype already uses a catalogue-driven language
+picker; native grouping and language-menu adoption remain planned.
 
 Android chat attachments now use core-ordered mixed history. Photo metadata remains
 visible while stranger previews are blurred; Show preview reveals only the preview,
@@ -178,9 +179,14 @@ The IDs inside each section are the desktop ones; only the frame differs.
   complete at enlarged text sizes. Identity, blocked and passed lists, the identity sheet and the
   removal confirmation use the shared identifier formatter and container; visual chunk boundaries
   preserve raw ID text for copying. Appearance uses `theme` (`theme-system`,
-  `theme-light`, `theme-dark`) and `language` (`language-system`, `language-en`, `language-ru`),
-  `privacy` (`send-views`, `send-read-receipts`, `send-typing`, `presence-audience`,
-  `message-notifications`, `notice-content` with `notice-fixed`, `notice-name` and `notice-text`)
+  `theme-light`, `theme-dark`) and the `language` select. Its shared wrapping picker is shown by
+  `settings-language-dialog`: the system default precedes every registered prototype catalogue,
+  named by that catalogue's own language name. Adding a catalogue adds a choice without a fixed
+  language count. Cancel and Escape preserve the raw locale code and return focus; this static
+  demonstration does not change the page locale or persist the choice. The
+  `privacy` card uses device-specific wording and has `send-views`, `send-read-receipts`,
+  `send-typing`, `presence-audience`,
+  `message-notifications`, `notice-content` with `notice-fixed`, `notice-name` and `notice-text`.
   `node` (`node-enabled`) and `updates` (`update-6h`, `update-12h`, `update-24h`, `update-7d`,
   `update-state`, `update-check`). `remove-dialog` and `remove-offline`
   confirm a removal with `remove-title`, `remove-peer`, `remove-confirm`, `remove-cancel`,

@@ -203,6 +203,11 @@ never whitespace, so textContent/copy contracts stay raw. Install one observer f
 or use disjoint scopes: overlapping instances can repeatedly replace each other's cached nodes.
 The observer watches only text/child changes and disconnects while formatting to avoid its own edits.
 
+Prototype proof manifests must bind the served URL to the mounted asset path: the standard Android
+runner uses `/assets/android/prototype`, while paired probes may use `/assets/baseline/android/prototype`.
+Valid PNGs and source hashes alone cannot distinguish a real screen from an HTTP error page;
+require the requested document's initialisation marker before measuring or accepting captures.
+
 Main-world WebKit UserScript probes need a private function scope: top-level declarations can
 collide with the page's own bindings. Resolve injected dynamic imports against `location.href`;
 the injected script itself may have no usable module URL.

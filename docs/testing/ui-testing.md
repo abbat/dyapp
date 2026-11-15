@@ -865,6 +865,12 @@ one theme, text scale or language.
 [Mobile screens](../design/mobile-screens.md) in English and Russian, light and dark, at 360 and
 412 px wide, at normal and 200% text-only WebKit zoom. Enlarged-text names include `--text200`:
 `build/ux-research/prototype-android/<state>[-dark][--text200]-<lang>-<width>.png`.
+The capture rejects a document whose initialised screen does not match the requested state,
+including an HTTP error page. The standard runner serves Android at `/assets/android/prototype`;
+custom paired probes may use a different prefix, which must match their requested URL.
+The open language picker is captured as `settings-language-dialog`; choices follow the prototype
+catalogues rather than a fixed three-radio inventory. Catalogue stress checks register additional
+languages before initialisation and verify complete labels, locale values, Cancel/Escape and focus.
 The capture also requires shared labelled identifier presentation on every code value and rejects
 presentation styles that override a hidden state. Identifier checks retain the raw selection and
 copy text through asynchronous replacements; list/action checks use current geometry.
