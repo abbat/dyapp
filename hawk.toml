@@ -14,14 +14,6 @@ reason = "core API consumed by the native clients"
 [[override]]
 lint = "hawk::dead_public"
 crate = "dyapp_client"
-item = "session::Session::announce_presence"
-kind = "inherent_method"
-level = "expect"
-reason = "Used by clients/desktop/chats/presence.rs outside this Cargo workspace."
-
-[[override]]
-lint = "hawk::dead_public"
-crate = "dyapp_client"
 item = "session::forward::<impl session::Session>::send_forwarded_text"
 kind = "inherent_method"
 level = "expect"

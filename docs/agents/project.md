@@ -480,6 +480,10 @@ tag for recovery and do not remove caches or images without confirmation.
 - `make fmt` checks the root workspace and both native desktop crates. `make test`
   and CI differ in detail: `gh run download <id> -n core-check-output` holds the nextest output.
 
+Unused-public analysis includes tests. A new real API call in a regression can resolve an exact
+`hawk.toml` dead-public expectation; remove that stale marker in the same change instead of
+replacing it with an allow or weakening the analysis.
+
 ## Rules for agents
 
 - Plan client work with shared rules in Rust first, exposed through FFI before UI wiring
