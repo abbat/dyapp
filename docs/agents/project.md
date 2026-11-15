@@ -92,7 +92,10 @@ Only debug variant output versioning changes. While the node remains offline, th
 the upgrade with `adb install -r`, probes job 1 before launching instrumentation, then requires installed
 `longVersionCode` to exceed
 the value checkpointed during preparation, then reopens the original native pair and queued ID.
-Runtime reboot/upgrade evidence and Doze/App Standby remain separate acceptance.
+The same offline phases verify a previously fetched incoming JPEG through JNI and ImageDecoder,
+using a pair-bound full selector, SHA-256 and dimensions; they reuse the host-owned node stop
+rather than rewriting client network configuration. Runtime reboot/upgrade evidence and
+Doze/App Standby remain separate acceptance.
 Prepare and scheduled catch-up have a 15-minute outer process guard for multiple independent steps;
 individual proof, connection and delivery waits retain their own completion-based deadlines.
 The emulator test node is supervised through shared report FIFOs. One host client at a time runs

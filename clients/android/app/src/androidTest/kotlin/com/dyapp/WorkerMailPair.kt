@@ -29,6 +29,7 @@ internal class WorkerMailPair(private val context: Context) {
         record.record(WORKER_ANCHOR, sent.id)
         receiveWorkerCounterpart(other, owner.peerId, sent.id, WORKER_ANCHOR)
         check(workerMessagePresent(owner, other.peerId, sent.id, WORKER_ANCHOR))
+        WorkerPhotoCache(owner, other, record).prepare()
         return owner
     }
 
@@ -58,6 +59,7 @@ internal class WorkerMailPair(private val context: Context) {
         check(!workerMessagePresent(other, owner.peerId, id, WORKER_OFFLINE)) {
             "Offline operation reached the counterpart before catch-up"
         }
+        WorkerPhotoCache(owner, other, record(owner, other)).verify()
         return owner
     }
 
