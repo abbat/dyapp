@@ -356,6 +356,10 @@ Host Rust tests also call the public native photo history/original exports over 
 metadata and a sealed cache. They check mixed ordering, reopening offline, full message selectors,
 block/clear refusal, malformed image framing or descriptor geometry, and a torn cache without
 changing MLS/outbox state. These Store fixtures do not prove upload, MLS receive or JNI execution.
+Android `NativeOriginalDecodeTests` passes directly encoded PNG and JPEG originals through the
+production `ImageDecoder` and JNI header plan, checks actual dimensions and rejects truncated
+format signatures with the existing safe error. It does not run outgoing preparation, which
+would convert PNG into JPEG, and does not prove peer transport or sealed-cache admission.
 Android `NativePhotoExchangeTests` uses two native sessions on the suite's external node to
 submit and receive a JPEG, select its full message identity and decode identical original bytes
 through the production Android decoder. It checks wrong selectors and cached-original refusal
