@@ -217,7 +217,8 @@ Desktop search/profile storage now uses the same core Context inside its existin
 cache. Clearing that cache also invalidates core comparison tickets. Tauri confirmation captures
 a core ticket and active settings under the cache guard, fetches through the common multi-seed
 selector and commits through Context; mark/device-notice reads also use core state. Canonical
-directory-registry integration and unverify/acknowledgement delegation remain planned.
+directory-registry integration remains planned. Core Store-based unverify and device
+acknowledgement are shared by Session and Tauri; these local actions require no MLS initialization.
 Native ProfileSearcher workers now retain this shared context for search and cached contact names.
 Bulk display fetch holds its guard from active-network loading through cache admission; it remains
 a display helper and cannot authorize a safety-number confirmation.

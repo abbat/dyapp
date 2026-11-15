@@ -163,6 +163,24 @@ fn target(store: &Store, peer: &str) -> Result<(), Error> {
     })
 }
 
+/// Remove the mark without opening an MLS session, preserving device memory and notices.
+///
+/// # Errors
+/// Rejects invalid/own targets before mutation and returns local database errors.
+pub fn unverify(store: &Store, peer: &str) -> Result<(), Error> {
+    target(store, peer)?;
+    Ok(store.clear_verified(peer)?)
+}
+
+/// Acknowledge a device notice without changing trust or opening an MLS session.
+///
+/// # Errors
+/// Rejects invalid/own targets before mutation and returns local database errors.
+pub fn acknowledge_devices(store: &Store, peer: &str) -> Result<(), Error> {
+    target(store, peer)?;
+    Ok(store.acknowledge_new_device(peer)?)
+}
+
 impl Session {
     /// Confirm through the shared identity/network context using this session's store.
     ///
@@ -190,8 +208,7 @@ impl Session {
     /// # Errors
     /// Rejects invalid/own targets and returns local database errors.
     pub fn unverify_contact(&self, peer: &str) -> Result<(), Error> {
-        target(self.store(), peer)?;
-        Ok(self.store().clear_verified(peer)?)
+        unverify(self.store(), peer)
     }
 
     /// Acknowledge the notice without changing the mark or device memory.
@@ -199,8 +216,7 @@ impl Session {
     /// # Errors
     /// Rejects invalid/own targets and returns local database errors.
     pub fn acknowledge_contact_devices(&self, peer: &str) -> Result<(), Error> {
-        target(self.store(), peer)?;
-        Ok(self.store().acknowledge_new_device(peer)?)
+        acknowledge_devices(self.store(), peer)
     }
 }
 

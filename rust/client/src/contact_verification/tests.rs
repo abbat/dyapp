@@ -225,6 +225,53 @@ fn equal_version_confirmation_uses_the_already_held_authority() {
 }
 
 #[test]
+fn store_only_actions_validate_targets_before_mutation() {
+    let store = store(1);
+    let own = profile(1, 1, &[9]);
+    store.set_verified(&own).unwrap();
+    let peer = owner(2).peer_id();
+    let mut context = Context::default();
+    let ticket = context.begin(&store, &peer).unwrap();
+    context
+        .confirm(&store, ticket, profile(2, 1, &[3]))
+        .unwrap();
+    context.accept(profile(2, 2, &[3, 4])).unwrap();
+    let before = context.state(&store, &peer).unwrap();
+    assert!(before.new_device);
+    for action in [unverify, acknowledge_devices] {
+        assert!(matches!(action(&store, &own.peer_id), Err(Error::OwnPeer)));
+        for invalid in ["bad".to_owned(), peer.to_uppercase()] {
+            assert!(matches!(action(&store, &invalid), Err(Error::InvalidPeer)));
+        }
+        assert_eq!(context.state(&store, &peer).unwrap(), before);
+        assert!(store.verified(&own).unwrap());
+    }
+}
+
+#[test]
+fn store_only_actions_preserve_device_memory_and_independent_flags() {
+    let store = store(1);
+    let peer = owner(2).peer_id();
+    let mut context = Context::default();
+    let ticket = context.begin(&store, &peer).unwrap();
+    context
+        .confirm(&store, ticket, profile(2, 1, &[3]))
+        .unwrap();
+    acknowledge_devices(&store, &peer).unwrap();
+    assert!(context.state(&store, &peer).unwrap().verified);
+    context.accept(profile(2, 2, &[3, 4])).unwrap();
+    assert!(context.state(&store, &peer).unwrap().new_device);
+    unverify(&store, &peer).unwrap();
+    assert!(context.state(&store, &peer).unwrap().new_device);
+    acknowledge_devices(&store, &peer).unwrap();
+    assert_eq!(context.state(&store, &peer).unwrap(), State::default());
+    context.accept(profile(2, 3, &[3])).unwrap();
+    assert_eq!(context.state(&store, &peer).unwrap(), State::default());
+    context.accept(profile(2, 4, &[3, 4])).unwrap();
+    assert!(context.state(&store, &peer).unwrap().new_device);
+}
+
+#[test]
 fn session_delegation_preserves_device_notice_and_unverify_semantics() {
     let identity = owner(1);
     let session = Session::open_or_create(store(1), &identity, &owner(9), &[8; 32]).unwrap();

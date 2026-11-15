@@ -296,9 +296,7 @@ pub fn acknowledge_new_device(
     let lease = state.lease()?;
     let (identity, dir) = lease.active();
     let store = Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())?;
-    store
-        .acknowledge_new_device(&peer_id)
-        .map_err(|e| e.to_string())
+    contact_verification::acknowledge_devices(&store, &peer_id).map_err(|e| e.to_string())
 }
 
 /// Takes the mark back, so a mistaken confirmation can be undone without the network.
@@ -315,7 +313,7 @@ pub fn unverify_contact(
     let lease = state.lease()?;
     let (identity, dir) = lease.active();
     let store = Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())?;
-    store.clear_verified(&peer_id).map_err(|e| e.to_string())
+    contact_verification::unverify(&store, &peer_id).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
