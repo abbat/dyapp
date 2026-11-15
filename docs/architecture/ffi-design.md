@@ -202,8 +202,11 @@ the durable new-device notice through Store before returning both flags; acknowl
 unverify preserve device memory. A failed mark write does not imply the cache remained unchanged.
 
 The core context/state API is implemented; native UniFFI exports and desktop adoption remain planned.
-Exact durable version floors across the full unsigned wire range and legacy clamped metadata are
-not complete yet and block adoption. The current Store comparison protects its representable range.
+Store persists an exact eight-byte unsigned version beside the legacy signed clamp, including in
+private linked-device snapshots. Confirmation and device observation acquire the writer before
+reading authority, or retain an enclosing transaction's boundary. A legacy clamped value without
+exact metadata is ambiguous: it cannot establish a mark or lower its floor; explicit confirmation
+of the maximum unsigned version can recover it. Corrupt metadata fails closed.
 Adapters must bind the same identity/directory, invalidate the context on activation, and provide
 Rust-verified profiles rather than reconstructed platform DTOs. A signed display result alone
 does not establish that it is the highest profile observed in the current network.

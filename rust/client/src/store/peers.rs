@@ -6,13 +6,17 @@ use super::{Error, Store};
 use crate::chat::PeerChange;
 use crate::PreparedEnvelope;
 use dyapp_messaging::hlc::{HybridClock, Timestamp};
-use dyapp_profile::{is_clean_text, DeviceCertificate, VerifiedProfile, MAX_FIELD_CHARS};
-use prost::Message as _;
+use dyapp_profile::{is_clean_text, VerifiedProfile, MAX_FIELD_CHARS};
+
+pub(super) mod verification;
+#[cfg(test)]
+mod verification_tests;
 use rusqlite::types::Value;
 use rusqlite::{params, Connection, OptionalExtension};
 
 // `seen_devices`: the device keys of the newest profile seen or verified, 32 bytes each; NULL
-// before the first. `seen_version`: that profile's version. `verified`: the safety number or QR
+// before the first. `seen_version` is the legacy clamp; `seen_version_exact` is its eight-byte
+// unsigned big-endian authority. A missing marker at the clamp is ambiguous. `verified`: the safety number or QR
 // code was compared for those keys. `new_device`: a profile added a device, until acknowledged.
 // Each *_hlc column keeps the newest private field change shared with own devices.
 pub(super) const SCHEMA: &str = r"
@@ -23,6 +27,7 @@ CREATE TABLE `peers` (
     `local_name` TEXT NOT NULL DEFAULT '',
     `seen_devices` BLOB,
     `seen_version` INTEGER,
+    `seen_version_exact` BLOB CHECK (`seen_version_exact` IS NULL OR length(`seen_version_exact`) = 8),
     `verified` INTEGER NOT NULL DEFAULT 0 CHECK (`verified` IN (0, 1)),
     `new_device` INTEGER NOT NULL DEFAULT 0 CHECK (`new_device` IN (0, 1)),
     `blocked_hlc` INTEGER NOT NULL DEFAULT 0,
@@ -320,88 +325,6 @@ impl Store {
         })
     }
 
-    /// Mark the owner of `profile` verified after its safety number or QR code matched. This is
-    /// a fresh check, so it also ends a new-device notice.
-    ///
-    /// # Errors
-    /// Rejects a profile below the durable observed version; returns database errors
-    /// if reading or updating peer state fails.
-    pub fn set_verified(&self, profile: &VerifiedProfile) -> Result<(), Error> {
-        let changed = self.db.execute(
-            "INSERT INTO `peers` (`peer_id`, `seen_devices`, `seen_version`, `verified`)
-             VALUES (?1, ?2, ?3, 1)
-             ON CONFLICT (`peer_id`) DO UPDATE SET
-                 `seen_devices` = excluded.`seen_devices`,
-                 `seen_version` = excluded.`seen_version`,
-                 `verified` = 1,
-                 `new_device` = 0
-             WHERE `peers`.`seen_version` IS NULL
-                 OR excluded.`seen_version` >= `peers`.`seen_version`",
-            params![profile.peer_id, device_keys(profile), version(profile)],
-        )?;
-        if changed == 0 {
-            return Err(Error::ProfileCompletionSuperseded);
-        }
-        Ok(())
-    }
-
-    /// Whether the owner of `profile` is verified, after comparing it with the devices seen. The
-    /// first profile only records them, and an older one proves nothing. Any other that lists an
-    /// unseen device clears the mark and raises the new-device notice in one statement, and those
-    /// devices count as seen, so one link raises one notice. A newer profile replaces what was
-    /// seen, so a removed device that returns is new again; one of the same version adds to it, so
-    /// two signed forks cannot raise the notice in turn.
-    ///
-    /// # Errors
-    /// Returns database errors if reading or updating the peer state fails.
-    pub fn verified(&self, profile: &VerifiedProfile) -> Result<bool, Error> {
-        let known: Option<(Vec<u8>, i64, bool)> = self
-            .db
-            .query_row(
-                "SELECT `seen_devices`, `seen_version`, `verified` FROM `peers`
-                 WHERE `peer_id` = ?1 AND `seen_devices` IS NOT NULL",
-                [&profile.peer_id],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-            )
-            .optional()?;
-        let (devices, version) = (device_keys(profile), version(profile));
-        let Some((seen, seen_version, verified)) = known else {
-            self.db.execute(
-                "INSERT INTO `peers` (`peer_id`, `seen_devices`, `seen_version`)
-                 VALUES (?1, ?2, ?3)
-                 ON CONFLICT (`peer_id`) DO UPDATE SET
-                     `seen_devices` = excluded.`seen_devices`,
-                     `seen_version` = excluded.`seen_version`",
-                params![profile.peer_id, devices, version],
-            )?;
-            return Ok(false);
-        };
-        let added: Vec<u8> = devices
-            .chunks(32)
-            .filter(|key| !seen.chunks(32).any(|known| known == *key))
-            .flatten()
-            .copied()
-            .collect();
-        let unchanged = added.is_empty();
-        if version < seen_version || (version == seen_version && unchanged) {
-            return Ok(verified);
-        }
-        let devices = if version == seen_version {
-            [seen, added].concat()
-        } else {
-            devices
-        };
-        let verified = verified && unchanged;
-        self.db.execute(
-            "UPDATE `peers`
-             SET `seen_devices` = ?2, `seen_version` = ?3, `verified` = ?4,
-                 `new_device` = `new_device` OR ?5
-             WHERE `peer_id` = ?1",
-            params![profile.peer_id, devices, version, verified, !unchanged],
-        )?;
-        Ok(verified)
-    }
-
     /// Take the verified mark off `peer_id`. The devices seen stay, so the notice still works.
     ///
     /// # Errors
@@ -467,22 +390,6 @@ impl Store {
             .optional()?;
         Ok(value.unwrap_or(false))
     }
-}
-
-// SQLite integers are signed; a version beyond them still compares as the newest.
-fn version(profile: &VerifiedProfile) -> i64 {
-    i64::try_from(profile.profile.version).unwrap_or(i64::MAX)
-}
-
-// A verified profile's certificates are valid, so every device key is 32 bytes.
-fn device_keys(profile: &VerifiedProfile) -> Vec<u8> {
-    profile
-        .profile
-        .devices
-        .iter()
-        .filter_map(|signed| DeviceCertificate::decode(signed.payload.as_slice()).ok())
-        .flat_map(|certificate| certificate.device_key)
-        .collect()
 }
 
 #[cfg(test)]

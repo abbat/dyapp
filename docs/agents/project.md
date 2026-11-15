@@ -336,6 +336,10 @@ For direct filtered Cargo tests in a read-only container, remember that test pro
 each crate directory. Relative `build/` fixtures need writable per-crate scratch mounts; create
 the empty host mountpoint before overlaying it with a UID-1000 tmpfs. The root target cache alone
 does not make these fixture paths writable.
+A filtered Cargo command exiting successfully is insufficient evidence: require the expected
+named tests and nonzero count in its final result. With concurrent work sharing the target cache,
+confirm the tested source revision and inventory; an unexpectedly empty selection must be
+investigated before claiming a pass. Do not delete caches or restart live checks to recover output.
 The Linux and Android UI services build the current checkout, mounted read-only; only a changed
 Dockerfile needs `make prepare`. The Android build (`android-build`) is online and fetches its
 Gradle and cargo dependencies into `build/android-build`.

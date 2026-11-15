@@ -45,6 +45,17 @@ go into logs or migration diagnostics.
 
 ## Versioned records
 
+Contact device observations retain the legacy signed `seen_version` and an exact eight-byte
+big-endian `seen_version_exact`. New observations and confirmations write both atomically;
+private linked-device snapshots carry the exact bytes in optional peer tag 21. Import/export
+validate the pair; import cannot erase a higher local floor or forget equal-version device keys.
+Legacy values below the signed maximum are recoverable; a clamped maximum
+without exact bytes has an unknown unsigned floor and cannot restore trust below `u64::MAX`.
+At that maximum, observation stays unverified until an explicit fresh comparison. Invalid lengths,
+negative versions and mismatched pairs fail closed. Writer admission precedes device reads;
+an enclosing transaction retains control of commit/rollback. Old development schemas without
+the new column are not recreated or silently migrated.
+
 SQLite databases use `user_version` 1 and one profile binding. There are no released clients or
 supported existing databases, so pre-release schema changes replace this schema without a
 migration. Existing development databases must be recreated or restored from a matching version.

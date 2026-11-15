@@ -76,6 +76,13 @@ fn imported_clock(state: &LinkState) -> u64 {
 
 fn write_peers(tx: &Connection, state: &LinkState) -> Result<(), Error> {
     for peer in &state.peers {
+        super::super::peers::verification::admit_snapshot(
+            tx,
+            &peer.peer_id,
+            peer.seen_version,
+            peer.seen_version_exact.as_deref(),
+            peer.seen_devices.as_deref(),
+        )?;
         if !crate::chat::valid_note(&peer.note) {
             return Err(Error::InvalidSetting);
         }
@@ -83,8 +90,8 @@ fn write_peers(tx: &Connection, state: &LinkState) -> Result<(), Error> {
             "INSERT OR REPLACE INTO `peers` (`peer_id`, `blocked`, `muted`, `local_name`,
                  `seen_devices`, `seen_version`, `verified`, `new_device`, `blocked_hlc`,
                  `muted_hlc`, `name_hlc`, `favorite`, `favorite_hlc`,
-                 `blocked_device`, `muted_device`, `name_device`, `favorite_device`, `note`, `note_hlc`, `note_device`)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
+                 `blocked_device`, `muted_device`, `name_device`, `favorite_device`, `note`, `note_hlc`, `note_device`, `seen_version_exact`)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)",
             params![
                 peer.peer_id,
                 peer.blocked,
@@ -105,7 +112,8 @@ fn write_peers(tx: &Connection, state: &LinkState) -> Result<(), Error> {
                 peer.favorite_device,
                 peer.note,
                 peer.note_hlc,
-                peer.note_device
+                peer.note_device,
+                peer.seen_version_exact
             ],
         )?;
     }

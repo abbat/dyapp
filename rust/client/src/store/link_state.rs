@@ -45,6 +45,8 @@ struct PeerSnapshot {
     seen_devices: Option<Vec<u8>>,
     #[prost(int64, optional, tag = "6")]
     seen_version: Option<i64>,
+    #[prost(bytes = "vec", optional, tag = "21")]
+    seen_version_exact: Option<Vec<u8>>,
     #[prost(bool, tag = "7")]
     verified: bool,
     #[prost(bool, tag = "8")]

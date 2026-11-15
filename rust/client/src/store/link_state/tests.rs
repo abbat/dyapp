@@ -1,4 +1,27 @@
 //! Linked private-state wire round trips and pending-row storage.
+
+#[test]
+fn malformed_exact_contact_version_cannot_partially_import_other_preferences() {
+    let owner = Identity::from_secret(&[1; 32]);
+    let source = Store::open(&temp_db_path(), &owner).unwrap();
+    source.set_blocked("bob", true).unwrap();
+    let mut snapshot = LinkState::decode(source.link_state().unwrap().as_slice()).unwrap();
+    snapshot.peers[0].seen_version = Some(i64::MAX);
+    snapshot.peers[0].seen_version_exact = Some(vec![0; 7]);
+    let mut target = Store::open(&temp_db_path(), &owner).unwrap();
+    assert!(matches!(
+        target.import_link_state(&snapshot.encode_to_vec()),
+        Err(Error::InvalidSetting)
+    ));
+    assert!(!target.blocked("bob").unwrap());
+    snapshot.peers[0].seen_version_exact = Some(2_u64.to_be_bytes().to_vec());
+    assert!(matches!(
+        target.import_link_state(&snapshot.encode_to_vec()),
+        Err(Error::InvalidSetting)
+    ));
+    assert!(!target.blocked("bob").unwrap());
+}
+
 use super::super::tests::temp_db_path;
 use super::*;
 use crate::interactions::Kind;

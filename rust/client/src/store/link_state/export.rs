@@ -35,7 +35,7 @@ fn peers(db: &Connection) -> Result<Vec<PeerSnapshot>, Error> {
         "SELECT `peer_id`, `blocked`, `muted`, `local_name`, `seen_devices`, `seen_version`,
                 `verified`, `new_device`, `blocked_hlc`, `muted_hlc`, `name_hlc`,
                 `favorite`, `favorite_hlc`, `blocked_device`, `muted_device`, `name_device`, `favorite_device`,
-                `note`, `note_hlc`, `note_device`
+                `note`, `note_hlc`, `note_device`, `seen_version_exact`
          FROM `peers` ORDER BY `peer_id`",
     )?;
     let peers = peers.query_map([], |row| {
@@ -46,6 +46,7 @@ fn peers(db: &Connection) -> Result<Vec<PeerSnapshot>, Error> {
             local_name: row.get(3)?,
             seen_devices: row.get(4)?,
             seen_version: row.get(5)?,
+            seen_version_exact: row.get(20)?,
             verified: row.get(6)?,
             new_device: row.get(7)?,
             blocked_hlc: row.get(8)?,
@@ -62,7 +63,14 @@ fn peers(db: &Connection) -> Result<Vec<PeerSnapshot>, Error> {
             note_device: row.get(19)?,
         })
     })?;
-    Ok(peers.collect::<Result<_, _>>()?)
+    let peers = peers.collect::<Result<Vec<_>, _>>()?;
+    for peer in &peers {
+        super::super::peers::verification::floor(
+            peer.seen_version,
+            peer.seen_version_exact.as_deref(),
+        )?;
+    }
+    Ok(peers)
 }
 
 fn likes(db: &Connection) -> Result<Vec<Like>, Error> {

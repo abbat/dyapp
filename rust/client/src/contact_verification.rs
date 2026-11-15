@@ -143,8 +143,10 @@ impl Context {
     /// Returns a local state read/write error; device observation may update the notice.
     pub fn state(&self, store: &Store, peer: &str) -> Result<State, Error> {
         let verified = match self.profiles.get(peer) {
-            Some(profile) => store.verified(profile)?,
-            None => false,
+            Some(profile) if !profile.profile.deleted && profile.profile.version != 0 => {
+                store.verified(profile)?
+            }
+            _ => false,
         };
         Ok(State {
             verified,
