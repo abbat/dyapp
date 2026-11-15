@@ -311,7 +311,9 @@ changing MLS/outbox state. These Store fixtures do not prove upload, MLS receive
 Core lookup tests additionally distinguish equal author/ID values across two groups. Shared
 original tests cover JPEG/PNG, unspecified and mismatched dimensions, literal sealed-byte/pixel
 boundaries, cache validation, block/clear during a selected fetch, owner isolation and deterministic
-cache write failure. Public native tests reopen both JPEG and PNG with unspecified geometry offline.
+cache write failure. A valid 1×1 Adam7 PNG fixture checks admission of both interlace methods
+and refusal of reserved methods with corrected header CRCs. Public native tests reopen both
+JPEG and PNG with unspecified geometry offline.
 These tests do not exercise actual platform image decoders. Shared prepared-photo tests cover
 outgoing descriptor/encryption roundtrips, JPEG geometry, optional preview and separate chat/profile
 budgets. Public native photo-submission tests require own/blocked/non-open/unpublished, malformed

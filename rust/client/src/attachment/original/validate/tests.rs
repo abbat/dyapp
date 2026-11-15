@@ -87,6 +87,26 @@ fn png_crc_and_header_fields_are_checked_before_native_decoding() {
     assert!(validate(&original[..original.len() - 1], 3, 2).is_err());
 }
 
+#[test]
+fn png_interlace_accepts_adam7_but_rejects_reserved_methods() {
+    // A real 1x1 RGBA PNG: Adam7's first pass has one pixel, all later passes are empty.
+    let original = include_bytes!("one-by-one-adam7.png");
+    assert_eq!(original[28], 1);
+    for (method, accepted) in [(0, true), (1, true), (2, false), (255, false)] {
+        let mut bytes = original.to_vec();
+        bytes[28] = method;
+        let crc = png::crc32(&bytes[12..29]).to_be_bytes();
+        bytes[29..33].copy_from_slice(&crc);
+        for (width, height) in [(1, 1), (0, 0), (1, 0), (0, 1)] {
+            assert_eq!(
+                validate(&bytes, width, height).is_ok(),
+                accepted,
+                "interlace={method}, descriptor={width}x{height}"
+            );
+        }
+    }
+}
+
 // COM padding keeps the JPEG complete without decoding millions of pixels.
 fn padded_jpeg(length: usize) -> Vec<u8> {
     let original = image(ImageFormat::Jpeg);
