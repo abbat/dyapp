@@ -1,7 +1,6 @@
 FROM rust@sha256:3745c050d12adc738eff16ebfc81ed044bfb2cc27c6828850ff1666beb1c7a49 AS rust
-# The toolchain the test services run (see compose.ui.yml): they build the app from the mounted
-# checkout, so this stage holds no source and changes only with the toolchain.
-FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587 AS android-tools
+# Base toolchain for mounted app builds; android-tools adds the pinned JNI artifact below.
+FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587 AS android-base-tools
 ENV DEBIAN_FRONTEND=noninteractive \
     JAVA_TOOL_OPTIONS=-XX:ActiveProcessorCount=4 \
     CMAKE_BUILD_PARALLEL_LEVEL=4 MAKEFLAGS=-j4
@@ -38,6 +37,25 @@ RUN mkdir -p /opt/gradle-cache /reports /avd /app/build && chown 1000:1000 /app 
 ENV HOME=/home/appuser
 USER 1000:1000
 RUN cargo install cargo-ndk --version 4.1.2 --locked
+
+# Source-generation tools and archives remain in this builder stage.
+FROM android-base-tools AS jna-native-builder
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    autoconf automake libtool && rm -rf /var/lib/apt/lists/*
+COPY tools/jna-native.json /opt/jna-build/tools/jna-native.json
+COPY tools/scripts/jna_source.py tools/scripts/jna_native.py tools/scripts/jna_aar.py \
+    tools/scripts/check-hardening.py /opt/jna-build/tools/scripts/
+USER 1000:1000
+WORKDIR /app/build
+RUN python3 -B /opt/jna-build/tools/scripts/jna_source.py fetch --inputs /app/build/jna-inputs && \
+    python3 -B /opt/jna-build/tools/scripts/jna_source.py prepare \
+        --inputs /app/build/jna-inputs --work /app/build/jna-work && \
+    python3 -B /opt/jna-build/tools/scripts/jna_native.py \
+        --work /app/build/jna-work --ndk "$ANDROID_NDK_HOME" --output /app/build/jna-output
+
+FROM android-base-tools AS android-tools
+COPY --from=jna-native-builder /app/build/jna-output /opt/dyapp/jna-native
 
 # Keep the extra platform image out of the release toolchain; the APK build is shared.
 FROM android-tools AS android-permission-tools

@@ -69,8 +69,22 @@ protected `arm64-v8a/libjnidispatch.so` and `x86_64/libjnidispatch.so`. It check
 libraries with the shared Android ELF policy, preserves every non-JNI member byte,
 and records the original AAR, Java archive, output and native-library hashes.
 Invalid native/AAR inputs are rejected before output creation; existing outputs are
-never overwritten. Default Docker/Gradle consumption of this prepared AAR remains
-planned; ordinary builds currently resolve the upstream JNA AAR.
+never overwritten.
+
+The Android tooling Dockerfile prepares this artifact in `jna-native-builder` from
+`tools/jna-native.json`; the final `android-tools` stage receives only the AAR and
+`manifest.json` under `/opt/dyapp/jna-native`. Autotools and source archives stay in
+the builder stage. Downloads use fixed origins, SHA-256 pins and a 256 MiB limit.
+`jna_source.py fetch --inputs INPUTS` downloads the inputs; `jna_source.py prepare
+--inputs INPUTS --work WORK` verifies them, extracts only regular source files and
+generates vendored libffi configure files. `jna_native.py --work WORK --ndk NDK
+--output OUTPUT` verifies the prepared tree, generates headers with JDK 17, compiles
+both API 31 slices and checks their JNI exports against the original AAR. Work and
+NDK paths must contain no spaces or make metacharacters. The pinned native API
+version is checked against the original Java bytecode rather than the upstream
+Makefile default. The output manifest records source, Java, native and AAR hashes.
+Gradle consumption of this prepared artifact remains planned; ordinary app builds
+currently resolve the upstream JNA AAR.
 
 ## Apple
 

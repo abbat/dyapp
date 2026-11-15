@@ -1,0 +1,9 @@
+{
+  "version": "5.19.1",
+  "native_version": "7.0.4",
+  "commit": "1a91122853f6ab6f1fb2a4a284a6cf2ed8af0a4d",
+  "source_sha256": "156ac0437bcd025c1eb4960d26acf883be5557d6d45b7afe38af5ec0c58d5591",
+  "aar_sha256": "b57125cb7d16253f0d65a80f7d3a4c3664effa711b8bdbb7f87fb572ce1624ed",
+  "classes_sha256": "4be6bd933a47a2cb5283dc78203e674ca3693b38ca65d3d65e6370e06b9b5fe2",
+  "ndk_version": "29.0.14206865"
+}
