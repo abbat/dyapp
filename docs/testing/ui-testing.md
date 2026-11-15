@@ -529,7 +529,15 @@ retry is [flaky](README.md#flaky-tests): `xcodebuild test` retries a failed test
 run reruns up to twice, each time only the tests the failed run lists (`-e class`, checked
 with a minimum of one test), or the whole suite when it lists none. The tests listed by a
 failed run before a passing one are flaky (`android instrumentation` when a failed run lists
-none). The desktop smoke runs one app
+none). All Android instrumentation invocations use `android_instrumentation.py` with raw
+status callbacks (`am instrument -w -r`). Startup, each completed named test and final ADB
+exit have fresh failure budgets (normally 300 seconds, 900 for the main suite and long worker
+phases); there is no total suite timer. Only matched start/completion records advance progress,
+including failed or skipped test outcomes; logs, repeated statuses and partial lines do not.
+The existing final JUnit checker still determines success. A stalled invocation exits 124;
+an ADB exit without a final runner result exits 125. These and other host-command errors stop
+the suite without a possibly overlapping retry; the original report is retained.
+The desktop smoke runs one app
 instance per case: system create/restart, then in that profile add a file identity, restart past a
 pending slot left by a simulated crash, pick from the picker after `active-profile` is
 corrupted, reopen it and remove it through the remove screen; add another file identity, show

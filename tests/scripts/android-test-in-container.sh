@@ -3,6 +3,13 @@ set -euo pipefail
 bash /app/tests/scripts/check-container-isolation.sh
 mkdir -p /tmp/ai
 export DYAPP_CHECK_LOG_DIR="/reports/$HOSTNAME/check-output"
+run_instrumentation() {
+    local report=$1 deadline=$2
+    shift 2
+    python3 /app/tests/scripts/android_instrumentation.py --report "$report" --deadline "$deadline" -- \
+        adb -s emulator-5554 shell am instrument -w -r "$@" com.dyapp.test/androidx.test.runner.AndroidJUnitRunner \
+        || exit "$?"
+}
 case "${1:?suite required}" in
     build)
         # The checkout is read-only and Gradle writes into its project: build a copy whose build/
@@ -123,7 +130,8 @@ case "${1:?suite required}" in
         # run are flaky (practice B5). A failed run that names no test reruns the whole suite.
         failed=() only=() minimum=3
         for attempt in 1 2 3; do
-            timeout 900 adb -s emulator-5554 shell am instrument -w "${only[@]}" com.dyapp.test/androidx.test.runner.AndroidJUnitRunner > "$report_dir/instrumentation.txt" || true
+            # Retry only finished JUnit failures, never an uncertain remote invocation.
+            run_instrumentation "$report_dir/instrumentation.txt" 900 "${only[@]}"
             if python3 /app/tests/scripts/check-instrumentation-results.py "$report_dir/instrumentation.txt" "$minimum"; then
                 break
             fi
@@ -153,10 +161,8 @@ case "${1:?suite required}" in
                 worker) argument=workerPeerPhase; test_class=WorkerPeerPhaseTests ;;
                 *) return 2 ;;
             esac
-            timeout "$deadline" adb -s emulator-5554 shell am instrument -w \
-                -e "$argument" "$phase" -e class "com.dyapp.$test_class" \
-                com.dyapp.test/androidx.test.runner.AndroidJUnitRunner \
-                > "$report_dir/$fixture-peer-$phase.txt" || return
+            run_instrumentation "$report_dir/$fixture-peer-$phase.txt" "$deadline" \
+                -e "$argument" "$phase" -e class "com.dyapp.$test_class" || return
             python3 /app/tests/scripts/check-instrumentation-results.py "$report_dir/$fixture-peer-$phase.txt" 1
         }
         node_action() {
@@ -202,11 +208,9 @@ case "${1:?suite required}" in
         done
         # Forged-result fixture: with every indexed signature flipped, a search must list no profile.
         python3 /app/tests/scripts/forge-search-index.py /reports/node/storage
-        timeout 300 adb -s emulator-5554 shell am instrument -w -e forged 1 \
-            -e class com.dyapp.SearchTests#forgedResultsAreDroppedAndListed \
-            com.dyapp.test/androidx.test.runner.AndroidJUnitRunner > "$report_dir/forged.txt" || true
-        cat "$report_dir/forged.txt"
-        grep -q '^OK (1 test)' "$report_dir/forged.txt"
+        run_instrumentation "$report_dir/forged.txt" 300 -e forged 1 \
+            -e class com.dyapp.SearchTests#forgedResultsAreDroppedAndListed
+        python3 /app/tests/scripts/check-instrumentation-results.py "$report_dir/forged.txt" 1
         timeout 60 adb -s emulator-5554 exec-out run-as com.dyapp cat files/ui-ready.png > "$report_dir/ready.png"
         test -s "$report_dir/ready.png"
         ;;

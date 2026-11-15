@@ -12,10 +12,11 @@ mkdir -p "$report_dir"
 
 phase() {
     local name=$1
-    timeout 300 adb -s "$serial" shell am instrument -w \
+    python3 "$(dirname "$checker")/android_instrumentation.py" \
+        --report "$report_dir/local-network-$name.txt" --deadline 300 -- \
+        adb -s "$serial" shell am instrument -w -r \
         -e localNetworkPermissionPhase "$name" -e localNetworkNode "$node" \
-        -e class "$test_class" com.dyapp.test/androidx.test.runner.AndroidJUnitRunner \
-        > "$report_dir/local-network-$name.txt"
+        -e class "$test_class" com.dyapp.test/androidx.test.runner.AndroidJUnitRunner
     python3 "$checker" "$report_dir/local-network-$name.txt" 1
 }
 

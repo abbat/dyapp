@@ -22,7 +22,17 @@ with Path(os.environ["FAKE_ADB_LOG"]).open("a") as log:
 if "instrument" in sys.argv:
     phase = sys.argv[sys.argv.index("localNetworkPermissionPhase") + 1]
     failed = phase == os.environ.get("FAIL_PHASE")
+    for code in (1, -2 if failed else 0):
+        for key, value in {
+            "id": "AndroidJUnitRunner", "current": "1",
+            "class": "com.dyapp.LocalNetworkPermissionPhaseTests",
+            "test": phase,
+        }.items():
+            print(f"INSTRUMENTATION_STATUS: {key}={value}")
+        print(f"INSTRUMENTATION_STATUS_CODE: {code}")
+    print("INSTRUMENTATION_RESULT: stream=")
     print("FAILURES!!!" if failed else "OK (1 test)")
+    print("INSTRUMENTATION_CODE: -1")
 """
 
 
@@ -73,7 +83,9 @@ class AndroidLanPhases(unittest.TestCase):
                     )
                     events.append(call[4])
                 else:
-                    self.assertEqual(call[3:6], ["am", "instrument", "-w"])
+                    self.assertEqual(
+                        call[3:7], ["am", "instrument", "-w", "-r"]
+                    )
                     events.append(
                         call[call.index("localNetworkPermissionPhase") + 1]
                     )
