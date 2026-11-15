@@ -74,6 +74,18 @@ MEASURE = """JSON.stringify((() => {
   const ident = e => e.classList.contains('full-id')
       || (e.tagName === 'CODE' && style(e).display === 'block');
   const found = [];
+  if (location.pathname.includes('/android/')) {
+    for (const scrim of document.querySelectorAll('.scrim:not([hidden])')) {
+      const cover = scrim.getBoundingClientRect();
+      const dialog = scrim.querySelector('[role=dialog]').getBoundingClientRect();
+      if (cover.top > 0 || cover.left > 0
+          || cover.right < innerWidth || cover.bottom < innerHeight)
+        throw new Error('Android modal scrim does not cover viewport');
+      if (dialog.bottom <= 0 || dialog.top >= innerHeight
+          || (scrim.scrollTop === 0 && dialog.top < cover.top))
+        throw new Error('Android modal starts outside reachable viewport');
+    }
+  }
   const input = document.getElementById('chat-input');
   const stickers = document.getElementById('chat-stickers');
   if (stickers && box(input) && !input.closest('[inert]')) {
@@ -301,6 +313,7 @@ ANDROID = [
     "chat-first",
     "chat-request",
     "chat-menu",
+    "chat-rename-dialog",
     "chat-clear-dialog",
     "chat-cleared",
     "delete-dialog",

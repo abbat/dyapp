@@ -646,6 +646,16 @@ if (!contactName || !contact.dataset.peerId || !targetName || !targetPeer)
 targetName.textContent = contactName.textContent;
 targetPeer.textContent = contact.dataset.peerId;
 installIdentifiers(t, targetPeer);
+for (const scope of [
+  document.getElementById('settings-identities'),
+  document.getElementById('blocked'),
+  document.getElementById('passed'),
+  document.getElementById('identity-menu'),
+  document.getElementById('remove-peer')?.closest('[role="dialog"]'),
+]) {
+  if (!scope) throw new Error('Identity identifier scope is missing');
+  installIdentifiers(t, scope);
+}
 </script>
 </body>
 </html>

@@ -434,9 +434,13 @@ pre {
   display: flex;
   flex-direction: column;
 }
+#settings-identities .list-item,
 #blocked .list-item,
 #passed .list-item {
   flex-wrap: wrap;
+}
+#settings-identities .list-item .grow {
+  flex-basis: auto;
 }
 #blocked .list-item code.grow,
 #passed .list-item code.grow {
@@ -497,16 +501,17 @@ pre {
 
 /* Dialogs and the identity bottom sheet cover the whole page. */
 .scrim {
-  position: absolute;
+  position: fixed;
   inset: 0;
   background: var(--scrim);
+  overflow: auto;
   display: flex;
   align-items: safe center;
   justify-content: center;
   padding: 24px;
 }
 .scrim.bottom {
-  align-items: flex-end;
+  align-items: safe flex-end;
   padding: 0;
 }
 .dialog {
@@ -531,7 +536,8 @@ pre {
 .confirm-id dd {
   margin: 0;
 }
-code.identifier {
+code.identifier,
+code.grow.identifier {
   display: block;
   margin-block: var(--space-3);
   padding: var(--space-2);

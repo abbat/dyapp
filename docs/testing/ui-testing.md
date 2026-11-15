@@ -123,6 +123,10 @@ child nodes, since node counts alone cannot distinguish a formatted chunk from a
 Android Clear target checks preserve name, labelled full raw-copy ID and consequence order, including
 wrong/missing target, markup, label, order and chunk counterexamples. Tall-dialog checks require
 supported safe centering and reachable text/control bounds at real enlarged text sizes.
+Android captures also reject modal scrims that fail to cover the viewport or place their dialog
+outside its reachable start; the matrix includes the rename dialog. Enlarged-text modal checks
+scroll actual controls into view, hit-test their current centres and require the background scroll
+position to stay unchanged.
 
 Prototype screenshots serve the mounted assets through an ephemeral loopback HTTP origin,
 including the shared identifier ES module. No external network access is needed.

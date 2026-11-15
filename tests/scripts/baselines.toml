@@ -121,14 +121,10 @@ desktop = [
     "L2 #chats-liked span.avatar.photo.p3 | span.avatar",
 ]
 android = [
-    "I1  code | span.caption",
     "I1 #chat-2 code | span#chat-muted",
-    "I1 #identity-menu code | span.caption",
     "I1 #pick-1 code | span.caption",
     "I1 #pick-2 code | span.caption",
     "I1 #result-2 code | span.caption",
-    "I1 #settings-identities code | span.caption",
-    "I1 #switch-to-2 code | span.caption",
     "L2  button#connection-status | button#identity-switcher",
     "L2  button#lock-back | span.title",
     "L2  input#network-name | p.caption",

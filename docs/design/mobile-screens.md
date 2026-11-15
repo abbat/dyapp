@@ -47,6 +47,9 @@ Phones get one screen at a time. Five top-level sections sit in a bottom navigat
 a top app bar with its title, the connection status and the identity avatar. Detail
 screens (a found profile, a chat, the app lock settings) replace both bars with a back bar.
 Dialogs are Material dialogs over a scrim; the identity switcher is a bottom sheet.
+In the static prototype, scrims cover the viewport and scroll independently of the background.
+Oversized dialogs and sheets start at a reachable edge so their text and final actions can be
+scrolled into view at enlarged text sizes.
 
 | Control | ID | Notes |
 | --- | --- | --- |
@@ -158,7 +161,9 @@ The IDs inside each section are the desktop ones; only the frame differs.
   `settings-create`), the `lock-settings` row, `blocked` (`retry-revocation-1`, `unblock-1`, `blocked-none`), `passed` (`unpass-1`,
   `passed-none`). In the static prototype, blocked and passed rows wrap their actions when
   their intrinsic text widths exceed the card; identifiers retain space and action labels remain
-  complete at enlarged text sizes. Appearance uses `theme` (`theme-system`,
+  complete at enlarged text sizes. Identity, blocked and passed lists, the identity sheet and the
+  removal confirmation use the shared identifier formatter and container; visual chunk boundaries
+  preserve raw ID text for copying. Appearance uses `theme` (`theme-system`,
   `theme-light`, `theme-dark`) and `language` (`language-system`, `language-en`, `language-ru`),
   `privacy` (`send-views`, `send-read-receipts`, `send-typing`, `presence-audience`,
   `message-notifications`, `notice-content` with `notice-fixed`, `notice-name` and `notice-text`)
