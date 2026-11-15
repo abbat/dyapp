@@ -300,6 +300,10 @@ Host Rust tests also call the public native photo history/original exports over 
 metadata and a sealed cache. They check mixed ordering, reopening offline, full message selectors,
 block/clear refusal, malformed image framing or descriptor geometry, and a torn cache without
 changing MLS/outbox state. These Store fixtures do not prove upload, MLS receive or JNI execution.
+Core lookup tests additionally distinguish equal author/ID values across two groups. The embedded
+desktop photo-identity regression holds one original response while completing the other group,
+then releases it and redraws both from a warm cache; it checks full IPC selectors and routing
+through completion promises without sleeps or pixel-color locators.
 
 The Apple two-peer test (`ChatsUITests`) cannot reach the FFI from the XCUITest process, so the DEBUG
 launch argument `--ui-test-chat-peer` hosts the second identity inside the app under test

@@ -67,7 +67,7 @@ const photoCaption = (photo) => {
   return parts.join(' · ');
 };
 /** @param {import('./chat-state.js').ChatMessage} message */
-const photoKey = (message) => `${message.author}:${message.id}`;
+const photoKey = (message) => `${message.groupId}:${message.author}:${message.id}`;
 /** @param {string} code */
 const photoError = (code) =>
   strings[
@@ -113,6 +113,7 @@ const downloadOriginal = async (message, peerId, call) => {
   try {
     const bytes = await call('chat_photo_original', {
       peerId,
+      groupId: message.groupId,
       author: message.author,
       id: message.id,
     });

@@ -176,7 +176,7 @@
  *   fetch_peer_photos: Command<[{ hashes: number[][], full: boolean }], void>,
  *   peer_photo: Command<[{ hash: number[] }], BinaryResponse>,
  *   peer_photo_auto: Command<[], boolean>,
- *   chat_photo_original: Command<[{ peerId: string, author: string, id: number[] }], BinaryResponse>,
+ *   chat_photo_original: Command<[{ peerId: string, groupId: number[], author: string, id: number[] }], BinaryResponse>,
  *   chat_photo_auto: Command<[{ peerId: string }], boolean>,
  *   auto_download_mode: Command<[], AutoDownloadMode>,
  *   set_auto_download_mode: Command<[{ mode: AutoDownloadMode }], void>,

@@ -2,6 +2,7 @@
 // undecodable preview, the text actions a photo must not offer, the tap on the original and
 // sending a photo without its metadata.
 const checkChatPhoto = async () => {
+  await smoke.uiSmokeChatPhotoIdentity(await smoke.uiSmokeChatPhotoFixture());
   const fixture = await smoke.uiSmokeChatPhotoFixture();
   await smoke.uiSmokeChatPhotoRender(fixture);
 

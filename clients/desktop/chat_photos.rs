@@ -24,16 +24,13 @@ fn stored(
     dir: &Path,
     identity: &Identity,
     peer_id: &str,
+    group_id: &[u8],
     author: &str,
     id: &[u8; 16],
 ) -> Result<Attachment, String> {
-    chats::open_visible_chat(dir, identity, peer_id)?
-        .current_chat_attachments(peer_id)
-        .map_err(|e| e.to_string())?
-        .into_iter()
-        .find(|photo| photo.key.author == author && photo.key.id == *id)
-        .map(|photo| photo.message.attachment)
-        .ok_or_else(|| "notFound".into())
+    let store = chats::open_visible_chat(dir, identity, peer_id)?;
+    attachment::original::stored(&store, peer_id, group_id, author, id)
+        .map_err(|error| error.to_string())
 }
 
 fn fits(width: u32, height: u32) -> bool {
@@ -69,10 +66,11 @@ async fn original(
     dir: &Path,
     identity: &Identity,
     peer_id: &str,
+    group_id: &[u8],
     author: &str,
     id: &[u8; 16],
 ) -> Result<Vec<u8>, String> {
-    let photo = stored(dir, identity, peer_id, author, id)?;
+    let photo = stored(dir, identity, peer_id, group_id, author, id)?;
     let seal_key = crate::sealing_key(root, dir, &chats::open(dir, identity)?)?;
     if let Some(bytes) = originals::read(dir, &seal_key, &photo) {
         return Ok(bytes);
@@ -118,6 +116,7 @@ pub(crate) async fn chat_photo_original(
     app: tauri::AppHandle,
     state: tauri::State<'_, crate::IdentityState>,
     peer_id: String,
+    group_id: Vec<u8>,
     author: String,
     id: [u8; 16],
 ) -> Result<tauri::ipc::Response, String> {
@@ -126,7 +125,9 @@ pub(crate) async fn chat_photo_original(
     let root = crate::config_dir(&app)?;
     let bytes = tauri::async_runtime::spawn_blocking(move || {
         let _lease = lease;
-        tauri::async_runtime::block_on(original(&root, &dir, &identity, &peer_id, &author, &id))
+        tauri::async_runtime::block_on(original(
+            &root, &dir, &identity, &peer_id, &group_id, &author, &id,
+        ))
     })
     .await
     .map_err(|e| e.to_string())??;

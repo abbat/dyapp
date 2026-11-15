@@ -2,6 +2,8 @@
 //! [`CHUNK_BYTES`] chunk with the chunk index as the nonce, so a node holds only ciphertext. The
 //! [`Attachment`] goes inside the MLS message; only its members can fetch, check and open the blob.
 
+pub mod original;
+
 use crate::Error;
 use aes_gcm::aead::{Aead, KeyInit, Payload};
 use aes_gcm::{Aes256Gcm, Nonce};

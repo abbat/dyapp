@@ -47,21 +47,8 @@ impl ChatSession {
             // Keep clear/block serialized with retrieval and cache writes.
             let session = self.session.lock().map_err(failed)?;
             let store = session.store();
-            if store.blocked(&peer_id).map_err(failed)? {
-                return Err(failed("blocked"));
-            }
-            let photo = store
-                .current_chat_attachments(&peer_id)
-                .map_err(failed)?
-                .into_iter()
-                .find(|photo| {
-                    photo.key.group == group_id
-                        && photo.key.author == author
-                        && photo.key.id.as_slice() == id
-                })
-                .ok_or_else(|| failed("notFound"))?
-                .message
-                .attachment;
+            let photo = attachment::original::stored(store, &peer_id, &group_id, &author, &id)
+                .map_err(failed)?;
             if let Some(bytes) = originals::read(&self.dir, &self.seal_key, &photo) {
                 return if validate_original(&bytes, photo.width, photo.height, Purpose::Chat)
                     .is_ok()

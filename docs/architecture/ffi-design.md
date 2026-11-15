@@ -318,6 +318,12 @@ Mobile chat send and both cached/network original retrieval use the chat budget 
 6,000,000 bytes; profile validation retains its separate 1 MiB limit. Framing checks do
 not replace the platform decoder's validation of compressed pixel data.
 
+`dyapp_client::attachment::original::stored` owns blocked-peer admission and exact stored-photo
+lookup by peer, group, author and logical ID. Native and Tauri original retrieval both call it;
+the native ABI is unchanged, while Tauri forwards the existing history `groupId`. Browser photo
+caches, pending fetches and bubble routing retain that same full key. Shared cache/fetch/retention
+workflow adoption remains planned; this lookup does not change JPEG/PNG or dimension policy.
+
 Android draft loading reads only the identity-bound `client.db` through `load_profile_draft`.
 An absent draft starts empty; key/database errors propagate. Legacy JSON is neither imported
 nor modified. Publication and mutual search use the same loader.

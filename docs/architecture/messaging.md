@@ -121,8 +121,11 @@ reads and opens it on receipt. Recipients never release the blob: every device o
 MLS member and the first release would drop it for the others, so it expires after the node's
 retention. `attachment::auto_download` downloads a contact's original without a tap only on an
 unmetered network (or in the "always" mode) and a stranger's only on a tap.
-The desktop `chat_photo_original` command fetches one original and checks its real dimensions from
-the header before the page decodes it, at most 64 megapixels. On each mail pass of an open chat the
+The desktop `chat_photo_original` command selects a current photo by peer, group, author and
+logical ID through the same core lookup as native clients. Browser caches and pending fetches keep
+the group too: equal author/ID values in different groups remain separate. After a network fetch,
+the command checks real dimensions from the header before page decoding, at most 64 megapixels.
+On each mail pass of an open chat the
 page asks `chat_photo_auto` whether waiting originals may download: Linux reads NetworkManager's
 `Metered` property over the system bus, Windows the Internet connection cost and macOS the
 Network.framework path (`dyapp_bootstrap::network`); an unavailable source counts as metered. The

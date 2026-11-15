@@ -111,6 +111,7 @@
     await finished(strings['chats.photoFailed']);
     if (
       fixture.fetched.id[0] !== 2 ||
+      JSON.stringify(fixture.fetched.groupId) !== JSON.stringify([1]) ||
       fixture.fetched.author !== appBindings.current.peerId ||
       !button.isConnected
     ) {
