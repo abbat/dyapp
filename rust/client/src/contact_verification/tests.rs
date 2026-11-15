@@ -35,6 +35,31 @@ fn profile(secret: u8, version: u64, devices: &[u8]) -> VerifiedProfile {
 }
 
 #[test]
+fn generation_tracks_invalidation_without_changing_on_profile_admission() {
+    let mut context = Context::default();
+    let first = context.generation();
+    let retained = first.clone();
+    assert!(context.is_current(&first));
+    assert!(!Context::default().is_current(&first));
+    context.accept(profile(2, 1, &[3])).unwrap();
+    assert!(context.is_current(&retained));
+
+    context.clear();
+    let second = context.generation();
+    assert!(!context.is_current(&first));
+    assert!(!context.is_current(&retained));
+    assert!(context.is_current(&second));
+    context.accept(profile(2, 1, &[3])).unwrap();
+    assert!(!context.is_current(&first));
+
+    context.clear();
+    assert!(!context.is_current(&first));
+    assert!(!context.is_current(&retained));
+    assert!(!context.is_current(&second));
+    assert!(context.is_current(&context.generation()));
+}
+
+#[test]
 fn current_comparison_marks_the_held_profile() {
     let store = store(1);
     let peer = owner(2).peer_id();

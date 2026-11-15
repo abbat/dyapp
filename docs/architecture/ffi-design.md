@@ -193,7 +193,10 @@ verification/device-notice state, acknowledgement and unverify. A context holds 
 profiles; a one-use ticket binds the local Store owner, requested Peer ID and current context.
 The adapter captures it before fetching the highest observed signed profile and confirms under
 the same lock used for identity/network activation. Clearing that context replaces an opaque
-in-memory capability, so switching away and back cannot revive an earlier ticket.
+in-memory capability, so switching away and back cannot revive an earlier ticket. Search/display
+workers can capture an opaque Generation and check it under that same guard before admitting a
+result. A generation grants no confirmation authority; confirmation still consumes its owner/target
+bound Ticket. Clones retain the old allocation, preventing reuse from making stale work current.
 
 Confirmation reuses Profiles authority/rollback checks and the existing Store device-observation
 rules. Wrong owner/target, changed context, rejected authority and unpublished/deleted profiles

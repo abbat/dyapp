@@ -46,11 +46,16 @@ pub struct State {
     pub new_device: bool,
 }
 
+/// Opaque generation captured by search/display work; it grants no confirmation authority.
+/// Retaining a clone prevents the allocation from being reused after invalidation.
+#[derive(Clone, Debug)]
+pub struct Generation(Arc<()>);
+
 /// A single confirmation's local owner, requested peer and context capability.
 /// Not cloneable: a retry starts a fresh comparison against the current context.
 #[derive(Debug)]
 pub struct Ticket {
-    context: Arc<()>,
+    context: Generation,
     owner: String,
     peer: String,
 }
@@ -67,6 +72,18 @@ pub struct Context {
 }
 
 impl Context {
+    /// Capture the current generation before starting search/display work.
+    #[must_use]
+    pub fn generation(&self) -> Generation {
+        Generation(Arc::clone(&self.context))
+    }
+
+    /// Whether work captured this context's current generation.
+    #[must_use]
+    pub fn is_current(&self, generation: &Generation) -> bool {
+        Arc::ptr_eq(&self.context, &generation.0)
+    }
+
     /// The currently held ordinary profile authority.
     #[must_use]
     pub fn profiles(&self) -> &Profiles {
@@ -83,7 +100,7 @@ impl Context {
 
     /// Invalidate every admitted comparison and discard the previous context's profiles.
     pub fn clear(&mut self) {
-        // A retained ticket keeps its old allocation alive, so pointer identity cannot recur.
+        // Retained generations/tickets prevent allocation reuse, so old work cannot become current.
         self.context = Arc::new(());
         self.profiles = Profiles::default();
     }
@@ -96,7 +113,7 @@ impl Context {
         target(store, peer)?;
         let owner = store.owner_peer_id();
         Ok(Ticket {
-            context: Arc::clone(&self.context),
+            context: self.generation(),
             owner: owner.to_owned(),
             peer: peer.to_owned(),
         })
@@ -117,7 +134,7 @@ impl Context {
         ticket: Ticket,
         fetched: VerifiedProfile,
     ) -> Result<VerifiedProfile, Error> {
-        if !Arc::ptr_eq(&self.context, &ticket.context) || store.owner_peer_id() != ticket.owner {
+        if !self.is_current(&ticket.context) || store.owner_peer_id() != ticket.owner {
             return Err(Error::ContextChanged);
         }
         if fetched.peer_id != ticket.peer {
