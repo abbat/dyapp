@@ -30,6 +30,9 @@ as unmetered. Until a platform reports its network, the core conservatively trea
 | Thumbnail | One JPEG blob, at most 24 KiB, long side at most 320 px | The existing `Photo.thumbnail` rule |
 | Picked file | JPEG or PNG, at most 64 MiB and 64 megapixels | The bounds chat photos already use |
 
+The core Store owns the published-photo count limit. Android obtains it through the common
+`profile_photo_limit` FFI getter; its six-photo boundary test uses independent fixture counts.
+
 The node bills a whole-copy blob at five times its size, so a photo at the limit costs 5.1 MiB and
 six cost 30.7 MiB. `limits.media_per_owner_mb` therefore defaults to 64: chat attachments share
 the quota, and one sharded 6 MiB chat photo costs about 9 MiB. An operator may set less; the client

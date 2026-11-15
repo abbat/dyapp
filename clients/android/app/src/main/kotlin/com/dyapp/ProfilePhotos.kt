@@ -41,10 +41,8 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
 import uniffi.dyapp.ProfilePhotoSnapshot
 import uniffi.dyapp.addProfilePhoto
+import uniffi.dyapp.profilePhotoLimit
 import uniffi.dyapp.profilePhotoSnapshot
-
-/** The schema allows 16; six fit the node quota with room for chats. */
-internal const val MAX_PROFILE_PHOTOS = 6
 
 private fun added(context: Context, opened: Opened.Ready, uri: Uri): ProfilePhotoSnapshot {
     val photo = preparePhoto(readPicked(context, uri))
@@ -65,7 +63,7 @@ internal fun PhotosCard(opened: Opened.Ready) = FormCard(Modifier.testTag("profi
     }
     LaunchedEffect(state) { state.run(scope, done = null) { withPhotoDraft(opened, ::profilePhotoSnapshot) } }
     CardTitle(R.string.profile_photos)
-    val full = state.photos.size >= MAX_PROFILE_PHOTOS
+    val full = state.photos.size.toULong() >= profilePhotoLimit()
     Caption(stringResource(if (full) R.string.profile_photo_limit else R.string.profile_photo_hint))
     PhotoTiles(state, scope)
     OutlinedButton(

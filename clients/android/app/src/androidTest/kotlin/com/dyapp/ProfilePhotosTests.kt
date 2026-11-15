@@ -61,7 +61,7 @@ class ProfilePhotosTests {
     @Test
     fun sixPhotosDisableAddAndTheEditorMovesAndRemovesThem() {
         compose.skipNetworkEntry()
-        seed(MAX_PROFILE_PHOTOS)
+        seed(6)
         compose.openProfileEditor()
         compose.waitUntil(READBACK_WAIT_MS) {
             compose.onAllNodes(hasTestTag("profile-photo-5")).fetchSemanticsNodes().isNotEmpty()
@@ -77,7 +77,7 @@ class ProfilePhotosTests {
 
         compose.onNodeWithContentDescription(string(R.string.profile_photo_remove, 1)).performClick()
         compose.awaitNode(hasTestTag("profile-photo-remove-confirm")).performClick()
-        compose.waitUntil(READBACK_WAIT_MS) { hashes().size == MAX_PROFILE_PHOTOS - 1 }
+        compose.waitUntil(READBACK_WAIT_MS) { hashes().size == 5 }
         assertEquals(listOf(before[0]) + before.drop(2), hashes())
         compose.waitForText("profile-photo-status", R.string.profile_photo_changed)
         compose.onNodeWithTag("profile-photo-add").performScrollTo().assertIsEnabled()

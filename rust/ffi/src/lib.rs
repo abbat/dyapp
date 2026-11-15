@@ -111,8 +111,8 @@ pub use profile_search::{
 };
 mod photo_prepare;
 pub use photo_prepare::{
-    photo_decode_plan, photo_picked_byte_limit, prepare_photo_pixels, PhotoDecodePlan,
-    PhotoPreparationError, PhotoPurpose, PreparedPhotoData,
+    photo_decode_plan, photo_picked_byte_limit, prepare_photo_pixels, profile_photo_limit,
+    PhotoDecodePlan, PhotoPreparationError, PhotoPurpose, PreparedPhotoData,
 };
 mod preview;
 pub use preview::{check_preview, make_preview, network_metered, set_network_metered, Rgba};

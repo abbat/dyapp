@@ -330,6 +330,8 @@ contain no fitting/encoding policy. Android's picker and original display use co
 plans; its software bitmap pixels enter the same core encoder for both profile and chat.
 The Tauri profile and chat commands call the same core functions on page-decoded RGBA.
 The iOS pipeline switch remains planned.
+`profile_photo_limit` exposes the Store's existing published-photo count policy as an unsigned
+count; Android compares its current count directly with this value instead of a copied limit.
 `validate_original` checks the selected purpose's encoded byte limit, JPEG framing, the
 64-million-pixel cap and descriptor/frame dimension agreement before native decoding.
 Mobile chat send retains the composer budget of 6,000,000 bytes; profile validation retains

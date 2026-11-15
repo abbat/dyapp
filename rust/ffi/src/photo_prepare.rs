@@ -62,6 +62,13 @@ pub struct PreparedPhotoData {
     pub height: u32,
 }
 
+/// The Store's maximum published profile-photo count, also used for editor admission.
+#[uniffi::export]
+#[must_use]
+pub fn profile_photo_limit() -> u64 {
+    dyapp_client::store::profile_photos::MAX_PROFILE_PHOTOS as u64
+}
+
 /// The shared core's picked-file limit for bounded platform reading.
 #[uniffi::export]
 #[must_use]
