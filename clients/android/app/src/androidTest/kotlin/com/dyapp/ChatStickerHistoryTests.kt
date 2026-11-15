@@ -16,6 +16,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.test.platform.app.InstrumentationRegistry
+import com.dyapp.ui.theme.DYAppTheme
 import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
@@ -30,6 +31,9 @@ class ChatStickerHistoryTests {
     @get:Rule
     val compose = createComposeRule()
 
+    private val texts = listOf(message("peer", "before sticker"), message("me", "after sticker"))
+    private val form = ChatForm(mutableStateOf(""))
+
     private fun sticker(author: String, packName: String, emoji: String) = ChatSticker(
         groupId = byteArrayOf(1), author = author, id = byteArrayOf(if (author == "me") 1 else 2),
         hlc = 1uL, sentAtMs = 0uL, packId = ByteArray(32), sha256 = ByteArray(32),
@@ -42,7 +46,6 @@ class ChatStickerHistoryTests {
             base.resources.configuration
         ).apply { setLocale(Locale.forLanguageTag(language)) }
         val localized = base.createConfigurationContext(configuration)
-        val texts = listOf(message("peer", "before sticker"), message("me", "after sticker"))
         val stickers = listOf(sticker("peer", packName, "\uD83D\uDE3A"), sticker("me", packName, "\uD83E\uDD8A"))
         val items = listOf(
             ChatItem.Text(texts[0]),
@@ -51,7 +54,6 @@ class ChatStickerHistoryTests {
             ChatItem.Sticker(stickers[1])
         )
         val snapshot = ChatThreadSnapshot(ChatHistory(ChatState.OPEN, texts, false), items)
-        val form = ChatForm(mutableStateOf(""))
         compose.setContent {
             val registry = checkNotNull(LocalActivityResultRegistryOwner.current)
             CompositionLocalProvider(
@@ -59,7 +61,9 @@ class ChatStickerHistoryTests {
                 LocalConfiguration provides configuration,
                 LocalActivityResultRegistryOwner provides registry,
             ) {
-                MediaChatContent(snapshot, "peer", "me", form, ChatActions({}, {}, {}, {}, {}))
+                DYAppTheme {
+                    MediaChatContent(snapshot, "peer", "me", form, ChatActions({}, {}, {}, {}, {}))
+                }
             }
         }
         return texts.map { checkNotNull(it.text) } +
@@ -73,7 +77,13 @@ class ChatStickerHistoryTests {
             val layouts = mutableListOf<TextLayoutResult>()
             compose.onNodeWithText(label).assertIsDisplayed()
                 .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { read -> check(read(layouts)) }
-            assertFalse("Clipped text: $label", layouts.single().hasVisualOverflow)
+            val layout = layouts.single()
+            assertFalse(
+                "Clipped text: $label; size=${layout.size} constraints=${layout.layoutInput.constraints}; " +
+                    "paragraph=${layout.multiParagraph.width}x${layout.multiParagraph.height}; " +
+                    "width=${layout.didOverflowWidth} height=${layout.didOverflowHeight} lines=${layout.lineCount}",
+                layout.hasVisualOverflow
+            )
         }
     }
 
