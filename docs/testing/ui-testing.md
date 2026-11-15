@@ -865,6 +865,9 @@ one theme, text scale or language.
 [Mobile screens](../design/mobile-screens.md) in English and Russian, light and dark, at 360 and
 412 px wide, at normal and 200% text-only WebKit zoom. Enlarged-text names include `--text200`:
 `build/ux-research/prototype-android/<state>[-dark][--text200]-<lang>-<width>.png`.
+The capture also requires shared labelled identifier presentation on every code value and rejects
+presentation styles that override a hidden state. Identifier checks retain the raw selection and
+copy text through asynchronous replacements; list/action checks use current geometry.
 The capture rejects text outside the actual bounds of top/back-bar titles, status chips, navigation
 labels, unread badges and the wrapping relationship-goal picker. Birth-year checks reject text wider
 than even the content-box upper bound; they do not guess the native spinner width. The picker state

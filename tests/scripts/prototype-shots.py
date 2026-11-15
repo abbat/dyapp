@@ -75,6 +75,18 @@ MEASURE = """JSON.stringify((() => {
       || (e.tagName === 'CODE' && style(e).display === 'block');
   const found = [];
   if (location.pathname.includes('/android/')) {
+    for (const node of document.querySelectorAll('[hidden]')) {
+      if (style(node).display !== 'none')
+        throw new Error('Android hidden state overridden: ' + name(node));
+    }
+    for (const code of document.querySelectorAll('code')) {
+      const labelled = code.getAttribute('aria-label')
+          || code.getAttribute('aria-labelledby');
+      if (!code.classList.contains('identifier') || !labelled
+          || (code.textContent && !code.querySelector('.identifier-chunk')))
+        throw new Error('Android identifier presentation missing: '
+            + name(code));
+    }
     for (const scrim of document.querySelectorAll('.scrim:not([hidden])')) {
       const cover = scrim.getBoundingClientRect();
       const dialog = scrim.querySelector('[role=dialog]')

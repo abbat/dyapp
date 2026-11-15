@@ -198,9 +198,10 @@ when advancing the imported clock, validate text at codec/store/import boundarie
 reordered equal-clock events and clears. Send private state only through own-device groups;
 a contact conversation must never receive it.
 
-Desktop code values use `ui/identifiers.js` in both prototype and shipped UI. It inserts
-WBR nodes, never whitespace, so textContent/copy contracts stay raw. Its observer watches
-only text/child changes and disconnects while formatting to avoid observing its own edits.
+Desktop code values and the Android prototype use `ui/identifiers.js`. It inserts WBR nodes,
+never whitespace, so textContent/copy contracts stay raw. Install one observer for the document,
+or use disjoint scopes: overlapping instances can repeatedly replace each other's cached nodes.
+The observer watches only text/child changes and disconnects while formatting to avoid its own edits.
 
 Main-world WebKit UserScript probes need a private function scope: top-level declarations can
 collide with the page's own bindings. Resolve injected dynamic imports against `location.href`;

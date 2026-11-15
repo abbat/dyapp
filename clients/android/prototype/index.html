@@ -646,17 +646,7 @@ if (!contactName || !contact.dataset.peerId || !targetName || !targetPeer)
   throw new Error('Clear confirmation target is missing');
 targetName.textContent = contactName.textContent;
 targetPeer.textContent = contact.dataset.peerId;
-installIdentifiers(t, targetPeer);
-for (const scope of [
-  document.getElementById('settings-identities'),
-  document.getElementById('blocked'),
-  document.getElementById('passed'),
-  document.getElementById('identity-menu'),
-  document.getElementById('remove-peer')?.closest('[role="dialog"]'),
-]) {
-  if (!scope) throw new Error('Identity identifier scope is missing');
-  installIdentifiers(t, scope);
-}
+installIdentifiers(t);
 enhanceChoice(
   document.querySelector('select[data-choice-picker]'),
   document.querySelector('label[for="profile-goal"]'),

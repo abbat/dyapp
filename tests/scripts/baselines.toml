@@ -120,15 +120,4 @@ desktop = [
     # The overlap of liked avatars is intended.
     "L2 #chats-liked span.avatar.photo.p3 | span.avatar",
 ]
-android = [
-    "I1 #chat-2 code | span#chat-muted",
-    "I1 #pick-1 code | span.caption",
-    "I1 #pick-2 code | span.caption",
-    "I1 #result-2 code | span.caption",
-    "L2 #chat-list button#chat-1 | button#chat-2",
-    "L2 #identities button#pick-1 | button#pick-2",
-    "L2 #msg-menu button.btn.text | button#msg-delete",
-    "L2 #search-results button#result-1 | button#result-2",
-    "L2 #search-results button#result-2 | div.actions",
-    "L2 #search-results p#search-status | button#result-1",
-]
+android = []

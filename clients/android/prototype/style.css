@@ -435,6 +435,13 @@ pre {
   width: 32px;
   height: 32px;
 }
+#identities,
+#chat-list,
+#search-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
 .list-item {
   display: flex;
   gap: 16px;
@@ -447,9 +454,10 @@ pre {
   color: var(--text);
   text-align: start;
   font: inherit;
+  flex-wrap: wrap;
 }
 .list-item .grow {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -749,7 +757,14 @@ code.grow.identifier {
 }
 .msg-menu {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: var(--space-2);
+  margin-block-start: var(--space-2);
+}
+.msg-menu .btn {
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 .composer {
   display: flex;
@@ -781,7 +796,8 @@ legend {
   padding: 0;
 }
 
-/* Last, so a hidden screen part beats its own display rule. */
+/* Hidden state overrides presentation specificity, including formatted IDs. */
 [hidden] {
-  display: none;
+  /* biome-ignore lint/complexity/noImportantStyles: hidden must override identifier presentation */
+  display: none !important;
 }

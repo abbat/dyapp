@@ -47,6 +47,9 @@ this page is an id or a data-on state in the prototype. The prototype wording is
 In the static prototype, top/back bars and navigation grow with enlarged text instead of clipping
 it. Navigation labels and unread badges remain complete; distinct controls, hints and identity-sheet
 rows retain the spacing required by the [review criteria](review-criteria.md#layout-l1-l2).
+All static code values use one shared document-wide identifier formatter, preserving raw copied
+text; hidden states take precedence over its presentation. Picker, search and chat lists separate
+rows and status/actions, and message actions wrap with the existing spacing tokens.
 Profile birth fields use the adaptive desktop grid pattern, keeping values readable as fields
 move onto separate rows. The relationship-goal field reuses the shared wrapping choice dialog;
 `profile-goal-dialog` shows it open. Its labelled opener displays the complete selected value,
