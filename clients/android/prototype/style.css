@@ -278,6 +278,15 @@ textarea {
   min-height: 96px;
   resize: none;
 }
+.quantity {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+.quantity input {
+  min-width: 0;
+}
 .row2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -434,6 +443,57 @@ pre {
 .avatar.small {
   width: 32px;
   height: 32px;
+}
+.settings-hub {
+  display: grid;
+  gap: var(--space-3);
+  margin-block-end: var(--space-3);
+}
+.settings-hub .btn {
+  justify-content: space-between;
+  text-align: start;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.settings-hub .btn > span:first-child {
+  min-width: 0;
+}
+.collection-table,
+.collection-table tbody {
+  display: block;
+  width: 100%;
+}
+.collection-table tr {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: var(--space-3);
+  padding-block: var(--space-2);
+}
+.collection-table tr + tr {
+  margin-block-start: var(--space-2);
+  border-top: 1px solid var(--outline-v);
+}
+.collection-table td {
+  min-width: 0;
+  padding: 0;
+}
+.collection-table .who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.collection-table .grow {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.collection-table span.grow {
+  display: flex;
+  flex-direction: column;
+}
+.collection-table .btn {
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 #identities,
 #chat-list,

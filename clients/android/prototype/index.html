@@ -123,13 +123,13 @@
 
 <!-- App shell: every screen after first run. Detail screens (a found profile, a chat, the app
      lock settings) bring their own back bar and hide the navigation bar. -->
-<div class="app" data-on="profile profile-hidden profile-goal-dialog publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error profile-view profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog settings settings-language-dialog switcher remove-dialog remove-offline lock-settings">
-  <header class="appbar" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog lock-settings">
+<div class="app" data-on="profile profile-hidden profile-goal-dialog publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error profile-view profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog settings settings-language-dialog switcher remove-dialog remove-offline lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-node settings-account settings-about settings-identities-screen settings-blocked settings-passed">
+  <header class="appbar" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-node settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-language-dialog remove-dialog remove-offline">
     <span class="title"><span data-on="profile profile-hidden profile-goal-dialog publish-dialog publish-progress switcher" data-t="nav.profile"></span>
       <span data-on="search search-loading search-empty search-error" data-t="nav.search"></span>
       <span data-on="chats" data-t="nav.chats"></span>
       <span data-on="network network-checking network-error" data-t="nav.network"></span>
-      <span data-on="settings settings-language-dialog remove-dialog remove-offline" data-t="nav.settings"></span></span>
+      <span data-on="settings settings-language-dialog remove-dialog remove-offline settings-appearance settings-privacy settings-notifications settings-photos settings-node settings-account settings-about settings-identities-screen settings-blocked settings-passed" data-t="nav.settings"></span></span>
     <!-- Connected means one compatible node answered; it opens Network. -->
     <button type="button" class="status" id="connection-status">
       <span class="dot" data-off="search-error network-checking"></span>
@@ -373,37 +373,20 @@ search providers asked: 0 of 3</pre>
       </div>
     </section>
 
-    <!-- Settings: identities, app lock, appearance, privacy, node. -->
-    <section id="settings" class="content" style="padding:0" data-on="settings settings-language-dialog remove-dialog remove-offline">
-      <div class="card" id="settings-identities">
-        <h2 data-t="settings.identities"></h2>
-        <div class="list-item"><span class="avatar photo" aria-hidden="true"></span>
-          <span class="grow"><code>@3f9c2a</code><span class="caption" data-t="settings.active"></span></span>
-          <button type="button" class="btn" id="settings-remove" data-t="remove.open"></button></div>
-        <div class="list-item"><span class="avatar" aria-hidden="true">7a</span>
-          <span class="grow"><code>@7a2e5b</code><span class="caption" data-t="storage.kind.system"></span></span>
-          <button type="button" class="btn" id="settings-remove-2" data-t="remove.open"></button></div>
-        <p class="caption" data-t="backup.none"></p>
-        <div class="actions"><button type="button" class="btn" id="settings-create" data-t="identity.add"></button></div>
-      </div>
-      <button type="button" class="card list-item" id="lock-settings">
-        <svg aria-hidden="true" class="icon"><use href="#i-lock"/></svg>
-        <span class="grow"><b data-t="lock.settings"></b><span class="caption" data-t="lock.mode.pin"></span></span></button>
-      <div class="card" id="blocked">
-        <h2 data-t="settings.blocked"></h2>
-        <div class="list-item"><span class="avatar" aria-hidden="true">5d</span><code class="grow">@5d2a91</code>
-          <button type="button" class="btn" id="retry-revocation-1" data-t="settings.blocked.retry"></button>
-          <button type="button" class="btn" id="unblock-1" data-t="settings.unblock"></button></div>
-        <p class="caption" id="blocked-none" data-t="settings.blocked.none" hidden></p>
-        <p class="caption" data-t="settings.blocked.hint"></p>
-      </div>
-      <div class="card" id="passed">
-        <h2 data-t="settings.passed"></h2>
-        <div class="list-item"><span class="avatar" aria-hidden="true">a7</span><code class="grow">@a7c3e0</code>
-          <button type="button" class="btn" id="unpass-1" data-t="settings.unpass"></button></div>
-        <p class="caption" id="passed-none" data-t="settings.passed.none" hidden></p>
-        <p class="caption" data-t="settings.passed.hint"></p>
-      </div>
+    <!-- Settings hub: collections and destructive actions have their own screens. -->
+    <section id="settings" class="content" style="padding:0" data-on="settings">
+<div class="settings-hub">
+<a class="btn" href="#settings-appearance"><span data-t="settings.appearance">Appearance</span></a>
+<a class="btn" href="#settings-privacy"><span data-t="settings.privacy">Privacy</span></a>
+<a class="btn" href="#settings-notifications"><span data-t="settings.notifications">Notifications</span></a>
+<a class="btn" href="#settings-photos"><span data-t="settings.photos">Photos</span></a>
+<a class="btn" href="#settings-node"><span data-t="settings.node">Run a node</span></a>
+<a class="btn" href="#settings-account"><span data-t="settings.account">Account</span></a>
+<a class="btn" href="#settings-about"><span data-t="settings.about">About</span></a>
+</div>
+    </section>
+    <section id="settings-appearance" class="content" style="padding:0" data-on="settings-appearance settings-language-dialog">
+      <div class="backbar"><button type="button" class="icon-btn" data-go="settings" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button><h1 class="title" data-t="settings.appearance"></h1></div>
       <div class="card">
         <h2 data-t="settings.appearance"></h2>
         <fieldset id="theme"><legend data-t="settings.theme"></legend>
@@ -415,28 +398,68 @@ search providers asked: 0 of 3</pre>
           <select id="language"><option value="" data-t="settings.theme.system"></option></select>
         </div>
       </div>
-      <div class="card" id="privacy">
+    </section>
+    <section id="settings-privacy" class="content" style="padding:0" data-on="settings-privacy">
+      <div class="backbar"><button type="button" class="icon-btn" data-go="settings" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button><h1 class="title" data-t="settings.privacy"></h1></div>
+      <div class="settings-hub">
+<a class="btn" href="#settings-blocked" data-settings-open="blocked"><span data-t="settings.blocked">Blocked people</span> <span class="settings-count"></span></a>
+<a class="btn" href="#settings-passed" data-settings-open="passed"><span data-t="settings.passed">Passed people</span> <span class="settings-count"></span></a>
+</div>
+<div class="card" id="privacy">
         <h2 data-t="settings.privacy"></h2>
-        <label class="choice"><input type="checkbox" id="send-views"><span><span data-t="privacy.views"></span><br><span class="caption" data-t="privacy.views.hint"></span></span></label>
-        <label class="choice"><input type="checkbox" id="send-read-receipts"><span><span data-t="privacy.receipts"></span><br><span class="caption" data-t="privacy.receipts.hint"></span></span></label>
-        <label class="choice"><input type="checkbox" id="send-typing" checked><span data-t="privacy.typing"></span></label>
+        <label class="choice"><input type="checkbox" class="switch" role="switch" aria-checked="false" id="send-views"><span><span data-t="privacy.views"></span><br><span class="caption" data-t="privacy.views.hint"></span></span></label>
+        <label class="choice"><input type="checkbox" class="switch" role="switch" aria-checked="false" id="send-read-receipts"><span><span data-t="privacy.receipts"></span><br><span class="caption" data-t="privacy.receipts.hint"></span></span></label>
+        <label class="choice"><input type="checkbox" class="switch" role="switch" aria-checked="true" id="send-typing" checked><span data-t="privacy.typing"></span></label>
         <fieldset id="presence-audience"><legend data-t="privacy.presence"></legend>
           <label class="choice"><input type="radio" name="presence" id="presence-matches" checked><span data-t="privacy.presence.matches"></span></label>
           <label class="choice"><input type="radio" name="presence" id="presence-nobody"><span data-t="privacy.presence.nobody"></span></label>
         </fieldset>
-        <label class="choice"><input type="checkbox" id="message-notifications" checked><span data-t="privacy.notifications"></span></label>
+        <p class="caption" data-t="privacy.hint"></p>
+      </div>
+<button type="button" class="card list-item" id="lock-settings" data-go="lock-settings">
+        <svg aria-hidden="true" class="icon"><use href="#i-lock"/></svg>
+        <span class="grow"><b data-t="lock.settings"></b><span class="caption" data-t="lock.mode.pin"></span></span></button>
+    </section>
+    <section id="settings-notifications" class="content" style="padding:0" data-on="settings-notifications">
+      <div class="backbar"><button type="button" class="icon-btn" data-go="settings" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button><h1 class="title" data-t="settings.notifications"></h1></div>
+      <div class="card">
+<label class="choice"><input type="checkbox" class="switch" role="switch" aria-checked="true" id="message-notifications" checked><span data-t="privacy.notifications"></span></label>
         <fieldset id="notice-content"><legend data-t="privacy.noticeContent"></legend>
           <label class="choice"><input type="radio" name="notice" id="notice-fixed" checked><span data-t="privacy.noticeContent.fixed"></span></label>
           <label class="choice"><input type="radio" name="notice" id="notice-name"><span data-t="privacy.noticeContent.name"></span></label>
           <label class="choice"><input type="radio" name="notice" id="notice-text"><span><span data-t="privacy.noticeContent.text"></span><br><span class="caption" data-t="privacy.noticeContent.hint"></span></span></label>
         </fieldset>
-        <p class="caption" data-t="privacy.hint"></p>
+</div>
+    </section>
+    <section id="settings-photos" class="content" style="padding:0" data-on="settings-photos">
+      <div class="backbar"><button type="button" class="icon-btn" data-go="settings" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button><h1 class="title" data-t="settings.photos"></h1></div>
+      <div class="card" id="photo-mode">
+        <label class="choice"><input type="radio" name="photo-mode" checked><span data-t="photos.byNetwork"></span></label>
+        <label class="choice"><input type="radio" name="photo-mode"><span data-t="photos.always"></span></label>
+        <label class="choice"><input type="radio" name="photo-mode"><span data-t="photos.onTap"></span></label>
+        <label class="choice"><input type="checkbox" class="switch" role="switch" aria-checked="true" id="keep-photos" checked><span data-t="photos.keep"></span></label>
+        <div class="field"><label for="photo-cache-size" data-t="photos.cacheSize"></label><div class="quantity"><input id="photo-cache-size" type="number" min="1" max="10240" value="256" aria-describedby="photo-cache-unit"><span id="photo-cache-unit">MiB</span></div></div>
+        <p class="caption" data-t="photos.cacheUsage"></p>
+        <div class="field"><button type="button" class="btn" id="photo-cache-clear" data-t="photos.cacheClear"></button></div>
+        <p class="caption" data-t="photos.hint"></p>
       </div>
+    </section>
+    <section id="settings-node" class="content" style="padding:0" data-on="settings-node">
+      <div class="backbar"><button type="button" class="icon-btn" data-go="settings" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button><h1 class="title" data-t="settings.node"></h1></div>
       <div class="card" id="node">
         <h2 data-t="settings.node"></h2>
-        <label class="choice"><input type="checkbox" id="node-enabled"><span data-t="settings.node.enable"></span></label>
+        <label class="choice"><input type="checkbox" class="switch" role="switch" aria-checked="false" id="node-enabled"><span data-t="settings.node.enable"></span></label>
         <p class="caption" data-t="settings.node.hint"></p>
       </div>
+    </section>
+    <section id="settings-account" class="content" style="padding:0" data-on="settings-account">
+      <div class="backbar"><button type="button" class="icon-btn" data-go="settings" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button><h1 class="title" data-t="settings.account"></h1></div>
+      <div class="settings-hub">
+<a class="btn" href="#settings-identities-screen" data-settings-open="identities"><span data-t="settings.identities">Identities</span> <span class="settings-count"></span></a>
+</div>
+    </section>
+    <section id="settings-about" class="content" style="padding:0" data-on="settings-about">
+      <div class="backbar"><button type="button" class="icon-btn" data-go="settings" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button><h1 class="title" data-t="settings.about"></h1></div>
       <div class="card" id="updates">
         <h2 data-t="settings.updates"></h2>
         <fieldset><legend data-t="update.interval"></legend>
@@ -449,12 +472,58 @@ search providers asked: 0 of 3</pre>
         <p class="caption" id="update-state" data-t="update.notPublished"></p>
         <button type="button" class="btn" id="update-check" disabled data-t="update.check"></button>
       </div>
-      <p class="caption" data-t="settings.version"></p>
+<p class="caption" data-t="settings.version"></p>
+    </section>
+    <section id="settings-identities-screen" class="content" style="padding:0" data-on="settings-identities-screen remove-dialog remove-offline" data-collection-pane="identities">
+      <div class="backbar"><button type="button" class="icon-btn" data-go="settings-account" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button><h1 class="title" data-t="settings.identities"></h1></div>
+      <div class="card" id="settings-identities-card">
+        <h2 data-t="settings.identities"></h2>
+        <div class="field"><label for="settings-identities-search" data-t="settings.collection.search"></label><input id="settings-identities-search" type="text"></div>
+<table class="collection-table"><tbody id="settings-identities">
+<tr><td class="who"><span class="avatar photo" aria-hidden="true"></span>
+          <span class="grow"><code>@3f9c2a</code><span class="caption" data-t="settings.active"></span></span></td><td><div class="actions"><button type="button" class="btn" id="settings-remove" data-t="remove.open"></button></div></td></tr>
+        <tr><td class="who"><span class="avatar" aria-hidden="true">7a</span>
+          <span class="grow"><code>@7a2e5b</code><span class="caption" data-t="storage.kind.system"></span></span></td><td><div class="actions"><button type="button" class="btn" id="settings-remove-2" data-t="remove.open"></button></div></td></tr>
+</tbody></table>
+        <p class="caption" data-t="backup.none"></p>
+        <div class="actions"><button type="button" class="btn" id="settings-create" data-t="identity.add"></button></div>
+      </div>
+<p class="notice" id="settings-identities-status" role="status" aria-live="polite"></p>
+<div class="actions"><button type="button" class="btn" id="settings-identities-previous" data-t="settings.collection.previous"></button><button type="button" class="btn" id="settings-identities-next" data-t="settings.collection.next"></button><button type="button" class="btn" id="settings-identities-refresh" data-t="settings.collection.refresh"></button></div>
+    </section>
+    <section id="settings-blocked" class="content" style="padding:0" data-on="settings-blocked" data-collection-pane="blocked">
+      <div class="backbar"><button type="button" class="icon-btn" data-go="settings-privacy" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button><h1 class="title" data-t="settings.blocked"></h1></div>
+      <div class="card" id="blocked">
+        <h2 data-t="settings.blocked"></h2>
+        <div class="field"><label for="settings-blocked-search" data-t="settings.collection.search"></label><input id="settings-blocked-search" type="text"></div>
+<table class="collection-table"><tbody id="blocked-list">
+<tr><td class="who"><span class="avatar" aria-hidden="true">5d</span><code class="grow">@5d2a91</code></td><td><div class="actions"><button type="button" class="btn" id="retry-revocation-1" data-t="settings.blocked.retry"></button>
+          <button type="button" class="btn" id="unblock-1" data-t="settings.unblock"></button></div></td></tr>
+</tbody></table>
+        <p class="caption" id="blocked-none" data-t="settings.blocked.none" hidden></p>
+        <p class="caption" data-t="settings.blocked.hint"></p>
+      </div>
+<p class="notice" id="settings-blocked-status" role="status" aria-live="polite"></p>
+<div class="actions"><button type="button" class="btn" id="settings-blocked-previous" data-t="settings.collection.previous"></button><button type="button" class="btn" id="settings-blocked-next" data-t="settings.collection.next"></button><button type="button" class="btn" id="settings-blocked-refresh" data-t="settings.collection.refresh"></button></div>
+    </section>
+    <section id="settings-passed" class="content" style="padding:0" data-on="settings-passed" data-collection-pane="passed">
+      <div class="backbar"><button type="button" class="icon-btn" data-go="settings-privacy" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button><h1 class="title" data-t="settings.passed"></h1></div>
+      <div class="card" id="passed">
+        <h2 data-t="settings.passed"></h2>
+        <div class="field"><label for="settings-passed-search" data-t="settings.collection.search"></label><input id="settings-passed-search" type="text"></div>
+<table class="collection-table"><tbody id="passed-list">
+<tr><td class="who"><span class="avatar" aria-hidden="true">a7</span><code class="grow">@a7c3e0</code></td><td><div class="actions"><button type="button" class="btn" id="unpass-1" data-t="settings.unpass"></button></div></td></tr>
+</tbody></table>
+        <p class="caption" id="passed-none" data-t="settings.passed.none" hidden></p>
+        <p class="caption" data-t="settings.passed.hint"></p>
+      </div>
+<p class="notice" id="settings-passed-status" role="status" aria-live="polite"></p>
+<div class="actions"><button type="button" class="btn" id="settings-passed-previous" data-t="settings.collection.previous"></button><button type="button" class="btn" id="settings-passed-next" data-t="settings.collection.next"></button><button type="button" class="btn" id="settings-passed-refresh" data-t="settings.collection.refresh"></button></div>
     </section>
 
     <!-- App lock: change or turn off the PIN; both ask for the current one. -->
     <section class="content" style="padding:0" data-on="lock-settings">
-      <div class="backbar"><button type="button" class="icon-btn" id="lock-back" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button>
+      <div class="backbar"><button type="button" class="icon-btn" id="lock-back" data-go="settings-privacy" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button>
         <span class="title" data-t="lock.settings"></span></div>
       <div class="content" style="padding-top:0">
         <p class="muted" data-t="lock.mode.pin"></p>
@@ -470,7 +539,7 @@ search providers asked: 0 of 3</pre>
     </section>
   </main>
 
-  <nav class="navbar" aria-label="Main" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog lock-settings">
+  <nav class="navbar" aria-label="Main" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-node settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-language-dialog remove-dialog remove-offline">
     <button type="button" class="nav-item" id="nav-profile" data-current="profile profile-hidden profile-goal-dialog publish-dialog publish-progress switcher">
       <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-profile"/></svg></span><span data-t="nav.profile"></span></button>
     <button type="button" class="nav-item" id="nav-search" data-current="search search-loading search-empty search-error">
@@ -480,7 +549,7 @@ search providers asked: 0 of 3</pre>
       <span class="badge" id="chats-unread" data-ta="chats.unread">3</span></button>
     <button type="button" class="nav-item" id="nav-network" data-current="network network-checking network-error">
       <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-network"/></svg></span><span data-t="nav.network"></span></button>
-    <button type="button" class="nav-item" id="nav-settings" data-current="settings settings-language-dialog remove-dialog remove-offline">
+    <button type="button" class="nav-item" id="nav-settings" data-current="settings settings-language-dialog remove-dialog remove-offline settings-appearance settings-privacy settings-notifications settings-photos settings-node settings-account settings-about settings-identities-screen settings-blocked settings-passed">
       <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-settings"/></svg></span><span data-t="nav.settings"></span></button>
   </nav>
 
@@ -631,11 +700,17 @@ for (const el of document.querySelectorAll('[data-t]')) el.textContent = t[el.da
 for (const el of document.querySelectorAll('[data-tv]')) el.value = t[el.dataset.tv];
 for (const el of document.querySelectorAll('[data-ta]')) el.setAttribute('aria-label', t[el.dataset.ta]);
 for (const el of document.querySelectorAll('[data-tp]')) el.placeholder = t[el.dataset.tp];
+for (const control of document.querySelectorAll('[role="switch"]'))
+  control.addEventListener('change', () => control.setAttribute('aria-checked', String(control.checked)));
+for (const control of document.querySelectorAll('[data-go]'))
+  control.addEventListener('click', () => { location.hash = control.dataset.go; });
+window.addEventListener('hashchange', () => location.reload());
 document.title = `${t['app.name']} — ${screen}`;
 </script>
 <script type="module">
 import { installIdentifiers } from '../../desktop/ui/identifiers.js';
 import { enhanceChoice } from '../../desktop/ui/profile-choice.js';
+import { installCollections } from '../../desktop/prototype/collection-fixture.js';
 const contact = document.getElementById('chat-profile');
 const contactName = contact?.querySelector('.grow > b');
 const targetName = document.getElementById('chat-clear-name');
@@ -645,6 +720,7 @@ if (!contactName || !contact.dataset.peerId || !targetName || !targetPeer)
 targetName.textContent = contactName.textContent;
 targetPeer.textContent = contact.dataset.peerId;
 installIdentifiers(t);
+installCollections(t, ['identities', 'blocked', 'passed']);
 enhanceChoice(
   document.querySelector('select[data-choice-picker]'),
   document.querySelector('label[for="profile-goal"]'),

@@ -868,6 +868,9 @@ one theme, text scale or language.
 The capture rejects a document whose initialised screen does not match the requested state,
 including an HTTP error page. The standard runner serves Android at `/assets/android/prototype`;
 custom paired probes may use a different prefix, which must match their requested URL.
+All Settings categories and the three collection detail screens are in the capture inventory.
+Collection probes also exercise more than 32 records, search/page bounds, counts and stale refresh
+completion through the shared desktop/Android prototype fixture; static fixtures are not native proof.
 The open language picker is captured as `settings-language-dialog`; choices follow the prototype
 catalogues rather than a fixed three-radio inventory. Catalogue stress checks register additional
 languages before initialisation and verify complete labels, locale values, Cancel/Escape and focus.

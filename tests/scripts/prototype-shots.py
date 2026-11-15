@@ -107,6 +107,18 @@ MEASURE = """JSON.stringify((() => {
           || bounds.left < 0 || bounds.right > innerWidth)
         throw new Error('Android native dialog exceeds viewport');
     }
+    const settings = document.getElementById('settings');
+    if (!settings || settings.querySelector(
+      'input, select, textarea, table, .list-item, [data-settings-open]'))
+      throw new Error('Android Settings root contains preferences or rows');
+    for (const pane of document.querySelectorAll('[data-collection-pane]')) {
+      const list = pane.querySelector('tbody[role="rowgroup"]');
+      const name = pane.dataset.collectionPane;
+      if (!list || list.children.length > 32
+          || ['search', 'status', 'previous', 'next', 'refresh'].some(
+            key => !pane.querySelector('#settings-' + name + '-' + key)))
+        throw new Error('Android collection presentation incomplete');
+    }
     const language = document.getElementById('language');
     const choices = document.querySelectorAll(
       '#language-picker .choice-options .btn');
@@ -388,7 +400,17 @@ ANDROID = [
     "chat-cleared",
     "delete-dialog",
     "settings",
+    "settings-appearance",
     "settings-language-dialog",
+    "settings-privacy",
+    "settings-notifications",
+    "settings-photos",
+    "settings-node",
+    "settings-account",
+    "settings-about",
+    "settings-identities-screen",
+    "settings-blocked",
+    "settings-passed",
     "lock-settings",
     "switcher",
     "remove-dialog",

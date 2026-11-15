@@ -1,10 +1,9 @@
 # Mobile screens
 
-The approved settings direction is the category hub in
-[desktop screens](desktop-screens.md#settings-and-removal), with collection lists on separate
-screens, immediate switches and a numeric media-cache budget. Mobile hub implementation and
-category changes remain planned. The Android prototype already uses a catalogue-driven language
-picker; native grouping and language-menu adoption remain planned.
+The Android prototype follows the category hub in
+[desktop screens](desktop-screens.md#settings-and-removal), with separate collection screens,
+immediate switches, a catalogue-driven language picker and a numeric media-cache budget.
+Native category/collection, language-menu and download-setting adoption remain planned.
 
 Android chat attachments now use core-ordered mixed history. Photo metadata remains
 visible while stranger previews are blurred; Show preview reveals only the preview,
@@ -172,40 +171,51 @@ The IDs inside each section are the desktop ones; only the frame differs.
   stay quiet.
 - Linking a phone to an identity and the Devices list are planned; the desktop screens define the
   flow, see [desktop-screens.md](desktop-screens.md#linking-this-computer).
-- Settings, `settings`: `settings-identities` (`settings-remove`, `settings-remove-2`,
-  `settings-create`), the `lock-settings` row, `blocked` (`retry-revocation-1`, `unblock-1`, `blocked-none`), `passed` (`unpass-1`,
-  `passed-none`). In the static prototype, blocked and passed rows wrap their actions when
-  their intrinsic text widths exceed the card; identifiers retain space and action labels remain
-  complete at enlarged text sizes. Identity, blocked and passed lists, the identity sheet and the
-  removal confirmation use the shared identifier formatter and container; visual chunk boundaries
-  preserve raw ID text for copying. Appearance uses `theme` (`theme-system`,
-  `theme-light`, `theme-dark`) and the `language` select. Its shared wrapping picker is shown by
-  `settings-language-dialog`: the system default precedes every registered prototype catalogue,
-  named by that catalogue's own language name. Adding a catalogue adds a choice without a fixed
-  language count. Cancel and Escape preserve the raw locale code and return focus; this static
-  demonstration does not change the page locale or persist the choice. The
-  `privacy` card uses device-specific wording and has `send-views`, `send-read-receipts`,
-  `send-typing`, `presence-audience`,
-  `message-notifications`, `notice-content` with `notice-fixed`, `notice-name` and `notice-text`.
-  `node` (`node-enabled`) and `updates` (`update-6h`, `update-12h`, `update-24h`, `update-7d`,
-  `update-state`, `update-check`). `remove-dialog` and `remove-offline`
-  confirm a removal with `remove-title`, `remove-peer`, `remove-confirm`, `remove-cancel`,
-  `remove-action`, `remove-cancel-offline`, `remove-retry` and `remove-anyway`. A published profile
-  is withdrawn from search before the key goes; when no node takes the withdrawal, `remove-offline`
-  offers Retry, Remove anyway and Cancel. A key that does not open cannot sign a withdrawal, so
-  removing that identity skips it. Android Settings has the identity rows, the lock
-  row, the `blocked` card (Unblock, and a retry of the token revocation that says what it came
-  to; a failed read or unblock keeps the last list and says so), the `passed` card (Undo pass shows the person in search and Liked you again; a failed read
-  or undo keeps the last list and says so), the `privacy` card ("Privacy and notifications") with `send-read-receipts` (off by default; a failed read or save says so), `message-notifications` and `notice-content` (on and "New
-  message" only by default; turning it on asks for the notification permission on Android 13+, and
-  while Android blocks notices a caption says so and Allow asks again or opens the app's
-  notification settings; `notice-content` is disabled while off, keeps its choice, and names the
-  sender by short Peer ID), the theme and language, the `updates` card and the version. Until the
-  verified update feed is live, the `updates` card shows the intervals with 24 hours selected, Last
-  successful check: Never and "Updates for this platform are not published yet.", all disabled; it
-  sends no request and saves nothing. Update checks and the update notice are planned. The other
-  privacy settings and node settings are planned on Android. It switches identities only in the
-  identity menu.
+- Settings, `settings`: a fixed category hub, with no identity/peer rows or destructive actions.
+  Categories are `settings-appearance`, `settings-privacy`, `settings-notifications`,
+  `settings-photos`, `settings-node`, `settings-account` and `settings-about`. Each has a
+  back bar; detail categories hide the shell bars. Hash links demonstrate navigation only.
+  Appearance retains `theme` (`theme-system`, `theme-light`, `theme-dark`) and the
+  `language` select. Its shared wrapping picker is captured as `settings-language-dialog`:
+  the system default precedes every registered catalogue, named by its own language name.
+  Cancel/Escape preserve the locale code and restore focus; this static demonstration does
+  not change the page locale or persist the choice.
+- Privacy contains immediate switches `send-views`, `send-read-receipts`, `send-typing`
+  and the `presence-audience` radios. Its hint scopes these preferences to this identity on
+  this device. Separate count links open `settings-blocked` and `settings-passed`.
+  The distinct `lock-settings` row opens app lock, whose scope is the whole app.
+  Notifications has `message-notifications` and `notice-content` (`notice-fixed`,
+  `notice-name`, `notice-text`). Photos uses `photo-mode`, the `keep-photos` switch,
+  numeric MiB `photo-cache-size`, a usage hint and `photo-cache-clear`.
+  These static media controls describe the approved presentation; native controls remain planned.
+- Account links to `settings-identities-screen`. Its `settings-identities` list preserves
+  `settings-remove`, `settings-remove-2` and `settings-create`. Blocked and passed have
+  `blocked-list` and `passed-list` in the `blocked` and `passed` cards:
+  `retry-revocation-1`, `unblock-1`, `unpass-1`, `blocked-none` and `passed-none`
+  retain their meanings. All three collections reuse the desktop prototype controller:
+  search, Previous/Next/Refresh, live status, at most 32 mounted rows and entry counts.
+  Search matches the complete local fixture text and resets paging; Refresh restores fixtures.
+  A stale completion after navigation cannot replace a different view. Rows wrap their complete
+  raw identifiers and action labels; the shared identifier formatter leaves copied text unchanged.
+- The `node`/`node-enabled` card remains an older static prototype artifact under
+  `settings-node`; Android is a light client and this is not native node support.
+  About retains the version and disabled `updates` placeholder: `update-6h`,
+  `update-12h`, `update-24h`, `update-7d`, `update-state` and `update-check`.
+  It sends no request and saves nothing.
+- `remove-dialog` and `remove-offline` use the identities screen as their background.
+  `remove-title`, `remove-peer`, `remove-confirm`, `remove-cancel`, `remove-action`,
+  `remove-cancel-offline`, `remove-retry` and `remove-anyway` retain the removal contract.
+  A published profile is withdrawn before the key goes; if no node accepts it, offer Retry,
+  Remove anyway and Cancel. A key that cannot open cannot sign the withdrawal and skips it.
+
+Native Android Settings still shows its original cards: identity/removal, app lock, blocked/passed,
+appearance, privacy/notifications, disabled updates and version. The receipt switch defaults off;
+notice delivery defaults on with fixed “New message” content. Turning delivery on requests
+notification permission on Android 13+; when blocked, Allow asks again or opens system settings.
+Content selection is disabled while off and retains its choice. Failed reads/writes preserve the
+last shown values/list and explain the failure. Token-revocation retry reports its outcome.
+The catalogue-driven menu, category hub, separate paged/searchable collections and media controls
+are not established as native behavior by these prototype captures.
 
 The theme and language follow the system by default; the prototype shows the dark theme with
 `?theme=dark` instead of a separate state. On Android a picked theme applies at once. A picked
