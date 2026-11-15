@@ -2,6 +2,7 @@ mod forwarding;
 mod interactions;
 mod media;
 mod offline;
+mod profile_share;
 
 use super::*;
 use crate::store::messages::MessageKey;

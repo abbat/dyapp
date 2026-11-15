@@ -270,6 +270,16 @@ Cross-replica union is separate work.
 - Sender authenticity: MLS signs every message with the sender device's certified key; the Rust
   chat event exposes this verified key alongside the author Peer ID for edit/delete ordering
 
+## Profile sharing
+
+A shared profile is an ordinary text containing exactly the canonical profile link; it is not
+forwarded content and carries no original-author claim. The shared core admits it only to a
+distinct, unblocked, already open pair, rechecking at submission rather than trusting an earlier
+UI selection. A share cannot create an introduction or accept a pending request. Committed
+shares use the same stable ID and exact queued-write retry as other `Submission` operations.
+The core provides online verified-profile and established-pair submission paths; native and
+Tauri caller adoption remains planned in the [FFI contract](ffi-design.md#profile-share-submission-ownership).
+
 ## Message Model
 
 ```rust

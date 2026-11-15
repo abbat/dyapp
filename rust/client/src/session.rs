@@ -45,6 +45,9 @@ pub enum Error {
     /// A forward needs an existing open conversation.
     #[error("conversation must be open to forward")]
     ConversationNotOpen,
+    /// A profile share names an invalid link or has no distinct open target pair.
+    #[error("invalid profile share target")]
+    InvalidProfileShare,
     /// An edit or delete target is absent or already deleted from this sender's current chat.
     #[error("message is absent or already deleted")]
     UnknownMessage,
@@ -930,6 +933,7 @@ mod forward;
 mod link;
 mod local;
 mod operations;
+mod profile_share;
 mod publication;
 mod receive;
 mod staging;

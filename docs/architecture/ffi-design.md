@@ -23,6 +23,16 @@ exception requires a concrete reason recorded in the task and beside the impleme
 with maintainer agreement before implementation. Moving code preserves validation, errors
 and security invariants; test the shared rules independently of platform callback timing.
 
+## Profile-share submission ownership
+
+Core `Session::prepare_profile_share` validates a canonical shared Peer ID and a distinct,
+unblocked, already open target pair. `submit_profile_share_to` and
+`submit_established_profile_share` repeat that admission on the session that stages the
+ordinary link text, returning the existing `Submission` ID and Accepted/Queued outcome.
+An earlier UI history read is not authoritative admission for a later generic text send.
+Native and Tauri adoption of these submission methods remains planned; preserve their
+existing online publication/profile checks and established-pair offline behavior during cutover.
+
 ## Shared Chats-list preview
 
 Core `chat_preview::for_row` projects the Store-selected newest item into
