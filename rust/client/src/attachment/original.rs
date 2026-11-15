@@ -1,5 +1,10 @@
 //! Stored photo identity shared by native and desktop original retrieval.
 
+mod snapshot;
+mod validate;
+pub use snapshot::{select, Snapshot};
+pub use validate::validate;
+
 use super::Attachment;
 use crate::store::{self, Store};
 
@@ -12,6 +17,9 @@ pub enum LookupError {
     /// No current photo matches the complete peer/group/author/message identity.
     #[error("notFound")]
     NotFound,
+    /// Original bytes fail the shared incoming chat-photo bounds.
+    #[error("corrupted")]
+    Corrupted,
     /// Storage or descriptor consistency validation failed.
     #[error(transparent)]
     Store(#[from] store::Error),

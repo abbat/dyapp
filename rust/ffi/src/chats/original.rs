@@ -8,8 +8,6 @@ use crate::peer_photos::reachable;
 use crate::profile_network::{active_network, on_network_stack};
 use crate::CoreError;
 use dyapp_client::attachment;
-use dyapp_client::photo::prepare::{validate_original, Purpose};
-use dyapp_client::store::originals;
 use dyapp_client::Error;
 use dyapp_p2p_net::proto::Status;
 
@@ -47,16 +45,13 @@ impl ChatSession {
             // Keep clear/block serialized with retrieval and cache writes.
             let session = self.session.lock().map_err(failed)?;
             let store = session.store();
-            let photo = attachment::original::stored(store, &peer_id, &group_id, &author, &id)
+            let photo = attachment::original::select(store, &peer_id, &group_id, &author, &id)
                 .map_err(failed)?;
-            if let Some(bytes) = originals::read(&self.dir, &self.seal_key, &photo) {
-                return if validate_original(&bytes, photo.width, photo.height, Purpose::Chat)
-                    .is_ok()
-                {
-                    Ok(bytes)
-                } else {
-                    Err(failed("corrupted"))
-                };
+            if let Some(bytes) = photo
+                .local(store, &self.dir, &self.seal_key)
+                .map_err(failed)?
+            {
+                return Ok(bytes);
             }
             let network = active_network(&self.dir)?;
             let bytes = self.runtime.block_on(async {
@@ -64,19 +59,13 @@ impl ChatSession {
                 if nodes.is_empty() {
                     return Err(failed("notConnected"));
                 }
-                attachment::fetch(&mut nodes, &photo)
+                attachment::fetch(&mut nodes, photo.attachment())
                     .await
                     .map_err(fetch_error)
             })?;
-            if validate_original(&bytes, photo.width, photo.height, Purpose::Chat).is_err() {
-                return Err(failed("corrupted"));
-            }
-            if store.kept_originals_mib().is_ok_and(|limit| limit > 0) {
-                // As on desktop, cache failure must not discard a successfully fetched image.
-                if originals::keep(&self.dir, &self.seal_key, &photo, &bytes).is_ok() {
-                    let _ = store.sweep_originals(&self.dir);
-                }
-            }
+            photo
+                .finish(store, &self.dir, &self.seal_key, &bytes)
+                .map_err(failed)?;
             Ok(bytes)
         })
     }

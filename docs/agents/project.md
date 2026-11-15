@@ -251,6 +251,9 @@ Edit/Delete use reference membership guards. Include identity, peer, displayed n
 and call-function identity in reuse checks, and reset them on leaving or closing the chat.
 Media selectors and in-memory keys retain group, author and logical ID: catalogued groups may
 contain equal author/ID pairs with distinct originals. Forward the existing history group through IPC.
+Incoming chat-original validation uses the sealed wire budget, not the smaller composer output
+budget. Unspecified descriptor dimensions are valid on the generic wire; share original snapshots
+and cache/completion validation from `attachment::original` rather than duplicating adapter checks.
 A same-peer background read keeps the existing composer active until refreshed policy changes it;
 disabling it first can blur a textarea during typing. A different-peer open follows closeChat's
 draft-clearing policy, including direct navigation after Forward.

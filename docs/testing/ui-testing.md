@@ -300,7 +300,11 @@ Host Rust tests also call the public native photo history/original exports over 
 metadata and a sealed cache. They check mixed ordering, reopening offline, full message selectors,
 block/clear refusal, malformed image framing or descriptor geometry, and a torn cache without
 changing MLS/outbox state. These Store fixtures do not prove upload, MLS receive or JNI execution.
-Core lookup tests additionally distinguish equal author/ID values across two groups. The embedded
+Core lookup tests additionally distinguish equal author/ID values across two groups. Shared
+original tests cover JPEG/PNG, unspecified and mismatched dimensions, literal sealed-byte/pixel
+boundaries, cache validation, block/clear during a selected fetch, owner isolation and deterministic
+cache write failure. Public native tests reopen both JPEG and PNG with unspecified geometry offline.
+These tests do not exercise actual platform image decoders. The embedded
 desktop photo-identity regression holds one original response while completing the other group,
 then releases it and redraws both from a warm cache; it checks full IPC selectors and routing
 through completion promises without sleeps or pixel-color locators.

@@ -4,6 +4,8 @@ use crate::store::messages::VerifiedChatSender;
 use crate::store::tests::catalog_group;
 use dyapp_identity::Identity;
 
+mod cache;
+
 const ID: [u8; 16] = [7; 16];
 const FIRST: &[u8] = b"first";
 const SECOND: &[u8] = b"second";
@@ -13,10 +15,15 @@ struct Fixture {
     peer: String,
     first: Attachment,
     second: Attachment,
+    dir: std::path::PathBuf,
 }
 
 impl Fixture {
     fn new() -> Self {
+        Self::with_bytes(b"first original", b"second original")
+    }
+
+    fn with_bytes(first_bytes: &[u8], second_bytes: &[u8]) -> Self {
         let owner = Identity::generate();
         let peer = Identity::generate().peer_id();
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -24,13 +31,14 @@ impl Fixture {
             .join(owner.peer_id());
         std::fs::create_dir_all(&dir).unwrap();
         let mut store = Store::open(&dir.join("client.db"), &owner).unwrap();
-        let first = record(&mut store, &peer, FIRST, b"first original");
-        let second = record(&mut store, &peer, SECOND, b"second original");
+        let first = record(&mut store, &peer, FIRST, first_bytes);
+        let second = record(&mut store, &peer, SECOND, second_bytes);
         Self {
             store,
             peer,
             first,
             second,
+            dir,
         }
     }
 }

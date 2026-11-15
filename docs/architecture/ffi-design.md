@@ -314,15 +314,22 @@ The Tauri profile and chat commands call the same core functions on page-decoded
 The iOS pipeline switch remains planned.
 `validate_original` checks the selected purpose's encoded byte limit, JPEG framing, the
 64-million-pixel cap and descriptor/frame dimension agreement before native decoding.
-Mobile chat send and both cached/network original retrieval use the chat budget of
-6,000,000 bytes; profile validation retains its separate 1 MiB limit. Framing checks do
-not replace the platform decoder's validation of compressed pixel data.
+Mobile chat send retains the composer budget of 6,000,000 bytes; profile validation retains
+its separate 1 MiB limit. Incoming chat originals use the shared attachment policy below.
+Framing checks do not replace the platform decoder's validation of compressed pixel data.
 
 `dyapp_client::attachment::original::stored` owns blocked-peer admission and exact stored-photo
 lookup by peer, group, author and logical ID. Native and Tauri original retrieval both call it;
 the native ABI is unchanged, while Tauri forwards the existing history `groupId`. Browser photo
-caches, pending fetches and bubble routing retain that same full key. Shared cache/fetch/retention
-workflow adoption remains planned; this lookup does not change JPEG/PNG or dimension policy.
+caches, pending fetches and bubble routing retain that same full key.
+`attachment::original::select` binds a snapshot to the owner and full selector. Both adapters use
+its `local` cache-first read and `finish` completion; networking/scheduling remains in the adapter.
+Each step rechecks current message/block state. Common validation accepts actual JPEG/PNG headers,
+at most 64 million actual pixels and a plaintext whose chunk tags fit the 6 MiB sealed node limit.
+Each specified nonzero dimension must match the header; zero means unspecified on the generic wire.
+Cached and fetched bytes follow the same validation and plaintext-hash checks. Torn/foreign sealed
+cache entries remain misses; authenticated malformed images return `corrupted`. Retention setting,
+write and sweep failures do not discard a valid fetch. No recipient releases the sender's blob.
 
 Android draft loading reads only the identity-bound `client.db` through `load_profile_draft`.
 An absent draft starts empty; key/database errors propagate. Legacy JSON is neither imported

@@ -123,8 +123,12 @@ retention. `attachment::auto_download` downloads a contact's original without a 
 unmetered network (or in the "always" mode) and a stranger's only on a tap.
 The desktop `chat_photo_original` command selects a current photo by peer, group, author and
 logical ID through the same core lookup as native clients. Browser caches and pending fetches keep
-the group too: equal author/ID values in different groups remain separate. After a network fetch,
-the command checks real dimensions from the header before page decoding, at most 64 megapixels.
+the group too: equal author/ID values in different groups remain separate. Native and desktop
+original reads use the same core cache/completion checks: actual JPEG/PNG headers, at most
+64 megapixels, matching nonzero declared dimensions (zero means unspecified), and a sealed blob
+within the 6 MiB node limit. Both cache hits and fetched bytes are checked before UI decoding;
+platform decoders still validate compressed pixels. Core rechecks message/block admission before
+cache access and fetch completion; successful fetches survive best-effort retention failures.
 On each mail pass of an open chat the
 page asks `chat_photo_auto` whether waiting originals may download: Linux reads NetworkManager's
 `Metered` property over the system bus, Windows the Internet connection cost and macOS the

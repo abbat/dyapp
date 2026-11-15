@@ -4,8 +4,8 @@
 //! and then fetches through the same command.
 
 use crate::{chats, profile};
-use dyapp_client::attachment::{self, Attachment, AutoDownload};
-use dyapp_client::store::{originals, Conversation};
+use dyapp_client::attachment::{self, original::Snapshot, AutoDownload};
+use dyapp_client::store::Conversation;
 use dyapp_client::Error;
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
@@ -27,9 +27,9 @@ fn stored(
     group_id: &[u8],
     author: &str,
     id: &[u8; 16],
-) -> Result<Attachment, String> {
+) -> Result<Snapshot, String> {
     let store = chats::open_visible_chat(dir, identity, peer_id)?;
-    attachment::original::stored(&store, peer_id, group_id, author, id)
+    attachment::original::select(&store, peer_id, group_id, author, id)
         .map_err(|error| error.to_string())
 }
 
@@ -71,8 +71,12 @@ async fn original(
     id: &[u8; 16],
 ) -> Result<Vec<u8>, String> {
     let photo = stored(dir, identity, peer_id, group_id, author, id)?;
-    let seal_key = crate::sealing_key(root, dir, &chats::open(dir, identity)?)?;
-    if let Some(bytes) = originals::read(dir, &seal_key, &photo) {
+    let store = chats::open(dir, identity)?;
+    let seal_key = crate::sealing_key(root, dir, &store)?;
+    if let Some(bytes) = photo
+        .local(&store, dir, &seal_key)
+        .map_err(|error| error.to_string())?
+    {
         return Ok(bytes);
     }
     let active = network::load(dir, Settings::Active)
@@ -82,31 +86,16 @@ async fn original(
     if nodes.is_empty() {
         return Err("notConnected".into());
     }
-    let bytes = attachment::fetch(&mut nodes, &photo).await.map_err(code)?;
-    check_image(&bytes)?;
-    // The photo is on screen either way, and a later tap fetches it again while nodes hold it.
-    if let Err(error) = keep(dir, identity, &seal_key, &photo, &bytes) {
-        eprintln!("original not kept: {error}");
-    }
+    let bytes = attachment::fetch(&mut nodes, photo.attachment())
+        .await
+        .map_err(code)?;
+    photo
+        .finish(&store, dir, &seal_key, &bytes)
+        .map_err(|error| error.to_string())?;
     Ok(bytes)
 }
 
 pub(crate) mod cache;
-
-fn keep(
-    dir: &Path,
-    identity: &Identity,
-    seal_key: &[u8; 32],
-    photo: &Attachment,
-    bytes: &[u8],
-) -> Result<(), String> {
-    let store = chats::open(dir, identity)?;
-    if store.kept_originals_mib().map_err(|e| e.to_string())? > 0 {
-        originals::keep(dir, seal_key, photo, bytes).map_err(|e| e.to_string())?;
-        store.sweep_originals(dir).map_err(|e| e.to_string())?;
-    }
-    Ok(())
-}
 
 /// Answers from a kept original, or downloads, opens and checks one photo; a tap may fetch a
 /// stranger's. Errors are `notFound` when

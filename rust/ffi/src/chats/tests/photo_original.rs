@@ -276,3 +276,26 @@ fn torn_cache_data_is_discarded_and_cannot_reach_a_native_decoder() {
     ));
     assert_eq!(snapshot(&f), before);
 }
+
+#[test]
+fn incoming_jpeg_and_png_with_unspecified_geometry_reopen_from_cache_offline() {
+    for format in [ImageFormat::Jpeg, ImageFormat::Png] {
+        let f = Fixture::new();
+        let peer = establish(&f);
+        let mut encoded = Cursor::new(Vec::new());
+        let bytes = if format == ImageFormat::Png {
+            include_bytes!("../../../../client/src/attachment/original/validate/three-by-two.png")
+                .to_vec()
+        } else {
+            RgbImage::new(3, 2).write_to(&mut encoded, format).unwrap();
+            encoded.into_inner()
+        };
+        // MIME claims do not override the actual format; zero geometry is valid on the wire.
+        let (item, attachment) = record(&f, &peer, &bytes, 0, 0);
+        keep(&f, &attachment, &bytes);
+        let f = reopen(f);
+        let before = snapshot(&f);
+        assert_eq!(read(&f.chats, &peer, &item).unwrap(), bytes);
+        assert_eq!(snapshot(&f), before);
+    }
+}
