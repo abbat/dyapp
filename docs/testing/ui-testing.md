@@ -1,5 +1,11 @@
 # UI Testing: Practical Guide
 
+The desktop report-path regression uses a fake executable callback that rejects explicit broken
+and unknown-step arguments. It checks that the report contains every actual invocation and both
+negative controls; it has no positional process-outcome queue or fixed case count. Runner tests
+load both wrapper helper paths themselves, so isolated discovery does not depend on other test
+modules having modified the import path first.
+
 The common native sticker download regression gates a real libp2p MediaGet response. It changes
 the same fixture's durable Block/Clear state only after observing the request, then releases the
 response and checks refusal without cached pixels. An unchanged-state case checks exact decoded

@@ -16,7 +16,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "tools/scripts"))
+sys.path[:0] = [str(ROOT / "tools/scripts"), str(ROOT / "tests/scripts")]
 
 # This test imports the runner from the path added above.
 from capture import Capture  # noqa: E402 -- path set above
@@ -635,23 +635,39 @@ class Runners(unittest.TestCase):
         )
         desktop = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(desktop)
-        Path("/tmp/ai").mkdir(exist_ok=True)
-        with tempfile.TemporaryDirectory(dir="/tmp/ai") as directory:
-            outcomes = [
-                subprocess.CompletedProcess(
-                    [], 0, "UI_SMOKE_PASS:" + "0" * 64, ""
-                )
-                for _ in range(8)
-            ] + [subprocess.CompletedProcess([], 1, "UI_SMOKE_FAIL", "")]
+
+        def outcome(
+            arguments: list[str], **_options: object
+        ) -> subprocess.CompletedProcess[str]:
+            broken = (
+                "--break-ui" in arguments
+                or "--ui-test-step=unknown" in arguments
+            )
+            marker = "UI_SMOKE_FAIL" if broken else "UI_SMOKE_PASS:" + "0" * 64
+            return subprocess.CompletedProcess(
+                arguments, int(broken), marker, ""
+            )
+
+        report_root = ROOT / "build"
+        report_root.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(
+            dir=report_root, prefix="windows-ui-report-"
+        ) as directory:
             environment = {"RUNNER_TEMP": directory}
             with patch.dict(os.environ, environment, clear=True):
-                with patch.object(desktop, "run", side_effect=outcomes):
+                with patch.object(
+                    desktop, "run", side_effect=outcome
+                ) as invocations:
                     desktop.smoke("windows.exe", flows=False)
             report = json.loads(
                 (Path(directory) / "desktop-ui-results.json").read_text()
             )
-            self.assertEqual(len(report), 9)
+            self.assertEqual(len(report), invocations.call_count)
             self.assertTrue(all(case["passed"] for case in report))
+            self.assertLessEqual(
+                {"hidden-ready-rejected", "unknown-step-rejected"},
+                {case["case"] for case in report},
+            )
 
     def test_desktop_timeout_kills_helpers_holding_stdout(self) -> None:
         spec = importlib.util.spec_from_file_location(
