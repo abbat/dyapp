@@ -316,6 +316,9 @@ uploaded original before reopening its sealed cache offline. Listener readiness 
 responses drive transitions; unrelated swarm traffic does not renew failure deadlines. Queue retry
 uses a fresh responder after disk reopening, and stop signals plus thread joins own teardown.
 This controlled responder does not prove production node quotas/auth policy, peer MLS receive or JNI.
+Sticker metadata projection tests compare records with and without an embedded encrypted transport
+descriptor and require identical safe metadata. They do not fetch or decode the opaque source and
+do not establish tag-14 wire handling, Android mixed-history rendering or native emoji layout.
 The embedded
 desktop photo-identity regression holds one original response while completing the other group,
 then releases it and redraws both from a warm cache; it checks full IPC selectors and routing

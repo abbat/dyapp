@@ -51,6 +51,43 @@ impl From<dyapp_client::store::messages::ChatSticker> for ChatSticker {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn embedded_transport_does_not_change_the_native_metadata() {
+        use dyapp_client::chat::sticker::Sticker;
+        use dyapp_client::store::messages::{ChatSticker as Stored, MessageKey};
+
+        let (mut media, _) =
+            dyapp_client::attachment::seal(b"opaque encrypted sticker source").unwrap();
+        media.mime = "image/webp".into();
+        media.width = 1;
+        media.height = 1;
+        media.check().unwrap();
+        let hash = media.plaintext_sha256;
+        let stored = |attachment| Stored {
+            key: MessageKey {
+                group: vec![9],
+                author: "peer".into(),
+                id: [1; 16],
+            },
+            sticker: Sticker {
+                id: [1; 16],
+                hlc: 7 << 16,
+                pack_id: [2; 32],
+                sha256: hash,
+                emoji: "😺".into(),
+                pack_name: "Cats".into(),
+                attachment,
+            },
+            unread: true,
+            delivery: None,
+        };
+        // Fallback projection must not fetch/decode or expose the carried transport capability.
+        let without = super::ChatSticker::from(stored(None));
+        let with = super::ChatSticker::from(stored(Some(media)));
+        assert_eq!(with, without);
+        assert_eq!(with.sha256, hash);
+    }
+
+    #[test]
     fn metadata_retains_identity_order_and_labels_without_descriptor() {
         use dyapp_client::store::messages::{ChatSticker as Stored, MessageKey};
         let sticker = dyapp_client::chat::sticker::Sticker {
