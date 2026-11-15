@@ -789,6 +789,9 @@ read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID
   from its displayed QR through image import and rejects that same-direction code; it reports a
   malformed PNG. Fake media-device responses verify camera denial, no-device
   status and cancellation of a pending capture without opening a real camera.
+  After font readiness, the native smoke measures the comparison instruction against its current
+  visible predecessor and the shared spacing token, both before and after a scan status appears.
+  Hidden status/preview siblings must not remove that gap.
   Real Debian 12 capture and two-client scanning remain pending.
   Opening the panel leaves `view-verified` hidden, `verify-dialog` opens with Cancel focused and
   Cancel changes nothing, and the real `confirm_contact` refuses the own-profile fixture. The stale

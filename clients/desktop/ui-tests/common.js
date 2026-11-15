@@ -182,9 +182,34 @@ smoke.shot = async (name) => {
       configurable: true,
       value: { getUserMedia },
     });
+  const checkSafetyInstructionGap = async () => {
+    await document.fonts.ready;
+    const instruction = document.querySelector(
+      '#view-safety-panel [data-i18n="view.safety.compare"]',
+    );
+    let previous = instruction.previousElementSibling;
+    while (previous && !previous.getClientRects().length)
+      previous = previous.previousElementSibling;
+    if (!previous) throw new Error('safety instruction has no visible preceding block');
+    const expected = parseFloat(getComputedStyle(instruction).getPropertyValue('--space-3'));
+    const gap = instruction.getBoundingClientRect().top - previous.getBoundingClientRect().bottom;
+    if (!Number.isFinite(expected) || expected <= 0 || gap < expected) {
+      throw new Error(`safety instruction gap ${gap} is smaller than spacing token ${expected}`);
+    }
+  };
   const checkSafetyQr = async () => {
     document.getElementById('view-safety').click();
     await appApi.safetyDone;
+    await checkSafetyInstructionGap();
+    // Exercise the preview layout without requesting a real camera stream.
+    const preview = document.getElementById('view-safety-preview');
+    const wasHidden = preview.hidden;
+    try {
+      preview.hidden = false;
+      await checkSafetyInstructionGap();
+    } finally {
+      preview.hidden = wasHidden;
+    }
     const number = document.getElementById('view-safety-number').textContent;
     const qr = document.getElementById('view-safety-qr');
     const pixels = qr.getContext('2d');
@@ -225,6 +250,7 @@ smoke.shot = async (name) => {
     if (scan.hidden || scan.textContent !== appApi.strings['view.safety.scan.matched']) {
       throw new Error('loopback QR image did not match');
     }
+    await checkSafetyInstructionGap();
     return scan;
   };
   const checkSafetyConfirm = async (scan) => {

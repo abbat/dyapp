@@ -677,7 +677,7 @@ details > summary {
   background: var(--safety-preview-background);
   border-radius: var(--radius);
 }
-#view-safety-panel .actions + .caption {
+#view-safety-panel .actions ~ .caption {
   margin-top: var(--space-3);
 }
 .chat-head {
