@@ -961,6 +961,11 @@ ID and owner before any reservation or device-key callback. It then reuses the s
 Callers release shared identity operations before installation; source rejection leaves inventory
 and selection unchanged. Receiver cancellation/view generation is still a separate requirement,
 including a switch away and back to the same slot. The existing desktop compatibility API remains.
+`Registry::link_selected_wrapped` also persists the received mobile device through `ChatKeyStore`
+using the new slot's existing wrapping credential. Core applies the same size limit, fresh-file write
+and before/after-persistence reopen checks as chat bootstrap, before ready/selection. Later bootstrap
+keeps this device and generates only a missing state-sealing key. The native receiver adapter remains
+planned.
 
 ## Exported surface
 

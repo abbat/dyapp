@@ -1,3 +1,5 @@
+mod wrapped;
+
 use super::root;
 use crate::identity_slots::*;
 use crate::link::Linked;
@@ -48,6 +50,8 @@ enum WrappedFailure {
 struct WrappedKeys {
     saved: RefCell<BTreeMap<String, Option<Identity>>>,
     failure: Cell<Option<WrappedFailure>>,
+    device_failure: Cell<Option<wrapped::Failure>>,
+    generated: RefCell<Vec<ChatKeyKind>>,
 }
 
 impl KeyReader for WrappedKeys {

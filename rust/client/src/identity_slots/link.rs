@@ -62,6 +62,29 @@ impl Registry {
         self.install_link(&old, linked, wizard, keys, device)
     }
 
+    /// Install a linked mobile identity and its device through existing slot credentials.
+    /// Core verifies and persists the device before the slot becomes ready or selected.
+    /// Release shared operations first; caller cancellation admission remains separate.
+    ///
+    /// # Errors
+    /// Returns unsupported layout, source admission, wrapping or installation failures.
+    pub fn link_selected_wrapped<K: KeyWriter + KeyRemover + super::ChatKeyStore>(
+        &self,
+        from: &str,
+        expected_peer: &str,
+        linked: &Linked,
+        wizard: bool,
+        keys: &K,
+        device: &Identity,
+    ) -> Result<(Slot, Identity, SelectionDurability), String> {
+        if self.layout == super::Layout::Desktop {
+            return Err("Wrapped linking requires a mobile layout".into());
+        }
+        self.link_selected(from, expected_peer, linked, wizard, keys, &|slot| {
+            super::chat_keys::persist_link_device(slot, device, keys)
+        })
+    }
+
     fn install_link<K: KeyWriter + KeyRemover>(
         &self,
         old: &Slot,

@@ -97,15 +97,24 @@ fn verify_snapshot(
 fn fresh(slot: &Slot, kind: ChatKeyKind, wrapping: &dyn ChatKeyStore) -> Result<(), String> {
     let mut secret = Zeroizing::new([0; 32]);
     getrandom::fill(&mut *secret).map_err(|error| error.to_string())?;
-    let wrapped = wrapping.wrap(slot, kind, &secret)?;
+    persist(slot, kind, &secret, wrapping)
+}
+
+pub(super) fn persist(
+    slot: &Slot,
+    kind: ChatKeyKind,
+    secret: &[u8; 32],
+    wrapping: &dyn ChatKeyStore,
+) -> Result<(), String> {
+    let wrapped = wrapping.wrap(slot, kind, secret)?;
     if wrapped.len() > keys::MAX_WRAPPED_BYTES {
         return Err("Wrapped chat key exceeds the storage limit".into());
     }
-    if wrapping.unwrap(slot, kind, &wrapped)? != secret {
+    if wrapping.unwrap(slot, kind, &wrapped)?.as_ref() != secret {
         return Err("Wrapped chat key does not reopen".into());
     }
     write::fresh(&slot.dir.join(kind.file_name()), &wrapped)?;
-    if required(slot, kind, wrapping)? != secret {
+    if required(slot, kind, wrapping)?.as_ref() != secret {
         return Err("Saved chat key does not reopen".into());
     }
     Ok(())

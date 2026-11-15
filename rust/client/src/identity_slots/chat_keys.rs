@@ -2,6 +2,14 @@
 
 mod storage;
 
+pub(super) fn persist_link_device(
+    slot: &Slot,
+    device: &Identity,
+    wrapping: &dyn ChatKeyStore,
+) -> Result<(), String> {
+    storage::persist(slot, ChatKeyKind::Device, &device.secret(), wrapping)
+}
+
 use super::{IdentityOperation, KeyReader, Layout, Registry, Slot, State};
 use dyapp_identity::Identity;
 use std::fs::File;
