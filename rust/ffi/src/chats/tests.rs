@@ -24,6 +24,8 @@ mod profile_share;
 mod saved_sticker;
 #[path = "tests/sticker_collection.rs"]
 mod sticker_collection;
+#[path = "tests/sticker_download.rs"]
+mod sticker_download;
 #[path = "tests/sticker_exchange.rs"]
 mod sticker_exchange;
 #[path = "tests/sticker_frame.rs"]

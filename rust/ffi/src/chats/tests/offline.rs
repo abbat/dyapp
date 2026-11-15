@@ -66,7 +66,10 @@ fn established_native_text_queues_without_an_active_network() {
 
 pub(super) fn snapshot(f: &Fixture) -> (Option<Vec<u8>>, Vec<Vec<u8>>) {
     let session = f.chats.session.lock().unwrap();
-    let store = session.store();
+    snapshot_store(session.store())
+}
+
+pub(super) fn snapshot_store(store: &Store) -> (Option<Vec<u8>>, Vec<Vec<u8>>) {
     let writes = store
         .due_outbound(i64::MAX)
         .unwrap()

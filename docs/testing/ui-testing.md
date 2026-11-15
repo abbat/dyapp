@@ -1,5 +1,11 @@
 # UI Testing: Practical Guide
 
+The common native sticker download regression gates a real libp2p MediaGet response. It changes
+the same fixture's durable Block/Clear state only after observing the request, then releases the
+response and checks refusal without cached pixels. An unchanged-state case checks exact decoded
+pixels and actual cache retention. Each listener/request/completion transition has a fresh failure
+deadline; the fixture never uses sleeps or a production fetch hook.
+
 Android profile-share navigation targets the success dialog action by
 `profile-share-open-chat`, then awaits the chat route and loaded composer as separate transitions.
 The two-peer journey retains bounded active tags/bounds and delivery details on failure.

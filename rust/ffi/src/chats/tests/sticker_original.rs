@@ -6,10 +6,14 @@ use super::*;
 use crate::{ChatSticker, ChatStickerFrame};
 
 fn stage(f: &Fixture, peer: &str, attached: bool) -> ChatSticker {
+    stage_download(f, peer, attached).0
+}
+
+pub(super) fn stage_download(f: &Fixture, peer: &str, attached: bool) -> (ChatSticker, Vec<u8>) {
     let pack = pack();
     let bytes = pack.sticker_bytes(0).unwrap();
     let frame = dyapp_client::sticker_webp::decode::first_frame(bytes).unwrap();
-    let (mut descriptor, _) = dyapp_client::attachment::seal(bytes).unwrap();
+    let (mut descriptor, blob) = dyapp_client::attachment::seal(bytes).unwrap();
     descriptor.mime = "image/webp".into();
     descriptor.width = frame.width;
     descriptor.height = frame.height;
@@ -35,14 +39,15 @@ fn stage(f: &Fixture, peer: &str, attached: bool) -> ChatSticker {
     let (id, _) = session
         .stage_sticker(&group, &template, &f.chats.seal_key)
         .unwrap();
-    session
+    let item = session
         .store()
         .current_chat_stickers(peer)
         .unwrap()
         .into_iter()
         .find(|item| item.key.id == id)
         .unwrap()
-        .into()
+        .into();
+    (item, blob)
 }
 
 fn read(
