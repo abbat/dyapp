@@ -429,6 +429,11 @@ cannot satisfy it. The deadline is checked between completed FFI stages, not a c
 an in-flight native call; network requests retain their own core timeouts. `PeerTransitionTests`
 uses an injected clock to cover deadline reset, late completion and error propagation without
 waiting for real time. Android instrumentation CI must also run the real two-peer journeys.
+`ChatStickerHistoryTests` exercise the existing mixed-history fallback through `MediaChatContent`
+with adjacent text and both own/peer stickers, in English and Russian. Literal long pack names
+are located through semantic list scrolling; no pixel position or media download is needed.
+This covers fallback presentation, while native sticker exchange and planned picker/image UI
+retain their separate acceptance.
 The queued outcome of a send has no two-peer test:
 the FFI stages only after it reached the node, so only a node refusing the write could cause it.
 `ChatRulesTests` cover how a staged failure reads and `ChatScreenTests` cover its line.
