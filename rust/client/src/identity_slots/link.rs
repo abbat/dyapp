@@ -32,6 +32,44 @@ impl Registry {
             .into_iter()
             .find(|slot| slot.id == from)
             .ok_or("Unknown identity")?;
+        self.install_link(&old, linked, wizard, keys, device)
+    }
+
+    /// Install only while the invitation's source remains the selected ready owner.
+    /// Release any shared identity operation before entering this exclusive mutation.
+    /// Receiver cancellation/generation remains a separate admission requirement.
+    ///
+    /// # Errors
+    /// Returns changed selection, lifecycle, owner, credential or link-installation failures.
+    pub fn link_selected<K: KeyWriter + KeyRemover>(
+        &self,
+        from: &str,
+        expected_peer: &str,
+        linked: &Linked,
+        wizard: bool,
+        keys: &K,
+        device: &dyn Fn(&Slot) -> Result<(), String>,
+    ) -> Result<(Slot, Identity, SelectionDurability), String> {
+        let _guard = self.lock()?;
+        let super::Resolution::Ready(old, identity) =
+            super::resolve(&self.root, self.layout, keys)?
+        else {
+            return Err("The link source is no longer ready".into());
+        };
+        if old.id != from || identity.peer_id() != expected_peer {
+            return Err("The link source changed".into());
+        }
+        self.install_link(&old, linked, wizard, keys, device)
+    }
+
+    fn install_link<K: KeyWriter + KeyRemover>(
+        &self,
+        old: &Slot,
+        linked: &Linked,
+        wizard: bool,
+        keys: &K,
+        device: &dyn Fn(&Slot) -> Result<(), String>,
+    ) -> Result<(Slot, Identity, SelectionDurability), String> {
         let storage = old.storage.ok_or("Unknown identity storage mode")?;
         let mut slot = self.reserve(storage, keys)?;
         save(&slot, storage, &linked.identity, keys)?;
@@ -56,7 +94,7 @@ impl Registry {
         )?;
         if wizard {
             // The link already succeeded; a failed cleanup stays visible as a deleting slot.
-            if let Ok(Some(peer)) = unused(&old, keys) {
+            if let Ok(Some(peer)) = unused(old, keys) {
                 let _ = self.remove_locked(&old.id, Some(&peer), keys, |_| Ok(()));
             }
         }

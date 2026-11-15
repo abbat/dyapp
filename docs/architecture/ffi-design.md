@@ -955,6 +955,12 @@ the new slot pending and the old selection in place. A waiting slot made only to
 removed afterwards when it has no saved profile draft; a failed cleanup does not fail the
 link and stays visible as a deleting slot. The desktop link flow calls it; the FFI wrapper
 and mobile adoption remain planned.
+`Registry::link_selected` provides the strict installation boundary for a future native receiver:
+under one exclusive lock it resolves the currently selected ready slot and verifies both its slot
+ID and owner before any reservation or device-key callback. It then reuses the same writer.
+Callers release shared identity operations before installation; source rejection leaves inventory
+and selection unchanged. Receiver cancellation/view generation is still a separate requirement,
+including a switch away and back to the same slot. The existing desktop compatibility API remains.
 
 ## Exported surface
 
