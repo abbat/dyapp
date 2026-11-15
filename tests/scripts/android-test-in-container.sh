@@ -37,7 +37,7 @@ case "${1:?suite required}" in
         mkdir -p "$lifecycle_dir"
         cp -f "$apk_dir/app-debug.apk" "$lifecycle_dir/app-base.apk"
         (cd clients/android && ./gradlew --offline --no-daemon -Pdyapp.prebuiltRust \
-            -Pdyapp.testUpgradeVersionCode=2 :app:assembleDebug)
+            -Pdyapp.debugAbis=x86_64 -Pdyapp.testUpgradeVersionCode=2 :app:assembleDebug)
         cp -f "$apk_dir/app-debug.apk" "$lifecycle_dir/app-upgrade.apk"
         # Host dyappd for the emulator runner's loopback node.
         cargo build --locked -p dyapp-bootstrap --bin dyappd

@@ -131,6 +131,40 @@ class InventoryTests(unittest.TestCase):
                 ):
                     CHECK.inventory(path, prepared, application=True)
 
+    def test_every_additional_application_abi_needs_jna_and_ffi(self) -> None:
+        prepared = CHECK.producer(self.root)
+        fragments = [
+            ("lib/arm64-v8a/libjnidispatch.so", b"prepared arm JNI bytes"),
+            ("lib/arm64-v8a/libdyapp_ffi.so", b"arm FFI"),
+            ("lib/arm64-v8a/libcodec.so", b"arm codec"),
+        ]
+        for index, fragment in enumerate(fragments):
+            with self.subTest(fragment=fragment[0]):
+                path = self.apk(
+                    f"partial-arm-{index}.apk", self.entries + [fragment]
+                )
+                with self.assertRaisesRegex(
+                    ValueError, "lacks arm64-v8a JNA or FFI"
+                ):
+                    CHECK.inventory(path, prepared, application=True)
+
+    def test_complete_two_abi_application_records_both_payloads(self) -> None:
+        arm = [
+            ("lib/arm64-v8a/libjnidispatch.so", b"prepared arm JNI bytes"),
+            ("lib/arm64-v8a/libdyapp_ffi.so", b"arm FFI"),
+        ]
+        path = self.apk("both-abis.apk", self.entries + arm)
+        actual = CHECK.inventory(
+            path, CHECK.producer(self.root), application=True
+        )
+        self.assertEqual(
+            actual["native_sha256"],
+            {
+                name: sha256(content).hexdigest()
+                for name, content in self.entries[1:] + arm
+            },
+        )
+
     def test_empty_ffi_is_not_a_present_native_payload(self) -> None:
         path = self.apk(
             "empty-ffi.apk",

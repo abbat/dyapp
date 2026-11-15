@@ -1031,7 +1031,9 @@ Docker diagnostics; exported reports and application files keep their formats.
 Both Android instrumentation runners write a fresh `android-artifacts.json` beside
 their test reports before installing packages. It records base/upgrade/test APK hashes,
 all native payload hashes and the actual prepared JNA manifest; mismatched JNA,
-missing x86_64 JNA/FFI or duplicate native entries fail before installation.
+missing x86_64 JNA/FFI, incomplete JNA/FFI pairs in any additional ABI, or duplicate
+native entries fail before installation. The emulator upgrade build retains the base build's
+explicit x86_64 selection when reusing its compiled Rust core.
 CI's `build-provenance/` records the source HEAD, tools-image ID and actual
 container hostname/image/service tuples. Match the hostname to the report directory
 to bind a test result to its APK receipt without timestamps or guessed ordering.

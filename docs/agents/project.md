@@ -97,7 +97,9 @@ instrumentation launch can reschedule it. Its JSON report records the before/aft
 states. The build suite preserves `app-base.apk` and `app-upgrade.apk` under `build/android/lifecycle/`
 (outside Gradle's replaceable output directories). It assembles the upgrade with
 `-Pdyapp.testUpgradeVersionCode=2 -Pdyapp.prebuiltRust` in the same container/signing context.
-Only debug variant output versioning changes. While the node remains offline, the UI runner installs
+Only debug variant output versioning changes. Both emulator builds must pass
+`-Pdyapp.debugAbis=x86_64`: skipping Rust compilation without retaining that selection can package
+arm64 dependency libraries without an arm64 core. While the node remains offline, the UI runner installs
 the upgrade with `adb install -r`, probes job 1 before launching instrumentation, then requires installed
 `longVersionCode` to exceed
 the value checkpointed during preparation, then reopens the original native pair and queued ID.

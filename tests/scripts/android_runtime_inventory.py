@@ -71,6 +71,17 @@ def producer(directory: Path) -> Producer:
     }
 
 
+def require_application_libraries(native: dict[str, str]) -> None:
+    abis = {"x86_64"} | {name.split("/")[1] for name in native}
+    for abi in sorted(abis):
+        required = {
+            f"lib/{abi}/libjnidispatch.so",
+            f"lib/{abi}/libdyapp_ffi.so",
+        }
+        if not required <= native.keys():
+            raise ValueError(f"Application APK lacks {abi} JNA or FFI")
+
+
 def inventory(path: Path, prepared: Producer, application: bool) -> Apk:
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
@@ -95,15 +106,8 @@ def inventory(path: Path, prepared: Producer, application: bool) -> Apk:
                 and native[name] != prepared["native_sha256"][parts[1]]
             ):
                 raise ValueError("Packaged JNA checksum mismatch")
-        if (
-            application
-            and not {
-                "lib/x86_64/libjnidispatch.so",
-                "lib/x86_64/libdyapp_ffi.so",
-            }
-            <= native.keys()
-        ):
-            raise ValueError("Application APK lacks x86_64 JNA or FFI")
+        if application:
+            require_application_libraries(native)
     with path.open("rb") as stream:
         digest = hashlib.file_digest(stream, "sha256").hexdigest()
     return {
