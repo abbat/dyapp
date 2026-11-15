@@ -866,9 +866,11 @@ one theme, text scale or language.
 412 px wide, at normal and 200% text-only WebKit zoom. Enlarged-text names include `--text200`:
 `build/ux-research/prototype-android/<state>[-dark][--text200]-<lang>-<width>.png`.
 The capture rejects text outside the actual bounds of top/back-bar titles, status chips, navigation
-labels and unread badges. This uses font readiness and rendered text rectangles, not colour samples
-or guessed positions. The desktop prototype is mounted too, because the Android one loads its strings.
-The layout check runs with the `android` baseline.
+labels, unread badges and the wrapping relationship-goal picker. Birth-year checks reject text wider
+than even the content-box upper bound; they do not guess the native spinner width. The picker state
+also checks native-dialog viewport bounds. This uses font readiness and rendered text rectangles,
+not colour samples or guessed positions. The desktop prototype is mounted too, because the Android
+one loads its strings. The layout check runs with the `android` baseline.
 
 ### Reports on the host
 

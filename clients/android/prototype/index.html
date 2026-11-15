@@ -9,7 +9,7 @@
 <title>DYApp Android prototype</title>
 <link rel="stylesheet" href="style.css">
 <style>
-/* Sample profile photos; the app has no photos yet. */
+/* Sample profile photos for the static prototype. */
 :root { --sample-photo: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3ClinearGradient id='g' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23bcd3ea'/%3E%3Cstop offset='1' stop-color='%237f9fc4'/%3E%3C/linearGradient%3E%3Crect width='40' height='40' fill='url(%23g)'/%3E%3Ccircle cx='20' cy='16' r='7' fill='%23e8b892'/%3E%3Cpath d='M6 40c2-9 8-13 14-13s12 4 14 13z' fill='%23395b7a'/%3E%3C/svg%3E"); }
 .p2 { filter: hue-rotate(150deg); }
 .p3 { filter: hue-rotate(260deg) saturate(1.3); }
@@ -123,9 +123,9 @@
 
 <!-- App shell: every screen after first run. Detail screens (a found profile, a chat, the app
      lock settings) bring their own back bar and hide the navigation bar. -->
-<div class="app" data-on="profile profile-hidden publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error profile-view profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog settings switcher remove-dialog remove-offline lock-settings">
+<div class="app" data-on="profile profile-hidden profile-goal-dialog publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error profile-view profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog settings switcher remove-dialog remove-offline lock-settings">
   <header class="appbar" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog lock-settings">
-    <span class="title"><span data-on="profile profile-hidden publish-dialog publish-progress switcher" data-t="nav.profile"></span>
+    <span class="title"><span data-on="profile profile-hidden profile-goal-dialog publish-dialog publish-progress switcher" data-t="nav.profile"></span>
       <span data-on="search search-loading search-empty search-error" data-t="nav.search"></span>
       <span data-on="chats" data-t="nav.chats"></span>
       <span data-on="network network-checking network-error" data-t="nav.network"></span>
@@ -144,7 +144,7 @@
 
   <main class="content">
     <!-- Profile: edit the draft; publishing opens a dialog with the preview and consents. -->
-    <section id="profile" class="content" style="padding:0" data-on="profile profile-hidden publish-dialog publish-progress switcher">
+    <section id="profile" class="content" style="padding:0" data-on="profile profile-hidden profile-goal-dialog publish-dialog publish-progress switcher">
       <p class="muted" id="profile-status"><span data-off="profile-hidden" data-t="profile.status.published"></span>
         <span data-on="profile-hidden" data-t="profile.status.hidden"></span></p>
       <div class="card">
@@ -164,7 +164,7 @@
         <div class="field"><label for="profile-gender" data-t="profile.gender"></label>
           <select id="profile-gender"><option data-t="profile.gender.value"></option></select></div>
         <div class="field"><label for="profile-goal" data-t="profile.goal"></label>
-          <select id="profile-goal"><option data-t="profile.goal.value"></option></select></div>
+          <select id="profile-goal" data-choice-picker><option value="0" data-t="profile.goal.unset"></option><option value="1" data-t="profile.goal.choice.SeriousRelationship" selected></option><option value="2" data-t="profile.goal.choice.Marriage"></option><option value="3" data-t="profile.goal.choice.Casual"></option><option value="4" data-t="profile.goal.choice.Friendship"></option><option value="5" data-t="profile.goal.choice.NotSureYet"></option><option value="6" data-t="profile.goal.choice.ShortTerm"></option></select></div>
         <h2 data-t="profile.birth"></h2>
         <div class="row3">
           <div class="field"><label for="birth-year" data-t="profile.birth.year"></label><input type="number" id="birth-year" value="1994"></div>
@@ -473,7 +473,7 @@ search providers asked: 0 of 3</pre>
   </main>
 
   <nav class="navbar" aria-label="Main" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog lock-settings">
-    <button type="button" class="nav-item" id="nav-profile" data-current="profile profile-hidden publish-dialog publish-progress switcher">
+    <button type="button" class="nav-item" id="nav-profile" data-current="profile profile-hidden profile-goal-dialog publish-dialog publish-progress switcher">
       <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-profile"/></svg></span><span data-t="nav.profile"></span></button>
     <button type="button" class="nav-item" id="nav-search" data-current="search search-loading search-empty search-error">
       <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-search"/></svg></span><span data-t="nav.search"></span></button>
@@ -637,6 +637,7 @@ document.title = `${t['app.name']} — ${screen}`;
 </script>
 <script type="module">
 import { installIdentifiers } from '../../desktop/ui/identifiers.js';
+import { enhanceChoice } from '../../desktop/ui/profile-choice.js';
 const contact = document.getElementById('chat-profile');
 const contactName = contact?.querySelector('.grow > b');
 const targetName = document.getElementById('chat-clear-name');
@@ -656,6 +657,13 @@ for (const scope of [
   if (!scope) throw new Error('Identity identifier scope is missing');
   installIdentifiers(t, scope);
 }
+enhanceChoice(
+  document.querySelector('select[data-choice-picker]'),
+  document.querySelector('label[for="profile-goal"]'),
+  t['action.cancel'],
+  () => 0,
+);
+if (screen === 'profile-goal-dialog') document.getElementById('profile-goal-choice').click();
 </script>
 </body>
 </html>

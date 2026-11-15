@@ -259,6 +259,7 @@ code {
   font-size: 12px;
   color: var(--muted);
 }
+.btn.field-choice,
 input[type="text"],
 input[type="number"],
 input[type="password"],
@@ -284,8 +285,9 @@ textarea {
 }
 .row3 {
   display: grid;
-  grid-template-columns: 1.2fr 1fr 1fr;
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  align-items: end;
+  gap: var(--space-2);
 }
 .actions {
   display: flex;
@@ -542,7 +544,8 @@ pre {
   flex-direction: column;
   gap: 16px;
 }
-.dialog h2 {
+.dialog h2,
+.modal h2 {
   font: 400 24px / 32px var(--font);
   margin: 0;
   overflow-wrap: anywhere;
@@ -573,6 +576,40 @@ code.grow.identifier {
 }
 .identifier-chunk:last-child {
   margin-inline-end: 0;
+}
+.modal {
+  width: calc(100% - 4 * var(--space-3));
+  max-width: 560px;
+  max-height: calc(100% - 4 * var(--space-3));
+  overflow: auto;
+  border: 1px solid var(--outline-v);
+  border-radius: 28px;
+  padding: calc(2 * var(--space-3));
+  background: var(--surface-high);
+  color: var(--text);
+}
+.modal::backdrop {
+  background: var(--scrim);
+}
+.modal .actions,
+.choice-options {
+  margin-block-start: var(--space-3);
+}
+.choice-options {
+  display: grid;
+  gap: var(--space-2);
+}
+.field-choice,
+.choice-options .btn {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.choice-options [aria-pressed="true"] {
+  border-color: var(--primary);
+  font-weight: 600;
 }
 .sheet {
   width: 100%;

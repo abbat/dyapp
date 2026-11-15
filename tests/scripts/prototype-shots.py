@@ -86,8 +86,28 @@ MEASURE = """JSON.stringify((() => {
           || (scrim.scrollTop === 0 && dialog.top < cover.top))
         throw new Error('Android modal starts outside reachable viewport');
     }
+    for (const dialog of document.querySelectorAll('dialog[open]')) {
+      const bounds = dialog.getBoundingClientRect();
+      if (bounds.top < 0 || bounds.bottom > innerHeight
+          || bounds.left < 0 || bounds.right > innerWidth)
+        throw new Error('Android native dialog exceeds viewport');
+    }
+    const year = document.getElementById('birth-year');
+    if (year?.getBoundingClientRect().width && year.value) {
+      const metrics = document.createElement('canvas').getContext('2d');
+      const font = style(year);
+      metrics.font = font.fontWeight + ' ' + font.fontSize
+          + ' ' + font.fontFamily;
+      // Native spinner space can only reduce this necessary width bound.
+      const available = year.clientWidth - parseFloat(font.paddingLeft)
+          - parseFloat(font.paddingRight);
+      if (metrics.measureText(year.value).width > available + 1 / 64)
+        throw new Error('Android birth year cannot fit its value');
+    }
     const shellText = document.querySelectorAll(
-      '.appbar .title, .backbar .title, .status, .nav-item > span:not(.pill)');
+      '.appbar .title, .backbar .title, .status, .nav-item > span:not(.pill), '
+      + '.field-choice, .field-choice > span, '
+      + '.choice-options .btn, .modal h2');
     for (const node of shellText) {
       const bounds = node.getBoundingClientRect();
       if (!bounds.width || !bounds.height) continue;
@@ -317,6 +337,7 @@ ANDROID = [
     "picker",
     "recovery",
     "profile",
+    "profile-goal-dialog",
     "profile-hidden",
     "publish-dialog",
     "publish-progress",

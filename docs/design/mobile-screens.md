@@ -47,6 +47,12 @@ this page is an id or a data-on state in the prototype. The prototype wording is
 In the static prototype, top/back bars and navigation grow with enlarged text instead of clipping
 it. Navigation labels and unread badges remain complete; distinct controls, hints and identity-sheet
 rows retain the spacing required by the [review criteria](review-criteria.md#layout-l1-l2).
+Profile birth fields use the adaptive desktop grid pattern, keeping values readable as fields
+move onto separate rows. The relationship-goal field reuses the shared wrapping choice dialog;
+`profile-goal-dialog` shows it open. Its labelled opener displays the complete selected value,
+and the hidden `profile-goal` select retains the value and choice semantics.
+The native birth row has not adopted this reflow yet; enlarged-font Compose verification remains
+planned.
 
 Phones get one screen at a time. Five top-level sections sit in a bottom navigation bar; each has
 a top app bar with its title, the connection status and the identity avatar. Detail
