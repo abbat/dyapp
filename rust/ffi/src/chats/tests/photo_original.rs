@@ -136,7 +136,10 @@ fn populated_photo_history_and_cached_original_survive_native_reopen_offline() {
 
     let f = f.reopen();
     assert_eq!(ids(&f.chats.chat_items(peer.clone()).unwrap()), expected);
-    assert_eq!(f.chats.chat_photos(peer.clone()).unwrap(), [item.clone()]);
+    assert_eq!(
+        f.chats.chat_photos(peer.clone()).unwrap(),
+        std::slice::from_ref(&item)
+    );
     assert_eq!(read(&f.chats, &peer, &item).unwrap(), bytes);
     assert_eq!(snapshot(&f), before);
     assert_eq!(std::fs::read(file).unwrap(), sealed);
