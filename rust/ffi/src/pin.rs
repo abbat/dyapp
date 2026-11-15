@@ -5,6 +5,51 @@ use zeroize::Zeroizing;
 
 use crate::CoreError;
 
+/// New-PIN field readiness; this is never an unlock authorization.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, uniffi::Enum)]
+pub enum AppPinConfirmation {
+    /// The candidate does not satisfy the shared PIN format.
+    Incomplete,
+    /// The confirmation differs from a valid candidate.
+    Mismatch,
+    /// Both valid fields match.
+    Ready,
+}
+
+impl From<pin::Confirmation> for AppPinConfirmation {
+    fn from(value: pin::Confirmation) -> Self {
+        match value {
+            pin::Confirmation::Incomplete => Self::Incomplete,
+            pin::Confirmation::Mismatch => Self::Mismatch,
+            pin::Confirmation::Ready => Self::Ready,
+        }
+    }
+}
+
+/// Existing ASCII/cap input assistance for a transient secure field; never authenticate with it.
+#[uniffi::export]
+#[must_use]
+pub fn app_pin_input(pin: String) -> String {
+    pin::normalize_input(pin)
+}
+
+/// Cheap format readiness without a KDF, storage access or attempt admission.
+#[uniffi::export]
+#[must_use]
+pub fn app_pin_ready(pin: String) -> bool {
+    let pin = Zeroizing::new(pin);
+    pin::valid_pin(&pin)
+}
+
+/// Shared validity-before-confirmation presentation outcome; never an authorization result.
+#[uniffi::export]
+#[must_use]
+pub fn app_pin_confirmation(pin: String, confirmed: String) -> AppPinConfirmation {
+    let pin = Zeroizing::new(pin);
+    let confirmed = Zeroizing::new(confirmed);
+    pin::confirmation(&pin, &confirmed).into()
+}
+
 /// Hash a six-to-64 digit app PIN into a versioned salt and Argon2id tag.
 ///
 /// The caller must protect this record in device-only storage. This function does not enforce
@@ -35,6 +80,28 @@ pub fn verify_app_pin(pin: String, record: Vec<u8>) -> Result<bool, CoreError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn input_and_confirmation_preserve_the_shared_boundary_contract() {
+        assert_eq!(app_pin_input("１２a1-23𐐷456".into()), "123456");
+        assert_eq!(app_pin_input("1".repeat(65)), "1".repeat(64));
+        assert!(!app_pin_ready("12345".into()));
+        assert!(app_pin_ready("123456".into()));
+        assert!(!app_pin_ready("1".repeat(65)));
+        assert_eq!(
+            app_pin_confirmation("12345".into(), "12345".into()),
+            AppPinConfirmation::Incomplete
+        );
+        assert_eq!(
+            app_pin_confirmation("123456".into(), "123457".into()),
+            AppPinConfirmation::Mismatch
+        );
+        assert_eq!(
+            app_pin_confirmation("123456".into(), "123456".into()),
+            AppPinConfirmation::Ready
+        );
+        assert!(hash_app_pin("1a23456".into()).is_err());
+    }
 
     #[test]
     fn round_trip_wrong_pin_and_random_salt() {

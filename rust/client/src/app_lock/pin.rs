@@ -4,6 +4,8 @@ use argon2::{Algorithm, Argon2, Params, Version};
 use subtle::ConstantTimeEq;
 use zeroize::Zeroizing;
 
+const MIN_PIN_DIGITS: usize = 6;
+const MAX_PIN_DIGITS: usize = 64;
 const FORMAT: u8 = 1;
 const SALT_LEN: usize = 16;
 const TAG_LEN: usize = 32;
@@ -23,8 +25,45 @@ pub enum Error {
     Unavailable,
 }
 
-fn valid_pin(pin: &str) -> bool {
-    (6..=64).contains(&pin.len()) && pin.bytes().all(|byte| byte.is_ascii_digit())
+/// Cheap input readiness only; it never verifies a secret or admits an unlock attempt.
+#[must_use]
+pub fn valid_pin(pin: &str) -> bool {
+    (MIN_PIN_DIGITS..=MAX_PIN_DIGITS).contains(&pin.len())
+        && pin.bytes().all(|byte| byte.is_ascii_digit())
+}
+
+/// Existing secure-field assistance; authentication APIs still reject invalid raw PINs.
+/// The returned plaintext belongs only to the caller's transient secure field.
+#[must_use]
+pub fn normalize_input(pin: String) -> String {
+    let pin = Zeroizing::new(pin);
+    pin.chars()
+        .filter(char::is_ascii_digit)
+        .take(MAX_PIN_DIGITS)
+        .collect()
+}
+
+/// Presentation outcome for a new PIN and its confirmation; never an authorization result.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Confirmation {
+    /// The candidate does not satisfy the existing PIN format.
+    Incomplete,
+    /// A valid candidate does not match its confirmation.
+    Mismatch,
+    /// The two valid inputs match.
+    Ready,
+}
+
+/// Checks candidate validity before matching its confirmation, without KDF work.
+#[must_use]
+pub fn confirmation(pin: &str, confirmed: &str) -> Confirmation {
+    if !valid_pin(pin) {
+        Confirmation::Incomplete
+    } else if bool::from(pin.as_bytes().ct_eq(confirmed.as_bytes())) {
+        Confirmation::Ready
+    } else {
+        Confirmation::Mismatch
+    }
 }
 
 fn tag(pin: &str, salt: &[u8]) -> Result<[u8; TAG_LEN], Error> {
@@ -79,5 +118,7 @@ pub fn verify(pin: String, record: &[u8]) -> Result<bool, Error> {
     Ok(bool::from(computed[..].ct_eq(&record[1 + SALT_LEN..])))
 }
 
+#[cfg(test)]
+mod input_tests;
 #[cfg(test)]
 mod tests;

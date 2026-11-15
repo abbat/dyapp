@@ -16,11 +16,14 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.launch
+import uniffi.dyapp.AppPinConfirmation
+import uniffi.dyapp.appPinConfirmation
+import uniffi.dyapp.appPinReady
 
-internal fun pinRejection(pin: String, repeat: String) = when {
-    pin.length < PIN_MIN -> R.string.lock_pin_short
-    pin != repeat -> R.string.lock_pin_mismatch
-    else -> null
+internal fun pinRejection(pin: String, repeat: String) = when (appPinConfirmation(pin, repeat)) {
+    AppPinConfirmation.INCOMPLETE -> R.string.lock_pin_short
+    AppPinConfirmation.MISMATCH -> R.string.lock_pin_mismatch
+    AppPinConfirmation.READY -> null
 }
 
 /**
@@ -97,7 +100,7 @@ fun UnlockScreen(deviceSecure: Boolean, onAttempt: suspend (String) -> PinAttemp
         }
     }
     Page(actions = {
-        if (!gated) UnlockButton(submit.takeIf { !busy && pinState.value.length >= PIN_MIN })
+        if (!gated) UnlockButton(submit.takeIf { !busy && appPinReady(pinState.value) })
         // Once gated, the device screen lock is the only way in.
         DeviceCredentialButton(deviceSecure, R.string.lock_use_device_credential, gated, onDeviceCredential)
     }) {

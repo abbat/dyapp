@@ -26,9 +26,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-
-internal const val PIN_MIN = 6
-private const val PIN_MAX = 64
+import uniffi.dyapp.appPinInput
 
 @Composable
 internal fun LockColumn(content: @Composable ColumnScope.() -> Unit) = Column(
@@ -40,10 +38,10 @@ internal fun LockColumn(content: @Composable ColumnScope.() -> Unit) = Column(
 
 @Composable
 internal fun PinField(state: MutableState<String>, label: Int, tag: String, enabled: Boolean) {
-    // Keep only the ASCII digits the Rust verifier accepts.
+    // The core supplies the same ASCII/cap assistance as its PIN format.
     OutlinedTextField(
         value = state.value,
-        onValueChange = { input -> state.value = input.filter { it in '0'..'9' }.take(PIN_MAX) },
+        onValueChange = { input -> state.value = appPinInput(input) },
         modifier = Modifier.fillMaxWidth().testTag(tag),
         enabled = enabled,
         label = { Text(stringResource(label)) },

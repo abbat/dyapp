@@ -33,6 +33,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import uniffi.dyapp.appPinReady
 
 private class PinForm {
     val current = mutableStateOf("")
@@ -43,7 +44,7 @@ private class PinForm {
     var gated by mutableStateOf(false)
     val open get() = !busy && !gated
 
-    fun authorized(pinSet: Boolean) = open && (!pinSet || current.value.length >= PIN_MIN)
+    fun authorized(pinSet: Boolean) = open && (!pinSet || appPinReady(current.value))
 
     fun submit(scope: CoroutineScope, current: String?, newPin: String?, onSetPin: PinSetter) {
         // Every submit clears the typed PINs, accepted or not.

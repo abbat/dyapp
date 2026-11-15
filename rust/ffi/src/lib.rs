@@ -70,7 +70,10 @@ pub use slot_registry::{
     MobileIdentityRegistry, MobileSlot, MobileSlotLayout, MobileSlotSelection, MobileSlotState,
 };
 mod pin;
-pub use pin::{hash_app_pin, verify_app_pin};
+pub use pin::{
+    app_pin_confirmation, app_pin_input, app_pin_ready, hash_app_pin, verify_app_pin,
+    AppPinConfirmation,
+};
 mod profile_draft;
 pub use profile_draft::{load_profile_draft, save_profile_draft, PublicProfileDraft};
 mod contact_names;

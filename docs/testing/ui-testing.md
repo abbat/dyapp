@@ -408,6 +408,12 @@ real network report, because a runner's network must not decide whether the offe
 appears. Release builds compile none of this. The peer's `NSLog` lines reach neither `tests.log` nor the
 result bundle, so `apple-test-in-ci.py` saves them as `chat-peer.log`.
 
+Android `AppPinInputTests` exercise the actual secure field through the common native PIN-input
+policy: ASCII filtering, the independent 64-digit cap, five/six-digit readiness, retained
+confirmation-error priority and raw invalid-authentication refusal. Input replacement and current
+Compose semantics drive each step; the existing native lock tests still cover verifier records,
+attempt limits and actual unlock/settings transitions.
+
 The Android two-peer chat tests (`TwoPeerChatTests.kt`) publish the app's identity on that node and
 drive a second identity, `TestPeer`, through the FFI inside the test process: its own folder in the
 app cache, its own Keystore alias, the same node and a published profile. The peer sends a text;
