@@ -129,6 +129,9 @@ impl Session {
         let mut state = match self.store.last_resort()? {
             Some(state) if now < state.rotate_at => state,
             previous => {
+                let rotate_at = now
+                    .checked_add(LAST_RESORT_ROTATE_SECONDS)
+                    .ok_or(crate::store::Error::ClockRange)?;
                 let device = self.device.as_ref().ok_or(Error::Invalidated)?;
                 let package = device.key_package(true)?;
                 self.store.stage_outbound(&device.seal(seal_key)?, &[])?;
@@ -140,7 +143,7 @@ impl Session {
                 let owner = self.store.owner_peer_id();
                 let state = LastResort {
                     revision,
-                    rotate_at: now + LAST_RESORT_ROTATE_SECONDS,
+                    rotate_at,
                     published: false,
                     record: crate::sign_key_package(device_key, owner, package, true, revision)?,
                 };
@@ -264,7 +267,7 @@ impl Session {
         let mut id = [0; 16];
         getrandom::fill(&mut id)
             .map_err(|_| Error::Client(crate::Error::Reply("no message randomness")))?;
-        let hlc = self.store.draft_chat_text(crate::now() * 1000)?;
+        let hlc = self.store.draft_chat_text(clock::millis(crate::now())?)?;
         let body = Body::Text {
             id,
             hlc: Some(hlc),
@@ -318,7 +321,7 @@ impl Session {
             .map_err(|_| Error::Client(crate::Error::Reply("no message randomness")))?;
         let body = Body::Text {
             id,
-            hlc: Some(self.store.draft_chat_text(crate::now() * 1000)?),
+            hlc: Some(self.store.draft_chat_text(clock::millis(crate::now())?)?),
             text: text.to_vec(),
         };
         let staged = (|| {
@@ -336,7 +339,7 @@ impl Session {
                 &writes,
                 &body,
                 &device.device_key()?,
-                crate::now() * 1000,
+                clock::millis(crate::now())?,
             )?;
             Ok((group, [welcome, writes].concat()))
         })();
@@ -401,7 +404,7 @@ impl Session {
     ) -> Result<Option<(Interaction, Vec<PreparedEnvelope>)>, Error> {
         let (group_id, mut writes) = self.stage_invite(profiles, packages, seal_key)?;
         let peer = self.partner(&group_id).ok_or(Error::UnknownGroup)?;
-        let wall_ms = crate::now() * 1000;
+        let wall_ms = clock::millis(crate::now())?;
         let Some(event) = self.store.draft_interaction(&peer, Kind::Like, wall_ms)? else {
             return Ok(None);
         };
@@ -594,7 +597,7 @@ impl Session {
         nodes: &mut [Node],
         seal_key: &[u8; 32],
     ) -> Result<(), Error> {
-        let writes = self.stage_presence(crate::now() * 1000, seal_key)?;
+        let writes = self.stage_presence(clock::millis(crate::now())?, seal_key)?;
         self.send_staged(nodes, writes, seal_key).await
     }
 
@@ -929,6 +932,7 @@ fn prepare(
 }
 
 mod attachment;
+mod clock;
 mod forward;
 mod link;
 mod local;

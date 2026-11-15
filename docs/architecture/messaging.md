@@ -127,7 +127,8 @@ the group too: equal author/ID values in different groups remain separate. Nativ
 original reads use the same core cache/completion checks: actual JPEG/PNG headers, at most
 64 megapixels, matching nonzero declared dimensions (zero means unspecified), and a sealed blob
 within the 6 MiB node limit. Both cache hits and fetched bytes are checked before UI decoding;
-platform decoders still validate compressed pixels. Core rechecks message/block admission before
+platform decoders still validate compressed pixels. Pixel budgets use checked multiplication.
+Core rechecks message/block admission before
 cache access and fetch completion; successful fetches survive best-effort retention failures.
 On each mail pass of an open chat the
 page asks `chat_photo_auto` whether waiting originals may download: Linux reads NetworkManager's
@@ -403,6 +404,8 @@ unused KeyPackage. A replacement provider has not yet passed that test.
 clones share state. A `Timestamp` packs wall-clock milliseconds into the high 48 bits and a
 counter into the low 16, so comparing timestamps compares wall time, then the counter. On the
 wire it stays a single integer under the old `lamport_timestamp` key.
+Session conversion from seconds to milliseconds and reusable-key rotation deadlines use checked
+arithmetic; overflow returns the existing `ClockRange` error before the corresponding staging.
 
 - `now()` (on send): the current wall time with counter 0 if it is ahead of the last timestamp,
   otherwise the last timestamp plus one. A stalled or backward wall clock never moves the clock

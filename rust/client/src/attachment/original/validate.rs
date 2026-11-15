@@ -25,7 +25,9 @@ pub fn validate(bytes: &[u8], width: u32, height: u32) -> Result<(), LookupError
     };
     if actual_width == 0
         || actual_height == 0
-        || u64::from(actual_width) * u64::from(actual_height) > MAX_SOURCE_PIXELS
+        || u64::from(actual_width)
+            .checked_mul(u64::from(actual_height))
+            .is_none_or(|pixels| pixels > MAX_SOURCE_PIXELS)
         || (width != 0 && width != actual_width)
         || (height != 0 && height != actual_height)
     {
