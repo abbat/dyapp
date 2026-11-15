@@ -30,8 +30,13 @@ unblocked, already open target pair. `submit_profile_share_to` and
 `submit_established_profile_share` repeat that admission on the session that stages the
 ordinary link text, returning the existing `Submission` ID and Accepted/Queued outcome.
 An earlier UI history read is not authoritative admission for a later generic text send.
-Native and Tauri adoption of these submission methods remains planned; preserve their
-existing online publication/profile checks and established-pair offline behavior during cutover.
+Common UniFFI `ChatSession.submit_profile_share(target, shared)` holds one admitted session
+through core preflight and submission, retains own-device and fetched-profile publication checks,
+and queues an eligible established pair when no active network can connect. Android's share action
+calls this method directly; Kotlin no longer authorizes a later generic text send from a separate
+history read. Tauri's existing share command uses the same core admission and submission under
+its identity/session lease, preserving signed-profile cache epochs, publication checks and its
+strict immediate-delivery response.
 
 ## Shared Chats-list preview
 

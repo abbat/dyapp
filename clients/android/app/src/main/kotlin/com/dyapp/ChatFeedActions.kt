@@ -2,7 +2,6 @@ package com.dyapp
 
 import uniffi.dyapp.ChatBlock
 import uniffi.dyapp.ChatLikes
-import uniffi.dyapp.ChatState
 
 /** Peer actions share the feed's identity lease and refresh its rows after persisted changes. */
 internal fun ChatFeed.likes(peer: String) = RustBridge.withChats(opened) { it.likes(peer) }
@@ -23,11 +22,8 @@ internal fun ChatFeed.shareProfile(
     peer: String,
     sharedPeer: String
 ): Result<uniffi.dyapp.ChatSubmission> = runCatching {
-    val text = requireNotNull(uniffi.dyapp.profileLinkText(sharedPeer)) { "invalid profile peer" }
-    val before = history(peer)
-    require(before.state == ChatState.OPEN && peer != sharedPeer) { "not an eligible chat" }
-    send(peer, text).getOrThrow()
-}
+    RustBridge.withChats(opened) { it.submitProfileShare(peer, sharedPeer) }
+}.also { read() }
 
 /** Clears this device's history for the peer, then refreshes rows. */
 internal fun ChatFeed.clear(peer: String): Result<UInt> =

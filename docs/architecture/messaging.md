@@ -278,8 +278,9 @@ forwarded content and carries no original-author claim. The shared core admits i
 distinct, unblocked, already open pair, rechecking at submission rather than trusting an earlier
 UI selection. A share cannot create an introduction or accept a pending request. Committed
 shares use the same stable ID and exact queued-write retry as other `Submission` operations.
-The core provides online verified-profile and established-pair submission paths; native and
-Tauri caller adoption remains planned in the [FFI contract](ffi-design.md#profile-share-submission-ownership).
+The core provides online verified-profile and established-pair submission paths. Android calls
+the common native operation; Tauri uses the same core admission under its session lease, as
+specified in the [FFI contract](ffi-design.md#profile-share-submission-ownership).
 
 ## Message Model
 

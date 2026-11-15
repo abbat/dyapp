@@ -4,7 +4,7 @@
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
-use dyapp_client::store::Conversation;
+use dyapp_client::session::{Session, Submission};
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::profile_link::profile_link;
 use dyapp_identity::Identity;
@@ -71,29 +71,69 @@ async fn send(
     root: &Path,
     dir: &Path,
     identity: &Identity,
-    device_key: &Identity,
     peer_id: &str,
     target_peer: &str,
 ) -> Result<[u8; 16], String> {
-    let text = profile_link(peer_id).ok_or("invalidPeer")?;
-    if peer_id == target_peer
-        || super::open(dir, identity)?
-            .conversation(target_peer)
-            .map_err(|e| e.to_string())?
-            != Conversation::Open
-    {
-        return Err("invalidTarget".into());
+    let store = super::open(dir, identity)?;
+    let seal_key = crate::sealing_key(root, dir, &store)?;
+    let mut session = Session::open(store, &seal_key).map_err(share_error)?;
+    session
+        .prepare_profile_share(target_peer, peer_id)
+        .map_err(share_error)?;
+    let own = share_owner(&session, identity)?;
+    let epoch = cache.lock().map_err(|e| e.to_string())?.bind(dir)?;
+    let active = network::load(dir, Settings::Active)
+        .map_err(|e| e.to_string())?
+        .ok_or("notConnected")?;
+    let mut node = profile::connect(&active).await?;
+    let fetched = node
+        .get_profile(target_peer)
+        .await
+        .map_err(|e| e.to_string())?;
+    let peer = super::accept_peer(cache, epoch, target_peer, fetched)?;
+    if peer.profile.deleted || peer.profile.version == 0 {
+        return Err("unpublished".into());
     }
-    Box::pin(super::send_text(
-        cache,
-        root,
-        dir,
-        identity,
-        device_key,
-        target_peer,
-        &text,
-    ))
-    .await
+    session
+        .submit_profile_share_to(
+            std::slice::from_mut(&mut node),
+            &[own, peer],
+            peer_id,
+            &seal_key,
+        )
+        .await
+        .and_then(Submission::into_accepted)
+        .map_err(share_error)
+}
+
+fn share_owner(
+    session: &Session,
+    identity: &Identity,
+) -> Result<dyapp_profile::VerifiedProfile, String> {
+    let own = profile::stored(session.store())?;
+    if own.version == 0 {
+        return Err("unpublished".into());
+    }
+    let own = dyapp_profile::verify(&own.sign(identity)).map_err(|e| e.to_string())?;
+    if !own
+        .profile
+        .devices
+        .contains(&session.certificate().map_err(|e| e.to_string())?)
+    {
+        return Err("unpublished".into());
+    }
+    Ok(own)
+}
+
+fn share_error(error: dyapp_client::session::Error) -> String {
+    match error {
+        dyapp_client::session::Error::InvalidProfileShare
+        | dyapp_client::session::Error::MissingSnapshot => "invalidTarget".into(),
+        dyapp_client::session::Error::Store(dyapp_client::store::Error::BlockedPeer) => {
+            "blocked".into()
+        }
+        error => super::send_photo::code(error),
+    }
 }
 
 /// The profile a shared link names; see `fetch`.
@@ -132,13 +172,11 @@ pub(crate) async fn share_profile(
     tauri::async_runtime::spawn_blocking(move || {
         let _lease = lease;
         let _session = sessions.lock().map_err(|e| e.to_string())?;
-        let device = crate::device_key(&root, &dir, &identity)?;
         tauri::async_runtime::block_on(send(
             &cache,
             &root,
             &dir,
             &identity,
-            &device,
             &peer_id,
             &target_peer_id,
         ))

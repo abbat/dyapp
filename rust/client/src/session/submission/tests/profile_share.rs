@@ -2,7 +2,10 @@ use super::*;
 use crate::forwarding::tests::open_chat;
 
 fn unstaged(f: &Fixture, sealed: Option<&[u8]>, before: &[Vec<u8>]) {
-    assert_eq!(f.session.store().sealed_device().unwrap().as_deref(), sealed);
+    assert_eq!(
+        f.session.store().sealed_device().unwrap().as_deref(),
+        sealed
+    );
     assert_eq!(writes(&f.session), before);
     assert!(f
         .session

@@ -18,6 +18,8 @@ mod photo_original;
 mod photo_protocol;
 #[path = "tests/photo_submission.rs"]
 mod photo_submission;
+#[path = "tests/profile_share.rs"]
+mod profile_share;
 #[path = "tests/saved_sticker.rs"]
 mod saved_sticker;
 #[path = "tests/sticker_collection.rs"]

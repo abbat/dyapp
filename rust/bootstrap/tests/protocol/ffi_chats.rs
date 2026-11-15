@@ -37,6 +37,8 @@ fn seed_row(address: &Multiaddr) -> String {
 
 #[path = "ffi_chats/offline.rs"]
 mod offline;
+#[path = "ffi_chats/profile_share.rs"]
+mod profile_share;
 #[path = "ffi_chats/publication.rs"]
 mod publication;
 #[path = "ffi_chats/verification.rs"]
