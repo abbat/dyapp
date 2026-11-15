@@ -145,6 +145,39 @@ def check_thresholds(directory: Path) -> None:
         raise ValueError(f"Invalid Rust lint configuration; see {log}")
 
 
+def compiler_error(record: qc.CompilerRecord) -> str | None:
+    if record.get("reason") != "compiler-message":
+        return None
+    message = record["message"]
+    if message["level"] != "error":
+        return None
+    locations = [
+        f"{span['file_name']}:{span.get('line_start', '?')}"
+        for span in message.get("spans", [])
+        if span["is_primary"]
+    ]
+    location = locations[0] if locations else "compiler"
+    return f"{location}: {message['message']}"
+
+
+def clippy_failure(directory: Path) -> str:
+    details = []
+    for line in (directory / "clippy.jsonl").read_text().splitlines():
+        try:
+            detail = compiler_error(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+        if detail:
+            details.append(detail)
+        if len(details) == 8:
+            break
+    summary = "\n".join(details)[:4096]
+    return (
+        summary
+        or (directory / "clippy.stderr").read_text(errors="replace")[-4096:]
+    )
+
+
 def clippy(
     scope: str, directory: Path
 ) -> tuple[Path, int, list[qc.ComplexityFinding]]:
@@ -191,7 +224,10 @@ def clippy(
                 check=False,
             )
     if run.returncode:
-        raise ValueError(f"Clippy failed; see {directory / 'clippy.stderr'}")
+        raise ValueError(
+            f"Clippy failed; see {directory / 'clippy.jsonl'} and "
+            f"{directory / 'clippy.stderr'}\n{clippy_failure(directory)}"
+        )
     records = [
         json.loads(line)
         for line in (directory / "clippy.jsonl").read_text().splitlines()

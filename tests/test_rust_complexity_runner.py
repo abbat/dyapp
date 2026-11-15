@@ -48,6 +48,89 @@ def budget() -> "fc.Budget":
 
 
 class ComplexityRunnerTest(unittest.TestCase):
+    def failed_clippy(self, output: str, stderr: str) -> str:
+        directory = ROOT / "build/tool-fixtures/complexity-errors"
+        directory = directory / str(time.time_ns())
+        directory.mkdir(parents=True)
+
+        def fail(*_args: object, **_kwargs: object) -> types.SimpleNamespace:
+            (directory / "clippy.jsonl").write_text(output)
+            (directory / "clippy.stderr").write_text(stderr)
+            return types.SimpleNamespace(returncode=1)
+
+        with (
+            unittest.mock.patch.object(
+                RUNNER.subprocess, "run", side_effect=fail
+            ),
+            unittest.mock.patch.object(
+                RUNNER.subprocess, "check_output", return_value="{}"
+            ),
+            self.assertRaises(ValueError) as failure,
+        ):
+            RUNNER.clippy("workspace", directory)
+        self.assertEqual((directory / "clippy.jsonl").read_text(), output)
+        self.assertEqual((directory / "clippy.stderr").read_text(), stderr)
+        return str(failure.exception)
+
+    def test_failed_clippy_exposes_only_compiler_errors_with_locations(
+        self,
+    ) -> None:
+        diagnostic: fc.CompilerRecord = {
+            "reason": "compiler-message",
+            "message": {
+                "level": "error",
+                "message": "unnecessary clone",
+                "code": {"code": "clippy::cloned_ref_to_slice_refs"},
+                "spans": [
+                    {
+                        "file_name": "rust/ffi/example.rs",
+                        "line_start": 139,
+                        "is_primary": True,
+                    }
+                ],
+            },
+        }
+        warning = copy.deepcopy(diagnostic)
+        warning["message"]["level"] = "warning"
+        warning["message"]["message"] = "warning noise"
+        output = "\n".join(map(json.dumps, [warning, diagnostic]))
+        message = self.failed_clippy(output, "Compiling progress")
+        self.assertIn("rust/ffi/example.rs:139: unnecessary clone", message)
+        self.assertNotIn("warning noise", message)
+        self.assertNotIn("Compiling progress", message)
+        self.assertIn("clippy.jsonl", message)
+        self.assertIn("clippy.stderr", message)
+
+    def test_crashed_clippy_uses_bounded_stderr_despite_partial_json(
+        self,
+    ) -> None:
+        stderr = "progress" * 1000 + "\nrustc terminated by SIGSEGV"
+        message = self.failed_clippy('{"reason":', stderr)
+        self.assertEqual(message.split("\n", 1)[1], stderr[-4096:])
+
+    def test_failed_clippy_bounds_compiler_error_output(self) -> None:
+        records: list[fc.CompilerRecord] = [
+            {
+                "reason": "compiler-message",
+                "message": {
+                    "level": "error",
+                    "message": f"failure-{index}",
+                    "code": {"code": "E0001"},
+                    "spans": [],
+                },
+            }
+            for index in range(10)
+        ]
+        message = self.failed_clippy("\n".join(map(json.dumps, records)), "")
+        self.assertIn("compiler: failure-7", message)
+        self.assertNotIn("failure-8", message)
+        records[0]["message"]["message"] = "x" * 10000
+        message = self.failed_clippy("\n".join(map(json.dumps, records)), "")
+        self.assertEqual(
+            message.split("\n", 1)[1],
+            "compiler: " + "x" * (4096 - len("compiler: ")),
+        )
+
     def test_budget_schema_and_nesting_pair_are_strict(self) -> None:
         row = budget()
         self.assertEqual(

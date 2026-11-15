@@ -110,6 +110,11 @@ cargo fmt --manifest-path clients/windows/Cargo.toml -- --check
 python3 -B tests/scripts/check-rust-complexity.py --scope workspace
 ```
 
+A failed complexity Clippy invocation reports up to eight compiler errors with source locations,
+limited to 4096 characters. If no compiler diagnostic is available, it reports the final 4096
+characters of stderr. Full Cargo JSON and stderr remain beside the complexity report; normal
+compiler progress and warnings are omitted from this failure summary.
+
 The root workspace, bootstrap/FFI crates and native desktop manifests deny `unreachable_pub`
 and `unfulfilled_lint_expectations`. Existing internal module APIs keep their public spelling
 and implementations, with declaration-level `expect(unreachable_pub, reason = ...)` markers.
