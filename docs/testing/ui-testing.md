@@ -27,6 +27,11 @@ objects and live state bindings (see
 
 Shared desktop smoke scripts, including the test-only video frame renderer and smoke checks,
 live in `clients/desktop/ui-tests/` and are concatenated in its `mod.rs` order.
+Every native lane runs the explicit offline `safety-number` case after reopening its saved
+profile, including lanes without a separate node binary. A local own-profile card fixture drives
+real safety UI, native QR and clipboard commands; it does not establish online search or peer
+authentication coverage. Geometry checks cover hidden status, visible status and QR preview.
+Unknown non-empty smoke steps fail explicitly; the runner checks that rejection separately.
 Native keyboard checks wait for document focus through the window focus event and a deadline;
 restoring a desktop window also requests native focus. Opaque modal accessibility audits temporarily
 hide background paint outside the active dialog, preserving layout and restoring inline visibility

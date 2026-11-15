@@ -10,6 +10,7 @@ const SCRIPTS: &[&str] = &[
     include_str!("criteria-axe.js"),
     include_str!("criteria-modal.js"),
     include_str!("common.js"),
+    include_str!("safety-offline.js"),
     include_str!("dom.js"),
     include_str!("chat-preview.js"),
     include_str!("foundation.js"),

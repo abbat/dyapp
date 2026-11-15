@@ -654,6 +654,7 @@ const readySmokeSteps = (mode) => ({
   'remove-tombstone': () => smoke.identityRemovalChecks.tombstone(mode),
   'profile-save': saveProfileForRestart,
   'profile-restart': checkSavedProfile,
+  'safety-number': smoke.checkOfflineSafetyNumber,
   'sticker-import': smoke.stickerFileChecks.importPack,
   'sticker-restart': smoke.stickerFileChecks.restart,
   'profile-publish-fail': () => publishProfileOnLoopback(false, true),
@@ -744,6 +745,8 @@ const runSmokeFallbackStep = async (state, mode, existing, step, readySteps) => 
   } else if (Object.hasOwn(readySteps, step)) {
     if (state.status !== 'ready') throw new Error('identity not reopened');
     await readySteps[step]();
+  } else if (step) {
+    throw new Error(`Unknown UI smoke step: ${step}`);
   } else if (existing && state.status !== 'ready') {
     throw new Error('identity not reopened');
   } else if (!existing) {

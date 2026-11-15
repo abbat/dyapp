@@ -465,6 +465,9 @@ class DesktopSmoke:
         )
         if reopened != peer_id:
             raise RuntimeError("reopening a profile replaced the identity")
+        self.case(
+            "safety-number", [*file, "--ui-test-step=safety-number"], profile
+        )
 
     @contextlib.contextmanager
     def fake_tray(
@@ -954,13 +957,13 @@ class DesktopSmoke:
         with tempfile.TemporaryDirectory(dir=self.reports) as profile:
             pseudo = ["--ui-test-file", "--pseudo-locale", language_step]
             self.case("pseudo-locale", pseudo, profile)
-        with tempfile.TemporaryDirectory(dir=self.reports) as profile:
-            self.case(
-                "hidden-ready-rejected",
-                ["--ui-test-file", "--break-ui"],
-                profile,
-                broken=True,
-            )
+        file = ["--ui-test-file"]
+        for name, extra in (
+            ("hidden-ready-rejected", ["--break-ui"]),
+            ("unknown-step-rejected", ["--ui-test-step=unknown"]),
+        ):
+            with tempfile.TemporaryDirectory(dir=self.reports) as profile:
+                self.case(name, [*file, *extra], profile, broken=True)
         if flows:
             with tempfile.TemporaryDirectory(dir=self.reports) as profile:
                 self.window(profile)

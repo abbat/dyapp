@@ -21,7 +21,8 @@ class DesktopOutput(unittest.TestCase):
             app.write_text(
                 "#!/usr/bin/env python3\n"
                 "import os,sys\n"
-                "if '--break-ui' in sys.argv:\n"
+                "if ('--break-ui' in sys.argv\n"
+                " or '--ui-test-step=unknown' in sys.argv):\n"
                 " print('failed-case-detail')\n"
                 " if os.environ.get('DYAPP_FIXTURE_BROKEN') == '1':\n"
                 "  raise SystemExit(0)\n"
@@ -56,7 +57,11 @@ class DesktopOutput(unittest.TestCase):
                     data = json.loads(
                         (reports / "desktop-ui-results.json").read_text()
                     )
-                    self.assertEqual(len(data), 9)
+                    self.assertEqual(len(data), 10)
+                    self.assertIn(
+                        "unknown-step-rejected",
+                        {case["case"] for case in data},
+                    )
                     self.assertTrue(all(case["passed"] for case in data))
                 else:
                     self.assertEqual(result.returncode, 1)
