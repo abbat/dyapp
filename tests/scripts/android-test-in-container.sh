@@ -10,6 +10,14 @@ run_instrumentation() {
         adb -s emulator-5554 shell am instrument -w -r "$@" com.dyapp.test/androidx.test.runner.AndroidJUnitRunner \
         || exit "$?"
 }
+record_artifacts() {
+    local report=${1:?report directory required}
+    python3 -B /app/tests/scripts/android_runtime_inventory.py \
+        --output "$report/android-artifacts.json" \
+        --application /app/build/android/lifecycle/app-base.apk \
+        --application /app/build/android/lifecycle/app-upgrade.apk \
+        --test /app/build/android/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+}
 case "${1:?suite required}" in
     build)
         # The checkout is read-only and Gradle writes into its project: build a copy whose build/
@@ -92,6 +100,7 @@ case "${1:?suite required}" in
             exit "$code"
         }
         trap collect_permission_reports EXIT
+        record_artifacts "$report_dir"
         timeout 300 adb -s emulator-5554 install --no-streaming -r /app/build/android/lifecycle/app-base.apk
         timeout 300 adb -s emulator-5554 install --no-streaming -r /app/build/android/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk
         bash /app/tests/scripts/android-lan-permission-phases.sh modern "$report_dir" "10.0.2.2:33445"
@@ -113,6 +122,7 @@ case "${1:?suite required}" in
             exit "$code"
         }
         trap collect_ui_reports EXIT
+        record_artifacts "$report_dir"
         timeout 300 adb -s emulator-5554 install --no-streaming -r /app/build/android/lifecycle/app-base.apk
         timeout 300 adb -s emulator-5554 install --no-streaming -r /app/build/android/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk
         # A freshly booted emulator may still show the lock screen or a system ANR dialog over

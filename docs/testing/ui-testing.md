@@ -963,7 +963,16 @@ Docker diagnostics; exported reports and application files keep their formats.
 | `android-emulator-test` | `instrumentation.txt`/`.json`, `instrumentation-<n>.txt` of failed runs, `ready.png`, `logcat.txt`, on failure `failure.png`, `window.txt`; plus `app-debug.apk` |
 | `linux-test` | `desktop-ui-results.json`; plus the `dyapp-linux` binary |
 
-In CI the Docker jobs upload **no** artifacts (logs only).
+Both Android instrumentation runners write a fresh `android-artifacts.json` beside
+their test reports before installing packages. It records base/upgrade/test APK hashes,
+all native payload hashes and the actual prepared JNA manifest; mismatched JNA,
+missing x86_64 JNA/FFI or duplicate native entries fail before installation.
+CI's `build-provenance/` records the source HEAD, tools-image ID and actual
+container hostname/image/service tuples. Match the hostname to the report directory
+to bind a test result to its APK receipt without timestamps or guessed ordering.
+
+CI publishes report files, APK/native SHA-256 inventories and captured Docker logs
+in `android-check-output`, including evidence collected after a test failure.
 
 ## Native CI suites (iOS, macOS, Windows)
 

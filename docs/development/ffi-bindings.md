@@ -94,6 +94,16 @@ Gradle and cached real JNA artifacts: positive resolution, invalid provenance/pa
 and cache invalidation after a changed prepared artifact. Reports retain the two
 Gradle logs; successful checks print one summary line.
 
+Before either Android instrumentation lane installs its existing APKs,
+`tests/scripts/android_runtime_inventory.py` hashes the base, upgrade and test
+packages and every native payload. Application APKs must contain x86_64 JNA and
+the FFI library; packaged JNA hashes must match the actual image's verified
+prepared AAR manifest. The fresh per-container `android-artifacts.json` includes
+that full producer manifest and its checksum; an older receipt is never overwritten.
+CI retains the source HEAD, tools-image ID and actual container image IDs separately,
+joined to receipts by hostname. These inventories support runtime provenance;
+signed-release hardening remains its own gate.
+
 ## Apple
 
 `tools/scripts/build-apple-core.sh [ios|ios-device|all] [debug|release]` runs
