@@ -1,5 +1,3 @@
-import Foundation
-
 private enum SearchField {
     static let country: UInt32 = 4
     static let place: UInt32 = 20
@@ -29,9 +27,6 @@ enum SearchEmployerKind: Hashable {
 /// What the search form holds. The nodes name the fields they serve, so a filter shows only once a
 /// sample has offered it, and the typed values stay when a later sample offers fewer.
 struct SearchFilterInputs {
-    private static let youngest: UInt32 = 18
-    private static let oldest: UInt32 = 150
-
     var offered: [UInt32] = []
     var ageMin = ""
     var ageMax = ""
@@ -58,49 +53,23 @@ struct SearchFilterInputs {
 
     /// The shared core refuses a reversed age or height range with the same errors as a bad number.
     func conditions() throws -> [SearchCondition] {
-        var found = searchChoiceConditions(
+        let found = searchChoiceConditions(
             offered: offered,
             inputs: SearchChoiceInputs(
                 picked: picked.mapValues { Int64($0) }, country: country, interest: "", place: place
             ))
-        if ageOffered, !blank(ageMin) || !blank(ageMax) {
-            found.append(
-                try searchAgeCondition(
-                    min: try age(ageMin) ?? Self.youngest,
-                    max: try age(ageMax) ?? Self.oldest))
-        }
-        if heightOffered,
-            let heights = try searchHeightCondition(
-                from: try height(heightMin), to: try height(heightMax))
-        {
-            found.append(heights)
-        }
-        return found
+        let ranges = try searchRangeConditions(
+            offered: offered,
+            inputs: SearchRangeInputs(
+                ageMin: ageMin, ageMax: ageMax, heightMin: heightMin, heightMax: heightMax
+            ))
+        return found + ranges
     }
 
     func employer() -> SearchEmployer {
         searchEmployerFilter(mode: employerKind.coreMode, text: company)
     }
 
-    private func blank(_ text: String) -> Bool {
-        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    private func age(_ typed: String) throws -> UInt32? {
-        if blank(typed) { return nil }
-        guard let value = UInt32(typed.trimmingCharacters(in: .whitespacesAndNewlines)) else {
-            throw CoreError.Failed(message: "invalid search age")
-        }
-        return value
-    }
-
-    private func height(_ typed: String) throws -> UInt32? {
-        if blank(typed) { return nil }
-        guard let value = UInt32(typed.trimmingCharacters(in: .whitespacesAndNewlines)) else {
-            throw CoreError.Failed(message: "invalid search height")
-        }
-        return value
-    }
 }
 
 /// Status texts that need the fields fixed, not a connection or the same query again.

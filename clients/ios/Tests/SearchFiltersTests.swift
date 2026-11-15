@@ -53,6 +53,37 @@ final class SearchFiltersTests: XCTestCase {
         XCTAssertEqual(failure(inputs), "search.heightInvalid")
     }
 
+    func testRawRangeWhitespaceAndHiddenInvalidInputUseCoreRules() throws {
+        var inputs = SearchFilterInputs()
+        inputs.offered = [1_001, 46]
+        for value in ["\u{feff}", "\u{a0}", " \t\n"] {
+            inputs.ageMin = value
+            inputs.heightMax = value
+            XCTAssertTrue(try inputs.conditions().isEmpty)
+        }
+        for value in ["\u{85}", "\u{1c}", "4294967296", "invalid"] {
+            inputs.ageMin = value
+            inputs.heightMax = value
+            inputs.offered = []
+            XCTAssertTrue(try inputs.conditions().isEmpty)
+            inputs.offered = [1_001]
+            XCTAssertEqual(failure(inputs), "search.ageInvalid")
+            inputs.offered = [46]
+            XCTAssertEqual(failure(inputs), "search.heightInvalid")
+        }
+    }
+
+    func testRawHeightBoundsAreNotParsedByTheSwiftAdapter() throws {
+        var inputs = SearchFilterInputs()
+        inputs.offered = [46]
+        inputs.ageMin = "hidden invalid age"
+        inputs.heightMin = "\u{feff}170\u{a0}"
+        inputs.heightMax = " 180 "
+        let conditions = try inputs.conditions()
+        XCTAssertEqual(conditions.map(\.field), [46])
+        XCTAssertEqual(conditions.map(\.ints), [[170, 180]])
+    }
+
     func testPickedScaleAppliesOnlyWhenOffered() throws {
         let scale = try XCTUnwrap(profileScales().first)
         let code = try XCTUnwrap(scale.choices.first?.code)

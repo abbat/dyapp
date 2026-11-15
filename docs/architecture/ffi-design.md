@@ -850,15 +850,15 @@ instrumentation, where the native library is available, rather than host JVM-onl
 
 ## Raw search range input
 
-`search_range_conditions(offered, SearchRangeInputs)` interprets the Android form's raw age
-and height strings through `dyapp_profile::search_input`. The core owns parsing, hidden-field
+`search_range_conditions(offered, SearchRangeInputs)` interprets the Android and iOS forms' raw
+age and height strings through `dyapp_profile::search_input`. The core owns parsing, hidden-field
 exclusion and defaults; FFI only converts records and calls the existing query validator.
 Desktop can use the same core module directly without a UniFFI dependency. Blank ages add no filter unless either bound is entered; a missing
 bound then defaults to 18 or 150. Blank height bounds remain open. Hidden fields are ignored,
 including malformed saved input. Offered malformed or impossible ranges retain the existing
 `invalid search age` / `invalid search height` errors. Date-dependent bounds use the current
-UTC date and the existing core `Filter` validator. Categorical, place and mutual form
-interpretation remains client-owned pending the rest of the extraction.
+UTC date and the existing core `Filter` validator. Swift retains the raw form strings and error-key
+presentation; it does not parse numbers, trim range inputs or supply numeric defaults.
 
 `dyapp_client::search_input::employer_filter` interprets raw Any/Same/Exclude company text using
 the Linux desktop contract. Same preserves semicolons; Exclude splits on them, drops blank names

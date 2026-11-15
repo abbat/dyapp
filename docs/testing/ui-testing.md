@@ -297,6 +297,10 @@ A second Android publish test checks and activates the emulator runner's loopbac
 (`10.0.2.2:33445`), publishes a saved draft and expects the signed readback on the form, then deletes the
 `network` and `network-draft` files so the other tests still start without an active network.
 
+Native search adapter tests retain offered-field/error fixtures and cover raw BOM/NBSP blanks,
+hidden malformed input, numeric overflow and non-desktop whitespace. The iOS adapter's exact height
+conditions avoid date-dependent age expectations; native iOS CI must execute the Swift cases.
+
 Android draft-submission tests also pass an absent edit target to the production send path with
 an observed coroutine queue. It must dispatch no operation and preserve the edited text, held draft,
 target and status. The unopened presentation owner never accesses native storage; failure cleanup
