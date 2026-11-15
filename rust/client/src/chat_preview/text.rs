@@ -7,7 +7,7 @@ const MARKER: &str = "…";
 
 pub(super) fn bounded(input: &str) -> String {
     let mut output = String::new();
-    let mut count = 0;
+    let mut count: usize = 0;
     let mut space = false;
     for grapheme in input.graphemes(true) {
         if grapheme
@@ -18,21 +18,25 @@ pub(super) fn bounded(input: &str) -> String {
             continue;
         }
         let padding = usize::from(space);
-        if count + padding + 1 > GRAPHEMES || output.len() + padding + grapheme.len() > BYTES {
+        let next = count.saturating_add(padding).saturating_add(1);
+        let size = output.len().saturating_add(padding);
+        if next > GRAPHEMES || size.saturating_add(grapheme.len()) > BYTES {
             return marked(output);
         }
         if space {
             output.push(' ');
         }
         output.push_str(grapheme);
-        count += padding + 1;
+        count = next;
         space = false;
     }
     output
 }
 
 fn marked(mut output: String) -> String {
-    while output.graphemes(true).count() >= GRAPHEMES || output.len() + MARKER.len() > BYTES {
+    while output.graphemes(true).count() >= GRAPHEMES
+        || output.len().saturating_add(MARKER.len()) > BYTES
+    {
         let Some((start, _)) = output.grapheme_indices(true).next_back() else {
             break;
         };
