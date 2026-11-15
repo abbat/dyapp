@@ -192,6 +192,9 @@ reserving TCP alone lets another parallel test answer the probe.
 Timed receive fixtures must use a local wall time consistent with their staged HLC (derive it
 from the core timestamp or inject matching clocks). Mixing a live session HLC with a fixed historical
 wall time fails skew admission before reaching the behavior under test.
+`Store::draft_chat_text` proposes a timestamp without committing clock advancement. A trusted
+record-only fixture must choose ordering HLCs explicitly from stored messages; sequential draft
+calls or a later wall-clock read do not guarantee a later history position.
 
 Importer boundary tests use literal protocol byte limits and assert the specific rejection
 stage. Using the production limit in a fixture, or accepting a later digest/decoder failure,

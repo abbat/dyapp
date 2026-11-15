@@ -12,6 +12,8 @@ mod forwarding;
 mod mail_pass;
 #[path = "tests/offline.rs"]
 mod offline;
+#[path = "tests/photo_original.rs"]
+mod photo_original;
 #[path = "tests/saved_sticker.rs"]
 mod saved_sticker;
 #[path = "tests/sticker_collection.rs"]

@@ -296,6 +296,11 @@ each transition has its own failure deadline. The callbacks check current state 
 disabled buttons have recomposed. These fixtures do not exercise the OS picker, photo sanitization
 or real node delivery; authored/compiled tests still require device execution.
 
+Host Rust tests also call the public native photo history/original exports over trusted stored
+metadata and a sealed cache. They check mixed ordering, reopening offline, full message selectors,
+block/clear refusal, malformed image framing or descriptor geometry, and a torn cache without
+changing MLS/outbox state. These Store fixtures do not prove upload, MLS receive or JNI execution.
+
 The Apple two-peer test (`ChatsUITests`) cannot reach the FFI from the XCUITest process, so the DEBUG
 launch argument `--ui-test-chat-peer` hosts the second identity inside the app under test
 (`ChatTestPeer.swift`) and shortens the mailbox poll to 5 s. The peer sends a first message once the
