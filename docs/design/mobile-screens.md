@@ -173,7 +173,7 @@ The IDs inside each section are the desktop ones; only the frame differs.
   flow, see [desktop-screens.md](desktop-screens.md#linking-this-computer).
 - Settings, `settings`: a fixed category hub, with no identity/peer rows or destructive actions.
   Categories are `settings-appearance`, `settings-privacy`, `settings-notifications`,
-  `settings-photos`, `settings-node`, `settings-account` and `settings-about`. Each has a
+  `settings-photos`, `settings-account` and `settings-about`. Each has a
   back bar; detail categories hide the shell bars. Hash links demonstrate navigation only.
   Appearance retains `theme` (`theme-system`, `theme-light`, `theme-dark`) and the
   `language` select. Its shared wrapping picker is captured as `settings-language-dialog`:
@@ -197,8 +197,8 @@ The IDs inside each section are the desktop ones; only the frame differs.
   Search matches the complete local fixture text and resets paging; Refresh restores fixtures.
   A stale completion after navigation cannot replace a different view. Rows wrap their complete
   raw identifiers and action labels; the shared identifier formatter leaves copied text unchanged.
-- The `node`/`node-enabled` card remains an older static prototype artifact under
-  `settings-node`; Android is a light client and this is not native node support.
+- Android remains a light client, with no embedded store/search node controls
+  ([ADR 0030](../decisions/0030-desktop-full-node.md)).
   About retains the version and disabled `updates` placeholder: `update-6h`,
   `update-12h`, `update-24h`, `update-7d`, `update-state` and `update-check`.
   It sends no request and saves nothing.

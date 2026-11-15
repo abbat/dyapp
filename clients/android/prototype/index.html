@@ -123,13 +123,13 @@
 
 <!-- App shell: every screen after first run. Detail screens (a found profile, a chat, the app
      lock settings) bring their own back bar and hide the navigation bar. -->
-<div class="app" data-on="profile profile-hidden profile-goal-dialog publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error profile-view profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog settings settings-language-dialog switcher remove-dialog remove-offline lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-node settings-account settings-about settings-identities-screen settings-blocked settings-passed">
-  <header class="appbar" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-node settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-language-dialog remove-dialog remove-offline">
+<div class="app" data-on="profile profile-hidden profile-goal-dialog publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error profile-view profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog settings settings-language-dialog switcher remove-dialog remove-offline lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed">
+  <header class="appbar" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-language-dialog remove-dialog remove-offline">
     <span class="title"><span data-on="profile profile-hidden profile-goal-dialog publish-dialog publish-progress switcher" data-t="nav.profile"></span>
       <span data-on="search search-loading search-empty search-error" data-t="nav.search"></span>
       <span data-on="chats" data-t="nav.chats"></span>
       <span data-on="network network-checking network-error" data-t="nav.network"></span>
-      <span data-on="settings settings-language-dialog remove-dialog remove-offline settings-appearance settings-privacy settings-notifications settings-photos settings-node settings-account settings-about settings-identities-screen settings-blocked settings-passed" data-t="nav.settings"></span></span>
+      <span data-on="settings settings-language-dialog remove-dialog remove-offline settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed" data-t="nav.settings"></span></span>
     <!-- Connected means one compatible node answered; it opens Network. -->
     <button type="button" class="status" id="connection-status">
       <span class="dot" data-off="search-error network-checking"></span>
@@ -380,7 +380,6 @@ search providers asked: 0 of 3</pre>
 <a class="btn" href="#settings-privacy"><span data-t="settings.privacy">Privacy</span></a>
 <a class="btn" href="#settings-notifications"><span data-t="settings.notifications">Notifications</span></a>
 <a class="btn" href="#settings-photos"><span data-t="settings.photos">Photos</span></a>
-<a class="btn" href="#settings-node"><span data-t="settings.node">Run a node</span></a>
 <a class="btn" href="#settings-account"><span data-t="settings.account">Account</span></a>
 <a class="btn" href="#settings-about"><span data-t="settings.about">About</span></a>
 </div>
@@ -442,14 +441,6 @@ search providers asked: 0 of 3</pre>
         <p class="caption" data-t="photos.cacheUsage"></p>
         <div class="field"><button type="button" class="btn" id="photo-cache-clear" data-t="photos.cacheClear"></button></div>
         <p class="caption" data-t="photos.hint"></p>
-      </div>
-    </section>
-    <section id="settings-node" class="content" style="padding:0" data-on="settings-node">
-      <div class="backbar"><button type="button" class="icon-btn" data-go="settings" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button><h1 class="title" data-t="settings.node"></h1></div>
-      <div class="card" id="node">
-        <h2 data-t="settings.node"></h2>
-        <label class="choice"><input type="checkbox" class="switch" role="switch" aria-checked="false" id="node-enabled"><span data-t="settings.node.enable"></span></label>
-        <p class="caption" data-t="settings.node.hint"></p>
       </div>
     </section>
     <section id="settings-account" class="content" style="padding:0" data-on="settings-account">
@@ -539,7 +530,7 @@ search providers asked: 0 of 3</pre>
     </section>
   </main>
 
-  <nav class="navbar" aria-label="Main" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-node settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-language-dialog remove-dialog remove-offline">
+  <nav class="navbar" aria-label="Main" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-language-dialog remove-dialog remove-offline">
     <button type="button" class="nav-item" id="nav-profile" data-current="profile profile-hidden profile-goal-dialog publish-dialog publish-progress switcher">
       <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-profile"/></svg></span><span data-t="nav.profile"></span></button>
     <button type="button" class="nav-item" id="nav-search" data-current="search search-loading search-empty search-error">
@@ -549,7 +540,7 @@ search providers asked: 0 of 3</pre>
       <span class="badge" id="chats-unread" data-ta="chats.unread">3</span></button>
     <button type="button" class="nav-item" id="nav-network" data-current="network network-checking network-error">
       <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-network"/></svg></span><span data-t="nav.network"></span></button>
-    <button type="button" class="nav-item" id="nav-settings" data-current="settings settings-language-dialog remove-dialog remove-offline settings-appearance settings-privacy settings-notifications settings-photos settings-node settings-account settings-about settings-identities-screen settings-blocked settings-passed">
+    <button type="button" class="nav-item" id="nav-settings" data-current="settings settings-language-dialog remove-dialog remove-offline settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed">
       <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-settings"/></svg></span><span data-t="nav.settings"></span></button>
   </nav>
 

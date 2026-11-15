@@ -405,7 +405,6 @@ ANDROID = [
     "settings-privacy",
     "settings-notifications",
     "settings-photos",
-    "settings-node",
     "settings-account",
     "settings-about",
     "settings-identities-screen",
