@@ -534,7 +534,11 @@ status callbacks (`am instrument -w -r`). Startup, each completed named test and
 exit have fresh failure budgets (normally 300 seconds, 900 for the main suite and long worker
 phases); there is no total suite timer. Only matched start/completion records advance progress,
 including failed or skipped test outcomes; logs, repeated statuses and partial lines do not.
-The existing final JUnit checker still determines success. A stalled invocation exits 124;
+The final JUnit checker rejects raw ignored/assumption statuses (-3/-4), even with an `OK`
+summary, and writes a success JSON only after all gates pass. The ordinary suite excludes the
+three phase-only permission/retained/worker classes and only the forged-search method using
+`notClass`; their separate argument-bearing invocations remain required. This avoids intentional
+assumption skips without removing ordinary Search tests. A stalled invocation exits 124;
 an ADB exit without a final runner result exits 125. These and other host-command errors stop
 the suite without a possibly overlapping retry; the original report is retained.
 The desktop smoke runs one app

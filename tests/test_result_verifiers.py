@@ -66,14 +66,15 @@ class Reports(unittest.TestCase):
         junit: bool = False,
         extra: "typing.Sequence[str]" = (),
     ) -> "subprocess.CompletedProcess[str]":
-        Path("/tmp/ai").mkdir(exist_ok=True)
-        with tempfile.TemporaryDirectory(dir="/tmp/ai") as directory:
+        scratch = ROOT / "build/result-verifier-tests"
+        scratch.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=scratch) as directory:
             filename = "TEST-app.xml" if junit else "report.txt"
             path = Path(directory) / filename
             if contents is not None:
                 path.write_text(contents)
             argument = directory if junit else str(path)
-            return subprocess.run(
+            result = subprocess.run(
                 [
                     "python3",
                     str(ROOT / "tests/scripts" / script),
@@ -83,7 +84,14 @@ class Reports(unittest.TestCase):
                 capture_output=True,
                 text=True,
                 check=False,
+                timeout=30,
             )
+            if (
+                script == "check-instrumentation-results.py"
+                and result.returncode
+            ):
+                self.assertFalse(path.with_suffix(".json").exists())
+            return result
 
     def test_cli_defaults_raw_and_retained_logs(self) -> None:
         coverage = {
@@ -137,7 +145,9 @@ class Reports(unittest.TestCase):
                 "INSTRUMENTATION_CODE: -1",
             ),
         ]
-        with tempfile.TemporaryDirectory() as directory:
+        scratch = ROOT / "build/result-verifier-tests"
+        scratch.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=scratch) as directory:
             root = Path(directory)
             logs = root / "logs"
             env = dict(os.environ, DYAPP_CHECK_LOG_DIR=str(logs))
@@ -152,6 +162,7 @@ class Reports(unittest.TestCase):
                     text=True,
                     env=env,
                     check=False,
+                    timeout=30,
                 )
                 self.assertEqual(result.returncode, 0, result.stdout)
                 self.assertEqual(result.stdout, f"OK {name}\n")
@@ -161,6 +172,7 @@ class Reports(unittest.TestCase):
                     text=True,
                     env=env,
                     check=False,
+                    timeout=30,
                 )
                 self.assertEqual(raw.returncode, 0, raw.stderr)
                 self.assertIn(raw_text, raw.stdout)
@@ -228,6 +240,54 @@ class Reports(unittest.TestCase):
                     ).returncode,
                     0,
                 )
+
+    def test_instrumentation_rejects_ignored_and_assumed_tests(self) -> None:
+        def record(current: int, code: int) -> str:
+            fields = (
+                "INSTRUMENTATION_STATUS: id=AndroidJUnitRunner\n"
+                "INSTRUMENTATION_STATUS: class=com.dyapp.Fixture$Nested\n"
+                f"INSTRUMENTATION_STATUS: current={current}\n"
+                f"INSTRUMENTATION_STATUS: test=example{current}\n"
+            )
+            return (
+                fields
+                + "INSTRUMENTATION_STATUS_CODE: 1\n"
+                + fields
+                + f"INSTRUMENTATION_STATUS_CODE: {code}\n"
+            )
+
+        summary = (
+            "INSTRUMENTATION_RESULT: stream=\nTime: 0\n\n"
+            "OK (3 tests)\n\nINSTRUMENTATION_CODE: -1\n"
+        )
+        passed = "".join(record(index, 0) for index in (1, 2, 3))
+        self.assertEqual(
+            self.run_validator(
+                "check-instrumentation-results.py", passed + summary
+            ).returncode,
+            0,
+        )
+        for code in (-3, -4):
+            with self.subTest(code=code):
+                # Ignored tests do not contribute to JUnit's run count.
+                count = 4 if code == -3 else 3
+                records = "".join(
+                    record(index, code if index == 2 else 0)
+                    for index in range(1, count + 1)
+                )
+                result = self.run_validator(
+                    "check-instrumentation-results.py", records + summary
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("Skipped Android instrumentation", result.stdout)
+
+        assumed = record(1, -4) + summary.replace("3 tests", "1 test")
+        self.assertNotEqual(
+            self.run_validator(
+                "check-instrumentation-results.py", assumed, extra=("1",)
+            ).returncode,
+            0,
+        )
 
     def test_instrumentation_rerun_takes_a_lower_minimum(self) -> None:
         rerun = "OK (1 test)\nINSTRUMENTATION_CODE: -1\n"

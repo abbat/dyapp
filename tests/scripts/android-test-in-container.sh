@@ -128,10 +128,14 @@ case "${1:?suite required}" in
         bash /app/tests/scripts/android-lan-permission-phases.sh legacy "$report_dir" "10.0.2.2:33445"
         # am instrument has no retries: rerun the failed tests twice; failures before a passing
         # run are flaky (practice B5). A failed run that names no test reruns the whole suite.
+        # These fixtures run below or in the permission lane with their required arguments.
+        phase_only=com.dyapp.LocalNetworkPermissionPhaseTests
+        phase_only+=,com.dyapp.RetainedPeerPhaseTests,com.dyapp.WorkerPeerPhaseTests
+        phase_only+=,com.dyapp.SearchTests#forgedResultsAreDroppedAndListed
         failed=() only=() minimum=3
         for attempt in 1 2 3; do
             # Retry only finished JUnit failures, never an uncertain remote invocation.
-            run_instrumentation "$report_dir/instrumentation.txt" 900 "${only[@]}"
+            run_instrumentation "$report_dir/instrumentation.txt" 900 -e notClass "$phase_only" "${only[@]}"
             if python3 /app/tests/scripts/check-instrumentation-results.py "$report_dir/instrumentation.txt" "$minimum"; then
                 break
             fi

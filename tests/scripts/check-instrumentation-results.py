@@ -16,6 +16,10 @@ if __name__ == "__main__":
 
 output = Path(sys.argv[1]).read_text()
 print(output)
+if re.search(r"^INSTRUMENTATION_STATUS_CODE: -(?:3|4)$", output, re.MULTILINE):
+    raise RuntimeError(
+        "Skipped Android instrumentation: ignored or assumed test"
+    )
 match = re.search(r"^OK \((\d+) tests?\)$", output, re.MULTILINE)
 minimum = int(sys.argv[2]) if len(sys.argv) > 2 else 3
 if not match or int(match.group(1)) < minimum or "FAILURES!!!" in output:
