@@ -99,15 +99,6 @@ impl ProfileCache {
         Ok(Some(apply(&mut context, &mut self.photos)))
     }
 
-    /// Hold shared activation admission through a photo-cache read or write.
-    pub(crate) fn with_current_photos<T>(
-        &mut self,
-        epoch: u64,
-        apply: impl FnOnce(&mut PhotoCache) -> T,
-    ) -> Result<Option<T>, String> {
-        self.with_current(epoch, |_, photos| apply(photos))
-    }
-
     #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn clear(&mut self) -> Result<(), String> {
         let mut context = self.context.lock().map_err(|e| e.to_string())?;

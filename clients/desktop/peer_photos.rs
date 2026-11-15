@@ -2,7 +2,7 @@
 //! memory only, so nothing on disk says whose profile the user looked at. A blob that is missing or
 //! refused is not remembered, so the next view asks again.
 
-use std::collections::VecDeque;
+pub(crate) use dyapp_client::peer_photo_cache::Cache as PhotoCache;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
@@ -13,49 +13,6 @@ use dyapp_identity::network::{self, Settings};
 use crate::chat_photos::{check_image, metered};
 use crate::profile;
 use crate::search::{ProfileCache, SearchState};
-
-/// About 6 MiB of thumbnails.
-const THUMBNAILS: usize = 256;
-/// About 4 MiB of full images.
-const FULL_PHOTOS: usize = 8;
-
-type Entry = (Vec<u8>, Vec<u8>);
-
-fn touch(entries: &mut VecDeque<Entry>, hash: &[u8]) -> Option<Vec<u8>> {
-    let at = entries.iter().position(|(held, _)| held == hash)?;
-    let entry = entries.remove(at)?;
-    let bytes = entry.1.clone();
-    entries.push_back(entry);
-    Some(bytes)
-}
-
-/// Blobs by hash, least recently used first. The owner clears it with the profile cache.
-// ponytail: linear scans, fine for 264 entries; a hash map index if the limits grow.
-#[derive(Default)]
-#[expect(unreachable_pub, reason = "Retained module API visibility")]
-pub struct PhotoCache {
-    thumbnails: VecDeque<Entry>,
-    full: VecDeque<Entry>,
-}
-
-impl PhotoCache {
-    fn get(&mut self, hash: &[u8]) -> Option<Vec<u8>> {
-        touch(&mut self.thumbnails, hash).or_else(|| touch(&mut self.full, hash))
-    }
-
-    fn put(&mut self, hash: Vec<u8>, bytes: Vec<u8>, full: bool) {
-        let (entries, limit) = if full {
-            (&mut self.full, FULL_PHOTOS)
-        } else {
-            (&mut self.thumbnails, THUMBNAILS)
-        };
-        entries.retain(|(held, _)| *held != hash);
-        if entries.len() == limit {
-            entries.pop_front();
-        }
-        entries.push_back((hash, bytes));
-    }
-}
 
 /// A node returns what a peer uploaded, so the bounds hold again before the page decodes it.
 fn acceptable(bytes: &[u8], full: bool) -> bool {
@@ -75,19 +32,15 @@ async fn fetch(
     hashes: &[Vec<u8>],
     full: bool,
 ) -> Result<(), String> {
-    let (epoch, wanted) = {
+    let (epoch, wanted, generation) = {
         let mut cache = cache.lock().map_err(|e| e.to_string())?;
         let epoch = cache.bind(dir)?;
-        let wanted = cache
-            .with_current_photos(epoch, |photos| {
-                hashes
-                    .iter()
-                    .filter(|hash| photos.get(hash).is_none())
-                    .filter_map(|hash| hash.as_slice().try_into().ok())
-                    .collect::<Vec<[u8; 32]>>()
+        let (wanted, generation) = cache
+            .with_current(epoch, |context, photos| {
+                (photos.missing(context, hashes), context.generation())
             })?
             .ok_or("notConnected")?;
-        (epoch, wanted)
+        (epoch, wanted, generation)
     };
     if wanted.is_empty() {
         return Ok(());
@@ -108,9 +61,12 @@ async fn fetch(
             };
             if acceptable(&bytes, full) {
                 let mut cache = cache.lock().map_err(|e| e.to_string())?;
-                cache.with_current_photos(epoch, |photos| {
-                    photos.put(hash.to_vec(), bytes, full);
-                })?;
+                if cache.with_current(epoch, |context, photos| {
+                    photos.put(context, &generation, hash.to_vec(), bytes, full)
+                })? != Some(true)
+                {
+                    return Err("notConnected".into());
+                }
             }
             break;
         }
@@ -152,7 +108,7 @@ pub(crate) fn peer_photo(
     let mut cache = searching.0.lock().map_err(|e| e.to_string())?;
     let epoch = cache.bind(&lease.active().1)?;
     let bytes = cache
-        .with_current_photos(epoch, |photos| photos.get(&hash))?
+        .with_current(epoch, |context, photos| photos.get(context, &hash))?
         .flatten()
         .ok_or("notFound")?;
     Ok(tauri::ipc::Response::new(bytes))
@@ -186,27 +142,6 @@ mod tests {
         bytes.into_inner()
     }
 
-    fn hash(index: usize) -> Vec<u8> {
-        u32::try_from(index).unwrap().to_be_bytes().to_vec()
-    }
-
-    #[test]
-    fn the_cache_stays_within_its_limits_and_drops_the_least_recently_used() {
-        for (full, limit) in [(false, THUMBNAILS), (true, FULL_PHOTOS)] {
-            let mut cache = PhotoCache::default();
-            for index in 0..limit {
-                cache.put(hash(index), hash(index), full);
-            }
-            assert_eq!(cache.get(&hash(0)), Some(hash(0)));
-            cache.put(hash(limit), hash(limit), full);
-            cache.put(hash(limit + 1), hash(limit + 1), full);
-            assert_eq!(cache.thumbnails.len() + cache.full.len(), limit);
-            assert_eq!(cache.get(&hash(0)), Some(hash(0)));
-            assert_eq!(cache.get(&hash(1)), None);
-            assert_eq!(cache.get(&hash(2)), None);
-        }
-    }
-
     #[test]
     fn a_blob_outside_the_photo_bounds_is_refused() {
         let jpeg = encoded(ImageFormat::Jpeg);
@@ -228,25 +163,28 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let mut cache = ProfileCache::default();
         let epoch = cache.bind(&dir).unwrap();
-        let context = Arc::clone(&cache.context);
+        let authority = Arc::clone(&cache.context);
         cache
-            .with_current_photos(epoch, |photos| {
-                assert!(context.try_lock().is_err());
-                photos.put(vec![1], vec![2], false);
-                photos.put(vec![3], vec![4], true);
+            .with_current(epoch, |context, photos| {
+                assert!(authority.try_lock().is_err());
+                assert!(photos.put(context, &context.generation(), vec![1], vec![2], false));
+                assert!(photos.put(context, &context.generation(), vec![3], vec![4], true));
             })
             .unwrap();
-        context.lock().unwrap().clear();
+        authority.lock().unwrap().clear();
         assert_eq!(
             cache
-                .with_current_photos(epoch, |_| panic!("stale photo callback ran"))
+                .with_current(epoch, |_, _| panic!("stale photo callback ran"))
                 .unwrap(),
             None
         );
         let current = cache.bind(&dir).unwrap();
         assert_eq!(
             cache
-                .with_current_photos(current, |photos| (photos.get(&[1]), photos.get(&[3])))
+                .with_current(current, |context, photos| (
+                    photos.get(context, &[1]),
+                    photos.get(context, &[3])
+                ))
                 .unwrap(),
             Some((None, None))
         );
@@ -257,13 +195,18 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("dyapp-peer-photos-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let cache = Mutex::<ProfileCache>::default();
-        cache.lock().unwrap().bind(&dir).unwrap();
+        let epoch = cache.lock().unwrap().bind(&dir).unwrap();
         let held = vec![7; 32];
-        cache
-            .lock()
-            .unwrap()
-            .photos
-            .put(held.clone(), vec![1], false);
+        assert_eq!(
+            cache
+                .lock()
+                .unwrap()
+                .with_current(epoch, |context, photos| {
+                    photos.put(context, &context.generation(), held.clone(), vec![1], false)
+                })
+                .unwrap(),
+            Some(true)
+        );
         let known = [held.clone(), vec![1, 2, 3]];
         assert_eq!(fetch(&cache, &dir, &known, false).await, Ok(()));
         let missing = [vec![8; 32]];
@@ -272,6 +215,13 @@ mod tests {
             Err("notConnected".into())
         );
         cache.lock().unwrap().clear().unwrap();
-        assert_eq!(cache.lock().unwrap().photos.get(&held), None);
+        let mut cache = cache.lock().unwrap();
+        let epoch = cache.epoch();
+        assert_eq!(
+            cache
+                .with_current(epoch, |context, photos| photos.get(context, &held))
+                .unwrap(),
+            Some(None)
+        );
     }
 }

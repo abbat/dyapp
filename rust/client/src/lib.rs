@@ -23,6 +23,7 @@ pub mod link;
 pub mod mail_notices;
 pub mod media_ownership;
 pub mod network_check;
+pub mod peer_photo_cache;
 pub mod photo;
 pub mod places;
 mod prepared;

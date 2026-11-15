@@ -8,60 +8,20 @@ use crate::profile_draft::database;
 use crate::profile_network::{active_network, on_network_stack};
 use crate::profile_search::ProfileSearcher;
 use crate::{CoreError, IdentityKey};
+use dyapp_client::contact_verification::Generation;
+pub(crate) use dyapp_client::peer_photo_cache::Cache as PhotoCache;
 use dyapp_client::store::profile_photos::{fits, MAX_PHOTO_BYTES, MAX_THUMBNAIL_BYTES};
 use dyapp_client::store::Store;
 use dyapp_client::{attachment, Node};
 use dyapp_identity::network::Network;
 use dyapp_p2p_net::{seed, Protocols};
-use std::collections::VecDeque;
 use std::sync::Arc;
 
-/// About 6 MiB of thumbnails.
-const THUMBNAILS: usize = 256;
-/// About 4 MiB of full images.
-const FULL_PHOTOS: usize = 8;
 /// The desktop's bound on a full image's frame header.
 const MAX_PIXELS: u64 = 64_000_000;
 
 fn failed(error: impl std::fmt::Display) -> CoreError {
     CoreError::Failed(error.to_string())
-}
-
-type Entry = (Vec<u8>, Vec<u8>);
-
-fn touch(entries: &mut VecDeque<Entry>, hash: &[u8]) -> Option<Vec<u8>> {
-    let at = entries.iter().position(|(held, _)| held == hash)?;
-    let entry = entries.remove(at)?;
-    let bytes = entry.1.clone();
-    entries.push_back(entry);
-    Some(bytes)
-}
-
-/// Blobs by hash, least recently used first; it lives as long as its searcher.
-// ponytail: linear scans, fine for 264 entries; a hash map index if the limits grow.
-#[derive(Default)]
-pub(crate) struct PhotoCache {
-    thumbnails: VecDeque<Entry>,
-    full: VecDeque<Entry>,
-}
-
-impl PhotoCache {
-    fn get(&mut self, hash: &[u8]) -> Option<Vec<u8>> {
-        touch(&mut self.thumbnails, hash).or_else(|| touch(&mut self.full, hash))
-    }
-
-    fn put(&mut self, hash: Vec<u8>, bytes: Vec<u8>, full: bool) {
-        let (entries, limit) = if full {
-            (&mut self.full, FULL_PHOTOS)
-        } else {
-            (&mut self.thumbnails, THUMBNAILS)
-        };
-        entries.retain(|(held, _)| *held != hash);
-        if entries.len() == limit {
-            entries.pop_front();
-        }
-        entries.push_back((hash, bytes));
-    }
 }
 
 /// A node returns what a peer uploaded, so the bounds hold again before the app decodes it: a
@@ -103,6 +63,7 @@ impl ProfileSearcher {
     async fn fetch_photo(
         &self,
         nodes: &mut [Node],
+        generation: &Generation,
         hash: &[u8; 32],
         full: bool,
     ) -> Result<(), CoreError> {
@@ -111,16 +72,25 @@ impl ProfileSearcher {
             let Ok(bytes) = node.get_media(hash).await else {
                 continue;
             };
-            self.cache_photo(hash, bytes, full)?;
+            self.cache_photo(generation, hash, bytes, full)?;
             break;
         }
         Ok(())
     }
 
-    fn cache_photo(&self, hash: &[u8; 32], bytes: Vec<u8>, full: bool) -> Result<(), CoreError> {
+    fn cache_photo(
+        &self,
+        generation: &Generation,
+        hash: &[u8; 32],
+        bytes: Vec<u8>,
+        full: bool,
+    ) -> Result<(), CoreError> {
         if acceptable(&bytes, full) {
+            let context = self.cache.lock().map_err(failed)?;
             let mut photos = self.photos.lock().map_err(failed)?;
-            photos.put(hash.to_vec(), bytes, full);
+            if !photos.put(&context, generation, hash.to_vec(), bytes, full) {
+                return Err(failed("notConnected"));
+            }
         }
         Ok(())
     }
@@ -135,26 +105,33 @@ impl ProfileSearcher {
     /// # Errors
     ///
     /// Returns an error if cache locking, active settings, network-thread execution,
-    /// or connecting fails. Individual blob failures are skipped; photos cached
-    /// before a later error remain available.
+    /// connecting, or the captured network context fails. Individual blob failures are skipped;
+    /// current-generation photos cached before a later network error remain available.
     #[expect(
         clippy::needless_pass_by_value,
         reason = "UniFFI lifts owned arguments across the native language boundary"
     )]
     pub fn fetch_peer_photos(&self, hashes: Vec<Vec<u8>>, full: bool) -> Result<(), CoreError> {
-        let wanted: Vec<[u8; 32]> = {
-            let mut photos = self.photos.lock().map_err(failed)?;
-            hashes
-                .iter()
-                .filter(|hash| photos.get(hash).is_none())
-                .filter_map(|hash| hash.as_slice().try_into().ok())
-                .collect()
+        let (wanted, generation) = {
+            let context = self.cache.lock().map_err(failed)?;
+            let wanted = self
+                .photos
+                .lock()
+                .map_err(failed)?
+                .missing(&context, &hashes);
+            (wanted, context.generation())
         };
         if wanted.is_empty() {
             return Ok(());
         }
         let _operation = self.admit(None)?;
-        let network = active_network(&self.dir)?;
+        let network = {
+            let context = self.cache.lock().map_err(failed)?;
+            if !context.is_current(&generation) {
+                return Err(failed("notConnected"));
+            }
+            active_network(&self.dir)?
+        };
         on_network_stack(|| {
             self.runtime.block_on(async {
                 let mut nodes = reachable(&network).await?;
@@ -162,7 +139,11 @@ impl ProfileSearcher {
                     return Err(failed("notConnected"));
                 }
                 for hash in &wanted {
-                    self.fetch_photo(&mut nodes, hash, full).await?;
+                    self.fetch_photo(&mut nodes, &generation, hash, full)
+                        .await?;
+                }
+                if !self.cache.lock().map_err(failed)?.is_current(&generation) {
+                    return Err(failed("notConnected"));
                 }
                 Ok(())
             })
@@ -173,16 +154,18 @@ impl ProfileSearcher {
     ///
     /// # Errors
     ///
-    /// Returns an error if the cache lock is poisoned or the photo is not cached.
+    /// Returns an error if the context/cache lock is poisoned or the photo is not cached
+    /// in the current generation.
     #[expect(
         clippy::needless_pass_by_value,
         reason = "UniFFI lifts owned arguments across the native language boundary"
     )]
     pub fn peer_photo(&self, hash: Vec<u8>) -> Result<Vec<u8>, CoreError> {
+        let context = self.cache.lock().map_err(failed)?;
         self.photos
             .lock()
             .map_err(failed)?
-            .get(&hash)
+            .get(&context, &hash)
             .ok_or_else(|| failed("notFound"))
     }
 }
@@ -213,33 +196,23 @@ mod tests {
     use image::codecs::jpeg::JpegEncoder;
     use image::RgbImage;
 
+    fn seed_photo(worker: &ProfileSearcher, hash: Vec<u8>, bytes: Vec<u8>) {
+        let context = worker.cache.lock().unwrap();
+        assert!(worker.photos.lock().unwrap().put(
+            &context,
+            &context.generation(),
+            hash,
+            bytes,
+            false,
+        ));
+    }
+
     fn jpeg(width: u32, height: u32) -> Vec<u8> {
         let mut bytes = Vec::new();
         JpegEncoder::new(&mut bytes)
             .encode_image(&RgbImage::new(width, height))
             .unwrap();
         bytes
-    }
-
-    fn hash(index: usize) -> Vec<u8> {
-        u32::try_from(index).unwrap().to_be_bytes().to_vec()
-    }
-
-    #[test]
-    fn the_cache_stays_within_its_limits_and_drops_the_least_recently_used() {
-        for (full, limit) in [(false, THUMBNAILS), (true, FULL_PHOTOS)] {
-            let mut cache = PhotoCache::default();
-            for index in 0..limit {
-                cache.put(hash(index), hash(index), full);
-            }
-            assert_eq!(cache.get(&hash(0)), Some(hash(0)));
-            cache.put(hash(limit), hash(limit), full);
-            cache.put(hash(limit + 1), hash(limit + 1), full);
-            assert_eq!(cache.thumbnails.len() + cache.full.len(), limit);
-            assert_eq!(cache.get(&hash(0)), Some(hash(0)));
-            assert_eq!(cache.get(&hash(1)), None);
-            assert_eq!(cache.get(&hash(2)), None);
-        }
     }
 
     #[test]
@@ -275,17 +248,84 @@ mod tests {
         )
         .unwrap();
         let hash = vec![7; 32];
-        worker
-            .photos
-            .lock()
-            .unwrap()
-            .put(hash.clone(), vec![1], false);
+        seed_photo(&worker, hash.clone(), vec![1]);
         registry
             .remove(created.slot.id, Some(created.key.peer_id()))
             .unwrap();
         assert_eq!(worker.peer_photo(hash.clone()).unwrap(), vec![1]);
         assert!(worker.fetch_peer_photos(vec![hash], false).is_ok());
         assert!(!std::path::Path::new(&created.slot.directory).exists());
+    }
+
+    #[test]
+    fn an_external_context_clear_hides_cached_photo_bytes() {
+        let dir = crate::slot_registry_tests::root();
+        std::fs::create_dir_all(&dir).unwrap();
+        let worker = ProfileSearcher::new(dir.to_str().unwrap().to_owned()).unwrap();
+        let hash = [7; 32];
+        let bytes = jpeg(3, 2);
+        let generation = worker.cache.lock().unwrap().generation();
+        worker
+            .cache_photo(&generation, &hash, bytes.clone(), false)
+            .unwrap();
+        assert_eq!(worker.peer_photo(hash.to_vec()).unwrap(), bytes);
+        dyapp_client::contact_verification::shared(&dir)
+            .unwrap()
+            .lock()
+            .unwrap()
+            .clear();
+        assert_eq!(
+            worker
+                .peer_photo(hash.to_vec())
+                .err()
+                .map(|error| error.to_string()),
+            Some("notFound".into())
+        );
+    }
+
+    fn answering_network() -> crate::NetworkSettings {
+        let (port, peer) = crate::network::tests::node();
+        crate::NetworkSettings {
+            seeds: vec![format!("127.0.0.1:{port}/{peer}")],
+            name: String::new(),
+        }
+    }
+
+    #[test]
+    fn checked_switch_back_and_reactivation_refuse_late_photo_completions() {
+        let dir = crate::slot_registry_tests::root();
+        std::fs::create_dir_all(dir.join("child")).unwrap();
+        let worker = ProfileSearcher::new(dir.to_str().unwrap().to_owned()).unwrap();
+        let alias = dir.join("child").join("..");
+        let checker = crate::ConnectionCheck::new(alias.to_str().unwrap().to_owned()).unwrap();
+        let first = answering_network();
+        let second = answering_network();
+        let bytes = jpeg(3, 2);
+        let fresh_bytes = jpeg(2, 3);
+        for network in [first.clone(), second, first.clone(), first] {
+            let generation = worker.cache.lock().unwrap().generation();
+            worker
+                .cache_photo(&generation, &[7; 32], bytes.clone(), false)
+                .unwrap();
+            let complete = || worker.cache_photo(&generation, &[7; 32], bytes.clone(), false);
+            assert!(matches!(
+                checker.run(network.clone(), 5000).unwrap().as_slice(),
+                [crate::SeedRow::Connected { .. }]
+            ));
+            assert_eq!(checker.activate().unwrap(), network);
+            assert!(worker
+                .peer_photo(vec![7; 32])
+                .is_err_and(|e| e.to_string() == "notFound"));
+            assert!(complete().is_err_and(|e| e.to_string() == "notConnected"));
+            let current = worker.cache.lock().unwrap().generation();
+            worker
+                .cache_photo(&current, &[8; 32], fresh_bytes.clone(), true)
+                .unwrap();
+            assert!(complete().is_err_and(|e| e.to_string() == "notConnected"));
+            assert!(worker
+                .peer_photo(vec![8; 32])
+                .is_ok_and(|held| held == fresh_bytes));
+        }
     }
 
     #[test]
@@ -297,11 +337,7 @@ mod tests {
         let path = dir.to_str().unwrap().to_owned();
         let searcher = ProfileSearcher::new(path.clone()).unwrap();
         let held = vec![7; 32];
-        searcher
-            .photos
-            .lock()
-            .unwrap()
-            .put(held.clone(), vec![1], false);
+        seed_photo(&searcher, held.clone(), vec![1]);
         let known = vec![held.clone(), vec![1, 2, 3]];
         assert!(searcher.fetch_peer_photos(known, false).is_ok());
         let missing = || searcher.fetch_peer_photos(vec![vec![8; 32]], false);

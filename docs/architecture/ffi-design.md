@@ -271,6 +271,19 @@ contact comparison tickets on same-settings activation, rejected requests and se
 after replacement, so late search/chat results cannot repopulate the cache. UI callback guards are specified in the
 [desktop runtime lifecycle](../design/desktop-runtime-lifecycle.md).
 
+## Shared peer-photo cache
+
+dyapp_client::peer_photo_cache::Cache owns the 256-thumbnail / 8-full-image LRU limits, missing-hash
+selection and generation admission for Tauri and the common native adapter. Reads discard
+superseded-generation bytes; writes require the fetch's captured core Generation. Refusing an old
+or foreign completion preserves any newer cached bytes. Adapters still validate media hashes,
+encoding and byte/frame limits before admission.
+
+Native fetch captures the generation before loading active settings and checks it at admission
+and completion. Lock order is shared context before the local photo cache; neither guard spans a
+network request or slot admission. Cached native reads retain no slot OS lease and do not reopen
+the directory, preserving idle-worker removal semantics.
+
 ## Shared photo codecs
 
 `dyapp_client::photo` exposes preview encoding, bounded peer JPEG decoding and frame inspection
