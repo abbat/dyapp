@@ -78,20 +78,21 @@ impl SearchState {
         Ok(())
     }
 
-    /// Save the checked network and clear profiles if it changed, at one cache boundary.
+    /// Invalidate old work before any checked network activation attempt.
     #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn activate_network(
         &self,
         checks: &crate::network::NetworkState,
         dir: &Path,
     ) -> Result<crate::network::Draft, String> {
+        self.activate_with(|| crate::network::activate(checks, dir))
+    }
+
+    fn activate_with<T>(&self, activate: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
         let mut cache = self.0.lock().map_err(|e| e.to_string())?;
-        let previous = network::load(dir, Settings::Active).map_err(|e| e.to_string())?;
-        let draft = crate::network::activate(checks, dir)?;
-        if previous != Some(draft.clone().into()) {
-            cache.clear();
-        }
-        Ok(draft)
+        // Saving may replace settings before returning an I/O error.
+        cache.clear();
+        activate()
     }
 }
 
@@ -478,7 +479,7 @@ mod tests {
         };
         network::save(&dir, Settings::Active, &first).unwrap();
         let verified = verified_fixture_profile;
-        let prior_profile = verified(&Identity::generate());
+        let prior_profile = verified(&Identity::from_secret(&[2; 32]));
         let (started_tx, started_rx) = tokio::sync::oneshot::channel();
         let (resume_tx, resume_rx) = tokio::sync::oneshot::channel();
         let cache = Arc::clone(&state.0);
@@ -488,8 +489,11 @@ mod tests {
             resume_rx.await.unwrap();
             project_current(&cache, epoch, vec![prior_profile])
         });
-        started_rx.await.unwrap();
-        let current = verified(&Identity::generate());
+        tokio::time::timeout(Duration::from_secs(5), started_rx)
+            .await
+            .unwrap()
+            .unwrap();
+        let current = verified(&Identity::from_secret(&[3; 32]));
         assert!(state.0.lock().unwrap().accept_if_current(0, current));
         connect_check(&checks, &dir, &second).await;
         assert_eq!(
@@ -502,15 +506,21 @@ mod tests {
         );
         assert_eq!(state.0.lock().unwrap().snapshot().1.all(), []);
         resume_tx.send(()).unwrap();
-        assert_eq!(worker.await.unwrap(), Err("notConnected".into()));
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(5), worker)
+                .await
+                .unwrap()
+                .unwrap(),
+            Err("notConnected".into())
+        );
         let new_epoch = state.0.lock().unwrap().snapshot().0;
         assert!(state
             .0
             .lock()
             .unwrap()
-            .accept_if_current(new_epoch, verified(&Identity::generate())));
+            .accept_if_current(new_epoch, verified(&Identity::from_secret(&[4; 32]))));
         assert_eq!(state.0.lock().unwrap().snapshot().1.all().len(), 1);
-        assert_reactivation_keeps_profiles(&state, &checks, &dir, &second).await;
+        assert_reactivation_invalidates_profiles(&state, &checks, &dir, &second).await;
     }
 
     /// A public-network node on its own thread, as the native network tests use; returns its seed row.
@@ -570,19 +580,90 @@ mod tests {
         .unwrap()
     }
 
-    async fn assert_reactivation_keeps_profiles(
+    async fn assert_reactivation_invalidates_profiles(
         state: &SearchState,
         checks: &crate::network::NetworkState,
         dir: &Path,
         second: &Network,
     ) {
-        // Re-activating the same settings consumes the check but keeps valid profiles.
+        let owner = Identity::from_secret(&[1; 32]);
+        let peer = Identity::from_secret(&[2; 32]);
+        let store = Store::open(&dir.join("client.db"), &owner).unwrap();
+        let ticket = state
+            .0
+            .lock()
+            .unwrap()
+            .context
+            .begin(&store, &peer.peer_id())
+            .unwrap();
         let epoch = state.0.lock().unwrap().epoch();
         connect_check(checks, dir, second).await;
         state.activate_network(checks, dir).unwrap();
-        let cached = state.0.lock().unwrap();
-        assert_eq!(cached.epoch(), epoch);
-        assert_eq!(cached.snapshot().1.all().len(), 1);
+        let mut cached = state.0.lock().unwrap();
+        assert_ne!(cached.epoch(), epoch);
+        assert!(cached.snapshot().1.all().is_empty());
+        assert!(matches!(
+            cached
+                .context
+                .confirm(&store, ticket, verified_fixture_profile(&peer)),
+            Err(dyapp_client::contact_verification::Error::ContextChanged)
+        ));
+    }
+
+    #[test]
+    fn activation_failure_after_settings_replacement_cannot_restore_old_work() {
+        let dir = temp_dir();
+        let state = SearchState::default();
+        let owner = Identity::from_secret(&[1; 32]);
+        let peer = Identity::from_secret(&[2; 32]);
+        let store = Store::open(&dir.join("client.db"), &owner).unwrap();
+        let profile = verified_fixture_profile(&peer);
+        let (epoch, ticket) = {
+            let mut cache = state.0.lock().unwrap();
+            let epoch = cache.epoch();
+            assert!(cache.accept_if_current(epoch, profile.clone()));
+            (epoch, cache.context.begin(&store, &peer.peer_id()).unwrap())
+        };
+        let replacement = Network {
+            seeds: vec!["replacement:1".into()],
+            name: String::new(),
+        };
+        assert_eq!(
+            state.activate_with(|| {
+                assert!(state.0.try_lock().is_err());
+                network::save(&dir, Settings::Active, &replacement).unwrap();
+                Err::<(), _>("directory sync failed".into())
+            }),
+            Err("directory sync failed".into())
+        );
+        assert_eq!(
+            network::load(&dir, Settings::Active).unwrap(),
+            Some(replacement)
+        );
+        let mut cache = state.0.lock().unwrap();
+        assert!(cache.snapshot().1.all().is_empty());
+        assert!(!cache.accept_if_current(epoch, profile.clone()));
+        assert!(matches!(
+            cache.context.confirm(&store, ticket, profile.clone()),
+            Err(dyapp_client::contact_verification::Error::ContextChanged)
+        ));
+        assert!(!store.verified(&profile).unwrap());
+    }
+
+    #[test]
+    fn activation_without_a_successful_check_also_invalidates_old_results() {
+        let state = SearchState::default();
+        let dir = temp_dir();
+        let profile = verified_fixture_profile(&Identity::from_secret(&[2; 32]));
+        let epoch = state.0.lock().unwrap().epoch();
+        assert!(state.0.lock().unwrap().accept_if_current(epoch, profile));
+        assert_eq!(
+            state.activate_network(&crate::network::NetworkState::default(), &dir),
+            Err("notChecked".into())
+        );
+        let cache = state.0.lock().unwrap();
+        assert!(!cache.current(epoch));
+        assert!(cache.snapshot().1.all().is_empty());
     }
 
     #[test]
