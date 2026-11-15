@@ -906,7 +906,9 @@ one theme, text scale or language.
 412 px wide, at normal and 200% text-only WebKit zoom. Enlarged-text names include `--text200`:
 `build/ux-research/prototype-android/<state>[-dark][--text200]-<lang>-<width>.png`.
 The capture rejects a document whose initialised screen does not match the requested state,
-including an HTTP error page. The standard runner serves Android at `/assets/android/prototype`;
+including an HTTP error page. After font readiness, it rejects horizontal page overflow by comparing
+actual root scroll and client widths; full-document PNG dimensions alone are not viewport evidence.
+The standard runner serves Android at `/assets/android/prototype`;
 custom paired probes may use a different prefix, which must match their requested URL.
 All Settings categories and the three collection detail screens are in the capture inventory.
 Collection probes also exercise more than 32 records, search/page bounds, counts and stale refresh

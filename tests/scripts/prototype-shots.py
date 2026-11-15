@@ -78,6 +78,10 @@ MEASURE = """JSON.stringify((() => {
     if (document.documentElement.dataset.screen
         !== (location.hash.slice(1) || 'profile'))
       throw new Error('Android prototype screen did not initialise');
+    const viewport = document.documentElement;
+    if (viewport.scrollWidth > viewport.clientWidth)
+      throw new Error('Android horizontal page overflow: '
+          + viewport.scrollWidth + ' > ' + viewport.clientWidth);
     for (const node of document.querySelectorAll('[hidden]')) {
       if (style(node).display !== 'none')
         throw new Error('Android hidden state overridden: ' + name(node));

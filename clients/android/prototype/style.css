@@ -58,6 +58,7 @@ body {
 h1 {
   font: 400 28px / 36px var(--font);
   margin: 8px 0;
+  overflow-wrap: anywhere;
 }
 h2 {
   font: 500 16px / 24px var(--font);
@@ -547,9 +548,11 @@ pre {
 }
 .facts {
   display: grid;
-  grid-template-columns: auto 1fr;
+  /* Equal tracks keep enlarged labels from starving the values. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px 16px;
   margin: 0;
+  overflow-wrap: anywhere;
 }
 .facts dt {
   color: var(--muted);
