@@ -6,6 +6,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use dyapp_client::compatibility;
+use dyapp_client::contact_verification::Context;
 use dyapp_client::profiles::Profiles;
 use dyapp_client::search::{self, Employer, SearchFailure};
 use dyapp_client::search_input::{employer_filter, EmployerMode, SearchChoiceInputs};
@@ -36,14 +37,14 @@ pub struct SearchState(pub Arc<Mutex<ProfileCache>>);
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub struct ProfileCache {
     epoch: u64,
-    profiles: Profiles,
+    context: Context,
     pub photos: PhotoCache,
 }
 
 impl ProfileCache {
     #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn snapshot(&self) -> (u64, Profiles) {
-        (self.epoch, self.profiles.clone())
+        (self.epoch, self.context.profiles().clone())
     }
 
     #[expect(unreachable_pub, reason = "Retained module API visibility")]
@@ -58,13 +59,13 @@ impl ProfileCache {
 
     #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn accept_if_current(&mut self, epoch: u64, profile: VerifiedProfile) -> bool {
-        self.current(epoch) && self.profiles.accept(profile).is_ok()
+        self.current(epoch) && self.context.accept(profile).is_ok()
     }
 
     #[expect(unreachable_pub, reason = "Retained module API visibility")]
     pub fn clear(&mut self) {
         self.epoch = self.epoch.wrapping_add(1);
-        self.profiles = Profiles::default();
+        self.context.clear();
         self.photos = PhotoCache::default();
     }
 }
@@ -582,6 +583,35 @@ mod tests {
         let cached = state.0.lock().unwrap();
         assert_eq!(cached.epoch(), epoch);
         assert_eq!(cached.snapshot().1.all().len(), 1);
+    }
+
+    #[test]
+    fn clearing_the_cache_invalidates_core_comparisons_and_old_search_results() {
+        let owner = Identity::from_secret(&[1; 32]);
+        let peer_owner = Identity::from_secret(&[2; 32]);
+        let dir = temp_dir();
+        let store = Store::open(&dir.join("client.db"), &owner).unwrap();
+        let profile = verified_fixture_profile(&peer_owner);
+        let peer = peer_owner.peer_id();
+        let mut cache = ProfileCache::default();
+        let epoch = cache.epoch();
+        assert!(cache.accept_if_current(epoch, profile.clone()));
+        let ticket = cache.context.begin(&store, &peer).unwrap();
+
+        cache.clear();
+        assert!(!cache.current(epoch));
+        assert!(cache.snapshot().1.all().is_empty());
+        assert!(!cache.accept_if_current(epoch, profile.clone()));
+        assert!(matches!(
+            cache.context.confirm(&store, ticket, profile.clone()),
+            Err(dyapp_client::contact_verification::Error::ContextChanged)
+        ));
+        assert!(!store.verified(&profile).unwrap());
+
+        let ticket = cache.context.begin(&store, &peer).unwrap();
+        cache.context.confirm(&store, ticket, profile).unwrap();
+        assert!(cache.context.state(&store, &peer).unwrap().verified);
+        assert_eq!(cache.snapshot().1.all().len(), 1);
     }
 
     #[test]
