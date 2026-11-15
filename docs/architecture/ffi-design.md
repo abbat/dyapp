@@ -247,8 +247,11 @@ Lock order is desktop cache, checker state when needed, then shared context; act
 the shared guard before invoking Checks, then rebinds after its result. Core Store-based unverify
 and acknowledgement are shared by Session and Tauri without MLS initialization.
 Native ProfileSearcher workers now retain this shared context for search and cached contact names.
-Bulk display fetch holds its guard from active-network loading through cache admission; it remains
-a display helper and cannot authorize a safety-number confirmation.
+Search snapshots the held authority and context generation; bulk display fetch captures the same
+generation. Both release the context mutex before network/runtime work and recheck generation under
+the mutex before admission. A context clear rejects the whole late result; concurrent newer or
+terminal authority cannot be replaced or projected as an older result. Bulk fetch remains a display
+helper and cannot authorize a safety-number confirmation.
 Core contact_verification::shared retains one context for each canonical identity directory;
 independent worker handles share its lock and cache, while weak registry entries retain no idle
 identity. NetworkChecks activation holds that guard and clears the context before attempting the

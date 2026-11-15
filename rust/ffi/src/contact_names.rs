@@ -136,17 +136,23 @@ impl ProfileSearcher {
         &self,
         fetch: impl FnOnce() -> Result<Vec<VerifiedProfile>, CoreError>,
     ) -> Result<Vec<FoundProfile>, CoreError> {
-        // Activation uses this same guard: an older fetch cannot populate a new context.
-        let mut cache = self.cache.lock().map_err(failed)?;
+        let generation = self.cache.lock().map_err(failed)?.generation();
         let found = fetch()?;
+        self.admit_profiles(&generation, found)
+    }
+
+    pub(crate) fn admit_profiles(
+        &self,
+        generation: &dyapp_client::contact_verification::Generation,
+        found: Vec<VerifiedProfile>,
+    ) -> Result<Vec<FoundProfile>, CoreError> {
+        let mut cache = self.cache.lock().map_err(failed)?;
+        if !cache.is_current(generation) {
+            return Err(failed("notConnected"));
+        }
         Ok(found
             .into_iter()
-            .map(|verified| {
-                let profile = FoundProfile::from(&verified);
-                // An older or equal version is already cached.
-                let _ = cache.accept(verified);
-                profile
-            })
+            .filter_map(|verified| cache.accept(verified).ok().map(FoundProfile::from))
             .collect())
     }
 

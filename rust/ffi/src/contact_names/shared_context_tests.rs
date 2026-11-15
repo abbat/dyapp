@@ -1,4 +1,4 @@
-//! Real native searchers share core authority and retain the activation guard during fetch.
+//! Real native searchers share authority without retaining its mutex during network work.
 use super::*;
 use dyapp_identity::Identity;
 use dyapp_profile::Profile;
@@ -81,7 +81,90 @@ fn native_workers_share_current_names_clear_together_and_isolate_other_identitie
 }
 
 #[test]
-fn bulk_fetch_holds_the_activation_guard_through_result_admission() {
+fn a_context_change_during_fetch_rejects_all_late_results() {
+    let dir = directory();
+    let worker = ProfileSearcher::new(dir.to_str().unwrap().into()).unwrap();
+    let shared = Arc::clone(&worker.cache);
+    let result = worker.fetch_and_cache(|| {
+        shared.lock().unwrap().clear();
+        Ok(vec![profile("Late", 3)])
+    });
+    assert!(result.unwrap_err().to_string().contains("notConnected"));
+    assert_eq!(shared.lock().unwrap().profiles().all(), []);
+}
+
+#[test]
+fn concurrent_newer_authority_is_neither_replaced_nor_projected_as_the_old_result() {
+    let dir = directory();
+    let worker = ProfileSearcher::new(dir.to_str().unwrap().into()).unwrap();
+    let shared = Arc::clone(&worker.cache);
+    let newer = profile("Newer", 4);
+    let peer = newer.peer_id.clone();
+    let result = worker
+        .fetch_and_cache(|| {
+            shared.lock().unwrap().accept(newer).unwrap();
+            Ok(vec![profile("Older", 3)])
+        })
+        .unwrap();
+    assert!(result.is_empty());
+    assert_eq!(
+        shared
+            .lock()
+            .unwrap()
+            .profiles()
+            .get(&peer)
+            .unwrap()
+            .profile
+            .name,
+        "Newer"
+    );
+}
+
+#[test]
+fn concurrent_tombstones_prevent_a_later_live_result_from_reappearing() {
+    let dir = directory();
+    let worker = ProfileSearcher::new(dir.to_str().unwrap().into()).unwrap();
+    let owner = Identity::from_secret(&[2; 32]);
+    let source = Profile {
+        name: "Current".into(),
+        version: 3,
+        ..Default::default()
+    }
+    .sign(&owner);
+    let peer = owner.peer_id();
+    worker
+        .cache
+        .lock()
+        .unwrap()
+        .accept(dyapp_profile::verify(&source).unwrap())
+        .unwrap();
+    let deletion = Profile {
+        previous: Some(dyapp_profile::ProfileCondition::observed(Some(&source)).unwrap()),
+        ..Profile::tombstone(4, 0, 0)
+    };
+    let tombstone = dyapp_profile::verify(&deletion.sign(&owner)).unwrap();
+    let result = worker
+        .fetch_and_cache(|| {
+            worker.cache.lock().unwrap().accept(tombstone).unwrap();
+            Ok(vec![profile("Resurrected", 5)])
+        })
+        .unwrap();
+    assert!(result.is_empty());
+    assert!(
+        worker
+            .cache
+            .lock()
+            .unwrap()
+            .profiles()
+            .get(&peer)
+            .unwrap()
+            .profile
+            .deleted
+    );
+}
+
+#[test]
+fn bulk_fetch_releases_the_context_guard_and_preserves_failed_fetch_authority() {
     let dir = directory();
     let worker = ProfileSearcher::new(dir.to_str().unwrap().into()).unwrap();
     let shared = dyapp_client::contact_verification::shared(&dir).unwrap();
@@ -89,10 +172,10 @@ fn bulk_fetch_holds_the_activation_guard_through_result_admission() {
     let peer = fetched.peer_id.clone();
     let result = worker
         .fetch_and_cache(|| {
-            assert!(matches!(
-                shared.try_lock(),
-                Err(std::sync::TryLockError::WouldBlock)
-            ));
+            assert!(
+                shared.try_lock().is_ok(),
+                "network work holds the context mutex"
+            );
             Ok(vec![fetched])
         })
         .unwrap();
@@ -110,10 +193,10 @@ fn bulk_fetch_holds_the_activation_guard_through_result_admission() {
     );
     assert!(worker
         .fetch_and_cache(|| {
-            assert!(matches!(
-                shared.try_lock(),
-                Err(std::sync::TryLockError::WouldBlock)
-            ));
+            assert!(
+                shared.try_lock().is_ok(),
+                "network work holds the context mutex"
+            );
             Err(CoreError::Failed("controlled fetch failure".into()))
         })
         .is_err());

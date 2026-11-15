@@ -42,6 +42,9 @@ an existing writer instead of nesting another public transaction.
 Native media retrieval holds its `ChatSession` mutex across the fetch. While a controlled response
 is paused, concurrency fixtures must inspect or change durable state through a separate `Store`;
 calling another method or a snapshot helper on that session waits for the paused operation itself.
+On a shared current-thread Tokio runtime, release the contact context mutex before network work:
+photo completions can need that mutex on the runtime driver. Snapshot generation/authority first,
+then recheck generation and admit through core authority under the mutex after completion.
 
 The root Cargo lockfile does not cover the three excluded native desktop crates. A shared path
 crate's dependency change also needs its edges resolved in Linux, Windows and macOS lockfiles;

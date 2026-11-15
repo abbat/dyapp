@@ -1,8 +1,7 @@
 //! Search invocation and projection over the shared core search policy.
 
 use super::{
-    failed, is_partial, FoundProfile, ProfileSearchResult, ProfileSearcher, SearchCondition,
-    SearchEmployer,
+    failed, is_partial, ProfileSearchResult, ProfileSearcher, SearchCondition, SearchEmployer,
 };
 use crate::profile_network::{active_network, connect, on_network_stack};
 use crate::{CoreError, IdentityKey};
@@ -66,7 +65,11 @@ impl ProfileSearcher {
         employer: SearchEmployer,
         limit: u32,
     ) -> Result<ProfileSearchResult, CoreError> {
-        let mut cache = self.cache.lock().map_err(failed)?;
+        // Never hold the context mutex while the shared runtime drives network/photo work.
+        let (generation, held) = {
+            let cache = self.cache.lock().map_err(failed)?;
+            (cache.generation(), cache.profiles().clone())
+        };
         let store = Store::open(&self.dir.join("client.db"), &key.identity).map_err(failed)?;
         let mut hidden = store.blocked_peers().map_err(failed)?;
         hidden.extend(store.passed_peers().map_err(failed)?);
@@ -74,19 +77,10 @@ impl ProfileSearcher {
         let network = active_network(&self.dir)?;
         let conditions: Vec<proto::Condition> = conditions.into_iter().map(Into::into).collect();
         let (offered, mut failures, mut results) =
-            self.query(&network, &conditions, limit, cache.profiles(), &hidden)?;
+            self.query(&network, &conditions, limit, &held, &hidden)?;
         Employer::from(employer).retain(&mut results.profiles);
         compatibility::rank(&own, &mut results.profiles);
-        let profiles = results
-            .profiles
-            .into_iter()
-            .map(|found| {
-                let profile = FoundProfile::from(&found);
-                // An older or equal version is already cached.
-                let _ = cache.accept(found);
-                profile
-            })
-            .collect();
+        let profiles = self.admit_profiles(&generation, results.profiles)?;
         let partial = is_partial(results.partial, &failures);
         failures.extend(results.failures);
         Ok(ProfileSearchResult {
