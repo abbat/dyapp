@@ -3,6 +3,7 @@
 pub mod pin;
 mod records;
 mod state;
+pub mod timer;
 
 pub use state::AppLock;
 
