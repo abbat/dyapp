@@ -179,7 +179,8 @@ fn mark(
 }
 
 /// Fetches `peer_id`'s signed profile from every reachable seed of the active network and marks
-/// the newest version verified for its current devices. That version is the newest observed:
+/// the selected ordinary version verified for its current devices. An observed final account
+/// tombstone dominates live forks and refuses confirmation. The version is the newest observed:
 /// a node set can hide a later one. Errors are `ownPeer`, `invalid Peer ID`, `notConnected` (no
 /// active network, no reachable seed, or the network changed), `unavailable` (no seed returned
 /// a profile), `unknownPeer`, `staleProfile` (below the version seen in this context),

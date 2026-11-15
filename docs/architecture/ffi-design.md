@@ -207,10 +207,13 @@ record. The session retains its canonical shared context even without a live sea
 identity/directory come from the session, never an external searcher or platform profile DTO.
 Confirmation captures its core ticket and active settings under the context guard, releases that
 guard during fetch, then rechecks and commits through the core Session. Core fetch queries every
-reachable configured seed row and selects the highest observed Rust-verified profile; answering
-seeds may still conceal a later version. Missing nodes and missing valid profiles are separate
+reachable configured seed row and selects Rust-verified authority. An observed account tombstone
+dominates a higher/equal live fork, both in node selection and a cache that held the live fork
+first; later live-only replies cannot revive that held terminal authority. Search-only withdrawals
+still fail ordinary-account authorization. Without a tombstone the highest observed version wins;
+answering seeds may conceal other records. Missing nodes and missing valid profiles are separate
 notConnected/unavailable failures. All target operations reuse canonical private-peer validation.
-Desktop adoption and native protocol integration verification remain planned.
+Desktop adoption remains planned.
 Native ProfileSearcher workers now retain this shared context for search and cached contact names.
 Bulk display fetch holds its guard from active-network loading through cache admission; it remains
 a display helper and cannot authorize a safety-number confirmation.

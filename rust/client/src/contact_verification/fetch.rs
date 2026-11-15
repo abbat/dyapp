@@ -19,9 +19,10 @@ pub enum FetchError {
     Network(String),
 }
 
-/// Fetch the highest signed version from all reachable configured seed rows.
+/// Fetch signed authority from all reachable seed rows, with account deletion terminal.
 /// Try each row's transport alternatives until one answers, matching desktop confirmation.
-/// This is the highest observed version, not proof that no node concealed a later one.
+/// A terminal account tombstone dominates live forks; otherwise the highest observed version
+/// wins. This does not prove that no node concealed a later record.
 /// The caller must capture a context ticket before this work and recheck it afterwards.
 ///
 /// # Errors

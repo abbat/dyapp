@@ -8,18 +8,19 @@ use crate::scores::{self, Scores};
 use crate::{Error, Node};
 use dyapp_profile::VerifiedProfile;
 
-/// The newest profile seen per owner.
+/// Held profile authority per owner; an observed account tombstone is terminal.
 #[derive(Debug, Default, Clone)]
 pub struct Profiles(Vec<VerifiedProfile>);
 
 impl Profiles {
-    /// Keeps `profile` if it is newer than the one held for its owner. An equal version keeps the
-    /// held one; a lower version is refused with [`Error::Rollback`], and any newer version after
-    /// a tombstone with [`Error::Deleted`].
+    /// Keep newer ordinary authority, preserving the held record at equal versions.
+    /// An authorized account tombstone dominates any live fork, including a higher or equal
+    /// version held first. Once held, it refuses later ordinary versions.
     ///
     /// # Errors
     ///
-    /// Returns [`Error::Rollback`] for an older version or [`Error::Deleted`]
+    /// Returns [`Error::Rollback`] for older records that do not establish account deletion,
+    /// or [`Error::Deleted`]
     /// for a newer version after a held tombstone. Returns [`Error::Input`] for search-only
     /// or ambiguous legacy withdrawals, which never become account or MLS device authority.
     pub fn accept(&mut self, profile: VerifiedProfile) -> Result<&VerifiedProfile, Error> {
@@ -35,6 +36,11 @@ impl Profiles {
             return Ok(&self.0[self.0.len() - 1]);
         };
         let held = &mut self.0[index];
+        // An authorized final account deletion cannot be hidden by an earlier live fork.
+        if profile.profile.deleted && !held.profile.deleted {
+            *held = profile;
+            return Ok(held);
+        }
         if profile.profile.version < held.profile.version {
             return Err(Error::Rollback);
         }
@@ -60,8 +66,9 @@ impl Profiles {
     }
 }
 
-/// The highest valid version of `peer_id`'s profile among `nodes`, e.g. its replicas; fails
-/// only if none of them returns one. A node that fails or serves a lower version loses score.
+/// Select observed profile authority among `nodes`, failing only when none returns a valid record.
+/// A final account tombstone dominates every live fork; within each kind the highest version
+/// wins. A failing node or one serving authority below the selected record loses score.
 ///
 /// # Errors
 ///
@@ -86,18 +93,20 @@ pub async fn newest(
             }
         }
     }
-    let Some(best) = served.iter().map(|(_, held)| held.profile.version).max() else {
+    // Final account deletion dominates an otherwise higher signed live fork.
+    let rank = |profile: &VerifiedProfile| (profile.profile.deleted, profile.profile.version);
+    let Some(best) = served.iter().map(|(_, held)| rank(held)).max() else {
         return Err(last);
     };
     for (peer, held) in &served {
-        if held.profile.version < best {
+        if rank(held) < best {
             scores.fault(*peer, now);
         }
     }
     served
         .into_iter()
         .map(|(_, held)| held)
-        .find(|held| held.profile.version == best)
+        .find(|held| rank(held) == best)
         .ok_or(last)
 }
 
@@ -139,6 +148,46 @@ mod tests {
         );
         assert_eq!(profiles.get(&alice.peer_id()).unwrap().profile.version, 5);
         assert_eq!(profiles.all().len(), 2);
+    }
+
+    #[test]
+    fn authorized_account_deletion_dominates_higher_and_equal_cached_live_forks() {
+        let owner = Identity::from_secret(&[2; 32]);
+        let source = Profile {
+            version: 1,
+            ..Default::default()
+        }
+        .sign(&owner);
+        let deletion = Profile {
+            previous: Some(dyapp_profile::ProfileCondition::observed(Some(&source)).unwrap()),
+            ..Profile::tombstone(2, 0, 0)
+        };
+        let terminal = dyapp_profile::verify(&deletion.sign(&owner)).unwrap();
+        for version in [2, 3] {
+            let mut profiles = Profiles::default();
+            profiles.accept(signed(&owner, version)).unwrap();
+            assert!(profiles.accept(terminal.clone()).unwrap().profile.deleted);
+            assert!(matches!(
+                profiles.accept(signed(&owner, 4)),
+                Err(Error::Deleted)
+            ));
+            assert!(profiles.get(&owner.peer_id()).unwrap().profile.deleted);
+        }
+    }
+
+    #[test]
+    fn an_older_search_withdrawal_never_becomes_terminal_account_authority() {
+        let owner = Identity::from_secret(&[2; 32]);
+        let mut profiles = Profiles::default();
+        profiles.accept(signed(&owner, 3)).unwrap();
+        let withdrawal =
+            dyapp_profile::verify_search(&Profile::search_tombstone(2, 0, 0).sign(&owner)).unwrap();
+        assert!(matches!(profiles.accept(withdrawal), Err(Error::Input(_))));
+        assert!(!profiles.get(&owner.peer_id()).unwrap().profile.deleted);
+        assert_eq!(
+            profiles.accept(signed(&owner, 4)).unwrap().profile.version,
+            4
+        );
     }
 
     #[test]

@@ -341,6 +341,9 @@ For direct filtered Cargo tests in a read-only container, remember that test pro
 each crate directory. Relative `build/` fixtures need writable per-crate scratch mounts; create
 the empty host mountpoint before overlaying it with a UID-1000 tmpfs. The root target cache alone
 does not make these fixture paths writable.
+A gated protocol responder must keep polling its swarm while awaiting release, so identify and
+probe traffic remains live. Finish auxiliary probe handshakes before holding a production request;
+then use the request signal to gate only the transition under review.
 A filtered Cargo command exiting successfully is insufficient evidence: require the expected
 named tests and nonzero count in its final result. With concurrent work sharing the target cache,
 confirm the tested source revision and inventory; an unexpectedly empty selection must be

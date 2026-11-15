@@ -39,6 +39,8 @@ fn seed_row(address: &Multiaddr) -> String {
 mod offline;
 #[path = "ffi_chats/publication.rs"]
 mod publication;
+#[path = "ffi_chats/verification.rs"]
+mod verification;
 
 /// Retained credentials reopen the same native device after every session handle is dropped.
 struct NativePeer {
