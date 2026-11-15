@@ -202,6 +202,13 @@ the durable new-device notice through Store before returning both flags; acknowl
 unverify preserve device memory. A failed mark write does not imply the cache remained unchanged.
 
 The core context/state API is implemented; native UniFFI exports and desktop adoption remain planned.
+Core contact_verification::shared retains one context for each canonical identity directory;
+independent worker handles share its lock and cache, while weak registry entries retain no idle
+identity. NetworkChecks activation holds that guard and clears the context before attempting the
+active-settings save, including same-settings reactivation. A failed save can follow a rename,
+so failure also invalidates old tickets; the successful probe remains available for an explicit retry.
+Workers must retain the shared handle through completion and capture/confirm under its lock.
+Runtime activation must use NetworkChecks; low-level settings writes do not establish an epoch.
 Store persists an exact eight-byte unsigned version beside the legacy signed clamp, including in
 private linked-device snapshots. Confirmation and device observation acquire the writer before
 reading authority, or retain an enclosing transaction's boundary. A legacy clamped value without

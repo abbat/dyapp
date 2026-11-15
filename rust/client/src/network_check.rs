@@ -158,13 +158,29 @@ impl Checks {
     /// Returns `NotChecked` for absent, consumed or foreign-directory success, or the storage
     /// failure without claiming activation succeeded.
     pub fn activate(&self, dir: &Path) -> Result<Network, Error> {
+        self.activate_with(dir, |dir, network| {
+            network::save(dir, Settings::Active, network)
+        })
+    }
+
+    fn activate_with(
+        &self,
+        dir: &Path,
+        save: impl FnOnce(&Path, &Network) -> std::io::Result<()>,
+    ) -> Result<Network, Error> {
         let mut state = self.state()?;
         let network = match &state.connected {
             Some((checked_dir, network)) if checked_dir == dir => network.clone(),
             _ => return Err(Error::NotChecked),
         };
-        network::save(dir, Settings::Active, &network)
+        let context = crate::contact_verification::shared(dir)
             .map_err(|error| Error::Failed(error.to_string()))?;
+        let mut context = context
+            .lock()
+            .map_err(|error| Error::Failed(error.to_string()))?;
+        // Saving may fail after rename: invalidate before the attempt, even on an error.
+        context.clear();
+        save(dir, &network).map_err(|error| Error::Failed(error.to_string()))?;
         state.clear();
         Ok(network)
     }

@@ -1,5 +1,147 @@
 use super::*;
 
+fn contact_profile() -> dyapp_profile::VerifiedProfile {
+    let owner = dyapp_identity::Identity::from_secret(&[2; 32]);
+    dyapp_profile::verify(
+        &dyapp_profile::Profile {
+            version: 1,
+            ..Default::default()
+        }
+        .sign(&owner),
+    )
+    .unwrap()
+}
+
+#[test]
+fn every_activation_invalidates_shared_contact_tickets_including_switch_back() {
+    let dir = dir("contact-activation");
+    let owner = dyapp_identity::Identity::from_secret(&[1; 32]);
+    let store = crate::store::Store::open(&dir.join("client.db"), &owner).unwrap();
+    let fetched = contact_profile();
+    let context = crate::contact_verification::shared(&dir).unwrap();
+    let another = crate::contact_verification::shared(&dir.join(".")).unwrap();
+    let checks = Checks::default();
+    let ticket = context
+        .lock()
+        .unwrap()
+        .begin(&store, &fetched.peer_id)
+        .unwrap();
+    connected(&checks, &dir, &draft("A"));
+    checks.activate(&dir).unwrap();
+    assert!(matches!(
+        another
+            .lock()
+            .unwrap()
+            .confirm(&store, ticket, fetched.clone()),
+        Err(crate::contact_verification::Error::ContextChanged)
+    ));
+    let ticket = context
+        .lock()
+        .unwrap()
+        .begin(&store, &fetched.peer_id)
+        .unwrap();
+    for name in ["B", "A"] {
+        connected(&checks, &dir, &draft(name));
+        checks.activate(&dir).unwrap();
+    }
+    assert!(matches!(
+        another
+            .lock()
+            .unwrap()
+            .confirm(&store, ticket, fetched.clone()),
+        Err(crate::contact_verification::Error::ContextChanged)
+    ));
+    let ticket = context
+        .lock()
+        .unwrap()
+        .begin(&store, &fetched.peer_id)
+        .unwrap();
+    connected(&checks, &dir, &draft("A"));
+    checks.activate(&dir).unwrap();
+    assert!(matches!(
+        another.lock().unwrap().confirm(&store, ticket, fetched),
+        Err(crate::contact_verification::Error::ContextChanged)
+    ));
+}
+
+#[test]
+fn failed_active_save_invalidates_contacts_but_preserves_activation_retry() {
+    let dir = dir("contact-failed-save");
+    let owner = dyapp_identity::Identity::from_secret(&[1; 32]);
+    let store = crate::store::Store::open(&dir.join("client.db"), &owner).unwrap();
+    let fetched = contact_profile();
+    let context = crate::contact_verification::shared(&dir).unwrap();
+    let ticket = context
+        .lock()
+        .unwrap()
+        .begin(&store, &fetched.peer_id)
+        .unwrap();
+    let checks = Checks::default();
+    connected(&checks, &dir, &draft("A"));
+    // Explicit filesystem state makes rename fail; no permissions or timing assumptions.
+    std::fs::create_dir(dir.join(Settings::Active.file_name())).unwrap();
+    assert!(matches!(checks.activate(&dir), Err(Error::Failed(_))));
+    assert!(matches!(
+        context
+            .lock()
+            .unwrap()
+            .confirm(&store, ticket, fetched.clone()),
+        Err(crate::contact_verification::Error::ContextChanged)
+    ));
+    std::fs::rename(
+        dir.join(Settings::Active.file_name()),
+        dir.join("failed-save-target"),
+    )
+    .unwrap();
+    assert_eq!(checks.activate(&dir), Ok(draft("A")));
+    let ticket = context
+        .lock()
+        .unwrap()
+        .begin(&store, &fetched.peer_id)
+        .unwrap();
+    context
+        .lock()
+        .unwrap()
+        .confirm(&store, ticket, fetched)
+        .unwrap();
+}
+
+#[test]
+fn a_save_error_after_replacement_cannot_restore_the_previous_ticket() {
+    let dir = dir("contact-ambiguous-save");
+    let owner = dyapp_identity::Identity::from_secret(&[1; 32]);
+    let store = crate::store::Store::open(&dir.join("client.db"), &owner).unwrap();
+    let fetched = contact_profile();
+    let context = crate::contact_verification::shared(&dir).unwrap();
+    let ticket = context
+        .lock()
+        .unwrap()
+        .begin(&store, &fetched.peer_id)
+        .unwrap();
+    let checks = Checks::default();
+    connected(&checks, &dir, &draft("B"));
+    let result = checks.activate_with(&dir, |dir, network| {
+        assert!(matches!(
+            context.try_lock(),
+            Err(std::sync::TryLockError::WouldBlock)
+        ));
+        network::save(dir, Settings::Active, network)?;
+        Err(std::io::Error::other(
+            "controlled failure after replacement",
+        ))
+    });
+    assert!(matches!(result, Err(Error::Failed(_))));
+    assert_eq!(
+        network::load(&dir, Settings::Active).unwrap(),
+        Some(draft("B"))
+    );
+    assert!(matches!(
+        context.lock().unwrap().confirm(&store, ticket, fetched),
+        Err(crate::contact_verification::Error::ContextChanged)
+    ));
+    assert_eq!(checks.activate(&dir), Ok(draft("B")));
+}
+
 fn dir(tag: &str) -> PathBuf {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../build/core-network-check")

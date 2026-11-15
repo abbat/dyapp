@@ -6,6 +6,9 @@ use crate::store::Store;
 use dyapp_profile::VerifiedProfile;
 use std::sync::Arc;
 
+mod registry;
+pub use registry::shared;
+
 /// Why a comparison cannot become a verified-contact mark.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
