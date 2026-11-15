@@ -91,9 +91,6 @@ async fn send(
         .await
         .map_err(|e| e.to_string())?;
     let peer = super::accept_peer(cache, epoch, target_peer, fetched)?;
-    if peer.profile.deleted || peer.profile.version == 0 {
-        return Err("unpublished".into());
-    }
     session
         .submit_profile_share_to(
             std::slice::from_mut(&mut node),

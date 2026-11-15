@@ -48,6 +48,9 @@ pub enum Error {
     /// A profile share names an invalid link or has no distinct open target pair.
     #[error("invalid profile share target")]
     InvalidProfileShare,
+    /// The online profile-share target has no live published profile.
+    #[error("unpublished")]
+    UnpublishedProfile,
     /// An edit or delete target is absent or already deleted from this sender's current chat.
     #[error("message is absent or already deleted")]
     UnknownMessage,
@@ -947,5 +950,8 @@ mod submission;
 pub use submission::Submission;
 mod interaction_submission;
 pub use interaction_submission::InteractionSubmission;
+#[cfg(test)]
+#[path = "session/public_operations_tests.rs"]
+mod public_operations_tests;
 #[cfg(test)]
 mod tests;

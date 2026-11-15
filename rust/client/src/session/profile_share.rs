@@ -41,6 +41,12 @@ impl Session {
         seal_key: &[u8; 32],
     ) -> Result<Submission, Error> {
         let target = self.peer_in(profiles)?;
+        if profiles
+            .iter()
+            .any(|profile| profile.peer_id == target && profile.profile.deleted)
+        {
+            return Err(Error::UnpublishedProfile);
+        }
         let text = self.prepare_profile_share(&target, shared)?;
         self.submit_text_to(nodes, profiles, text.as_bytes(), seal_key)
             .await

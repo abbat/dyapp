@@ -27,6 +27,10 @@ Profile publication intents identify the exact encoded `SignedRecord`, including
 fields. Use the client's verified signed-record readback for digest comparisons; decoding and
 re-signing a `Profile` changes those bytes. Media revisions are independent of profile versions,
 and refresh must preserve a different pending target when renewing live references.
+`dyapp_profile::verify` refuses version-zero records. Tests for a deleted verified target must
+sign a proper tombstone with an observed previous-record condition and no ordinary fields/devices;
+never forge an impossible zero-version
+`VerifiedProfile` to exercise a client guard.
 Automatic device-list writes use verified ordinary public fields and preserve the independent
 editable draft. Keep the actual local baseline for concurrency admission when preparing a
 directory-only request; a hidden search version never proves device authorization.

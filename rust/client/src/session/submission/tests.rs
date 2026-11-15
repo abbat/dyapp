@@ -16,6 +16,7 @@ use std::path::PathBuf;
 struct Fixture {
     session: Session,
     owner: Identity,
+    peer_key: Identity,
     profiles: Vec<VerifiedProfile>,
     peer: String,
     group: Vec<u8>,
@@ -37,7 +38,7 @@ fn person() -> (Identity, Device, VerifiedProfile) {
 
 fn fixture() -> Fixture {
     let (owner, device, own) = person();
-    let (_, peer_device, peer) = person();
+    let (peer_key, peer_device, peer) = person();
     let profiles = vec![own, peer.clone()];
     let (group, _) = device
         .create_group(&[peer_device.key_package(false).unwrap()], &profiles)
@@ -51,6 +52,7 @@ fn fixture() -> Fixture {
     Fixture {
         session: Session::open(store, &seal).unwrap(),
         owner,
+        peer_key,
         profiles,
         peer: peer.peer_id,
         group: group.id().to_vec(),

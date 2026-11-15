@@ -29,6 +29,9 @@ Core `Session::prepare_profile_share` validates a canonical shared Peer ID and a
 unblocked, already open target pair. `submit_profile_share_to` and
 `submit_established_profile_share` repeat that admission on the session that stages the
 ordinary link text, returning the existing `Submission` ID and Accepted/Queued outcome.
+The online core path rejects a verified deleted target with `unpublished` before staging.
+Version-zero records cannot become `VerifiedProfile`: signature/content verification already
+rejects them, so adapters do not repeat that unreachable state check.
 An earlier UI history read is not authoritative admission for a later generic text send.
 Common UniFFI `ChatSession.submit_profile_share(target, shared)` holds one admitted session
 through core preflight and submission, retains own-device and fetched-profile publication checks,

@@ -79,6 +79,49 @@ async fn a_previously_open_target_is_rechecked_by_both_submission_paths() {
     }
 }
 
+#[test]
+fn signed_zero_version_cannot_become_a_verified_share_profile() {
+    let f = fixture();
+    let peer = f
+        .profiles
+        .iter()
+        .find(|profile| profile.peer_id == f.peer)
+        .unwrap();
+    let mut profile = peer.profile.clone();
+    profile.version = 0;
+    assert_eq!(
+        dyapp_profile::verify(&profile.sign(&f.peer_key)).unwrap_err(),
+        dyapp_profile::Error::Invalid("version must start at 1"),
+    );
+}
+
+#[tokio::test]
+async fn signed_deleted_share_target_cannot_stage_even_in_an_existing_open_pair() {
+    let mut f = fixture();
+    open_chat(&mut f.session.store, &f.peer);
+    let peer = f
+        .profiles
+        .iter_mut()
+        .find(|profile| profile.peer_id == f.peer)
+        .unwrap();
+    let previous =
+        dyapp_profile::ProfileCondition::observed(Some(&peer.profile.sign(&f.peer_key))).unwrap();
+    let tombstone = dyapp_profile::Profile {
+        previous: Some(previous),
+        ..dyapp_profile::Profile::tombstone(2, 0, 0)
+    };
+    *peer = dyapp_profile::verify(&tombstone.sign(&f.peer_key)).unwrap();
+    let sealed = f.session.store().sealed_device().unwrap();
+    let before = writes(&f.session);
+    assert!(matches!(
+        f.session
+            .submit_profile_share_to(&mut [], &f.profiles, &f.owner.peer_id(), &f.seal)
+            .await,
+        Err(Error::UnpublishedProfile)
+    ));
+    unstaged(&f, sealed.as_deref(), &before);
+}
+
 #[tokio::test]
 async fn an_unopened_pair_cannot_receive_a_share_as_an_introduction() {
     let mut f = fixture();

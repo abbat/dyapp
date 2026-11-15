@@ -52,9 +52,6 @@ impl ChatSession {
                         .map_err(share_error);
                 };
                 let peer = node.get_profile(&peer_id).await.map_err(failed)?;
-                if peer.profile.deleted || peer.profile.version == 0 {
-                    return Err(failed("unpublished"));
-                }
                 session
                     .submit_profile_share_to(
                         std::slice::from_mut(&mut node),
