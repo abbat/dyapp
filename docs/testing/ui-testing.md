@@ -1,5 +1,10 @@
 # UI Testing: Practical Guide
 
+Swift `ProfileDraftStoreTests` exercise raw profile inputs through the real shared parsers:
+optional and impossible birth parts, height bounds, numeric overflow, seeking normalization,
+unknown gender refusal and clearing disabled malformed fields. These deterministic input cases
+need native iOS CI; Swift formatting/lint alone does not prove binding execution.
+
 Linux, Windows and macOS injected desktop smoke suites require the opt-in Cargo feature `ui-smoke`.
 `linux-test.sh` and native Windows CI enable it explicitly; ordinary builds and release packages
 leave it off. The feature includes script embedding, test-only IPC, isolated config paths,

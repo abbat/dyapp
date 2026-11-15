@@ -127,6 +127,47 @@ final class ProfileDraftStoreTests: XCTestCase {
         }
     }
 
+    func testHeightInputUsesCoreBoundsBeforeSaving() throws {
+        let saved = ProfileDraft()
+        var inputs = ProfileExtraInputs()
+        for (text, expected) in [("", nil), ("50", 50), (" 272 ", 272)] as [(String, UInt32?)] {
+            inputs.height = text
+            XCTAssertEqual(try inputs.inserted(into: saved).height, expected)
+        }
+        for text in ["49", "273", "0", "-1", "1.5", "4294967296"] {
+            inputs.height = text
+            XCTAssertThrowsError(try inputs.inserted(into: saved)) {
+                XCTAssertEqual($0 as? ProfileInputError, .height)
+            }
+        }
+    }
+
+    func testSeekingInputDelegatesNormalizationAndDisabledFieldsToCore() throws {
+        let saved = ProfileDraft()
+        var inputs = ProfileExtraInputs()
+        inputs.genders = [2, 1]
+        inputs.ageFrom = " 018 "
+        inputs.ageTo = "120"
+        XCTAssertEqual(
+            try inputs.inserted(into: saved).seeking,
+            ProfileSeeking(genders: [1, 2], ageFrom: 18, ageTo: 120))
+        for text in ["17", "121", "4294967296", "wrong"] {
+            inputs.ageFrom = text
+            XCTAssertThrowsError(try inputs.inserted(into: saved)) {
+                XCTAssertEqual($0 as? ProfileInputError, .seeking)
+            }
+        }
+        inputs.genders = [999]
+        inputs.notLooking = true
+        XCTAssertEqual(try inputs.inserted(into: saved).seeking, ProfileSeeking(notLooking: true))
+        inputs.notLooking = false
+        inputs.ageFrom = ""
+        inputs.ageTo = ""
+        XCTAssertThrowsError(try inputs.inserted(into: saved)) {
+            XCTAssertEqual($0 as? ProfileInputError, .seeking)
+        }
+    }
+
     func testFailedRustImportLeavesJSONAvailableForRetry() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -200,8 +241,14 @@ final class ProfileDraftStoreTests: XCTestCase {
         try yearless.validate()
         XCTAssertEqual(yearless.inserted(into: [:]), ["birthMonth": 2, "birthDay": 29])
         XCTAssertThrowsError(try ProfileBirthParts(yearText: "no", monthText: "", dayText: ""))
-        let impossible = try ProfileBirthParts(yearText: "1900", monthText: "2", dayText: "29")
-        XCTAssertThrowsError(try impossible.validate())
+        XCTAssertThrowsError(
+            try ProfileBirthParts(yearText: "1900", monthText: "2", dayText: "29"))
+        for year in ["0", "-1", "2147483648", "10000"] {
+            XCTAssertThrowsError(try ProfileBirthParts(yearText: year, monthText: "", dayText: ""))
+        }
+        let spaced = try ProfileBirthParts(
+            yearText: " 2000 ", monthText: "\u{00A0}2", dayText: "29 ")
+        XCTAssertEqual(spaced, ProfileBirthParts(year: 2_000, month: 2, day: 29))
     }
 
     func testPeerNamedDraftCopiesIntoSlotWithoutChangingSource() throws {

@@ -27,13 +27,12 @@ struct ProfileBirthParts: Equatable {
     }
 
     init(yearText: String, monthText: String, dayText: String) throws {
-        func part(_ text: String) throws -> UInt32? {
-            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed.isEmpty { return nil }
-            guard let value = UInt32(trimmed) else { throw ProfileBirthError.invalid }
-            return value
-        }
-        try self.init(year: part(yearText), month: part(monthText), day: part(dayText))
+        guard let parts = parseProfileBirthParts(year: yearText, month: monthText, day: dayText)
+        else { throw ProfileBirthError.invalid }
+        self.init(
+            year: parts["birth_year"].map(UInt32.init),
+            month: parts["birth_month"].map(UInt32.init),
+            day: parts["birth_day"].map(UInt32.init))
     }
 
     init(draft: [String: UInt32]) {

@@ -111,6 +111,9 @@ tests independent of an emulator's live connection and callback timing.
 
 Detekt auto-correction rewrites every input file, including unchanged files. With a read-only
 checkout and writable overlays, scope its `--input` to those exact writable files.
+Swift-format replaces changed files atomically: a writable file bind alone cannot support its
+rename in a read-only parent. Bind the affected source directory writable and pass only the
+exact intended file paths to the formatter; keep the rest of the checkout read-only.
 
 When changing Kotlin member APIs, search both qualified calls and unqualified calls inside
 extension functions. `ChatFeedActions.shareProfile` uses `history(peer)` and `send(peer, text)`

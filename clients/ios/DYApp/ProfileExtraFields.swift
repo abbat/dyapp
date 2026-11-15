@@ -59,24 +59,20 @@ struct ProfileExtraInputs: Equatable {
 
     /// `draft` with these fields as the store keeps them.
     func inserted(into draft: ProfileDraft) throws -> ProfileDraft {
-        func number(_ text: String, _ refusal: ProfileInputError) throws -> UInt32? {
-            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed.isEmpty { return nil }
-            guard let value = UInt32(trimmed) else { throw refusal }
-            return value
+        guard let parsedHeight = parseProfileHeight(typed: height) else {
+            throw ProfileInputError.height
         }
+        guard
+            let seeking = parseProfileSeeking(
+                genders: Array(genders), from: ageFrom, to: ageTo, notLooking: notLooking)
+        else { throw ProfileInputError.seeking }
         var draft = draft
         draft.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        draft.height = try number(height, .height)
+        draft.height = parsedHeight["height"].map(UInt32.init)
         draft.about = about.trimmingCharacters(in: .whitespacesAndNewlines)
-        draft.seeking =
-            notLooking
-            ? ProfileSeeking(notLooking: true)
-            : ProfileSeeking(
-                genders: genders.sorted(),
-                ageFrom: try number(ageFrom, .seeking),
-                ageTo: try number(ageTo, .seeking)
-            )
+        draft.seeking = ProfileSeeking(
+            genders: seeking.genders, ageFrom: seeking.ageFrom, ageTo: seeking.ageTo,
+            notLooking: seeking.notLooking)
         return draft
     }
 }

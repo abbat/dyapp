@@ -836,17 +836,19 @@ Its exported API is unchanged.
 `dyapp_profile::editor_input`. Blank height clears the field; invalid or out-of-range input
 is rejected before saving with the existing field error. Seeking ages use core limits and
 known gender choices; gender ordering and not-looking normalization happen in core.
-Not-looking ignores and clears hidden input even if malformed. Kotlin renders the returned
-normalized value after a successful save. Draft save reuses the same core seeking validator,
-so bypassing the editor cannot bypass validation. The FFI layer only converts inputs/results.
+Not-looking ignores and clears hidden input even if malformed. Kotlin and Swift editors use
+these parsers and render the returned normalized value after a successful save. Draft save reuses
+the same core seeking validator, so bypassing the editor cannot bypass validation. The FFI layer only converts inputs/results.
 
 ## Raw birth field input
 
 `parse_profile_birth_parts(year, month, day)` and `valid_profile_birth_parts(values)` delegate
 to `dyapp_profile::birth_input`, which reuses `Profile::valid_birth_parts`. Empty parts remain
-absent; invalid integers, unknown keys and impossible partial dates are rejected. Kotlin
-retains field keys and rendering only. Tests crossing this adapter belong in Android
-instrumentation, where the native library is available, rather than host JVM-only tests.
+absent; invalid integers, unknown keys and impossible partial dates are rejected. Kotlin and
+Swift pass raw field text to this parser and retain field keys and rendering only. Swift maps
+the returned core keys to its optional display fields; impossible dates fail at parsing.
+Tests crossing this adapter run in Android instrumentation or native Swift tests, where the
+native library is available, rather than host JVM-only tests.
 
 ## Raw search range input
 
