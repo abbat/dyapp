@@ -77,12 +77,17 @@ async fn fetch(
 ) -> Result<(), String> {
     let (epoch, wanted) = {
         let mut cache = cache.lock().map_err(|e| e.to_string())?;
-        let wanted: Vec<[u8; 32]> = hashes
-            .iter()
-            .filter(|hash| cache.photos.get(hash).is_none())
-            .filter_map(|hash| hash.as_slice().try_into().ok())
-            .collect();
-        (cache.epoch(), wanted)
+        let epoch = cache.bind(dir)?;
+        let wanted = cache
+            .with_current_photos(epoch, |photos| {
+                hashes
+                    .iter()
+                    .filter(|hash| photos.get(hash).is_none())
+                    .filter_map(|hash| hash.as_slice().try_into().ok())
+                    .collect::<Vec<[u8; 32]>>()
+            })?
+            .ok_or("notConnected")?;
+        (epoch, wanted)
     };
     if wanted.is_empty() {
         return Ok(());
@@ -103,9 +108,9 @@ async fn fetch(
             };
             if acceptable(&bytes, full) {
                 let mut cache = cache.lock().map_err(|e| e.to_string())?;
-                if cache.current(epoch) {
-                    cache.photos.put(hash.to_vec(), bytes, full);
-                }
+                cache.with_current_photos(epoch, |photos| {
+                    photos.put(hash.to_vec(), bytes, full);
+                })?;
             }
             break;
         }
@@ -139,15 +144,16 @@ pub(crate) async fn fetch_peer_photos(
     reason = "Tauri extracts command state and request values by value"
 )]
 pub(crate) fn peer_photo(
+    state: tauri::State<'_, crate::IdentityState>,
     searching: tauri::State<'_, SearchState>,
     hash: Vec<u8>,
 ) -> Result<tauri::ipc::Response, String> {
-    let bytes = searching
-        .0
-        .lock()
-        .map_err(|e| e.to_string())?
-        .photos
-        .get(&hash)
+    let lease = state.lease()?;
+    let mut cache = searching.0.lock().map_err(|e| e.to_string())?;
+    let epoch = cache.bind(&lease.active().1)?;
+    let bytes = cache
+        .with_current_photos(epoch, |photos| photos.get(&hash))?
+        .flatten()
         .ok_or("notFound")?;
     Ok(tauri::ipc::Response::new(bytes))
 }
@@ -215,11 +221,43 @@ mod tests {
         assert!(!acceptable(&padded, true));
     }
 
+    #[test]
+    fn shared_activation_fences_photo_callbacks_and_discards_old_bytes() {
+        let dir =
+            std::env::temp_dir().join(format!("dyapp-photo-admission-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut cache = ProfileCache::default();
+        let epoch = cache.bind(&dir).unwrap();
+        let context = Arc::clone(&cache.context);
+        cache
+            .with_current_photos(epoch, |photos| {
+                assert!(context.try_lock().is_err());
+                photos.put(vec![1], vec![2], false);
+                photos.put(vec![3], vec![4], true);
+            })
+            .unwrap();
+        context.lock().unwrap().clear();
+        assert_eq!(
+            cache
+                .with_current_photos(epoch, |_| panic!("stale photo callback ran"))
+                .unwrap(),
+            None
+        );
+        let current = cache.bind(&dir).unwrap();
+        assert_eq!(
+            cache
+                .with_current_photos(current, |photos| (photos.get(&[1]), photos.get(&[3])))
+                .unwrap(),
+            Some((None, None))
+        );
+    }
+
     #[tokio::test]
     async fn only_a_missing_well_formed_hash_needs_the_network_and_context_clears_the_cache() {
         let dir = std::env::temp_dir().join(format!("dyapp-peer-photos-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let cache = Mutex::<ProfileCache>::default();
+        cache.lock().unwrap().bind(&dir).unwrap();
         let held = vec![7; 32];
         cache
             .lock()
@@ -233,7 +271,7 @@ mod tests {
             fetch(&cache, &dir, &missing, false).await,
             Err("notConnected".into())
         );
-        cache.lock().unwrap().clear();
+        cache.lock().unwrap().clear().unwrap();
         assert_eq!(cache.lock().unwrap().photos.get(&held), None);
     }
 }

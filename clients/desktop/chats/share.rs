@@ -22,11 +22,11 @@ async fn fetch(
 ) -> Result<Found, String> {
     profile_link(peer_id).ok_or("invalidPeer")?;
     ensure_unblocked(dir, identity, peer_id)?;
-    let epoch = cache.lock().map_err(|e| e.to_string())?.epoch();
+    let epoch = cache.lock().map_err(|e| e.to_string())?.bind(dir)?;
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
-    if !cache.lock().map_err(|e| e.to_string())?.current(epoch) {
+    if !cache.lock().map_err(|e| e.to_string())?.current(epoch)? {
         return Err("notConnected".into());
     }
     let mut node = profile::connect(&active).await?;
@@ -45,13 +45,14 @@ fn finish_fetch(
     fetched: dyapp_profile::VerifiedProfile,
 ) -> Result<Found, String> {
     let mut cache = cache.lock().map_err(|e| e.to_string())?;
-    if !cache.current(epoch) {
-        return Err("notConnected".into());
-    }
-    let found = Found::from(&fetched);
-    // Reopening an equal version is valid, even though it adds nothing to the cache.
-    cache.accept_if_current(epoch, fetched);
-    Ok(found)
+    cache
+        .with_current(epoch, |context, _| {
+            let found = Found::from(&fetched);
+            // Reopening an equal version is valid, even though it adds nothing to the cache.
+            let _ = context.accept(fetched);
+            found
+        })?
+        .ok_or_else(|| "notConnected".into())
 }
 
 fn ensure_unblocked(dir: &Path, identity: &Identity, peer_id: &str) -> Result<(), String> {
@@ -170,12 +171,12 @@ mod tests {
             peer.peer_id()
         );
         assert!(finish_fetch(&cache, epoch, fetched.clone()).is_ok());
-        cache.lock().unwrap().clear();
+        cache.lock().unwrap().clear().unwrap();
         assert_eq!(
             finish_fetch(&cache, epoch, fetched).err(),
             Some("notConnected".into())
         );
-        assert_eq!(cache.lock().unwrap().snapshot().1.all(), []);
+        assert_eq!(cache.lock().unwrap().snapshot().unwrap().1.all(), []);
     }
 
     #[tokio::test]
@@ -201,7 +202,7 @@ mod tests {
             fetch(&cache, &dir, &identity, &peer).await.err(),
             Some("blocked".into())
         );
-        assert_eq!(cache.lock().unwrap().snapshot().1.all(), []);
+        assert_eq!(cache.lock().unwrap().snapshot().unwrap().1.all(), []);
         store.set_blocked(&peer, false).unwrap();
         assert_eq!(
             fetch(&cache, &dir, &identity, &peer).await.err(),

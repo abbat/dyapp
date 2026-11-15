@@ -38,11 +38,15 @@ pub async fn receive(
     Box::pin(finish_link(root, dir, identity, device_key)).await?;
     let store = open(dir, identity)?;
     let own = published_profile(&store, identity)?;
-    let (epoch, cached) = cache.lock().map_err(|e| e.to_string())?.snapshot();
+    let (epoch, cached) = {
+        let mut cache = cache.lock().map_err(|e| e.to_string())?;
+        cache.bind(dir)?;
+        cache.snapshot()?
+    };
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
-    if !cache.lock().map_err(|e| e.to_string())?.current(epoch) {
+    if !cache.lock().map_err(|e| e.to_string())?.current(epoch)? {
         return Err("notConnected".into());
     }
     let mut node = profile::connect(&active).await?;
@@ -119,11 +123,12 @@ impl MailPass<'_> {
             .cached
             .get(peer)
             .is_none_or(|held| held.profile.version < verified.profile.version);
-        self.cache
+        let admitted = self
+            .cache
             .lock()
             .map_err(|e| e.to_string())?
-            .accept_if_current(self.epoch, verified.clone());
-        Ok(self.cached.accept(verified).is_ok() && newer)
+            .accept_if_current(self.epoch, verified.clone())?;
+        Ok(admitted && self.cached.accept(verified).is_ok() && newer)
     }
 
     async fn events(

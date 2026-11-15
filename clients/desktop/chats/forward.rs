@@ -35,10 +35,10 @@ pub(crate) async fn open_session(
         return Err("unpublished".into());
     }
     let own = dyapp_profile::verify(&own.sign(identity)).map_err(|e| e.to_string())?;
+    let epoch = cache.lock().map_err(|e| e.to_string())?.bind(dir)?;
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
-    let epoch = cache.lock().map_err(|e| e.to_string())?.epoch();
     let mut node = profile::connect(&active).await?;
     let fetched = node
         .get_profile(target_peer)

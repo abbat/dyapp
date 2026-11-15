@@ -6,8 +6,6 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use dyapp_client::compatibility;
-use dyapp_client::contact_verification::Context;
-use dyapp_client::profiles::Profiles;
 use dyapp_client::search::{self, Employer, SearchFailure};
 use dyapp_client::search_input::{employer_filter, EmployerMode, SearchChoiceInputs};
 use dyapp_client::store::Store;
@@ -20,81 +18,14 @@ use dyapp_p2p_net::{proto, Protocols};
 use dyapp_profile::search_input::SearchRangeInputs;
 use dyapp_profile::{CivilDate, Profile, VerifiedProfile, HEIGHT_FIELD};
 
-use crate::peer_photos::PhotoCache;
 use crate::profile::{self, Draft};
 
 /// Search providers one search asks.
 const SEARCH_NODES: usize = 3;
 
-/// Verified profiles seen in the active identity and network context.
-#[derive(Default)]
-#[expect(unreachable_pub, reason = "Retained module API visibility")]
-pub struct SearchState(pub Arc<Mutex<ProfileCache>>);
-
-/// Profiles and their context epoch share one lock, so a late result cannot repopulate a cache
-/// cleared by network activation.
-#[derive(Default)]
-#[expect(unreachable_pub, reason = "Retained module API visibility")]
-pub struct ProfileCache {
-    epoch: u64,
-    pub(crate) context: Context,
-    pub photos: PhotoCache,
-}
-
-impl ProfileCache {
-    #[expect(unreachable_pub, reason = "Retained module API visibility")]
-    pub fn snapshot(&self) -> (u64, Profiles) {
-        (self.epoch, self.context.profiles().clone())
-    }
-
-    #[expect(unreachable_pub, reason = "Retained module API visibility")]
-    pub fn epoch(&self) -> u64 {
-        self.epoch
-    }
-
-    #[expect(unreachable_pub, reason = "Retained module API visibility")]
-    pub fn current(&self, epoch: u64) -> bool {
-        self.epoch == epoch
-    }
-
-    #[expect(unreachable_pub, reason = "Retained module API visibility")]
-    pub fn accept_if_current(&mut self, epoch: u64, profile: VerifiedProfile) -> bool {
-        self.current(epoch) && self.context.accept(profile).is_ok()
-    }
-
-    #[expect(unreachable_pub, reason = "Retained module API visibility")]
-    pub fn clear(&mut self) {
-        self.epoch = self.epoch.wrapping_add(1);
-        self.context.clear();
-        self.photos = PhotoCache::default();
-    }
-}
-
-impl SearchState {
-    /// Discard verified profiles held for the previous active context.
-    #[expect(unreachable_pub, reason = "Retained module API visibility")]
-    pub fn clear(&self) -> Result<(), String> {
-        self.0.lock().map_err(|e| e.to_string())?.clear();
-        Ok(())
-    }
-
-    /// Invalidate old work before any checked network activation attempt.
-    #[expect(unreachable_pub, reason = "Retained module API visibility")]
-    pub fn activate_network(
-        &self,
-        checks: &crate::network::NetworkState,
-        dir: &Path,
-    ) -> Result<crate::network::Draft, String> {
-        self.activate_with(|| crate::network::activate(checks, dir))
-    }
-
-    fn activate_with<T>(&self, activate: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
-        let mut cache = self.0.lock().map_err(|e| e.to_string())?;
-        // Saving may replace settings before returning an I/O error.
-        cache.clear();
-        activate()
-    }
-}
+#[path = "search/cache.rs"]
+mod cache;
+pub(crate) use cache::{ProfileCache, SearchState};
 
 const COUNTRY_FIELD: u32 = 4;
 const INTEREST_FIELD: u32 = 19;
@@ -346,11 +277,15 @@ pub async fn search(
     let conditions = node_conditions(&query, &own, today)?;
     // Capture the context before loading settings: activation saves settings and advances this
     // epoch under the same cache lock.
-    let (epoch, seen) = cache.lock().map_err(|e| e.to_string())?.snapshot();
+    let (epoch, seen) = {
+        let mut cache = cache.lock().map_err(|e| e.to_string())?;
+        cache.bind(dir)?;
+        cache.snapshot()?
+    };
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
-    if !cache.lock().map_err(|e| e.to_string())?.current(epoch) {
+    if !cache.lock().map_err(|e| e.to_string())?.current(epoch)? {
         return Err("notConnected".into());
     }
     let protocols = Arc::new(Protocols::new(&active.name).map_err(|e| e.to_string())?);
@@ -386,18 +321,19 @@ fn project_current(
     profiles: Vec<VerifiedProfile>,
 ) -> Result<Vec<Found>, String> {
     let mut cache = cache.lock().map_err(|e| e.to_string())?;
-    if !cache.current(epoch) {
-        return Err("notConnected".into());
-    }
-    Ok(profiles
-        .into_iter()
-        .map(|found| {
-            let shown = Found::from(&found);
-            // Equal versions remain displayable even when they add nothing to the cache.
-            cache.accept_if_current(epoch, found);
-            shown
-        })
-        .collect())
+    cache
+        .with_current(epoch, |context, _| {
+            profiles
+                .into_iter()
+                .map(|found| {
+                    let shown = Found::from(&found);
+                    // Equal versions remain displayable even when they add nothing to the cache.
+                    let _ = context.accept(found);
+                    shown
+                })
+                .collect()
+        })?
+        .ok_or_else(|| "notConnected".into())
 }
 
 /// Blocks a well-formed peer on this device; later searches drop it. A known Peer ID need
@@ -469,6 +405,7 @@ mod tests {
         let dir = temp_dir();
         let state = SearchState::default();
         let checks = crate::network::NetworkState::default();
+        let initial_epoch = state.0.lock().unwrap().bind(&dir).unwrap();
         let first = Network {
             seeds: vec!["first:1".into()],
             name: "first".into(),
@@ -484,7 +421,7 @@ mod tests {
         let (resume_tx, resume_rx) = tokio::sync::oneshot::channel();
         let cache = Arc::clone(&state.0);
         let worker = tokio::spawn(async move {
-            let (epoch, _) = cache.lock().unwrap().snapshot();
+            let (epoch, _) = cache.lock().unwrap().snapshot().unwrap();
             started_tx.send(()).unwrap();
             resume_rx.await.unwrap();
             project_current(&cache, epoch, vec![prior_profile])
@@ -494,7 +431,12 @@ mod tests {
             .unwrap()
             .unwrap();
         let current = verified(&Identity::from_secret(&[3; 32]));
-        assert!(state.0.lock().unwrap().accept_if_current(0, current));
+        assert!(state
+            .0
+            .lock()
+            .unwrap()
+            .accept_if_current(initial_epoch, current)
+            .unwrap());
         connect_check(&checks, &dir, &second).await;
         assert_eq!(
             state.activate_network(&checks, &dir).unwrap().seeds,
@@ -504,7 +446,7 @@ mod tests {
             network::load(&dir, Settings::Active).unwrap(),
             Some(second.clone())
         );
-        assert_eq!(state.0.lock().unwrap().snapshot().1.all(), []);
+        assert_eq!(state.0.lock().unwrap().snapshot().unwrap().1.all(), []);
         resume_tx.send(()).unwrap();
         assert_eq!(
             tokio::time::timeout(Duration::from_secs(5), worker)
@@ -513,13 +455,14 @@ mod tests {
                 .unwrap(),
             Err("notConnected".into())
         );
-        let new_epoch = state.0.lock().unwrap().snapshot().0;
+        let new_epoch = state.0.lock().unwrap().snapshot().unwrap().0;
         assert!(state
             .0
             .lock()
             .unwrap()
-            .accept_if_current(new_epoch, verified(&Identity::from_secret(&[4; 32]))));
-        assert_eq!(state.0.lock().unwrap().snapshot().1.all().len(), 1);
+            .accept_if_current(new_epoch, verified(&Identity::from_secret(&[4; 32])))
+            .unwrap());
+        assert_eq!(state.0.lock().unwrap().snapshot().unwrap().1.all().len(), 1);
         assert_reactivation_invalidates_profiles(&state, &checks, &dir, &second).await;
     }
 
@@ -594,17 +537,21 @@ mod tests {
             .lock()
             .unwrap()
             .context
+            .lock()
+            .unwrap()
             .begin(&store, &peer.peer_id())
             .unwrap();
         let epoch = state.0.lock().unwrap().epoch();
         connect_check(checks, dir, second).await;
         state.activate_network(checks, dir).unwrap();
-        let mut cached = state.0.lock().unwrap();
+        let cached = state.0.lock().unwrap();
         assert_ne!(cached.epoch(), epoch);
-        assert!(cached.snapshot().1.all().is_empty());
+        assert_eq!(cached.snapshot().unwrap().1.all(), []);
         assert!(matches!(
             cached
                 .context
+                .lock()
+                .unwrap()
                 .confirm(&store, ticket, verified_fixture_profile(&peer)),
             Err(dyapp_client::contact_verification::Error::ContextChanged)
         ));
@@ -620,16 +567,22 @@ mod tests {
         let profile = verified_fixture_profile(&peer);
         let (epoch, ticket) = {
             let mut cache = state.0.lock().unwrap();
-            let epoch = cache.epoch();
-            assert!(cache.accept_if_current(epoch, profile.clone()));
-            (epoch, cache.context.begin(&store, &peer.peer_id()).unwrap())
+            let epoch = cache.bind(&dir).unwrap();
+            assert!(cache.accept_if_current(epoch, profile.clone()).unwrap());
+            let ticket = cache
+                .context
+                .lock()
+                .unwrap()
+                .begin(&store, &peer.peer_id())
+                .unwrap();
+            (epoch, ticket)
         };
         let replacement = Network {
             seeds: vec!["replacement:1".into()],
             name: String::new(),
         };
         assert_eq!(
-            state.activate_with(|| {
+            state.activate_with(&dir, || {
                 assert!(state.0.try_lock().is_err());
                 network::save(&dir, Settings::Active, &replacement).unwrap();
                 Err::<(), _>("directory sync failed".into())
@@ -641,10 +594,14 @@ mod tests {
             Some(replacement)
         );
         let mut cache = state.0.lock().unwrap();
-        assert!(cache.snapshot().1.all().is_empty());
-        assert!(!cache.accept_if_current(epoch, profile.clone()));
+        assert_eq!(cache.snapshot().unwrap().1.all(), []);
+        assert!(!cache.accept_if_current(epoch, profile.clone()).unwrap());
         assert!(matches!(
-            cache.context.confirm(&store, ticket, profile.clone()),
+            cache
+                .context
+                .lock()
+                .unwrap()
+                .confirm(&store, ticket, profile.clone()),
             Err(dyapp_client::contact_verification::Error::ContextChanged)
         ));
         assert!(!store.verified(&profile).unwrap());
@@ -655,15 +612,20 @@ mod tests {
         let state = SearchState::default();
         let dir = temp_dir();
         let profile = verified_fixture_profile(&Identity::from_secret(&[2; 32]));
-        let epoch = state.0.lock().unwrap().epoch();
-        assert!(state.0.lock().unwrap().accept_if_current(epoch, profile));
+        let epoch = state.0.lock().unwrap().bind(&dir).unwrap();
+        assert!(state
+            .0
+            .lock()
+            .unwrap()
+            .accept_if_current(epoch, profile)
+            .unwrap());
         assert_eq!(
             state.activate_network(&crate::network::NetworkState::default(), &dir),
             Err("notChecked".into())
         );
         let cache = state.0.lock().unwrap();
-        assert!(!cache.current(epoch));
-        assert!(cache.snapshot().1.all().is_empty());
+        assert!(!cache.current(epoch).unwrap());
+        assert_eq!(cache.snapshot().unwrap().1.all(), []);
     }
 
     #[test]
@@ -676,23 +638,40 @@ mod tests {
         let peer = peer_owner.peer_id();
         let mut cache = ProfileCache::default();
         let epoch = cache.epoch();
-        assert!(cache.accept_if_current(epoch, profile.clone()));
-        let ticket = cache.context.begin(&store, &peer).unwrap();
+        assert!(cache.accept_if_current(epoch, profile.clone()).unwrap());
+        let ticket = cache.context.lock().unwrap().begin(&store, &peer).unwrap();
 
-        cache.clear();
-        assert!(!cache.current(epoch));
-        assert!(cache.snapshot().1.all().is_empty());
-        assert!(!cache.accept_if_current(epoch, profile.clone()));
+        cache.clear().unwrap();
+        assert!(!cache.current(epoch).unwrap());
+        assert_eq!(cache.snapshot().unwrap().1.all(), []);
+        assert!(!cache.accept_if_current(epoch, profile.clone()).unwrap());
         assert!(matches!(
-            cache.context.confirm(&store, ticket, profile.clone()),
+            cache
+                .context
+                .lock()
+                .unwrap()
+                .confirm(&store, ticket, profile.clone()),
             Err(dyapp_client::contact_verification::Error::ContextChanged)
         ));
         assert!(!store.verified(&profile).unwrap());
 
-        let ticket = cache.context.begin(&store, &peer).unwrap();
-        cache.context.confirm(&store, ticket, profile).unwrap();
-        assert!(cache.context.state(&store, &peer).unwrap().verified);
-        assert_eq!(cache.snapshot().1.all().len(), 1);
+        let ticket = cache.context.lock().unwrap().begin(&store, &peer).unwrap();
+        cache
+            .context
+            .lock()
+            .unwrap()
+            .confirm(&store, ticket, profile)
+            .unwrap();
+        assert!(
+            cache
+                .context
+                .lock()
+                .unwrap()
+                .state(&store, &peer)
+                .unwrap()
+                .verified
+        );
+        assert_eq!(cache.snapshot().unwrap().1.all().len(), 1);
     }
 
     #[test]
@@ -716,7 +695,7 @@ mod tests {
             project_current(&cache, epoch, profiles.clone()).unwrap(),
             first
         );
-        cache.lock().unwrap().clear();
+        cache.lock().unwrap().clear().unwrap();
         assert_eq!(
             project_current(&cache, epoch, profiles),
             Err("notConnected".into())
@@ -726,7 +705,7 @@ mod tests {
             project_current(&cache, epoch, Vec::new()),
             Err("notConnected".into())
         );
-        assert_eq!(cache.lock().unwrap().snapshot().1.all(), []);
+        assert_eq!(cache.lock().unwrap().snapshot().unwrap().1.all(), []);
     }
 
     #[test]

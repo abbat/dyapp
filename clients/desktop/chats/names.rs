@@ -31,7 +31,7 @@ pub(crate) fn names(
     store: &Store,
     peer_ids: Vec<String>,
 ) -> Result<Vec<PeerNameView>, String> {
-    let (_, profiles) = cache.lock().map_err(|e| e.to_string())?.snapshot();
+    let (_, profiles) = cache.lock().map_err(|e| e.to_string())?.snapshot()?;
     let mut views = Vec::with_capacity(peer_ids.len());
     for peer_id in peer_ids {
         let peer = profiles.get(&peer_id);
@@ -74,6 +74,7 @@ pub fn contact_names(
     let lease = state.lease()?;
     let (identity, dir) = lease.active();
     let store = super::open(dir, identity)?;
+    searching.0.lock().map_err(|e| e.to_string())?.bind(dir)?;
     names(&searching.0, &store, peer_ids)
 }
 
@@ -128,7 +129,11 @@ mod tests {
             ..Default::default()
         };
         let current = dyapp_profile::verify(&profile.sign(&bob)).unwrap();
-        assert!(cache.lock().unwrap().accept_if_current(0, current.clone()));
+        assert!(cache
+            .lock()
+            .unwrap()
+            .accept_if_current(0, current.clone())
+            .unwrap());
         assert_eq!(read(), view("Bob", Some(false)));
         store.set_verified(&current).unwrap();
         assert_eq!(read(), view("Bob", Some(true)));
@@ -145,7 +150,7 @@ mod tests {
             ..profile
         };
         let newer = dyapp_profile::verify(&newer.sign(&bob)).unwrap();
-        assert!(cache.lock().unwrap().accept_if_current(0, newer));
+        assert!(cache.lock().unwrap().accept_if_current(0, newer).unwrap());
         assert_eq!(read().photo, vec![2; 32]);
 
         drop(store);

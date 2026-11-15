@@ -167,14 +167,14 @@ pub(crate) fn accept_peer(
         return Err("unknownPeer".into());
     }
     let mut cache = cache.lock().map_err(|e| e.to_string())?;
-    if !cache.current(epoch) {
+    if !cache.current(epoch)? {
         return Err("notConnected".into());
     }
-    if !cache.accept_if_current(epoch, fetched) {
+    if !cache.accept_if_current(epoch, fetched)? {
         return Err("staleProfile".into());
     }
     cache
-        .snapshot()
+        .snapshot()?
         .1
         .get(peer_id)
         .cloned()
@@ -208,10 +208,10 @@ pub async fn send_text(
         return Err("unpublished".into());
     }
     let own = dyapp_profile::verify(&own.sign(identity)).map_err(|e| e.to_string())?;
+    let epoch = cache.lock().map_err(|e| e.to_string())?.bind(dir)?;
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
-    let epoch = cache.lock().map_err(|e| e.to_string())?.epoch();
     let mut node = profile::connect(&active).await?;
     let fetched = node.get_profile(peer_id).await.map_err(|e| e.to_string())?;
     let peer = accept_peer(cache, epoch, peer_id, fetched)?;
@@ -336,7 +336,11 @@ pub async fn like(
     peer_id: &str,
     liked: bool,
 ) -> Result<Likes, String> {
-    let (epoch, profiles) = cache.lock().map_err(|e| e.to_string())?.snapshot();
+    let (epoch, profiles) = {
+        let mut cache = cache.lock().map_err(|e| e.to_string())?;
+        cache.bind(dir)?;
+        cache.snapshot()?
+    };
     let peer = profiles.get(peer_id).cloned().ok_or("unknownPeer")?;
     let store = open(dir, identity)?;
     let own = profile::stored(&store)?;
@@ -347,7 +351,7 @@ pub async fn like(
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
-    if !cache.lock().map_err(|e| e.to_string())?.current(epoch) {
+    if !cache.lock().map_err(|e| e.to_string())?.current(epoch)? {
         return Err("notConnected".into());
     }
     let mut node = profile::connect(&active).await?;
@@ -380,11 +384,11 @@ pub async fn liked_you(
     if peers.is_empty() {
         return Ok(Vec::new());
     }
-    let epoch = cache.lock().map_err(|e| e.to_string())?.epoch();
+    let epoch = cache.lock().map_err(|e| e.to_string())?.bind(dir)?;
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
-    if !cache.lock().map_err(|e| e.to_string())?.current(epoch) {
+    if !cache.lock().map_err(|e| e.to_string())?.current(epoch)? {
         return Err("notConnected".into());
     }
     let mut node = profile::connect(&active).await?;
@@ -398,9 +402,13 @@ pub async fn liked_you(
         cache
             .lock()
             .map_err(|e| e.to_string())?
-            .accept_if_current(epoch, verified);
+            .accept_if_current(epoch, verified)?;
     }
-    Ok(found)
+    cache
+        .lock()
+        .map_err(|e| e.to_string())?
+        .with_current(epoch, |_, _| found)?
+        .ok_or_else(|| "notConnected".into())
 }
 
 /// The page's commands for likes and the mailbox; each one that opens an MLS session holds
@@ -898,7 +906,7 @@ mod tests {
             accept_peer(&cache, 0, &other, signed(3)),
             Err("unknownPeer".into())
         );
-        cache.lock().unwrap().clear();
+        cache.lock().unwrap().clear().unwrap();
         assert_eq!(
             accept_peer(&cache, 0, &peer_id, signed(3)),
             Err("notConnected".into())

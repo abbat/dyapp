@@ -169,6 +169,8 @@ fn mark(
         .lock()
         .map_err(|e| e.to_string())?
         .context
+        .lock()
+        .map_err(|e| e.to_string())?
         .confirm(store, ticket, fetched)
         .map_err(|e| e.to_string())?;
     Ok(Found::from(&peer))
@@ -190,11 +192,10 @@ async fn confirm(
     let store = Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())?;
     let (ticket, active) = {
         // Activation uses this same guard; never pair an old ticket with new settings.
-        let cache = cache.lock().map_err(|e| e.to_string())?;
-        let ticket = cache
-            .context
-            .begin(&store, peer_id)
-            .map_err(|e| e.to_string())?;
+        let mut cache = cache.lock().map_err(|e| e.to_string())?;
+        cache.bind(dir)?;
+        let context = cache.context.lock().map_err(|e| e.to_string())?;
+        let ticket = context.begin(&store, peer_id).map_err(|e| e.to_string())?;
         let active = network::load(dir, Settings::Active)
             .map_err(|e| e.to_string())?
             .ok_or("notConnected")?;
@@ -233,6 +234,8 @@ fn marked(cache: &Mutex<ProfileCache>, store: &Store, peer_id: &str) -> Result<b
         .lock()
         .map_err(|e| e.to_string())?
         .context
+        .lock()
+        .map_err(|e| e.to_string())?
         .state(store, peer_id)
         .map_err(|e| e.to_string())?
         .verified)
@@ -253,6 +256,7 @@ pub fn contact_verified(
     let lease = state.lease()?;
     let (identity, dir) = lease.active();
     let store = Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())?;
+    searching.0.lock().map_err(|e| e.to_string())?.bind(dir)?;
     marked(&searching.0, &store, &peer_id)
 }
 
@@ -272,11 +276,14 @@ pub fn contact_new_device(
     let lease = state.lease()?;
     let (identity, dir) = lease.active();
     let store = Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())?;
+    searching.0.lock().map_err(|e| e.to_string())?.bind(dir)?;
     Ok(searching
         .0
         .lock()
         .map_err(|e| e.to_string())?
         .context
+        .lock()
+        .map_err(|e| e.to_string())?
         .state(&store, &peer_id)
         .map_err(|e| e.to_string())?
         .new_device)
@@ -421,7 +428,14 @@ mod tests {
     }
 
     fn begin(cache: &Mutex<ProfileCache>, store: &Store, peer: &str) -> Ticket {
-        cache.lock().unwrap().context.begin(store, peer).unwrap()
+        cache
+            .lock()
+            .unwrap()
+            .context
+            .lock()
+            .unwrap()
+            .begin(store, peer)
+            .unwrap()
     }
 
     fn signed(owner: &Identity, version: u64) -> VerifiedProfile {
@@ -448,7 +462,7 @@ mod tests {
         let current = signed(&bob, 3);
         store.set_verified(&current).unwrap();
         assert!(!marked(&cache, &store, &peer).unwrap());
-        assert!(cache.lock().unwrap().accept_if_current(0, current));
+        assert!(cache.lock().unwrap().accept_if_current(0, current).unwrap());
         assert!(marked(&cache, &store, &peer).unwrap());
         store.clear_verified(&peer).unwrap();
         assert!(!marked(&cache, &store, &peer).unwrap());
@@ -467,7 +481,11 @@ mod tests {
         let peer = bob.peer_id();
         let cache = Mutex::<ProfileCache>::default();
         let current = signed(&bob, 3);
-        cache.lock().unwrap().accept_if_current(0, signed(&bob, 2));
+        cache
+            .lock()
+            .unwrap()
+            .accept_if_current(0, signed(&bob, 2))
+            .unwrap();
 
         let refused = [
             (signed(&carol, 3), "unknownPeer"),
@@ -486,7 +504,7 @@ mod tests {
 
         let dave = Identity::from_secret(&[4; 32]);
         let ticket = begin(&cache, &store, &dave.peer_id());
-        cache.lock().unwrap().clear();
+        cache.lock().unwrap().clear().unwrap();
         assert_eq!(
             mark(&cache, ticket, &store, signed(&dave, 1)),
             Err("notConnected".into())
@@ -526,6 +544,8 @@ mod tests {
             .lock()
             .unwrap()
             .context
+            .lock()
+            .unwrap()
             .accept(dyapp_profile::verify(&tombstone.sign(&bob)).unwrap())
             .unwrap();
         assert!(!marked(&cache, &store, &peer).unwrap());

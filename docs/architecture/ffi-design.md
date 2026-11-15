@@ -216,12 +216,18 @@ first; later live-only replies cannot revive that held terminal authority. Searc
 still fail ordinary-account authorization. Without a tombstone the highest observed version wins;
 answering seeds may conceal other records. Missing nodes and missing valid profiles are separate
 notConnected/unavailable failures. All target operations reuse canonical private-peer validation.
-Desktop search/profile storage now uses the same core Context inside its existing epoch/photo
-cache. Clearing that cache also invalidates core comparison tickets. Tauri confirmation captures
-a core ticket and active settings under the cache guard, fetches through the common multi-seed
-selector and commits through Context; mark/device-notice reads also use core state. Canonical
-directory-registry integration remains planned. Core Store-based unverify and device
-acknowledgement are shared by Session and Tauri; these local actions require no MLS initialization.
+Desktop search/profile storage retains the canonical directory's shared core Context through
+SearchState and each worker's cache handle. The cache module in clients/desktop/search/cache.rs
+binds before identity-bound work and compares the core Generation as well as its local epoch.
+External activation therefore rejects old results before a rebind; rebinding observes the new
+generation and discards old photos. Epoch counters fail closed at exhaustion instead of wrapping.
+Clearing the cache also invalidates core comparison tickets. Tauri confirmation captures a ticket
+and active settings under the shared guard, fetches through the common multi-seed selector and
+commits through Context; mark/device-notice reads also use core state. Photo-cache callbacks hold
+the shared guard through admission/read, including the identity-leased byte-response command.
+Lock order is desktop cache, checker state when needed, then shared context; activation releases
+the shared guard before invoking Checks, then rebinds after its result. Core Store-based unverify
+and acknowledgement are shared by Session and Tauri without MLS initialization.
 Native ProfileSearcher workers now retain this shared context for search and cached contact names.
 Bulk display fetch holds its guard from active-network loading through cache admission; it remains
 a display helper and cannot authorize a safety-number confirmation.

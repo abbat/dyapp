@@ -87,9 +87,10 @@ pub async fn refresh_contact(
     };
     if let Ok(verified) = node.get_profile(peer).await {
         if let Ok(mut shared) = cache.lock() {
-            shared.accept_if_current(epoch, verified.clone());
+            if let Ok(true) = shared.accept_if_current(epoch, verified.clone()) {
+                let _ = cached.accept(verified);
+            }
         }
-        let _ = cached.accept(verified);
     }
 }
 
