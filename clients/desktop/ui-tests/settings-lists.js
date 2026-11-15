@@ -32,7 +32,7 @@
     });
     try {
       await ready.collectionOldReloadStarted();
-      appApi.identityGeneration += 1;
+      appBindings.identityGeneration += 1;
       document.dispatchEvent(new Event('dyapp:identity-change'));
       current = beginRefresh('new', row, newGate);
       await ready.collectionCurrentReloadStarted();
@@ -55,12 +55,12 @@
     }
   };
   const checkRefreshOwner = async (row, check) => {
-    const generation = appApi.identityGeneration;
+    const generation = appBindings.identityGeneration;
     try {
       openSettings('blocked');
       for (const outcome of ['resolve', 'reject']) await checkRefreshEpoch(outcome, row, check);
     } finally {
-      appApi.identityGeneration = generation;
+      appBindings.identityGeneration = generation;
       document.dispatchEvent(new Event('dyapp:identity-change'));
     }
   };
