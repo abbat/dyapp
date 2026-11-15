@@ -78,11 +78,8 @@ impl Timer {
                 self.background_at = None;
                 self.interaction_at = now_ms;
             }
-            Event::Interaction => {
-                if self.background_at.is_none() && !self.locked {
-                    self.interaction_at = now_ms;
-                }
-            }
+            // Background grace uses background_at; recording input never clears the lock.
+            Event::Interaction => self.interaction_at = now_ms,
             Event::Unlocked => {
                 if !self.enabled || self.background_at.is_some() {
                     return Err(Error::NotForeground);
@@ -129,7 +126,6 @@ impl Timer {
         }
         self.observed_at = now_ms;
         if self.enabled
-            && !self.locked
             && now_ms
                 .checked_sub(self.start())
                 .is_none_or(|elapsed| elapsed >= self.limit())

@@ -44,6 +44,36 @@ fn foreground_interaction_resets_idle_but_cannot_revive_an_expired_session() {
 }
 
 #[test]
+fn delayed_callbacks_lock_after_both_deadlines_without_requiring_an_exact_tick() {
+    for (background_at, late_at) in [(None, 301_001), (Some(2_000), 62_001)] {
+        let mut timer = Timer::new(true, 1_000);
+        timer.apply(Event::Unlocked, 1_000).unwrap();
+        if let Some(background_at) = background_at {
+            timer.apply(Event::Background, background_at).unwrap();
+        }
+        let expired = timer.apply(Event::Interaction, late_at).unwrap();
+        assert!(expired.locked);
+        assert_eq!(expired.remaining_ms, None);
+        assert!(timer.apply(Event::Foreground, late_at).unwrap().locked);
+    }
+}
+
+#[test]
+fn background_input_does_not_extend_grace() {
+    let mut timer = Timer::new(true, 1_000);
+    timer.apply(Event::Unlocked, 1_000).unwrap();
+    timer.apply(Event::Background, 1_000).unwrap();
+    assert_eq!(
+        timer
+            .apply(Event::Interaction, 60_999)
+            .unwrap()
+            .remaining_ms,
+        Some(1)
+    );
+    assert!(timer.snapshot(61_000).locked);
+}
+
+#[test]
 fn disabled_mode_enrollment_and_authorized_clear_keep_existing_behavior() {
     let mut timer = Timer::new(false, 1_000);
     assert!(!timer.snapshot(1_000).locked);

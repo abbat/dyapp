@@ -1182,8 +1182,9 @@ The boundary is **not** secure today; see
   The existing verifier-only API does not store state.
 - Core `app_lock::timer` owns ephemeral app-session deadlines: 60 seconds in the background and
   five minutes of foreground inactivity. It applies expiration before interaction or foreground
-  events, starts protected fresh processes locked, rejects backwards monotonic event clocks and
-  uses checked elapsed arithmetic. Platforms supply monotonic milliseconds and authorized events;
+  events (including callbacks arriving after the deadline), starts protected fresh processes locked,
+  rejects backwards monotonic event clocks and uses checked elapsed arithmetic. Platforms supply
+  monotonic milliseconds and authorized events;
   remaining time is absent while disabled or locked. Common `MobileAppLockTimer` serializes the
   core state and projects `MobileAppLockEvent` and `MobileAppLockSnapshot`; it owns no clock,
   credential or scheduler. Android `AppLockLifecycle` delegates events and reads to this handle;
