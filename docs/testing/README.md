@@ -33,6 +33,8 @@ These rules apply to every new or modified test:
 - Prefer semantic controls and explicit application state over incidental size, color or animation
   properties. If a visual or timing property is the contract under test, control its environment
   explicitly and keep unrelated properties out of the readiness condition.
+  Keep load completion distinct from control enablement: a completed read can legitimately leave
+  a control disabled. Expose the completed model state when permission or editability differs.
 - Cover meaningful failure and cancellation paths. Explain any unavoidable dependence on external
   timing and bound it with a diagnostic deadline rather than a guessed wait.
 

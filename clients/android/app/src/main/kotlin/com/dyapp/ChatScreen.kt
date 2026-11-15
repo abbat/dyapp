@@ -34,6 +34,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -43,6 +44,9 @@ import uniffi.dyapp.ChatHistory
 import uniffi.dyapp.ChatMessage
 import uniffi.dyapp.ChatState
 import uniffi.dyapp.ContactNameView
+
+/** Snapshot completion is independent of whether that conversation permits composing. */
+internal val chatHistoryStateKey = SemanticsPropertyKey<ChatState>("ChatHistoryState")
 
 private const val STATUS_TAG = "chat-status"
 private const val META_SEPARATOR = " | "
@@ -212,7 +216,9 @@ private fun ChatThread(me: String, history: ChatHistory?, form: ChatForm, modifi
         if (messages.isNotEmpty()) list.scrollToItem(messages.lastIndex + if (cleared) 1 else 0)
     }
     LazyColumn(
-        modifier.fillMaxWidth().testTag("chat-thread"),
+        modifier.fillMaxWidth().testTag("chat-thread").semantics {
+            history?.let { this[chatHistoryStateKey] = it.state }
+        },
         state = list,
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),

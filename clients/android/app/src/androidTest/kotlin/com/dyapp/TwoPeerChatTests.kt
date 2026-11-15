@@ -48,6 +48,27 @@ private fun ComposeTestRule.taggedBounds() = runCatching {
     ).fetchSemanticsNodes().take(40).map { "${it.config[SemanticsProperties.TestTag]}:${it.boundsInRoot}" }
 }.getOrNull()
 
+private fun ComposeTestRule.awaitOpenChatSnapshot() {
+    val thread = awaitNode(hasTestTag("chat-thread") and SemanticsMatcher.keyIsDefined(chatHistoryStateKey))
+    val state = thread.fetchSemanticsNode().config[chatHistoryStateKey]
+    check(state == uniffi.dyapp.ChatState.OPEN) { "Chat snapshot state is $state" }
+    awaitNode(hasTestTag("chat-input") and isEnabled())
+}
+
+private fun ownProcessChatThreadStacks(): String {
+    // Taking another native admission could block the failure diagnostic itself.
+    val relevant = { frame: StackTraceElement ->
+        frame.className.startsWith("com.dyapp.") || frame.className.startsWith("uniffi.dyapp.")
+    }
+    val threads = Thread.getAllStackTraces().entries.filter { (_, frames) ->
+        frames.any(relevant)
+    }.sortedBy { it.key.name }
+    val summary = threads.take(16).joinToString { (thread, frames) ->
+        "${thread.name}:${thread.state} " + frames.filter(relevant).take(8).joinToString()
+    }
+    return "threads=${threads.size} showing=${minOf(16, threads.size)} $summary"
+}
+
 private fun ComposeTestRule.reopenSharedCard(peer: TestPeer, me: String, card: SemanticsMatcher) {
     var stage = "share destination action"
     runCatching {
@@ -55,8 +76,8 @@ private fun ComposeTestRule.reopenSharedCard(peer: TestPeer, me: String, card: S
         stage = "chat route"
         awaitNode(hasTestTag("chat"))
         stage = "loaded chat"
-        // A shell exists before IO finishes; enabled composing observes the loaded snapshot.
-        awaitNode(hasTestTag("chat-input") and isEnabled())
+        // Observe the completed snapshot before testing its separate composing policy.
+        awaitOpenChatSnapshot()
         stage = "shared card in loaded chat"
         onNodeWithTag("chat-thread").performScrollToNode(card)
         // Both messages contain this link; reveal the currently composed match before tapping.
@@ -72,7 +93,8 @@ private fun ComposeTestRule.reopenSharedCard(peer: TestPeer, me: String, card: S
                 .takeLast(8)
         }.getOrNull()
         throw AssertionError(
-            "Shared card $stage: tags=${taggedBounds()}, thread=$thread, status=$status, delivered=$received",
+            "Shared card $stage: tags=${taggedBounds()}, thread=$thread, status=$status, delivered=$received; " +
+                ownProcessChatThreadStacks(),
             failure
         )
     }
@@ -130,7 +152,7 @@ class TwoPeerChatTests {
                 matchFromLikedYou(peer)
                 compose.onNodeWithTag("view-message-match").performClick()
                 // Navigation renders before the IO history load enables the composer.
-                compose.waitUntil(CHECK_WAIT_MS) { compose.shown(hasTestTag("chat-input") and isEnabled()) }
+                compose.awaitOpenChatSnapshot()
                 compose.onNodeWithTag("chat-input").performTextInput("First draft")
                 compose.onNodeWithTag("chat-send").performClick()
                 compose.waitForThreadText("First draft")

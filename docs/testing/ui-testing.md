@@ -420,9 +420,11 @@ app cache, its own Keystore alias, the same node and a published profile. The pe
 the app opens it from its Chats request row and replies, and the peer receives the reply. In a
 second test the peer likes the app's identity; the app opens it from Liked you, likes back to
 match, messages, edits and deletes the text, and the peer receives each change; the app then
-blocks the peer and Chats shows the block note. After opening the match's chat, the test waits
-for the composer's enabled semantics with a deadline: navigation can finish before the IO history
-load, and Compose idleness alone does not cover that load.
+blocks the peer and Chats shows the block note. Opening a matched chat or returning from profile
+sharing first awaits the history's explicit state semantics, then asserts the expected Open state
+and waits separately for composing to be enabled. Navigation and disabled controls do not prove
+snapshot completion. On a shared-card failure the test retains a bounded own-process JVM stack
+summary; it does not request another app-native admission while diagnosing a blocked load.
 Android publishes local chat history before sending network read receipts. Refreshes coalesce behind
 an active local read instead of cancelling it; changing the conversation cancels its presentation
 owner, so a late native result cannot update the new conversation. `ChatReadEffectsTests` control

@@ -1,6 +1,8 @@
 package com.dyapp
 
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -63,6 +65,9 @@ class ChatScreenTests {
     @Test
     fun aSentRequestWaitsForTheReplyWithTheComposerClosed() {
         show(ChatState.REQUEST_SENT, listOf(message("me", "hello", ChatDelivery.PENDING)))
+        compose.onNodeWithTag(
+            "chat-thread"
+        ).assert(SemanticsMatcher.expectValue(chatHistoryStateKey, ChatState.REQUEST_SENT))
         compose.onNodeWithTag("chat-first-notice").assertExists()
         compose.onNodeWithText(string(R.string.chat_first_wait)).assertExists()
         compose.onNodeWithText("hello").assertExists()
@@ -104,6 +109,9 @@ class ChatScreenTests {
     @Test
     fun aChatStillLoadingTakesNoText() {
         show(null)
+        compose.onNodeWithTag(
+            "chat-thread"
+        ).assert(SemanticsMatcher("not loaded") { chatHistoryStateKey !in it.config })
         compose.onNodeWithTag("chat-input").assertIsNotEnabled()
         compose.onNodeWithTag("chat-send").assertIsNotEnabled()
     }
