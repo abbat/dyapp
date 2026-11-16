@@ -10,6 +10,13 @@ fn check_marker(
     peer: &str,
 ) {
     match failure {
+        Failure::BlockPending => {
+            let identity = keys.open(destination, None).unwrap().unwrap();
+            let store = Store::open(&destination.dir.join("client.db"), &identity).unwrap();
+            assert_eq!(store.link_pending().unwrap(), None);
+            assert!(!store.is_linked_device().unwrap());
+            assert!(destination.dir.join("device.key").is_file());
+        }
         Failure::BlockReady => {
             assert_eq!(
                 fs::read(destination.dir.join("state.tmp")).unwrap(),
@@ -60,6 +67,7 @@ fn known_destination_failures_report_the_exact_slot_without_claiming_rollback() 
     for (failure, expected_state, stored_state) in [
         (Failure::Wrap, State::Pending, false),
         (Failure::BlockStore, State::Pending, false),
+        (Failure::BlockPending, State::Pending, false),
         (Failure::BlockReady, State::Pending, true),
         (Failure::BlockSelection, State::Ready, true),
     ] {
@@ -83,6 +91,9 @@ fn known_destination_failures_report_the_exact_slot_without_claiming_rollback() 
             panic!("a reserved destination must be reported");
         };
         assert_ne!(detail, "");
+        if matches!(failure, Failure::BlockPending) {
+            assert!(detail.contains("pending insert denied"), "{detail}");
+        }
         let slots = registry.list().unwrap();
         assert_eq!(slots.len(), 2);
         let destination = slots.iter().find(|slot| slot.id == slot_id).unwrap();

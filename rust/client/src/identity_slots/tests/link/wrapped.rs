@@ -14,6 +14,7 @@ pub(super) enum Failure {
     PersistedMismatch,
     Existing,
     BlockStore,
+    BlockPending,
     BlockReady,
     BlockSelection,
     Panic,
@@ -32,6 +33,19 @@ impl ChatKeyStore for WrappedKeys {
                     fs::write(slot.dir.join("device.key"), b"existing device").unwrap();
                 }
                 Some(Failure::BlockStore) => fs::create_dir(slot.dir.join("client.db")).unwrap(),
+                Some(Failure::BlockPending) => {
+                    let identity = self.open(slot, None).unwrap().unwrap();
+                    let path = slot.dir.join("client.db");
+                    drop(crate::store::Store::open(&path, &identity).unwrap());
+                    rusqlite::Connection::open(path)
+                        .unwrap()
+                        .execute_batch(
+                            "CREATE TRIGGER `reject_pending` BEFORE INSERT ON `settings`
+                         WHEN NEW.`key` = 'link_pending'
+                         BEGIN SELECT RAISE(ABORT, 'pending insert denied'); END;",
+                        )
+                        .unwrap();
+                }
                 Some(Failure::BlockReady) => {
                     fs::write(slot.dir.join("state.tmp"), b"retained").unwrap();
                 }
