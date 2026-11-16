@@ -3,6 +3,11 @@ import XCTest
 // XCUIApplication is main-actor isolated.
 @MainActor
 final class ProfileUITests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        continueAfterFailure = false
+    }
+
     /// An optional birth part survives restart; failed publishes show localized errors and ask for
     /// new confirmations; a later launch reuses the proof and shows the signed loopback readback.
     func testProfileDraftRestartFailedPublishAndSignedReadback() {

@@ -6,6 +6,11 @@ final class AppLockUITests: XCTestCase {
     private let pin = "123456"
     private let slotRoot = "--ui-test-slot-root=\(UUID().uuidString)"
 
+    override func setUp() {
+        super.setUp()
+        continueAfterFailure = false
+    }
+
     func testSkipOpensStartScreen() {
         let app = launch(["--app-lock-new"])
         app.buttons["lock-skip"].tap()

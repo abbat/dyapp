@@ -34,7 +34,8 @@ native iOS CI. `reveal` recalculates the form viewport and noneditable accessibi
 for every completed native drag, resets its failure deadline only after changed geometry, and
 rejects repeated/no-progress states. Switch helpers await the actual native control's enabled and
 hittable state, tap once, and observe the required value; publication never blindly toggles an
-already-confirmed value. Chat journeys stop at their first failed preparation assertion.
+already-confirmed value. All native iOS UI journeys stop at their first failed assertion;
+subsequent interactions cannot turn failed setup into a long chain of unrelated failures.
 Native execution remains CI-only; Swift lint does not establish simulator behaviour.
 
 Linux, Windows and macOS injected desktop smoke suites require the opt-in Cargo feature `ui-smoke`.

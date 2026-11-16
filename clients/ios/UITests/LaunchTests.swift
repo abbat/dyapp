@@ -3,6 +3,11 @@ import XCTest
 // XCUIApplication is main-actor isolated.
 @MainActor
 final class LaunchTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        continueAfterFailure = false
+    }
+
     func testLaunchRenderAndTerminate() {
         let app = unlockedApp()
         app.launch()

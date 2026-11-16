@@ -4,6 +4,11 @@ import XCTest
 /// replace an identity the person still expects to get back.
 @MainActor
 final class IdentityRecoveryTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        continueAfterFailure = false
+    }
+
     func testLegacyRootIdentityKeepsItsPeerId() { assertStablePeerId("legacy") }
 
     func testMalformedPointerOpensTheSoleSlot() { assertStablePeerId("malformed-pointer") }

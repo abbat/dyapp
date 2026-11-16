@@ -2,6 +2,11 @@ import XCTest
 
 @MainActor
 final class UpdatesSectionTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        continueAfterFailure = false
+    }
+
     func testUpdatesStayDisabledUntilTheFeedIsPublished() {
         let app = XCUIApplication()
         app.launchArguments = ["--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)"]

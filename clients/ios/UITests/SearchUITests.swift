@@ -9,6 +9,11 @@ final class SearchUITests: XCTestCase {
     private let heightInvalid = "Enter a height range"
     private let mutualUnavailable = "Mutual search needs"
 
+    override func setUp() {
+        super.setUp()
+        continueAfterFailure = false
+    }
+
     /// A sample from the local node offers its filters; bad ranges and a mutual search without a
     /// saved profile name what to fix and offer no retry, and a valid range still searches.
     func testSampleOffersFiltersThatRefuseBadRanges() {
