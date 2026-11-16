@@ -79,6 +79,20 @@ mod tests {
     }
 
     #[test]
+    fn a_poisoned_view_cannot_mint_or_admit_generations() {
+        let view = ProfileView::default();
+        let old = view.current().unwrap().generation();
+        let unwound = std::panic::catch_unwind(|| {
+            let _guard = view.transition().unwrap();
+            panic!("controlled transition unwind");
+        });
+        assert!(unwound.is_err());
+        assert!(view.current().is_err());
+        assert!(view.transition().is_err());
+        assert!(view.admit(&old).is_err());
+    }
+
+    #[test]
     fn another_view_cannot_admit_a_token_and_failed_transitions_still_invalidate() {
         let view = ProfileView::default();
         let old = view.current().unwrap().generation();
