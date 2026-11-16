@@ -236,4 +236,4 @@ fn link_network<T: Send>(
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

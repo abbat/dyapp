@@ -1,6 +1,6 @@
 mod behavior;
 mod completion;
-mod server;
+pub(crate) mod server;
 
 use super::*;
 use crate::slot_registry_tests::{root, Credentials, Wrapping};

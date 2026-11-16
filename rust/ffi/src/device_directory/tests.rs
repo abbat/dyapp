@@ -1,3 +1,5 @@
+mod wire;
+
 use super::*;
 use crate::slot_registry_tests::{root, Credentials, Wrapping};
 use crate::{MobileSlotLayout, MobileSlotSelection};

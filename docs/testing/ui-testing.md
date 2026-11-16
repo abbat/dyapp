@@ -477,6 +477,10 @@ capability outcomes. This cleanup extension needs its own actual CI runtime proo
 the old source cannot replace the new screen. Batch cases retain a matching completion even when a
 different slot completed later, preserve its durability diagnostic, and acknowledge only the observed
 batch without dropping newer events. These presentation cases do not prove actual JNI cleanup.
+The native directory protocol regression gates the existing real signed-profile responder at its
+request callback. The chat lock must remain admitted until response completion, then become available
+while the idle handle still exists. A newer empty remote directory leaves the editable draft, package
+stock, publication count and platform credentials unchanged; every transition uses completion signals.
 `ChatStickerHistoryTests` exercise the existing mixed-history fallback through `MediaChatContent`
 with adjacent text and both own/peer stickers, in English and Russian, under the production
 `DYAppTheme` typography and root insets. Literal long pack names are located through semantic

@@ -16,13 +16,13 @@ use std::sync::{
 };
 use std::time::Duration;
 
-pub(super) type Callback = Arc<Mutex<Option<Box<dyn FnOnce() + Send>>>>;
+pub(crate) type Callback = Arc<Mutex<Option<Box<dyn FnOnce() + Send>>>>;
 
-pub(super) struct Packages {
-    pub(super) records: Mutex<Vec<SignedRecord>>,
-    pub(super) ordinary_status: AtomicI32,
-    pub(super) fallback_status: AtomicI32,
-    pub(super) on_write: Callback,
+pub(crate) struct Packages {
+    pub(crate) records: Mutex<Vec<SignedRecord>>,
+    pub(crate) ordinary_status: AtomicI32,
+    pub(crate) fallback_status: AtomicI32,
+    pub(crate) on_write: Callback,
 }
 impl Default for Packages {
     fn default() -> Self {
@@ -42,17 +42,17 @@ struct Replies {
     packages: Arc<Packages>,
     profile_writes: Arc<AtomicUsize>,
 }
-pub(super) struct Server {
-    pub(super) network: dyapp_identity::network::Network,
-    pub(super) record: Arc<Mutex<SignedRecord>>,
-    pub(super) on_read: Callback,
-    pub(super) packages: Arc<Packages>,
-    pub(super) profile_writes: Arc<AtomicUsize>,
+pub(crate) struct Server {
+    pub(crate) network: dyapp_identity::network::Network,
+    pub(crate) record: Arc<Mutex<SignedRecord>>,
+    pub(crate) on_read: Callback,
+    pub(crate) packages: Arc<Packages>,
+    pub(crate) profile_writes: Arc<AtomicUsize>,
     stop: Option<tokio::sync::oneshot::Sender<()>>,
     thread: Option<std::thread::JoinHandle<()>>,
 }
 impl Server {
-    pub(super) fn new(record: SignedRecord) -> Self {
+    pub(crate) fn new(record: SignedRecord) -> Self {
         let replies = Replies {
             record: Arc::new(Mutex::new(record)),
             on_read: Arc::default(),
@@ -80,7 +80,7 @@ impl Server {
         }
     }
 
-    pub(super) fn shutdown(&mut self) {
+    pub(crate) fn shutdown(&mut self) {
         if let Some(stop) = self.stop.take() {
             let _ = stop.send(());
         }
