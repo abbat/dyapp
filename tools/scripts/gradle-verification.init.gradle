@@ -1,0 +1,13 @@
+// Resolve artifacts without compilation, packaging, native code generation or tests.
+gradle.projectsEvaluated {
+    gradle.rootProject.tasks.register('resolveVerificationArtifacts') {
+        doLast {
+            gradle.rootProject.allprojects.each { project ->
+                project.configurations.findAll { it.canBeResolved }.each { configuration ->
+                    logger.lifecycle("Resolving ${project.path}:${configuration.name}")
+                    configuration.resolve()
+                }
+            }
+        }
+    }
+}

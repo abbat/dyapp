@@ -1,0 +1,2 @@
+configurations { usable }
+dependencies { usable files(rootProject.file('build.gradle')) }

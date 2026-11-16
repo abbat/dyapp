@@ -1,0 +1,24 @@
+configurations {
+    usable
+    declarations { canBeResolved = false }
+}
+dependencies {
+    usable files('settings.gradle')
+    declarations 'invalid.fixture:must-not-resolve:1'
+}
+tasks.register('compileFixture') {
+    doLast { throw new GradleException('Compilation must not run') }
+}
+gradle.projectsEvaluated {
+    tasks.named('resolveVerificationArtifacts') {
+        doLast {
+            assert configurations.usable.state.toString() == 'RESOLVED'
+            assert project(':child').configurations.usable.state.toString() == 'RESOLVED'
+            assert configurations.declarations.state.toString() == 'UNRESOLVED'
+            assert !tasks.named('compileFixture').get().state.executed
+            assert configurations.usable.files*.name == ['settings.gradle']
+            assert project(':child').configurations.usable.files*.name == ['build.gradle']
+            println 'OK root and child artifacts; nonresolvable configurations and compilation skipped'
+        }
+    }
+}

@@ -149,7 +149,24 @@ jose4j, Bouncy Castle and jdom2, and removed old httpclient and Kotlin plugin en
 not in the app runtime.
 
 Dependabot does not update the verification file, so a Gradle replacement-target update PR fails
-the Android build until the file is regenerated on its branch. The old requested versions must
+the Android build until the file is regenerated on its branch. Run the manual
+`gradle-verification` GitHub Actions workflow with `source_ref` set to the reviewed PR head SHA:
+
+```bash
+gh workflow run gradle-verification.yml -f source_ref=<reviewed-head-sha>
+```
+
+It uses the existing pinned Android Docker toolchain and an empty Gradle cache, resolves every
+resolvable project configuration without compiling or packaging the app, and uploads
+`gradle-verification`: candidate XML, before/after diff, exact source SHA, checksum and resolution
+log. It neither commits the candidate nor merges the PR. Review new coordinates and publisher
+artifacts before committing the XML to the dependency branch, then require ordinary CI; successful
+generation alone does not prove compatibility. Only dispatch reviewed same-repository source:
+Gradle configuration executes its build scripts. The workflow has read-only repository permissions,
+no persisted checkout credentials and no cache writes. Configuration resolution does not cover
+artifacts downloaded only inside task actions; ordinary CI may identify additional entries.
+
+For local regeneration, the old requested versions must
 stay fixed in substitution rules; changing them to the replacement versions reintroduces the
 vulnerable artifacts. Delete the file, run the image build's tasks online in the current image
 with an empty Gradle cache (a cached artifact skips the BOMs and parent POMs that a fresh download
