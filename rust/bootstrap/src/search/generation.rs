@@ -7,6 +7,43 @@ use super::{
     Candidate, Connection, Mutex, OpenFlags, OptionalExtension, Ordering, Overflow, Path, PathBuf,
     Result, SearchIndex, Writer, INDEX_VERSION, SCHEMA,
 };
+#[cfg(test)]
+use std::cell::RefCell;
+
+#[cfg(test)]
+thread_local! {
+    static READER_OPEN_HOOK: RefCell<Option<Box<dyn FnMut() -> bool>>> = const { RefCell::new(None) };
+}
+
+#[cfg(test)]
+pub(super) struct ReaderOpenHook;
+
+#[cfg(test)]
+impl Drop for ReaderOpenHook {
+    fn drop(&mut self) {
+        READER_OPEN_HOOK.with(|hook| *hook.borrow_mut() = None);
+    }
+}
+
+#[cfg(test)]
+pub(super) fn fail_reader_opens(hook: impl FnMut() -> bool + 'static) -> ReaderOpenHook {
+    READER_OPEN_HOOK.with(|slot| *slot.borrow_mut() = Some(Box::new(hook)));
+    ReaderOpenHook
+}
+
+fn open_reader(path: &Path) -> rusqlite::Result<Connection> {
+    #[cfg(test)]
+    if READER_OPEN_HOOK.with(|hook| hook.borrow_mut().as_mut().is_some_and(|hook| hook())) {
+        return Err(rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CANTOPEN),
+            Some("injected reader open failure".into()),
+        ));
+    }
+    Connection::open_with_flags(
+        path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+}
 
 /// The active generation and its idle read-only connections.
 pub(super) struct Pool {
@@ -271,10 +308,7 @@ impl SearchIndex {
                 }
                 (pool.path.clone(), pool.version)
             };
-            match Connection::open_with_flags(
-                &path,
-                OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
-            ) {
+            match open_reader(&path) {
                 Ok(db) => {
                     return Ok(Reader {
                         index: self,

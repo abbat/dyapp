@@ -36,6 +36,62 @@ fn mark(index: &SearchIndex, keys: impl IntoIterator<Item = u32>) {
 }
 
 #[test]
+fn reader_retries_one_failed_open_and_reuses_the_pooled_connection() {
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    let index = index();
+    let active = index.active_path();
+    let backup = active.with_extension("retry-backup");
+    std::fs::rename(&active, &backup).unwrap();
+    let attempts = Rc::new(Cell::new(0));
+    let observed = Rc::clone(&attempts);
+    let _hook = fail_reader_opens(move || {
+        observed.set(observed.get() + 1);
+        if observed.get() == 1 {
+            std::fs::rename(&backup, &active).unwrap();
+            return true;
+        }
+        false
+    });
+    let reader = index.reader().unwrap();
+    assert_eq!(attempts.get(), 2);
+    drop(reader);
+    assert_eq!(lock(&index.readers).unwrap().conns.len(), 1);
+    let pooled = index.reader().unwrap();
+    assert_eq!(attempts.get(), 2);
+    drop(pooled);
+    assert_eq!(lock(&index.readers).unwrap().conns.len(), 1);
+}
+
+#[test]
+fn reader_returns_an_error_after_a_persistent_open_failure() {
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    let index = index();
+    let active = index.active_path();
+    let backup = active.with_extension("failed-backup");
+    std::fs::rename(&active, &backup).unwrap();
+    let attempts = Rc::new(Cell::new(0));
+    let observed = Rc::clone(&attempts);
+    {
+        let _hook = fail_reader_opens(move || {
+            observed.set(observed.get() + 1);
+            assert!(observed.get() <= 2, "reader retried more than once");
+            true
+        });
+        let error = index.reader().err().unwrap().to_string();
+        assert!(error.contains("injected reader open failure"), "{error}");
+        assert_eq!(attempts.get(), 2);
+        assert!(lock(&index.readers).unwrap().conns.is_empty());
+    }
+    std::fs::rename(backup, active).unwrap();
+    drop(index.reader().unwrap());
+    assert_eq!(lock(&index.readers).unwrap().conns.len(), 1);
+}
+
+#[test]
 fn a_second_open_of_the_directory_is_refused() {
     let index = index();
     let error = reopen(&index.path, 1).err().unwrap().to_string();

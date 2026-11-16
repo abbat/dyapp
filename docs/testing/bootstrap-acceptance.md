@@ -272,7 +272,7 @@ live in `.cargo/mutants.toml`.
 | `node/replicas*` | 72 | `node::tests::replica_mutants` and `node::replicas::{puts,finish,queue}` cover pending maps, repair admission, queue dispatch, shard placement and read completion; scoped mutation CI verifies the remainder |
 | `rate_limit.rs` | 7 | Existing quota/pruning/ban boundaries plus `memory_sample_expires_exactly_at_its_deadline` |
 | `replication.rs` | 3 | Existing shard-count boundaries plus an invalid manifest-hash length assertion |
-| `search/generation.rs` | 10 | Generation cleanup/stamp/pool/newcomer/size boundaries; disjoint `OpenFlags` XOR excluded; three retry guards in blocking `dyapp-d1er.2` |
+| `search/generation.rs` | 10 | Generation cleanup/stamp/pool/newcomer/size boundaries; disjoint `OpenFlags` XOR excluded; retry success, persistent failure and pool reuse pinned by deterministic open-failure tests; scoped mutation CI verifies the three guards |
 | `service/mailbox.rs` | 9 | Source-group persistence, exact inventory and signal limits, tokened/tokenless isolation, existing cursor and quota tests |
 | `service/media/keeps.rs` | 12 | Pure condition/receipt validation plus current clock/version/hash boundaries; the baseline conditional age guard no longer exists |
 | `service/media/replicas.rs` | 1 | `attachment_admits_the_exact_future_clock_boundary` |
