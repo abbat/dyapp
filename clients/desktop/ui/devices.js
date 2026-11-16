@@ -113,7 +113,6 @@ const showDevices = async (call = invoke) => {
       }
       return;
     }
-    rows.sort((a, b) => Number(b.this) - Number(a.this));
     const text = JSON.stringify(rows);
     if (text !== shownDevices)
       settingsCollectionsController.renderSettingsRows(

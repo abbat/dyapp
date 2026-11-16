@@ -11,7 +11,7 @@ pub struct OwnDevice {
     pub this: bool,
 }
 
-/// Project the directory without changing the saved editable profile.
+/// Project current-device-first rows, preserving other order and the saved editable profile.
 ///
 /// `remote` must come from verified same-owner ordinary readback. An unavailable readback is
 /// `None`; equal or older remote versions do not replace the saved draft's directory. This
@@ -21,13 +21,15 @@ pub fn rows(draft: &Profile, remote: Option<&Profile>, this: &[u8]) -> Vec<OwnDe
     let profile = remote
         .filter(|held| held.version > draft.version)
         .unwrap_or(draft);
-    publish::device_keys(profile)
+    let mut rows: Vec<_> = publish::device_keys(profile)
         .into_iter()
         .map(|key| OwnDevice {
             this: key == this,
             key,
         })
-        .collect()
+        .collect();
+    rows.sort_by_key(|row| !row.this);
+    rows
 }
 
 #[cfg(test)]
@@ -89,16 +91,51 @@ mod tests {
             rows(&local, Some(&remote), &local_device.public_key()),
             vec![
                 OwnDevice {
-                    key: other.public_key().to_vec(),
-                    this: false
-                },
-                OwnDevice {
                     key: local_device.public_key().to_vec(),
                     this: true
+                },
+                OwnDevice {
+                    key: other.public_key().to_vec(),
+                    this: false
                 },
             ]
         );
         assert_eq!((local, remote), before);
+    }
+
+    #[test]
+    fn current_first_preserves_other_devices_order_and_absent_current_keeps_all_rows() {
+        let owner = Identity::generate();
+        let current = Identity::generate();
+        let first = Identity::generate();
+        let second = Identity::generate();
+        let draft = profile(&owner, &current, 5);
+        let others = [profile(&owner, &first, 6), profile(&owner, &second, 6)];
+        let mut remote = others[0].clone();
+        remote.devices.extend(others[1].devices.clone());
+        let absent = vec![
+            OwnDevice {
+                key: first.public_key().to_vec(),
+                this: false,
+            },
+            OwnDevice {
+                key: second.public_key().to_vec(),
+                this: false,
+            },
+        ];
+        assert_eq!(rows(&draft, Some(&remote), &current.public_key()), absent);
+        for position in 0..=remote.devices.len() {
+            let mut held = remote.clone();
+            held.devices.insert(position, draft.devices[0].clone());
+            let before = (draft.clone(), held.clone());
+            let mut expected = vec![OwnDevice {
+                key: current.public_key().to_vec(),
+                this: true,
+            }];
+            expected.extend(absent.clone());
+            assert_eq!(rows(&draft, Some(&held), &current.public_key()), expected);
+            assert_eq!((draft.clone(), held), before);
+        }
     }
 
     #[test]

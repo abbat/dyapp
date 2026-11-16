@@ -96,6 +96,47 @@ fn offline_reads_keep_cached_rows_and_an_idle_handle_does_not_block_profile_chan
 }
 
 #[test]
+fn native_directory_preserves_core_current_first_order_and_saved_draft() {
+    use dyapp_identity::Domain;
+    use dyapp_profile::DeviceCertificate;
+    use prost::Message as _;
+
+    let f = Fixture::new();
+    let other = Identity::generate();
+    let mut cached = f.cached.clone();
+    cached.devices.insert(
+        0,
+        f.slot.key.identity.sign(
+            Domain::DeviceCertificate,
+            DeviceCertificate {
+                device_key: other.public_key().to_vec(),
+                mls_signature_key: Identity::generate().public_key().to_vec(),
+                generation: 1,
+            }
+            .encode_to_vec(),
+        ),
+    );
+    f.store().save_profile_draft(&cached).unwrap();
+    let admitted = f.worker.open().unwrap();
+    let current = admitted.operation.device().public_key().to_vec();
+    drop(admitted);
+    assert_eq!(
+        f.worker.devices(false).unwrap(),
+        vec![
+            MobileOwnDevice {
+                key: current,
+                current: true
+            },
+            MobileOwnDevice {
+                key: other.public_key().to_vec(),
+                current: false
+            },
+        ]
+    );
+    assert_eq!(f.store().profile_draft().unwrap(), Some(cached));
+}
+
+#[test]
 fn consistent_replacement_device_cannot_reuse_the_original_directory_handle() {
     let f = Fixture::new();
     let admitted = f.worker.open().unwrap();

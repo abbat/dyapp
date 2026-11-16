@@ -90,27 +90,27 @@
     const card = document.getElementById('devices');
     const dialog = document.getElementById('disconnect');
     const rows = [
-      { key: [1, 2, 255], this: false },
       { key: [10, 11, 12], this: true },
+      { key: [1, 2, 255], this: false },
     ];
-    const stale = appBindings.showDevices(
-      () =>
-        new Promise((resolve) => {
-          setTimeout(() => resolve([rows[0]]));
-        }),
-    );
+    let finishStale;
+    const pending = new Promise((resolve) => {
+      finishStale = () => resolve([rows[1]]);
+    });
+    const stale = appBindings.showDevices(() => pending);
     const list = (command) => {
       if (command !== 'list_devices') throw new Error(`unexpected ${command}`);
       return Promise.resolve(structuredClone(rows));
     };
-    return { card, dialog, stale, list };
+    return { card, dialog, stale, list, finishStale };
   };
   const checkDeviceRows = async (fixture) => {
-    const { card, stale, list } = fixture;
+    const { card, stale, list, finishStale } = fixture;
     await appBindings.showDevices(() => Promise.resolve([]));
     if (!card.hidden) throw new Error('an unpublished identity shows Devices');
     await openArea('settings', 'devices');
     await appBindings.showDevices(list);
+    finishStale();
     await stale;
     const shownKeys = [...document.querySelectorAll('#devices-list code')].map(
       (key) => key.textContent,
