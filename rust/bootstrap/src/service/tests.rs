@@ -5,6 +5,8 @@ use super::*;
 use dyapp_identity::Identity;
 use dyapp_profile::Profile;
 
+#[path = "tests/admission.rs"]
+mod admission;
 #[path = "tests/convergence.rs"]
 mod convergence;
 
