@@ -54,6 +54,10 @@ RUN python3 -B /opt/jna-build/tools/scripts/jna_source.py fetch --inputs /app/bu
     python3 -B /opt/jna-build/tools/scripts/jna_native.py \
         --work /app/build/jna-work --ndk "$ANDROID_NDK_HOME" --output /app/build/jna-output
 
+# Host CodeQL traces Gradle directly; export only the same verified bundle, not this toolchain.
+FROM scratch AS jna-native-export
+COPY --from=jna-native-builder /app/build/jna-output/ /
+
 FROM android-base-tools AS android-tools
 COPY --from=jna-native-builder /app/build/jna-output /opt/dyapp/jna-native
 

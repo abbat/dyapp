@@ -63,6 +63,15 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
+      # Reuse Android's pinned builder and layer cache without loading its SDK image into Docker.
+      - name: prepare JNA
+        run: |
+          python3 tools/scripts/run-check.py --log-dir build/check-output docker -- \
+            docker buildx build --file tests/docker/Dockerfile.android-test \
+            --target jna-native-export --cache-from type=gha,scope=dyapp-android-tools \
+            --output type=local,dest=build/codeql-jna-native .
       # uniffiBindgen builds the host core to generate the Kotlin bindings the app compiles against.
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
@@ -86,7 +95,10 @@ jobs:
       - name: build
         working-directory: clients/android
         # Kotlin compilation needs the bindings, not the NDK-built JNI libraries.
-        run: python3 ../../tools/scripts/run-check.py --log-dir ../../build/check-output android-build -- ./gradlew --no-daemon :app:compileDebugKotlin -x cargoNdkDebug
+        run: |
+          python3 ../../tools/scripts/run-check.py --log-dir ../../build/check-output android-build -- \
+            ./gradlew --no-daemon :app:compileDebugKotlin -x cargoNdkDebug \
+            "-Pdyapp.jnaNativeDir=$GITHUB_WORKSPACE/build/codeql-jna-native"
       - name: analyze
         uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
         with:

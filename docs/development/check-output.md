@@ -7,6 +7,8 @@ diagnostics still fail and retain their raw evidence. Nested mapped failures
 produce one frame. Signals and mandatory cleanup failures remain failures.
 Explicit raw-log copies are unbuffered: each captured chunk is available before
 normal shutdown, including small diagnostics from an interrupted process.
+Docker capture recognizes BuildKit terminal `ERROR:` lines, including numbered build-step
+prefixes, so artifact-export failures retain their cause without replaying compiler progress.
 
 The authoritative ID, parser and documentation-anchor map is
 `tools/scripts/check-output.json`; repository validation checks it. The tables below

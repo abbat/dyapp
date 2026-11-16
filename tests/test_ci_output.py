@@ -19,6 +19,22 @@ import json, os, sys
 from pathlib import Path
 status = int(os.environ['FIXTURE_STATUS'])
 Path(os.environ['FIXTURE_ARGS']).write_text(json.dumps(sys.argv[1:]))
+if Path(sys.argv[0]).name == 'docker' and status == 0:
+    output = sys.argv[sys.argv.index('--output') + 1]
+    directory = Path(output.removeprefix('type=local,dest='))
+    directory.mkdir(parents=True)
+    (directory / 'manifest.json').write_text('fixture provenance')
+    (directory / 'jna-fixture-hardened.aar').write_bytes(b'fixture')
+if (Path(sys.argv[0]).name == 'gradlew'
+        and os.environ.get('FIXTURE_REQUIRE_JNA') == '1'):
+    argument = next(arg for arg in sys.argv
+                    if arg.startswith('-Pdyapp.jnaNativeDir='))
+    directory = Path(argument.partition('=')[2])
+    present = (directory / 'manifest.json').is_file()
+    if not directory.is_absolute() or not present:
+        print('FAILURE: Build failed with an exception.')
+        print('* What went wrong:\\nmissing prepared JNA bundle\\n* Try:')
+        sys.exit(9)
 print('passing compiler progress', file=sys.stderr)
 if Path(sys.argv[0]).name == 'cargo':
     print(json.dumps({'reason': 'build-finished', 'success': status == 0}))
@@ -29,6 +45,9 @@ if status:
         print('FAILURE: Build failed with an exception.')
         print('* What went wrong:\\nfixture compilation failed\\n* Try:')
         print('passing compiler help')
+    elif Path(sys.argv[0]).name == 'docker':
+        print('ERROR: failed to solve: fixture compilation failed',
+              file=sys.stderr)
     else:
         prefix = 'error:'
         if Path(sys.argv[0]).name != 'cargo':
@@ -57,7 +76,13 @@ def step(job: str, name: str) -> tuple[str, str]:
 
 
 def execute(
-    root: Path, job: str, name: str, status: int
+    root: Path,
+    job: str,
+    name: str,
+    status: int,
+    *,
+    prepare: bool = False,
+    require_jna: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     binaries = root / "bin"
     binaries.mkdir()
@@ -65,12 +90,23 @@ def execute(
     android.mkdir(parents=True)
     for tool in [
         binaries / "cargo",
+        binaries / "docker",
         binaries / "xcodebuild",
         android / "gradlew",
     ]:
         tool.write_text(TOOL)
         tool.chmod(0o755)
     command, directory = step(job, name)
+    if prepare:
+        preparation, _ = step("kotlin", "prepare JNA")
+        command = "\n".join(
+            [
+                f"cd {shlex.quote(str(root))}",
+                preparation,
+                f"cd {shlex.quote(str(root / directory))}",
+                command,
+            ]
+        )
     return subprocess.run(
         ["/bin/bash", "-e", "-c", command],
         cwd=root / directory,
@@ -79,6 +115,8 @@ def execute(
             PATH=f"{binaries}:{os.environ['PATH']}",
             FIXTURE_STATUS=str(status),
             FIXTURE_ARGS=str(root / "arguments.json"),
+            GITHUB_WORKSPACE=str(root),
+            FIXTURE_REQUIRE_JNA="1" if require_jna else "0",
         ),
         capture_output=True,
         text=True,
@@ -93,6 +131,7 @@ class CiOutputTests(unittest.TestCase):
     ) -> None:
         cases = [
             ("kotlin", "build", "android-build"),
+            ("kotlin", "prepare JNA", "docker"),
             ("swift", "build", "apple-build"),
             ("rust-analysis", "diagnostics", "clippy"),
         ]
@@ -130,7 +169,9 @@ class CiOutputTests(unittest.TestCase):
                             "passing compiler progress", logs[0].read_text()
                         )
                         self.assertIn(
-                            expected_argument[job],
+                            "jna-native-export"
+                            if name == "prepare JNA"
+                            else expected_argument[job],
                             json.loads((root / "arguments.json").read_text()),
                         )
                         if job == "rust-analysis":
@@ -143,6 +184,38 @@ class CiOutputTests(unittest.TestCase):
                                 json.dumps(expected) + "\n",
                             )
                             self.assertNotIn('"reason"', result.stdout)
+
+    def test_kotlin_build_requires_the_exported_jna_directory(self) -> None:
+        workflow = yaml.safe_load((WORKFLOWS / "codeql.yml").read_text())
+        names = [
+            item.get("name") for item in workflow["jobs"]["kotlin"]["steps"]
+        ]
+        self.assertLess(names.index("prepare JNA"), names.index("init"))
+        for prepared in (False, True):
+            with (
+                self.subTest(prepared=prepared),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                root = Path(directory)
+                result = execute(
+                    root,
+                    "kotlin",
+                    "build",
+                    0,
+                    prepare=prepared,
+                    require_jna=True,
+                )
+                self.assertEqual(
+                    result.returncode, 0 if prepared else 9, result.stdout
+                )
+                arguments = json.loads((root / "arguments.json").read_text())
+                self.assertIn(
+                    "-Pdyapp.jnaNativeDir="
+                    + str(root / "build/codeql-jna-native"),
+                    arguments,
+                )
+                if not prepared:
+                    self.assertIn("missing prepared JNA bundle", result.stdout)
 
     def test_every_declared_frontend_has_a_diagnostic_policy(self) -> None:
         policies = json.loads(

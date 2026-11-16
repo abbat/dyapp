@@ -89,6 +89,12 @@ original/prepared AAR hashes, all non-JNI resources and both JNI hashes before c
 prepared bytes. Other AARs pass through. Missing or mismatched prepared input fails
 the build without a fallback to the original JNI library. Local verification can set
 `-Pdyapp.jnaNativeDir=/absolute/prepared/directory`; normal builds use the image path.
+The Kotlin CodeQL job exports only this verified bundle through the Dockerfile's
+`jna-native-export` target into `build/codeql-jna-native` before starting CodeQL tracing.
+Its host Gradle build receives that absolute directory explicitly and applies the same
+provenance checks. It reads Android's layer cache without loading the SDK image or
+replacing hardened JNI with the upstream AAR. Local fixture checks prove step wiring;
+actual export and Kotlin extraction still require the CodeQL CI job.
 The Android unit suite runs `tests/scripts/check-jna-transform.py` against pinned
 Gradle and cached real JNA artifacts: positive resolution, invalid provenance/payloads
 and cache invalidation after a changed prepared artifact. Reports retain the two
