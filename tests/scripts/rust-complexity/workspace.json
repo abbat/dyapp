@@ -186,7 +186,6 @@
   {"path":"rust/p2p-net/src/incoming_groups.rs","function":"mod tests # [cfg (test)]::fn pending_and_established_share_slots_and_failure_or_close_releases_once ","metrics":{"lines":72}},
   {"path":"rust/p2p-net/src/lib.rs","function":"fn admit ","metrics":{"cognitive":28}},
   {"path":"rust/p2p-net/src/lib.rs","function":"fn build_configured_swarm ","metrics":{"lines":195}},
-  {"path":"rust/p2p-net/src/lib.rs","function":"fn generate_pow_keypair ","metrics":{"nesting":6,"nested_regions":1}},
   {"path":"rust/p2p-net/src/lib/media_streams.rs","function":"fn media_stream_limit ","metrics":{"lines":86}},
   {"path":"rust/p2p-net/src/lib/tests.rs","function":"fn client_gets_node_info ","metrics":{"lines":55}},
   {"path":"rust/p2p-net/src/lib/tests.rs","function":"fn configured_media_ids_keep_large_frames_and_stable_counter_slots ","metrics":{"lines":69}},
@@ -198,6 +197,5 @@
   {"path":"rust/p2p-net/src/search_results.rs","function":"impl Filter ::fn conditions ","metrics":{"cognitive":16,"lines":151}},
   {"path":"rust/p2p-net/src/search_results.rs","function":"mod tests # [cfg (test)]::fn a_filter_keeps_the_matching_profile_and_drops_each_mismatch ","metrics":{"lines":72}},
   {"path":"rust/p2p-net/src/search_results.rs","function":"mod tests # [cfg (test)]::fn a_filter_refuses_what_a_node_would_not_take ","metrics":{"lines":77}},
-  {"path":"rust/p2p-net/src/search_results.rs","function":"mod tests # [cfg (test)]::fn every_field_and_op_is_checked ","metrics":{"cognitive":26,"lines":70}},
-  {"path":"rust/p2p-net/src/wire.rs","function":"mod tests # [cfg (test)]::fn concurrent_additions_and_takes_conserve_bytes ","metrics":{"nesting":6,"nested_regions":1}}
+  {"path":"rust/p2p-net/src/search_results.rs","function":"mod tests # [cfg (test)]::fn every_field_and_op_is_checked ","metrics":{"cognitive":26,"lines":70}}
 ]

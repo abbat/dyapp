@@ -221,6 +221,13 @@ mod tests {
         assert_eq!(bytes.totals().0[inventory], [12, 9]);
     }
 
+    fn add_thousand(bytes: &WireBytes, slot: usize) {
+        for _ in 0..1000 {
+            bytes.add(slot, Dir::In, 2);
+            bytes.add(slot, Dir::Out, 3);
+        }
+    }
+
     #[test]
     fn concurrent_additions_and_takes_conserve_bytes() {
         let bytes = WireBytes::default();
@@ -228,14 +235,7 @@ mod tests {
         let mut total = [0, 0];
         std::thread::scope(|scope| {
             let writers: Vec<_> = (0..4)
-                .map(|_| {
-                    scope.spawn(|| {
-                        for _ in 0..1000 {
-                            bytes.add(slot, Dir::In, 2);
-                            bytes.add(slot, Dir::Out, 3);
-                        }
-                    })
-                })
+                .map(|_| scope.spawn(|| add_thousand(&bytes, slot)))
                 .collect();
             for _ in 0..1000 {
                 let counts = bytes.take().0[slot];

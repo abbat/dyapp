@@ -681,23 +681,23 @@ pub fn id_has_pow(peer: &PeerId, bits: u32) -> bool {
 /// # Panics
 /// Panics if a search worker cannot be spawned or panics, or if every worker
 /// returns without a key. Key generation also requires an available OS random source.
+fn pow_worker(found: &AtomicBool, bits: u32) -> Option<Keypair> {
+    while !found.load(Ordering::Relaxed) {
+        let keypair = Keypair::generate_ed25519();
+        if id_has_pow(&keypair.public().to_peer_id(), bits) {
+            found.store(true, Ordering::Relaxed);
+            return Some(keypair);
+        }
+    }
+    None
+}
+
 pub fn generate_pow_keypair(bits: u32) -> Keypair {
     let threads = std::thread::available_parallelism().map_or(1, usize::from);
     let found = AtomicBool::new(false);
     std::thread::scope(|s| {
         let workers: Vec<_> = (0..threads)
-            .map(|_| {
-                s.spawn(|| {
-                    while !found.load(Ordering::Relaxed) {
-                        let keypair = Keypair::generate_ed25519();
-                        if id_has_pow(&keypair.public().to_peer_id(), bits) {
-                            found.store(true, Ordering::Relaxed);
-                            return Some(keypair);
-                        }
-                    }
-                    None
-                })
-            })
+            .map(|_| s.spawn(|| pow_worker(&found, bits)))
             .collect();
         workers
             .into_iter()
