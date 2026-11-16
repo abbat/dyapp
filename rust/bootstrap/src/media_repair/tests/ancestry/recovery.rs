@@ -81,7 +81,10 @@ fn sharded_repair_preserves_present_shards_and_writes_only_the_gap() {
             _ => None,
         })
         .collect::<HashSet<_>>();
-    assert_eq!(written, (1..u32::try_from(shards.len()).unwrap()).collect());
+    assert_eq!(
+        written,
+        (1..u32::try_from(shards.len()).unwrap()).collect::<HashSet<_>>()
+    );
     for (index, shard) in shards.iter().enumerate() {
         assert_eq!(shard_bytes(&target, &hash, index), *shard);
     }

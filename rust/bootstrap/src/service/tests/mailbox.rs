@@ -114,7 +114,10 @@ fn put_group_binds_the_mailbox_and_source_group() {
         payload: vec![0xff],
         ..Default::default()
     };
-    assert!(service.put_group(&malformed, &peer("bad")).is_empty());
+    assert_eq!(
+        service.put_group(&malformed, &peer("bad")),
+        Vec::<u8>::new()
+    );
 }
 
 #[test]

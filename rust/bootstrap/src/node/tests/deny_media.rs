@@ -119,13 +119,28 @@ fn outgoing_media_requests_skip_listed_blobs() {
             ..Default::default()
         })
     ));
-    assert!(listed_media_request(
-        &service,
-        &Request::ShardGet(proto::MediaShardGet {
+    for request in [
+        Request::Get(proto::GetMedia {
             hash: hash.to_vec(),
-            index: 0
-        })
-    ));
+            ..Default::default()
+        }),
+        Request::ShardGet(proto::MediaShardGet {
+            hash: hash.to_vec(),
+            index: 0,
+        }),
+        Request::ShardPut(proto::MediaShardPut {
+            replica: Some(proto::MediaReplicaPut {
+                manifest: Some(proto::MediaManifest {
+                    hash: hash.to_vec(),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+    ] {
+        assert!(listed_media_request(&service, &request));
+    }
     assert!(!listed_media_request(
         &service,
         &Request::ShardGet(proto::MediaShardGet {

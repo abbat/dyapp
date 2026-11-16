@@ -269,7 +269,7 @@ live in `.cargo/mutants.toml`.
 
 | Module | Baseline missed | Review disposition |
 |--------|----------------:|--------------------|
-| `node/replicas*` | 56 | Blocking follow-up `dyapp-d1er.1`; existing node tests must be mapped before adding duplicates |
+| `node/replicas*` | 72 | `node::tests::replica_mutants` and `node::replicas::{puts,finish,queue}` cover pending maps, repair admission, queue dispatch, shard placement and read completion; scoped mutation CI verifies the remainder |
 | `rate_limit.rs` | 7 | Existing quota/pruning/ban boundaries plus `memory_sample_expires_exactly_at_its_deadline` |
 | `replication.rs` | 3 | Existing shard-count boundaries plus an invalid manifest-hash length assertion |
 | `search/generation.rs` | 10 | Generation cleanup/stamp/pool/newcomer/size boundaries; disjoint `OpenFlags` XOR excluded; three retry guards in blocking `dyapp-d1er.2` |

@@ -265,7 +265,9 @@ impl Service {
             return Ok(Err(Status::Invalid));
         }
         let hash = dyapp_identity::sha256(&put.data);
-        let Some(authorization) = media.authorization_at(&hex(&put.owner), &hash, self.clock.timestamp())? else {
+        let Some(authorization) =
+            media.authorization_at(&hex(&put.owner), &hash, self.clock.timestamp())?
+        else {
             return Ok(Err(Status::NotFound));
         };
         let bytes = put.data.len() as u64;

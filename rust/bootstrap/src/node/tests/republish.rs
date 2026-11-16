@@ -9,7 +9,7 @@ mod media;
 #[path = "republish/replies.rs"]
 mod replies;
 
-fn node() -> (Service, Swarm<Behaviour>) {
+pub(super) fn node() -> (Service, Swarm<Behaviour>) {
     let dir = format!(
         "{}/../../build/test-republish-{}",
         env!("CARGO_MANIFEST_DIR"),
@@ -33,7 +33,7 @@ fn node() -> (Service, Swarm<Behaviour>) {
     (service, swarm)
 }
 
-fn add_peer(swarm: &mut Swarm<Behaviour>) {
+pub(super) fn add_peer(swarm: &mut Swarm<Behaviour>) {
     swarm
         .behaviour_mut()
         .kad
@@ -48,7 +48,7 @@ fn remote(swarm: &mut Swarm<Behaviour>) -> PeerId {
     peer
 }
 
-fn hold_mailbox(service: &Service, mailbox: u8) {
+pub(super) fn hold_mailbox(service: &Service, mailbox: u8) {
     let record = dyapp_identity::Identity::generate().sign(
         dyapp_identity::Domain::Envelope,
         proto::Envelope {
@@ -66,7 +66,7 @@ fn hold_mailbox(service: &Service, mailbox: u8) {
 }
 
 /// The time the warmup of a bootstrap finished now has passed.
-fn ready(replicas: &mut Replicas) -> Instant {
+pub(super) fn ready(replicas: &mut Replicas) -> Instant {
     let now = Instant::now();
     replicas.republish.bootstrapped(now);
     now + REPUBLISH_WARMUP

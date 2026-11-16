@@ -91,7 +91,7 @@ fn fail_stage(fixture: &Fixture, records: &[SignedRecord], next: u64) {
         .media()
         .stage_keep_history(
             &records[3],
-            &[records[next as usize - 1].clone()],
+            &[records[usize::try_from(next).unwrap() - 1].clone()],
             fresh(),
             &fixture.service.config.limits,
         )
@@ -130,7 +130,7 @@ fn check(schedule: &[Op]) -> Result<(), TestCaseError> {
                         stage(
                             &destination,
                             &records[3],
-                            &[records[next as usize - 1].clone()]
+                            &[records[usize::try_from(next).unwrap() - 1].clone()]
                         ),
                         Some(next - 1)
                     );
@@ -144,7 +144,7 @@ fn check(schedule: &[Op]) -> Result<(), TestCaseError> {
                         stage(
                             &destination,
                             &records[3],
-                            &[records[version as usize - 1].clone()]
+                            &[records[usize::try_from(version).unwrap() - 1].clone()]
                         ),
                         Some(next)
                     );

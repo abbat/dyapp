@@ -67,6 +67,7 @@ async fn hourly_status_reports_and_resets_wire_bytes_and_failed_gossip_adds_none
 mod deny_media;
 mod groups;
 mod repair;
+mod replica_mutants;
 mod republish;
 
 #[tokio::test]

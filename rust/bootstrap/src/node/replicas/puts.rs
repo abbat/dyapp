@@ -157,3 +157,43 @@ impl Replicas {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn encode_shards_only_above_the_threshold() {
+        let exact = proto::MediaReplicaPut {
+            data: vec![7; 32],
+            ..Default::default()
+        };
+        assert!(matches!(
+            encode(PutRecord::Media(exact), 32).unwrap(),
+            PutRecord::Media(_)
+        ));
+        let over = proto::MediaReplicaPut {
+            data: vec![7; 33],
+            ..Default::default()
+        };
+        let PutRecord::Sharded(replica, shards) = encode(PutRecord::Media(over), 32).unwrap()
+        else {
+            panic!("over-threshold media stayed whole");
+        };
+        assert_eq!(replica.data, Vec::<u8>::new());
+        assert_eq!(
+            replica.manifest.as_ref().unwrap().shard_hashes.len(),
+            shards.len()
+        );
+    }
+
+    #[test]
+    fn whole_media_key_is_the_payload_digest() {
+        let data = b"whole media key".to_vec();
+        let record = PutRecord::Media(proto::MediaReplicaPut {
+            data: data.clone(),
+            ..Default::default()
+        });
+        assert_eq!(key(&record), Ok(dyapp_identity::sha256(&data).to_vec()));
+    }
+}

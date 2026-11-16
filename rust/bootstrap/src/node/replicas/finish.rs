@@ -94,3 +94,60 @@ pub(super) fn missing(answer: &mut Option<MediaRepairAnswer>, hash: &[u8], missi
         response.missing.push(hash.to_vec());
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use dyapp_p2p_net::proto;
+    use std::sync::Arc;
+
+    #[test]
+    fn written_collects_media_digests_and_the_newest_profile() {
+        let data = b"whole media".to_vec();
+        let whole = PendingPut::new(
+            PutRecord::Media(proto::MediaReplicaPut {
+                data: data.clone(),
+                ..Default::default()
+            }),
+            None,
+            false,
+            Instant::now(),
+        );
+        let manifest = proto::MediaManifest {
+            hash: vec![9; 32],
+            ..Default::default()
+        };
+        let sharded = PendingPut::new(
+            PutRecord::Sharded(
+                proto::MediaReplicaPut {
+                    manifest: Some(manifest),
+                    ..Default::default()
+                },
+                Arc::new(Vec::new()),
+            ),
+            None,
+            false,
+            Instant::now(),
+        );
+        let owner = dyapp_identity::Identity::generate();
+        let record = dyapp_profile::Profile {
+            version: 2,
+            ..Default::default()
+        }
+        .sign(&owner);
+        let stale = dyapp_profile::Profile {
+            version: 3,
+            ..Default::default()
+        }
+        .sign(&owner);
+        let mut profile = PendingPut::new(PutRecord::Profile(record), None, false, Instant::now());
+        profile.stale = Some(stale.clone());
+        let mut profiles = Vec::new();
+        let mut media = Vec::new();
+        for put in [&whole, &sharded, &profile] {
+            written(put, &mut profiles, &mut media);
+        }
+        assert_eq!(profiles, [stale]);
+        assert_eq!(media, [dyapp_identity::sha256(&data).to_vec(), vec![9; 32]]);
+    }
+}
