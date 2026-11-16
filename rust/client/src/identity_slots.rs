@@ -16,6 +16,8 @@ mod owned;
 mod remove;
 pub use remove::{Credential, KeyRemover, RemovalOutcome};
 mod operation;
+mod received_link;
+pub use received_link::ReceivedLink;
 mod registry;
 pub use inventory::list;
 pub use keys::KeyReader;

@@ -973,8 +973,15 @@ admission rejection (no installation), reservation failure (inventory may have c
 selector), and interruption in an exactly identified destination. A destination may already be ready
 before final selection; errors never promise pending state or rollback. The received `Linked` record
 is borrowed, so callers retain it until an authoritative completion or explicit recovery disposition.
-Compatibility APIs retain their original error text. The native receiver adapter, retained-state
-recovery and retry admission remain planned.
+Compatibility APIs retain their original error text. Core `ReceivedLink` binds that record and its
+device to the original registry/source and caches one installation receipt. Repeated calls return
+the same outcome without another reservation or selection, even after the cause of failure clears.
+Before entering the writer it stores an unconfirmed receipt; a platform callback unwind therefore
+cannot make the next call retry. That receipt asserts no lifecycle or rollback and requires inventory
+and selection reconciliation.
+A receipt describes its attempt, not the current selection. The record remains owned until explicit
+disposal, which zeroizes the private-state bytes; idle ownership holds no registry operation lease.
+The native receiver adapter, cancellation admission, explicit recovery and retry remain planned.
 
 ## Exported surface
 

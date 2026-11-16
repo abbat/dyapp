@@ -11,6 +11,9 @@ use std::fs;
 /// Installation boundary reached before a link failed; never a rollback or lifecycle assertion.
 #[derive(Debug, thiserror::Error)]
 pub enum LinkFailure {
+    /// No normal result is available. Refresh inventory and selection before recovery.
+    #[error("{0}")]
+    Unconfirmed(String),
     /// Installation did not start, so this attempt reserved no destination.
     #[error("{0}")]
     Admission(String),

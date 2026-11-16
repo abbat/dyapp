@@ -166,6 +166,11 @@ In data-bearing Kotlin enums, UniFFI 0.32.2 emits fieldless variants as singleto
 (for example `ChatPreviewBody.Empty`); payload variants have constructors. Required record
 fields also need updates in hand-built unit/androidTest fixtures and any Swift initializers.
 
+For a mutating foreign callback, record an indeterminate outcome before invoking the writer.
+Computing the first receipt only inside `get_or_insert_with` leaves an operation unattempted if
+the callback unwinds. Reconcile durable state and retain the original outcome instead of silently
+retrying into another destination.
+
 Shared identity operations retain `IdentityOperation` through actual worker completion, including
 caller cancellation. Keep installation node work outside that lease and never upgrade its shared
 registry lock to an exclusive mutation; see the [native contract](../architecture/ffi-design.md#shared-mobile-identity-registry).

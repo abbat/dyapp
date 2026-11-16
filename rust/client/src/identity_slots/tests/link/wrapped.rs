@@ -16,6 +16,7 @@ pub(super) enum Failure {
     BlockStore,
     BlockReady,
     BlockSelection,
+    Panic,
 }
 
 impl ChatKeyStore for WrappedKeys {
@@ -25,6 +26,7 @@ impl ChatKeyStore for WrappedKeys {
         if kind == ChatKeyKind::Device {
             match self.device_failure.get() {
                 Some(Failure::Wrap) => return Err("wrapping denied".into()),
+                Some(Failure::Panic) => panic!("controlled platform unwind"),
                 Some(Failure::Oversized) => return Ok(vec![0; 4_097]),
                 Some(Failure::Existing) => {
                     fs::write(slot.dir.join("device.key"), b"existing device").unwrap();
