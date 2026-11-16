@@ -740,6 +740,13 @@ unchanged. The completion digest alone is not an editable merge base. Protected 
 differences do not by themselves require field review. Confirmation still requires the original device
 certificate in the verified remote directory; owner field choices never restore an unlisted or revoked
 device. Initial adoption without a saved draft and post-prepare edits retain their existing behavior.
+The shared `device_directory::rows` projects public own-device keys and the current-device marker
+without writing editor state. Desktop delegates to it: verified ordinary remote readback is used only
+when strictly newer than the saved draft; absent, equal or older readback retains the cached directory.
+A newer removed profile contributes its empty directory. Callers must verify remote owner/signature
+before projection. The common native list/revoke worker and Android device screen remain planned;
+revocation itself already uses core `publish::revoke_device`, including partial-success retry handling.
+
 `Session::resume_link` consumes an existing session, verifies owner/device and the supplied sealing key
 against its saved device before importing pending state, and reuses the ordinary directory/key-package/
 fallback completion. It never creates credentials or a session. The pending row goes last; on failure,

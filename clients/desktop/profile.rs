@@ -619,16 +619,15 @@ pub async fn devices(
         },
         _ => None,
     };
-    let profile = held
-        .filter(|held| held.version > draft.version)
-        .unwrap_or(draft);
-    Ok(publish::device_keys(&profile)
-        .into_iter()
-        .map(|key| Device {
-            this: key == this,
-            key,
-        })
-        .collect())
+    Ok(
+        dyapp_client::device_directory::rows(&draft, held.as_ref(), this)
+            .into_iter()
+            .map(|device| Device {
+                key: device.key,
+                this: device.this,
+            })
+            .collect(),
+    )
 }
 
 /// Closes the mailbox of the device with the key `device_key` and relists the profile without it;

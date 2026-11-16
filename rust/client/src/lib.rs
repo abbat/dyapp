@@ -14,6 +14,7 @@ pub mod chat_preview;
 pub mod compatibility;
 pub mod contact_notes;
 pub mod contact_verification;
+pub mod device_directory;
 pub mod favorites;
 pub mod forwarding;
 pub mod identity_slots;
