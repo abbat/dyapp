@@ -731,6 +731,17 @@ async fn search_routing_has_its_own_ip_group_limits() {
     assert_eq!(swarm.behaviour_mut().kad.kbuckets().count(), 0);
 }
 
+fn info_response() -> proto::NodeResponse {
+    proto::NodeResponse {
+        status: proto::Status::Ok.into(),
+        info: Some(proto::NodeInfo {
+            max_profile_bytes: 7,
+            ..Default::default()
+        }),
+        ..Default::default()
+    }
+}
+
 #[tokio::test]
 async fn client_gets_node_info() {
     let mut server = build_swarm(Keypair::generate_ed25519(), Mode::Auto).unwrap();
@@ -764,12 +775,7 @@ async fn client_gets_node_info() {
                     )) = event
                     {
                         assert_eq!(got, request);
-                        let response = proto::NodeResponse {
-                            status: proto::Status::Ok.into(),
-                            info: Some(proto::NodeInfo { max_profile_bytes: 7, ..Default::default() }),
-                            ..Default::default()
-                        };
-                        server.behaviour_mut().node.send_response(channel, response).unwrap();
+                        server.behaviour_mut().node.send_response(channel, info_response()).unwrap();
                     }
                 }
                 event = client.select_next_some() => {
@@ -843,21 +849,22 @@ async fn dial_guard_refuses_names_resolving_to_private_ips() {
     }
 }
 
+fn filtered(nets: &[&str]) -> (Swarm<Behaviour>, DialFilter) {
+    let filter = DialFilter::new(nets.iter().map(|net| net.parse().unwrap()).collect());
+    let options = SwarmOptions {
+        dial_filter: filter.clone(),
+        ..SwarmOptions::default()
+    };
+    (
+        build_configured_swarm(Keypair::generate_ed25519(), options).unwrap(),
+        filter,
+    )
+}
+
 // A filter refuses a denied IP and a name resolving into a denied range, counting each once,
 // while two filtered swarms still connect over loopback.
 #[tokio::test]
 async fn dial_filter_refuses_denied_and_resolved_addresses_below_dns() {
-    let filtered = |nets: &[&str]| {
-        let filter = DialFilter::new(nets.iter().map(|net| net.parse().unwrap()).collect());
-        let options = SwarmOptions {
-            dial_filter: filter.clone(),
-            ..SwarmOptions::default()
-        };
-        (
-            build_configured_swarm(Keypair::generate_ed25519(), options).unwrap(),
-            filter,
-        )
-    };
     let (mut node, _) = filtered(&["169.254.0.0/16"]);
     node.listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
         .unwrap();
