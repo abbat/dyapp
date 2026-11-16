@@ -652,9 +652,7 @@ pub async fn revoke_device(
 
 /// The link code in `text`: `bad` when it is none, `expired` when it is too old.
 fn link_code(text: &str, now: u64) -> Result<Code, String> {
-    let text = text.trim();
-    Code::parse(text, 0).map_err(|_| "bad")?;
-    Ok(Code::parse(text, now).map_err(|_| "expired")?)
+    dyapp_client::link::parse_input(text, now).map_err(|error| error.to_string())
 }
 
 /// Checks a pasted link code before the owner is asked to give that device full control.

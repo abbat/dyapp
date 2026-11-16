@@ -1057,7 +1057,8 @@ permits another attempt. Adapters supply connection, credential IO and receipt p
 Owner-side core `prepare_link_sender` binds an immutable `LinkSender` target and original
 selected source/view without an idle lease or network transfer. `link::parse_input` preserves
 the existing desktop pasted-code trimming and malformed/expired distinction; wire parsing is
-unchanged. Explicit `confirm_and_send_with` rechecks view, selected source, owner and expiry,
+unchanged. Tauri validation delegates to that same parser; its sender adoption is separate.
+Explicit `confirm_and_send_with` rechecks view, selected source, owner and expiry,
 captures the private-state snapshot and active network under admission, then releases the view
 before dialing while retaining the actual identity operation. The private snapshot is owned by
 `Zeroizing<Vec<u8>>` through delivery and erased on every exit. Delivery errors may follow
@@ -1089,7 +1090,8 @@ through actual network completion. Core network activation still clears contact 
 This is one frontend instance's scope, not a persistent cross-process
 generation; final registry slot/owner/lifecycle admission remains required. Hold admission through
 installation, never network IO, and release shared identity operations before entering it.
-The native receiver adapter, cancellation admission, explicit recovery and retry remain planned.
+The native receiver adapter and cancellation admission use this core contract. Receiving-phone
+recovery/disposition presentation remains planned; repeating a failed result never restarts installation.
 
 ## Exported surface
 

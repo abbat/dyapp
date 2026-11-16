@@ -11,6 +11,16 @@ fn a_link_code_is_told_apart_from_an_expired_one_and_from_other_text() {
     assert_eq!(link_code(&text, 99), Ok(code));
     assert_eq!(link_code(&text, 100), Err("expired".to_string()));
     assert_eq!(link_code("dyapp-contact:1:ab", 99), Err("bad".to_string()));
+    assert_eq!(link_code(&format!("\u{0085}{}", code.text()), 99), Ok(code));
+    assert_eq!(
+        link_code(&format!("\u{feff}{}", code.text()), 99),
+        Err("bad".into())
+    );
+    let zero = Code {
+        expires_at: 0,
+        ..code
+    };
+    assert_eq!(link_code(&zero.text(), 0), Err("bad".into()));
 }
 
 fn temp_dir() -> std::path::PathBuf {
