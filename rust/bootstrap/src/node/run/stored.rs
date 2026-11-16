@@ -121,8 +121,12 @@ impl Replies<'_> {
             return false;
         };
         if let Some(record) = stored {
-            self.replicas
-                .repair_profile(self.swarm, self.service, record, Instant::now());
+            self.replicas.repair_profile(
+                self.swarm,
+                self.service,
+                record,
+                self.service.clock.instant(),
+            );
         }
         self.service.traffic.add(response.encoded_len() as u64);
         let _ = self
@@ -232,7 +236,7 @@ impl Replies<'_> {
                     record,
                     channel,
                     response,
-                    Instant::now(),
+                    self.service.clock.instant(),
                 );
                 return true;
             }
@@ -392,7 +396,7 @@ impl Replies<'_> {
 /// The hourly expiry of messages, `KeyPackages`, inactive profiles, attachments, media keeps, idle
 /// assembled media and search entries.
 pub(super) fn expire(service: &Service) {
-    let now = chrono::Utc::now().timestamp();
+    let now = service.clock.timestamp();
     removed(
         service.store.cleanup_expired(now),
         "expired messages removed",
@@ -468,7 +472,7 @@ mod tests {
         let mut service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config);
         service.media = Some(crate::media::MediaStore::open(&service.config.storage.dir).unwrap());
         let media = service.media.as_ref().unwrap();
-        let now = chrono::Utc::now().timestamp();
+        let now = service.clock.timestamp();
         let idle = i64::from(service.config.limits.media_cache_minutes) * 60;
         let old = [1; 32];
         let recent = [2; 32];

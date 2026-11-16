@@ -55,10 +55,16 @@ impl Clock {
         self.source.instant()
     }
 
+    /// Wall time since the Unix epoch.
+    #[must_use]
+    pub fn unix(&self) -> Duration {
+        self.source.unix()
+    }
+
     /// Whole seconds of wall time since the Unix epoch.
     #[must_use]
     pub fn unix_secs(&self) -> u64 {
-        self.source.unix().as_secs()
+        self.unix().as_secs()
     }
 
     /// Signed whole seconds since the Unix epoch, as `chrono::Utc::now().timestamp()` gives.

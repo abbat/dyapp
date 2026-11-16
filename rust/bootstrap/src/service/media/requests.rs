@@ -72,7 +72,7 @@ impl Service {
         if self.listed(&get.hash) {
             return Ok(media_status(Status::Refused));
         }
-        let now = chrono::Utc::now().timestamp();
+        let now = self.clock.timestamp();
         let data = match media.get(&get.hash)? {
             Some(data) => Some(data),
             None => media.cached(&get.hash, now)?,
@@ -108,7 +108,7 @@ impl Service {
         if self.listed(&owner) {
             return Ok(media_status(Status::Refused));
         }
-        let now = chrono::Utc::now().timestamp().unsigned_abs();
+        let now = self.clock.timestamp().unsigned_abs();
         if attach.release.len() != 32
             || attach.hashes.is_empty()
             || attach.hashes.len() > MAX_ATTACH

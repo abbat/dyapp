@@ -8,6 +8,7 @@ use tokio::time::Instant;
 /// Bytes per second shared by background rebuilds, and their progress.
 pub struct RebuildBudget {
     bytes_per_second: u64,
+    clock: crate::clock::Clock,
     state: Mutex<State>,
 }
 
@@ -18,17 +19,29 @@ struct State {
 
 impl RebuildBudget {
     /// `mb_per_second` is the positive startup-validated maintenance setting (MiB/s).
-    #[must_use]
     ///
     /// # Panics
     ///
     /// Panics if `mb_per_second` is zero.
+    #[must_use]
     pub fn new(mb_per_second: u32) -> Self {
+        Self::with_clock(mb_per_second, crate::clock::Clock::system())
+    }
+
+    /// [`Self::new`] reading time from `clock`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `mb_per_second` is zero.
+    #[must_use]
+    pub fn with_clock(mb_per_second: u32, clock: crate::clock::Clock) -> Self {
         assert!(mb_per_second > 0);
+        let next = Instant::from_std(clock.instant());
         Self {
             bytes_per_second: u64::from(mb_per_second) * (1 << 20),
+            clock,
             state: Mutex::new(State {
-                next: Instant::now(),
+                next,
                 progress: BTreeMap::new(),
             }),
         }
@@ -52,7 +65,12 @@ impl RebuildBudget {
     /// Call after each written batch, outside the store lock and off the swarm loop.
     /// All rebuilds share this budget; simultaneous writers reserve successive time slots.
     pub async fn after_batch(&self, bytes: u64, file: &str, percent: u8) {
-        let deadline = self.reserve(Instant::now(), bytes, file, percent);
+        let deadline = self.reserve(
+            Instant::from_std(self.clock.instant()),
+            bytes,
+            file,
+            percent,
+        );
         tokio::time::sleep_until(deadline).await;
     }
 

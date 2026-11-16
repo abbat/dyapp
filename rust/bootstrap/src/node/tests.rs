@@ -66,6 +66,7 @@ async fn hourly_status_reports_and_resets_wire_bytes_and_failed_gossip_adds_none
 
 mod deny_media;
 mod groups;
+mod repair;
 mod republish;
 
 #[tokio::test]
@@ -142,7 +143,12 @@ async fn media_queue_drops_capped_writes_without_tracking_or_trust_penalties() {
     assert!(replicas.cap.allow(&to, 1));
     replicas.puts.insert(
         1,
-        PendingPut::new(PutRecord::Media(record.clone()), None, false),
+        PendingPut::new(
+            PutRecord::Media(record.clone()),
+            None,
+            false,
+            Instant::now(),
+        ),
     );
     replicas.puts.insert(
         2,
@@ -150,6 +156,7 @@ async fn media_queue_drops_capped_writes_without_tracking_or_trust_penalties() {
             PutRecord::Sharded(record, vec![vec![1]].into()),
             None,
             false,
+            Instant::now(),
         ),
     );
     replicas.put_holder(&mut swarm, &service, &Watchers::default(), 1, to);
@@ -434,11 +441,17 @@ async fn mailbox_profile_and_profile_repair_share_the_sender_cap() {
             PutRecord::Mailbox(SignedRecord::default(), vec![]),
             None,
             false,
+            Instant::now(),
         ),
     );
     replicas.puts.insert(
         1,
-        PendingPut::new(PutRecord::Profile(record.clone()), None, false),
+        PendingPut::new(
+            PutRecord::Profile(record.clone()),
+            None,
+            false,
+            Instant::now(),
+        ),
     );
     replicas.put_holder(&mut swarm, &service, &watchers, 0, remote);
     assert_eq!(replicas.mailbox_puts.len(), 1);
@@ -558,104 +571,11 @@ async fn media_inventory_requires_near_trusted_peers_and_budget() {
     );
 }
 
-#[tokio::test]
-async fn profile_repair_only_fills_gaps_once_an_hour_within_budget() {
-    let dir = format!("/tmp/ai/test-profile-repair-{}", uuid::Uuid::new_v4());
-    let mut config = crate::config::NodeConfig::default();
-    config.storage.dir = dir.clone().into();
-    config.limits.bytes_per_second = 10_000;
-    let service = Service::new(crate::storage::BootstrapStore::new(&dir).unwrap(), config);
-    let mut swarm = swarm(
-        Keypair::generate_ed25519(),
-        &service.config.limits,
-        &service.config.roles,
-    )
-    .unwrap();
-    let remote = PeerId::random();
-    swarm
-        .behaviour_mut()
-        .kad
-        .add_address(&remote, "/ip4/127.0.0.1/tcp/1".parse().unwrap());
-    let owner = dyapp_identity::Identity::generate();
-    let record = dyapp_profile::Profile {
-        version: 2,
-        ..Default::default()
-    }
-    .sign(&owner);
-    let key = dyapp_identity::key_hash(&owner.public_key()).to_vec();
-    let mut replicas = Replicas::default();
-    let now = Instant::now();
-    replicas.repair_profile(&mut swarm, &service, record.clone(), now);
-    assert_eq!(replicas.lookups.len(), usize::from(REPLICAS));
-    let edge = now + PROFILE_REPAIR_INTERVAL;
-    let early = edge.checked_sub(Duration::from_nanos(1)).unwrap();
-    replicas.repair_profile(&mut swarm, &service, record.clone(), early);
-    assert_eq!(replicas.lookups.len(), usize::from(REPLICAS));
-    replicas.lookups.clear();
-    replicas.repair_profile(
-        &mut swarm,
-        &service,
-        record.clone(),
-        now + PROFILE_REPAIR_INTERVAL,
-    );
-    assert_eq!(replicas.lookups.len(), usize::from(REPLICAS));
-    assert_eq!(
-        replicas.profile_repaired[&key].0,
-        now + PROFILE_REPAIR_INTERVAL
-    );
-    for _ in 0..REPLICAS {
-        let _ = replicas.profile_inventory(&mut swarm, &service, remote, Arc::new(record.clone()));
-    }
-    assert_eq!(
-        replicas.profile_inventories.len(),
-        1,
-        "co-located replicas are inventoried once"
-    );
-    for (status, version, sends) in [
-        (Status::Ok, 1, true),
-        (Status::NotFound, 0, true),
-        (Status::Ok, 2, false),
-        (Status::Ok, 3, false),
-        (Status::Denied, 0, false),
-        (Status::RateLimited, 0, false),
-    ] {
-        let response = proto::ProfileResponse {
-            status: status.into(),
-            version,
-            ..Default::default()
-        };
-        assert_eq!(
-            matches!(
-                replicas.profile_gap(&mut swarm, &service, remote, &record, &response),
-                Ok(Some(_))
-            ),
-            sends
-        );
-    }
-    service.traffic.add(10_000);
-    let response = proto::ProfileResponse {
-        status: Status::NotFound.into(),
-        ..Default::default()
-    };
-    assert!(replicas
-        .profile_gap(&mut swarm, &service, remote, &record, &response)
-        .is_err());
-    let other = PeerId::random();
-    assert!(replicas
-        .profile_inventory(&mut swarm, &service, other, Arc::new(record))
-        .is_err());
-    assert_eq!(
-        replicas.profile_inventories.len(),
-        1,
-        "repair exceeded its budget"
-    );
-}
-
 #[test]
 fn put_ack_counts_distinct_holders_and_times_out() {
     let record = PutRecord::Mailbox(SignedRecord::default(), vec![]);
     let (a, b) = (PeerId::random(), PeerId::random());
-    let mut put = PendingPut::new(record.clone(), None, false);
+    let mut put = PendingPut::new(record.clone(), None, false, Instant::now());
     put.confirm(a, Status::Ok.into(), None);
     put.confirm(a, Status::Ok.into(), None);
     put.confirm(b, Status::Denied.into(), None);
@@ -668,7 +588,7 @@ fn put_ack_counts_distinct_holders_and_times_out() {
         Some(Status::Full),
         "late replies beat the deadline"
     );
-    let mut isolated = PendingPut::new(record, None, true);
+    let mut isolated = PendingPut::new(record, None, true, Instant::now());
     isolated.confirm(a, Status::Ok.into(), None);
     assert_eq!(isolated.result(Instant::now()), Some(Status::Ok));
 }
@@ -680,7 +600,12 @@ async fn sharded_writes_require_k_indices_and_queue_two_streams_per_peer() {
         manifest: Some(manifest),
         ..Default::default()
     };
-    let mut put = PendingPut::new(PutRecord::Sharded(replica, Arc::new(shards)), None, false);
+    let mut put = PendingPut::new(
+        PutRecord::Sharded(replica, Arc::new(shards)),
+        None,
+        false,
+        Instant::now(),
+    );
     put.confirm(PeerId::random(), Status::Ok.into(), None);
     put.confirm(PeerId::random(), Status::Ok.into(), None);
     put.shard_stored.insert(0);
@@ -732,6 +657,7 @@ async fn media_holder_status_counts_distinct_confirmations_for_the_latest_write(
         PutRecord::Media(proto::MediaReplicaPut::default()),
         None,
         false,
+        Instant::now(),
     );
     put.confirm(a, Status::Ok.into(), None);
     put.confirm(a, Status::Ok.into(), None);
@@ -758,6 +684,7 @@ async fn media_holder_status_counts_distinct_confirmations_for_the_latest_write(
         PutRecord::Media(proto::MediaReplicaPut::default()),
         None,
         true,
+        Instant::now(),
     );
     latest.confirm(a, Status::Ok.into(), None);
     replicas.puts.insert(2, latest);
@@ -779,7 +706,7 @@ fn stale_profile_confirmation_must_verify_the_owner_and_version() {
         }
         .sign(&owner)
     };
-    let mut put = PendingPut::new(PutRecord::Profile(sign(2)), None, false);
+    let mut put = PendingPut::new(PutRecord::Profile(sign(2)), None, false, Instant::now());
     let (a, b) = (PeerId::random(), PeerId::random());
     put.confirm(a, Status::Stale.into(), Some(sign(1)));
     let mut forged = sign(3);
@@ -820,7 +747,12 @@ async fn holders_store_once_and_replica_puts_never_fan_out() {
     );
     replicas.puts.insert(
         0,
-        PendingPut::new(PutRecord::Mailbox(record.clone(), vec![]), None, false),
+        PendingPut::new(
+            PutRecord::Mailbox(record.clone(), vec![]),
+            None,
+            false,
+            Instant::now(),
+        ),
     );
     replicas.put_holder(&mut swarm, &service, &watchers, 0, PeerId::random());
     assert_eq!(replicas.mailbox_puts.len(), 1);
@@ -855,7 +787,12 @@ async fn holders_store_once_and_replica_puts_never_fan_out() {
     for id in 1..MAX_PENDING_PUTS as u64 {
         replicas.puts.insert(
             id,
-            PendingPut::new(PutRecord::Mailbox(record.clone(), vec![]), None, false),
+            PendingPut::new(
+                PutRecord::Mailbox(record.clone(), vec![]),
+                None,
+                false,
+                Instant::now(),
+            ),
         );
     }
     assert!(replicas.at_capacity());

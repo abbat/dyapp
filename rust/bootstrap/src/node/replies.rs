@@ -66,7 +66,7 @@ impl Replicas {
         if let Some((repair, _)) = self.media_repairs.get_mut(repair) {
             repair.holder(*blob, *index, None);
         }
-        self.finish_puts(swarm, service, Instant::now());
+        self.finish_puts(swarm, service, service.clock.instant());
     }
 
     fn closest_target(
@@ -84,15 +84,15 @@ impl Replicas {
                 if let Some((repair, _)) = self.media_repairs.get_mut(&repair) {
                     repair.holder(blob, index, trusted.then_some(to));
                 }
-                self.finish_puts(swarm, service, Instant::now());
+                self.finish_puts(swarm, service, service.clock.instant());
             }
             Lookup::Put(put) => {
                 self.put_holder(swarm, service, watchers, put, to);
-                self.finish_puts(swarm, service, Instant::now());
+                self.finish_puts(swarm, service, service.clock.instant());
             }
             Lookup::ShardPut(put, index) => {
                 self.shard_holder(swarm, service, put, index, to);
-                self.finish_puts(swarm, service, Instant::now());
+                self.finish_puts(swarm, service, service.clock.instant());
             }
             Lookup::ShardGet(read, index) => {
                 if to != *swarm.local_peer_id() && self.trust.trusted(&to) {
@@ -126,7 +126,7 @@ impl Replicas {
             if let Some(put) = self.puts.get_mut(&put) {
                 put.confirm(id, response.status, None);
             }
-            self.finish_puts(swarm, service, Instant::now());
+            self.finish_puts(swarm, service, service.clock.instant());
         }
         if let Some(mailbox) = self.inventories.remove(&request_id) {
             let ok = response.status == i32::from(Status::Ok);
@@ -184,7 +184,7 @@ impl Replicas {
             if let Some(put) = self.puts.get_mut(&put) {
                 put.confirm(id, response.status, response.record);
             }
-            self.finish_puts(swarm, service, Instant::now());
+            self.finish_puts(swarm, service, service.clock.instant());
         }
     }
 
@@ -219,7 +219,7 @@ impl Replicas {
             if let Some(put) = self.puts.get_mut(&id) {
                 put.confirm(peer, response.status, None);
             }
-            self.finish_puts(swarm, service, Instant::now());
+            self.finish_puts(swarm, service, service.clock.instant());
         }
     }
 
@@ -245,7 +245,14 @@ impl Replicas {
         request_id: OutboundRequestId,
         response: proto::MediaResponse,
     ) {
-        self.media_response_at(swarm, service, id, request_id, response, Instant::now());
+        self.media_response_at(
+            swarm,
+            service,
+            id,
+            request_id,
+            response,
+            service.clock.instant(),
+        );
     }
 
     pub(super) fn media_response_at(
@@ -331,16 +338,16 @@ impl Replicas {
         if !matches!(error, OutboundFailure::UnsupportedProtocols) {
             self.trust.add(peer, -1);
         }
-        self.upload_response(request_id, None, Instant::now());
+        self.upload_response(request_id, None, service.clock.instant());
         if let Some((repair, job, _)) = self.media_repair_requests.remove(&request_id) {
             if let Some((repair, _)) = self.media_repairs.get_mut(&repair) {
-                repair.response(job, None);
+                repair.response_at(job, None, service.clock.instant());
             }
         }
         self.media_puts.remove(&request_id);
         self.shard_puts.remove(&request_id);
         self.shard_gets.remove(&request_id);
         self.media_outgoing.remove(&request_id);
-        self.finish_puts(swarm, service, Instant::now());
+        self.finish_puts(swarm, service, service.clock.instant());
     }
 }

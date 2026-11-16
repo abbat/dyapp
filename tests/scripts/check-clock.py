@@ -19,34 +19,7 @@ INLINE = re.compile(r"^#\[cfg\(test\)\]\s*\nmod (\w+) \{", re.M)
 COMMENT = re.compile(r"//.*")
 
 # Direct reads left in files not yet moved onto the clock.
-BUDGET = {
-    "bin/dyappd/client.rs": 3,
-    "bin/dyappd/main.rs": 1,
-    "deny.rs": 3,
-    "maintenance.rs": 2,
-    "media.rs": 1,
-    "media_repair.rs": 1,
-    "metrics.rs": 1,
-    "node.rs": 2,
-    "node/delivery.rs": 1,
-    "node/identified.rs": 2,
-    "node/replicas.rs": 5,
-    "node/replies.rs": 10,
-    "node/run.rs": 12,
-    "node/run/stored.rs": 3,
-    "rate_limit.rs": 1,
-    "search.rs": 1,
-    "search/generation.rs": 1,
-    "service/keypackages.rs": 2,
-    "service/mailbox.rs": 3,
-    "service/media.rs": 1,
-    "service/media/catchup.rs": 1,
-    "service/media/replicas.rs": 2,
-    "service/media/requests.rs": 2,
-    "service/revoke.rs": 3,
-    "storage.rs": 2,
-    "storage/keypackages.rs": 1,
-}
+BUDGET = {}
 
 
 def test_modules(sources: Mapping[Path, str]) -> set[Path]:

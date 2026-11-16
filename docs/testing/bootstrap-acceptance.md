@@ -91,7 +91,7 @@ Status: **exists** = a test proves it today; **partial** = proved at a lower lay
 
 | Behaviour | Layer | Test | Status |
 |-----------|-------|------|--------|
-| Version order, `STALE` with the stored record, forged payload, tombstone | Unit, E2E | `storage.rs::signed_profile_versions_and_tombstone`, `service/tests.rs::publish_get_stale_and_errors`, `network-test.py::suite` | exists |
+| Version order, `STALE` with the stored record, forged payload, tombstone; a tombstone survives one second before its retention cutoff and expires exactly at it | Unit, E2E | `storage/tests/records.rs::signed_profile_versions_and_tombstone`, `service/tests.rs::publish_get_stale_and_errors`, `network-test.py::suite` | exists |
 | Profile expires after the owner was last seen; heartbeat keeps it | Unit | `storage.rs::profiles_expire_after_the_owner_was_last_seen`, `service/tests.rs::heartbeat_keeps_the_profile_seen` | exists |
 | Mailbox once per id, limits, fetch with challenge, ack, replay and forgery refused | Unit, E2E | `storage.rs::envelopes_once_per_id_limits_and_expiry`, `service/tests/mailbox.rs::mailbox_put_fetch_ack_forged_and_replayed`, `network_checks.py::mailbox` | exists |
 | Fetch cursor advances past an unacked head and a deleted cursor row; malformed cursor is refused | Unit, service | `storage/tests/records.rs::paged_fetch_moves_past_unacked_head_and_deleted_cursor`, `service/tests/mailbox.rs::fetch_cursor_advances_and_rejects_malformed_position` | exists |
@@ -148,7 +148,7 @@ assertion changes.
 | Without a second holder, profile and mailbox puts answer `FULL` | E2E | `network-test.py::local` | exists |
 | A holder offline during a newer publish is repaired by heartbeat | E2E | `network-test.py::profile_repair` | exists |
 | Churn: replicas skip a stopped node | E2E | `network-test.py::network` (churn) | exists |
-| Repair fills gaps once an hour within budget | Unit | `node/tests.rs::profile_repair_only_fills_gaps_once_an_hour_within_budget` | partial |
+| On a manual clock, repair fills gaps once an hour within budget: no early repeat, a new pass at the interval boundary, and no sends after the byte budget is spent | Unit | `node/tests/repair.rs::profile_repair_only_fills_gaps_once_an_hour_within_budget` | exists |
 
 ### Media
 

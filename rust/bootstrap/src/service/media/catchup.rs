@@ -113,7 +113,7 @@ impl Service {
         if self.listed(&owner) {
             return Ok(media_status(Status::Refused));
         }
-        let now = chrono::Utc::now().timestamp().unsigned_abs();
+        let now = self.clock.timestamp().unsigned_abs();
         let lower = now.saturating_sub(u64::from(self.config.limits.profile_ttl_days) * 86400);
         let fresh = lower..=now.saturating_add(CLOCK_SKEW);
         if !fresh.contains(&head.time) {

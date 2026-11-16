@@ -379,7 +379,7 @@ impl BootstrapStore {
     /// Returns an error if the incoming or stored profile fails verification, the version is not
     /// newer, the owner was deleted, or profile locking, decoding or persistence fails.
     pub fn put_profile(&self, record: &SignedRecord) -> Result<VerifiedProfile> {
-        self.put_profile_seen(record, chrono::Utc::now().timestamp())
+        self.put_profile_seen(record, crate::clock::Clock::system().timestamp())
     }
 
     /// [`Self::put_profile`] with the owner last seen at `last_seen`; a later stored time stays.
@@ -499,13 +499,19 @@ impl BootstrapStore {
     ///
     /// Returns an error if the mailbox database lock or active-mailbox query fails.
     pub fn mailboxes_after(&self, after: &[u8], limit: u32) -> Result<Vec<Vec<u8>>> {
+        self.mailboxes_after_at(after, limit, crate::clock::Clock::system().timestamp())
+    }
+
+    /// [`Self::mailboxes_after`] at `now`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the mailbox database lock or active-mailbox query fails.
+    pub fn mailboxes_after_at(&self, after: &[u8], limit: u32, now: i64) -> Result<Vec<Vec<u8>>> {
         let db = lock(&self.messages)?;
         let mut query = db.prepare(MAILBOXES_AFTER).map_err(storage_error)?;
         query
-            .query_map(
-                params![after, chrono::Utc::now().timestamp(), limit],
-                |row| row.get(0),
-            )
+            .query_map(params![after, now, limit], |row| row.get(0))
             .and_then(Iterator::collect)
             .map_err(storage_error)
     }

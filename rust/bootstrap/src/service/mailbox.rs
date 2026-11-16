@@ -253,7 +253,7 @@ impl Service {
     fn replica_put(&self, peer: &Peer, batch: &proto::Envelopes) -> crate::Result<MailboxResponse> {
         let mut worst = status(Status::Ok);
         let carried = batch.remaining_seconds.len() == batch.envelopes.len();
-        let now = chrono::Utc::now().timestamp();
+        let now = self.clock.timestamp();
         for (i, record) in batch.envelopes.iter().enumerate() {
             let expires_at = match carried.then(|| batch.remaining_seconds[i]) {
                 Some(0) => continue,
@@ -450,8 +450,7 @@ impl Service {
         )? {
             return Ok(status(Status::Full));
         }
-        let expires_at =
-            expires_at.unwrap_or_else(|| chrono::Utc::now().timestamp() + self.retention());
+        let expires_at = expires_at.unwrap_or_else(|| self.clock.timestamp() + self.retention());
         let group = match group {
             Group::Ip(ip_group) => self.source_group(&envelope.mailbox, ip_group),
             Group::Label(label) if label.len() <= 8 => label.to_vec(),
@@ -505,7 +504,7 @@ impl Service {
             Source::Client => 3600,
             Source::Replica | Source::Local => self.retention() + 3600,
         };
-        let now = chrono::Utc::now().timestamp();
+        let now = self.clock.timestamp();
         let checked = match check_token(record, envelope, now, late) {
             Ok(Some(key)) if self.revoked(&envelope.mailbox, &key)? => Err(TokenError::Revoked),
             checked => checked,

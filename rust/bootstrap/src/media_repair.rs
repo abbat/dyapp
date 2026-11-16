@@ -294,8 +294,9 @@ impl Repair {
         ))
     }
 
+    #[cfg(test)]
     pub(crate) fn response(&mut self, id: usize, response: Option<proto::MediaResponse>) {
-        self.response_at(id, response, Instant::now());
+        self.response_at(id, response, crate::clock::Clock::system().instant());
     }
 
     pub(crate) fn response_at(

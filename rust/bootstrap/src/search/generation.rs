@@ -298,7 +298,7 @@ impl SearchIndex {
     /// Returns `Postpone` if settled replay still has too many dirty keys, `Overflow` if tracking
     /// overflowed, or a storage abort if locking, replay, candidate opening or activation fails.
     pub fn activate(&self, candidate: Candidate, replay: Replay) -> std::result::Result<(), Abort> {
-        let started = std::time::Instant::now();
+        let started = crate::clock::Clock::system().instant();
         let mut db = lock(&self.db)?;
         let bound = match replay {
             Replay::Settled => SETTLED_KEYS,

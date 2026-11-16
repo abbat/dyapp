@@ -465,7 +465,20 @@ impl MediaStore {
     ///
     /// Returns an error if the database lock, authorization query or stored signed-record decoding fails.
     pub fn authorization(&self, owner: &str, hash: &[u8]) -> Result<Option<Authorization>> {
-        let now = chrono::Utc::now().timestamp();
+        self.authorization_at(owner, hash, crate::clock::Clock::system().timestamp())
+    }
+
+    /// [`Self::authorization`] at `now`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database lock, authorization query or stored signed-record decoding fails.
+    pub fn authorization_at(
+        &self,
+        owner: &str,
+        hash: &[u8],
+        now: i64,
+    ) -> Result<Option<Authorization>> {
         let held: Option<(bool, Vec<u8>)> = lock(&self.db)?.query_row(
             "SELECT 1, `attachments`.`record` FROM `attachments` JOIN `blobs` ON `blobs`.`owner` = `attachments`.`slot`
              WHERE `attachments`.`owner` = ?1 AND `blobs`.`hash` = ?2 AND `attachments`.`expires` > ?3

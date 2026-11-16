@@ -229,9 +229,7 @@ impl Traffic {
 /// reads from [`Traffic::second`] do not roll over to the next second halfway.
 #[cfg(test)]
 pub(crate) fn fresh_second() {
-    let into = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |since| since.subsec_millis());
+    let into = crate::clock::Clock::system().unix().subsec_millis();
     if into > 500 {
         std::thread::sleep(std::time::Duration::from_millis(u64::from(1000 - into)));
     }

@@ -59,6 +59,7 @@ impl Admission {
         id: ConnectionId,
         peer: PeerId,
         endpoint: &ConnectedPoint,
+        now: Instant,
     ) {
         let remote = endpoint.get_remote_address().clone();
         self.remotes
@@ -72,7 +73,7 @@ impl Admission {
                 dyapp_p2p_net::add_peer(swarm, peer, address);
             }
         }
-        self.start(swarm);
+        self.start(swarm, now);
     }
 
     /// A connection closed; the peer's queued claims go with its last one.
@@ -85,9 +86,9 @@ impl Admission {
     }
 
     /// An outgoing connection failed: a claim dialled on it is dropped.
-    pub(super) fn failed(&mut self, swarm: &mut Swarm<Behaviour>, id: ConnectionId) {
+    pub(super) fn failed(&mut self, swarm: &mut Swarm<Behaviour>, id: ConnectionId, now: Instant) {
         self.claims.fail(id);
-        self.start(swarm);
+        self.start(swarm, now);
     }
 
     /// The remote address of a connection this node dialled.
@@ -143,8 +144,8 @@ impl Admission {
         self.remotes.len()
     }
 
-    fn start(&mut self, swarm: &mut Swarm<Behaviour>) {
-        self.claims.start(Instant::now(), |peer, address| {
+    fn start(&mut self, swarm: &mut Swarm<Behaviour>, now: Instant) {
+        self.claims.start(now, |peer, address| {
             let dial = DialOpts::peer_id(peer)
                 .condition(PeerCondition::Always)
                 .addresses(vec![address.clone()])
@@ -178,7 +179,7 @@ pub(super) fn add_node(
     let mut proved = Vec::new();
     if search || (kad && pow) {
         admission.roles.insert(peer_id, (kad, search));
-        let now = Instant::now();
+        let now = service.clock.instant();
         // A circuit never enters the DHTs, so it is not probed.
         for address in info.listen_addrs {
             if dyapp_p2p_net::is_circuit(&address) {
@@ -190,7 +191,7 @@ pub(super) fn add_node(
                 tracing::debug!(%peer_id, "claimed address not queued for a probe");
             }
         }
-        admission.start(swarm);
+        admission.start(swarm, now);
     }
     if search {
         for address in &proved {
@@ -371,19 +372,19 @@ mod tests {
             .claim(Instant::now(), peer, claimed.clone()));
         admission.claims.start(Instant::now(), |_, _| Some(id));
 
-        admission.established(&mut swarm, unrelated, peer, &endpoint);
+        admission.established(&mut swarm, unrelated, peer, &endpoint, Instant::now());
         assert_eq!(dyapp_p2p_net::known_peers(&mut swarm).len(), 0);
-        admission.established(&mut swarm, id, other, &endpoint);
+        admission.established(&mut swarm, id, other, &endpoint, Instant::now());
         assert_eq!(dyapp_p2p_net::known_peers(&mut swarm).len(), 0);
-        admission.established(&mut swarm, id, peer, &endpoint);
+        admission.established(&mut swarm, id, peer, &endpoint, Instant::now());
         assert_eq!(dyapp_p2p_net::known_peers(&mut swarm).len(), 0);
 
         let next = ConnectionId::new_unchecked(9);
         let second: Multiaddr = "/ip4/198.51.100.2/tcp/7070".parse().unwrap();
         assert!(admission.claims.claim(Instant::now(), peer, second.clone()));
         admission.claims.start(Instant::now(), |_, _| Some(next));
-        admission.failed(&mut swarm, next);
-        admission.established(&mut swarm, next, peer, &endpoint);
+        admission.failed(&mut swarm, next, Instant::now());
+        admission.established(&mut swarm, next, peer, &endpoint, Instant::now());
         assert_eq!(dyapp_p2p_net::known_peers(&mut swarm).len(), 0);
 
         let success = ConnectionId::new_unchecked(10);
@@ -395,7 +396,13 @@ mod tests {
             role_override: Endpoint::Dialer,
             port_use: PortUse::New,
         };
-        admission.established(&mut swarm, success, peer, &verified_endpoint);
+        admission.established(
+            &mut swarm,
+            success,
+            peer,
+            &verified_endpoint,
+            Instant::now(),
+        );
         let mut expected = third;
         expected.push(Protocol::P2p(peer));
         assert_eq!(dyapp_p2p_net::known_peers(&mut swarm), vec![expected]);

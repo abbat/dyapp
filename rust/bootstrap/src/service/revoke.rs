@@ -37,7 +37,7 @@ impl Service {
         {
             return Ok((status(Status::Invalid), false));
         }
-        let now = chrono::Utc::now().timestamp();
+        let now = self.clock.timestamp();
         if revoke.created_at > now + 3600 {
             return Ok((status(Status::Denied), false));
         }
@@ -71,8 +71,7 @@ impl Service {
 
     /// Whether `key` is revoked for `mailbox` now.
     pub(super) fn revoked(&self, mailbox: &[u8], key: &[u8]) -> crate::Result<bool> {
-        self.store
-            .is_revoked(mailbox, key, chrono::Utc::now().timestamp())
+        self.store.is_revoked(mailbox, key, self.clock.timestamp())
     }
 
     /// The unexpired signed revokes of a mailbox, for repair.
@@ -81,7 +80,7 @@ impl Service {
     ///
     /// Returns an error if mailbox locking, the live-revocation query or stored-record decoding fails.
     pub fn revokes(&self, mailbox: &[u8]) -> crate::Result<Vec<SignedRecord>> {
-        self.store.revokes(mailbox, chrono::Utc::now().timestamp())
+        self.store.revokes(mailbox, self.clock.timestamp())
     }
 }
 

@@ -344,7 +344,7 @@ impl Replicas {
             .profile_last_seen(&dyapp_identity::peer_id(&key))
             .ok()
             .flatten();
-        let now = chrono::Utc::now().timestamp();
+        let now = service.clock.timestamp();
         let request = proto::ProfileRequest {
             request: Some(proto::profile_request::Request::ReplicaPut(record.clone())),
             age_seconds: last_seen.map_or(0, |seen| {
@@ -402,8 +402,10 @@ impl Replicas {
         };
         let id = self.next_put;
         self.next_put = self.next_put.wrapping_add(1);
-        self.puts
-            .insert(id, PendingPut::new(record, Some(reply), isolated));
+        self.puts.insert(
+            id,
+            PendingPut::new(record, Some(reply), isolated, service.clock.instant()),
+        );
         if isolated {
             self.put_holder(swarm, service, watchers, id, *swarm.local_peer_id());
         } else {
@@ -416,7 +418,7 @@ impl Replicas {
             }
         }
         self.shard_lookups(swarm, service, id, &key, shard_count, isolated);
-        self.finish_puts(swarm, service, Instant::now());
+        self.finish_puts(swarm, service, service.clock.instant());
     }
 
     pub(super) fn put_holder(
@@ -522,7 +524,7 @@ impl Replicas {
 
     /// The remote media codec admits two streams per connection: queue excess work locally.
     pub(super) fn drain_media(&mut self, swarm: &mut Swarm<Behaviour>, service: &Service) {
-        self.drain_media_at(swarm, service, Instant::now());
+        self.drain_media_at(swarm, service, service.clock.instant());
     }
 
     pub(super) fn drain_media_at(
@@ -566,7 +568,7 @@ impl Replicas {
             manifest,
             get,
             reply,
-            deadline: Instant::now() + PUT_TIMEOUT,
+            deadline: service.clock.instant() + PUT_TIMEOUT,
             shards: HashMap::new(),
         };
         for index in 0..read.manifest.shard_hashes.len() {
@@ -600,7 +602,7 @@ impl Replicas {
                 self.lookups.insert(query, Lookup::ShardGet(id, index));
             }
         }
-        self.finish_puts(swarm, service, Instant::now());
+        self.finish_puts(swarm, service, service.clock.instant());
     }
 
     pub(super) fn finish_reads(

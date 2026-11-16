@@ -297,7 +297,7 @@ impl SearchIndex {
 
     /// Heal derived state on open, including files last written by an older binary.
     fn rebuild_digest(&self) -> Result<()> {
-        let started = std::time::Instant::now();
+        let started = crate::clock::Clock::system().instant();
         let mut rows_seen = 0u64;
         let mut db = lock(&self.db)?;
         let tx = db.derived()?;

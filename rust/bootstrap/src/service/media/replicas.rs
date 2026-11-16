@@ -117,7 +117,7 @@ impl Service {
         if !valid_ownership(&keep) {
             return Ok(Err(media_status(Status::Invalid)));
         }
-        let now = chrono::Utc::now().timestamp().unsigned_abs();
+        let now = self.clock.timestamp().unsigned_abs();
         if keep.time > now.saturating_add(CLOCK_SKEW)
             || now.saturating_sub(keep.time)
                 > u64::from(self.config.limits.profile_ttl_days) * 86400
@@ -164,7 +164,7 @@ impl Service {
         else {
             return Ok(Err(media_status(Status::Denied)));
         };
-        let now = chrono::Utc::now().timestamp().unsigned_abs();
+        let now = self.clock.timestamp().unsigned_abs();
         let expires = attach
             .created
             .saturating_add(u64::from(self.config.limits.attachment_retention_hours) * 3600);

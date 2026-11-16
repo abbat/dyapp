@@ -104,7 +104,7 @@ fn read(service: &Service, store: Store, cursor: &[u8]) -> crate::Result<Batch> 
     Ok(match store {
         Store::Mailbox => service
             .store
-            .mailboxes_after(cursor, BATCH)?
+            .mailboxes_after_at(cursor, BATCH, service.clock.timestamp())?
             .into_iter()
             .map(|mailbox| {
                 let keys = replica_keys(store, std::slice::from_ref(&mailbox));

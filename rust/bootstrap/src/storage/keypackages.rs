@@ -42,6 +42,29 @@ impl BootstrapStore {
         slot: u8,
         record: &SignedRecord,
     ) -> Result<bool> {
+        self.put_keypackage_at(
+            package,
+            hash,
+            slot,
+            record,
+            crate::clock::Clock::system().timestamp(),
+        )
+    }
+
+    /// [`Self::put_keypackage`] at `now`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the encoded record length cannot fit storage, profile-store locking fails,
+    /// or package cleanup, quota lookup or the insertion transaction fails.
+    pub fn put_keypackage_at(
+        &self,
+        package: &KeyPackageRecord,
+        hash: &[u8],
+        slot: u8,
+        record: &SignedRecord,
+        now: i64,
+    ) -> Result<bool> {
         let owner = package.owner.as_slice();
         let mailbox = package.mailbox.as_slice();
         let last_resort = package.last_resort;
@@ -53,11 +76,8 @@ impl BootstrapStore {
         let tx = db
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(storage_error)?;
-        tx.execute(
-            "DELETE FROM `keypackages` WHERE `expires` <= ?1",
-            [chrono::Utc::now().timestamp()],
-        )
-        .map_err(storage_error)?;
+        tx.execute("DELETE FROM `keypackages` WHERE `expires` <= ?1", [now])
+            .map_err(storage_error)?;
         let exists: bool = tx
             .query_row("SELECT EXISTS(SELECT 1 FROM `keypackages` WHERE `owner` = ?1 AND `mailbox` = ?2 AND `hash` = ?3)", params![owner, mailbox, hash], |row| row.get(0))
             .map_err(storage_error)?;

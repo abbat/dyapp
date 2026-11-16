@@ -31,9 +31,10 @@ async fn successful_empty_lookup_confirms_the_local_holder() {
     let (replica, hash) = photo(&source);
     let query = swarm.behaviour_mut().kad.get_closest_peers(hash.clone());
     let mut replicas = Replicas::default();
-    replicas
-        .puts
-        .insert(1, PendingPut::new(PutRecord::Media(replica), None, true));
+    replicas.puts.insert(
+        1,
+        PendingPut::new(PutRecord::Media(replica), None, true, Instant::now()),
+    );
     replicas.lookups.insert(query, Lookup::Put(1));
     replicas.closest(
         &mut swarm,

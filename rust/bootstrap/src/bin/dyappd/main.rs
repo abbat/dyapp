@@ -21,6 +21,7 @@
 //! `dyappd info <host:port>` and the other [client] commands talk to a running node; they only
 //! read the config, for `network.name`.
 
+use dyapp_bootstrap::clock::Clock;
 use dyapp_bootstrap::config::{message, options_help, options_help_russian, russian_locale};
 use dyapp_bootstrap::deny::{normalize, DenyStore};
 use dyapp_bootstrap::{node, NodeConfig};
@@ -30,7 +31,7 @@ use rusqlite::{Connection, OpenFlags};
 use std::io::IsTerminal;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 mod client;
 
@@ -328,9 +329,7 @@ fn status(config: &NodeConfig, running: bool) -> String {
             .as_deref()
             .map_or_else(|| "unavailable".to_string(), |m| value(m).to_string())
     };
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs());
+    let now = Clock::system().unix_secs();
     [
         ("node", if running { "running" } else { "stopped" }.to_string()),
         ("peer_id", peer_id.trim().to_string()),

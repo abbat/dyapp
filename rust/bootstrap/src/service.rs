@@ -138,7 +138,7 @@ pub struct Service {
     /// groups, and new on restart.
     salt: [u8; 32],
     /// Wall and monotonic time for limits, signed-time checks and retention.
-    clock: Clock,
+    pub(crate) clock: Clock,
 }
 
 const GUARDS: [&str; 7] = [
@@ -195,7 +195,10 @@ impl Service {
             dial_filter: dyapp_p2p_net::DialFilter::default(),
             protocols: Arc::new(dyapp_p2p_net::Protocols::public()),
             memory: Memory::new(l.max_memory_mb.saturating_mul(1 << 20)),
-            rebuild_budget: RebuildBudget::new(config.maintenance.io_mb_per_s),
+            rebuild_budget: RebuildBudget::with_clock(
+                config.maintenance.io_mb_per_s,
+                clock.clone(),
+            ),
             config,
             deny: RwLock::default(),
             deny_signer: None,

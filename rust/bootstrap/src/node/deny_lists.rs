@@ -6,11 +6,11 @@ fn invalid_signature(peer: &PeerId) {
 }
 
 /// Stores a received deny list only when the sending node signed it.
-pub(super) fn keep(deny: &DenyStore, peer: &PeerId, record: &SignedRecord) {
+pub(super) fn keep(deny: &DenyStore, peer: &PeerId, record: &SignedRecord, now: i64) {
     let Some(list) = crate::deny::verify(record, peer) else {
         return invalid_signature(peer);
     };
-    match deny.keep_received(&peer.to_string(), list.time, record) {
+    match deny.keep_received_at(&peer.to_string(), list.time, record, now) {
         Ok(true) => received(peer, list.entries.len()),
         Ok(false) => {}
         Err(error) => tracing::error!(%peer, %error, "deny list not stored"),
@@ -62,7 +62,7 @@ fn apply(service: &Service, entries: HashSet<String>) -> bool {
         .unwrap_or_else(PoisonError::into_inner) = service
         .deny_signer
         .as_ref()
-        .map(|key| crate::deny::sign(key, &entries));
+        .map(|key| crate::deny::sign_at(key, &entries, service.clock.timestamp().unsigned_abs()));
     *old = entries;
     purged
 }

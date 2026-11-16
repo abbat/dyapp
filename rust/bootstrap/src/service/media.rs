@@ -180,7 +180,7 @@ impl Service {
         }
         match crate::replication::media_decode(manifest, shards) {
             Ok(data) => {
-                cache_assembled(media, &manifest.hash, &data);
+                cache_assembled(media, &manifest.hash, &data, self.clock.timestamp());
                 Ok(media_piece(get, data))
             }
             Err(error) => {
@@ -265,7 +265,7 @@ impl Service {
             return Ok(Err(Status::Invalid));
         }
         let hash = dyapp_identity::sha256(&put.data);
-        let Some(authorization) = media.authorization(&hex(&put.owner), &hash)? else {
+        let Some(authorization) = media.authorization_at(&hex(&put.owner), &hash, self.clock.timestamp())? else {
             return Ok(Err(Status::NotFound));
         };
         let bytes = put.data.len() as u64;
@@ -297,8 +297,7 @@ impl Service {
     }
 }
 
-fn cache_assembled(media: &crate::media::MediaStore, hash: &[u8], data: &[u8]) {
-    let now = chrono::Utc::now().timestamp();
+fn cache_assembled(media: &crate::media::MediaStore, hash: &[u8], data: &[u8], now: i64) {
     if let Err(error) = media.cache(hash, data, now) {
         tracing::error!(%error, "media cache write failed");
     }

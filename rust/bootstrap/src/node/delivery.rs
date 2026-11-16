@@ -44,7 +44,7 @@ pub(super) fn send_envelopes(
         }
     };
     let mut bytes = 0;
-    let now = chrono::Utc::now().timestamp();
+    let now = service.clock.timestamp();
     let mut wanted: Vec<crate::service::Held> = held
         .into_iter()
         .filter(|(id, (record, _, _))| {

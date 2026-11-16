@@ -52,7 +52,7 @@ impl Upload {
         let mut replicas = Replicas::default();
         replicas.puts.insert(
             1,
-            PendingPut::new(record(&chain, data, sharded), None, false),
+            PendingPut::new(record(&chain, data, sharded), None, false, Instant::now()),
         );
         // The second holder lookup remains active while first-holder callbacks complete.
         replicas.lookups.insert(lookup, Lookup::Put(1));

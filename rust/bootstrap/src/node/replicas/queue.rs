@@ -69,9 +69,15 @@ impl Replicas {
         }
     }
 
-    fn repair_reply(&mut self, id: u64, job: usize, response: Option<proto::MediaResponse>) {
+    fn repair_reply(
+        &mut self,
+        id: u64,
+        job: usize,
+        response: Option<proto::MediaResponse>,
+        now: Instant,
+    ) {
         if let Some((repair, _)) = self.media_repairs.get_mut(&id) {
-            repair.response(job, response);
+            repair.response_at(job, response, now);
         }
     }
 
@@ -88,15 +94,20 @@ impl Replicas {
             .get_mut(&id)
             .and_then(|(repair, _)| repair.request(job, service))
         else {
-            self.repair_reply(id, job, None);
+            self.repair_reply(id, job, None, service.clock.instant());
             return;
         };
         if !clean_repair(service, &mut request) {
-            self.repair_reply(id, job, None);
+            self.repair_reply(id, job, None, service.clock.instant());
             return;
         }
         if to == *swarm.local_peer_id() {
-            self.repair_reply(id, job, local_repair(service, to, &request));
+            self.repair_reply(
+                id,
+                job,
+                local_repair(service, to, &request),
+                service.clock.instant(),
+            );
             return;
         }
         if !service
@@ -104,7 +115,7 @@ impl Replicas {
             .try_add(request.encoded_len() as u64 + reserve, SHED_MEDIA)
             || !self.allow_repair(to, request.request.as_ref().unwrap())
         {
-            self.repair_reply(id, job, None);
+            self.repair_reply(id, job, None, service.clock.instant());
             return;
         }
         let request_id = swarm.behaviour_mut().media.send_request(&to, request);

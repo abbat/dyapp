@@ -306,6 +306,10 @@ cannot skip it. Adding `unsafe` code is a change trigger (see [Trigger list](#tr
 
 Formatting: rustfmt defaults (edition 2021, no `rustfmt.toml`).
 
+Bootstrap production code reads wall and monotonic time through `clock::Clock`; tests use its
+manual source instead of sleeps. `tests/scripts/check-clock.py` rejects direct `Utc::now`,
+`SystemTime::now` and `Instant::now` reads outside the clock implementation and test modules.
+
 ### Secret and crypto hygiene
 
 Practice C6. Secret material lives only in wrappers that clear it on drop and never print it:

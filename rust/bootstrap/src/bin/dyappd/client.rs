@@ -41,6 +41,7 @@
 
 use super::message;
 use anyhow::{anyhow, bail, Context};
+use dyapp_bootstrap::clock::Clock;
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_p2p_net::proto::{
     self, mailbox_request, media_request, node_request, profile_request, Status,
@@ -111,7 +112,7 @@ pub async fn run(network: &str, args: &[&str]) -> anyhow::Result<Option<Value>> 
             let record = Identity::from_secret(&secret).sign(
                 Domain::Heartbeat,
                 proto::Heartbeat {
-                    time: chrono::Utc::now().timestamp().unsigned_abs(),
+                    time: Clock::system().unix_secs(),
                     version: 0,
                     ..Default::default()
                 }
@@ -174,7 +175,7 @@ pub async fn run(network: &str, args: &[&str]) -> anyhow::Result<Option<Value>> 
             let record = SignedRecord::decode(unhex(record)?.as_slice())?;
             let mut keep = proto::MediaKeep::decode(record.payload.as_slice())?;
             keep.version += 1;
-            keep.time = chrono::Utc::now().timestamp().unsigned_abs();
+            keep.time = Clock::system().unix_secs();
             let secret: [u8; 32] = unhex(secret)?.try_into().map_err(|_| {
                 anyhow!(message(
                     "secret must be 32 bytes",
@@ -280,7 +281,7 @@ async fn media(addr: &str, data: &str, include_details: bool) -> anyhow::Result<
     let keep = proto::MediaKeep {
         version: 1,
         hashes: vec![hash.clone()],
-        time: chrono::Utc::now().timestamp().unsigned_abs(),
+        time: Clock::system().unix_secs(),
     };
     let record = owner.sign(Domain::MediaKeep, keep.encode_to_vec());
     let details = json!({ "owner": owner.peer_id(), "hash": hex(&hash), "keep_record": hex(&record.encode_to_vec()), "secret": hex(&owner.secret()[..]) });

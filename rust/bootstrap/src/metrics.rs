@@ -12,7 +12,7 @@ use libp2p::swarm::{Swarm, SwarmEvent};
 use std::fmt::Write as _;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 /// Served request-response protocols, in label order.
 const PROTOCOLS: [&str; 7] = [
@@ -87,7 +87,7 @@ pub struct Metrics {
 impl Default for Metrics {
     fn default() -> Self {
         Self {
-            started: unix_now(),
+            started: crate::clock::Clock::system().unix_secs(),
             requests: Default::default(),
             outcomes: Default::default(),
             connected_peers: AtomicU64::new(0),
@@ -184,7 +184,7 @@ pub fn snapshot(service: &Service) {
     ];
     if let Ok(mut snapshot) = service.metrics.snapshot.lock() {
         *snapshot = Snapshot {
-            at: unix_now(),
+            at: service.clock.unix_secs(),
             stores,
         };
     }
@@ -349,12 +349,6 @@ impl Text {
 
 fn load(counter: &AtomicU64) -> u64 {
     counter.load(Ordering::Relaxed)
-}
-
-fn unix_now() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs())
 }
 
 #[cfg(test)]

@@ -54,14 +54,27 @@ pub fn sign<S: std::hash::BuildHasher>(
     key: &Identity,
     entries: &HashSet<String, S>,
 ) -> SignedRecord {
+    sign_at(
+        key,
+        entries,
+        crate::clock::Clock::system().timestamp().unsigned_abs(),
+    )
+}
+
+/// [`sign`] at `now`.
+#[must_use]
+pub fn sign_at<S: std::hash::BuildHasher>(
+    key: &Identity,
+    entries: &HashSet<String, S>,
+    now: u64,
+) -> SignedRecord {
     let mut entries: Vec<String> = entries.iter().cloned().collect();
     entries.sort();
     if entries.len() > MAX_SHARED {
         tracing::warn!(entries = entries.len(), MAX_SHARED, "shared deny list cut");
         entries.truncate(MAX_SHARED);
     }
-    let time = u64::try_from(chrono::Utc::now().timestamp()).unwrap_or_default();
-    let list = proto::DenyList { time, entries };
+    let list = proto::DenyList { time: now, entries };
     key.sign(Domain::DenyList, list.encode_to_vec())
 }
 
@@ -116,6 +129,26 @@ impl DenyStore {
     ///
     /// Returns an error if database locking, storing the newer list or pruning older lists fails.
     pub fn keep_received(&self, peer: &str, time: u64, record: &SignedRecord) -> Result<bool> {
+        self.keep_received_at(
+            peer,
+            time,
+            record,
+            crate::clock::Clock::system().timestamp(),
+        )
+    }
+
+    /// [`Self::keep_received`] at `now`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if database locking, storing the newer list or pruning older lists fails.
+    pub fn keep_received_at(
+        &self,
+        peer: &str,
+        time: u64,
+        record: &SignedRecord,
+        now: i64,
+    ) -> Result<bool> {
         let db = lock(&self.db)?;
         let kept = db
             .execute(
@@ -127,7 +160,7 @@ impl DenyStore {
                     peer,
                     i64::try_from(time).unwrap_or(i64::MAX),
                     record.encode_to_vec(),
-                    chrono::Utc::now().timestamp()
+                    now
                 ],
             )
             .map_err(storage_error)?;
@@ -173,7 +206,7 @@ impl DenyStore {
         let added = lock(&self.db)?
             .execute(
                 "INSERT OR IGNORE INTO `deny` (`entry`, `note`, `added`) VALUES (?, ?, ?)",
-                params![entry, note, chrono::Utc::now().timestamp()],
+                params![entry, note, crate::clock::Clock::system().timestamp()],
             )
             .map_err(storage_error)?;
         Ok(added > 0)

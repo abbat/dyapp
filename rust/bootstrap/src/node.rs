@@ -380,11 +380,11 @@ struct PendingPut {
 }
 
 impl PendingPut {
-    fn new(record: PutRecord, reply: Option<PutReply>, isolated: bool) -> Self {
+    fn new(record: PutRecord, reply: Option<PutReply>, isolated: bool, now: Instant) -> Self {
         Self {
             record,
             reply,
-            deadline: Instant::now() + PUT_TIMEOUT,
+            deadline: now + PUT_TIMEOUT,
             sent: HashSet::new(),
             stored: HashSet::new(),
             required: if isolated { 1 } else { 2 },
@@ -714,6 +714,7 @@ fn send_catch_up(
     budget: &RebuildBudget,
     queue: &mut HashMap<PeerId, VecDeque<[u8; 32]>>,
     asked: &mut HashMap<OutboundRequestId, (PeerId, Vec<[u8; 32]>)>,
+    now: tokio::time::Instant,
 ) -> Option<tokio::time::Instant> {
     queue.retain(|_, keys| !keys.is_empty());
     for (peer, keys) in queue.iter_mut() {
@@ -730,7 +731,6 @@ fn send_catch_up(
             asked.insert(id, (*peer, chunk));
             in_flight += 1;
             // A reply holds at most 1 MiB; the next get waits until the budget covers it.
-            let now = tokio::time::Instant::now();
             let next = budget.reserve(now, 1 << 20, "profiles-idx.db", 0);
             if next > now {
                 return Some(next);

@@ -99,11 +99,11 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
     let mut asks = crate::catch_up::Asks::default();
     let mut catch_up_queue: HashMap<PeerId, VecDeque<[u8; 32]>> = HashMap::new();
     let mut catch_up_asked: HashMap<OutboundRequestId, (PeerId, Vec<[u8; 32]>)> = HashMap::new();
-    let mut catch_up_at = tokio::time::Instant::now();
+    let mut catch_up_at = tokio::time::Instant::from_std(service.clock.instant());
     let mut refill_round = refill::Round::default();
     refill::spawn_rebuild(&service);
     let mut catch_up = tokio::time::interval_at(
-        tokio::time::Instant::now() + Duration::from_secs(60),
+        tokio::time::Instant::from_std(service.clock.instant()) + Duration::from_secs(60),
         Duration::from_secs(3600),
     );
     // Requests answered and failed with a node error since the last maintenance run.
@@ -127,7 +127,10 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
         .flatten()
         .collect();
     let every = Duration::from_secs(300);
-    let mut rejoin = tokio::time::interval_at(tokio::time::Instant::now() + every, every);
+    let mut rejoin = tokio::time::interval_at(
+        tokio::time::Instant::from_std(service.clock.instant()) + every,
+        every,
+    );
     // Store requests (node, profile, media, mailbox, inventory) run off the loop on
     // STORE_WORKERS threads, one per peer at a time, round robin between peers; past
     // PEER_QUEUE waiting the request is dropped. A peer's replies keep its request order.
@@ -174,7 +177,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     ..
                 })) => {
                     if let Some(record) = response.deny_list {
-                        keep_deny_list(&deny, &id, &record);
+                        keep_deny_list(&deny, &id, &record, service.clock.timestamp());
                     }
                 }
                 SwarmEvent::Behaviour(BehaviourEvent::Profile(Event::Message {
@@ -320,7 +323,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                         Ok(work) => {
                             let group = (!service.is_search_peer(&from)).then(|| from.group.clone());
                             let peer_id = from.id.clone();
-                            let job = SearchJob { from, channel, work, queued: std::time::Instant::now() };
+                            let job = SearchJob { from, channel, work, queued: service.clock.instant() };
                             match search_queue.push(group.as_deref(), job) {
                                 Ok(()) => {
                                     if let Some(solution) = &solution {
@@ -417,7 +420,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                                     queue.push_back(*key);
                                 }
                             }
-                            catch_up_at = catch_up_at.min(tokio::time::Instant::now());
+                            catch_up_at = catch_up_at.min(tokio::time::Instant::from_std(service.clock.instant()));
                         }
                         Err(error) => tracing::error!(%error, "search catch-up failed"),
                     }
@@ -464,7 +467,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     if !got.is_empty() {
                         catch_up_queue.entry(id).or_default().extend(keys.into_iter().filter(|k| !got.contains(k)));
                     }
-                    if let Some(next) = send_catch_up(&mut swarm, &service.rebuild_budget, &mut catch_up_queue, &mut catch_up_asked) {
+                    if let Some(next) = send_catch_up(&mut swarm, &service.rebuild_budget, &mut catch_up_queue, &mut catch_up_asked, tokio::time::Instant::from_std(service.clock.instant())) {
                         catch_up_at = next;
                     }
                 }
@@ -491,8 +494,8 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     }
                 }
                 SwarmEvent::ConnectionEstablished { peer_id, connection_id, endpoint, .. } => {
-                    replicas.trust.seen.entry(peer_id).or_insert_with(Instant::now);
-                    admission.established(&mut swarm, connection_id, peer_id, &endpoint);
+                    replicas.trust.seen.entry(peer_id).or_insert_with(|| service.clock.instant());
+                    admission.established(&mut swarm, connection_id, peer_id, &endpoint, service.clock.instant());
                     drop_banned(&mut swarm, &service, peer_id);
                 }
                 SwarmEvent::ConnectionClosed { peer_id, connection_id, num_established, .. } => {
@@ -568,7 +571,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                 SwarmEvent::Behaviour(BehaviourEvent::Kad(kad::Event::OutboundQueryProgressed {
                     result: kad::QueryResult::Bootstrap(Ok(ok)),
                     ..
-                })) if ok.num_remaining == 0 => replicas.republish.bootstrapped(Instant::now()),
+                })) if ok.num_remaining == 0 => replicas.republish.bootstrapped(service.clock.instant()),
                 // The peer's answer to an inventory: it gets what it lacks.
                 SwarmEvent::Behaviour(BehaviourEvent::Mailbox(Event::Message {
                     peer: id,
@@ -642,7 +645,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     }
                 }
                 SwarmEvent::OutgoingConnectionError { connection_id, peer_id, error } => {
-                    admission.failed(&mut swarm, connection_id);
+                    admission.failed(&mut swarm, connection_id, service.clock.instant());
                     if matches!(error, DialError::WrongPeerId { .. }) {
                         tracing::warn!(?peer_id, %error, "outbound peer ID mismatch; connection refused");
                     }
@@ -654,10 +657,10 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
             }
             },
             _ = put_check.tick() => {
-                replicas.finish_puts(&mut swarm, &service, Instant::now());
-                replicas.republish(&mut swarm, &service, Instant::now());
+                replicas.finish_puts(&mut swarm, &service, service.clock.instant());
+                replicas.republish(&mut swarm, &service, service.clock.instant());
             }
-            _ = republish_scan.tick() => replicas.scan(&mut swarm, &service, Instant::now()),
+            _ = republish_scan.tick() => replicas.scan(&mut swarm, &service, service.clock.instant()),
             _ = deny_check.tick() => reload_deny(&service, &deny, &mut deny_version),
             () = hangup.recv() => {
                 deny_version = None;
@@ -689,7 +692,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     failed += 1;
                 }
             }
-            _ = puzzle_tick.tick() => service.puzzle.tick(std::time::Instant::now()),
+            _ = puzzle_tick.tick() => service.puzzle.tick(service.clock.instant()),
             Some(done) = search_done.recv() => {
                 searching -= 1;
                 start_search(&mut search_queue, &mut searching, &service, &search_done_tx);
@@ -743,8 +746,8 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                 }
             },
             () = tokio::time::sleep_until(catch_up_at), if !catch_up_queue.is_empty() => {
-                catch_up_at = send_catch_up(&mut swarm, &service.rebuild_budget, &mut catch_up_queue, &mut catch_up_asked)
-                    .unwrap_or_else(|| tokio::time::Instant::now() + Duration::from_secs(1));
+                catch_up_at = send_catch_up(&mut swarm, &service.rebuild_budget, &mut catch_up_queue, &mut catch_up_asked, tokio::time::Instant::from_std(service.clock.instant()))
+                    .unwrap_or_else(|| tokio::time::Instant::from_std(service.clock.instant()) + Duration::from_secs(1));
             }
             // Hourly, each kept topic's digest from two random search peers finds what gossip missed.
             _ = catch_up.tick(), if service.search.is_some() => {

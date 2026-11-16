@@ -289,7 +289,10 @@ fn signed_profile_versions_and_tombstone() {
         ..Profile::default()
     };
 
-    store.put_profile(&profile(2).sign(&owner)).unwrap();
+    let cutoff = 1_800_000_000;
+    store
+        .put_profile_seen(&profile(2).sign(&owner), cutoff)
+        .unwrap();
     assert!(matches!(
         store.put_profile(&profile(1).sign(&owner)),
         Err(BootstrapError::Profile(dyapp_profile::Error::Stale))
@@ -310,7 +313,9 @@ fn signed_profile_versions_and_tombstone() {
         previous: Some(dyapp_profile::ProfileCondition::observed(Some(&stored)).unwrap()),
         ..Profile::tombstone(3, 0, 0)
     };
-    store.put_profile(&deleted.sign(&owner)).unwrap();
+    store
+        .put_profile_seen(&deleted.sign(&owner), cutoff)
+        .unwrap();
     assert_eq!(
         store.list_profiles(0, 10).unwrap(),
         [] as [dyapp_identity::SignedRecord; 0]
@@ -327,11 +332,12 @@ fn signed_profile_versions_and_tombstone() {
         Ok(3)
     );
     // Finality on a cooperating node lasts only while it retains the tombstone.
-    let cutoff = chrono::Utc::now().timestamp();
-    assert_eq!(store.expire_profiles(cutoff - 60).unwrap(), 0);
-    assert_eq!(store.expire_profiles(cutoff + 1).unwrap(), 1);
+    assert_eq!(store.expire_profiles(cutoff - 1).unwrap(), 0);
+    assert_eq!(store.expire_profiles(cutoff).unwrap(), 1);
     assert!(store.get_profile(&owner.peer_id()).unwrap().is_none());
-    store.put_profile(&profile(4).sign(&owner)).unwrap();
+    store
+        .put_profile_seen(&profile(4).sign(&owner), cutoff + 1)
+        .unwrap();
 }
 
 #[test]

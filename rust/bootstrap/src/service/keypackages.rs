@@ -162,7 +162,7 @@ impl Service {
         ) else {
             return Ok(response(Status::Invalid));
         };
-        let now = chrono::Utc::now().timestamp().unsigned_abs();
+        let now = self.clock.timestamp().unsigned_abs();
         if package.mailbox != key_hash(&device)
             || package.package.len() < 5
             || !package.package.starts_with(&[0, 1, 0, 1])
@@ -187,7 +187,9 @@ impl Service {
         }
         let hash = sha256(&package.package);
         let slot = hash[0] % dyapp_p2p_net::REPLICAS;
-        let accepted = self.store.put_keypackage(&package, &hash, slot, signed)?;
+        let accepted =
+            self.store
+                .put_keypackage_at(&package, &hash, slot, signed, self.clock.timestamp())?;
         Ok(response(if accepted { Status::Ok } else { Status::Full }))
     }
 
@@ -210,7 +212,7 @@ impl Service {
         if profile.profile.version < get.profile_version {
             return Ok(response(Status::Stale));
         }
-        let now = chrono::Utc::now().timestamp();
+        let now = self.clock.timestamp();
         let Ok(slot) = u8::try_from(get.slot) else {
             return Ok(response(Status::Invalid));
         };
