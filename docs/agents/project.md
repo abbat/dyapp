@@ -119,6 +119,12 @@ so the next native connection check must separately establish listener readiness
 must fail the phase, not be retried against a possibly stale acknowledgement. Controller tests run with
 Python unittest and use pipe readiness and Linux pidfds; they do not build Android.
 
+Compose text calibration fixtures put size-constrained Text inside a Box with loose child minimum
+constraints. A Text directly at the test root can inherit exact window minima that override its
+requested width/height and prevent every intended wrapping/clipping case. Derive dimensions from
+the current natural text measurement and retain explicit calibration preconditions with compact
+layout diagnostics; an SDK compilation does not prove those runtime conditions.
+
 Android network-policy tests use public API 31 `NetworkCapabilities.capabilities` snapshots:
 `addCapability`/`removeCapability` on `NetworkCapabilities` are hidden SDK APIs. Keep these
 tests independent of an emulator's live connection and callback timing.

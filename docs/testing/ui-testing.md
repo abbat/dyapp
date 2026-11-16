@@ -454,7 +454,9 @@ with adjacent text and both own/peer stickers, in English and Russian, under the
 list scrolling and checked against measured line bounds, complete text offsets and ellipsis state.
 The vertical overflow guard remains; paragraph-container width alone does not establish clipping.
 `TextLayoutAssertionsTests` calibrates the guard with actual wrapping, horizontal/vertical clipping,
-max-line truncation and ellipsis. Calibration constraints come from the current natural text size,
+max-line truncation and ellipsis. Calibration constraints come from the current natural text size.
+A full-size Box gives the constrained child loose minimum dimensions; the root window must not
+force the Text back to full width/height. Preconditions retain compact actual layout diagnostics,
 without guessed offsets, pixel tolerances or media downloads.
 This covers fallback presentation, while native sticker exchange and planned picker/image UI
 retain their separate acceptance.

@@ -1,5 +1,7 @@
 package com.dyapp
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
@@ -39,37 +41,45 @@ class TextLayoutAssertionsTests {
                 val width = with(density) { (natural.size.width / 2f).toDp() }
                 val height = with(density) { (natural.size.height / 2f).toDp() }
                 val modifier = Modifier.width(width).testTag("measured-text")
-                Text(
-                    text,
-                    if (clipHeight) modifier.height(height) else modifier,
-                    style = style,
-                    softWrap = softWrap,
-                    maxLines = maxLines,
-                    overflow = overflow,
-                )
+                // A root Text inherits exact window minima, which can override its requested size.
+                Box(Modifier.fillMaxSize()) {
+                    Text(
+                        text,
+                        if (clipHeight) modifier.height(height) else modifier,
+                        style = style,
+                        softWrap = softWrap,
+                        maxLines = maxLines,
+                        overflow = overflow,
+                    )
+                }
             }
         }
         return compose.onNodeWithTag("measured-text").assertIsDisplayed().textLayout()
     }
 
+    private fun TextLayoutResult.diagnostic(): String =
+        "size=$size constraints=${layoutInput.constraints} lines=$lineCount " +
+            "overflow=$didOverflowWidth/$didOverflowHeight lastEnd=${getLineEnd(lineCount - 1)} " +
+            "textLength=${layoutInput.text.length} right=${getLineRight(0)} ellipsis=${isLineEllipsized(0)}"
+
     @Test
     fun wrappingAllCharactersInsideMeasuredLinesPasses() {
         val layout = show()
-        assertTrue(layout.lineCount > 1)
-        assertTrue(layout.textFitsLayout())
+        assertTrue(layout.diagnostic(), layout.lineCount > 1)
+        assertTrue(layout.diagnostic(), layout.textFitsLayout())
     }
 
     @Test
     fun unwrappedTextBeyondItsMeasuredWidthFails() {
         val layout = show(softWrap = false)
-        assertTrue(layout.getLineRight(0) > layout.size.width)
+        assertTrue(layout.diagnostic(), layout.getLineRight(0) > layout.size.width)
         assertFalse(layout.textFitsLayout())
     }
 
     @Test
     fun ellipsizedTextFailsEvenWhenItsVisibleLineFits() {
         val layout = show(maxLines = 1, overflow = TextOverflow.Ellipsis)
-        assertTrue(layout.isLineEllipsized(0))
+        assertTrue(layout.diagnostic(), layout.isLineEllipsized(0))
         assertFalse(layout.textFitsLayout())
     }
 
