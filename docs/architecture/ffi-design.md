@@ -973,7 +973,15 @@ admission rejection (no installation), reservation failure (inventory may have c
 selector), and interruption in an exactly identified destination. A destination may already be ready
 before final selection; errors never promise pending state or rollback. The received `Linked` record
 is borrowed, so callers retain it until an authoritative completion or explicit recovery disposition.
-Compatibility APIs retain their original error text. Core `ReceivedLink` binds that record and its
+Compatibility APIs retain their original error text. Core `Registry::begin_link` binds a waiting
+`LinkInvitation` to the selected ready source and owner, checking expiry arithmetic before key
+generation. Idle invitations hold no operation lease. `poll_with` admits that source again,
+loads its active network and holds the identity operation through the supplied connection adapter
+and actual wire receive; it releases the node and lease before returning `ReceivedLink`.
+The worker must own the future until actual completion when its UI caller is cancelled.
+Profile-view generation and cancellation admission remain separate requirements before installation;
+this Rust coordinator does not yet expose a native receiver API.
+Core `ReceivedLink` binds that record and its
 device to the original registry/source and caches one installation receipt. `install_with` accepts
 the existing platform device-writer contract, including Desktop storage; that callback must store
 and verify the received key. Wrapped mobile `install` delegates to the same cache/writer and refuses

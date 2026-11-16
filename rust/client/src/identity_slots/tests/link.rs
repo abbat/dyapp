@@ -1,4 +1,5 @@
 mod interrupted;
+mod invitation;
 mod received;
 mod retained_platform;
 mod wrapped;

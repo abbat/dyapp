@@ -118,7 +118,7 @@ impl Registry {
         self.install_link(&old, linked, wizard, keys, device)
     }
 
-    fn link_source(
+    pub(super) fn link_source(
         &self,
         from: &str,
         expected_peer: &str,

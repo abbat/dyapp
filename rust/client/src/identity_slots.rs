@@ -10,6 +10,8 @@ mod inventory;
 mod keys;
 mod link;
 pub use link::LinkFailure;
+mod link_invitation;
+pub use link_invitation::LinkInvitation;
 mod markers;
 mod open;
 mod owned;
