@@ -410,9 +410,10 @@ it the regression test.
 Bootstrap model-based proptests compare mailbox, profile, keypackage, deny-list and search
 transitions with small reference models. Mailbox sequences include explicit-time expiry, reopen
 and injected rollback, and recompute tokenless byte counters after every step; profile and
-keypackage sequences include reopen. Proptest failure seeds persist under `build/`. Search
-restart and media fault transitions remain in their deterministic generation and ownership
-suites rather than being duplicated in the mailbox model.
+keypackage sequences include reopen. A separate media model exercises conditional ancestry
+staging, retries, activation, reopen and rollback, reconciling pending, history and live bytes
+after every step. Proptest failure seeds persist under `build/`. Search restart remains in its
+deterministic generation suite.
 
 Bootstrap storage fault tests use persisted SQLite triggers to fail profile replication, each
 mailbox acknowledgement delete, media keep projection, and search-generation replay and

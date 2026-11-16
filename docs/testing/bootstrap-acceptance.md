@@ -256,6 +256,7 @@ reference model; proptest prints the failing schedule and keeps its seed under `
 | KeyPackage upload, retried upload, last-resort rotation, allocation and reopen interleave: each ordinary package is handed out once, the last-resort one only when none is left | Property | `storage/tests/interleavings.rs::keypackage_upload_retry_rotation_and_allocation_interleave` | exists |
 | Eight senders allocate on threads while the owner re-uploads and rotates: 20 ordinary packages go out exactly once each, then the newest last-resort one | Unit | `storage/tests/interleavings.rs::concurrent_allocations_hand_out_each_ordinary_package_once` | exists |
 | Search puts, tombstones and queries land before, during and after a generation rebuild and its switch: versions never go back, queries see the newest live versions and the digest stays consistent | Property | `search/interleavings.rs::index_writes_queries_and_a_rebuild_interleave` | exists |
+| Conditional media ancestry stages, retries, applies, reopens and rolls back against a cursor model: only complete ancestry replaces live ownership, and pending/history/live byte accounting matches stored rows and files after every step | Property | `media_ownership.rs::conditional_ancestry_reopen_and_rollback_match_model` | exists |
 | The operator edits the deny list on its own connection while the node reloads and answers media requests; after the edits one reload serves exactly the final list | Property | `node/tests/deny_media.rs::operator_edits_and_node_reloads_interleave` | exists |
 
 ## Decisions

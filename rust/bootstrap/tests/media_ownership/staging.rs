@@ -3,6 +3,8 @@ use super::*;
 use std::ops::RangeInclusive;
 #[path = "staging/apply.rs"]
 mod application;
+#[path = "staging/model.rs"]
+mod model;
 #[path = "staging/wire.rs"]
 mod wire;
 
