@@ -2,9 +2,10 @@
 //! Catch-up answers from another search node: digest hashes and inventory pages.
 //!
 //! The node decodes these replies and turns them into the next digest, inventory range or
-//! nothing; a peer controls every field and every hash length.
+//! nothing; a peer controls every response field and every hash length.
 
 use dyapp_bootstrap::catch_up::{on_digest, on_inventory, Range, PAGE};
+use dyapp_bootstrap::search::SEARCH_TOPICS;
 use dyapp_p2p_net::proto::{DigestResponse, InventoryResponse, SearchHit};
 use prost::Message;
 
@@ -14,7 +15,7 @@ libfuzzer_sys::fuzz_target!(|data: &[u8]| {
     };
     // Our own digests for the answered bucket; the peer's answer is compared with them.
     let local = vec![[*selector; 32]; 256];
-    let topic = u32::from(*selector);
+    let topic = u32::from(*selector) % SEARCH_TOPICS;
     let bucket = (*selector & 1 == 0).then(|| selector.wrapping_mul(7));
     let answer = DigestResponse::decode(rest).ok();
     let _ = on_digest(&local, topic, bucket, answer.as_ref());
