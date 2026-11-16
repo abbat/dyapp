@@ -43,7 +43,7 @@ impl Registry {
     }
 
     pub(super) fn reserve(&self, storage: Storage, keys: &dyn KeyWriter) -> Result<Slot, String> {
-        self.reserve_with(storage, keys, new_id)
+        self.reserve_with(storage, keys, new_id, write::sync_directory)
     }
 
     pub(super) fn reserve_with(
@@ -51,6 +51,7 @@ impl Registry {
         storage: Storage,
         keys: &dyn KeyWriter,
         mut next_id: impl FnMut() -> Result<String, String>,
+        sync: impl Fn(&std::path::Path) -> Result<(), String>,
     ) -> Result<Slot, String> {
         let profiles = self.root.join("profiles");
         match fs::symlink_metadata(&profiles) {
@@ -83,7 +84,7 @@ impl Registry {
                 Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
                 result => result.map_err(|error| error.to_string())?,
             }
-            write::sync_directory(&profiles)?;
+            sync(&profiles)?;
             if self.layout == Layout::Desktop {
                 let mode = if storage == Storage::System {
                     b"system\n".as_slice()

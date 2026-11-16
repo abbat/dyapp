@@ -180,6 +180,10 @@ Computing the first receipt only inside `get_or_insert_with` leaves an operation
 the callback unwinds. Reconcile durable state and retain the original outcome instead of silently
 retrying into another destination.
 
+`Registry::list`, `inspect` and `resolve` acquire shared admission themselves. In controlled
+storage tests, release an explicit exclusive registry guard before those public read APIs;
+module-level inventory reads have a different locking contract.
+
 Shared identity operations retain `IdentityOperation` through actual worker completion, including
 caller cancellation. Keep installation node work outside that lease and never upgrade its shared
 registry lock to an exclusive mutation; see the [native contract](../architecture/ffi-design.md#shared-mobile-identity-registry).

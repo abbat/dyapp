@@ -139,9 +139,12 @@ fn reservation_skips_directory_tombstone_and_alias_collisions_without_overwritin
     let _guard = registry.lock().unwrap();
     let mut ids = [FIRST, second, third, fourth, fifth].into_iter();
     let reserved = registry
-        .reserve_with(Storage::Wrapped, &keys, || {
-            Ok(ids.next().expect("collision sequence").into())
-        })
+        .reserve_with(
+            Storage::Wrapped,
+            &keys,
+            || Ok(ids.next().expect("collision sequence").into()),
+            super::super::write::sync_directory,
+        )
         .unwrap();
     assert_eq!(reserved.id, fifth);
     assert_eq!(
@@ -153,6 +156,59 @@ fn reservation_skips_directory_tombstone_and_alias_collisions_without_overwritin
     assert_eq!(fs::read(tombstone).unwrap(), b"deleting\n");
     assert!(!profiles.join(second).exists());
     assert!(!profiles.join(third).exists());
+}
+
+#[test]
+fn failed_directory_sync_leaves_broken_inventory_without_changing_the_source() {
+    let root = root();
+    let registry = Registry::new(root.clone(), Layout::Android);
+    let keys = Writer::default();
+    let (source, owner, _) = registry.create(Storage::Wrapped, &keys).unwrap();
+    let id = if source.id == FIRST {
+        "22222222-2222-2222-2222-222222222222"
+    } else {
+        FIRST
+    };
+    let destination = root.join("profiles").join(id);
+    let source_key = fs::read(source.dir.join("identity.key")).unwrap();
+    let observed = std::cell::Cell::new(false);
+    let guard = registry.lock().unwrap();
+    let result = registry.reserve_with(
+        Storage::Wrapped,
+        &keys,
+        || Ok(id.into()),
+        |parent| {
+            assert_eq!(parent, root.join("profiles"));
+            assert!(destination.is_dir());
+            assert!(!destination.join("state").exists());
+            observed.set(true);
+            Err("directory sync denied".into())
+        },
+    );
+    assert!(observed.get());
+    assert_eq!(result.unwrap_err(), "directory sync denied");
+    drop(guard);
+    let inventory = registry.list().unwrap();
+    assert_eq!(inventory.len(), 2);
+    assert!(inventory.contains(&source));
+    assert_eq!(
+        inventory.iter().find(|slot| slot.id == id).unwrap().state,
+        State::Broken
+    );
+    assert_eq!(
+        active(&root, Layout::Android),
+        Active::Selected(source.id.clone())
+    );
+    assert_eq!(
+        fs::read(source.dir.join("identity.key")).unwrap(),
+        source_key
+    );
+    let Resolution::Ready(_, reopened) = registry.inspect(&source.id, &keys).unwrap() else {
+        panic!("source identity must remain ready");
+    };
+    assert_eq!(reopened.peer_id(), owner.peer_id());
+    assert!(!destination.join("identity.key").exists());
+    assert!(!destination.join("state").exists());
 }
 
 #[test]

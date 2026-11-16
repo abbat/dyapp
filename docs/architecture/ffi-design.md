@@ -1019,8 +1019,10 @@ using the new slot's existing wrapping credential. Core applies the same size li
 and before/after-persistence reopen checks as chat bootstrap, before ready/selection. Later bootstrap
 keeps this device and generates only a missing state-sealing key. Its `LinkFailure` distinguishes
 admission rejection (no installation), reservation failure (inventory may have changed, no confirmed
-selector), and interruption in an exactly identified destination. A destination may already be ready
-before final selection; errors never promise pending state or rollback. The received `Linked` record
+selector), and interruption in an exactly identified destination. A failed directory sync after
+reservation's mkdir can leave an unmarked directory that inventory reports as broken, not pending.
+A destination may already be ready before final selection; errors never promise pending state
+or rollback. The received `Linked` record
 is borrowed, so callers retain it until an authoritative completion or explicit recovery disposition.
 Compatibility APIs retain their original error text. Core `Registry::begin_link` binds a waiting
 `LinkInvitation` to the selected ready source and owner, checking expiry arithmetic before key
