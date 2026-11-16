@@ -19,7 +19,7 @@ INLINE = re.compile(r"^#\[cfg\(test\)\]\s*\nmod (\w+) \{", re.M)
 COMMENT = re.compile(r"//.*")
 
 # Direct reads left in files not yet moved onto the clock.
-BUDGET = {}
+BUDGET: dict[str, int] = {}
 
 
 def test_modules(sources: Mapping[Path, str]) -> set[Path]:
