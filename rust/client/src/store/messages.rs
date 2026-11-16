@@ -750,6 +750,20 @@ impl Store {
         Ok(changed)
     }
 
+    fn saved_chat_text(
+        tx: &Transaction<'_>,
+        key: &MessageKey,
+    ) -> Result<Option<(Option<Vec<u8>>, Option<i64>, i64)>, Error> {
+        Ok(tx
+            .query_row(
+                "SELECT `original_digest`, `original_hlc`, `forwarded` FROM `chat_messages`
+             WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
+                params![&key.group, &key.author, key.id.as_slice()],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .optional()?)
+    }
+
     pub(super) fn record_chat_text_tx(
         tx: &Transaction<'_>,
         key: &MessageKey,
@@ -769,14 +783,7 @@ impl Store {
             .transpose()
             .map_err(|_| Error::ClockRange)?;
         let digest = sha256(text);
-        let saved: Option<(Option<Vec<u8>>, Option<i64>, i64)> = tx
-            .query_row(
-                "SELECT `original_digest`, `original_hlc`, `forwarded` FROM `chat_messages`
-             WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
-                params![&key.group, &key.author, key.id.as_slice()],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-            )
-            .optional()?;
+        let saved = Self::saved_chat_text(tx, key)?;
         match saved {
             Some((Some(original_digest), saved_hlc, saved_forwarded)) => {
                 if original_digest != digest

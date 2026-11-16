@@ -34,6 +34,21 @@ pub(super) fn validate_sender(
     Ok(())
 }
 
+fn ensure_text_absent(tx: &Transaction<'_>, key: &MessageKey) -> Result<(), Error> {
+    let text_exists: bool = tx
+        .query_row(
+            "SELECT 1 FROM `chat_messages` WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
+            params![&key.group, &key.author, key.id.as_slice()],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()?
+        .is_some();
+    if text_exists {
+        return Err(Error::InboxConflict);
+    }
+    Ok(())
+}
+
 /// Callers validate their typed descriptor before entering this common row boundary.
 pub(super) fn record(
     tx: &Transaction<'_>,
@@ -49,17 +64,7 @@ pub(super) fn record(
         author: sender.author.to_owned(),
         id: media.id,
     };
-    let text_exists: bool = tx
-        .query_row(
-            "SELECT 1 FROM `chat_messages` WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
-            params![sender.group, sender.author, media.id.as_slice()],
-            |row| row.get::<_, i64>(0),
-        )
-        .optional()?
-        .is_some();
-    if text_exists {
-        return Err(Error::InboxConflict);
-    }
+    ensure_text_absent(tx, &key)?;
     let saved: Option<(i64, Vec<u8>, i64, i64)> = tx
         .query_row(
             "SELECT `original_hlc`, `descriptor`, `forwarded`, `media_kind` FROM `chat_attachments`
