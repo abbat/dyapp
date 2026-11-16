@@ -81,10 +81,16 @@ class ChatStickerHistoryTests {
             assertFalse(
                 "Clipped text: $label; size=${layout.size} constraints=${layout.layoutInput.constraints}; " +
                     "paragraph=${layout.multiParagraph.width}x${layout.multiParagraph.height}; " +
-                    "width=${layout.didOverflowWidth} height=${layout.didOverflowHeight} lines=${layout.lineCount}",
+                    "width=${layout.didOverflowWidth} height=${layout.didOverflowHeight} lines=${layout.lineCount}; " +
+                    "lineBounds=${layout.lineBounds()} textLength=${layout.layoutInput.text.length}",
                 layout.hasVisualOverflow
             )
         }
+    }
+
+    private fun TextLayoutResult.lineBounds() = (0 until lineCount).map { line ->
+        "${getLineLeft(line)}..${getLineRight(line)} / ${getLineTop(line)}..${getLineBottom(line)} " +
+            "end=${getLineEnd(line)} ellipsized=${isLineEllipsized(line)}"
     }
 
     @Test
