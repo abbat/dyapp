@@ -1,6 +1,8 @@
 //! Media tests.
 use super::*;
 
+mod boundaries;
+
 pub(in crate::service) fn media_service(
     change: impl FnOnce(&mut crate::config::Limits),
 ) -> Service {

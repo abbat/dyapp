@@ -47,6 +47,9 @@ async fn rebuild_switches_and_restart_keeps_the_highest_complete_generation() {
     let (base, keys) = filled(300);
     let index = reopen(&base, NEXT).unwrap();
     assert_eq!(index.index_version(), V);
+    let pooled = index.reader().unwrap();
+    drop(pooled);
+    assert_eq!(lock(&index.readers).unwrap().conns.len(), 1);
     let stale = index.reader().unwrap();
     index.rebuild_with(&RebuildBudget::new(64), 0, NOW).await;
     assert_eq!(index.index_version(), NEXT);
@@ -79,6 +82,42 @@ async fn rebuild_switches_and_restart_keeps_the_highest_complete_generation() {
         error.contains(&format!("profiles-idx-v{NEXT}.db")),
         "{error}"
     );
+}
+
+#[test]
+fn open_keeps_only_the_highest_complete_generation() {
+    let (base, _) = filled(1);
+    let later = generation_file(&base, NEXT);
+    let db = storage::open(&later, &[SCHEMA]).unwrap();
+    stamp(&db.into_inner().unwrap(), NEXT, true).unwrap();
+    let index = reopen(&base, NEXT).unwrap();
+    assert_eq!(index.index_version(), NEXT);
+    assert!(!base.exists());
+}
+
+#[test]
+fn a_fresh_target_generation_is_stamped_complete() {
+    let (base, _) = filled(1);
+    remove_files(&base);
+    let index = reopen(&base, NEXT).unwrap();
+    let complete: bool = index
+        .reader()
+        .unwrap()
+        .query_row("SELECT `complete` FROM `generation`", [], |row| row.get(0))
+        .unwrap();
+    assert!(complete);
+}
+
+#[tokio::test]
+async fn activation_at_the_exact_size_limit_is_not_over() {
+    let (base, _) = filled(1);
+    let mut index = reopen(&base, NEXT).unwrap();
+    let candidate = index.build(NEXT, &RebuildBudget::new(64), 0).await.unwrap();
+    let conn = Connection::open(&candidate.path).unwrap();
+    index.max_bytes = storage::used(&conn).unwrap();
+    drop(conn);
+    index.activate(candidate, Replay::All).unwrap();
+    assert!(!index.over.load(Ordering::Relaxed));
 }
 
 #[tokio::test]

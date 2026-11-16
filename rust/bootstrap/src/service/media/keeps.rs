@@ -185,3 +185,59 @@ impl Service {
         apply_condition(media, &owner, &keep, expected, record, &self.config.limits)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn conditions_require_bounded_versions_and_exact_hashes() {
+        assert!(valid_condition(&proto::MediaKeepCondition::default()));
+        for condition in [
+            proto::MediaKeepCondition {
+                version: i64::MAX.cast_unsigned() + 1,
+                owner_present: true,
+                ..Default::default()
+            },
+            proto::MediaKeepCondition {
+                version: 1,
+                record_hash: vec![0; 31],
+                owner_present: true,
+            },
+            proto::MediaKeepCondition {
+                version: 1,
+                ..Default::default()
+            },
+        ] {
+            assert!(!valid_condition(&condition));
+        }
+    }
+
+    #[test]
+    fn conditional_ownership_requires_every_receipt_field() {
+        let keep = |version, expected_version, intent_hash, requester| proto::MediaKeepIntent {
+            version,
+            expected: Some(proto::MediaKeepCondition {
+                version: expected_version,
+                owner_present: true,
+                ..Default::default()
+            }),
+            intent_hash,
+            requester,
+            ..Default::default()
+        };
+        let peer = libp2p::PeerId::random().to_string();
+        assert!(valid_ownership(&keep(
+            i64::MAX.cast_unsigned(),
+            i64::MAX.cast_unsigned() - 1,
+            vec![0; 32],
+            peer.clone(),
+        )));
+        for intent in [
+            keep(2, 1, Vec::new(), peer),
+            keep(2, 1, vec![0; 32], "not-a-peer".into()),
+        ] {
+            assert!(!valid_ownership(&intent));
+        }
+    }
+}

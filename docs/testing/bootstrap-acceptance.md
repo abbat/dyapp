@@ -260,6 +260,23 @@ reference model; proptest prints the failing schedule and keeps its seed under `
 | Conditional media ancestry stages, retries, applies, reopens and rolls back against a cursor model: only complete ancestry replaces live ownership, and pending/history/live byte accounting matches stored rows and files after every step | Property | `media_ownership.rs::conditional_ancestry_reopen_and_rollback_match_model` | exists |
 | The operator edits the deny list on its own connection while the node reloads and answers media requests; after the edits one reload serves exactly the final list | Property | `node/tests/deny_media.rs::operator_edits_and_node_reloads_interleave` | exists |
 
+## Mutation review
+
+The counts below are the missed-mutant baseline from `mutants.yml` run 43715673690, not a claim
+about the current tree. Replace them only from a newer mutation CI artifact. Every non-equivalent
+case needs a named regression test or a blocking follow-up; equivalent exclusions and their reasons
+live in `.cargo/mutants.toml`.
+
+| Module | Baseline missed | Review disposition |
+|--------|----------------:|--------------------|
+| `node/replicas*` | 56 | Blocking follow-up `dyapp-d1er.1`; existing node tests must be mapped before adding duplicates |
+| `rate_limit.rs` | 7 | Existing quota/pruning/ban boundaries plus `memory_sample_expires_exactly_at_its_deadline` |
+| `replication.rs` | 3 | Existing shard-count boundaries plus an invalid manifest-hash length assertion |
+| `search/generation.rs` | 10 | Generation cleanup/stamp/pool/newcomer/size boundaries; disjoint `OpenFlags` XOR excluded; three retry guards in blocking `dyapp-d1er.2` |
+| `service/mailbox.rs` | 9 | Source-group persistence, exact inventory and signal limits, tokened/tokenless isolation, existing cursor and quota tests |
+| `service/media/keeps.rs` | 12 | Pure condition/receipt validation plus current clock/version/hash boundaries; the baseline conditional age guard no longer exists |
+| `service/media/replicas.rs` | 1 | `attachment_admits_the_exact_future_clock_boundary` |
+
 ## Decisions
 
 Each accepted gap has a trigger that reopens it.

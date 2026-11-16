@@ -93,6 +93,31 @@ fn fetch_cursor_advances_and_rejects_malformed_position() {
 }
 
 #[test]
+fn put_group_binds_the_mailbox_and_source_group() {
+    let service = service();
+    let sender = Identity::generate();
+    let envelope = proto::Envelope {
+        id: vec![1; 16],
+        mailbox: vec![7; 32],
+        ciphertext: vec![1],
+        ..Default::default()
+    };
+    let record = sender.sign(Domain::Envelope, envelope.encode_to_vec());
+    let first = service.put_group(&record, &peer("source-a"));
+    assert_eq!(first.len(), 8);
+    let other = Peer {
+        group: "other".into(),
+        ..peer("source-b")
+    };
+    assert_ne!(service.put_group(&record, &other), first);
+    let malformed = SignedRecord {
+        payload: vec![0xff],
+        ..Default::default()
+    };
+    assert!(service.put_group(&malformed, &peer("bad")).is_empty());
+}
+
+#[test]
 fn deny_list_refuses_without_strikes() {
     let mut service = service_with(|l| l.strikes_to_ban = 1);
     let (listed, device) = (Identity::generate(), Identity::generate());
@@ -160,6 +185,13 @@ fn inventory_names_gaps_and_replica_put_fills_them() {
         mailbox_status(&inventory(vec![vec![2; 3]])),
         Status::Invalid
     );
+    let ids: Vec<_> = (0..MAX_INVENTORY)
+        .map(|i| u32::try_from(i).unwrap().to_be_bytes().repeat(4))
+        .collect();
+    assert_eq!(mailbox_status(&inventory(ids.clone())), Status::Ok);
+    let mut too_many = ids;
+    too_many.push(vec![9; 16]);
+    assert_eq!(mailbox_status(&inventory(too_many)), Status::Invalid);
     let batch = |envelopes| {
         let request = mailbox_request::Request::ReplicaPut(proto::Envelopes {
             envelopes,
@@ -676,7 +708,20 @@ fn signals_are_small_counted_apart_and_evict_the_oldest() {
         (mailbox_status(&response), response.max_bytes),
         (Status::TooLarge, MAX_SIGNAL_BYTES as u64)
     );
-    // The third signal overflows the 2 KiB quota and evicts the first; the message still fits.
+    let mut exact = proto::Envelope {
+        id: vec![5; 16],
+        mailbox: address.clone(),
+        ciphertext: vec![0; MAX_SIGNAL_BYTES],
+        class: Signal.into(),
+        ..Default::default()
+    };
+    let overhead = exact.encoded_len() - exact.ciphertext.len();
+    exact.ciphertext.resize(MAX_SIGNAL_BYTES - overhead, 0);
+    assert_eq!(exact.encode_to_vec().len(), MAX_SIGNAL_BYTES);
+    let exact = sender.sign(Domain::Envelope, exact.encode_to_vec());
+    let response = mailbox(&service, &mut conn, mailbox_request::Request::Put(exact));
+    assert_eq!(mailbox_status(&response), Status::Ok);
+    // Later signals overflow the 2 KiB quota and evict the oldest; the message still fits.
     let records = [
         record(1, Signal, 600),
         record(2, Signal, 600),

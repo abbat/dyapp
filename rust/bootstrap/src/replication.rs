@@ -371,6 +371,9 @@ mod tests {
         assert_eq!(manifest.data_shards(), None);
         manifest.shard_hashes.push(vec![0; 32]);
         assert_eq!(manifest.data_shards(), Some(1));
+        manifest.hash.clear();
+        assert_eq!(manifest.data_shards(), None);
+        manifest.hash = vec![0; 32];
         manifest.shard_hashes.push(vec![0; 32]);
         assert_eq!(manifest.data_shards(), None);
     }

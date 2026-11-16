@@ -319,6 +319,55 @@ fn sprayed_replica_labels_evict_only_that_replicas_envelopes() {
 }
 
 #[test]
+fn a_tokened_write_does_not_evict_the_tokenless_share() {
+    use mailbox_role::{Group, Source};
+    let (owner, contact, sender) = (
+        Identity::generate(),
+        Identity::generate(),
+        Identity::generate(),
+    );
+    let mailbox = mailbox_of(&owner);
+    let service = pooled_service(|l| {
+        l.messages_max_mb = 1;
+        l.mailbox_pool_kb = 1024;
+        l.tokenless_share_pct = 10;
+    });
+    let mut seeded = Vec::new();
+    for id in 1..=2 {
+        let envelope = plain(id, &mailbox, proto::EnvelopeClass::Message, 60_000);
+        let record = sender.sign(Domain::Envelope, envelope.encode_to_vec());
+        let new = crate::storage::NewEnvelope::new(
+            &mailbox,
+            &envelope.id,
+            &record,
+            false,
+            i64::from(today() + 1) * DAY,
+        );
+        assert_eq!(
+            service.store.put_envelope(&new, u64::MAX, None).unwrap(),
+            crate::storage::Put::Stored
+        );
+        seeded.push(envelope.id);
+    }
+    let mut tokened = envelope(9, &mailbox, token(&owner, &mailbox, &contact, today()));
+    tokened.ciphertext = vec![0; 1000];
+    let record = contact.sign(Domain::Envelope, tokened.encode_to_vec());
+    let response = service
+        .put(
+            &record,
+            true,
+            Source::Client,
+            MAX_ENVELOPE_BYTES,
+            "p",
+            Group::Ip("a"),
+        )
+        .unwrap();
+    assert_eq!(mailbox_status(&response), Status::Ok);
+    let held = service.held_ids(&mailbox).unwrap();
+    assert!(seeded.iter().all(|id| held.contains(id)));
+}
+
+#[test]
 fn the_store_wide_share_evicts_tokenless_signals_and_with_tokens_messages() {
     use mailbox_role::{Group, Source};
     use proto::EnvelopeClass::{Message, Signal};

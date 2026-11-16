@@ -303,6 +303,22 @@ mod tests {
     }
 
     #[test]
+    fn memory_sample_expires_exactly_at_its_deadline() {
+        let clock = Manual::new();
+        let now = clock.clock().instant();
+        let memory = Memory {
+            max: 1,
+            sample: Mutex::new(Some((now, 7))),
+            clock: clock.clock(),
+        };
+        assert_eq!(memory.share(), 7);
+        clock.advance(99 * MS);
+        assert_eq!(memory.share(), 7);
+        clock.advance(MS);
+        assert_ne!(memory.share(), 7, "expired sample was reused");
+    }
+
+    #[test]
     fn traffic_counts_the_byte_rate() {
         let clock = Manual::new();
         let rate = Traffic::with_clock(1000, clock.clock());

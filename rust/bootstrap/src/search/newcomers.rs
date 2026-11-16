@@ -37,6 +37,7 @@ fn newcomers_past_the_quota_evict_the_oldest_heartbeat() {
 #[test]
 fn newcomers_graduate_after_newcomer_days() {
     let index = quota(1 << 40, records(10));
+    assert_eq!(index.newcomer_seconds, 30 * DAY);
     let t = index.created() + 31 * DAY;
     let old = put_at(&index, "2950159", 10, t, true);
     // Thirty days after the last of them all ten are established; ten newcomers fit beside.
