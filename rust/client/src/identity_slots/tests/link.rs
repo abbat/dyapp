@@ -52,7 +52,7 @@ enum WrappedFailure {
 }
 
 #[derive(Default)]
-struct WrappedKeys {
+pub(crate) struct WrappedKeys {
     saved: RefCell<BTreeMap<String, Option<Identity>>>,
     failure: Cell<Option<WrappedFailure>>,
     device_failure: Cell<Option<wrapped::Failure>>,

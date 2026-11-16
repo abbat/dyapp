@@ -279,6 +279,10 @@ mutant rebuilds the package and runs its tests (about a minute in `dyapp-bootstr
 test code alone produce no mutants. Platform JNI/UI tests do not run in cargo-mutants' Rust
 package test command: exported contract values also need an independent expectation in their
 own crate's tests, rather than comparison only with the constant that implements them.
+Receiver receipt regressions also belong in `dyapp-client`: drive the real retained installer after
+a controlled received-record handoff and check success, failure and interrupted outcomes there.
+Mailbox integration in `dyapp-bootstrap` supplements those tests but does not replace them in
+the mutation command's package scope.
 
 **Exceptions.** Fix a missed mutant with a test. When a mutant cannot be caught, for example
 because it makes the code hang, mark the item `#[mutants::skip]` (or narrower,

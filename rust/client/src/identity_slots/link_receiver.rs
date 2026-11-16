@@ -1,4 +1,6 @@
 //! Persistent receiver ownership with adapter-specific, once-only installation receipts.
+#[cfg(test)]
+mod tests;
 
 use super::{
     KeyReader, LinkAdmission, LinkInvitation, LinkPhase, LinkWrite, ProfileGeneration, ProfileView,

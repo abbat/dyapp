@@ -1,6 +1,6 @@
 mod chat_keys;
 mod create;
-mod link;
+pub(super) mod link;
 mod open;
 mod operation;
 mod registry;
@@ -15,7 +15,7 @@ use std::path::Path;
 const FIRST: &str = "11111111-1111-1111-1111-111111111111";
 const SECOND: &str = "22222222-2222-2222-2222-222222222222";
 
-fn root() -> PathBuf {
+pub(super) fn root() -> PathBuf {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../build/slot-registry-tests")
         .join(format!("{:016x}", getrandom::u64().expect("fixture nonce")));
