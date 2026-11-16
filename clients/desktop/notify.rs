@@ -105,7 +105,10 @@ pub(crate) fn around_pass<T>(
 
 fn deliver(app: &AppHandle, name: &str, body: Preview) {
     let window = app.get_webview_window("main");
-    if window.is_some_and(|window| window.is_focused().unwrap_or(false)) {
+    // GTK can keep is_active true after unmapping; a hidden window is not foreground.
+    if window.is_some_and(|window| {
+        window.is_visible().unwrap_or(true) && window.is_focused().unwrap_or(false)
+    }) {
         return;
     }
     if let Some((open, fixed, sticker)) = crate::tray::notice_labels(app) {

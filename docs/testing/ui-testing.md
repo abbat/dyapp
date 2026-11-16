@@ -67,7 +67,11 @@ Unknown non-empty smoke steps fail explicitly; the runner checks that rejection 
 Linux, Windows and macOS CI retain `desktop-ui-results.json` with named case results alongside
 the captured diagnostic output; a green job alone does not establish coverage of a named case.
 Native keyboard checks wait for document focus through the window focus event and a deadline;
-restoring a desktop window also requests native focus. Opaque modal accessibility audits temporarily
+restoring a desktop window also requests native focus. Notification click scenarios await native
+hidden readiness before receiving mail and actual notification-click restoration afterwards.
+A hidden GTK window can retain its active flag; notification suppression requires both visibility
+and focus, so these scenarios do not await an unrelated active-flag reset.
+Opaque modal accessibility audits temporarily
 hide background paint outside the active dialog, preserving layout and restoring inline visibility
 on success or failure. This avoids axe 4.14 counting occluded page blocks as text overlap.
 Normal native scenarios await one shared calibration promise at startup, before opening dialogs

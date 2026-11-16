@@ -194,7 +194,7 @@ const presenceSteps = {
     await appApi.showPrivacy();
     document.getElementById('notice-content-text').click();
     await appApi.privacySaved;
-    // Notices go only to an unfocused window, so mail is received once the hide has completed.
+    // Hidden native readiness permits notices even when GTK retains its active-window flag.
     await invokeTest('ui_test_hide', { close: false, restore: false });
     await appBindings.invoke('receive_mail');
     await invokeTest('ui_test_restored');

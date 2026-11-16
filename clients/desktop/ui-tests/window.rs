@@ -11,7 +11,6 @@ use crate::window::Rect;
 #[derive(Clone, Copy, Default)]
 struct Snapshot {
     visible: Option<bool>,
-    focused: Option<bool>,
     bounds: Option<Rect>,
 }
 
@@ -35,11 +34,10 @@ fn bounds(window: &tauri::Window) -> Result<Rect, String> {
 }
 
 pub(crate) fn publish(window: &tauri::Window) {
-    let (visible, focused) = (window.is_visible().ok(), window.is_focused().ok());
+    let visible = window.is_visible().ok();
     if let Some(signals) = window.try_state::<Signals>() {
         signals.0.send_modify(|state| {
             state.visible = visible;
-            state.focused = focused;
         });
     }
 }
@@ -48,7 +46,6 @@ pub(crate) fn geometry(window: &tauri::Window) {
     if let Some(signals) = window.try_state::<Signals>() {
         signals.0.send_replace(Snapshot {
             visible: window.is_visible().ok(),
-            focused: window.is_focused().ok(),
             bounds: bounds(window).ok(),
         });
     }
@@ -67,7 +64,7 @@ async fn wait(
 }
 
 /// Hide/close, report native hidden readiness, then wait for an actual restore callback.
-/// `restore: false` returns once hidden and unfocused, the state in which notices are shown;
+/// `restore: false` returns once hidden, which permits notices even if GTK retains active state;
 /// `ui_test_restored` then waits for the restore.
 #[tauri::command]
 pub(crate) async fn ui_test_hide(
@@ -83,12 +80,7 @@ pub(crate) async fn ui_test_hide(
     wait(&mut changes, |state| state.visible == Some(false), "hide").await?;
     marker(&app, "hidden")?;
     if restore == Some(false) {
-        return wait(
-            &mut changes,
-            |state| state.focused == Some(false),
-            "unfocus",
-        )
-        .await;
+        return Ok(());
     }
     // A new deadline starts after hiding completed, rather than sharing a startup timer.
     wait(&mut changes, |state| state.visible == Some(true), "restore").await
