@@ -7,7 +7,7 @@ use dyapp_bootstrap::{BootstrapStore, NodeConfig};
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use std::sync::{Arc, LazyLock};
 
-const DOMAINS: [Domain; 8] = [
+const DOMAINS: [Domain; 9] = [
     Domain::Profile,
     Domain::Envelope,
     Domain::MailboxFetch,
@@ -16,6 +16,7 @@ const DOMAINS: [Domain; 8] = [
     Domain::MediaAttach,
     Domain::Heartbeat,
     Domain::DenyList,
+    Domain::MediaConditionalKeep,
 ];
 
 /// The signer of re-signed records; its peer ID is also the requesting peer.
@@ -28,12 +29,14 @@ pub static PEER: LazyLock<Peer> = LazyLock::new(|| Peer {
     coarse: "fuzz".into(),
 });
 
-/// A libp2p peer ID with the zero-bit PoW accepted by the fuzz node configuration.
-pub static NODE_PEER: LazyLock<String> = LazyLock::new(|| {
-    dyapp_p2p_net::generate_pow_keypair(0)
+/// A node peer with the zero-bit PoW accepted by the fuzz node configuration.
+pub static NODE_PEER: LazyLock<Peer> = LazyLock::new(|| Peer {
+    id: dyapp_p2p_net::generate_pow_keypair(0)
         .public()
         .to_peer_id()
-        .to_string()
+        .to_string(),
+    group: "fuzz-node".into(),
+    coarse: "fuzz-node".into(),
 });
 
 /// A node in a fresh directory with the media and search roles; the limits never refuse, so
