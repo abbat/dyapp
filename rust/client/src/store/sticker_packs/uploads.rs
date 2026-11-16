@@ -2,7 +2,7 @@
 use crate::attachment::{self, Attachment};
 use crate::chat::{AttachmentMessage, Body};
 use crate::store::{Error, Store};
-use rusqlite::{params, OptionalExtension, TransactionBehavior};
+use rusqlite::{params, OptionalExtension, Transaction, TransactionBehavior};
 
 /// Single-sticker application cap in node accounting units (encrypted bytes times five).
 pub const CHARGED_BUDGET: i64 = 16 * 1024 * 1024;
@@ -108,6 +108,51 @@ fn time(now: u64) -> Result<i64, Error> {
     Ok(now)
 }
 
+fn stored_plan(
+    tx: &Transaction<'_>,
+    candidate: &Attachment,
+    now: i64,
+    kind: Kind,
+    stored: Option<StoredUpload>,
+) -> Result<Option<UploadPlan>, Error> {
+    let Some((bytes, cost, expires, ready, reservation)) = stored else {
+        return Ok(None);
+    };
+    let attachment = decode(&bytes, &candidate.plaintext_sha256, cost, kind)?;
+    if expires <= now {
+        return Ok(None);
+    }
+    if ready && expires - now >= REFRESH {
+        return Ok(Some(UploadPlan::Reuse(attachment)));
+    }
+    let pending = if ready {
+        let pending = pending(attachment)?;
+        tx.execute(
+            "UPDATE `sticker_uploads` SET `created` = ?2, `expires` = ?3, `ready` = 0,
+             `reservation` = ?4 WHERE `hash` = ?1 AND `kind` = ?5",
+            params![
+                candidate.plaintext_sha256.as_slice(),
+                now,
+                now + PENDING,
+                pending.reservation.as_slice(),
+                kind as i64
+            ],
+        )?;
+        pending
+    } else {
+        // A retry may upload again: keep its possible node charge for eight more days.
+        tx.execute(
+            "UPDATE `sticker_uploads` SET `created` = ?2, `expires` = ?3 WHERE `hash` = ?1 AND `kind` = ?4",
+            params![candidate.plaintext_sha256.as_slice(), now, now + PENDING, kind as i64],
+        )?;
+        PendingUpload {
+            attachment,
+            reservation: reservation.try_into().map_err(|_| Error::InboxConflict)?,
+        }
+    };
+    Ok(Some(UploadPlan::Upload(pending)))
+}
+
 impl Store {
     /// Atomically reuse/reserve one plaintext hash; no network work runs under the DB lock.
     /// Pending work retains charge for eight days and resumes its exact descriptor after a crash.
@@ -164,41 +209,9 @@ impl Store {
             params![candidate.plaintext_sha256.as_slice(), kind as i64],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
         ).optional()?;
-        if let Some((bytes, cost, expires, ready, reservation)) = stored {
-            let attachment = decode(&bytes, &candidate.plaintext_sha256, cost, kind)?;
-            if expires > now {
-                if ready && expires - now >= REFRESH {
-                    tx.commit()?;
-                    return Ok(UploadPlan::Reuse(attachment));
-                }
-                let pending = if ready {
-                    let pending = pending(attachment)?;
-                    tx.execute(
-                        "UPDATE `sticker_uploads` SET `created` = ?2, `expires` = ?3, `ready` = 0,
-                        `reservation` = ?4 WHERE `hash` = ?1 AND `kind` = ?5",
-                        params![
-                            candidate.plaintext_sha256.as_slice(),
-                            now,
-                            now + PENDING,
-                            pending.reservation.as_slice(),
-                            kind as i64
-                        ],
-                    )?;
-                    pending
-                } else {
-                    // A retry may upload again: keep its possible node charge for eight more days.
-                    tx.execute(
-                        "UPDATE `sticker_uploads` SET `created` = ?2, `expires` = ?3 WHERE `hash` = ?1 AND `kind` = ?4",
-                        params![candidate.plaintext_sha256.as_slice(), now, now + PENDING, kind as i64],
-                    )?;
-                    PendingUpload {
-                        attachment,
-                        reservation: reservation.try_into().map_err(|_| Error::InboxConflict)?,
-                    }
-                };
-                tx.commit()?;
-                return Ok(UploadPlan::Upload(pending));
-            }
+        if let Some(plan) = stored_plan(&tx, candidate, now, kind, stored)? {
+            tx.commit()?;
+            return Ok(plan);
         }
         tx.execute("DELETE FROM `sticker_uploads` WHERE `expires` <= ?", [now])?;
         let used: i64 = tx.query_row(
