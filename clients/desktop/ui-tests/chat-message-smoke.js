@@ -341,6 +341,46 @@
     fixture.stop = null;
     document.getElementById('chat-back').click();
   };
+  const checkNewDeviceAckCase = async (fixture, departure, outcome) => {
+    const { peer, notice, call } = fixture;
+    const button = document.getElementById('chat-new-device-ack');
+    const focus = document.getElementById('chat-back');
+    fixture.raised = true;
+    await appBindings.openChat(peer, call);
+    const oldGate = smoke.pendingSmokeCall();
+    let calls = 0;
+    fixture.acknowledge = () => {
+      calls += 1;
+      return oldGate.call();
+    };
+    const old = appBindings.acknowledgeDevice(call);
+    const duplicate = appBindings.acknowledgeDevice(call);
+    if (calls !== 1) throw Error('duplicate device acknowledgement was admitted');
+    await duplicate;
+    if (departure === 'identity') appBindings.identityGeneration += 1;
+    const currentPeer = departure === 'peer' ? '8'.repeat(64) : peer;
+    await appBindings.openChat(currentPeer, call);
+    if (button.disabled) throw Error('new acknowledgement view retained an old busy state');
+    const currentGate = smoke.pendingSmokeCall();
+    fixture.acknowledge = currentGate.call;
+    focus.focus();
+    const current = appBindings.acknowledgeDevice(call);
+    oldGate[outcome](new Error('old acknowledgement failure'));
+    await old;
+    if (!button.disabled || notice.hidden || document.activeElement !== focus)
+      throw Error('old device acknowledgement changed the current pending view');
+    if (outcome === 'resolve') fixture.raised = false;
+    currentGate[outcome](new Error('current acknowledgement failure'));
+    await current;
+    if (button.disabled || notice.hidden !== (outcome === 'resolve'))
+      throw Error('current device acknowledgement did not settle its own view');
+  };
+  const checkNewDeviceAckOwnership = async (fixture) => {
+    for (const departure of ['identity', 'peer', 'same-peer']) {
+      for (const outcome of ['resolve', 'reject'])
+        await checkNewDeviceAckCase(fixture, departure, outcome);
+    }
+  };
   const checkNewDevice = async () => {
     await openArea('chats-area');
     await appApi.chatsDone;
@@ -373,6 +413,7 @@
     document.getElementById('chat-back').click();
     if (!notice.hidden) throw new Error('leaving the chat kept the notice');
     // An answer for a chat left behind, or for an earlier identity, shows nothing.
+    await checkNewDeviceAckOwnership(fixture);
     await checkNewDeviceStale(fixture);
   };
   const assertChatDeliveryPendingOwnMessageOrPeerDeliveryStatus = () => {

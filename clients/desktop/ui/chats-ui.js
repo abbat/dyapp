@@ -85,6 +85,8 @@ let chatRenderKey = null;
 let chatRenderCall = null;
 /** @type {string | null} */
 let newDevicePeer = null;
+/** @type {ChatTarget | null} */
+let deviceAckTarget = null;
 let chatSending = false;
 let chatBlocking = false;
 let chatsRequest = 0;
@@ -308,6 +310,11 @@ const renderChatRows = (rows, call = invoke) => {
 const showNewDevice = (peerId) => {
   newDevicePeer = peerId;
   newDeviceNotice.hidden = peerId === null;
+  domById('chat-new-device-ack', HTMLButtonElement).disabled =
+    deviceAckTarget !== null &&
+    deviceAckTarget.peerId === peerId &&
+    identityCurrent(deviceAckTarget.generation) &&
+    deviceAckTarget.request === chatOpenRequest;
 };
 // A failed read keeps what is shown; the next mail pass asks again.
 /** @param {import('./ipc.js').Invoke} call */
@@ -330,20 +337,31 @@ const acknowledgeDevice = async (call = invoke) => {
   const peerId = newDevicePeer;
   if (!peerId) return;
   const generation = identityState.generation;
-  const shown = () => identityCurrent(generation) && newDevicePeer === peerId;
+  const request = chatOpenRequest;
+  const shown = () =>
+    identityCurrent(generation) && newDevicePeer === peerId && request === chatOpenRequest;
   const acknowledge = domById('chat-new-device-ack', HTMLButtonElement);
+  if (acknowledge.disabled) return;
+  const target = { peerId, generation, request };
+  deviceAckTarget = target;
   acknowledge.disabled = true;
   try {
     await call('acknowledge_new_device', { peerId });
     if (!shown()) return;
     showNewDevice(null);
     // Reopening supersedes a load that read the flag before the acknowledgement.
-    await openChat(peerId, call);
-    (chatInput.disabled ? domById('chat-back', HTMLButtonElement) : chatInput).focus();
+    const opening = openChat(peerId, call);
+    const reopened = chatOpenRequest;
+    await opening;
+    if (deviceAckTarget === target && identityCurrent(generation) && reopened === chatOpenRequest)
+      (chatInput.disabled ? domById('chat-back', HTMLButtonElement) : chatInput).focus();
   } catch (error) {
     if (shown()) chatsMessage('chats.newDevice.failed', String(error));
   } finally {
-    acknowledge.disabled = false;
+    if (deviceAckTarget === target) {
+      deviceAckTarget = null;
+      acknowledge.disabled = false;
+    }
   }
 };
 domById('chat-new-device-ack', HTMLButtonElement).addEventListener('click', () =>

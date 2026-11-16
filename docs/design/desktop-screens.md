@@ -412,7 +412,11 @@ profile raises none. A device that a newer profile removed is new again when it 
 reads
 the flag through `contact_new_device` when a chat opens and on each mail pass; a failed read keeps
 what is shown. An older profile changes nothing, and an answer for another chat or an earlier
-identity shows nothing. The check runs only once a fresh profile reached this session's cache from search, a send or a mail pass.
+identity shows nothing. Acknowledgement busy state and completion belong to the exact chat opening:
+an older completion cannot enable a newer request's button, hide its notice or move its focus,
+including reopening the same peer. The current opening admits one acknowledgement at a time;
+after its completed reopen, focus moves only if that opening still owns the view.
+The check runs only once a fresh profile reached this session's cache from search, a send or a mail pass.
 "Anna is typing…" shows for 10 seconds after the last typing signal, only
 over a direct path.
 

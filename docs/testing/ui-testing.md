@@ -129,6 +129,10 @@ Desktop foundation smoke renders all six core chat-preview kinds with and withou
 forwarded label. It supplies deliberately different legacy message text/time and requires the
 core payload and timestamp, unchanged history data, no visual ellipsis and the original opening
 callback. These cases are embedded in the native smoke inventory.
+New-device acknowledgement smoke holds old and current callbacks across identity, peer and same-peer
+reopening, for both success and refusal. It checks duplicate admission and that an old completion
+cannot enable the current pending button, hide its notice or move focus; the current completion
+still settles its own view. These six cases await actual callbacks rather than guessed delays.
 Clear confirmation checks require both localized consequence paragraphs in order after the target,
 while retaining Cancel's initial focus, return to opener and cleanup checks.
 Android prototype geometry probes use WebKit text-only zoom for fixed-pixel typography and verify
