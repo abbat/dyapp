@@ -502,6 +502,21 @@ mod tests {
         assert_eq!(filter.conditions(today).unwrap().len(), 27);
     }
 
+    fn habit_misses() -> [fn(&mut Profile); 10] {
+        [
+            |p| p.smoking = Smoking::Yes.code(),
+            |p| p.smoking = 0,
+            |p| p.drinking = Drinking::No.code(),
+            |p| p.drinking = 0,
+            |p| p.tattoos = Tattoos::None.code(),
+            |p| p.tattoos = 0,
+            |p| p.marital_status = MaritalStatus::Married.code(),
+            |p| p.marital_status = 0,
+            |p| p.pets = Pets::No.code(),
+            |p| p.pets = 0,
+        ]
+    }
+
     #[test]
     fn habit_filters_keep_the_chosen_values_and_leave_out_an_empty_field() {
         let owner = Identity::generate();
@@ -530,18 +545,7 @@ mod tests {
         };
         let kept = |p: &Profile| check(&conditions, 0, &[vec![p.sign(&owner)]]).len() == 1;
         assert!(kept(&fit));
-        let misses: [fn(&mut Profile); 10] = [
-            |p| p.smoking = Smoking::Yes.code(),
-            |p| p.smoking = 0,
-            |p| p.drinking = Drinking::No.code(),
-            |p| p.drinking = 0,
-            |p| p.tattoos = Tattoos::None.code(),
-            |p| p.tattoos = 0,
-            |p| p.marital_status = MaritalStatus::Married.code(),
-            |p| p.marital_status = 0,
-            |p| p.pets = Pets::No.code(),
-            |p| p.pets = 0,
-        ];
+        let misses = habit_misses();
         for (i, miss) in misses.iter().enumerate() {
             let mut p = fit.clone();
             miss(&mut p);
@@ -822,6 +826,30 @@ mod tests {
         assert_eq!(Filter::default().conditions(today).unwrap(), []);
     }
 
+    fn partial_birth_dates(leap: &Profile) -> [Profile; 4] {
+        [
+            Profile {
+                birth_month: None,
+                ..leap.clone()
+            },
+            Profile {
+                birth_year: None,
+                ..leap.clone()
+            },
+            Profile {
+                birth_month: None,
+                birth_day: None,
+                ..leap.clone()
+            },
+            Profile {
+                birth_year: None,
+                birth_month: None,
+                birth_day: None,
+                ..leap.clone()
+            },
+        ]
+    }
+
     #[test]
     fn current_age_uses_birth_bounds_and_leap_anniversary() {
         let owner = Identity::generate();
@@ -847,27 +875,7 @@ mod tests {
         assert_eq!(after[0].ints, [20_030_301, 20_040_301]);
         assert_eq!(check(&after, 0, &[vec![leap.sign(&owner)]]).len(), 1);
 
-        for profile in [
-            Profile {
-                birth_month: None,
-                ..leap.clone()
-            },
-            Profile {
-                birth_year: None,
-                ..leap.clone()
-            },
-            Profile {
-                birth_month: None,
-                birth_day: None,
-                ..leap.clone()
-            },
-            Profile {
-                birth_year: None,
-                birth_month: None,
-                birth_day: None,
-                ..leap.clone()
-            },
-        ] {
+        for profile in partial_birth_dates(&leap) {
             // A broad partial date or no year cannot prove age 21.
             assert_eq!(check(&after, 0, &[vec![profile.sign(&owner)]]).len(), 0);
         }

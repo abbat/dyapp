@@ -198,8 +198,6 @@
   {"path":"rust/p2p-net/src/search_results.rs","function":"impl Filter ::fn conditions ","metrics":{"cognitive":16,"lines":151}},
   {"path":"rust/p2p-net/src/search_results.rs","function":"mod tests # [cfg (test)]::fn a_filter_keeps_the_matching_profile_and_drops_each_mismatch ","metrics":{"lines":72}},
   {"path":"rust/p2p-net/src/search_results.rs","function":"mod tests # [cfg (test)]::fn a_filter_refuses_what_a_node_would_not_take ","metrics":{"lines":77}},
-  {"path":"rust/p2p-net/src/search_results.rs","function":"mod tests # [cfg (test)]::fn current_age_uses_birth_bounds_and_leap_anniversary ","metrics":{"lines":55}},
   {"path":"rust/p2p-net/src/search_results.rs","function":"mod tests # [cfg (test)]::fn every_field_and_op_is_checked ","metrics":{"cognitive":26,"lines":70}},
-  {"path":"rust/p2p-net/src/search_results.rs","function":"mod tests # [cfg (test)]::fn habit_filters_keep_the_chosen_values_and_leave_out_an_empty_field ","metrics":{"lines":51}},
   {"path":"rust/p2p-net/src/wire.rs","function":"mod tests # [cfg (test)]::fn concurrent_additions_and_takes_conserve_bytes ","metrics":{"nesting":6,"nested_regions":1}}
 ]
