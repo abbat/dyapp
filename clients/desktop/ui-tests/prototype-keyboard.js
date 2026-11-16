@@ -22,6 +22,13 @@ export const plan = () => {
         (node.tabIndex < 0 && node.matches('button,input,select,textarea,a[href]')),
     )
     .map((node) => `control is outside DOM tab order: ${controller.selector(node)}`);
+  if (document.documentElement.dataset.screen === 'switcher') {
+    for (const id of ['identity-switcher', 'switch-to-2', 'add-identity-menu']) {
+      const control = document.getElementById(id);
+      if (!control || !enabled.includes(control) || !exposed(control))
+        problems.push(`switcher state is missing visible #${id}`);
+    }
+  }
   const dialog = controller.activeDialog();
   const expected = dialog?.dataset.initialFocus;
   if (expected) {

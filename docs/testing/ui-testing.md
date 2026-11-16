@@ -1050,7 +1050,9 @@ these keyboard/dialog transitions without backend actions. A dialog declaring `d
 is checked before the keyboard walker sets its first anchor, so traversal cannot hide an incorrect
 initial focus target. Device-code variants declare the code field; contact naming declares its
 name field. Rename calibration checks opening and reopening, then deliberately blurs that input
-and requires the pre-walk audit to report the missing initial focus.
+and requires the pre-walk audit to report the missing initial focus. The named `switcher` state
+also requires its opener and both identity-menu actions to be enabled, visible and hit-testable
+before traversal; a hidden sidebar cannot turn that requested popup into a passing profile shot.
 Completed keyboard audits release their retained screenshot before invoking the next-page
 callback, on success and failure; ownership regression tests require no garbage-collection wait.
 D1's two-line limit stays in the

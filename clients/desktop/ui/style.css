@@ -1103,6 +1103,10 @@ details > summary {
     transform: translateX(-100%);
     visibility: hidden;
     padding: var(--space-3);
+    overflow-y: auto;
+  }
+  .sidebar > :not(.spacer) {
+    flex-shrink: 0;
   }
   .sidebar .label,
   .sidebar .sub {
@@ -1120,11 +1124,13 @@ details > summary {
     width: auto;
     margin: calc(-1 * var(--space-2)) 0 var(--space-3);
   }
-  [data-screen="menu"] .sidebar {
+  [data-screen="menu"] .sidebar,
+  [data-screen="switcher"] .sidebar {
     transform: none;
     visibility: visible;
   }
-  [data-screen="menu"] .scrim {
+  [data-screen="menu"] .scrim,
+  [data-screen="switcher"] .scrim {
     display: block;
     position: fixed;
     inset: 0;

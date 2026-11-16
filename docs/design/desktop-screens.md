@@ -134,6 +134,9 @@ state code.
 
 Every later screen sits in the shell. `switcher` opens the identity menu; `menu` is the
 off-canvas sidebar at 640 px and below, opened by `menu-open` in the top bar.
+In the narrow prototype's `switcher` state, the sidebar and scrim also open so the identity
+menu remains visible; the covered content and top bar are inert. Narrow navigation scrolls
+vertically when needed and keeps each item at its intrinsic height instead of shrinking its text.
 With enlarged text, navigation labels wrap and unread badges grow vertically. The top bar
 keeps the status dot and its text together and wraps that group when needed.
 

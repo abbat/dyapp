@@ -86,7 +86,8 @@ const modalInertness = () => {
   const scrim = activeDialog()?.closest('.modal-scrim');
   for (const child of document.body.children) child.inert = Boolean(scrim && child !== scrim);
   const menuOpen =
-    document.documentElement.dataset.screen === 'menu' && matchMedia('(max-width: 640px)').matches;
+    ['menu', 'switcher'].includes(document.documentElement.dataset.screen) &&
+    matchMedia('(max-width: 640px)').matches;
   for (const child of document.querySelectorAll('.shell > .content, .shell > .topbar'))
     child.inert = menuOpen;
 };
