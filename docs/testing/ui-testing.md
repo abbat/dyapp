@@ -451,8 +451,11 @@ waiting for real time. Android instrumentation CI must also run the real two-pee
 `ChatStickerHistoryTests` exercise the existing mixed-history fallback through `MediaChatContent`
 with adjacent text and both own/peer stickers, in English and Russian, under the production
 `DYAppTheme` typography and root insets. Literal long pack names are located through semantic
-list scrolling and checked against the actual text layout's visual
-overflow result; no pixel position or media download is needed.
+list scrolling and checked against measured line bounds, complete text offsets and ellipsis state.
+The vertical overflow guard remains; paragraph-container width alone does not establish clipping.
+`TextLayoutAssertionsTests` calibrates the guard with actual wrapping, horizontal/vertical clipping,
+max-line truncation and ellipsis. Calibration constraints come from the current natural text size,
+without guessed offsets, pixel tolerances or media downloads.
 This covers fallback presentation, while native sticker exchange and planned picker/image UI
 retain their separate acceptance.
 The queued outcome of a send has no two-peer test:

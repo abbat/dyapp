@@ -6,18 +6,16 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollToNode
-import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.test.platform.app.InstrumentationRegistry
 import com.dyapp.ui.theme.DYAppTheme
-import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import uniffi.dyapp.ChatHistory
@@ -74,16 +72,13 @@ class ChatStickerHistoryTests {
         val labels = show(language, packName)
         labels.forEach { label ->
             compose.onNodeWithTag("chat-thread").performScrollToNode(hasText(label))
-            val layouts = mutableListOf<TextLayoutResult>()
-            compose.onNodeWithText(label).assertIsDisplayed()
-                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { read -> check(read(layouts)) }
-            val layout = layouts.single()
-            assertFalse(
+            val layout = compose.onNodeWithText(label).assertIsDisplayed().textLayout()
+            assertTrue(
                 "Clipped text: $label; size=${layout.size} constraints=${layout.layoutInput.constraints}; " +
                     "paragraph=${layout.multiParagraph.width}x${layout.multiParagraph.height}; " +
                     "width=${layout.didOverflowWidth} height=${layout.didOverflowHeight} lines=${layout.lineCount}; " +
                     "lineBounds=${layout.lineBounds()} textLength=${layout.layoutInput.text.length}",
-                layout.hasVisualOverflow
+                layout.textFitsLayout()
             )
         }
     }
