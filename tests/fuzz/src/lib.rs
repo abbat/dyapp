@@ -28,6 +28,14 @@ pub static PEER: LazyLock<Peer> = LazyLock::new(|| Peer {
     coarse: "fuzz".into(),
 });
 
+/// A libp2p peer ID with the zero-bit PoW accepted by the fuzz node configuration.
+pub static NODE_PEER: LazyLock<String> = LazyLock::new(|| {
+    dyapp_p2p_net::generate_pow_keypair(0)
+        .public()
+        .to_peer_id()
+        .to_string()
+});
+
 /// A node in a fresh directory with the media and search roles; the limits never refuse, so
 /// inputs reach the parsers instead of the rate limiter.
 pub static SERVICE: LazyLock<Service> = LazyLock::new(|| {

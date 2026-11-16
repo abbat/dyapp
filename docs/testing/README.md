@@ -346,6 +346,9 @@ client targets feed what a client reads from other people.
 | `profile` | `Service::profile`, `dyapp_profile::verify` | `ProfileRequest` (`/dyapp/profile`) |
 | `mailbox` | `Service::mailbox` | `MailboxRequest` (`/dyapp/mailbox`), envelopes included |
 | `media` | `Service::media` | `MediaRequest` (`/dyapp/media`) |
+| `replication` | `Service::store_media`, `Service::store_shard`, `Service::media_inventory` | node-to-node `MediaRequest`: replica, shard and inventory input after the node trust check |
+| `catch_up` | `catch_up::on_digest`, `catch_up::on_inventory` | `DigestResponse` and `InventoryResponse` from another search node |
+| `mailbox_replica` | `Service::mailbox` | node-to-node `MailboxRequest`: replicated envelopes and inventory ids |
 | `search` | `Service::search` | `SearchRequest` (`/dyapp/search`) |
 | `inventory` | `Service::search_inventory` | `InventoryRequest` (`/dyapp/inventory`), from a search peer |
 | `digest` | `Service::search_digest` | `DigestRequest` (`/dyapp/digest`), from a search peer |
@@ -362,7 +365,10 @@ key; its low bits pick the signature domain. A random signature never verifies, 
 payload parsers behind the signature check would stay out of reach. Fetch and ack requests still
 stop at the nonce, which each input cannot know. A random MLS signature never verifies either,
 so `mls` reaches the TLS decoders and signature checks but not the content behind them.
-Responses that a node reads as a client, mailbox pushes have no target yet (planned).
+Responses that a node reads as a client, other than search catch-up, and mailbox pushes have no
+target yet (planned). `replication` calls the media handlers directly because `Service::media`
+denies node-to-node variants to ordinary peers; `mailbox_replica` uses a separate libp2p node peer
+so those requests pass the same trust check.
 
 `check-repository.py` requires a target for every `pub fn` of `Service` in
 `rust/bootstrap/src/service.rs` and its `mailbox.rs`, `media.rs` and `search.rs` modules that takes a `request: …Request` or `data: &[u8]`: it looks for

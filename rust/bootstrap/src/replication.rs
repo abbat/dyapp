@@ -24,13 +24,13 @@ pub struct Replication {
 }
 
 impl Replication {
-    /// A codec of `data_shards` and `parity_shards`; fails above 256 in total.
+    /// A codec of `data_shards` and `parity_shards`; fails with no data shards or above 256 in total.
     ///
     /// # Errors
     ///
-    /// Returns an error if the combined data and parity shard count exceeds 256.
+    /// Returns an error if there are no data shards or the combined shard count exceeds 256.
     pub fn new(data_shards: usize, parity_shards: usize) -> Result<Self> {
-        if data_shards + parity_shards > 256 {
+        if data_shards == 0 || data_shards > 256 || parity_shards > 256 - data_shards {
             return Err(BootstrapError::ReplicationError(
                 "Too many shards (max 256)".to_string(),
             ));
@@ -63,9 +63,15 @@ impl Replication {
     ///
     /// # Errors
     ///
-    /// Returns an error if the configured shard counts are not accepted by the Reed–Solomon
-    /// codec or parity encoding fails.
+    /// Returns an error if `data` is empty, the configured shard counts are not accepted by the
+    /// Reed–Solomon codec or parity encoding fails.
     pub fn encode(&self, data: &[u8]) -> Result<Vec<ReplicationFragment>> {
+        if data.is_empty() {
+            return Err(BootstrapError::ReplicationError(
+                "Cannot encode empty data".to_string(),
+            ));
+        }
+
         let rs = ReedSolomon::new(self.data_shards, self.parity_shards)
             .map_err(|e| BootstrapError::ReplicationError(format!("{e:?}")))?;
 
@@ -97,7 +103,8 @@ impl Replication {
     /// # Errors
     ///
     /// Returns an error if too few fragments are supplied, shard counts or fragment sizes are
-    /// invalid, reconstruction fails, or a reconstructed data shard is missing.
+    /// invalid, reconstruction fails, a reconstructed data shard is missing, or `original_length`
+    /// exceeds the reconstructed data.
     pub fn decode(
         &self,
         fragments: &[ReplicationFragment],
@@ -122,6 +129,18 @@ impl Replication {
 
         rs.reconstruct(&mut shards)
             .map_err(|e| BootstrapError::ReplicationError(format!("{e:?}")))?;
+
+        let available = shards
+            .iter()
+            .take(self.data_shards)
+            .filter_map(Option::as_ref)
+            .map(Vec::len)
+            .sum::<usize>();
+        if original_length > available {
+            return Err(BootstrapError::ReplicationError(
+                "Original length exceeds reconstructed data".to_string(),
+            ));
+        }
 
         let mut result = Vec::with_capacity(original_length);
         for shard in shards.iter().take(self.data_shards) {
@@ -311,6 +330,33 @@ mod tests {
         );
         manifest.hash[0] ^= 1;
         assert!(media_decode(&manifest, &[(0, shards[0].clone())]).is_err());
+    }
+
+    #[test]
+    fn shard_counts_and_lengths_stop_at_the_protocol_bounds() {
+        assert!(Replication::new(0, 0).is_err());
+        assert!(Replication::new(0, 1).is_err());
+        assert!(Replication::new(1, 255).is_ok());
+        assert!(Replication::new(1, 256).is_err());
+        assert!(Replication::new(usize::MAX, 1).is_err());
+
+        let rep = Replication::new(1, 0).unwrap();
+        assert!(rep.encode(&[]).is_err());
+        let fragments = rep.encode(b"x").unwrap();
+        assert_eq!(rep.decode(&fragments, 0).unwrap(), b"");
+        assert_eq!(rep.decode(&fragments, 1).unwrap(), b"x");
+        assert!(rep.decode(&fragments, 2).is_err());
+    }
+
+    #[test]
+    fn manifests_accept_exactly_the_protocol_shard_count() {
+        let (mut manifest, _) = media_encode(b"x").unwrap();
+        manifest.shard_hashes.pop();
+        assert_eq!(manifest.data_shards(), None);
+        manifest.shard_hashes.push(vec![0; 32]);
+        assert_eq!(manifest.data_shards(), Some(1));
+        manifest.shard_hashes.push(vec![0; 32]);
+        assert_eq!(manifest.data_shards(), None);
     }
 
     #[test]

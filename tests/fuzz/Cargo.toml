@@ -132,3 +132,24 @@ path = "fuzz_targets/sticker_tar.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "replication"
+path = "fuzz_targets/replication.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "catch_up"
+path = "fuzz_targets/catch_up.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "mailbox_replica"
+path = "fuzz_targets/mailbox_replica.rs"
+test = false
+doc = false
+bench = false
