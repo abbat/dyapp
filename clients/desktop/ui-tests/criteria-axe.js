@@ -82,7 +82,7 @@ const contrastAtReadablePosition = async (element, options) => {
   }
   const position = [scrollX, scrollY];
   try {
-    element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+    element.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'instant' });
     await paintReady();
     return await window.axe.run(element, options);
   } finally {
@@ -314,7 +314,13 @@ const nestedContrastHost = (fixture) => {
   document.body.append(host);
   return host;
 };
-const calibrateScrollableContrast = async () => {
+const enlargeContrastText = (fixture, text) => {
+  const repeats = Math.ceil(fixture.clientHeight / text.getBoundingClientRect().height) + 1;
+  text.textContent = text.textContent.repeat(repeats);
+  if (text.getBoundingClientRect().height <= fixture.clientHeight)
+    throw Error('oversized contrast fixture fits its scrolling container');
+};
+const calibrateScrollableContrast = async (oversized = false) => {
   const previous = document.activeElement;
   const fixture = document.createElement('dialog');
   fixture.id = 'criteria-scrollable-contrast';
@@ -326,6 +332,7 @@ const calibrateScrollableContrast = async () => {
   const host = nestedContrastHost(fixture);
   fixture.showModal();
   const text = fixture.querySelector('p');
+  if (oversized) enlargeContrastText(fixture, text);
   for (const spacer of fixture.querySelectorAll('div'))
     spacer.style.height = `${fixture.clientHeight}px`;
   const anchor = fixture.querySelector('button');
@@ -400,5 +407,5 @@ smoke.accessibilitySelfCheck = async () => {
       previous?.focus({ preventScroll: true });
     }
   }
-  await calibrateScrollableContrast();
+  for (const oversized of [false, true]) await calibrateScrollableContrast(oversized);
 };

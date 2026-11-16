@@ -1,5 +1,10 @@
 # UI Testing: Practical Guide
 
+Profile facts use bounded label/value tracks and wrap long labels; safety actions wrap within the
+current panel. Contrast retries align the actual text start inside its scroller, then restore scroll
+and focus. The scroll calibration checks readable and deliberately low-contrast text both shorter
+and taller than its container, deriving the taller paragraph from current geometry.
+
 The desktop report-path regression uses a fake executable callback that rejects explicit broken
 and unknown-step arguments. It checks that the report contains every actual invocation and both
 negative controls; it has no positional process-outcome queue or fixed case count. Runner tests

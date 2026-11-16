@@ -465,12 +465,13 @@ details > summary {
 }
 .facts {
   display: grid;
-  grid-template-columns: max-content 1fr;
+  grid-template-columns: fit-content(50%) minmax(0, 1fr);
   gap: var(--space-1) var(--space-4);
   margin: 0 0 var(--space-3);
 }
 .facts dt {
   color: var(--muted);
+  overflow-wrap: anywhere;
 }
 .facts dd {
   margin: 0;
@@ -676,6 +677,11 @@ details > summary {
   margin: var(--space-3) auto;
   background: var(--safety-preview-background);
   border-radius: var(--radius);
+}
+#view-safety-panel .actions > .btn {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 #view-safety-panel .actions ~ .caption {
   margin-top: var(--space-3);
