@@ -50,18 +50,38 @@ fn fixture() -> (Store, Identity, PackResponseJob, PackAnswer) {
         )
         .unwrap();
     let job = store.due_sticker_pack_responses(0).unwrap().remove(0);
+    (store, owner, job, answer(&pack))
+}
+fn answer(pack: &crate::sticker_pack::Pack) -> PackAnswer {
     let (mut attachment, _) = crate::attachment::seal(&pack.encode()).unwrap();
     attachment.release_secret = [0; 32];
     attachment.mime = "application/octet-stream".into();
-    (
-        store,
-        owner,
-        job,
-        PackAnswer {
-            pack_id: *pack.id(),
-            attachment,
-        },
-    )
+    PackAnswer {
+        pack_id: *pack.id(),
+        attachment,
+    }
+}
+fn request_at(store: &mut Store, job: &PackResponseJob, id: u8, sealed: &[u8], now: u64) -> bool {
+    let sender = VerifiedChatSender {
+        group: &job.group,
+        author: &job.peer,
+        device: &[8; 32],
+    };
+    let request = PackRequest {
+        pack_id: job.pack_id,
+    };
+    store
+        .stage_sticker_pack_request_inbound(
+            sealed,
+            &InboxKey {
+                mailbox: [9; 32],
+                id: [id; 16],
+            },
+            sender,
+            &request,
+            now,
+        )
+        .unwrap()
 }
 fn last(store: &Store) -> Option<i64> {
     store
@@ -91,38 +111,8 @@ fn durable_response_and_cooldown_survive_restart_and_reject_stale_workers() {
         write.as_bytes()
     );
     assert!(store.due_sticker_pack_responses(100).unwrap().is_empty());
-    let sender = VerifiedChatSender {
-        group: &job.group,
-        author: &job.peer,
-        device: &[8; 32],
-    };
-    let request = PackRequest {
-        pack_id: job.pack_id,
-    };
-    assert!(!store
-        .stage_sticker_pack_request_inbound(
-            b"early",
-            &InboxKey {
-                mailbox: [9; 32],
-                id: [2; 16]
-            },
-            sender,
-            &request,
-            EARLY
-        )
-        .unwrap());
-    assert!(store
-        .stage_sticker_pack_request_inbound(
-            b"boundary",
-            &InboxKey {
-                mailbox: [9; 32],
-                id: [3; 16]
-            },
-            sender,
-            &request,
-            DUE
-        )
-        .unwrap());
+    assert!(!request_at(&mut store, &job, 2, b"early", EARLY));
+    assert!(request_at(&mut store, &job, 3, b"boundary", DUE));
     assert!(!store.retire_sticker_pack_response(&job).unwrap());
     assert!(!store.defer_sticker_pack_response(&job, DUE).unwrap());
     assert!(store

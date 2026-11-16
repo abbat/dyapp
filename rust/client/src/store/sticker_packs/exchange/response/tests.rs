@@ -19,6 +19,16 @@ fn sender(peer: &str) -> VerifiedChatSender<'_> {
         device: &[8; 32],
     }
 }
+fn pending_count(store: &Store) -> i64 {
+    store
+        .db
+        .query_row(
+            "SELECT COUNT(*) FROM `sticker_pack_responses` WHERE `pending_group` IS NOT NULL",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap()
+}
 fn authorize(store: &mut Store, owner: &dyapp_identity::Identity, pack: u8) {
     let own = owner.peer_id();
     store
@@ -162,13 +172,5 @@ fn queue_cap_batch_size_and_rolling_cooldown_boundaries_are_literal() {
         .stage_sticker_pack_request_inbound(b"boundary", &inbox(68), sender(&peer), &request, DUE)
         .unwrap());
     assert!(!store.defer_sticker_pack_response(&first, DUE).unwrap());
-    let count: i64 = store
-        .db
-        .query_row(
-            "SELECT COUNT(*) FROM `sticker_pack_responses` WHERE `pending_group` IS NOT NULL",
-            [],
-            |row| row.get(0),
-        )
-        .unwrap();
-    assert_eq!(count, 64);
+    assert_eq!(pending_count(&store), 64);
 }
