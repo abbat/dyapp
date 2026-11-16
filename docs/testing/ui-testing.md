@@ -448,6 +448,11 @@ cannot satisfy it. The deadline is checked between completed FFI stages, not a c
 an in-flight native call; network requests retain their own core timeouts. `PeerTransitionTests`
 uses an injected clock to cover deadline reset, late completion and error propagation without
 waiting for real time. Android instrumentation CI must also run the real two-peer journeys.
+`NativeLinkReceiverTests` exercise real JNI and Android credential callbacks for source-bound
+invitation creation, non-blocking idle ownership, cancellation before installation, missing active
+network and stale-source rejection. Successful wire reception and callback interruption are covered
+by the shared Rust mailbox/registry fixtures; native screen and full device-link journeys remain
+separate acceptance.
 `ChatStickerHistoryTests` exercise the existing mixed-history fallback through `MediaChatContent`
 with adjacent text and both own/peer stickers, in English and Russian, under the production
 `DYAppTheme` typography and root insets. Literal long pack names are located through semantic
