@@ -1,9 +1,13 @@
 configurations {
     usable
+    projectClasspath {
+        attributes.attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_API))
+    }
     declarations { canBeResolved = false }
 }
 dependencies {
     usable files('settings.gradle')
+    projectClasspath project(':child')
     declarations 'invalid.fixture:must-not-resolve:1'
 }
 tasks.register('compileFixture') {
@@ -15,6 +19,7 @@ gradle.projectsEvaluated {
             assert configurations.usable.state.toString() == 'RESOLVED'
             assert project(':child').configurations.usable.state.toString() == 'RESOLVED'
             assert configurations.declarations.state.toString() == 'UNRESOLVED'
+            assert configurations.projectClasspath.state.toString() == 'RESOLVED'
             assert !tasks.named('compileFixture').get().state.executed
             assert configurations.usable.files*.name == ['settings.gradle']
             assert project(':child').configurations.usable.files*.name == ['build.gradle']

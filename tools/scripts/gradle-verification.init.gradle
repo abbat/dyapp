@@ -5,7 +5,10 @@ gradle.projectsEvaluated {
             gradle.rootProject.allprojects.each { project ->
                 project.configurations.findAll { it.canBeResolved }.each { configuration ->
                     logger.lifecycle("Resolving ${project.path}:${configuration.name}")
-                    configuration.resolve()
+                    // Project outputs are built artifacts, not Maven checksum inputs.
+                    configuration.incoming.artifactView {
+                        componentFilter { !(it instanceof org.gradle.api.artifacts.component.ProjectComponentIdentifier) }
+                    }.files.files
                 }
             }
         }
