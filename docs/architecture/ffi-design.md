@@ -980,7 +980,14 @@ loads its active network and holds the identity operation through the supplied c
 and actual wire receive; it releases the node and lease before returning `ReceivedLink`.
 The worker must own the future until actual completion when its UI caller is cancelled.
 Profile-view generation and cancellation admission remain separate requirements before installation;
-this Rust coordinator does not yet expose a native receiver API.
+`MobileLinkReceiver::start` captures the source and generation under the same view guard.
+Its `code` and `expires_at` expose public presentation data; `phase` and `cancel` are non-blocking.
+`poll` runs off the UI thread through the existing network-stack worker and connection adapter,
+retaining the actual call through completion. Kotlin must keep that worker alive after cancelling
+its UI continuation. The common native adapter starts no node host or installation-node operation.
+`result` returns the original typed installation receipt with an opaque verified identity key and
+selection durability, or the exact failure boundary/destination. Cloning receipts clones the opaque
+key handle, never foreign plaintext identity bytes. Android screen integration remains planned.
 Core `LinkAdmission` serializes receiving and cancellation without a network mutex.
 A normal empty/transient completion explicitly resumes waiting; abandoned work is interrupted
 and cannot implicitly retry. After network completion and shared-lease release, its poll guard

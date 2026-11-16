@@ -57,11 +57,15 @@ mod search_recovery;
 pub use search_recovery::{
     MobileSearchRecovery, SearchRecoveryError, SearchRecoverySaved, SearchWithdrawalReview,
 };
+mod link_receipt;
+pub use link_receipt::{MobileLinkFailure, MobileLinkPhase, MobileLinkReceipt};
 mod slot_chat;
 mod slot_keys;
 pub use slot_keys::MobileSlotKeys;
 mod slot_resolution;
 pub use slot_resolution::{MobileSlotRecovery, MobileSlotResolution};
+mod slot_link;
+pub use slot_link::MobileLinkReceiver;
 mod slot_operation;
 mod slot_stickers;
 pub use slot_operation::MobileIdentityOperation;

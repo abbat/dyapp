@@ -55,7 +55,7 @@ impl From<core::Slot> for MobileSlot {
 }
 
 /// A committed selection and its independent directory-persistence status.
-#[derive(uniffi::Record)]
+#[derive(Clone, uniffi::Record)]
 pub struct MobileSlotSelection {
     /// Slot whose key actually opened.
     pub slot: MobileSlot,
@@ -90,6 +90,24 @@ pub struct MobileIdentityRegistry {
 }
 
 impl MobileIdentityRegistry {
+    pub(crate) fn link_invitation(
+        &self,
+        id: &str,
+        expected_peer: &str,
+        wizard: bool,
+    ) -> Result<(core::LinkInvitation, core::ProfileGeneration), CoreError> {
+        let view = self.view.current().map_err(CoreError::Failed)?;
+        let invitation = self
+            .registry
+            .begin_link(id, expected_peer, wizard, &self.keys, dyapp_client::now())
+            .map_err(CoreError::Failed)?;
+        Ok((invitation, view.generation()))
+    }
+
+    pub(crate) fn link_keys(&self) -> &SlotKeys {
+        &self.keys
+    }
+
     pub(crate) fn existing_chat_operation(
         &self,
         id: &str,
