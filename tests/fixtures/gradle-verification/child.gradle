@@ -1,0 +1,18 @@
+configurations {
+    usable { canBeConsumed = false }
+    projectApi {
+        canBeResolved = false
+        attributes.attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_API))
+        outgoing.variants {
+            first {
+                attributes.attribute(Attribute.of('artifactType', String), 'fixture-first')
+                artifact(rootProject.file('build.gradle'))
+            }
+            second {
+                attributes.attribute(Attribute.of('artifactType', String), 'fixture-second')
+                artifact(rootProject.file('settings.gradle'))
+            }
+        }
+    }
+}
+dependencies { usable files(rootProject.file('build.gradle')) }

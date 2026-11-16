@@ -1,0 +1,4 @@
+rootProject.name = 'verification-fixture'
+include(':child')
+file('child').mkdirs()
+project(':child').buildFileName = '../child.gradle'

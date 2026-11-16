@@ -1,0 +1,80 @@
+name: gradle-verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Reviewed same-repository commit SHA or branch (for example dependabot/gradle/...)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: checkout trusted tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: checkout reviewed source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+          path: build/gradle-verification-source
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
+      - name: prepare existing Android toolchain
+        run: |
+          docker buildx build --file tests/docker/Dockerfile.android-test \
+            --target android-tools --cache-from type=gha,scope=dyapp-android-tools \
+            --load --tag dyapp:verification-tools .
+      - name: generate candidate
+        run: |
+          set -euo pipefail
+          mkdir -p build/gradle-verification-report
+          source_dir="$PWD/build/gradle-verification-source"
+          report_dir="$PWD/build/gradle-verification-report"
+          git -C "$source_dir" rev-parse HEAD > "$report_dir/source-head.txt"
+          cp -f "$source_dir/clients/android/gradle/verification-metadata.xml" "$report_dir/before.xml"
+          printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' \
+            '<verification-metadata xmlns="https://schema.gradle.org/dependency-verification">' \
+            '<configuration><verify-metadata>true</verify-metadata><verify-signatures>false</verify-signatures></configuration>' \
+            '<components/></verification-metadata>' \
+            > "$source_dir/clients/android/gradle/verification-metadata.xml"
+          docker run --rm --pull never --user "$(id -u):$(id -g)" \
+            --cap-drop ALL --security-opt no-new-privileges \
+            -e GRADLE_USER_HOME=/app/build/verification-gradle-home \
+            -e HOME=/app/build/verification-home \
+            -e ANDROID_USER_HOME=/app/build/verification-home/.android \
+            -e 'JAVA_TOOL_OPTIONS=-XX:ActiveProcessorCount=2 -Duser.home=/app/build/verification-home' \
+            -v "$source_dir:/app" \
+            -v "$PWD/tools/scripts/gradle-verification.init.gradle:/verification.init.gradle:ro" \
+            --workdir /app/clients/android dyapp:verification-tools bash -c \
+            'mkdir -p "$HOME" && exec ./gradlew --no-daemon --init-script /verification.init.gradle --write-verification-metadata sha256 resolveVerificationArtifacts' \
+            > "$report_dir/resolve.log" 2>&1
+          cp -f "$source_dir/clients/android/gradle/verification-metadata.xml" "$report_dir/verification-metadata.xml"
+          diff -u "$report_dir/before.xml" "$report_dir/verification-metadata.xml" > "$report_dir/metadata.diff" || test "$?" = 1
+          sha256sum "$report_dir/verification-metadata.xml" > "$report_dir/sha256.txt"
+          docker run --rm --pull never --network none --user "$(id -u):$(id -g)" \
+            --cap-drop ALL --security-opt no-new-privileges \
+            -e GRADLE_USER_HOME=/app/build/verification-gradle-home \
+            -v "$source_dir:/app" \
+            -v "$PWD/tests/fixtures/gradle-verification:/fixture:ro" \
+            -v "$PWD/tools/scripts/gradle-verification.init.gradle:/verification.init.gradle:ro" \
+            --workdir /app/clients/android dyapp:verification-tools bash -c \
+            'cp -r /fixture /app/build/verification-fixture &&
+             ./gradlew --offline --no-daemon --project-dir /app/build/verification-fixture --init-script /verification.init.gradle resolveVerificationArtifacts' \
+            > "$report_dir/fixture.log" 2>&1
+      - name: candidate and diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gradle-verification
+          path: build/gradle-verification-report/
+          if-no-files-found: error
