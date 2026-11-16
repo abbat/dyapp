@@ -1010,8 +1010,13 @@ unchanged. Explicit `confirm_and_send_with` rechecks view, selected source, owne
 captures the private-state snapshot and active network under admission, then releases the view
 before dialing while retaining the actual identity operation. The private snapshot is owned by
 `Zeroizing<Vec<u8>>` through delivery and erased on every exit. Delivery errors may follow
-partially sent encrypted records; this is no rollback or automatic retry. Native owner approval
-and Android confirmation UI are still planned.
+partially sent encrypted records; this is no rollback or automatic retry.
+Native `device_link_code_status` projects the same validation; `MobileLinkApproval::prepare`
+binds the exact normalized public target without transfer or private snapshot. The explicit
+`confirm_and_send` method delegates to the core sender through the existing network-stack
+worker/connection adapter and opaque slot callbacks. UI disposal must close unused approval
+handles; already confirmed calls remain owned through actual completion. Android's full-control
+confirmation screen remains planned behind its review gate.
 Core `ReceivedLink` binds that record and its
 device to the original registry/source and caches one installation receipt. Its private state is
 owned by `Zeroizing<Vec<u8>>`; the writer borrows it without a secret copy or a custom destructor. `install_with` accepts

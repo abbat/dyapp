@@ -104,6 +104,24 @@ impl MobileIdentityRegistry {
         Ok((invitation, view.generation()))
     }
 
+    pub(crate) fn link_sender(
+        &self,
+        id: &str,
+        expected_peer: &str,
+        code: &str,
+    ) -> Result<core::LinkSender, CoreError> {
+        self.registry
+            .prepare_link_sender(
+                &self.view,
+                id,
+                expected_peer,
+                code,
+                &self.keys,
+                dyapp_client::now(),
+            )
+            .map_err(CoreError::Failed)
+    }
+
     pub(crate) fn link_keys(&self) -> &SlotKeys {
         &self.keys
     }

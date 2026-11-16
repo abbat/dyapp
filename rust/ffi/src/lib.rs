@@ -57,6 +57,8 @@ mod search_recovery;
 pub use search_recovery::{
     MobileSearchRecovery, SearchRecoveryError, SearchRecoverySaved, SearchWithdrawalReview,
 };
+mod link_approval;
+pub use link_approval::{device_link_code_status, MobileLinkApproval, MobileLinkCodeStatus};
 mod link_receipt;
 pub use link_receipt::{MobileLinkFailure, MobileLinkPhase, MobileLinkReceipt};
 mod slot_chat;

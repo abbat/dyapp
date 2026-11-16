@@ -450,7 +450,9 @@ uses an injected clock to cover deadline reset, late completion and error propag
 waiting for real time. Android instrumentation CI must also run the real two-peer journeys.
 `NativeLinkReceiverTests` exercise real JNI and Android credential callbacks for source-bound
 invitation creation, non-blocking idle ownership, cancellation before installation, missing active
-network and stale-source rejection. Successful wire reception and callback interruption are covered
+network and stale-source rejection. The owner-side JNI case checks malformed/expired/valid code
+projection and rejects profile A→B→A with the exact view-change error before a private store appears.
+Successful wire reception and callback interruption are covered
 by the shared Rust mailbox/registry fixtures; native screen and full device-link journeys remain
 separate acceptance.
 `ChatStickerHistoryTests` exercise the existing mixed-history fallback through `MediaChatContent`
