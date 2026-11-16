@@ -102,7 +102,7 @@ impl Registry {
         })
     }
 
-    fn link_selected_with<K: KeyWriter + KeyRemover>(
+    pub(super) fn link_selected_with<K: KeyWriter + KeyRemover>(
         &self,
         from: &str,
         expected_peer: &str,

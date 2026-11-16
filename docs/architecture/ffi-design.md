@@ -974,7 +974,10 @@ selector), and interruption in an exactly identified destination. A destination 
 before final selection; errors never promise pending state or rollback. The received `Linked` record
 is borrowed, so callers retain it until an authoritative completion or explicit recovery disposition.
 Compatibility APIs retain their original error text. Core `ReceivedLink` binds that record and its
-device to the original registry/source and caches one installation receipt. Repeated calls return
+device to the original registry/source and caches one installation receipt. `install_with` accepts
+the existing platform device-writer contract, including Desktop storage; that callback must store
+and verify the received key. Wrapped mobile `install` delegates to the same cache/writer and refuses
+Desktop before reservation. This exposes no foreign plaintext-key API. Repeated calls return
 the same outcome without another reservation or selection, even after the cause of failure clears.
 Before entering the writer it stores an unconfirmed receipt; a platform callback unwind therefore
 cannot make the next call retry. That receipt asserts no lifecycle or rollback and requires inventory

@@ -45,7 +45,7 @@ impl ReceivedLink {
         }
     }
 
-    /// Attempt installation once, retaining the received record and exact success/failure receipt.
+    /// Attempt wrapped mobile installation once, retaining its exact success/failure receipt.
     /// Call only after receiver cancellation admission and release of shared identity operations.
     ///
     /// # Errors
@@ -53,6 +53,27 @@ impl ReceivedLink {
     pub fn install<K: KeyWriter + KeyRemover + ChatKeyStore>(
         &mut self,
         keys: &K,
+    ) -> Result<&(Slot, Identity, SelectionDurability), &LinkFailure> {
+        if self.registry.layout == super::Layout::Desktop && self.outcome.is_none() {
+            self.outcome = Some(Err(LinkFailure::Admission(
+                "Wrapped linking requires a mobile layout".into(),
+            )));
+        }
+        self.install_with(keys, &|slot, device| {
+            super::chat_keys::persist_link_device(slot, device, keys)
+        })
+    }
+
+    /// Install through a platform writer that stores and verifies the received device key.
+    /// Only platform credential IO belongs in the callback; core owns the slot and outcome.
+    /// Call after cancellation admission and release of shared identity operations.
+    ///
+    /// # Errors
+    /// Retains the first failure without invoking another writer or reserving another slot.
+    pub fn install_with<K: KeyWriter + KeyRemover>(
+        &mut self,
+        keys: &K,
+        device: &dyn Fn(&Slot, &Identity) -> Result<(), String>,
     ) -> Result<&(Slot, Identity, SelectionDurability), &LinkFailure> {
         let first = self.outcome.is_none();
         // An unwinding platform callback must not turn the next poll into a fresh installation.
@@ -62,13 +83,13 @@ impl ReceivedLink {
             ))
         });
         if first {
-            *outcome = self.registry.link_selected_wrapped(
+            *outcome = self.registry.link_selected_with(
                 &self.from,
                 &self.expected_peer,
                 &self.linked,
                 self.wizard,
                 keys,
-                &self.device,
+                &|slot| device(slot, &self.device),
             );
         }
         outcome.as_ref()
