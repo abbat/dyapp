@@ -1,5 +1,9 @@
 use super::*;
 
+fn pending(store: &Store, peer: &str, pack_id: &[u8; 32]) -> Option<PendingPack> {
+    store.pending_sticker_pack(peer, pack_id).unwrap()
+}
+
 #[test]
 fn full_clear_releases_pending_quota_and_late_answers_cannot_restart_intent() {
     let (mut store, owner, path, peer) = database();
@@ -25,14 +29,8 @@ fn full_clear_releases_pending_quota_and_late_answers_cannot_restart_intent() {
         token: pending.token,
     };
     store.clear_chat_pair(&peer).unwrap();
-    assert!(store
-        .pending_sticker_pack(&peer, &answer.pack_id)
-        .unwrap()
-        .is_none());
-    assert!(store
-        .pending_sticker_pack(&other, &[90; 32])
-        .unwrap()
-        .is_some());
+    assert!(pending(&store, &peer, &answer.pack_id).is_none());
+    assert!(pending(&store, &other, &[90; 32]).is_some());
     assert!(!admit(&mut store, &peer, 1, &answer));
     assert!(store.due_sticker_pack_downloads(0).unwrap().is_empty());
     assert!(!store
@@ -50,18 +48,9 @@ fn full_clear_releases_pending_quota_and_late_answers_cannot_restart_intent() {
         .unwrap();
     drop(store);
     let store = Store::open(&path, &owner).unwrap();
-    assert!(store
-        .pending_sticker_pack(&peer, &answer.pack_id)
-        .unwrap()
-        .is_none());
-    assert!(store
-        .pending_sticker_pack(&peer, &[200; 32])
-        .unwrap()
-        .is_some());
-    assert!(store
-        .pending_sticker_pack(&other, &[90; 32])
-        .unwrap()
-        .is_some());
+    assert!(pending(&store, &peer, &answer.pack_id).is_none());
+    assert!(pending(&store, &peer, &[200; 32]).is_some());
+    assert!(pending(&store, &other, &[90; 32]).is_some());
 }
 
 #[test]

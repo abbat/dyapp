@@ -1,5 +1,14 @@
 use super::*;
 
+fn fresh(
+    store: &mut Store,
+    sealed: &[u8],
+    writes: &[crate::PreparedEnvelope],
+    job: &PackDownloadJob,
+) -> Result<PackDownloadJob, Error> {
+    store.stage_fresh_sticker_pack_request(sealed, writes, &[9], job)
+}
+
 #[test]
 fn fresh_request_rotates_generation_with_exact_outbox_and_preserves_clicked_hash() {
     let (mut store, owner, path, peer) = database();
@@ -10,23 +19,12 @@ fn fresh_request_rotates_generation_with_exact_outbox_and_preserves_clicked_hash
         .defer_sticker_pack_download(&job, PackDownloadFailure::Invalid, 100)
         .unwrap();
     let snapshot = store.sealed_device().unwrap();
-    let status = store
-        .sticker_pack_download_state(&peer, &job.pack_id)
-        .unwrap();
+    let status = download_state(&store, &peer, &job.pack_id);
     let write = crate::prepare_put(&[1; 32], vec![9]).unwrap();
-    assert!(store
-        .stage_fresh_sticker_pack_request(b"", std::slice::from_ref(&write), &[9], &job)
-        .is_err());
-    assert!(store
-        .stage_fresh_sticker_pack_request(b"fresh", &[], &[9], &job)
-        .is_err());
+    assert!(fresh(&mut store, b"", std::slice::from_ref(&write), &job).is_err());
+    assert!(fresh(&mut store, b"fresh", &[], &job).is_err());
     assert_eq!(store.sealed_device().unwrap(), snapshot);
-    assert_eq!(
-        store
-            .sticker_pack_download_state(&peer, &job.pack_id)
-            .unwrap(),
-        status
-    );
+    assert_eq!(download_state(&store, &peer, &job.pack_id), status);
     assert!(
         store
             .sticker_pack_answer(&[9], &peer, &job.pack_id, &job.token)
@@ -35,9 +33,7 @@ fn fresh_request_rotates_generation_with_exact_outbox_and_preserves_clicked_hash
     );
     assert!(store.due_outbound(i64::MAX).unwrap().is_empty());
 
-    let next = store
-        .stage_fresh_sticker_pack_request(b"fresh", std::slice::from_ref(&write), &[9], &job)
-        .unwrap();
+    let next = fresh(&mut store, b"fresh", std::slice::from_ref(&write), &job).unwrap();
     assert!(next.token != job.token && next.sticker_hash == job.sticker_hash);
     assert!(!store
         .finish_sticker_pack(&peer, &job.pack_id, &job.token)
@@ -45,9 +41,7 @@ fn fresh_request_rotates_generation_with_exact_outbox_and_preserves_clicked_hash
     assert!(!store
         .defer_sticker_pack_download(&job, PackDownloadFailure::Fetch, 200)
         .unwrap());
-    assert!(store
-        .stage_fresh_sticker_pack_request(b"stale", std::slice::from_ref(&write), &[9], &job)
-        .is_err());
+    assert!(fresh(&mut store, b"stale", std::slice::from_ref(&write), &job).is_err());
     drop(store);
     let store = Store::open(&path, &owner).unwrap();
     assert!(store.pending_sticker_pack(&peer, &job.pack_id).unwrap() == Some(next.clone()));
@@ -55,10 +49,7 @@ fn fresh_request_rotates_generation_with_exact_outbox_and_preserves_clicked_hash
         .sticker_pack_answer(&[9], &peer, &job.pack_id, &next.token)
         .unwrap()
         .is_none());
-    let state = store
-        .sticker_pack_download_state(&peer, &job.pack_id)
-        .unwrap()
-        .unwrap();
+    let state = download_state(&store, &peer, &job.pack_id).unwrap();
     assert!(
         !state.has_answer
             && state.failure.is_none()

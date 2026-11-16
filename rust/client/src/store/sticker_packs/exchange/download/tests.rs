@@ -45,14 +45,15 @@ fn admit(store: &mut Store, peer: &str, id: u8, answer: &PackAnswer) -> bool {
         .unwrap()
 }
 
+fn download_state(store: &Store, peer: &str, pack_id: &[u8; 32]) -> Option<PackDownloadState> {
+    store.sticker_pack_download_state(peer, pack_id).unwrap()
+}
+
 #[test]
 fn waiting_answer_failure_and_generation_safe_retry_survive_restart() {
     let (mut store, owner, path, peer) = database();
     let (pending, answer) = request(&mut store, &peer, 1);
-    let waiting = store
-        .sticker_pack_download_state(&peer, &answer.pack_id)
-        .unwrap()
-        .unwrap();
+    let waiting = download_state(&store, &peer, &answer.pack_id).unwrap();
     assert!(!waiting.has_answer && waiting.failure.is_none());
     assert!(store.due_sticker_pack_downloads(0).unwrap().is_empty());
     assert!(admit(&mut store, &peer, 1, &answer));
@@ -61,19 +62,11 @@ fn waiting_answer_failure_and_generation_safe_retry_survive_restart() {
     assert!(store
         .defer_sticker_pack_download(&job, PackDownloadFailure::Fetch, 100)
         .unwrap());
-    let failed = store
-        .sticker_pack_download_state(&peer, &answer.pack_id)
-        .unwrap()
-        .unwrap();
+    let failed = download_state(&store, &peer, &answer.pack_id).unwrap();
     assert_eq!(failed.failure, Some(PackDownloadFailure::Fetch));
     assert_eq!((failed.attempts, failed.retry_at_ms), (1, 1100));
     assert!(!admit(&mut store, &peer, 2, &answer));
-    assert_eq!(
-        store
-            .sticker_pack_download_state(&peer, &answer.pack_id)
-            .unwrap(),
-        Some(failed)
-    );
+    assert_eq!(download_state(&store, &peer, &answer.pack_id), Some(failed));
     assert!(store.due_sticker_pack_downloads(1099).unwrap().is_empty());
     assert!(store.due_sticker_pack_downloads(1100).unwrap() == vec![job.clone()]);
     let sealed = store.sealed_device().unwrap();
@@ -100,10 +93,7 @@ fn waiting_answer_failure_and_generation_safe_retry_survive_restart() {
     drop(store);
     let store = Store::open(&path, &owner).unwrap();
     assert!(store.due_sticker_pack_downloads(0).unwrap() == vec![next]);
-    let state = store
-        .sticker_pack_download_state(&peer, &answer.pack_id)
-        .unwrap()
-        .unwrap();
+    let state = download_state(&store, &peer, &answer.pack_id).unwrap();
     assert!(state.has_answer && state.failure.is_none() && state.attempts == 0);
 }
 
