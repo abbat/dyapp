@@ -192,6 +192,17 @@ fn sqlite_writer_lock_prevents_overlapping_publications() {
     assert!(second.save_sticker_pack(&[7; 32], &pack("Cats")).unwrap());
 }
 
+fn saved_ids(store: &mut Store) -> Vec<[u8; 32]> {
+    let mut ids = Vec::new();
+    for index in 0..34 {
+        let pack = pack(&format!("Cats {index}"));
+        store.save_sticker_pack(&[7; 32], &pack).unwrap();
+        ids.push(*pack.id());
+    }
+    ids.sort_unstable();
+    ids
+}
+
 #[test]
 fn collection_pages_are_ordered_bounded_and_keep_unreadable_entries() {
     let mut store = store("alice", None);
@@ -200,13 +211,7 @@ fn collection_pages_are_ordered_bounded_and_keep_unreadable_entries() {
         .unwrap()
         .entries
         .is_empty());
-    let mut ids = Vec::new();
-    for index in 0..34 {
-        let pack = pack(&format!("Cats {index}"));
-        store.save_sticker_pack(&[7; 32], &pack).unwrap();
-        ids.push(*pack.id());
-    }
-    ids.sort_unstable();
+    let ids = saved_ids(&mut store);
     let dir = directory(&store).unwrap();
     fs::write(dir.join(hex(&ids[1])), b"broken").unwrap();
     fs::write(dir.join(".interrupted.pending"), b"pending").unwrap();

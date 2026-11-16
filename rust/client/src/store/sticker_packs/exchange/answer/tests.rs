@@ -32,13 +32,21 @@ fn answer() -> PackAnswer {
     }
 }
 
+fn stage(
+    store: &mut Store,
+    sealed: &[u8],
+    id: u8,
+    peer: &str,
+    answer: &PackAnswer,
+) -> Result<bool, Error> {
+    store.stage_sticker_pack_answer(sealed, &inbox(id), sender(peer), answer)
+}
+
 #[test]
 fn unsolicited_cross_peer_blocked_and_closed_answers_only_commit_ack() {
     let (mut store, _, _, peer) = database();
     let answer = answer();
-    assert!(!store
-        .stage_sticker_pack_answer(b"drop", &inbox(1), sender(&peer), &answer)
-        .unwrap());
+    assert!(!stage(&mut store, b"drop", 1, &peer, &answer).unwrap());
     assert!(store
         .pending_sticker_pack(&peer, &answer.pack_id)
         .unwrap()
@@ -70,9 +78,7 @@ fn unsolicited_cross_peer_blocked_and_closed_answers_only_commit_ack() {
         )
         .unwrap());
     store.set_blocked(&peer, true).unwrap();
-    assert!(!store
-        .stage_sticker_pack_answer(b"blocked", &inbox(3), sender(&peer), &answer)
-        .unwrap());
+    assert!(!stage(&mut store, b"blocked", 3, &peer, &answer).unwrap());
     assert!(store
         .sticker_pack_answer(&[9], &peer, &answer.pack_id, &pending.token)
         .is_err());
@@ -84,9 +90,7 @@ fn unsolicited_cross_peer_blocked_and_closed_answers_only_commit_ack() {
             [&peer],
         )
         .unwrap();
-    assert!(!store
-        .stage_sticker_pack_answer(b"closed", &inbox(4), sender(&peer), &answer)
-        .unwrap());
+    assert!(!stage(&mut store, b"closed", 4, &peer, &answer).unwrap());
     assert_eq!(store.pending_acks().unwrap().len(), 4);
     let stored: Option<Vec<u8>> = store
         .db
@@ -107,21 +111,13 @@ fn first_answer_survives_replay_conflict_restart_and_token_checks() {
         .stage_sticker_pack_request(b"request", &[], &[9], &selected, &request)
         .unwrap();
     let answer = answer();
-    assert!(store
-        .stage_sticker_pack_answer(b"first", &inbox(1), sender(&peer), &answer)
-        .unwrap());
-    assert!(!store
-        .stage_sticker_pack_answer(b"replay", &inbox(1), sender(&peer), &answer)
-        .unwrap());
+    assert!(stage(&mut store, b"first", 1, &peer, &answer).unwrap());
+    assert!(!stage(&mut store, b"replay", 1, &peer, &answer).unwrap());
     assert_eq!(store.sealed_device().unwrap().unwrap(), b"first");
     let mut conflict = answer.clone();
     conflict.attachment.blob_sha256 = [4; 32];
-    assert!(store
-        .stage_sticker_pack_answer(b"bad", &inbox(1), sender(&peer), &conflict)
-        .is_err());
-    assert!(!store
-        .stage_sticker_pack_answer(b"ignored", &inbox(2), sender(&peer), &conflict)
-        .unwrap());
+    assert!(stage(&mut store, b"bad", 1, &peer, &conflict).is_err());
+    assert!(!stage(&mut store, b"ignored", 2, &peer, &conflict).unwrap());
     assert!(store
         .sticker_pack_answer(&[9], &peer, &request.pack_id, &[0; 16])
         .unwrap()
@@ -152,9 +148,7 @@ fn first_answer_survives_replay_conflict_restart_and_token_checks() {
     assert!(store
         .sticker_pack_answer(&[9], &peer, &request.pack_id, &pending.token)
         .is_err());
-    assert!(store
-        .stage_sticker_pack_answer(b"corrupt", &inbox(3), sender(&peer), &answer)
-        .is_err());
+    assert!(stage(&mut store, b"corrupt", 3, &peer, &answer).is_err());
     assert!(!store.has_inbox(&inbox(3)).unwrap());
     assert_eq!(store.sealed_device().unwrap().unwrap(), b"ignored");
 }
