@@ -82,6 +82,8 @@ private func setSwitch(
     if toggle.value as? String == value { return true }
     let nested = toggle.switches.firstMatch
     let control = nested.exists ? nested : toggle
+    // A hittable row label does not establish that its native switch is exposed.
+    reveal(control, in: app, above: above)
     guard ready(control) else { return false }
     control.tap()
     let result = XCTWaiter.wait(

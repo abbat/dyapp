@@ -34,8 +34,9 @@ native iOS CI. `reveal` accepts native hit-test readiness before planning a scro
 partially visible rows. Fully visible controls await readiness instead of unnecessary dragging.
 For each completed native drag it recalculates the viewport and noneditable accessibility-label
 anchors, resets its failure deadline only after changed geometry, and
-rejects repeated/no-progress states. Switch helpers await the actual native control's enabled and
-hittable state, tap once, and observe the required value; publication never blindly toggles an
+rejects repeated/no-progress states. Switch helpers reveal the actual native control separately
+from its row label, await its enabled and hittable state, tap once, and observe the required value;
+publication never blindly toggles an
 already-confirmed value. All native iOS UI journeys stop at their first failed assertion;
 subsequent interactions cannot turn failed setup into a long chain of unrelated failures.
 Native execution remains CI-only; Swift lint does not establish simulator behaviour.
