@@ -968,8 +968,13 @@ including a switch away and back to the same slot. The existing desktop compatib
 `Registry::link_selected_wrapped` also persists the received mobile device through `ChatKeyStore`
 using the new slot's existing wrapping credential. Core applies the same size limit, fresh-file write
 and before/after-persistence reopen checks as chat bootstrap, before ready/selection. Later bootstrap
-keeps this device and generates only a missing state-sealing key. The native receiver adapter remains
-planned.
+keeps this device and generates only a missing state-sealing key. Its `LinkFailure` distinguishes
+admission rejection (no installation), reservation failure (inventory may have changed, no confirmed
+selector), and interruption in an exactly identified destination. A destination may already be ready
+before final selection; errors never promise pending state or rollback. The received `Linked` record
+is borrowed, so callers retain it until an authoritative completion or explicit recovery disposition.
+Compatibility APIs retain their original error text. The native receiver adapter, retained-state
+recovery and retry admission remain planned.
 
 ## Exported surface
 

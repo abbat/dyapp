@@ -13,6 +13,9 @@ pub(super) enum Failure {
     Oversized,
     PersistedMismatch,
     Existing,
+    BlockStore,
+    BlockReady,
+    BlockSelection,
 }
 
 impl ChatKeyStore for WrappedKeys {
@@ -25,6 +28,14 @@ impl ChatKeyStore for WrappedKeys {
                 Some(Failure::Oversized) => return Ok(vec![0; 4_097]),
                 Some(Failure::Existing) => {
                     fs::write(slot.dir.join("device.key"), b"existing device").unwrap();
+                }
+                Some(Failure::BlockStore) => fs::create_dir(slot.dir.join("client.db")).unwrap(),
+                Some(Failure::BlockReady) => {
+                    fs::write(slot.dir.join("state.tmp"), b"retained").unwrap();
+                }
+                Some(Failure::BlockSelection) => {
+                    let root = slot.dir.parent().unwrap().parent().unwrap();
+                    fs::write(root.join("active-profile.tmp"), b"retained").unwrap();
                 }
                 _ => {}
             }
@@ -112,7 +123,7 @@ fn wrapped_link_failures_preserve_the_source_and_a_pending_destination() {
             &keys,
             &Identity::generate(),
         );
-        assert_eq!(result.unwrap_err(), expected);
+        assert_eq!(result.unwrap_err().to_string(), expected);
         assert_eq!(
             active(&root, Layout::Android),
             Active::Selected(source.id.clone())

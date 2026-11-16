@@ -1,3 +1,4 @@
+mod interrupted;
 mod wrapped;
 
 use super::root;
@@ -51,12 +52,17 @@ struct WrappedKeys {
     saved: RefCell<BTreeMap<String, Option<Identity>>>,
     failure: Cell<Option<WrappedFailure>>,
     device_failure: Cell<Option<wrapped::Failure>>,
+    reservation_failure: Cell<bool>,
     generated: RefCell<Vec<ChatKeyKind>>,
 }
 
 impl KeyReader for WrappedKeys {
     fn contains(&self, slot: &Slot) -> Result<bool, String> {
-        Ok(self.saved.borrow().contains_key(&slot.id))
+        let exists = self.saved.borrow().contains_key(&slot.id);
+        if !exists && self.reservation_failure.get() {
+            return Err("reservation denied".into());
+        }
+        Ok(exists)
     }
 
     fn open(&self, slot: &Slot, _: Option<&[u8]>) -> Result<Option<Identity>, String> {

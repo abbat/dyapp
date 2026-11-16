@@ -9,6 +9,7 @@ pub use write::SelectionDurability;
 mod inventory;
 mod keys;
 mod link;
+pub use link::LinkFailure;
 mod markers;
 mod open;
 mod owned;

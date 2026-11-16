@@ -8,13 +8,32 @@ use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
 use std::fs;
 
+/// Installation boundary reached before a link failed; never a rollback or lifecycle assertion.
+#[derive(Debug, thiserror::Error)]
+pub enum LinkFailure {
+    /// Installation did not start, so this attempt reserved no destination.
+    #[error("{0}")]
+    Admission(String),
+    /// Reservation failed; a directory may exist, but no destination selector is confirmed.
+    #[error("{0}")]
+    Reservation(String),
+    /// A destination was reserved. Re-read inventory rather than assuming it is still pending.
+    #[error("{detail}")]
+    Destination {
+        /// Exact reserved slot identifier, not a filesystem path or an inferred inventory difference.
+        slot_id: String,
+        /// Original installation failure, without replacing it with a rollback claim.
+        detail: String,
+    },
+}
+
 impl Registry {
     /// Make a ready, selected slot holding `linked`, beside the slot `from` that waited for it.
     /// `device` stores this computer's device key in the new slot and checks it reopens.
     /// The waiting slot's network settings come along; the link state waits in the new database.
     /// With `wizard`, `from` was made only to link and goes if no profile draft was saved there.
     ///
-    /// Until the final selection the previous one stays and an interrupted slot stays pending.
+    /// Until final selection the previous one stays; a destination can become ready beforehand.
     ///
     /// # Errors
     /// Returns missing slots, storage, credential, verification, database or write failures.
@@ -33,6 +52,7 @@ impl Registry {
             .find(|slot| slot.id == from)
             .ok_or("Unknown identity")?;
         self.install_link(&old, linked, wizard, keys, device)
+            .map_err(|error| error.to_string())
     }
 
     /// Install only while the invitation's source remains the selected ready owner.
@@ -50,16 +70,8 @@ impl Registry {
         keys: &K,
         device: &dyn Fn(&Slot) -> Result<(), String>,
     ) -> Result<(Slot, Identity, SelectionDurability), String> {
-        let _guard = self.lock()?;
-        let super::Resolution::Ready(old, identity) =
-            super::resolve(&self.root, self.layout, keys)?
-        else {
-            return Err("The link source is no longer ready".into());
-        };
-        if old.id != from || identity.peer_id() != expected_peer {
-            return Err("The link source changed".into());
-        }
-        self.install_link(&old, linked, wizard, keys, device)
+        self.link_selected_with(from, expected_peer, linked, wizard, keys, device)
+            .map_err(|error| error.to_string())
     }
 
     /// Install a linked mobile identity and its device through existing slot credentials.
@@ -76,13 +88,48 @@ impl Registry {
         wizard: bool,
         keys: &K,
         device: &Identity,
-    ) -> Result<(Slot, Identity, SelectionDurability), String> {
+    ) -> Result<(Slot, Identity, SelectionDurability), LinkFailure> {
         if self.layout == super::Layout::Desktop {
-            return Err("Wrapped linking requires a mobile layout".into());
+            return Err(LinkFailure::Admission(
+                "Wrapped linking requires a mobile layout".into(),
+            ));
         }
-        self.link_selected(from, expected_peer, linked, wizard, keys, &|slot| {
+        self.link_selected_with(from, expected_peer, linked, wizard, keys, &|slot| {
             super::chat_keys::persist_link_device(slot, device, keys)
         })
+    }
+
+    fn link_selected_with<K: KeyWriter + KeyRemover>(
+        &self,
+        from: &str,
+        expected_peer: &str,
+        linked: &Linked,
+        wizard: bool,
+        keys: &K,
+        device: &dyn Fn(&Slot) -> Result<(), String>,
+    ) -> Result<(Slot, Identity, SelectionDurability), LinkFailure> {
+        let _guard = self.lock().map_err(LinkFailure::Admission)?;
+        let old = self
+            .link_source(from, expected_peer, keys)
+            .map_err(LinkFailure::Admission)?;
+        self.install_link(&old, linked, wizard, keys, device)
+    }
+
+    fn link_source(
+        &self,
+        from: &str,
+        expected_peer: &str,
+        keys: &dyn super::KeyReader,
+    ) -> Result<Slot, String> {
+        let super::Resolution::Ready(old, identity) =
+            super::resolve(&self.root, self.layout, keys)?
+        else {
+            return Err("The link source is no longer ready".into());
+        };
+        if old.id != from || identity.peer_id() != expected_peer {
+            return Err("The link source changed".into());
+        }
+        Ok(old)
     }
 
     fn install_link<K: KeyWriter + KeyRemover>(
@@ -92,9 +139,28 @@ impl Registry {
         wizard: bool,
         keys: &K,
         device: &dyn Fn(&Slot) -> Result<(), String>,
+    ) -> Result<(Slot, Identity, SelectionDurability), LinkFailure> {
+        let storage = old
+            .storage
+            .ok_or_else(|| LinkFailure::Admission("Unknown identity storage mode".into()))?;
+        let slot = self
+            .reserve(storage, keys)
+            .map_err(LinkFailure::Reservation)?;
+        let slot_id = slot.id.clone();
+        self.finish_link(old, slot, linked, wizard, keys, device)
+            .map_err(|detail| LinkFailure::Destination { slot_id, detail })
+    }
+
+    fn finish_link<K: KeyWriter + KeyRemover>(
+        &self,
+        old: &Slot,
+        mut slot: Slot,
+        linked: &Linked,
+        wizard: bool,
+        keys: &K,
+        device: &dyn Fn(&Slot) -> Result<(), String>,
     ) -> Result<(Slot, Identity, SelectionDurability), String> {
-        let storage = old.storage.ok_or("Unknown identity storage mode")?;
-        let mut slot = self.reserve(storage, keys)?;
+        let storage = slot.storage.ok_or("Unknown identity storage mode")?;
         save(&slot, storage, &linked.identity, keys)?;
         let reopened = keys::load(&slot, keys)?.ok_or("Saved identity is missing")?;
         if reopened.peer_id() != linked.identity.peer_id() {
