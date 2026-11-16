@@ -453,9 +453,14 @@ invitation creation, non-blocking idle ownership, cancellation before installati
 network and stale-source rejection. The owner-side JNI case checks malformed/expired/valid code
 projection and rejects profile A→B→A with the exact view-change error before a private store appears.
 Successful wire reception and callback interruption are also covered by the shared Rust
-mailbox/registry fixtures. `NativeLinkJourneyTests` uses two isolated native registries and the
-existing CI node: owner publication, explicit approval, authenticated reception, and normal
-pending-link enrollment through `MobileLinkRecovery`. It first opens the normal linked chat session,
+mailbox/registry fixtures. The FFI package additionally drives native poll/install/result through
+actual signed mailbox fetch/ack requests carrying authenticated link ciphertext. It checks retained
+success after selection changes and typed destination failure after platform wrapping refusal,
+then stops the responder before terminal retries. This package-local coverage must reject replacing
+`MobileLinkReceiver::result` with `Ok(None)`; Android-only acceptance does not cover that mutant.
+`NativeLinkJourneyTests` uses two isolated native registries and the existing CI node: owner
+publication, explicit approval, authenticated reception, and normal pending-link enrollment through
+`MobileLinkRecovery`. It first opens the normal linked chat session,
 which preserves the received device and bootstraps only local session state. It verifies an empty
 contact note before import, completion followed by an idle retry, then the original nonempty note.
 It then reads both native device directories, identifies each current device by the core marker,

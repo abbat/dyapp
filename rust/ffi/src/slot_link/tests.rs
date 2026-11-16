@@ -1,3 +1,6 @@
+mod receipts;
+mod wire;
+
 use super::*;
 use crate::slot_registry_tests::{root, Credentials};
 use crate::{MobileSlotLayout, MobileSlotSelection};
@@ -13,11 +16,15 @@ struct Fixture {
 
 impl Fixture {
     fn new() -> Self {
+        Self::with_keys(Arc::new(Credentials::default()))
+    }
+
+    fn with_keys(keys: Arc<dyn crate::MobileSlotKeys>) -> Self {
         let root = root();
         let registry = MobileIdentityRegistry::new(
             root.to_str().unwrap().into(),
             MobileSlotLayout::Android,
-            Arc::new(Credentials::default()),
+            keys,
         );
         let source = registry.create().unwrap();
         Self {
