@@ -15,7 +15,10 @@ internal object DeviceCleanupEvents {
     val events = pending.asStateFlow()
 
     fun completed(opened: Opened.Ready, detail: String?) {
-        pending.update { it + DeviceCleanupEvent(opened.slot.id, opened.peerId, detail) }
+        val event = DeviceCleanupEvent(opened.slot.id, opened.peerId, detail)
+        pending.update { queued ->
+            queued.filterNot { it.slotId == event.slotId && it.peerId == event.peerId } + event
+        }
     }
 
     fun observed(events: List<DeviceCleanupEvent>) {

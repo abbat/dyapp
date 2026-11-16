@@ -776,7 +776,9 @@ Its `complete` rechecks the original binding through core removal and serializes
 retaining the first success, durability detail or failure without implicit retry.
 Android foreground and periodic background receivers invoke the native check only after a failed
 receive, after releasing the chat session. A confirmed cleanup completion queues a presentation-only
-source slot/peer event even when its old screen was disposed. The root waits for any admitted identity
+source slot/peer event even when its old screen was disposed. Repeated unobserved completions for the
+same slot and owner retain only the latest event; acknowledging an older batch preserves its replacement.
+The root waits for any admitted identity
 action, refreshes only a matching currently shown identity through ordinary native resolution, and
 preserves committed durability detail. Other selected profiles are not navigated away from. The
 foreground loop stops after a confirmed cleanup attempt, including partial failure; arbitrary receive

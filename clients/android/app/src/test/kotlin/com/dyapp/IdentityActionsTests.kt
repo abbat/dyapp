@@ -102,6 +102,25 @@ class IdentityActionsTests {
     }
 
     @Test
+    fun repeatedCompletionsKeepOnlyTheLatestForEachSlotAndOwner() {
+        val before = DeviceCleanupEvents.events.value
+        val opened = ready("coalescing")
+        DeviceCleanupEvents.completed(opened, "older")
+        val observed = DeviceCleanupEvents.events.value.last()
+        try {
+            repeat(3) { DeviceCleanupEvents.completed(opened, "latest") }
+            DeviceCleanupEvents.completed(ready(opened.slot.id, "another-owner"), null)
+            DeviceCleanupEvents.observed(listOf(observed))
+            val pending = DeviceCleanupEvents.events.value.filter { it.slotId == opened.slot.id }
+            assertEquals(2, pending.size)
+            assertEquals("latest", pending.single { it.peerId == opened.peerId }.durabilityDetail)
+        } finally {
+            DeviceCleanupEvents.observed(DeviceCleanupEvents.events.value.filter { it.slotId == opened.slot.id })
+        }
+        assertEquals(before, DeviceCleanupEvents.events.value)
+    }
+
+    @Test
     fun observingACompletedBatchRetainsNewerQueuedCompletions() {
         val before = DeviceCleanupEvents.events.value
         DeviceCleanupEvents.completed(ready("first"), null)
