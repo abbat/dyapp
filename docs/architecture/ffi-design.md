@@ -1246,7 +1246,7 @@ Not exported: `start`/`stop` video, `add_ice_candidate`, `local_ice_candidates`,
 or app lifecycle functions.
 
 The first-run connection surface (`load_network` to `ConnectionCheck`) follows the
-[typed settings and state contract](../design/v0.0.1-client-screens.md#connection-contract-planned);
+[typed settings and state contract](../design/v0.0.1-client-screens.md#connection-contract);
 it checks seeds but keeps no connection open. Platform UI must not treat the `PeerConnection`
 label object as a working network connection.
 
