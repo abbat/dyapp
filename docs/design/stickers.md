@@ -259,7 +259,9 @@ refresh and never imply rollback. Other packs, chat history and outbox remain un
 Mobile picker/collection wiring remains planned.
 
 Shared `sticker_picker::page` and `thumbnail` own manifest-order eight-entry pages and
-96px RGBA resizing through the bounded core decoder. Desktop maps these results to its existing
+proportional RGBA resizing within a 96px bounding box through the bounded core decoder. Wide and
+tall images keep their aspect ratio (128×64 becomes 96×48; 64×128 becomes 48×96), with no square
+stretching. Desktop maps these results to its existing
 JSON without media calculations. Shared `sticker_picker::recents::page` resolves exact hash-plus-emoji
 choices against saved packs, caches at most one pack, filters missing/invalid content without deleting
 files and preserves original-list cursor offsets. Transition cancellation or storage/decode failure

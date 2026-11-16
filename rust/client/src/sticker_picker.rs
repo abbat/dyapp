@@ -51,7 +51,9 @@ pub fn thumbnail(pack: &Pack, index: usize) -> Result<Choice, Error> {
         .map_err(|_| Error::Corrupted)?;
     let rgba = image::RgbaImage::from_raw(frame.width, frame.height, frame.pixels)
         .ok_or(Error::Corrupted)?;
-    let small = image::imageops::thumbnail(&rgba, THUMBNAIL_SIDE, THUMBNAIL_SIDE);
+    let small = image::DynamicImage::ImageRgba8(rgba)
+        .thumbnail(THUMBNAIL_SIDE, THUMBNAIL_SIDE)
+        .into_rgba8();
     Ok(Choice {
         index,
         emoji: entry.emoji.clone(),

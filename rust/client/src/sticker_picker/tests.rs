@@ -80,10 +80,11 @@ fn invalid_offsets_and_choices_are_errors_even_at_usize_max() {
 
 #[test]
 fn wide_and_tall_thumbnails_keep_bounded_rgba_and_literal_96px_limit() {
-    for (width, height) in [(128, 64), (64, 128)] {
+    for (width, height, expected) in [(128, 64, (96, 48)), (64, 128, (48, 96))] {
         let pack = pack(1, width, height);
         let choice = thumbnail(&pack, 0).unwrap();
         let frame = choice.frame;
+        assert_eq!((frame.width, frame.height), expected);
         assert!((1..=96).contains(&frame.width));
         assert!((1..=96).contains(&frame.height));
         assert_eq!(
