@@ -765,6 +765,10 @@ and Android integration remain planned.
 mailbox/profile revocation and an unchanged original error, including an original `Error::Revoked`.
 The compatibility `revoked_or` adapter retains its existing return behavior. Future native cleanup
 capabilities must use the confirmed classification rather than a flattened error message.
+`Session::probe_mailbox_revocation` checks the supplied existing device before network IO and fetches
+at most one envelope without applying or acknowledging it. Successful reads return false; only an
+actual refusal followed by the shared verified-profile check returns true. Unconfirmed failures remain
+errors. This read-only probe creates no cleanup capability and removes no local data.
 
 `Session::resume_link` consumes an existing session, verifies owner/device and the supplied sealing key
 against its saved device before importing pending state, and reuses the ordinary directory/key-package/
