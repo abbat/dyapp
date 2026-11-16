@@ -108,7 +108,8 @@ internal class ChatFeed(internal val opened: Opened.Ready) {
 private suspend fun ChatFeed.poll() {
     read()
     while (true) {
-        runCatching { RustBridge.withChats(opened) { it.receive() } }
+        val received = runCatching { RustBridge.withChats(opened) { it.receive() } }
+        if (received.isFailure && completeRevokedDevice(opened) != null) return
         read()
         delay(RECEIVE_INTERVAL_MS)
     }

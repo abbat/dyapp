@@ -88,9 +88,13 @@ internal fun JobParameters.scopedJobId(): Pair<String?, Int> {
 internal fun receiveMail(context: Context) {
     runCatching {
         val opened = RustBridge.slots(context).open() as? Opened.Ready ?: return
-        RustBridge.withChats(opened) {
-            val notice = it.receiveWithNotice(context.getString(R.string.notice_sticker)).notice
-            if (notice != null) postMailNotice(context, noticeLines(notice))
+        runCatching {
+            RustBridge.withChats(opened) {
+                val notice = it.receiveWithNotice(context.getString(R.string.notice_sticker)).notice
+                if (notice != null) postMailNotice(context, noticeLines(notice))
+            }
+        }.onFailure {
+            if (completeRevokedDevice(opened) == null) throw it
         }
     }.onFailure { Log.i(MAIL_LOG_TAG, "Background receive failed: ${it.javaClass.simpleName}") }
 }

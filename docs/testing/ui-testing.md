@@ -469,8 +469,14 @@ public device key. Neither phone hosts a node. The test uses completed native st
 transition deadlines; its real JNI runtime result and the planned native screen journey remain
 separate acceptance. Directory reads do not perform cleanup. The journey additionally requires
 readable-mailbox probes to return no cleanup capability, switches to the recipient's other profile,
-then obtains the revoked-device capability and completes it twice. Only the linked slot disappears;
-the other selected identity still opens. This cleanup extension needs its own actual CI runtime proof.
+then completes verified cleanup through the same Kotlin adapter used by both receive paths. A
+second adapter call has no authority to recreate the removed context. Only the linked slot disappears;
+the other selected identity still opens. Native package tests separately retain duplicate/concurrent
+capability outcomes. This cleanup extension needs its own actual CI runtime proof.
+`IdentityActionsTests` additionally gates an admitted switch and delivers a late cleanup completion;
+the old source cannot replace the new screen. Batch cases retain a matching completion even when a
+different slot completed later, preserve its durability diagnostic, and acknowledge only the observed
+batch without dropping newer events. These presentation cases do not prove actual JNI cleanup.
 `ChatStickerHistoryTests` exercise the existing mixed-history fallback through `MediaChatContent`
 with adjacent text and both own/peer stickers, in English and Russian, under the production
 `DYAppTheme` typography and root insets. Literal long pack names are located through semantic

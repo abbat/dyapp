@@ -7,6 +7,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -26,10 +27,22 @@ internal class IdentityActions(
     fun perform(action: () -> Opened, complete: (Shown) -> Unit = {}): Job? =
         if (current.value.loading) null else dispatch(action, complete)
 
-    private fun dispatch(action: () -> Opened, complete: (Shown) -> Unit): Job {
+    /** A late cleanup never refreshes another identity or interrupts a pending native action. */
+    suspend fun devicesCleaned(
+        events: List<DeviceCleanupEvent>,
+        action: () -> Opened,
+        complete: (Shown) -> Unit
+    ) {
+        val opened = current.first { !it.loading }.shown?.opened as? Opened.Ready ?: return
+        val event = events.lastOrNull { it.slotId == opened.slot.id && it.peerId == opened.peerId } ?: return
+        dispatch(action, complete, event.durabilityDetail).join()
+    }
+
+    private fun dispatch(action: () -> Opened, complete: (Shown) -> Unit, detail: String? = null): Job {
         current.value = current.value.copy(loading = true)
         return scope.launch {
-            val shown = withContext(Dispatchers.IO) { resolve(action) }
+            val resolved = withContext(Dispatchers.IO) { resolve(action) }
+            val shown = if (detail == null) resolved else Shown(resolved.opened, resolved.entries, detail)
             currentCoroutineContext().ensureActive()
             current.value = IdentityUiState(shown, false, current.value.revision + 1)
             complete(shown)

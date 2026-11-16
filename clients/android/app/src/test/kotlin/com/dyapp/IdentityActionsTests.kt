@@ -2,7 +2,9 @@ package com.dyapp
 
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
@@ -10,8 +12,10 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 private class GatedIdentityResolution {
@@ -30,6 +34,90 @@ private class GatedIdentityResolution {
 }
 
 class IdentityActionsTests {
+    private fun ready(id: String, peer: String = id) =
+        Opened.Ready(Slot(id, File("presentation-only"), SlotState.READY), peer)
+
+    @Test
+    fun cleanupRefreshesOnlyTheMatchingSourceFromACompletedBatch() = runBlocking {
+        val opened = ready("original")
+        val controller = IdentityActions(this) { Shown(it()) }
+        withTimeout(5_000) { controller.initialize({ opened }).join() }
+        val calls = AtomicInteger()
+        val events = listOf(
+            DeviceCleanupEvent("original", "original", "older"),
+            DeviceCleanupEvent("original", "original", "latest"),
+            DeviceCleanupEvent("other", "other", null)
+        )
+        withTimeout(5_000) {
+            controller.devicesCleaned(events, { Opened.Setup }, { calls.incrementAndGet() })
+        }
+        assertEquals(Opened.Setup, controller.state.value.shown?.opened)
+        assertEquals("latest", controller.state.value.shown?.durabilityDetail)
+        assertEquals(1, calls.get())
+    }
+
+    @Test
+    fun anotherSourceOrOwnerCannotRefreshTheCurrentScreen() = runBlocking {
+        val opened = ready("current")
+        val controller = IdentityActions(this) { Shown(it()) }
+        withTimeout(5_000) { controller.initialize({ opened }).join() }
+        withTimeout(5_000) {
+            controller.devicesCleaned(
+                listOf(DeviceCleanupEvent("old", "old", null), DeviceCleanupEvent("current", "wrong", null)),
+                { error("another source requested a refresh") },
+                { error("another source completed a refresh") }
+            )
+        }
+        assertEquals(opened, controller.state.value.shown?.opened)
+        assertFalse(controller.state.value.loading)
+    }
+
+    @Test
+    fun cleanupWaitsForAnAdmittedSwitchAndDoesNotReplaceItsNewIdentity() = runBlocking {
+        val fixture = GatedIdentityResolution()
+        val gate = AtomicBoolean(false)
+        val controller =
+            IdentityActions(this) { action -> if (gate.get()) fixture.resolve(action) else Shown(action()) }
+        withTimeout(5_000) { controller.initialize({ ready("old") }).join() }
+        gate.set(true)
+        val other = ready("new")
+        val switch = checkNotNull(controller.perform({ other }))
+        val refresh = launch(start = CoroutineStart.UNDISPATCHED) {
+            controller.devicesCleaned(
+                listOf(DeviceCleanupEvent("old", "old", null)),
+                { error("late cleanup replaced the new identity") },
+                { error("late cleanup published a screen") }
+            )
+        }
+        try {
+            withTimeout(5_000) { fixture.entered.await() }
+            assertFalse(refresh.isCompleted)
+        } finally {
+            fixture.release()
+        }
+        withTimeout(5_000) { switch.join() }
+        withTimeout(5_000) { refresh.join() }
+        assertEquals(other, controller.state.value.shown?.opened)
+        assertEquals(1, fixture.calls.get())
+    }
+
+    @Test
+    fun observingACompletedBatchRetainsNewerQueuedCompletions() {
+        val before = DeviceCleanupEvents.events.value
+        DeviceCleanupEvents.completed(ready("first"), null)
+        val first = DeviceCleanupEvents.events.value.last()
+        DeviceCleanupEvents.completed(ready("second"), null)
+        val second = DeviceCleanupEvents.events.value.last()
+        try {
+            DeviceCleanupEvents.observed(listOf(first))
+            assertFalse(first in DeviceCleanupEvents.events.value)
+            assertTrue(second in DeviceCleanupEvents.events.value)
+        } finally {
+            DeviceCleanupEvents.observed(listOf(first, second))
+        }
+        assertEquals(before, DeviceCleanupEvents.events.value)
+    }
+
     @Test
     fun aPendingNativeCallKeepsLoadingAndRejectsDuplicateActions() = runBlocking {
         val fixture = GatedIdentityResolution()

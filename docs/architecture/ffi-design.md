@@ -773,8 +773,14 @@ The native `MobileDeviceDirectory.revoked_device` delegates to that probe while 
 admission. Only a confirmed result returns opaque `MobileRevokedDevice`; no path, secret or caller-
 supplied authorization flag crosses the boundary. The capability retains no session/operation lease.
 Its `complete` rechecks the original binding through core removal and serializes concurrent calls,
-retaining the first success, durability detail or failure without implicit retry. Kotlin lifecycle
-integration and actual Android cleanup acceptance remain planned.
+retaining the first success, durability detail or failure without implicit retry.
+Android foreground and periodic background receivers invoke the native check only after a failed
+receive, after releasing the chat session. A confirmed cleanup completion queues a presentation-only
+source slot/peer event even when its old screen was disposed. The root waits for any admitted identity
+action, refreshes only a matching currently shown identity through ordinary native resolution, and
+preserves committed durability detail. Other selected profiles are not navigated away from. The
+foreground loop stops after a confirmed cleanup attempt, including partial failure; arbitrary receive
+errors never grant removal authority. Actual Android integration acceptance remains CI-only.
 
 `Session::resume_link` consumes an existing session, verifies owner/device and the supplied sealing key
 against its saved device before importing pending state, and reuses the ordinary directory/key-package/

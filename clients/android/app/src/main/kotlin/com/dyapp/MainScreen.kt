@@ -66,7 +66,7 @@ internal fun MainScreen(
     val onLock by rememberUpdatedState(onLockSettings)
     val navigation = remember(actions) { IdentityNavigation(start, actions) { onLock() } }
     val state by actions.state.collectAsState()
-    LaunchedEffect(actions) { actions.initialize(slots::open, navigation::completed) }
+    ObserveIdentityCleanup(actions, slots, navigation)
     Box(
         Modifier.testTag("identity-state").semantics {
             set(identityReadyRevisionKey, if (state.loading) 0L else state.revision)
@@ -81,6 +81,19 @@ internal fun MainScreen(
                 navigation,
                 lockMode
             )
+        }
+    }
+}
+
+@Composable
+private fun ObserveIdentityCleanup(actions: IdentityActions, slots: Slots, navigation: IdentityNavigation) {
+    LaunchedEffect(actions) {
+        actions.initialize(slots::open, navigation::completed).join()
+        DeviceCleanupEvents.events.collect { events ->
+            if (events.isNotEmpty()) {
+                actions.devicesCleaned(events, slots::open, navigation::completed)
+                DeviceCleanupEvents.observed(events)
+            }
         }
     }
 }
