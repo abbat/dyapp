@@ -32,7 +32,7 @@ impl ProfileView {
     /// Refuses a poisoned view.
     pub fn transition(&self) -> Result<ProfileViewGuard<'_>, String> {
         let mut guard = self.current()?;
-        *guard.0 = Arc::new(());
+        guard.invalidate();
         Ok(guard)
     }
 
@@ -50,6 +50,10 @@ impl ProfileView {
 }
 
 impl ProfileViewGuard<'_> {
+    pub(super) fn invalidate(&mut self) {
+        *self.0 = Arc::new(());
+    }
+
     /// Capture a generation without retaining this guard or any identity-operation lease.
     #[must_use]
     pub fn generation(&self) -> ProfileGeneration {

@@ -10,6 +10,8 @@ mod inventory;
 mod keys;
 mod link;
 pub use link::LinkFailure;
+mod link_admission;
+pub use link_admission::{LinkAdmission, LinkPhase, LinkPoll, LinkWrite};
 mod link_invitation;
 pub use link_invitation::LinkInvitation;
 mod markers;

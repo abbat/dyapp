@@ -981,6 +981,15 @@ and actual wire receive; it releases the node and lease before returning `Receiv
 The worker must own the future until actual completion when its UI caller is cancelled.
 Profile-view generation and cancellation admission remain separate requirements before installation;
 this Rust coordinator does not yet expose a native receiver API.
+Core `LinkAdmission` serializes receiving and cancellation without a network mutex.
+A normal empty/transient completion explicitly resumes waiting; abandoned work is interrupted
+and cannot implicitly retry. After network completion and shared-lease release, its poll guard
+admits the original `ProfileView` generation and atomically enters local installation.
+Cancellation wins before that transition; afterward it reports installing or the actual terminal
+phase, never rollback. Admitted installation invalidates other invitations in that view, even if
+its writer later fails. The write guard retains view admission through the local writer and marks
+an unwind interrupted. The owner must retain `ReceivedLink` before callbacks and its exact receipt
+before finishing admission. These phases do not assert a destination's current lifecycle.
 Core `ReceivedLink` binds that record and its
 device to the original registry/source and caches one installation receipt. Its private state is
 owned by `Zeroizing<Vec<u8>>`; the writer borrows it without a secret copy or a custom destructor. `install_with` accepts
