@@ -15,6 +15,8 @@ use std::slice::from_mut;
 mod finish;
 #[path = "device_link/offline.rs"]
 mod offline;
+#[path = "device_link/registry.rs"]
+mod registry;
 
 const SEAL: [u8; 32] = [6; 32];
 /// One device's turn to commit to a group.
