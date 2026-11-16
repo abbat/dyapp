@@ -497,6 +497,9 @@ tag for recovery and do not remove caches or images without confirmation.
   such as `is_focused` waits on it: never make one while holding the `Sessions` lock.
 - `make fmt` checks the root workspace and both native desktop crates. `make test`
   and CI differ in detail: `gh run download <id> -n core-check-output` holds the nextest output.
+  Native `desktop-ui-results.json` records expected outcomes in `passed`; deliberate rejection
+  controls can correctly have `passed: true` and `exit: 1`. Require the named positive case to have
+  `exit: 0`; a green job or an aggregate count alone does not prove a particular route ran.
 
 Unused-public analysis includes tests. A new real API call in a regression can resolve an exact
 `hawk.toml` dead-public expectation; remove that stale marker in the same change instead of

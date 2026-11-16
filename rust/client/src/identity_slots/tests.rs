@@ -1,3 +1,4 @@
+mod bound_removal;
 mod chat_keys;
 mod create;
 pub(super) mod link;

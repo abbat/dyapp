@@ -754,6 +754,13 @@ Missing credentials/sessions are refused without bootstrap. `devices` delegates 
 success and retry authorization. A reported failure does not imply rollback. Calls block off the UI
 thread on the existing joined network worker. Android JNI list/revoke runtime acceptance and the
 native device screen remain separate planned work; listing never performs a revoked-device wipe.
+Core `Registry::remove_bound_chat` supports the subsequent authorized removal boundary: after the
+caller releases its original chat operation, it rechecks the captured layout, directory, owner, device
+and sealing-key digest under the exclusive registry guard, then uses existing scoped removal and
+recovery/durability handling. It refuses missing or replaced storage without bootstrapping keys.
+The binding grants no revocation authority. Automatic cleanup still requires both mailbox refusal
+and verified newer ordinary-profile revocation through `Session::revoked_or`; its native outcome
+and Android integration remain planned.
 
 `Session::resume_link` consumes an existing session, verifies owner/device and the supplied sealing key
 against its saved device before importing pending state, and reuses the ordinary directory/key-package/

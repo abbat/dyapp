@@ -62,6 +62,7 @@ pub trait ChatKeyStore {
 /// exclusive registry lock before shared operation admission. Do not clone guards.
 #[must_use = "dropping the chat operation releases its mutation and session protection"]
 pub struct ChatOperation {
+    layout: Layout,
     device: Identity,
     state_key: Zeroizing<[u8; 32]>,
     _chat_lock: File,
@@ -72,6 +73,7 @@ pub struct ChatOperation {
 /// Contains no secret or lease; it is not a filesystem-generation counter.
 #[derive(Debug, PartialEq, Eq)]
 pub struct ChatBinding {
+    layout: Layout,
     slot: String,
     directory: std::path::PathBuf,
     owner: String,
@@ -80,10 +82,11 @@ pub struct ChatBinding {
 }
 
 impl ChatOperation {
-    /// Capture slot, owner, device and sealing-key identity without retaining secrets or locks.
+    /// Capture layout, slot, owner, device and sealing-key identity without secrets or locks.
     #[must_use]
     pub fn binding(&self) -> ChatBinding {
         ChatBinding {
+            layout: self.layout,
             slot: self.slot().id.clone(),
             directory: self.slot().dir.clone(),
             owner: self.identity().peer_id(),
@@ -144,6 +147,7 @@ impl Registry {
         let device = storage::required(identity.slot(), ChatKeyKind::Device, wrapping)?;
         let state_key = storage::required(identity.slot(), ChatKeyKind::State, wrapping)?;
         Ok(ChatOperation {
+            layout: self.layout,
             device: Identity::from_secret(&device),
             state_key,
             _chat_lock: chat_lock,
@@ -173,11 +177,51 @@ impl Registry {
         let (device, state_key) =
             storage::existing(identity.slot(), identity.identity(), wrapping)?;
         Ok(ChatOperation {
+            layout: self.layout,
             device,
             state_key,
             _chat_lock: chat_lock,
             identity,
         })
+    }
+
+    /// Remove only the initialized mobile chat context captured before releasing its operation.
+    ///
+    /// The caller must already authorize removal; this binding alone is not proof of revocation.
+    /// Release all identity/chat operations before calling. Verification and removal share the
+    /// exclusive registry guard; no replacement credentials or session are created.
+    ///
+    /// # Errors
+    /// Refuses changed owner/device/sealing context or unavailable existing storage before mutation.
+    /// Once removal starts, preserves the ordinary interrupted-cleanup and durability outcomes.
+    pub fn remove_bound_chat(
+        &self,
+        binding: &ChatBinding,
+        keys: &dyn super::KeyRemover,
+        wrapping: &dyn ChatKeyStore,
+    ) -> Result<super::RemovalOutcome, String> {
+        if self.layout == Layout::Desktop {
+            return Err("Wrapped chat removal requires a mobile layout".into());
+        }
+        if self.layout != binding.layout {
+            return Err("Chat context changed".into());
+        }
+        let _guard = self.lock()?;
+        let (slot, owner) = self.ready_chat_slot(&binding.slot, &binding.owner, keys)?;
+        if slot.dir != binding.directory {
+            return Err("Chat context changed".into());
+        }
+        {
+            let chat = super::registry::open_lock_file(&slot.dir.join("chat.lock"))?;
+            chat.lock().map_err(|error| error.to_string())?;
+            let (device, state) = storage::existing(&slot, &owner, wrapping)?;
+            if device.peer_id() != binding.device
+                || dyapp_identity::sha256(state.as_ref()) != binding.state_digest
+            {
+                return Err("Chat context changed".into());
+            }
+        }
+        self.remove_locked(&binding.slot, Some(&binding.owner), keys, |_| Ok(()))
     }
 
     fn ready_chat_slot(
