@@ -4,6 +4,7 @@ use crate::{CoreError, IdentityKey, MobileIdentityRegistry, MobileSlot};
 use std::sync::Arc;
 
 /// Reusable admission coordinates; idle native handles retain no registry lock.
+#[derive(Clone)]
 pub(crate) struct SlotWorker {
     registry: Arc<MobileIdentityRegistry>,
     id: String,
@@ -27,6 +28,14 @@ impl SlotWorker {
         &self,
     ) -> Result<dyapp_client::identity_slots::ProfileViewGuard<'_>, CoreError> {
         self.registry.view.transition().map_err(CoreError::Failed)
+    }
+
+    pub(crate) fn remove_bound_chat(
+        &self,
+        binding: &dyapp_client::identity_slots::ChatBinding,
+        store: Arc<dyn crate::KeyStore>,
+    ) -> Result<Option<String>, CoreError> {
+        self.registry.remove_bound_chat(binding, store)
     }
 
     pub(crate) fn operation(&self) -> Result<Arc<MobileIdentityOperation>, CoreError> {

@@ -759,16 +759,22 @@ caller releases its original chat operation, it rechecks the captured layout, di
 and sealing-key digest under the exclusive registry guard, then uses existing scoped removal and
 recovery/durability handling. It refuses missing or replaced storage without bootstrapping keys.
 The binding grants no revocation authority. Automatic cleanup still requires both mailbox refusal
-and verified newer ordinary-profile revocation through `Session::revoked_or`; its native outcome
-and Android integration remain planned.
+and verified newer ordinary-profile revocation through the shared classification below; Android
+lifecycle integration remains planned.
 `Session::classify_mailbox_failure` preserves a typed distinction between freshly confirmed
 mailbox/profile revocation and an unchanged original error, including an original `Error::Revoked`.
-The compatibility `revoked_or` adapter retains its existing return behavior. Future native cleanup
-capabilities must use the confirmed classification rather than a flattened error message.
+The compatibility `revoked_or` adapter retains its existing return behavior. Native cleanup
+capabilities use the confirmed classification rather than a flattened error message.
 `Session::probe_mailbox_revocation` checks the supplied existing device before network IO and fetches
 at most one envelope without applying or acknowledging it. Successful reads return false; only an
 actual refusal followed by the shared verified-profile check returns true. Unconfirmed failures remain
 errors. This read-only probe creates no cleanup capability and removes no local data.
+The native `MobileDeviceDirectory.revoked_device` delegates to that probe while retaining its original
+admission. Only a confirmed result returns opaque `MobileRevokedDevice`; no path, secret or caller-
+supplied authorization flag crosses the boundary. The capability retains no session/operation lease.
+Its `complete` rechecks the original binding through core removal and serializes concurrent calls,
+retaining the first success, durability detail or failure without implicit retry. Kotlin lifecycle
+integration and actual Android cleanup acceptance remain planned.
 
 `Session::resume_link` consumes an existing session, verifies owner/device and the supplied sealing key
 against its saved device before importing pending state, and reuses the ordinary directory/key-package/

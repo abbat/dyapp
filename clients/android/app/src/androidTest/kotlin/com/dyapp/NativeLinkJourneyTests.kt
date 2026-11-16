@@ -3,6 +3,7 @@ package com.dyapp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import uniffi.dyapp.IdentityKey
@@ -37,7 +38,7 @@ class NativeLinkJourneyTests {
                 assertEquals("", RustBridge.withChats(installed) { it.contactNote(contact) })
                 completeEnrollment(installed)
                 assertEquals(note, RustBridge.withChats(installed) { it.contactNote(contact) })
-                verifyDirectoryAndRevocation(original, installed)
+                verifyDirectoryAndRevocation(original, installed, destination)
             }
         }
     }
@@ -88,7 +89,11 @@ class NativeLinkJourneyTests {
         PlatformKeyStore.existing(identityAlias(opened.slot.id))
     )
 
-    private fun verifyDirectoryAndRevocation(original: Opened.Ready, installed: Opened.Ready) {
+    private fun verifyDirectoryAndRevocation(
+        original: Opened.Ready,
+        installed: Opened.Ready,
+        destination: Opened.Ready
+    ) {
         directory(original).use { owner ->
             val before = owner.devices(true)
             assertEquals(2, before.size)
@@ -99,6 +104,8 @@ class NativeLinkJourneyTests {
                 val linkedKey = linked.single { it.current }.key
                 assertFalse(originalKey.contentEquals(linkedKey))
                 assertTrue(before.any { it.key.contentEquals(linkedKey) })
+                assertNull(owner.revokedDevice())
+                assertNull(recipient.revokedDevice())
                 owner.revoke(linkedKey)
                 val remaining = owner.devices(true)
                 assertEquals(1, remaining.size)
@@ -108,8 +115,25 @@ class NativeLinkJourneyTests {
                 assertEquals(1, received.size)
                 assertFalse(received.single().current)
                 assertTrue(received.single().key.contentEquals(originalKey))
+                verifyRevokedCleanup(installed, destination, recipient)
             }
         }
+    }
+
+    private fun verifyRevokedCleanup(
+        installed: Opened.Ready,
+        destination: Opened.Ready,
+        directory: MobileDeviceDirectory
+    ) {
+        val registry = installed.slot.owner()
+        registry.select(destination.slot.id).key.use { assertEquals(destination.peerId, it.peerId()) }
+        val confirmed = checkNotNull(directory.revokedDevice()) { "Missing verified revocation" }
+        confirmed.use {
+            assertNull(it.complete())
+            assertNull(it.complete())
+        }
+        assertEquals(destination.slot.id, registry.list().single().id)
+        registry.select(destination.slot.id).key.use { assertEquals(destination.peerId, it.peerId()) }
     }
 
     private fun completeEnrollment(installed: Opened.Ready) {

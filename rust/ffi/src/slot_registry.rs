@@ -90,6 +90,18 @@ pub struct MobileIdentityRegistry {
 }
 
 impl MobileIdentityRegistry {
+    pub(crate) fn remove_bound_chat(
+        &self,
+        binding: &core::ChatBinding,
+        store: Arc<dyn crate::KeyStore>,
+    ) -> Result<Option<String>, CoreError> {
+        let _view = self.view.transition().map_err(CoreError::Failed)?;
+        self.registry
+            .remove_bound_chat(binding, &self.keys, &crate::slot_chat::ChatWrapping(store))
+            .map(|outcome| outcome.durability_detail)
+            .map_err(CoreError::Failed)
+    }
+
     pub(crate) fn link_invitation(
         &self,
         id: &str,

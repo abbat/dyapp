@@ -1,4 +1,5 @@
 //! Thin native ownership for common-core own-device directory operations.
+mod revocation;
 use crate::profile_network::{active_network, connect, on_network_stack};
 use crate::slot_operation::SlotWorker;
 use crate::{CoreError, KeyStore, MobileIdentityRegistry};
@@ -9,6 +10,7 @@ use dyapp_client::{
     session::Session,
     store::Store,
 };
+pub use revocation::MobileRevokedDevice;
 use std::sync::Arc;
 
 fn failed(error: impl std::fmt::Display) -> CoreError {

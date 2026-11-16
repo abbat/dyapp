@@ -17,6 +17,8 @@ use std::sync::{Arc, Mutex};
 #[derive(Default)]
 pub(crate) struct Credentials {
     aliases: Mutex<BTreeSet<String>>,
+    pub(crate) erase_failure: std::sync::atomic::AtomicBool,
+    pub(crate) erasures: std::sync::atomic::AtomicUsize,
 }
 
 pub(crate) struct Wrapping;
@@ -70,6 +72,13 @@ impl MobileSlotKeys for Credentials {
     }
 
     fn erase(&self, id: String) -> Result<(), WrapError> {
+        self.erasures
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        if self.erase_failure.load(std::sync::atomic::Ordering::SeqCst) {
+            return Err(WrapError::Failed {
+                reason: "fixture erasure refused".into(),
+            });
+        }
         self.aliases.lock().unwrap().remove(&id);
         Ok(())
     }

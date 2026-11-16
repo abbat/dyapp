@@ -5,19 +5,21 @@ use dyapp_identity::Identity;
 use dyapp_profile::Profile;
 use std::path::PathBuf;
 
-struct Fixture {
-    registry: Arc<MobileIdentityRegistry>,
-    slot: MobileSlotSelection,
-    worker: Arc<MobileDeviceDirectory>,
+pub(super) struct Fixture {
+    pub(super) registry: Arc<MobileIdentityRegistry>,
+    pub(super) slot: MobileSlotSelection,
+    pub(super) worker: Arc<MobileDeviceDirectory>,
+    pub(super) keys: Arc<Credentials>,
     cached: Profile,
 }
 
 impl Fixture {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
+        let keys = Arc::new(Credentials::default());
         let registry = MobileIdentityRegistry::new(
             root().to_str().unwrap().into(),
             MobileSlotLayout::Android,
-            Arc::new(Credentials::default()),
+            keys.clone(),
         );
         let slot = registry.create().unwrap();
         drop(
@@ -53,6 +55,7 @@ impl Fixture {
             registry,
             slot,
             worker,
+            keys,
             cached,
         }
     }
@@ -114,6 +117,10 @@ fn consistent_replacement_device_cannot_reuse_the_original_directory_handle() {
     );
     assert_eq!(
         f.worker.revoke(vec![1; 32]).unwrap_err().to_string(),
+        "Device context changed"
+    );
+    assert_eq!(
+        f.worker.revoked_device().err().unwrap().to_string(),
         "Device context changed"
     );
     assert_eq!(f.store().profile_draft().unwrap(), Some(f.cached));
