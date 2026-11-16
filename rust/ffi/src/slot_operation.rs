@@ -23,6 +23,12 @@ impl SlotWorker {
         }
     }
 
+    pub(crate) fn view_transition(
+        &self,
+    ) -> Result<dyapp_client::identity_slots::ProfileViewGuard<'_>, CoreError> {
+        self.registry.view.transition().map_err(CoreError::Failed)
+    }
+
     pub(crate) fn operation(&self) -> Result<Arc<MobileIdentityOperation>, CoreError> {
         self.registry
             .operation(self.id.clone(), self.expected_peer.clone())

@@ -983,8 +983,11 @@ A receipt describes its attempt, not the current selection. The record remains o
 disposal, which zeroizes the private-state bytes; idle ownership holds no registry operation lease.
 Core `ProfileView` serializes source capture/admission with cooperating frontend transitions.
 Its opaque allocation-based generations reject A-to-B-to-A and foreign-view tokens without counters;
-a captured token holds no lock. The common native registry invalidates before create/select/remove,
-including failed mutations. This is one frontend instance's scope, not a persistent cross-process
+a captured token holds no lock. The common native registry invalidates before create/select/remove
+and slot-bound active-network activation, including failed attempts. Activation takes view admission
+before the shared identity operation; probes take no view guard and retain their existing operation
+through actual network completion. Core network activation still clears contact context before saving.
+This is one frontend instance's scope, not a persistent cross-process
 generation; final registry slot/owner/lifecycle admission remains required. Hold admission through
 installation, never network IO, and release shared identity operations before entering it.
 The native receiver adapter, cancellation admission, explicit recovery and retry remain planned.

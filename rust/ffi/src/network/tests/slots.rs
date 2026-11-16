@@ -155,6 +155,47 @@ fn checked_network_cannot_activate_or_overwrite_draft_after_identity_replacement
 }
 
 #[test]
+fn probing_needs_no_view_guard_but_activation_invalidates_its_generation() {
+    let (registry, created, _) = fixture(MobileSlotLayout::Android);
+    let check = ConnectionCheck::for_slot(registry.clone(), created.slot.id, created.key.peer_id())
+        .unwrap();
+    let (port, peer) = node();
+    let draft = NetworkSettings {
+        seeds: vec![format!("127.0.0.1:{port}/{peer}")],
+        name: String::new(),
+    };
+    let guard = registry.view.current().unwrap();
+    let generation = guard.generation();
+    let running = RunningCheck::start(check.clone(), draft.clone());
+    running.ready.recv_timeout(Duration::from_secs(5)).unwrap();
+    running.resume.send(()).unwrap();
+    let rows = running
+        .finished
+        .recv_timeout(Duration::from_secs(5))
+        .unwrap()
+        .unwrap();
+    running.thread.join().unwrap();
+    assert_eq!(rows, vec![SeedRow::Connected { peer_id: peer }]);
+    drop(guard);
+    assert!(registry.view.admit(&generation).is_ok());
+    assert_eq!(check.activate().unwrap(), draft);
+    assert!(registry.view.admit(&generation).is_err());
+}
+
+#[test]
+fn an_unchecked_activation_invalidates_the_view_without_writing_settings() {
+    let (registry, created, _) = fixture(MobileSlotLayout::Android);
+    let check = ConnectionCheck::for_slot(registry.clone(), created.slot.id, created.key.peer_id())
+        .unwrap();
+    let generation = registry.view.current().unwrap().generation();
+    assert_eq!(check.activate(), Err(CheckError::NotChecked));
+    assert!(registry.view.admit(&generation).is_err());
+    assert!(!PathBuf::from(created.slot.directory)
+        .join("network")
+        .exists());
+}
+
+#[test]
 fn binding_a_checker_refuses_another_identity_without_writing_settings() {
     let (registry, created, _) = fixture(MobileSlotLayout::Android);
     assert!(ConnectionCheck::for_slot(registry, created.slot.id, "wrong peer".into()).is_err());

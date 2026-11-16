@@ -229,6 +229,12 @@ impl ConnectionCheck {
     ///
     /// Returns an error if no successful check is recorded or saving active settings fails.
     pub fn activate(&self) -> Result<NetworkSettings, CheckError> {
+        let _view = self
+            .binding
+            .as_ref()
+            .map(SlotWorker::view_transition)
+            .transpose()
+            .map_err(failed)?;
         let _operation = self
             .binding
             .as_ref()
