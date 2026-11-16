@@ -9,6 +9,9 @@ use std::io::Write;
 use std::sync::Arc;
 use zeroize::Zeroizing;
 
+#[path = "registry/receiver.rs"]
+mod receiver;
+
 struct Files;
 
 impl KeyReader for Files {

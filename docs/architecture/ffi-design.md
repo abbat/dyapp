@@ -990,6 +990,12 @@ phase, never rollback. Admitted installation invalidates other invitations in th
 its writer later fails. The write guard retains view admission through the local writer and marks
 an unwind interrupted. The owner must retain `ReceivedLink` before callbacks and its exact receipt
 before finishing admission. These phases do not assert a destination's current lifecycle.
+Core `LinkReceiver<T, E>` owns the invitation, admission guards, received record and first typed
+adapter receipt. It takes the invitation out of its short state lock for actual polling, restores
+it only after normal empty/transport-error completion, and retains received state before invoking
+local installation. Repeated terminal polls return their phase without another connection or writer;
+`result` copies the cached adapter receipt. A poisoned state is an explicit recovery error and never
+permits another attempt. Adapters supply connection, credential IO and receipt projection only.
 Core `ReceivedLink` binds that record and its
 device to the original registry/source and caches one installation receipt. Its private state is
 owned by `Zeroizing<Vec<u8>>`; the writer borrows it without a secret copy or a custom destructor. `install_with` accepts

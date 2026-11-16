@@ -14,6 +14,8 @@ mod link_admission;
 pub use link_admission::{LinkAdmission, LinkPhase, LinkPoll, LinkWrite};
 mod link_invitation;
 pub use link_invitation::LinkInvitation;
+mod link_receiver;
+pub use link_receiver::LinkReceiver;
 mod markers;
 mod open;
 mod owned;
