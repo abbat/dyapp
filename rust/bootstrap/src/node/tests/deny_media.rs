@@ -140,7 +140,7 @@ proptest::proptest! {
         cases: 16,
         failure_persistence: Some(Box::new(
             proptest::test_runner::FileFailurePersistence::Direct(
-                "/tmp/ai/dyapp-bootstrap-deny-regressions.txt"
+                "build/dyapp-bootstrap-deny-regressions.txt"
             )
         )),
         ..proptest::prelude::ProptestConfig::default()

@@ -132,7 +132,7 @@ proptest! {
         cases: 32,
         failure_persistence: Some(Box::new(
             proptest::test_runner::FileFailurePersistence::Direct(
-                "/tmp/ai/dyapp-bootstrap-search-regressions.txt"
+                "build/dyapp-bootstrap-search-regressions.txt"
             )
         )),
         ..ProptestConfig::default()
