@@ -982,7 +982,8 @@ The worker must own the future until actual completion when its UI caller is can
 Profile-view generation and cancellation admission remain separate requirements before installation;
 this Rust coordinator does not yet expose a native receiver API.
 Core `ReceivedLink` binds that record and its
-device to the original registry/source and caches one installation receipt. `install_with` accepts
+device to the original registry/source and caches one installation receipt. Its private state is
+owned by `Zeroizing<Vec<u8>>`; the writer borrows it without a secret copy or a custom destructor. `install_with` accepts
 the existing platform device-writer contract, including Desktop storage; that callback must store
 and verify the received key. Wrapped mobile `install` delegates to the same cache/writer and refuses
 Desktop before reservation. This exposes no foreign plaintext-key API. Repeated calls return

@@ -5,7 +5,7 @@ use super::{
 };
 use crate::link::Linked;
 use dyapp_identity::Identity;
-use zeroize::Zeroize;
+use zeroize::Zeroizing;
 
 type Installation = Result<(Slot, Identity, SelectionDurability), LinkFailure>;
 
@@ -18,7 +18,8 @@ pub struct ReceivedLink {
     from: String,
     expected_peer: String,
     wizard: bool,
-    linked: Linked,
+    identity: Identity,
+    state: Zeroizing<Vec<u8>>,
     device: Identity,
     outcome: Option<Installation>,
 }
@@ -39,7 +40,8 @@ impl ReceivedLink {
             from,
             expected_peer,
             wizard,
-            linked,
+            identity: linked.identity,
+            state: Zeroizing::new(linked.state),
             device,
             outcome: None,
         }
@@ -86,18 +88,15 @@ impl ReceivedLink {
             *outcome = self.registry.link_selected_with(
                 &self.from,
                 &self.expected_peer,
-                &self.linked,
+                super::link::LinkRecord {
+                    identity: &self.identity,
+                    state: &self.state,
+                },
                 self.wizard,
                 keys,
                 &|slot| device(slot, &self.device),
             );
         }
         outcome.as_ref()
-    }
-}
-
-impl Drop for ReceivedLink {
-    fn drop(&mut self) {
-        self.linked.state.zeroize();
     }
 }

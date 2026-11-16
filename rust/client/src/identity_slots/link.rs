@@ -30,6 +30,22 @@ pub enum LinkFailure {
     },
 }
 
+/// A borrowed installation record keeps ownership and erasure with the receiving workflow.
+#[derive(Clone, Copy)]
+pub(super) struct LinkRecord<'a> {
+    pub identity: &'a Identity,
+    pub state: &'a [u8],
+}
+
+impl<'a> From<&'a Linked> for LinkRecord<'a> {
+    fn from(linked: &'a Linked) -> Self {
+        Self {
+            identity: &linked.identity,
+            state: &linked.state,
+        }
+    }
+}
+
 impl Registry {
     /// Make a ready, selected slot holding `linked`, beside the slot `from` that waited for it.
     /// `device` stores this computer's device key in the new slot and checks it reopens.
@@ -54,7 +70,7 @@ impl Registry {
             .into_iter()
             .find(|slot| slot.id == from)
             .ok_or("Unknown identity")?;
-        self.install_link(&old, linked, wizard, keys, device)
+        self.install_link(&old, linked.into(), wizard, keys, device)
             .map_err(|error| error.to_string())
     }
 
@@ -73,7 +89,7 @@ impl Registry {
         keys: &K,
         device: &dyn Fn(&Slot) -> Result<(), String>,
     ) -> Result<(Slot, Identity, SelectionDurability), String> {
-        self.link_selected_with(from, expected_peer, linked, wizard, keys, device)
+        self.link_selected_with(from, expected_peer, linked.into(), wizard, keys, device)
             .map_err(|error| error.to_string())
     }
 
@@ -97,7 +113,7 @@ impl Registry {
                 "Wrapped linking requires a mobile layout".into(),
             ));
         }
-        self.link_selected_with(from, expected_peer, linked, wizard, keys, &|slot| {
+        self.link_selected_with(from, expected_peer, linked.into(), wizard, keys, &|slot| {
             super::chat_keys::persist_link_device(slot, device, keys)
         })
     }
@@ -106,7 +122,7 @@ impl Registry {
         &self,
         from: &str,
         expected_peer: &str,
-        linked: &Linked,
+        linked: LinkRecord<'_>,
         wizard: bool,
         keys: &K,
         device: &dyn Fn(&Slot) -> Result<(), String>,
@@ -138,7 +154,7 @@ impl Registry {
     fn install_link<K: KeyWriter + KeyRemover>(
         &self,
         old: &Slot,
-        linked: &Linked,
+        linked: LinkRecord<'_>,
         wizard: bool,
         keys: &K,
         device: &dyn Fn(&Slot) -> Result<(), String>,
@@ -158,13 +174,13 @@ impl Registry {
         &self,
         old: &Slot,
         mut slot: Slot,
-        linked: &Linked,
+        linked: LinkRecord<'_>,
         wizard: bool,
         keys: &K,
         device: &dyn Fn(&Slot) -> Result<(), String>,
     ) -> Result<(Slot, Identity, SelectionDurability), String> {
         let storage = slot.storage.ok_or("Unknown identity storage mode")?;
-        save(&slot, storage, &linked.identity, keys)?;
+        save(&slot, storage, linked.identity, keys)?;
         let reopened = keys::load(&slot, keys)?.ok_or("Saved identity is missing")?;
         if reopened.peer_id() != linked.identity.peer_id() {
             return Err("Saved identity does not reopen".into());
@@ -175,8 +191,8 @@ impl Registry {
                 network::save(&slot.dir, which, &settings).map_err(|e| e.to_string())?;
             }
         }
-        Store::open(&slot.dir.join("client.db"), &linked.identity)
-            .and_then(|store| store.set_link_pending(&linked.state))
+        Store::open(&slot.dir.join("client.db"), linked.identity)
+            .and_then(|store| store.set_link_pending(linked.state))
             .map_err(|error| error.to_string())?;
         write::replace(&slot.dir.join("state"), b"ready\n")?;
         slot.state = State::Ready;
