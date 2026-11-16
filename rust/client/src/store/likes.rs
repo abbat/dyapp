@@ -239,36 +239,8 @@ impl Store {
             return Err(Error::InteractionConflict);
         }
         let hlc = i64::try_from(event.hlc).map_err(|_| Error::ClockRange)?;
-        let payload = event.encode();
-        let inserted = tx.execute(
-            "INSERT INTO `interaction_ledger` (`sender`, `event_id`, `target`, `device`, `payload`)
-             VALUES (?1, ?2, ?3, ?4, ?5) ON CONFLICT (`sender`, `event_id`) DO NOTHING",
-            params![
-                sender,
-                event.event_id.as_slice(),
-                target,
-                device,
-                payload.as_slice()
-            ],
-        )?;
-        if inserted == 0 {
-            let same: bool = tx.query_row(
-                "SELECT `target` = ?3 AND `device` = ?4 AND `payload` = ?5
-                 FROM `interaction_ledger` WHERE `sender` = ?1 AND `event_id` = ?2",
-                params![
-                    sender,
-                    event.event_id.as_slice(),
-                    target,
-                    device,
-                    payload.as_slice()
-                ],
-                |row| row.get(0),
-            )?;
-            return if same {
-                Ok(false)
-            } else {
-                Err(Error::InteractionConflict)
-            };
+        if !record_event(tx, sender, target, device, &event)? {
+            return Ok(false);
         }
         let liked = match event.kind {
             Kind::Like => true,
@@ -396,6 +368,47 @@ pub(super) fn save_hlc(tx: &Transaction<'_>, hlc: Timestamp) -> Result<(), Error
         params![HLC_KEY, u64::from(hlc).to_be_bytes()],
     )?;
     Ok(())
+}
+
+fn record_event(
+    tx: &Transaction<'_>,
+    sender: &str,
+    target: &str,
+    device: &[u8],
+    event: &Interaction,
+) -> Result<bool, Error> {
+    let payload = event.encode();
+    let inserted = tx.execute(
+        "INSERT INTO `interaction_ledger` (`sender`, `event_id`, `target`, `device`, `payload`)
+         VALUES (?1, ?2, ?3, ?4, ?5) ON CONFLICT (`sender`, `event_id`) DO NOTHING",
+        params![
+            sender,
+            event.event_id.as_slice(),
+            target,
+            device,
+            payload.as_slice()
+        ],
+    )?;
+    if inserted != 0 {
+        return Ok(true);
+    }
+    let same: bool = tx.query_row(
+        "SELECT `target` = ?3 AND `device` = ?4 AND `payload` = ?5
+         FROM `interaction_ledger` WHERE `sender` = ?1 AND `event_id` = ?2",
+        params![
+            sender,
+            event.event_id.as_slice(),
+            target,
+            device,
+            payload.as_slice()
+        ],
+        |row| row.get(0),
+    )?;
+    if same {
+        Ok(false)
+    } else {
+        Err(Error::InteractionConflict)
+    }
 }
 
 /// Record that `sender` viewed `target` on the UTC day of `hlc`; false if already recorded.
