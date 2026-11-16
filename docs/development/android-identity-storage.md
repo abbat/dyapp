@@ -253,6 +253,11 @@ only when it is the sole slot. A root file whose alias is gone is recovery `miss
 identities go only under `profiles/`. An explicit future migration may copy the legacy key to
 a UUID slot, verify it and keep the old copy until the user confirms its removal.
 
+For v0.0.1, automatic cleanup after verified device revocation applies only to managed UUID slots.
+The legacy root remains readable and its local data is retained after revocation, matching the
+existing Linux boundary. Safe root-scoped cleanup is planned separately; ordinary slot removal
+must never rename or clear the installation root.
+
 ## Scenarios to verify
 
 | Scenario | Expected result |

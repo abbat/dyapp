@@ -1,3 +1,5 @@
+mod legacy;
+
 use super::{link::WrappedKeys, root};
 use crate::identity_slots::{
     active, Active, ChatBinding, ChatKeyKind, ChatKeyStore, Credential, KeyReader, KeyRemover,

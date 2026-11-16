@@ -773,7 +773,10 @@ The native `MobileDeviceDirectory.revoked_device` delegates to that probe while 
 admission. Only a confirmed result returns opaque `MobileRevokedDevice`; no path, secret or caller-
 supplied authorization flag crosses the boundary. The capability retains no session/operation lease.
 Its `complete` rechecks the original binding through core removal and serializes concurrent calls,
-retaining the first success, durability detail or failure without implicit retry.
+retaining the first success, durability detail or failure without implicit retry. Removal applies
+only to managed UUID slots: core intentionally refuses `legacy-primary`, whose directory is the
+installation root. Its local data remains readable after revocation; safe root-scoped cleanup is
+planned after v0.0.1 rather than bypassing the ordinary legacy-removal protection.
 Android foreground and periodic background receivers invoke the native check only after a failed
 receive, after releasing the chat session. A confirmed cleanup completion queues a presentation-only
 source slot/peer event even when its old screen was disposed. Repeated unobserved completions for the

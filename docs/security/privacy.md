@@ -83,7 +83,9 @@ inside the encrypted message, and the client downloads a stranger's original onl
 opened up to the limit in Settings, default 256 MiB, sealed under a key from the identity's sealing
 secret; the rest of the local Store is plain SQLite, descriptors and previews included. Clear chat,
 a lower limit and removing the identity erase these files, as far as the disk's own erasure goes,
-and a Linux client that finds its device revoked removes the identity by itself. A
+and a Linux client that finds its device revoked removes a managed identity slot by itself.
+The legacy root identity is excluded: its local data remains readable after revocation.
+Android uses the same managed-slot boundary; legacy-root cleanup is planned separately. A
 profile, tombstone included, is deleted hourly once its owner
 has neither published a newer version nor sent a fresh identity-signed heartbeat for
 `limits.profile_ttl_days` (default 30). A heartbeat advances liveness only to its signed time,
