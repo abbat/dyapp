@@ -84,7 +84,8 @@ Located in `#[cfg(test)]` modules within each crate.
 
 - Mailbox: envelope once per id, size limits, fetch with challenge, ack, replay and forgery rejected, TTL
 - Signed profile: version ordering (stale → error), tombstone kept and hidden from the list
-- Replication: encode/decode, single+multiple shard failures, fault tolerance
+- Replication: encode/decode, zero-parity factor 1, malformed shard lengths, single+multiple
+  shard failures, fault tolerance
 - RateLimiter: per-peer limits, active peer tracking; manual clocks cover wall-second windows,
   monotonic quota refill and ban boundaries without sleeps
 - Bootstrap production code reads wall and monotonic time through `clock.rs`; manual-clock tests

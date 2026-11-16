@@ -72,9 +72,6 @@ impl Replication {
             ));
         }
 
-        let rs = ReedSolomon::new(self.data_shards, self.parity_shards)
-            .map_err(|e| BootstrapError::ReplicationError(format!("{e:?}")))?;
-
         let shard_size = data.len().div_ceil(self.data_shards);
         let mut shards: Vec<Vec<u8>> =
             vec![vec![0; shard_size]; self.data_shards + self.parity_shards];
@@ -83,8 +80,11 @@ impl Replication {
             shards[i][..chunk.len()].copy_from_slice(chunk);
         }
 
-        rs.encode(&mut shards)
-            .map_err(|e| BootstrapError::ReplicationError(format!("{e:?}")))?;
+        if self.parity_shards > 0 {
+            ReedSolomon::new(self.data_shards, self.parity_shards)
+                .and_then(|rs| rs.encode(&mut shards))
+                .map_err(|e| BootstrapError::ReplicationError(format!("{e:?}")))?;
+        }
 
         Ok(shards
             .into_iter()
@@ -116,9 +116,6 @@ impl Replication {
             ));
         }
 
-        let rs = ReedSolomon::new(self.data_shards, self.parity_shards)
-            .map_err(|e| BootstrapError::ReplicationError(format!("{e:?}")))?;
-
         let mut shards: Vec<Option<Vec<u8>>> = vec![None; self.data_shards + self.parity_shards];
 
         for fragment in fragments {
@@ -127,8 +124,22 @@ impl Replication {
             }
         }
 
-        rs.reconstruct(&mut shards)
-            .map_err(|e| BootstrapError::ReplicationError(format!("{e:?}")))?;
+        if self.parity_shards > 0 {
+            ReedSolomon::new(self.data_shards, self.parity_shards)
+                .and_then(|rs| rs.reconstruct(&mut shards))
+                .map_err(|e| BootstrapError::ReplicationError(format!("{e:?}")))?;
+        } else {
+            let expected = shards.first().and_then(Option::as_ref).map(Vec::len);
+            if shards
+                .iter()
+                .take(self.data_shards)
+                .any(|shard| shard.as_ref().map(Vec::len) != expected)
+            {
+                return Err(BootstrapError::ReplicationError(
+                    "Inconsistent shard sizes".to_string(),
+                ));
+            }
+        }
 
         let available = shards
             .iter()
@@ -340,12 +351,17 @@ mod tests {
         assert!(Replication::new(1, 256).is_err());
         assert!(Replication::new(usize::MAX, 1).is_err());
 
-        let rep = Replication::new(1, 0).unwrap();
+        let rep = Replication::new_with_replication_factor(1).unwrap();
         assert!(rep.encode(&[]).is_err());
         let fragments = rep.encode(b"x").unwrap();
         assert_eq!(rep.decode(&fragments, 0).unwrap(), b"");
         assert_eq!(rep.decode(&fragments, 1).unwrap(), b"x");
         assert!(rep.decode(&fragments, 2).is_err());
+
+        let rep = Replication::new(2, 0).unwrap();
+        let mut fragments = rep.encode(b"xy").unwrap();
+        fragments[1].data.clear();
+        assert!(rep.decode(&fragments, 1).is_err());
     }
 
     #[test]
