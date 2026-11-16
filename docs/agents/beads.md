@@ -120,6 +120,12 @@ Generating a draft exits successfully with `approval: pending`; this never
 means the proposed priorities are approved. `--input` reads saved `bd list`
 JSON for offline reproduction. Keep these files outside tracked/public files.
 
+## Current dependency evidence
+
+Hierarchical IDs survive reparenting. After changing a parent, inspect `bd dep list <id> --json`
+or the typed dependencies in `bd show`; do not infer current blocking links from an ID prefix or
+`bd list --parent` alone, which can still list a former hierarchical descendant.
+
 ## Everyday commands
 
 ```bash
