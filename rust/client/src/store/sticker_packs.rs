@@ -94,6 +94,16 @@ fn key(secret: &[u8; 32], owner: &str, id: &[u8; 32], digest: &[u8; 32]) -> Zero
     );
     Zeroizing::new(sha256(&input))
 }
+fn sealed_pack(secret: &[u8; 32], owner: &str, pack: &Pack) -> Result<Vec<u8>, Error> {
+    let plain = pack.encode();
+    let digest = sha256(&plain);
+    let sealed = attachment::encrypt(&key(secret, owner, pack.id(), &digest), &plain)
+        .map_err(|_| Error::Invalid)?;
+    let mut bytes = MAGIC.to_vec();
+    bytes.extend(digest);
+    bytes.extend(sealed);
+    Ok(bytes)
+}
 fn read(path: &Path, secret: &[u8; 32], owner: &str, id: &[u8; 32]) -> Result<Option<Pack>, Error> {
     match fs::symlink_metadata(path) {
         Ok(meta) if meta.is_file() && !meta.is_symlink() => {}
@@ -227,13 +237,7 @@ impl Store {
             tx.commit()?;
             return Ok(false);
         }
-        let plain = pack.encode();
-        let digest = sha256(&plain);
-        let sealed = attachment::encrypt(&key(secret, &owner, pack.id(), &digest), &plain)
-            .map_err(|_| Error::Invalid)?;
-        let mut bytes = MAGIC.to_vec();
-        bytes.extend(digest);
-        bytes.extend(sealed);
+        let bytes = sealed_pack(secret, &owner, pack)?;
         if used(&dir)?
             .checked_add(bytes.len() as u64)
             .is_none_or(|size| size > limit)

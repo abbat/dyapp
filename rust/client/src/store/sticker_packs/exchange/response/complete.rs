@@ -3,7 +3,23 @@ use super::{time, PackResponseJob, COOLDOWN_MS};
 use crate::chat::pack_control::PackAnswer;
 use crate::store::{sticker_packs, Error, Store};
 use crate::PreparedEnvelope;
-use rusqlite::{params, OptionalExtension, TransactionBehavior};
+use rusqlite::{params, OptionalExtension, Transaction, TransactionBehavior};
+
+fn last_answered(tx: &Transaction<'_>, job: &PackResponseJob) -> Result<Option<i64>, Error> {
+    tx.query_row(
+        "SELECT `last_answered_ms` FROM `sticker_pack_responses`
+         WHERE `peer_id` = ?1 AND `pack_id` = ?2 AND `pending_group` = ?3 AND `job_token` = ?4",
+        params![
+            &job.peer,
+            job.pack_id.as_slice(),
+            &job.group,
+            job.token.as_slice()
+        ],
+        |row| row.get(0),
+    )
+    .optional()?
+    .ok_or(Error::InboxConflict)
+}
 
 impl Store {
     /// Commit one current response generation and its rolling daily cooldown with exact writes.
@@ -40,20 +56,7 @@ impl Store {
         if !shared {
             return Err(Error::InboxConflict);
         }
-        let previous: Option<Option<i64>> = tx
-            .query_row(
-                "SELECT `last_answered_ms` FROM `sticker_pack_responses`
-             WHERE `peer_id` = ?1 AND `pack_id` = ?2 AND `pending_group` = ?3 AND `job_token` = ?4",
-                params![
-                    &job.peer,
-                    job.pack_id.as_slice(),
-                    &job.group,
-                    job.token.as_slice()
-                ],
-                |row| row.get(0),
-            )
-            .optional()?;
-        let previous = previous.ok_or(Error::InboxConflict)?;
+        let previous = last_answered(&tx, job)?;
         if previous.is_some_and(|last| now.saturating_sub(last) < COOLDOWN_MS) {
             return Err(Error::ClockRange);
         }
