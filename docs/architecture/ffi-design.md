@@ -761,6 +761,10 @@ recovery/durability handling. It refuses missing or replaced storage without boo
 The binding grants no revocation authority. Automatic cleanup still requires both mailbox refusal
 and verified newer ordinary-profile revocation through `Session::revoked_or`; its native outcome
 and Android integration remain planned.
+`Session::classify_mailbox_failure` preserves a typed distinction between freshly confirmed
+mailbox/profile revocation and an unchanged original error, including an original `Error::Revoked`.
+The compatibility `revoked_or` adapter retains its existing return behavior. Future native cleanup
+capabilities must use the confirmed classification rather than a flattened error message.
 
 `Session::resume_link` consumes an existing session, verifies owner/device and the supplied sealing key
 against its saved device before importing pending state, and reuses the ordinary directory/key-package/

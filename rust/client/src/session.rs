@@ -939,6 +939,8 @@ mod clock;
 mod forward;
 mod link;
 mod local;
+mod mailbox_failure;
+pub use mailbox_failure::MailboxFailure;
 mod operations;
 mod profile_share;
 mod publication;

@@ -1,5 +1,8 @@
 //! A device linked to an account joins the owner's chats, and a contact holding the older profile
 //! catches up instead of falling out of the group.
+#[path = "device_link/mailbox_failure.rs"]
+mod mailbox_failure;
+
 use super::chat::{store_path, Person};
 use super::*;
 use dyapp_client::chat::{self, Body, Event, PeerChange};
@@ -691,14 +694,7 @@ async fn check_device_listing(
     assert!(!laptop_session.own_device_revoked(&listed).unwrap());
     assert!(alice.node.fetch(&laptop.device_key).await.is_ok());
 
-    // A refusal alone wipes nothing while the newest profile lists the device.
-    let refused =
-        || dyapp_client::session::Error::Client(dyapp_client::Error::Status(Status::Refused));
-    let error = laptop_session.revoked_or(&mut laptop.node, refused()).await;
-    assert!(
-        matches!(error, dyapp_client::session::Error::Client(_)),
-        "{error}"
-    );
+    mailbox_failure::original(laptop_session, &mut laptop.node).await;
 
     // A profile without a binding for the device closes nothing and changes nothing.
     let failure =
@@ -758,11 +754,7 @@ async fn check_revoked_device(
         .await
         .err()
         .unwrap();
-    let error = laptop_session.revoked_or(&mut laptop.node, error).await;
-    assert!(
-        matches!(error, dyapp_client::session::Error::Revoked),
-        "{error}"
-    );
+    mailbox_failure::confirmed(laptop_session, &mut laptop.node, &laptop.device_key, error).await;
 }
 
 fn check_cannot_relist(
