@@ -123,7 +123,10 @@ Compose text calibration fixtures put size-constrained Text inside a Box with lo
 constraints. A Text directly at the test root can inherit exact window minima that override its
 requested width/height and prevent every intended wrapping/clipping case. Derive dimensions from
 the current natural text measurement and retain explicit calibration preconditions with compact
-layout diagnostics; an SDK compilation does not prove those runtime conditions.
+layout diagnostics; an SDK compilation does not prove those runtime conditions. For no-wrap
+horizontal calibration, capture the actual onTextLayout callback: CI observed that the semantics
+adapter reconstructed two wrapped lines for softWrap=false. Keep the horizontal-clipping assertion
+and assert no vertical overflow so another rejection cannot mask a broken horizontal guard.
 
 Android network-policy tests use public API 31 `NetworkCapabilities.capabilities` snapshots:
 `addCapability`/`removeCapability` on `NetworkCapabilities` are hidden SDK APIs. Keep these

@@ -20,6 +20,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import java.util.concurrent.atomic.AtomicReference
 
 /** Calibrate real platform layouts before trusting text-fit assertions in screen tests. */
 class TextLayoutAssertionsTests {
@@ -32,6 +33,7 @@ class TextLayoutAssertionsTests {
         overflow: TextOverflow = TextOverflow.Clip,
         clipHeight: Boolean = false,
     ): TextLayoutResult {
+        val measured = AtomicReference<TextLayoutResult?>()
         compose.setContent {
             DYAppTheme {
                 val text = "one two three four five six seven eight"
@@ -50,11 +52,14 @@ class TextLayoutAssertionsTests {
                         softWrap = softWrap,
                         maxLines = maxLines,
                         overflow = overflow,
+                        onTextLayout = if (softWrap) null else { layout -> measured.set(layout) },
                     )
                 }
             }
         }
-        return compose.onNodeWithTag("measured-text").assertIsDisplayed().textLayout()
+        val node = compose.onNodeWithTag("measured-text").assertIsDisplayed()
+        // The semantics adapter can reflow a no-wrap paragraph; calibrate its actual callback.
+        return if (softWrap) node.textLayout() else compose.runOnIdle { checkNotNull(measured.get()) }
     }
 
     private fun TextLayoutResult.diagnostic(): String =
@@ -73,6 +78,7 @@ class TextLayoutAssertionsTests {
     fun unwrappedTextBeyondItsMeasuredWidthFails() {
         val layout = show(softWrap = false)
         assertTrue(layout.diagnostic(), layout.getLineRight(0) > layout.size.width)
+        assertFalse(layout.diagnostic(), layout.didOverflowHeight)
         assertFalse(layout.textFitsLayout())
     }
 
