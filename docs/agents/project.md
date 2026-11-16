@@ -507,6 +507,10 @@ replacing it with an allow or weakening the analysis.
 
 ## Rules for agents
 
+- Until the first v0.0.1 release, the maintainer preauthorizes fixes to existing behavior,
+  including visible UI corrections, without per-fix confirmation. New UI rules still require
+  the explicit decision and cost analysis in the review criteria; explicitly deferred work
+  retains its own approval conditions.
 - Plan client work with shared rules in Rust first, exposed through FFI before UI wiring
   ([ownership contract](../architecture/ffi-design.md#ownership-of-shared-logic)). Kotlin/Swift
   own presentation and required platform adapters; justify and agree exceptions before coding.
