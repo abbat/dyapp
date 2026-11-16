@@ -114,6 +114,77 @@ fn fail_apply(fixture: &Fixture, records: &[SignedRecord]) {
     db.execute_batch("DROP TRIGGER `fail_model_apply`").unwrap();
 }
 
+fn apply(
+    fixture: &Fixture,
+    records: &[SignedRecord],
+    model: &mut Model,
+) -> Result<(), TestCaseError> {
+    let result = fixture
+        .media()
+        .apply_keep_history(&records[3], fresh(), &fixture.service.config.limits)
+        .unwrap();
+    if let Some(next) = model.next.filter(|next| *next <= 1) {
+        prop_assert_eq!(result, KeepHistoryProgress::Ready { next_version: next });
+        model.applied = true;
+        model.next = None;
+    } else {
+        prop_assert_eq!(
+            result,
+            KeepHistoryProgress::Pending {
+                next_version: model.next.unwrap_or(3)
+            }
+        );
+    }
+    Ok(())
+}
+
+fn check_model(
+    fixture: &Fixture,
+    model: &Model,
+    records: &[SignedRecord],
+) -> Result<(), TestCaseError> {
+    let current = fixture
+        .media()
+        .keep_snapshot(&fixture.owner.peer_id())
+        .unwrap();
+    prop_assert_eq!(
+        current.record.as_ref(),
+        Some(if model.applied {
+            &records[3]
+        } else {
+            &records[0]
+        })
+    );
+    prop_assert_eq!(
+        fixture
+            .media()
+            .keep_history(&fixture.owner.peer_id(), 0, 4, 1 << 20)
+            .unwrap(),
+        if model.applied {
+            records.to_vec()
+        } else {
+            vec![records[0].clone()]
+        }
+    );
+    Ok(())
+}
+
+fn inject_failure(op: Op, fixture: &Fixture, records: &[SignedRecord], model: &Model) {
+    match op {
+        Op::FailStage => {
+            if let Some(next) = model.next.filter(|next| *next > 1) {
+                fail_stage(fixture, records, next);
+            }
+        }
+        Op::FailApply => {
+            if model.next.is_some_and(|next| next <= 1) {
+                fail_apply(fixture, records);
+            }
+        }
+        _ => unreachable!(),
+    }
+}
+
 fn check(schedule: &[Op]) -> Result<(), TestCaseError> {
     let (_, records) = chain();
     let mut destination = seeded(&records[0]);
@@ -150,59 +221,13 @@ fn check(schedule: &[Op]) -> Result<(), TestCaseError> {
                     );
                 }
             }
-            Op::Apply => {
-                let result = destination
-                    .media()
-                    .apply_keep_history(&records[3], fresh(), &destination.service.config.limits)
-                    .unwrap();
-                if let Some(next) = model.next.filter(|next| *next <= 1) {
-                    prop_assert_eq!(result, KeepHistoryProgress::Ready { next_version: next });
-                    model.applied = true;
-                    model.next = None;
-                } else {
-                    prop_assert_eq!(
-                        result,
-                        KeepHistoryProgress::Pending {
-                            next_version: model.next.unwrap_or(3)
-                        }
-                    );
-                }
-            }
+            Op::Apply => apply(&destination, &records, &mut model)?,
             Op::Restart => destination.reopen_media(),
-            Op::FailStage => {
-                if let Some(next) = model.next.filter(|next| *next > 1) {
-                    fail_stage(&destination, &records, next);
-                }
-            }
-            Op::FailApply => {
-                if model.next.is_some_and(|next| next <= 1) {
-                    fail_apply(&destination, &records);
-                }
+            Op::FailStage | Op::FailApply => {
+                inject_failure(*op, &destination, &records, &model);
             }
         }
-        let current = destination
-            .media()
-            .keep_snapshot(&destination.owner.peer_id())
-            .unwrap();
-        prop_assert_eq!(
-            current.record.as_ref(),
-            Some(if model.applied {
-                &records[3]
-            } else {
-                &records[0]
-            })
-        );
-        prop_assert_eq!(
-            destination
-                .media()
-                .keep_history(&destination.owner.peer_id(), 0, 4, 1 << 20)
-                .unwrap(),
-            if model.applied {
-                records.clone()
-            } else {
-                vec![records[0].clone()]
-            }
-        );
+        check_model(&destination, &model, &records)?;
         audit(&destination)?;
     }
     Ok(())

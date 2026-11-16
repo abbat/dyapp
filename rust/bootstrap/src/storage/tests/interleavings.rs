@@ -143,6 +143,24 @@ fn check_mailbox_bytes(store: &BootstrapStore) -> std::result::Result<(), TestCa
 /// Puts, fetch pages and acks from several writers. An acked envelope never comes back unless
 /// it is put again, an envelope stored for a whole pass is returned in that pass, and a final
 /// pass returns every unacked envelope once.
+fn fail_mailbox_put(store: &BootstrapStore) -> std::result::Result<(), TestCaseError> {
+    lock(&store.messages).unwrap().execute_batch(
+        "CREATE TRIGGER `fail_model_put` BEFORE INSERT ON `envelopes`
+         BEGIN SELECT RAISE(ABORT, 'injected model failure'); END;",
+    )?;
+    let record = SignedRecord {
+        payload: vec![u8::MAX],
+        ..SignedRecord::default()
+    };
+    prop_assert!(store
+        .put_plain(&MAILBOX, &[u8::MAX], &record, false, i64::MAX, u64::MAX)
+        .is_err());
+    lock(&store.messages)
+        .unwrap()
+        .execute_batch("DROP TRIGGER `fail_model_put`")?;
+    Ok(())
+}
+
 fn check_mailbox(schedule: &[Mail]) -> std::result::Result<(), TestCaseError> {
     let mut store = temp_store();
     let mut pass = Pass::default();
@@ -170,22 +188,7 @@ fn check_mailbox(schedule: &[Mail]) -> std::result::Result<(), TestCaseError> {
                 pass.whole.retain(|id| pass.stored.contains_key(id));
             }
             Mail::Restart => store = reopen(store),
-            Mail::FailPut => {
-                lock(&store.messages).unwrap().execute_batch(
-                    "CREATE TRIGGER `fail_model_put` BEFORE INSERT ON `envelopes`
-                     BEGIN SELECT RAISE(ABORT, 'injected model failure'); END;",
-                )?;
-                let record = SignedRecord {
-                    payload: vec![u8::MAX],
-                    ..SignedRecord::default()
-                };
-                prop_assert!(store
-                    .put_plain(&MAILBOX, &[u8::MAX], &record, false, i64::MAX, u64::MAX)
-                    .is_err());
-                lock(&store.messages)
-                    .unwrap()
-                    .execute_batch("DROP TRIGGER `fail_model_put`")?;
-            }
+            Mail::FailPut => fail_mailbox_put(&store)?,
         }
         check_mailbox_bytes(&store)?;
     }
@@ -232,6 +235,23 @@ fn profile_step() -> impl Strategy<Value = ProfileStep> {
 /// The owner's publish, replica apply and repair all land as `put_profile_seen` in any order:
 /// the newest revision wins, the stored version never drops, a tombstone is final and the last
 /// seen time only grows.
+fn published_profile(store: &BootstrapStore, owner: &Identity, step: &Publish) -> SignedRecord {
+    if step.deleted {
+        let source = store.get_profile(&owner.peer_id()).unwrap();
+        Profile {
+            previous: Some(dyapp_profile::ProfileCondition::observed(source.as_ref()).unwrap()),
+            ..Profile::tombstone(step.version, 0, 0)
+        }
+        .sign(owner)
+    } else {
+        Profile {
+            version: step.version,
+            ..Profile::default()
+        }
+        .sign(owner)
+    }
+}
+
 fn check_profiles(
     owners: &[Identity; 2],
     schedule: &[ProfileStep],
@@ -243,22 +263,7 @@ fn check_profiles(
             ProfileStep::Restart => store = reopen(store),
             ProfileStep::Apply(step) => {
                 let owner = &owners[step.owner];
-                let record = if step.deleted {
-                    let source = store.get_profile(&owner.peer_id()).unwrap();
-                    Profile {
-                        previous: Some(
-                            dyapp_profile::ProfileCondition::observed(source.as_ref()).unwrap(),
-                        ),
-                        ..Profile::tombstone(step.version, 0, 0)
-                    }
-                    .sign(owner)
-                } else {
-                    Profile {
-                        version: step.version,
-                        ..Profile::default()
-                    }
-                    .sign(owner)
-                };
+                let record = published_profile(&store, owner, step);
                 let slot = &mut model[step.owner];
                 let accept =
                     slot.is_none_or(|(version, deleted, _)| step.version > version && !deleted);

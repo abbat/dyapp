@@ -1,6 +1,10 @@
 //! Node tests.
 use super::*;
 
+fn pending(record: PutRecord) -> PendingPut {
+    PendingPut::new(record, None, false, Instant::now())
+}
+
 #[test]
 fn catch_up_asks_two_distinct_peers_per_topic() {
     let peers: Vec<PeerId> = (0..3).map(|_| PeerId::random()).collect();
@@ -142,24 +146,12 @@ async fn media_queue_drops_capped_writes_without_tracking_or_trust_penalties() {
     let to = PeerId::random();
     replicas.trust.add(to, 3);
     assert!(replicas.cap.allow(&to, 1));
-    replicas.puts.insert(
-        1,
-        PendingPut::new(
-            PutRecord::Media(record.clone()),
-            None,
-            false,
-            Instant::now(),
-        ),
-    );
-    replicas.puts.insert(
-        2,
-        PendingPut::new(
-            PutRecord::Sharded(record, vec![vec![1]].into()),
-            None,
-            false,
-            Instant::now(),
-        ),
-    );
+    replicas
+        .puts
+        .insert(1, pending(PutRecord::Media(record.clone())));
+    replicas
+        .puts
+        .insert(2, pending(PutRecord::Sharded(record, vec![vec![1]].into())));
     replicas.put_holder(&mut swarm, &service, &Watchers::default(), 1, to);
     replicas.shard_holder(&mut swarm, &service, 2, 0, to);
     assert_eq!(replicas.media_queue.len(), 2);
@@ -415,22 +407,11 @@ async fn mailbox_profile_and_profile_repair_share_the_sender_cap() {
     .sign(&owner);
     replicas.puts.insert(
         0,
-        PendingPut::new(
-            PutRecord::Mailbox(SignedRecord::default(), vec![]),
-            None,
-            false,
-            Instant::now(),
-        ),
+        pending(PutRecord::Mailbox(SignedRecord::default(), vec![])),
     );
-    replicas.puts.insert(
-        1,
-        PendingPut::new(
-            PutRecord::Profile(record.clone()),
-            None,
-            false,
-            Instant::now(),
-        ),
-    );
+    replicas
+        .puts
+        .insert(1, pending(PutRecord::Profile(record.clone())));
     replicas.put_holder(&mut swarm, &service, &watchers, 0, remote);
     assert_eq!(replicas.mailbox_puts.len(), 1);
     let missing = proto::ProfileResponse {
@@ -617,6 +598,15 @@ async fn sharded_writes_require_k_indices_and_queue_two_streams_per_peer() {
     assert_eq!(replicas.media_queue.len(), 3);
 }
 
+fn pending_media(latest: bool) -> PendingPut {
+    PendingPut::new(
+        PutRecord::Media(proto::MediaReplicaPut::default()),
+        None,
+        latest,
+        Instant::now(),
+    )
+}
+
 #[tokio::test]
 async fn media_holder_status_counts_distinct_confirmations_for_the_latest_write() {
     let service = Service::new(
@@ -631,12 +621,7 @@ async fn media_holder_status_counts_distinct_confirmations_for_the_latest_write(
     let mut replicas = Replicas::default();
     let a = PeerId::random();
     let b = PeerId::random();
-    let mut put = PendingPut::new(
-        PutRecord::Media(proto::MediaReplicaPut::default()),
-        None,
-        false,
-        Instant::now(),
-    );
+    let mut put = pending_media(false);
     put.confirm(a, Status::Ok.into(), None);
     put.confirm(a, Status::Ok.into(), None);
     put.confirm(b, Status::Full.into(), None);
@@ -658,12 +643,7 @@ async fn media_holder_status_counts_distinct_confirmations_for_the_latest_write(
         .confirm(b, Status::Ok.into(), None);
     replicas.finish_puts(&mut swarm, &service, Instant::now());
     assert_eq!(replicas.media_holders, (1, 2));
-    let mut latest = PendingPut::new(
-        PutRecord::Media(proto::MediaReplicaPut::default()),
-        None,
-        true,
-        Instant::now(),
-    );
+    let mut latest = pending_media(true);
     latest.confirm(a, Status::Ok.into(), None);
     replicas.puts.insert(2, latest);
     replicas.finish_puts(&mut swarm, &service, Instant::now());
@@ -723,15 +703,9 @@ async fn holders_store_once_and_replica_puts_never_fan_out() {
         }
         .encode_to_vec(),
     );
-    replicas.puts.insert(
-        0,
-        PendingPut::new(
-            PutRecord::Mailbox(record.clone(), vec![]),
-            None,
-            false,
-            Instant::now(),
-        ),
-    );
+    replicas
+        .puts
+        .insert(0, pending(PutRecord::Mailbox(record.clone(), vec![])));
     replicas.put_holder(&mut swarm, &service, &watchers, 0, PeerId::random());
     assert_eq!(replicas.mailbox_puts.len(), 1);
     assert!(
@@ -763,15 +737,9 @@ async fn holders_store_once_and_replica_puts_never_fan_out() {
         "replica_put forwarded again"
     );
     for id in 1..MAX_PENDING_PUTS as u64 {
-        replicas.puts.insert(
-            id,
-            PendingPut::new(
-                PutRecord::Mailbox(record.clone(), vec![]),
-                None,
-                false,
-                Instant::now(),
-            ),
-        );
+        replicas
+            .puts
+            .insert(id, pending(PutRecord::Mailbox(record.clone(), vec![])));
     }
     assert!(replicas.at_capacity());
     replicas.finish_puts(&mut swarm, &service, Instant::now() + PUT_TIMEOUT);

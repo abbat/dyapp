@@ -350,6 +350,14 @@ mod tests {
         assert_eq!(store.providers(&key).len(), 1);
     }
 
+    fn dialer(address: Multiaddr) -> ConnectedPoint {
+        ConnectedPoint::Dialer {
+            address,
+            role_override: Endpoint::Dialer,
+            port_use: PortUse::New,
+        }
+    }
+
     #[test]
     fn only_the_matching_claim_connection_routes_an_alternative_address() {
         let _pow = zero_pow();
@@ -360,11 +368,7 @@ mod tests {
         let claimed: Multiaddr = "/ip4/198.51.100.1/tcp/7070".parse().unwrap();
         let id = ConnectionId::new_unchecked(7);
         let unrelated = ConnectionId::new_unchecked(8);
-        let endpoint = ConnectedPoint::Dialer {
-            address: claimed.clone(),
-            role_override: Endpoint::Dialer,
-            port_use: PortUse::New,
-        };
+        let endpoint = dialer(claimed.clone());
         let mut admission = Admission::default();
         admission.roles.insert(peer, (true, false));
         assert!(admission
@@ -391,11 +395,7 @@ mod tests {
         let third: Multiaddr = "/ip4/198.51.100.3/tcp/7070".parse().unwrap();
         assert!(admission.claims.claim(Instant::now(), peer, third.clone()));
         admission.claims.start(Instant::now(), |_, _| Some(success));
-        let verified_endpoint = ConnectedPoint::Dialer {
-            address: third.clone(),
-            role_override: Endpoint::Dialer,
-            port_use: PortUse::New,
-        };
+        let verified_endpoint = dialer(third.clone());
         admission.established(
             &mut swarm,
             success,

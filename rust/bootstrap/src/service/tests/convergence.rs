@@ -23,6 +23,14 @@ fn offer(node: &Service, record: &SignedRecord) -> Status {
     status(&response)
 }
 
+fn offer_all(nodes: &[Service], records: [&SignedRecord; 4]) {
+    for node in nodes {
+        for record in records {
+            assert!(matches!(offer(node, record), Status::Ok | Status::Stale));
+        }
+    }
+}
+
 #[test]
 fn split_three_holders_heal_with_a_late_joiner_and_tombstone() {
     let nodes = [service(), service(), service()];
@@ -66,11 +74,7 @@ fn split_three_holders_heal_with_a_late_joiner_and_tombstone() {
     assert_eq!(offer(&nodes[1], &revival), Status::Stale);
     assert_eq!(offer(&nodes[0], &tombstone), Status::Ok);
     for _ in 0..2 {
-        for node in &nodes {
-            for record in [&tombstone, &first, &revival, &tombstone] {
-                assert!(matches!(offer(node, record), Status::Ok | Status::Stale));
-            }
-        }
+        offer_all(&nodes, [&tombstone, &first, &revival, &tombstone]);
     }
     for node in &nodes {
         let stored = node.store.get_profile(&owner.peer_id()).unwrap().unwrap();

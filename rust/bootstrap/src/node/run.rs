@@ -7,6 +7,18 @@ mod search_jobs;
 mod stored;
 use search_jobs::{start_search, SearchDone, SearchJob};
 
+fn clock_instant(service: &Service) -> tokio::time::Instant {
+    tokio::time::Instant::from_std(service.clock.instant())
+}
+
+fn catch_up_timer(service: &Service) -> (tokio::time::Instant, tokio::time::Interval) {
+    let now = clock_instant(service);
+    (
+        now,
+        tokio::time::interval_at(now + Duration::from_secs(60), Duration::from_secs(3600)),
+    )
+}
+
 /// Serves requests on `swarm` until the task is dropped. The deny list is checked for changes
 /// every 10 seconds and, on Unix, on SIGHUP.
 pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
@@ -99,13 +111,9 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
     let mut asks = crate::catch_up::Asks::default();
     let mut catch_up_queue: HashMap<PeerId, VecDeque<[u8; 32]>> = HashMap::new();
     let mut catch_up_asked: HashMap<OutboundRequestId, (PeerId, Vec<[u8; 32]>)> = HashMap::new();
-    let mut catch_up_at = tokio::time::Instant::from_std(service.clock.instant());
+    let (mut catch_up_at, mut catch_up) = catch_up_timer(&service);
     let mut refill_round = refill::Round::default();
     refill::spawn_rebuild(&service);
-    let mut catch_up = tokio::time::interval_at(
-        tokio::time::Instant::from_std(service.clock.instant()) + Duration::from_secs(60),
-        Duration::from_secs(3600),
-    );
     // Requests answered and failed with a node error since the last maintenance run.
     // Connections dropped after identify because the peer belongs to another network.
     let (mut answered, mut failed, mut foreign_peers) = (0u64, 0u64, 0u64);
@@ -127,10 +135,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
         .flatten()
         .collect();
     let every = Duration::from_secs(300);
-    let mut rejoin = tokio::time::interval_at(
-        tokio::time::Instant::from_std(service.clock.instant()) + every,
-        every,
-    );
+    let mut rejoin = tokio::time::interval_at(clock_instant(&service) + every, every);
     // Store requests (node, profile, media, mailbox, inventory) run off the loop on
     // STORE_WORKERS threads, one per peer at a time, round robin between peers; past
     // PEER_QUEUE waiting the request is dropped. A peer's replies keep its request order.
@@ -420,7 +425,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                                     queue.push_back(*key);
                                 }
                             }
-                            catch_up_at = catch_up_at.min(tokio::time::Instant::from_std(service.clock.instant()));
+                            catch_up_at = catch_up_at.min(clock_instant(&service));
                         }
                         Err(error) => tracing::error!(%error, "search catch-up failed"),
                     }
@@ -467,7 +472,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     if !got.is_empty() {
                         catch_up_queue.entry(id).or_default().extend(keys.into_iter().filter(|k| !got.contains(k)));
                     }
-                    if let Some(next) = send_catch_up(&mut swarm, &service.rebuild_budget, &mut catch_up_queue, &mut catch_up_asked, tokio::time::Instant::from_std(service.clock.instant())) {
+                    if let Some(next) = send_catch_up(&mut swarm, &service.rebuild_budget, &mut catch_up_queue, &mut catch_up_asked, clock_instant(&service)) {
                         catch_up_at = next;
                     }
                 }
@@ -746,8 +751,8 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                 }
             },
             () = tokio::time::sleep_until(catch_up_at), if !catch_up_queue.is_empty() => {
-                catch_up_at = send_catch_up(&mut swarm, &service.rebuild_budget, &mut catch_up_queue, &mut catch_up_asked, tokio::time::Instant::from_std(service.clock.instant()))
-                    .unwrap_or_else(|| tokio::time::Instant::from_std(service.clock.instant()) + Duration::from_secs(1));
+                catch_up_at = send_catch_up(&mut swarm, &service.rebuild_budget, &mut catch_up_queue, &mut catch_up_asked, clock_instant(&service))
+                    .unwrap_or_else(|| clock_instant(&service) + Duration::from_secs(1));
             }
             // Hourly, each kept topic's digest from two random search peers finds what gossip missed.
             _ = catch_up.tick(), if service.search.is_some() => {

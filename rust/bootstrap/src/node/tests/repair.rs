@@ -1,6 +1,79 @@
 //! Profile repair schedule and shared byte-budget tests.
 use super::*;
 
+fn repair_after_interval(
+    replicas: &mut Replicas,
+    swarm: &mut Swarm<Behaviour>,
+    service: &Service,
+    record: &SignedRecord,
+    key: &[u8],
+    now: Instant,
+) {
+    let edge = now + PROFILE_REPAIR_INTERVAL;
+    let early = edge.checked_sub(Duration::from_nanos(1)).unwrap();
+    replicas.repair_profile(swarm, service, record.clone(), early);
+    assert_eq!(replicas.lookups.len(), usize::from(REPLICAS));
+    replicas.lookups.clear();
+    replicas.repair_profile(swarm, service, record.clone(), edge);
+    assert_eq!(replicas.lookups.len(), usize::from(REPLICAS));
+    assert_eq!(replicas.profile_repaired[key].0, edge);
+}
+
+fn check_gap_statuses(
+    replicas: &mut Replicas,
+    swarm: &mut Swarm<Behaviour>,
+    service: &Service,
+    remote: PeerId,
+    record: &SignedRecord,
+) {
+    for (status, version, sends) in [
+        (Status::Ok, 1, true),
+        (Status::NotFound, 0, true),
+        (Status::Ok, 2, false),
+        (Status::Ok, 3, false),
+        (Status::Denied, 0, false),
+        (Status::RateLimited, 0, false),
+    ] {
+        let response = proto::ProfileResponse {
+            status: status.into(),
+            version,
+            ..Default::default()
+        };
+        assert_eq!(
+            matches!(
+                replicas.profile_gap(swarm, service, remote, record, &response),
+                Ok(Some(_))
+            ),
+            sends
+        );
+    }
+}
+
+fn check_repair_budget(
+    replicas: &mut Replicas,
+    swarm: &mut Swarm<Behaviour>,
+    service: &Service,
+    remote: PeerId,
+    record: SignedRecord,
+) {
+    service.traffic.add(10_000);
+    let response = proto::ProfileResponse {
+        status: Status::NotFound.into(),
+        ..Default::default()
+    };
+    assert!(replicas
+        .profile_gap(swarm, service, remote, &record, &response)
+        .is_err());
+    assert!(replicas
+        .profile_inventory(swarm, service, PeerId::random(), Arc::new(record))
+        .is_err());
+    assert_eq!(
+        replicas.profile_inventories.len(),
+        1,
+        "repair exceeded its budget"
+    );
+}
+
 #[tokio::test]
 async fn profile_repair_only_fills_gaps_once_an_hour_within_budget() {
     let dir = format!("/tmp/ai/test-profile-repair-{}", uuid::Uuid::new_v4());
@@ -36,22 +109,7 @@ async fn profile_repair_only_fills_gaps_once_an_hour_within_budget() {
     let now = clock.instant();
     replicas.repair_profile(&mut swarm, &service, record.clone(), now);
     assert_eq!(replicas.lookups.len(), usize::from(REPLICAS));
-    let edge = now + PROFILE_REPAIR_INTERVAL;
-    let early = edge.checked_sub(Duration::from_nanos(1)).unwrap();
-    replicas.repair_profile(&mut swarm, &service, record.clone(), early);
-    assert_eq!(replicas.lookups.len(), usize::from(REPLICAS));
-    replicas.lookups.clear();
-    replicas.repair_profile(
-        &mut swarm,
-        &service,
-        record.clone(),
-        now + PROFILE_REPAIR_INTERVAL,
-    );
-    assert_eq!(replicas.lookups.len(), usize::from(REPLICAS));
-    assert_eq!(
-        replicas.profile_repaired[&key].0,
-        now + PROFILE_REPAIR_INTERVAL
-    );
+    repair_after_interval(&mut replicas, &mut swarm, &service, &record, &key, now);
     for _ in 0..REPLICAS {
         let _ = replicas.profile_inventory(&mut swarm, &service, remote, Arc::new(record.clone()));
     }
@@ -60,42 +118,6 @@ async fn profile_repair_only_fills_gaps_once_an_hour_within_budget() {
         1,
         "co-located replicas are inventoried once"
     );
-    for (status, version, sends) in [
-        (Status::Ok, 1, true),
-        (Status::NotFound, 0, true),
-        (Status::Ok, 2, false),
-        (Status::Ok, 3, false),
-        (Status::Denied, 0, false),
-        (Status::RateLimited, 0, false),
-    ] {
-        let response = proto::ProfileResponse {
-            status: status.into(),
-            version,
-            ..Default::default()
-        };
-        assert_eq!(
-            matches!(
-                replicas.profile_gap(&mut swarm, &service, remote, &record, &response),
-                Ok(Some(_))
-            ),
-            sends
-        );
-    }
-    service.traffic.add(10_000);
-    let response = proto::ProfileResponse {
-        status: Status::NotFound.into(),
-        ..Default::default()
-    };
-    assert!(replicas
-        .profile_gap(&mut swarm, &service, remote, &record, &response)
-        .is_err());
-    let other = PeerId::random();
-    assert!(replicas
-        .profile_inventory(&mut swarm, &service, other, Arc::new(record))
-        .is_err());
-    assert_eq!(
-        replicas.profile_inventories.len(),
-        1,
-        "repair exceeded its budget"
-    );
+    check_gap_statuses(&mut replicas, &mut swarm, &service, remote, &record);
+    check_repair_budget(&mut replicas, &mut swarm, &service, remote, record);
 }

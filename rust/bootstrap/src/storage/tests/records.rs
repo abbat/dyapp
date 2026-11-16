@@ -280,6 +280,13 @@ fn historical_tombstone_remains_readable_and_final_without_new_authority() {
     assert_eq!(store.get_profile(&owner.peer_id()).unwrap(), Some(legacy));
 }
 
+fn tombstone(previous: &SignedRecord) -> Profile {
+    Profile {
+        previous: Some(dyapp_profile::ProfileCondition::observed(Some(previous)).unwrap()),
+        ..Profile::tombstone(3, 0, 0)
+    }
+}
+
 #[test]
 fn signed_profile_versions_and_tombstone() {
     let store = temp_store();
@@ -309,10 +316,7 @@ fn signed_profile_versions_and_tombstone() {
         [] as [dyapp_identity::SignedRecord; 0]
     );
 
-    let deleted = Profile {
-        previous: Some(dyapp_profile::ProfileCondition::observed(Some(&stored)).unwrap()),
-        ..Profile::tombstone(3, 0, 0)
-    };
+    let deleted = tombstone(&stored);
     store
         .put_profile_seen(&deleted.sign(&owner), cutoff)
         .unwrap();

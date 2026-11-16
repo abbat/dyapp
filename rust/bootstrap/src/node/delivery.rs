@@ -10,6 +10,21 @@ pub(super) const REPAIR_BYTES: usize = 1024 * 1024;
 /// would come back from another replica and evict the next one. The boolean is false when a store
 /// error, cap refusal or the `REPAIR_BYTES` cut left something unsent. The IDs identify every sent
 /// replica write whose reply must confirm the repair.
+fn repair_batch(batch: &[crate::service::Held], now: i64) -> MailboxRequest {
+    MailboxRequest {
+        request: Some(mailbox_request::Request::ReplicaPut(proto::Envelopes {
+            envelopes: batch.iter().map(|(record, _, _)| record.clone()).collect(),
+            source_groups: batch.iter().map(|(_, group, _)| group.clone()).collect(),
+            remaining_seconds: batch
+                .iter()
+                .map(|(_, _, expires_at)| {
+                    u32::try_from((expires_at - now).max(1)).unwrap_or(u32::MAX)
+                })
+                .collect(),
+        })),
+    }
+}
+
 pub(super) fn send_envelopes(
     swarm: &mut Swarm<Behaviour>,
     service: &Service,
@@ -70,18 +85,7 @@ pub(super) fn send_envelopes(
             complete = false;
             continue;
         }
-        let request = MailboxRequest {
-            request: Some(mailbox_request::Request::ReplicaPut(proto::Envelopes {
-                envelopes: batch.iter().map(|(record, _, _)| record.clone()).collect(),
-                source_groups: batch.iter().map(|(_, group, _)| group.clone()).collect(),
-                remaining_seconds: batch
-                    .iter()
-                    .map(|(_, _, expires_at)| {
-                        u32::try_from((expires_at - now).max(1)).unwrap_or(u32::MAX)
-                    })
-                    .collect(),
-            })),
-        };
+        let request = repair_batch(batch, now);
         service.traffic.add(request.encoded_len() as u64);
         sent.push(swarm.behaviour_mut().mailbox.send_request(&to, request));
     }

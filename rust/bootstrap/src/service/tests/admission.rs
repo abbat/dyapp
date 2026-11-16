@@ -11,6 +11,21 @@ enum Write {
 }
 
 impl Write {
+    fn search(service: &Service, peer: &Peer, request: search_request::Request) -> i32 {
+        match service
+            .search(
+                peer,
+                SearchRequest {
+                    request: Some(request),
+                },
+            )
+            .unwrap()
+        {
+            Search::Reply(response) => response.status,
+            _ => panic!("default invalid write unexpectedly started work"),
+        }
+    }
+
     fn call(self, service: &Service, peer: &Peer) -> Status {
         let status = match self {
             Self::Profile(request) => {
@@ -59,18 +74,7 @@ impl Write {
                     .unwrap()
                     .status
             }
-            Self::Search(request) => match service
-                .search(
-                    peer,
-                    SearchRequest {
-                        request: Some(request),
-                    },
-                )
-                .unwrap()
-            {
-                Search::Reply(response) => response.status,
-                _ => panic!("default invalid write unexpectedly started work"),
-            },
+            Self::Search(request) => Self::search(service, peer, request),
         };
         Status::try_from(status).unwrap()
     }

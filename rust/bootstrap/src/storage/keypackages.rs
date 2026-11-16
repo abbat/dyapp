@@ -5,7 +5,7 @@ use crate::error::Result;
 use dyapp_identity::SignedRecord;
 use dyapp_p2p_net::proto::KeyPackageRecord;
 use prost::Message;
-use rusqlite::{params, OptionalExtension, TransactionBehavior};
+use rusqlite::{params, OptionalExtension, Transaction, TransactionBehavior};
 
 const MAX_ORDINARY: i64 = 20;
 const MAX_BYTES: i64 = 512 * 1024;
@@ -27,6 +27,36 @@ pub(super) const SCHEMA: &str = "CREATE TABLE IF NOT EXISTS `keypackages` (
          CREATE INDEX IF NOT EXISTS `keypackages_mailbox`
              ON `keypackages` (`owner`, `mailbox`, `slot`, `last_resort`, `consumed`, `expires`);
          CREATE INDEX IF NOT EXISTS `keypackages_expiry` ON `keypackages` (`expires`);";
+
+fn keypackage_fits(
+    tx: &Transaction,
+    owner: &[u8],
+    mailbox: &[u8],
+    last_resort: bool,
+    size: i64,
+) -> Result<bool> {
+    let (count, used): (i64, i64) = tx
+        .query_row(
+            "SELECT COUNT(*), COALESCE(SUM(`size`), 0) FROM `keypackages` WHERE `owner` = ?1 AND `mailbox` = ?2 AND `consumed` = 0",
+            params![owner, mailbox],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(storage_error)?;
+    let ordinary: i64 = tx
+        .query_row(
+            "SELECT COUNT(*) FROM `keypackages` WHERE `owner` = ?1 AND `mailbox` = ?2 AND `last_resort` = 0 AND `consumed` = 0",
+            params![owner, mailbox],
+            |row| row.get(0),
+        )
+        .map_err(storage_error)?;
+    let consumed: i64 = tx
+        .query_row("SELECT COUNT(*) FROM `keypackages` WHERE `owner` = ?1 AND `mailbox` = ?2 AND `consumed` = 1", params![owner, mailbox], |row| row.get(0))
+        .map_err(storage_error)?;
+    Ok(used + size <= MAX_BYTES
+        && (last_resort || ordinary < MAX_ORDINARY)
+        && count <= MAX_ORDINARY
+        && consumed < MAX_CONSUMED)
+}
 
 impl BootstrapStore {
     /// Stores a signed package without resetting an earlier consume. False means quota is full.
@@ -101,28 +131,7 @@ impl BootstrapStore {
             )
             .map_err(storage_error)?;
         }
-        let (count, used): (i64, i64) = tx
-            .query_row(
-                "SELECT COUNT(*), COALESCE(SUM(`size`), 0) FROM `keypackages` WHERE `owner` = ?1 AND `mailbox` = ?2 AND `consumed` = 0",
-                params![owner, mailbox],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
-            .map_err(storage_error)?;
-        let ordinary: i64 = tx
-            .query_row(
-                "SELECT COUNT(*) FROM `keypackages` WHERE `owner` = ?1 AND `mailbox` = ?2 AND `last_resort` = 0 AND `consumed` = 0",
-                params![owner, mailbox],
-                |row| row.get(0),
-            )
-            .map_err(storage_error)?;
-        let consumed: i64 = tx
-            .query_row("SELECT COUNT(*) FROM `keypackages` WHERE `owner` = ?1 AND `mailbox` = ?2 AND `consumed` = 1", params![owner, mailbox], |row| row.get(0))
-            .map_err(storage_error)?;
-        if used + size > MAX_BYTES
-            || (!last_resort && ordinary >= MAX_ORDINARY)
-            || count > MAX_ORDINARY
-            || consumed >= MAX_CONSUMED
-        {
+        if !keypackage_fits(&tx, owner, mailbox, last_resort, size)? {
             return Ok(false);
         }
         tx.execute(

@@ -156,6 +156,24 @@ fn deny_list_refuses_without_strikes() {
     assert_eq!(profile("p", get(vec![1; 32])), Status::NotFound);
 }
 
+fn client_inventory_is_denied(service: &Service, address: &[u8]) {
+    let client = service
+        .mailbox(
+            &peer("p"),
+            &mut None,
+            MailboxRequest {
+                request: Some(mailbox_request::Request::Inventory(proto::Inventory {
+                    mailbox: address.to_vec(),
+                    ids: vec![vec![9; 16]],
+                })),
+            },
+        )
+        .unwrap();
+    assert_eq!(mailbox_status(&client), Status::Denied);
+    assert_eq!(client.missing.len(), 0);
+    assert!(service.reputation.banned("p"));
+}
+
 #[test]
 fn inventory_names_gaps_and_replica_put_fills_them() {
     let service = service_with(|l| l.strikes_to_ban = 1);
@@ -210,21 +228,7 @@ fn inventory_names_gaps_and_replica_put_fills_them() {
     assert_eq!(service.held(&address).unwrap().len(), 3);
     assert_eq!(service.held_ids(&address).unwrap().len(), 3);
     // A client asking for an inventory is refused before any read, with a strike.
-    let client = service
-        .mailbox(
-            &peer("p"),
-            &mut None,
-            MailboxRequest {
-                request: Some(mailbox_request::Request::Inventory(proto::Inventory {
-                    mailbox: address.clone(),
-                    ids: vec![vec![9; 16]],
-                })),
-            },
-        )
-        .unwrap();
-    assert_eq!(mailbox_status(&client), Status::Denied);
-    assert_eq!(client.missing.len(), 0);
-    assert!(service.reputation.banned("p"));
+    client_inventory_is_denied(&service, &address);
 }
 
 #[test]
@@ -685,6 +689,20 @@ fn rate_limit_and_info() {
     assert_eq!(known.password, "33Vkitp/KSZTCIYERO5wm1HgMoc="); // gitleaks:allow (test vector)
 }
 
+fn exact_signal(sender: &Identity, address: &[u8]) -> SignedRecord {
+    let mut exact = proto::Envelope {
+        id: vec![5; 16],
+        mailbox: address.to_vec(),
+        ciphertext: vec![0; MAX_SIGNAL_BYTES],
+        class: proto::EnvelopeClass::Signal.into(),
+        ..Default::default()
+    };
+    let overhead = exact.encoded_len() - exact.ciphertext.len();
+    exact.ciphertext.resize(MAX_SIGNAL_BYTES - overhead, 0);
+    assert_eq!(exact.encode_to_vec().len(), MAX_SIGNAL_BYTES);
+    sender.sign(Domain::Envelope, exact.encode_to_vec())
+}
+
 #[test]
 fn signals_are_small_counted_apart_and_evict_the_oldest() {
     use proto::EnvelopeClass::{Message, Signal};
@@ -711,17 +729,7 @@ fn signals_are_small_counted_apart_and_evict_the_oldest() {
         (mailbox_status(&response), response.max_bytes),
         (Status::TooLarge, MAX_SIGNAL_BYTES as u64)
     );
-    let mut exact = proto::Envelope {
-        id: vec![5; 16],
-        mailbox: address.clone(),
-        ciphertext: vec![0; MAX_SIGNAL_BYTES],
-        class: Signal.into(),
-        ..Default::default()
-    };
-    let overhead = exact.encoded_len() - exact.ciphertext.len();
-    exact.ciphertext.resize(MAX_SIGNAL_BYTES - overhead, 0);
-    assert_eq!(exact.encode_to_vec().len(), MAX_SIGNAL_BYTES);
-    let exact = sender.sign(Domain::Envelope, exact.encode_to_vec());
+    let exact = exact_signal(&sender, &address);
     let response = mailbox(&service, &mut conn, mailbox_request::Request::Put(exact));
     assert_eq!(mailbox_status(&response), Status::Ok);
     // Later signals overflow the 2 KiB quota and evict the oldest; the message still fits.
