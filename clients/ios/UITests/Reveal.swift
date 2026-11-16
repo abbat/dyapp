@@ -11,9 +11,14 @@ func reveal(
     var deadline = Date().addingTimeInterval(timeout)
     var visited = Set<String>()
     while Date() < deadline {
+        // Native hit testing already accounts for clipped rows and in-flight navigation geometry.
+        if row.exists && row.isHittable { return element }
         let visible = revealViewport(app)
         let frame = try? row.snapshot().frame
-        if let frame, revealFits(frame, in: visible), row.isHittable { return element }
+        if let frame, revealFits(frame, in: visible) {
+            _ = ready(row, timeout: max(0, deadline.timeIntervalSinceNow))
+            return element
+        }
         let anchors = revealAnchors(app, visible: visible)
         let state = "\(visible)|\(anchors)"
         guard visited.insert(state).inserted,
