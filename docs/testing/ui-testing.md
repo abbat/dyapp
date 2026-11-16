@@ -455,9 +455,10 @@ projection and rejects profile A→B→A with the exact view-change error before
 Successful wire reception and callback interruption are also covered by the shared Rust
 mailbox/registry fixtures. `NativeLinkJourneyTests` uses two isolated native registries and the
 existing CI node: owner publication, explicit approval, authenticated reception, and normal
-pending-link enrollment through `MobileLinkRecovery`. It requires completion followed by an idle
-retry and verifies a nonempty private contact note through the linked session. Neither phone hosts
-a node. The test uses completed native steps and fresh transition deadlines; its real JNI runtime
+pending-link enrollment through `MobileLinkRecovery`. It first opens the normal linked chat session,
+which preserves the received device and bootstraps only local session state. It verifies an empty
+contact note before import, completion followed by an idle retry, then the original nonempty note.
+Neither phone hosts a node. The test uses completed native steps and fresh transition deadlines; its real JNI runtime
 result and the planned native screen journey remain separate acceptance.
 `ChatStickerHistoryTests` exercise the existing mixed-history fallback through `MediaChatContent`
 with adjacent text and both own/peer stickers, in English and Russian, under the production

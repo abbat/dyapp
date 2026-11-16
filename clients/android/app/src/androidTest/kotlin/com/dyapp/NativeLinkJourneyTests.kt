@@ -32,6 +32,8 @@ class NativeLinkJourneyTests {
                 assertEquals(original.peerId, installed.peerId)
                 assertNotEquals(destination.slot.id, installed.slot.id)
                 assertEquals(2, recipient.list().size)
+                // Normal session bootstrap preserves the received device before pending-state import.
+                assertEquals("", RustBridge.withChats(installed) { it.contactNote(contact) })
                 completeEnrollment(installed)
                 assertEquals(note, RustBridge.withChats(installed) { it.contactNote(contact) })
             }
