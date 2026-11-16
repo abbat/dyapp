@@ -131,13 +131,17 @@ impl Replicas {
         if let Some(mailbox) = self.inventories.remove(&request_id) {
             let ok = response.status == i32::from(Status::Ok);
             let missing: HashSet<Vec<u8>> = response.missing.into_iter().collect();
-            // shortcut: the replica puts sent here are not awaited, so a holder that drops them
-            // still counts as handed over; track their replies if republished copies go missing.
-            let complete =
+            let (complete, sent) =
                 send_envelopes(swarm, service, &mut self.cap, id, &mailbox, |envelope| {
                     missing.contains(envelope)
                 });
-            self.republish.answered(request_id, ok && complete);
+            let job = self.republish.answered(request_id, ok && complete);
+            for request in sent {
+                self.republish.request(job, request);
+            }
+        } else {
+            self.republish
+                .answered(request_id, response.status == i32::from(Status::Ok));
         }
     }
 
@@ -148,12 +152,11 @@ impl Replicas {
         request_id: OutboundRequestId,
         error: &OutboundFailure,
     ) {
-        // An old node lacking the protocol is no failure.
+        // An old node lacking the protocol gets no trust strike, but cannot confirm a handover.
         if !matches!(error, OutboundFailure::UnsupportedProtocols) {
             self.trust.add(peer, -1);
         }
-        let unsupported = matches!(error, OutboundFailure::UnsupportedProtocols);
-        self.republish.answered(request_id, unsupported);
+        self.republish.answered(request_id, false);
         self.inventories.remove(&request_id);
         self.mailbox_puts.remove(&request_id);
     }
@@ -169,10 +172,16 @@ impl Replicas {
     ) {
         service.traffic.add(response.encoded_len() as u64);
         self.trust.add(id, 1);
-        let refused = [Status::RateLimited, Status::Full].map(i32::from);
-        let job = self
-            .republish
-            .answered(request_id, !refused.contains(&response.status));
+        let inventory = self.profile_inventories.contains_key(&request_id);
+        let ok = if inventory {
+            matches!(
+                Status::try_from(response.status),
+                Ok(Status::Ok | Status::NotFound)
+            )
+        } else {
+            response.status == i32::from(Status::Ok)
+        };
+        let job = self.republish.answered(request_id, ok);
         if let Some(record) = self.profile_inventories.remove(&request_id) {
             match self.profile_gap(swarm, service, id, &record, &response) {
                 Ok(Some(request)) => self.republish.request(job, request),
@@ -198,8 +207,7 @@ impl Replicas {
         if !matches!(error, OutboundFailure::UnsupportedProtocols) {
             self.trust.add(peer, -1);
         }
-        let unsupported = matches!(error, OutboundFailure::UnsupportedProtocols);
-        self.republish.answered(request_id, unsupported);
+        self.republish.answered(request_id, false);
         self.profile_puts.remove(&request_id);
         self.profile_inventories.remove(&request_id);
     }

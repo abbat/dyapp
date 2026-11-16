@@ -303,14 +303,7 @@ async fn mailbox_repair_over_fifty_envelopes_makes_progress_after_refill() {
         );
     }
     let mut cap = ReplicaCap::default();
-    assert!(!send_envelopes(
-        &mut sender,
-        &source,
-        &mut cap,
-        remote,
-        &mailbox,
-        |_| true
-    ));
+    assert!(!send_envelopes(&mut sender, &source, &mut cap, remote, &mailbox, |_| true).0);
     assert_eq!(cap.take_dropped(), 1, "only the second batch is refused");
     assert_eq!(
         receive_repair_batch(&mut sender, &mut receiver, &destination).await,
@@ -319,14 +312,12 @@ async fn mailbox_repair_over_fifty_envelopes_makes_progress_after_refill() {
     let held = destination.held(&mailbox).unwrap();
     assert_eq!(held.len(), 50);
     tokio::time::sleep(Duration::from_millis(1100)).await;
-    assert!(send_envelopes(
-        &mut sender,
-        &source,
-        &mut cap,
-        remote,
-        &mailbox,
-        |id| { !held.contains_key(id) }
-    ));
+    assert!(
+        send_envelopes(&mut sender, &source, &mut cap, remote, &mailbox, |id| {
+            !held.contains_key(id)
+        })
+        .0
+    );
     assert_eq!(
         receive_repair_batch(&mut sender, &mut receiver, &destination).await,
         25
@@ -334,14 +325,7 @@ async fn mailbox_repair_over_fifty_envelopes_makes_progress_after_refill() {
     assert_eq!(destination.held(&mailbox).unwrap().len(), 75);
     assert_eq!(cap.take_dropped(), 0);
     // Inventory of the complete mailbox sends nothing and consumes no units.
-    assert!(send_envelopes(
-        &mut sender,
-        &source,
-        &mut cap,
-        remote,
-        &mailbox,
-        |_| false
-    ));
+    assert!(send_envelopes(&mut sender, &source, &mut cap, remote, &mailbox, |_| false).0);
     assert!(cap.allow(&remote, 25));
 }
 
@@ -379,14 +363,7 @@ async fn repair_sends_no_signals_but_lists_them() {
     // A one-unit burst admits the single message; a batch carrying the signals would be refused.
     let mut cap = ReplicaCap::new(1);
     let to = PeerId::random();
-    assert!(send_envelopes(
-        &mut sender,
-        &service,
-        &mut cap,
-        to,
-        &mailbox,
-        |_| true
-    ));
+    assert!(send_envelopes(&mut sender, &service, &mut cap, to, &mailbox, |_| true).0);
     assert_eq!(cap.take_dropped(), 0);
 }
 

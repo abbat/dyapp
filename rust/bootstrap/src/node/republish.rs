@@ -28,7 +28,7 @@ pub(super) struct Republish {
     ready_at: Option<Instant>,
     jobs: HashMap<u64, Handover>,
     pub(super) queries: HashMap<kad::QueryId, u64>,
-    requests: HashMap<OutboundRequestId, u64>,
+    pub(super) requests: HashMap<OutboundRequestId, u64>,
     /// Media repair → job.
     media: HashMap<u64, u64>,
     next_job: u64,

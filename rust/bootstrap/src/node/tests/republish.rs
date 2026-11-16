@@ -6,6 +6,8 @@ use crate::republish::Store;
 mod lookups;
 #[path = "republish/media.rs"]
 mod media;
+#[path = "republish/replies.rs"]
+mod replies;
 
 fn node() -> (Service, Swarm<Behaviour>) {
     let dir = format!(
@@ -36,6 +38,14 @@ fn add_peer(swarm: &mut Swarm<Behaviour>) {
         .behaviour_mut()
         .kad
         .add_address(&PeerId::random(), "/ip4/127.0.0.1/tcp/1".parse().unwrap());
+}
+
+fn remote(swarm: &mut Swarm<Behaviour>) -> PeerId {
+    let address = dyapp_p2p_net::known_peers(swarm).pop().unwrap();
+    let Some(libp2p::multiaddr::Protocol::P2p(peer)) = address.iter().last() else {
+        panic!("missing routing peer");
+    };
+    peer
 }
 
 fn hold_mailbox(service: &Service, mailbox: u8) {

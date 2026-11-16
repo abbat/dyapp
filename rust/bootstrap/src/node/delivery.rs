@@ -7,8 +7,9 @@ pub(super) const REPAIR_BYTES: usize = 1024 * 1024;
 
 /// Sends the mailbox's unexpired revokes, one unit each, then wanted held messages in immediately
 /// admitted batches of at most 50 units. Signals are never repaired: a signal evicted at its quota
-/// would come back from another replica and evict the next one. False when something was not
-/// sent: a store error, a unit the cap refused or the `REPAIR_BYTES` cut.
+/// would come back from another replica and evict the next one. The boolean is false when a store
+/// error, cap refusal or the `REPAIR_BYTES` cut left something unsent. The IDs identify every sent
+/// replica write whose reply must confirm the repair.
 pub(super) fn send_envelopes(
     swarm: &mut Swarm<Behaviour>,
     service: &Service,
@@ -16,15 +17,16 @@ pub(super) fn send_envelopes(
     to: PeerId,
     mailbox: &[u8],
     wanted: impl Fn(&Vec<u8>) -> bool,
-) -> bool {
+) -> (bool, Vec<OutboundRequestId>) {
     let revokes = match service.revokes(mailbox) {
         Ok(revokes) => revokes,
         Err(error) => {
             tracing::error!(%error, "mailbox repair failed");
-            return false;
+            return (false, Vec::new());
         }
     };
     let mut complete = true;
+    let mut sent = Vec::new();
     for record in revokes {
         if !cap.allow(&to, 1) {
             complete = false;
@@ -34,13 +36,13 @@ pub(super) fn send_envelopes(
             request: Some(mailbox_request::Request::ReplicaRevoke(record)),
         };
         service.traffic.add(request.encoded_len() as u64);
-        swarm.behaviour_mut().mailbox.send_request(&to, request);
+        sent.push(swarm.behaviour_mut().mailbox.send_request(&to, request));
     }
     let held = match service.held(mailbox) {
         Ok(held) => held,
         Err(error) => {
             tracing::error!(%error, "mailbox repair failed");
-            return false;
+            return (false, sent);
         }
     };
     let mut bytes = 0;
@@ -81,9 +83,9 @@ pub(super) fn send_envelopes(
             })),
         };
         service.traffic.add(request.encoded_len() as u64);
-        swarm.behaviour_mut().mailbox.send_request(&to, request);
+        sent.push(swarm.behaviour_mut().mailbox.send_request(&to, request));
     }
-    complete
+    (complete, sent)
 }
 
 /// What follows a successful mailbox request: a put is pushed to the mailbox's watchers; a

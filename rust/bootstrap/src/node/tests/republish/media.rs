@@ -1,14 +1,6 @@
 //! Destination acknowledgments govern handover completion, independently of readable sources.
 use super::*;
 
-fn remote(swarm: &mut Swarm<Behaviour>) -> PeerId {
-    let address = dyapp_p2p_net::known_peers(swarm).pop().unwrap();
-    let Some(libp2p::multiaddr::Protocol::P2p(peer)) = address.iter().last() else {
-        panic!("missing routing peer");
-    };
-    peer
-}
-
 #[tokio::test]
 async fn queued_ancestry_filters_owner_refusal_without_blocking_hash_metadata() {
     use crate::node::replicas::listed_media_request;

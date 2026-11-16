@@ -310,8 +310,10 @@ resent from the sender's retry queue.
   mailbox inventories, profile version inventories, media `keep` repairs. At most 16 keys are in
   flight, none start while traffic is at 50 % of `bytes_per_second` or above, and a key the
   owner repaired this hour is skipped. A handover that is cut or fails leaves the key queued
-  for the next scan. Media handovers require complete valid holder inventories and successful
-  acknowledgments for issued writes; readable source bytes alone cannot confirm a transfer.
+  for the next scan. Profile and mailbox handovers wait for positive replies to every issued
+  replica write; refusal, timeout, unsupported protocol and unrelated request IDs leave them dirty.
+  Media handovers require complete valid holder inventories and successful acknowledgments for
+  issued writes; readable source bytes alone cannot confirm a transfer.
   Refused, absent or malformed acknowledgments leave the fingerprint dirty. Source recoverability
   independently controls the client's missing list: a destination write refusal alone does not
   request reupload of readable source bytes. The old holder keeps its copy until the TTL. Restarts reset the
