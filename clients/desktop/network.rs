@@ -156,9 +156,12 @@ mod tests {
             let tcp = TcpListener::bind("127.0.0.1:0").unwrap();
             match std::net::UdpSocket::bind(tcp.local_addr().unwrap()) {
                 Ok(udp) => return (tcp, udp),
+                // Windows may reject an ephemeral UDP port reserved by the OS.
                 Err(error)
-                    if error.kind() == std::io::ErrorKind::AddrInUse
-                        && std::time::Instant::now() < deadline => {}
+                    if matches!(
+                        error.kind(),
+                        std::io::ErrorKind::AddrInUse | std::io::ErrorKind::PermissionDenied
+                    ) && std::time::Instant::now() < deadline => {}
                 Err(error) => panic!("reserve TCP/QUIC fixture: {error}"),
             }
         }
