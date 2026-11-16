@@ -407,5 +407,6 @@ smoke.accessibilitySelfCheck = async () => {
       previous?.focus({ preventScroll: true });
     }
   }
+  smoke.popupPaintSelfCheck();
   for (const oversized of [false, true]) await calibrateScrollableContrast(oversized);
 };

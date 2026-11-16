@@ -655,7 +655,7 @@
   "settings.theme.light": "Light",
   "settings.theme.dark": "Dark",
   "settings.language": "Language",
-  "settings.language.system": "Follow the system",
+  "settings.language.system": "System",
   "settings.language.en": "English",
   "settings.language.ru": "Русский",
   "settings.privacy": "Privacy",

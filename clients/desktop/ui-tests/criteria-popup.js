@@ -48,7 +48,7 @@
     else node.setAttribute('style', style);
   };
   smoke.popupMenus = () =>
-    [...document.querySelectorAll('[role="menu"]')].filter(
+    [...document.querySelectorAll('[role="menu"], nav.sidebar')].filter(
       (node) => visible(node) && ['absolute', 'fixed'].includes(getComputedStyle(node).position),
     );
   const pin = (menu) => {
@@ -100,17 +100,24 @@
     left.right > right.left &&
     left.top < right.bottom &&
     left.bottom > right.top;
-  const positionedPseudo = (node) =>
-    ['::before', '::after'].some((pseudo) => {
-      const style = getComputedStyle(node, pseudo);
-      return !['none', 'normal'].includes(style.content) && style.position !== 'static';
-    });
+  const positionedPseudo = (node, layer) => {
+    const styles = ['::before', '::after']
+      .map((pseudo) => getComputedStyle(node, pseudo))
+      .filter(
+        (style) => !['none', 'normal'].includes(style.content) && style.position !== 'static',
+      );
+    if (!styles.length) return false;
+    const owner = getComputedStyle(node);
+    if (!plainAncestors(node) || stacking(owner) || owner.zIndex !== 'auto') return true;
+    // With no intervening stacking context, root-level pseudo paint below the menu cannot cover it.
+    return styles.some((style) => style.zIndex !== 'auto' && !(Number(style.zIndex) < layer));
+  };
   const couldCover = (node, menu, box, layer) => {
     if (node.contains(menu) || menu.contains(node) || !visible(node)) return false;
     const style = getComputedStyle(node);
     if (style.opacity === '0') return false;
     // Pseudo-element paint can extend beyond its host's measurable rectangle.
-    if (positionedPseudo(node)) return true;
+    if (positionedPseudo(node, layer)) return true;
     if (!overlap(node.getBoundingClientRect(), box)) return false;
     return stacking(style) || (style.zIndex !== 'auto' && Number(style.zIndex) >= layer);
   };
@@ -139,5 +146,45 @@
     return ![...document.querySelectorAll('body *')].some((node) =>
       couldCover(node, menu, box, layer),
     );
+  };
+  smoke.popupPaintSelfCheck = () => {
+    const sheet = document.createElement('style');
+    sheet.textContent =
+      '#criteria-popup-pseudo::before {content:"";position:fixed;inset:0;background:white;pointer-events:none;z-index:var(--pseudo-layer,auto)}';
+    const parent = document.createElement('div');
+    const node = document.createElement('div');
+    node.id = 'criteria-popup-pseudo';
+    node.style.cssText = 'position:relative;width:1em;height:1em';
+    parent.append(node);
+    const menu = document.createElement('div');
+    menu.style.cssText =
+      'position:fixed;inset:0 auto auto 0;width:4em;height:4em;z-index:20;background:white';
+    document.body.append(sheet, parent, menu);
+    /** @type {Array<[{pseudo?: string, owner?: string, transform?: string, overflow?: string}, boolean]>} */
+    const cases = [
+      [{}, false],
+      [{ pseudo: '30' }, true],
+      [{ pseudo: '-1' }, false],
+      [{ owner: '30' }, true],
+      [{ transform: 'translateZ(0)' }, true],
+      [{ overflow: 'hidden' }, true],
+    ];
+    try {
+      for (const [style, expected] of cases) {
+        node.style.setProperty('--pseudo-layer', style.pseudo || 'auto');
+        node.style.zIndex = style.owner || 'auto';
+        parent.style.transform = style.transform || 'none';
+        parent.style.overflow = style.overflow || 'visible';
+        const actual = couldCover(node, menu, menu.getBoundingClientRect(), 20);
+        if (actual !== expected)
+          throw Error(
+            `popup pseudo paint expected ${expected}, got ${actual}: ${JSON.stringify(style)}`,
+          );
+      }
+    } finally {
+      menu.remove();
+      parent.remove();
+      sheet.remove();
+    }
   };
 })();

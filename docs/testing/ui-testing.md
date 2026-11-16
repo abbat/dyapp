@@ -1017,7 +1017,12 @@ is dismissed; shadow-only or otherwise uncovered targets keep their original con
 translucent or potentially covered menus are not eligible. Text clipping still measures menu
 content and viewport bounds. A temporary fixed position removes a valid popup's contribution to
 ancestor scroll bounds only when every descendant rectangle remains identical; all styles,
-priorities and scrolling are restored even on errors.
+priorities and scrolling are restored even on errors. Fixed opaque navigation sidebars use the
+same checks. A positioned pseudo-element is proven below the menu only with plain ancestors,
+no owner stacking context and a lower root layer; raised or unknown contexts remain ineligible.
+Six additional real-DOM cases exercise those decisions, including paint with `pointer-events:none`.
+Native select scroll metrics can miss clipped selected text, so touched menu values also require
+rendered inspection; a zero metric count alone does not establish full-label visibility.
 
 Sixteen independent popup calibration cases cover readable layers, poor foreground/background,
 application-bar ordering, higher overlays with both pointer policies, translucency, clipping

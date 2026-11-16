@@ -146,6 +146,9 @@ button {
   cursor: pointer;
 }
 .btn {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   border: 1px solid var(--line);
   background: var(--surface);
   border-radius: var(--radius);
@@ -429,6 +432,7 @@ details > summary {
   padding: 0;
 }
 .rows td {
+  overflow-wrap: anywhere;
   padding: var(--space-2) 0;
   border-top: 1px solid var(--line);
   vertical-align: top;
@@ -485,8 +489,8 @@ details > summary {
   overflow-wrap: anywhere;
 }
 .avatar {
-  width: 40px;
-  height: 40px;
+  width: max(40px, 1.5em);
+  height: max(40px, 1.5em);
   border-radius: 50%;
   background: var(--accent-soft);
   color: var(--accent);
@@ -984,8 +988,8 @@ details > summary {
   background: var(--surface);
 }
 .identity .avatar {
-  width: 32px;
-  height: 32px;
+  width: max(32px, 1.5em);
+  height: max(32px, 1.5em);
   font-size: var(--font-size-caption);
 }
 .spacer {
@@ -1143,6 +1147,7 @@ details > summary {
 .page {
   min-height: 100vh;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   place-items: start center;
   padding: var(--space-6) var(--space-4);
 }
@@ -1281,6 +1286,8 @@ code.identifier + br {
   flex: 1;
 }
 select {
+  min-width: 0;
+  max-width: 100%;
   text-overflow: ellipsis;
 }
 .grid {

@@ -528,7 +528,8 @@ uses a Keep switch, numeric MiB budget, measured usage, Refresh and confirmed Cl
 uncertain failures require readback before another write.
 Immediate binary settings use switches; theme and language default to System.
 Language uses a menu because the supported catalogue can grow beyond five choices; the
-current number of translations does not make it a permanently bounded radio group. Photos
+current number of translations does not make it a permanently bounded radio group. Its English
+system-language choice reads “System”; the stored value still follows the OS language. Photos
 uses a Keep switch, numeric MiB budget, usage and explicit Clear. The sticker collection
 has its own `sticker-manager` screen in `stickers-*` states. The prototype composer's
 `chat-stickers` opens `sticker-picker-ready`, with `sticker-picker-empty`,
