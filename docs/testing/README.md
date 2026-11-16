@@ -407,6 +407,15 @@ it the regression test.
 
 ## Coverage Policy
 
+Bootstrap storage fault tests use persisted SQLite triggers to fail profile replication, each
+mailbox acknowledgement delete, media keep projection, and search-generation replay and
+activation. They assert rollback of records, references and bytes, including after reopen.
+`PRAGMA max_page_count` and `PRAGMA query_only` cover full and read-only stores. A child-process
+test aborts after the second acknowledgement delete reports its injected SQL error; this checks
+recovery of the store, but is not a simulation of power loss during a SQLite commit. WAL commit
+durability follows the production `synchronous=NORMAL` contract in
+[the bootstrap architecture](../architecture/bootstrap.md).
+
 The search protocol suite includes deterministic worker saturation: it holds a
 single-thread blocking pool, queues two admitted reads, and requires the next
 read to receive `RATE_LIMITED` with a one-second retry while node info stays

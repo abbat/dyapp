@@ -78,7 +78,7 @@ fn complete(destination: &Fixture, records: &[SignedRecord]) {
 #[test]
 fn failed_archive_rolls_back_projection_before_any_file_removal() {
     let (_, records) = chain();
-    let destination = seeded(&records[0]);
+    let mut destination = seeded(&records[0]);
     complete(&destination, &records);
     let before = destination
         .media()
@@ -92,6 +92,21 @@ fn failed_archive_rolls_back_projection_before_any_file_removal() {
         .media()
         .apply_keep_history(&records[3], fresh(), &destination.service.config.limits)
         .is_err());
+    assert_eq!(
+        destination
+            .media()
+            .keep_snapshot(&destination.owner.peer_id())
+            .unwrap(),
+        before
+    );
+    assert_eq!(destination.media().usage().unwrap().0, used);
+    assert_eq!(
+        destination.media().get(&sha256(b"original")).unwrap(),
+        Some(b"original".to_vec())
+    );
+    assert_eq!(stage(&destination, &records[3], &[]), Some(1));
+    drop(db);
+    destination.reopen_media();
     assert_eq!(
         destination
             .media()

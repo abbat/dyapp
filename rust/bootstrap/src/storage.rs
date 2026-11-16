@@ -639,6 +639,7 @@ mod tests {
     use dyapp_profile::Profile;
     use uuid::Uuid;
 
+    mod faults;
     mod interleavings;
     mod records;
 

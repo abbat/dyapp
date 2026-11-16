@@ -138,6 +138,61 @@ async fn activation_replays_settled_keys_or_postpones() {
 }
 
 #[tokio::test]
+async fn activation_replay_failure_keeps_the_serving_generation_after_reopen() {
+    let (base, keys) = filled(5);
+    let index = reopen(&base, NEXT).unwrap();
+    let candidate = index.build(NEXT, &RebuildBudget::new(64), 0).await.unwrap();
+    let candidate_path = candidate.path.clone();
+    let extra = fill(&index, 1, index.created());
+    Connection::open(&candidate.path)
+        .unwrap()
+        .execute_batch(
+            "CREATE TRIGGER `fail_replay` BEFORE INSERT ON `profile`
+             BEGIN SELECT RAISE(ABORT, 'injected replay failure'); END;",
+        )
+        .unwrap();
+    let Err(Abort::Io(_)) = index.activate(candidate, Replay::All) else {
+        panic!("expected replay failure");
+    };
+    assert_eq!(index.index_version(), V);
+    assert!(!candidate_path.exists());
+    assert!(index.versions(&keys).unwrap().iter().all(Option::is_some));
+    assert!(index.versions(&extra).unwrap().iter().all(Option::is_some));
+    drop(index);
+
+    let index = reopen(&base, NEXT).unwrap();
+    assert_eq!(index.index_version(), V);
+    assert!(index.versions(&keys).unwrap().iter().all(Option::is_some));
+    assert!(index.versions(&extra).unwrap().iter().all(Option::is_some));
+}
+
+#[tokio::test]
+async fn activation_commit_failure_keeps_the_serving_generation_after_reopen() {
+    let (base, keys) = filled(5);
+    let index = reopen(&base, NEXT).unwrap();
+    let candidate = index.build(NEXT, &RebuildBudget::new(64), 0).await.unwrap();
+    let candidate_path = candidate.path.clone();
+    Connection::open(&candidate.path)
+        .unwrap()
+        .execute_batch(
+            "CREATE TRIGGER `fail_complete` BEFORE UPDATE OF `complete` ON `generation`
+             BEGIN SELECT RAISE(ABORT, 'injected commit failure'); END;",
+        )
+        .unwrap();
+    let Err(Abort::Io(_)) = index.activate(candidate, Replay::All) else {
+        panic!("expected activation failure");
+    };
+    assert_eq!(index.index_version(), V);
+    assert!(!candidate_path.exists());
+    assert!(index.versions(&keys).unwrap().iter().all(Option::is_some));
+    drop(index);
+
+    let index = reopen(&base, NEXT).unwrap();
+    assert_eq!(index.index_version(), V);
+    assert!(index.versions(&keys).unwrap().iter().all(Option::is_some));
+}
+
+#[tokio::test]
 async fn three_disk_aborts_drop_the_index_for_a_refill() {
     let (base, keys) = filled(5);
     let index = reopen(&base, NEXT).unwrap();

@@ -74,6 +74,13 @@ impl Fixture {
         self.service.media.as_ref().unwrap()
     }
 
+    fn reopen_media(&mut self) {
+        let service = Arc::get_mut(&mut self.service).unwrap();
+        let dir = service.config.storage.dir.clone();
+        service.media.take();
+        service.media = Some(MediaStore::open(&dir).unwrap());
+    }
+
     fn query(&self) -> proto::MediaKeepIntent {
         proto::MediaKeepIntent {
             time: now(),

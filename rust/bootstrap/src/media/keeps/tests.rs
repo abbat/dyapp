@@ -211,27 +211,43 @@ fn unsigned_legacy_revision_is_part_of_the_expectation() {
 
 #[test]
 fn a_mid_projection_failure_rolls_back_record_references_and_bytes() {
-    let fixture = Fixture::new();
-    let expected = fixture.initial();
-    super::lock(&fixture.store.db).unwrap().execute_batch(
-        "CREATE TRIGGER `fail_keep` BEFORE INSERT ON `blobs` BEGIN SELECT RAISE(ABORT, 'injected keep failure'); END;"
-    ).unwrap();
-    let (keep, record) = fixture.request(2, b"next", 11);
-    assert!(fixture
-        .store
-        .replace_keep(&fixture.identity.peer_id(), &expected, &keep, &record)
-        .is_err());
-    assert_eq!(
-        fixture
+    for (event, table) in [("INSERT", "blobs"), ("UPDATE OF `record`", "owners")] {
+        let fixture = Fixture::new();
+        let expected = fixture.initial();
+        super::lock(&fixture.store.db)
+            .unwrap()
+            .execute_batch(&format!(
+                "CREATE TRIGGER `fail_keep` BEFORE {event} ON `{table}`
+                 BEGIN SELECT RAISE(ABORT, 'injected keep failure'); END;"
+            ))
+            .unwrap();
+        let (keep, record) = fixture.request(2, b"next", 11);
+        assert!(fixture
             .store
-            .keep_snapshot(&fixture.identity.peer_id())
-            .unwrap(),
-        expected
-    );
-    assert_eq!(
-        fixture.store.get(&sha256(b"original")).unwrap(),
-        Some(b"original".to_vec())
-    );
+            .replace_keep(&fixture.identity.peer_id(), &expected, &keep, &record)
+            .is_err());
+        assert_eq!(
+            fixture
+                .store
+                .keep_snapshot(&fixture.identity.peer_id())
+                .unwrap(),
+            expected
+        );
+        assert_eq!(
+            fixture.store.get(&sha256(b"original")).unwrap(),
+            Some(b"original".to_vec())
+        );
+        drop(fixture.store);
+        let store = MediaStore::open(&fixture.dir).unwrap();
+        assert_eq!(
+            store.keep_snapshot(&fixture.identity.peer_id()).unwrap(),
+            expected
+        );
+        assert_eq!(
+            store.get(&sha256(b"original")).unwrap(),
+            Some(b"original".to_vec())
+        );
+    }
 }
 
 #[test]
