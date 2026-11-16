@@ -343,7 +343,8 @@ Locally everything runs in Docker through `tools/scripts/` and `tests/scripts/`;
 the same `tests/scripts/rust-check.sh` and `tests/scripts/linux-test.sh` directly on the runner after
 `tools/scripts/ci-setup.sh` (Android still uses Docker). Run
 `make prepare` once to build the images (it needs network access and is the only target that
-pulls anything).
+pulls anything). Pinned setup downloads preserve curl failures and print the failed public URL
+with its exit code; retain that line when investigating provider errors such as HTTP 429.
 
 | Goal | Command | Runs |
 |------|---------|------|

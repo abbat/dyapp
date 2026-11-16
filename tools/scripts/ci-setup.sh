@@ -3,7 +3,15 @@
 # system packages with sudo. The package lists mirror tools/docker/Dockerfile.dev and Dockerfile.linux-test.
 set -euo pipefail
 # One 504 from a release download failed a whole quality job.
-curl() { command curl --retry 7 "$@"; } # backs off for about two minutes: a 504 outage outlasted 30 s
+curl() {
+    local result=0
+    command curl --retry 7 "$@" || result=$?
+    if (( result != 0 )); then
+        # Every caller passes a public pinned URL last; never include environment credentials.
+        printf 'Pinned download failed (curl exit %s): %s\n' "$result" "${!#}" >&2
+    fi
+    return "$result"
+}
 toolchain=1.99.0
 case "${1:?usage: ci-setup.sh rust|linux|rust-build|linux-build}" in
     rust|rust-build)

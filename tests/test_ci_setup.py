@@ -46,6 +46,7 @@ class CiSetupTest(unittest.TestCase):
             PATH=search_path,
             GITHUB_ENV=str(exports),
             DYAPP_SETUP_COMMAND_LOG=str(log),
+            TMPDIR=str(directory),
         )
         env.pop("BASH_ENV", None)
         result = subprocess.run(
@@ -107,6 +108,19 @@ class CiSetupTest(unittest.TestCase):
         self.assertIn("python3-flake8", commands[1])
         self.assertEqual(commands[2][:2], ["docker", "create"])
         self.assertTrue(commands[2][2].startswith("rhysd/actionlint@sha256:"))
+
+    def test_failed_download_names_the_public_url_and_preserves_failure(
+        self,
+    ) -> None:
+        result, commands, _ = self.run_setup("linux")
+        self.assertEqual(result.returncode, 94)
+        url = "https://registry.npmjs.org/axe-core/-/axe-core-4.14.0.tgz"
+        self.assertEqual(commands[-1][:3], ["curl", "--retry", "7"])
+        self.assertEqual(commands[-1][-1], url)
+        self.assertIn(
+            f"Pinned download failed (curl exit 94): {url}", result.stderr
+        )
+        self.assertFalse(any(row[0] == "rustup" for row in commands))
 
     def test_fuzz_jobs_use_only_build_prerequisites(self) -> None:
         for name in ("fuzz.yml", "ci-base.yml"):
