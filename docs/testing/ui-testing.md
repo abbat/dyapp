@@ -452,9 +452,13 @@ waiting for real time. Android instrumentation CI must also run the real two-pee
 invitation creation, non-blocking idle ownership, cancellation before installation, missing active
 network and stale-source rejection. The owner-side JNI case checks malformed/expired/valid code
 projection and rejects profile A→B→A with the exact view-change error before a private store appears.
-Successful wire reception and callback interruption are covered
-by the shared Rust mailbox/registry fixtures; native screen and full device-link journeys remain
-separate acceptance.
+Successful wire reception and callback interruption are also covered by the shared Rust
+mailbox/registry fixtures. `NativeLinkJourneyTests` uses two isolated native registries and the
+existing CI node: owner publication, explicit approval, authenticated reception, and normal
+pending-link enrollment through `MobileLinkRecovery`. It requires completion followed by an idle
+retry and verifies a nonempty private contact note through the linked session. Neither phone hosts
+a node. The test uses completed native steps and fresh transition deadlines; its real JNI runtime
+result and the planned native screen journey remain separate acceptance.
 `ChatStickerHistoryTests` exercise the existing mixed-history fallback through `MediaChatContent`
 with adjacent text and both own/peer stickers, in English and Russian, under the production
 `DYAppTheme` typography and root insets. Literal long pack names are located through semantic
