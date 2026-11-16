@@ -86,6 +86,7 @@ pub(crate) fn selected(
 pub struct MobileIdentityRegistry {
     registry: core::Registry,
     keys: SlotKeys,
+    pub(crate) view: core::ProfileView,
 }
 
 impl MobileIdentityRegistry {
@@ -118,6 +119,7 @@ impl MobileIdentityRegistry {
         };
         Arc::new(Self {
             registry: core::Registry::new(root.into(), layout),
+            view: core::ProfileView::default(),
             keys: SlotKeys(keys),
         })
     }
@@ -223,6 +225,7 @@ impl MobileIdentityRegistry {
         id: String,
         confirmed_peer: Option<String>,
     ) -> Result<Option<String>, CoreError> {
+        let _view = self.view.transition().map_err(CoreError::Failed)?;
         self.registry
             .remove(&id, confirmed_peer.as_deref(), &self.keys)
             .map(|outcome| outcome.durability_detail)
@@ -234,6 +237,7 @@ impl MobileIdentityRegistry {
     /// # Errors
     /// Returns pre-selection failures; committed durability is carried in the result.
     pub fn create(&self) -> Result<MobileSlotSelection, CoreError> {
+        let _view = self.view.transition().map_err(CoreError::Failed)?;
         let (slot, identity, durability) = self
             .registry
             .create(core::Storage::Wrapped, &self.keys)
@@ -250,6 +254,7 @@ impl MobileIdentityRegistry {
         reason = "UniFFI lifts owned strings across the native boundary"
     )]
     pub fn select(&self, id: String) -> Result<MobileSlotSelection, CoreError> {
+        let _view = self.view.transition().map_err(CoreError::Failed)?;
         let (slot, identity, durability) = self
             .registry
             .select(&id, &self.keys)

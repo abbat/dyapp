@@ -3,6 +3,7 @@
 mod chats;
 mod link_keys;
 mod stickers;
+mod view;
 pub(crate) mod workers;
 
 use crate::{
