@@ -5,6 +5,9 @@ use super::*;
 use dyapp_identity::Identity;
 use dyapp_profile::Profile;
 
+#[path = "tests/convergence.rs"]
+mod convergence;
+
 #[test]
 fn response_hints_decode_legacy_messages_and_keep_wire_tags() {
     let legacy = [0x08, Status::TooLarge as u8];
@@ -128,13 +131,15 @@ pub(super) fn replica_peer(label: &str) -> Peer {
 }
 
 fn service_with(change: impl FnOnce(&mut crate::config::Limits)) -> Service {
-    let dir = format!("/tmp/ai/test-service-{}", uuid::Uuid::new_v4());
+    let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../build/service")
+        .join(uuid::Uuid::new_v4().to_string());
     let mut config = NodeConfig::default();
-    config.storage.dir = dir.clone().into();
+    config.storage.dir = dir.clone();
     config.network.id_pow_bits = 0;
     config.search.min_profile_pow_bits = 0;
     change(&mut config.limits);
-    Service::new(BootstrapStore::new(&dir).unwrap(), config)
+    Service::new(BootstrapStore::new(dir.to_str().unwrap()).unwrap(), config)
 }
 
 fn publish(record: SignedRecord) -> ProfileRequest {

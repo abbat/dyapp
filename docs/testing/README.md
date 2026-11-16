@@ -415,6 +415,12 @@ staging, retries, activation, reopen and rollback, reconciling pending, history 
 after every step. Proptest failure seeds persist under `build/`. Search restart remains in its
 deterministic generation suite.
 
+A three-holder service test delivers signed replicas selectively to model a partition, then heals
+with a late empty joiner and duplicate out-of-order revival/tombstone writes. Two fixed delivery
+rounds bound convergence; no sleeps or wall-clock readiness guesses are used. This exercises
+storage admission rather than the background network scheduler, which remains covered by the
+protocol and Docker network suites.
+
 Bootstrap storage fault tests use persisted SQLite triggers to fail profile replication, each
 mailbox acknowledgement delete, media keep projection, and search-generation replay and
 activation. They assert rollback of records, references and bytes, including after reopen.

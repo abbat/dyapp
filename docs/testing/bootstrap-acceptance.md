@@ -147,6 +147,7 @@ assertion changes.
 | Profile and mailbox replicas land on the DHT holders; ack forwarding | E2E | `network_checks.py::replicate`, `::acked_everywhere` | exists |
 | Without a second holder, profile and mailbox puts answer `FULL` | E2E | `network-test.py::local` | exists |
 | A holder offline during a newer publish is repaired by heartbeat | E2E | `network-test.py::profile_repair` | exists |
+| Three holders with divergent writes heal with an empty late joiner; duplicate out-of-order revival and tombstone delivery converge to the same tombstone within two fixed rounds | Unit, in-process partition | `service/tests/convergence.rs::split_three_holders_heal_with_a_late_joiner_and_tombstone` | exists |
 | Churn: replicas skip a stopped node | E2E | `network-test.py::network` (churn) | exists |
 | On a manual clock, repair fills gaps once an hour within budget: no early repeat, a new pass at the interval boundary, and no sends after the byte budget is spent | Unit | `node/tests/repair.rs::profile_repair_only_fills_gaps_once_an_hour_within_budget` | exists |
 
