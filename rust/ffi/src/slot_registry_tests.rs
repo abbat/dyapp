@@ -1,6 +1,7 @@
 //! Fixtures cross the exported registry and opaque-key callback boundary.
 
 mod chats;
+mod link_keys;
 mod stickers;
 pub(crate) mod workers;
 
@@ -51,6 +52,16 @@ impl MobileSlotKeys for Credentials {
         if !self.aliases.lock().unwrap().insert(id) {
             return Err(WrapError::Failed {
                 reason: "existing credential".to_owned(),
+            });
+        }
+        key.wrap(Arc::new(Wrapping))
+            .map_err(|error| wrap_error(&error))
+    }
+
+    fn wrap_existing(&self, id: String, key: Arc<IdentityKey>) -> Result<Vec<u8>, WrapError> {
+        if !self.contains(id)? {
+            return Err(WrapError::Failed {
+                reason: "missing credential".to_owned(),
             });
         }
         key.wrap(Arc::new(Wrapping))
@@ -260,6 +271,11 @@ impl MobileSlotKeys for Denied {
     }
 
     fn open_wrapped(&self, _: String, _: Vec<u8>) -> Result<Option<Arc<IdentityKey>>, WrapError> {
+        self.contains(String::new())?;
+        unreachable!()
+    }
+
+    fn wrap_existing(&self, _: String, _: Arc<IdentityKey>) -> Result<Vec<u8>, WrapError> {
         self.contains(String::new())?;
         unreachable!()
     }

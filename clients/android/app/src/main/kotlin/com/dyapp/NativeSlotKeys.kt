@@ -27,6 +27,10 @@ internal object NativeSlotKeys : MobileSlotKeys {
         }
     }
 
+    override fun wrapExisting(slotId: String, key: IdentityKey): ByteArray = key.use { owned ->
+        credentialCall { owned.wrap(PlatformKeyStore.existing(identityAlias(slotId))) }
+    }
+
     override fun erase(slotId: String) = credentialCall {
         PlatformKeyStore.delete(identityAlias(slotId))
     }

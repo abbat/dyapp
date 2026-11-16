@@ -28,6 +28,10 @@ impl MobileSlotKeys for Keys {
     fn wrap(&self, id: String, key: Arc<IdentityKey>) -> Result<Vec<u8>, WrapError> {
         self.inner.wrap(id, key)
     }
+    fn wrap_existing(&self, id: String, key: Arc<IdentityKey>) -> Result<Vec<u8>, WrapError> {
+        self.inner.wrap_existing(id, key)
+    }
+
     fn erase(&self, id: String) -> Result<(), WrapError> {
         self.inner.erase(id)
     }

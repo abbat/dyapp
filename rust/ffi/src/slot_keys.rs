@@ -30,6 +30,12 @@ pub trait MobileSlotKeys: Send + Sync {
     /// Returns credential creation or wrapping failures without replacing existing credentials.
     fn wrap(&self, slot_id: String, key: Arc<IdentityKey>) -> Result<Vec<u8>, WrapError>;
 
+    /// Wrap an opaque key using an existing slot credential; never create or replace it.
+    ///
+    /// # Errors
+    /// Returns missing credential, access or wrapping failures.
+    fn wrap_existing(&self, slot_id: String, key: Arc<IdentityKey>) -> Result<Vec<u8>, WrapError>;
+
     /// Erase this slot's wrapping credential after core confirmation and ownership checks.
     ///
     /// # Errors

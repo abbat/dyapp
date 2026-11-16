@@ -37,6 +37,10 @@ impl MobileSlotKeys for WorkerCredentials {
         self.keys.wrap(id, key)
     }
 
+    fn wrap_existing(&self, id: String, key: Arc<IdentityKey>) -> Result<Vec<u8>, WrapError> {
+        self.keys.wrap_existing(id, key)
+    }
+
     fn erase(&self, id: String) -> Result<(), WrapError> {
         self.keys.erase(id)
     }

@@ -75,8 +75,12 @@ on non-cancellable IO after actual completion, including disposal.
 
 `MobileIdentityRegistry` exposes core inventory, resolution, candidate inspection, explicit
 creation, verified selection and confirmed removal for Android and iOS wrapped-key layouts. `MobileSlotKeys` callbacks implement only
-credential presence, `open_wrapped`, `wrap` and `erase` by slot ID, reusing opaque `IdentityKey` objects
-and the existing `KeyStore` interface. No additional foreign plaintext-key API is introduced.
+credential presence, `open_wrapped`, fresh-only `wrap`, existing-only `wrap_existing` and `erase` by
+slot ID, reusing opaque `IdentityKey` objects and the existing `KeyStore` interface. `wrap_existing`
+refuses missing credentials without creation or replacement; the core uses it to wrap a linked
+mobile device under its newly installed slot credential. Android delegates through
+`PlatformKeyStore.existing` and closes callback-owned key handles. No additional foreign
+plaintext-key API is introduced.
 Rust owns file access, lifecycle markers, reservation, locking and recovery classification.
 The core inventory also recognizes old Android/desktop `.<uuid>.removed` directories as
 interrupted deletion, even when cleanup removed their markers. A visible/hidden duplicate ID
