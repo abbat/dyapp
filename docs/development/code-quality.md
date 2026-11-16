@@ -380,12 +380,9 @@ Dependabot is configured for the same 14-day wait (`cooldown` in `.github/depend
 Check release dates in grouped PRs before merging: a group may still contain a newer release.
 
 To take a younger version, for example a security fix, add `(crate, version): (date, reason)` to
-`EXCEPTIONS` in the script. The `ctutils 0.4.4` exception, added on 2026-10-23 for
-`RUSTSEC-2026-0385`, allows the fixed version immediately. The temporary `clipboard-win 5.4.3`
-exception allows the approved clipboard plugin: its `arboard` dependency requires `^5.3.1`, and
-all older matching releases are yanked. `wl-clipboard-rs` is locked to the mature 0.9.4 release.
-Remove the clipboard exception once that release is 14 days old. An exception older than 14 days
-fails the check: by then the version is old enough, so remove the entry.
+`EXCEPTIONS` in the script; that mapping is the current list of temporary exceptions.
+Remove an entry once the ordinary publication-age check accepts the version without it.
+An exception older than 14 days fails the check even if its pinned version is already mature.
 
 ## Source debt markers
 

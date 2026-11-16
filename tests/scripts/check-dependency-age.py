@@ -21,11 +21,6 @@ CRATES_IO = "registry+https://github.com/rust-lang/crates.io-index"
 # old; an entry older than MIN_AGE is reported as stale.
 ZBUS = "clears RUSTSEC-2026-0370, 0371 and 0372 on Linux"
 EXCEPTIONS = {
-    # arboard requires ^5.3.1; every older matching release is yanked.
-    ("clipboard-win", "5.4.3"): (
-        "2026-11-01",
-        "only non-yanked arboard-compatible release",
-    ),
     # zbus 6 is what drops the retired zvariant crates from the Linux lockfile.
     ("zbus", "6.2.1"): ("2026-11-03", ZBUS),
     ("zbus_macros", "6.2.1"): ("2026-11-03", ZBUS),
