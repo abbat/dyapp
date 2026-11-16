@@ -61,6 +61,8 @@ mod link_approval;
 pub use link_approval::{device_link_code_status, MobileLinkApproval, MobileLinkCodeStatus};
 mod link_receipt;
 pub use link_receipt::{MobileLinkFailure, MobileLinkPhase, MobileLinkReceipt};
+mod device_directory;
+pub use device_directory::{MobileDeviceDirectory, MobileOwnDevice};
 mod slot_chat;
 mod slot_keys;
 pub use slot_keys::MobileSlotKeys;

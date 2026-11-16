@@ -744,8 +744,16 @@ The shared `device_directory::rows` projects public own-device keys and the curr
 without writing editor state. Desktop delegates to it: verified ordinary remote readback is used only
 when strictly newer than the saved draft; absent, equal or older readback retains the cached directory.
 A newer removed profile contributes its empty directory. Callers must verify remote owner/signature
-before projection. The common native list/revoke worker and Android device screen remain planned;
-revocation itself already uses core `publish::revoke_device`, including partial-success retry handling.
+before projection.
+
+Common native `MobileDeviceDirectory(registry, id, expected_peer, store)` binds an initialized
+existing slot/device/sealing-key context. Idle handles retain no lease; each `devices(live)` or
+explicit `revoke(device_key)` reacquires and checks that original context through actual completion.
+Missing credentials/sessions are refused without bootstrap. `devices` delegates projection to core;
+`revoke` delegates mailbox closure/publication to core `publish::revoke_device`, including partial
+success and retry authorization. A reported failure does not imply rollback. Calls block off the UI
+thread on the existing joined network worker. Android JNI list/revoke runtime acceptance and the
+native device screen remain separate planned work; listing never performs a revoked-device wipe.
 
 `Session::resume_link` consumes an existing session, verifies owner/device and the supplied sealing key
 against its saved device before importing pending state, and reuses the ordinary directory/key-package/

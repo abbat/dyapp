@@ -458,8 +458,11 @@ existing CI node: owner publication, explicit approval, authenticated reception,
 pending-link enrollment through `MobileLinkRecovery`. It first opens the normal linked chat session,
 which preserves the received device and bootstraps only local session state. It verifies an empty
 contact note before import, completion followed by an idle retry, then the original nonempty note.
-Neither phone hosts a node. The test uses completed native steps and fresh transition deadlines; its real JNI runtime
-result and the planned native screen journey remain separate acceptance.
+It then reads both native device directories, identifies each current device by the core marker,
+revokes the linked device through the owner, and requires both readbacks to retain only the original
+public device key. Neither phone hosts a node. The test uses completed native steps and fresh
+transition deadlines; its real JNI runtime result and the planned native screen journey remain
+separate acceptance. Directory reads do not perform the separate revoked-device wipe journey.
 `ChatStickerHistoryTests` exercise the existing mixed-history fallback through `MediaChatContent`
 with adjacent text and both own/peer stickers, in English and Russian, under the production
 `DYAppTheme` typography and root insets. Literal long pack names are located through semantic

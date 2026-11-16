@@ -6,6 +6,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import uniffi.dyapp.IdentityKey
+import uniffi.dyapp.MobileDeviceDirectory
 import uniffi.dyapp.MobileIdentityRegistry
 import uniffi.dyapp.MobileLinkApproval
 import uniffi.dyapp.MobileLinkPhase
@@ -36,6 +37,7 @@ class NativeLinkJourneyTests {
                 assertEquals("", RustBridge.withChats(installed) { it.contactNote(contact) })
                 completeEnrollment(installed)
                 assertEquals(note, RustBridge.withChats(installed) { it.contactNote(contact) })
+                verifyDirectoryAndRevocation(original, installed)
             }
         }
     }
@@ -78,6 +80,37 @@ class NativeLinkJourneyTests {
             check(receipt is MobileLinkReceipt.Installed) { "Missing installed receipt: $receipt" }
             ready(recipient, receipt.selection)
         }
+
+    private fun directory(opened: Opened.Ready) = MobileDeviceDirectory(
+        opened.slot.owner(),
+        opened.slot.id,
+        opened.peerId,
+        PlatformKeyStore.existing(identityAlias(opened.slot.id))
+    )
+
+    private fun verifyDirectoryAndRevocation(original: Opened.Ready, installed: Opened.Ready) {
+        directory(original).use { owner ->
+            val before = owner.devices(true)
+            assertEquals(2, before.size)
+            val originalKey = before.single { it.current }.key
+            directory(installed).use { recipient ->
+                val linked = recipient.devices(true)
+                assertEquals(2, linked.size)
+                val linkedKey = linked.single { it.current }.key
+                assertFalse(originalKey.contentEquals(linkedKey))
+                assertTrue(before.any { it.key.contentEquals(linkedKey) })
+                owner.revoke(linkedKey)
+                val remaining = owner.devices(true)
+                assertEquals(1, remaining.size)
+                assertTrue(remaining.single().current)
+                assertTrue(remaining.single().key.contentEquals(originalKey))
+                val received = recipient.devices(true)
+                assertEquals(1, received.size)
+                assertFalse(received.single().current)
+                assertTrue(received.single().key.contentEquals(originalKey))
+            }
+        }
+    }
 
     private fun completeEnrollment(installed: Opened.Ready) {
         MobileLinkRecovery(
