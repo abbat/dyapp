@@ -2,6 +2,9 @@
 //! ([ADR 0040](../../../docs/decisions/0040-device-linking.md)). This is the only way the identity
 //! key leaves a store.
 
+mod input;
+pub use input::{parse_input, CodeInputError};
+
 use crate::{unhex, Error, Node};
 use dyapp_identity::Identity;
 use dyapp_messaging::link::{seal, LinkKey};

@@ -1003,6 +1003,15 @@ it only after normal empty/transport-error completion, and retains received stat
 local installation. Repeated terminal polls return their phase without another connection or writer;
 `result` copies the cached adapter receipt. A poisoned state is an explicit recovery error and never
 permits another attempt. Adapters supply connection, credential IO and receipt projection only.
+Owner-side core `prepare_link_sender` binds an immutable `LinkSender` target and original
+selected source/view without an idle lease or network transfer. `link::parse_input` preserves
+the existing desktop pasted-code trimming and malformed/expired distinction; wire parsing is
+unchanged. Explicit `confirm_and_send_with` rechecks view, selected source, owner and expiry,
+captures the private-state snapshot and active network under admission, then releases the view
+before dialing while retaining the actual identity operation. The private snapshot is owned by
+`Zeroizing<Vec<u8>>` through delivery and erased on every exit. Delivery errors may follow
+partially sent encrypted records; this is no rollback or automatic retry. Native owner approval
+and Android confirmation UI are still planned.
 Core `ReceivedLink` binds that record and its
 device to the original registry/source and caches one installation receipt. Its private state is
 owned by `Zeroizing<Vec<u8>>`; the writer borrows it without a secret copy or a custom destructor. `install_with` accepts

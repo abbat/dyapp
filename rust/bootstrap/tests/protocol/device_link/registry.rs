@@ -11,6 +11,8 @@ use zeroize::Zeroizing;
 
 #[path = "registry/receiver.rs"]
 mod receiver;
+#[path = "registry/sender.rs"]
+mod sender;
 
 struct Files;
 

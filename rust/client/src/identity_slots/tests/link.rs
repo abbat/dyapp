@@ -2,6 +2,7 @@ mod interrupted;
 mod invitation;
 mod received;
 mod retained_platform;
+mod sender;
 mod wrapped;
 
 use super::root;
