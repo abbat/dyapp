@@ -4,6 +4,7 @@ use super::*;
 use dyapp_client::interactions::Kind;
 use dyapp_client::store::Store;
 use dyapp_client::tokens;
+use dyapp_client::{chat, session::Session};
 
 const SEAL: [u8; 32] = [3; 32];
 
@@ -141,8 +142,6 @@ async fn senders(owner: &mut Person) -> Vec<Vec<u8>> {
 
 #[tokio::test]
 async fn a_session_sends_with_a_held_token_and_swaps_a_revoked_one_in_its_outbox() {
-    use dyapp_client::{chat, session::Session};
-
     let address = start_config(|config| {
         config.roles = vec![Role::Store];
         config.limits.requests_per_second = 1000;
@@ -151,6 +150,28 @@ async fn a_session_sends_with_a_held_token_and_swaps_a_revoked_one_in_its_outbox
     .await;
     let mut alice = Person::new(&address).await;
     let mut bob = Person::new(&address).await;
+    let (mut session, group_id, key) = open_token_session(&mut alice, &mut bob).await;
+    send_session_text(&mut session, &mut alice, &group_id, b"one").await;
+    assert_eq!(senders(&mut bob).await, [key.to_vec()]);
+
+    let today = u32::try_from(dyapp_client::now() / 86_400).unwrap();
+    let bob_mailbox = bob.mailbox();
+    // Bob blocks Alice: the refused write is swapped in the outbox and goes tokenless.
+    revoke_contact_token(&mut bob, &bob_mailbox, &key, today).await;
+    send_session_text(&mut session, &mut alice, &group_id, b"two").await;
+    let sent = senders(&mut bob).await;
+    assert_eq!(sent.len(), 1);
+    assert_ne!(sent[0], key.to_vec());
+    // Both accepted writes wait for Bob's receipt and are not due yet.
+    let now_ms = super::now_ms();
+    assert!(session.due_outbound(now_ms).unwrap().is_empty());
+    assert_eq!(session.due_outbound(i64::MAX).unwrap().len(), 2);
+}
+
+async fn token_profiles(
+    alice: &mut Person,
+    bob: &mut Person,
+) -> Vec<dyapp_profile::VerifiedProfile> {
     let bob_owner = bob.identity.peer_id();
     chat::publish_key_packages(&mut bob.node, &bob.device_key, &bob.device, &bob_owner, 1)
         .await
@@ -159,12 +180,17 @@ async fn a_session_sends_with_a_held_token_and_swaps_a_revoked_one_in_its_outbox
     for owner in [alice.identity.peer_id(), bob_owner] {
         profiles.push(alice.node.get_profile(&owner).await.unwrap());
     }
+    profiles
+}
+
+async fn open_token_session(alice: &mut Person, bob: &mut Person) -> (Session, Vec<u8>, [u8; 32]) {
+    let profiles = token_profiles(alice, bob).await;
     let alice_mailbox = alice.mailbox();
     let (group, welcome) = chat::invite(&mut alice.node, &alice.device, &alice_mailbox, &profiles)
         .await
         .unwrap();
     chat::send(&mut alice.node, &welcome).await.unwrap();
-    assert_eq!(senders(&mut bob).await.len(), 1);
+    assert_eq!(senders(bob).await.len(), 1);
     let group_id = group.id().to_vec();
     let today = u32::try_from(dyapp_client::now() / 86_400).unwrap();
     let mut store = Store::open(&store_path("token-session"), &alice.identity).unwrap();
@@ -188,29 +214,34 @@ async fn a_session_sends_with_a_held_token_and_swaps_a_revoked_one_in_its_outbox
             .unwrap();
         store.apply_interaction(sender, target, &[1], like).unwrap();
     }
-    let mut session = Session::open(store, &SEAL).unwrap();
+    (Session::open(store, &SEAL).unwrap(), group_id, key)
+}
 
+async fn send_session_text(
+    session: &mut Session,
+    sender: &mut Person,
+    group_id: &[u8],
+    text: &[u8],
+) {
     session
         .send_message(
-            std::slice::from_mut(&mut alice.node),
-            &group_id,
-            b"one",
+            std::slice::from_mut(&mut sender.node),
+            group_id,
+            text,
             &SEAL,
         )
         .await
         .unwrap();
-    assert_eq!(senders(&mut bob).await, [key.to_vec()]);
+}
 
-    // Bob blocks Alice: the refused write is swapped in the outbox and goes tokenless.
-    let mut bob_store = Store::open(&store_path("token-session-bob"), &bob.identity).unwrap();
-    bob_store
-        .record_issued("alice", &bob_mailbox, &key, today)
-        .unwrap();
-    bob_store
+async fn revoke_contact_token(bob: &mut Person, mailbox: &[u8; 32], key: &[u8; 32], today: u32) {
+    let mut store = Store::open(&store_path("token-session-bob"), &bob.identity).unwrap();
+    store.record_issued("alice", mailbox, key, today).unwrap();
+    store
         .stage_outbound(&bob.device.seal(&SEAL).unwrap(), &[])
         .unwrap();
-    let mut bob_session = Session::open(bob_store, &SEAL).unwrap();
-    bob_session
+    let mut session = Session::open(store, &SEAL).unwrap();
+    session
         .block(
             std::slice::from_mut(&mut bob.node),
             &bob.device_key,
@@ -218,22 +249,6 @@ async fn a_session_sends_with_a_held_token_and_swaps_a_revoked_one_in_its_outbox
         )
         .await
         .unwrap();
-    session
-        .send_message(
-            std::slice::from_mut(&mut alice.node),
-            &group_id,
-            b"two",
-            &SEAL,
-        )
-        .await
-        .unwrap();
-    let sent = senders(&mut bob).await;
-    assert_eq!(sent.len(), 1);
-    assert_ne!(sent[0], key.to_vec());
-    // Both accepted writes wait for Bob's receipt and are not due yet.
-    let now_ms = super::now_ms();
-    assert!(session.due_outbound(now_ms).unwrap().is_empty());
-    assert_eq!(session.due_outbound(i64::MAX).unwrap().len(), 2);
 }
 
 async fn receive(
