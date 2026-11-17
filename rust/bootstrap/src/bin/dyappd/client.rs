@@ -516,7 +516,8 @@ async fn flood(addr: &str, n: usize) -> anyhow::Result<Value> {
         })
         .await;
         let name = reply.map_or("failed", |response| status(response.status));
-        *counts.entry(name).or_insert(0u32) += 1;
+        let count = counts.entry(name).or_insert(0u32);
+        *count = count.saturating_add(1);
     }
     Ok(json!(counts))
 }
@@ -818,10 +819,10 @@ fn unhex(text: &str) -> anyhow::Result<Vec<u8>> {
             "нечётная длина шестнадцатеричной строки"
         ));
     }
-    (0..text.len())
+    (0usize..text.len())
         .step_by(2)
         .map(|i| {
-            u8::from_str_radix(&text[i..i + 2], 16)
+            u8::from_str_radix(&text[i..i.saturating_add(2)], 16)
                 .context(message("bad hex", "неверная шестнадцатеричная строка"))
         })
         .collect()

@@ -36,7 +36,7 @@ fn revocation_fits(
         tx.query_row(sql, [mailbox], |row| row.get(0))
             .map_err(storage_error)
     };
-    let mut new = 0;
+    let mut new: i64 = 0;
     for key in keys {
         let known: bool = tx
             .query_row(
@@ -45,7 +45,7 @@ fn revocation_fits(
                 |row| row.get(0),
             )
             .map_err(storage_error)?;
-        new += i64::from(!known);
+        new = new.saturating_add(i64::from(!known));
     }
     let stored: bool = tx
         .query_row(
@@ -55,7 +55,9 @@ fn revocation_fits(
         )
         .map_err(storage_error)?;
     Ok(
-        count("SELECT COUNT(*) FROM `revoked` WHERE `mailbox` = ?")? + new <= MAX_REVOKED
+        count("SELECT COUNT(*) FROM `revoked` WHERE `mailbox` = ?")?
+            .saturating_add(new)
+            <= MAX_REVOKED
             && (stored
                 || count("SELECT COUNT(*) FROM `revokes` WHERE `mailbox` = ?")? < MAX_REVOKED),
     )

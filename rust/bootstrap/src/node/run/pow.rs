@@ -77,7 +77,7 @@ pub(super) fn receive_gossip(
             judge(swarm, service, &id, &source, &Verdict::Ignore);
         }
         Verdict::Pow(check) => {
-            *queued += 1;
+            *queued = queued.saturating_add(1);
             let (permits, cache, done) = (permits.clone(), service.pow.clone(), done.clone());
             tokio::spawn(async move {
                 let Ok(permit) = permits.acquire_owned().await else {

@@ -86,7 +86,11 @@ pub(super) fn send_queued(state: &mut State, swarm: &mut Swarm<Behaviour>, servi
         &mut state.catch_up_asked,
         clock_instant(service),
     )
-    .unwrap_or_else(|| clock_instant(service) + std::time::Duration::from_secs(1));
+    .unwrap_or_else(|| {
+        let now = clock_instant(service);
+        now.checked_add(std::time::Duration::from_secs(1))
+            .unwrap_or(now)
+    });
 }
 
 pub(super) fn catch_up(state: &mut State, swarm: &mut Swarm<Behaviour>, service: &Service) {

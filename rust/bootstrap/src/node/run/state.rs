@@ -58,12 +58,12 @@ impl Timers {
             cleanup: tokio::time::interval(Duration::from_secs(3600)),
             republish_scan: tokio::time::interval(republish::REPUBLISH_INTERVAL),
             maintain: tokio::time::interval(Duration::from_secs(
-                u64::from(maintenance.interval_minutes) * 60,
+                u64::from(maintenance.interval_minutes).saturating_mul(60),
             )),
-            rejoin: tokio::time::interval_at(now + every, every),
+            rejoin: tokio::time::interval_at(now.checked_add(every).unwrap_or(now), every),
             catch_up_at: now,
             catch_up: tokio::time::interval_at(
-                now + Duration::from_secs(60),
+                now.checked_add(Duration::from_secs(60)).unwrap_or(now),
                 Duration::from_secs(3600),
             ),
         }

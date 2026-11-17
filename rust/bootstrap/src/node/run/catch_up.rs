@@ -105,14 +105,14 @@ fn apply_records(
     records: &[SignedRecord],
 ) -> (HashSet<[u8; 32]>, usize, Vec<(PowCheck, SignedRecord)>) {
     let mut got = HashSet::new();
-    let mut stored = 0;
+    let mut stored: usize = 0;
     let mut pending = Vec::new();
     for record in records {
         if let Ok(key) = <[u8; 32]>::try_from(record.public_key.as_slice()) {
             got.insert(dyapp_identity::key_hash(&key));
         }
         match service.search_apply(record) {
-            Ok(Caught::Stored) => stored += 1,
+            Ok(Caught::Stored) => stored = stored.saturating_add(1),
             Ok(Caught::Dropped) => {}
             Ok(Caught::Pow(check)) => pending.push((check, record.clone())),
             Err(error) => tracing::error!(%error, "search catch-up record not stored"),

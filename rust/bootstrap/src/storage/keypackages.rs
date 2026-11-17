@@ -52,7 +52,7 @@ fn keypackage_fits(
     let consumed: i64 = tx
         .query_row("SELECT COUNT(*) FROM `keypackages` WHERE `owner` = ?1 AND `mailbox` = ?2 AND `consumed` = 1", params![owner, mailbox], |row| row.get(0))
         .map_err(storage_error)?;
-    Ok(used + size <= MAX_BYTES
+    Ok(used.saturating_add(size) <= MAX_BYTES
         && (last_resort || ordinary < MAX_ORDINARY)
         && count <= MAX_ORDINARY
         && consumed < MAX_CONSUMED)

@@ -189,7 +189,7 @@ impl Replicas {
         if refused
             || !service
                 .traffic
-                .try_add(request.encoded_len() as u64 + REPLY_BYTES, SHED_MEDIA)
+                .try_add((request.encoded_len() as u64).saturating_add(REPLY_BYTES), SHED_MEDIA)
             || !self.cap.allow(&to, 1)
         {
             self.uploads.fail(id, to);
@@ -236,7 +236,9 @@ impl Replicas {
             return;
         }
         if self.uploads.receive(flight.id, flight.peer, response) {
-            put.deadline = put.deadline.max(now + PUT_TIMEOUT);
+            put.deadline = put
+                .deadline
+                .max(now.checked_add(PUT_TIMEOUT).unwrap_or(now));
             // Only a later payload write acknowledgment may confirm this holder.
             self.media_queue.push_back((flight.peer, flight.job));
         }

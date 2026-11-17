@@ -112,12 +112,12 @@ impl Puzzle {
         if median > state.wait_ms {
             state.bits = match state.bits {
                 0 => FIRST_BITS,
-                bits => (bits + 1).min(state.max_bits),
+                bits => bits.saturating_add(1).min(state.max_bits),
             };
         } else if median < state.wait_ms / 2 {
             state.bits = match state.bits {
                 bits if bits <= FIRST_BITS => 0,
-                bits => bits - 1,
+                bits => bits.saturating_sub(1),
             };
         }
         if now.duration_since(state.rotated) >= ROTATE {
