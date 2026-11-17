@@ -56,46 +56,8 @@ async fn incoming_group_caps_pending_tcp_and_releases_failed_handshakes() {
             _ => None,
         })
         .unwrap();
-    let mut sockets = Vec::new();
-    let mut ids = Vec::new();
-    for _ in 0..32 {
-        sockets.push(
-            tokio::net::TcpStream::connect(("127.0.0.1", port))
-                .await
-                .unwrap(),
-        );
-        let SwarmEvent::IncomingConnection { connection_id, .. } =
-            connection_event(&mut node, |e| {
-                matches!(e, SwarmEvent::IncomingConnection { .. })
-            })
-            .await
-        else {
-            unreachable!()
-        };
-        ids.push(connection_id);
-    }
-    let refused = tokio::net::TcpStream::connect(("127.0.0.1", port))
-        .await
-        .unwrap();
-    connection_event(&mut node, |e| {
-        matches!(
-            e,
-            SwarmEvent::IncomingConnectionError {
-                error: ListenError::Denied { .. },
-                ..
-            }
-        )
-    })
-    .await;
-    assert_eq!(
-        node.behaviour_mut()
-            .incoming_groups
-            .as_mut()
-            .unwrap()
-            .take_denied(),
-        1
-    );
-    drop(refused);
+    let (mut sockets, mut ids) = fill_pending_group(&mut node, port).await;
+    check_pending_refusal(&mut node, port).await;
 
     drop(sockets.pop());
     let released = ids.pop().unwrap();
@@ -127,6 +89,53 @@ async fn incoming_group_caps_pending_tcp_and_releases_failed_handshakes() {
     })
     .await;
     stop_group_client(client).await;
+}
+
+async fn fill_pending_group(
+    node: &mut Swarm<Behaviour>,
+    port: u16,
+) -> (Vec<tokio::net::TcpStream>, Vec<ConnectionId>) {
+    let mut sockets = Vec::new();
+    let mut ids = Vec::new();
+    for _ in 0..32 {
+        sockets.push(
+            tokio::net::TcpStream::connect(("127.0.0.1", port))
+                .await
+                .unwrap(),
+        );
+        let SwarmEvent::IncomingConnection { connection_id, .. } =
+            connection_event(node, |e| matches!(e, SwarmEvent::IncomingConnection { .. })).await
+        else {
+            unreachable!()
+        };
+        ids.push(connection_id);
+    }
+    (sockets, ids)
+}
+
+async fn check_pending_refusal(node: &mut Swarm<Behaviour>, port: u16) {
+    let refused = tokio::net::TcpStream::connect(("127.0.0.1", port))
+        .await
+        .unwrap();
+    connection_event(node, |e| {
+        matches!(
+            e,
+            SwarmEvent::IncomingConnectionError {
+                error: ListenError::Denied { .. },
+                ..
+            }
+        )
+    })
+    .await;
+    assert_eq!(
+        node.behaviour_mut()
+            .incoming_groups
+            .as_mut()
+            .unwrap()
+            .take_denied(),
+        1
+    );
+    drop(refused);
 }
 
 #[tokio::test]
