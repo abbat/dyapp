@@ -482,24 +482,28 @@ fn gossip_behaviour(
     key: &Keypair,
     protocols: &Protocols,
     enabled: bool,
-) -> Option<gossipsub::Behaviour> {
-    enabled.then(|| {
-        let mut config = gossipsub::ConfigBuilder::default();
-        if let Some(prefix) = &protocols.gossip_prefix {
-            config.protocol_id_prefix(prefix.clone());
-        }
-        let config = config
-            .validation_mode(gossipsub::ValidationMode::Strict)
-            .validate_messages()
-            .max_transmit_size(MAX_GOSSIP_BYTES)
-            .message_id_fn(|m: &gossipsub::Message| {
-                gossipsub::MessageId::from(dyapp_identity::sha256(&m.data).to_vec())
-            })
-            .build()
-            .expect("valid gossipsub config");
-        gossipsub::Behaviour::new(gossipsub::MessageAuthenticity::Signed(key.clone()), config)
-            .expect("valid gossipsub behaviour")
-    })
+) -> anyhow::Result<Option<gossipsub::Behaviour>> {
+    if !enabled {
+        return Ok(None);
+    }
+    let mut config = gossipsub::ConfigBuilder::default();
+    if let Some(prefix) = &protocols.gossip_prefix {
+        config.protocol_id_prefix(prefix.clone());
+    }
+    let config = config
+        .validation_mode(gossipsub::ValidationMode::Strict)
+        .validate_messages()
+        .max_transmit_size(MAX_GOSSIP_BYTES)
+        .message_id_fn(|m: &gossipsub::Message| {
+            gossipsub::MessageId::from(dyapp_identity::sha256(&m.data).to_vec())
+        })
+        .build()?;
+    let behaviour = gossipsub::Behaviour::new(
+        gossipsub::MessageAuthenticity::Signed(key.clone()),
+        config,
+    )
+    .map_err(|error| anyhow::anyhow!(error))?;
+    Ok(Some(behaviour))
 }
 
 fn proto_codec<Req, Resp>(
@@ -635,11 +639,11 @@ fn configured_behaviour(
     key: &Keypair,
     relay_client: relay::client::Behaviour,
     options: SwarmOptions,
-) -> Behaviour {
+) -> anyhow::Result<Behaviour> {
     let peer_id = key.public().to_peer_id();
     let (kad, support, push) = store_kad(peer_id, options.protocols.kad.clone(), &options.mode);
     let search_kad = search_kad(peer_id, &options.protocols, options.search);
-    let gossip = gossip_behaviour(key, &options.protocols, options.search);
+    let gossip = gossip_behaviour(key, &options.protocols, options.search)?;
     let search_support = search_support(options.search);
     let config = request_config(options.max_streams);
     let node = NodeBehaviours::new(
@@ -655,7 +659,7 @@ fn configured_behaviour(
         search_support,
         config.clone(),
     );
-    Behaviour {
+    Ok(Behaviour {
         limits: connection_limits::Behaviour::new(options.connection_limits),
         memory: memory_connection_limits::Behaviour::with_max_bytes(options.max_memory_bytes),
         incoming_groups: options.incoming_groups.map(IncomingGroupGuard::new).into(),
@@ -684,7 +688,7 @@ fn configured_behaviour(
             config,
             options.max_streams,
         ),
-    }
+    })
 }
 
 fn system_dns() -> (libp2p::dns::ResolverConfig, libp2p::dns::ResolverOpts) {
@@ -700,11 +704,7 @@ fn system_dns() -> (libp2p::dns::ResolverConfig, libp2p::dns::ResolverOpts) {
 /// Builds a swarm with explicit settings; legacy constructors delegate here.
 ///
 /// # Errors
-/// Returns an error if transport or relay authentication setup fails.
-///
-/// # Panics
-/// Panics if search gossip configuration or signed gossip behaviour cannot be
-/// constructed from the supplied protocols and key.
+/// Returns an error if transport, relay authentication or gossip behaviour setup fails.
 pub fn build_configured_swarm(
     keypair: Keypair,
     options: SwarmOptions,
@@ -737,7 +737,10 @@ pub fn build_configured_swarm(
         // Circuits ride connections of the transport above: the filter, the guard and
         // `Endpoints` see the relay's IP, never the far peer's.
         .with_relay_client(noise::Config::new, yamux::Config::default)?
-        .with_behaviour(|key, relay_client| configured_behaviour(key, relay_client, options))?
+        .with_behaviour(|key, relay_client| {
+            configured_behaviour(key, relay_client, options)
+                .map_err(|error| -> Box<dyn Error + Send + Sync> { error.into() })
+        })?
         // Happy Eyeballs (RFC 8305): QUIC before TCP, IPv6 before IPv4, which starts 250 ms
         // later on public addresses and 30 ms later on private ones.
         .with_swarm_config(|c| {
