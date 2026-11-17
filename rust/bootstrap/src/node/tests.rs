@@ -261,6 +261,25 @@ async fn mailbox_repair_over_fifty_envelopes_makes_progress_after_refill() {
         Service::new(crate::storage::BootstrapStore::new(&dir).unwrap(), config)
     };
     let (source, destination) = (service(), service());
+    let (mut sender, mut receiver, remote) = Box::pin(repair_swarms(&source, &destination)).await;
+    let owner = dyapp_identity::Identity::generate();
+    let mailbox = vec![2; 32];
+    store_repair_envelopes(&source, &owner, &mailbox);
+    check_repair_refill(
+        &mut sender,
+        &mut receiver,
+        &source,
+        &destination,
+        remote,
+        &mailbox,
+    )
+    .await;
+}
+
+async fn repair_swarms(
+    source: &Service,
+    destination: &Service,
+) -> (Swarm<Behaviour>, Swarm<Behaviour>, PeerId) {
     let mut sender = swarm(
         Keypair::generate_ed25519(),
         &source.config.limits,
@@ -296,14 +315,16 @@ async fn mailbox_repair_over_fifty_envelopes_makes_progress_after_refill() {
     })
     .await
     .unwrap();
-    let owner = dyapp_identity::Identity::generate();
-    let mailbox = vec![2; 32];
+    (sender, receiver, remote)
+}
+
+fn store_repair_envelopes(source: &Service, owner: &dyapp_identity::Identity, mailbox: &[u8]) {
     for i in 0..75u8 {
         let record = owner.sign(
             dyapp_identity::Domain::Envelope,
             proto::Envelope {
                 id: vec![i; 16],
-                mailbox: mailbox.clone(),
+                mailbox: mailbox.to_vec(),
                 ciphertext: vec![3],
                 ..Default::default()
             }
@@ -314,31 +335,56 @@ async fn mailbox_repair_over_fifty_envelopes_makes_progress_after_refill() {
             i32::from(Status::Ok)
         );
     }
+}
+
+async fn check_repair_refill(
+    sender: &mut Swarm<Behaviour>,
+    receiver: &mut Swarm<Behaviour>,
+    source: &Service,
+    destination: &Service,
+    remote: PeerId,
+    mailbox: &[u8],
+) {
     let mut cap = ReplicaCap::default();
-    assert!(!send_envelopes(&mut sender, &source, &mut cap, remote, &mailbox, |_| true).0);
+    assert!(!send_envelopes(sender, source, &mut cap, remote, mailbox, |_| true).0);
     assert_eq!(cap.take_dropped(), 1, "only the second batch is refused");
     assert_eq!(
-        receive_repair_batch(&mut sender, &mut receiver, &destination).await,
+        receive_repair_batch(sender, receiver, destination).await,
         50
     );
-    let held = destination.held(&mailbox).unwrap();
+    let held = destination.held(mailbox).unwrap();
     assert_eq!(held.len(), 50);
-    tokio::time::sleep(Duration::from_millis(1100)).await;
+    wait_for_next_second().await;
     assert!(
-        send_envelopes(&mut sender, &source, &mut cap, remote, &mailbox, |id| {
+        send_envelopes(sender, source, &mut cap, remote, mailbox, |id| {
             !held.contains_key(id)
         })
         .0
     );
     assert_eq!(
-        receive_repair_batch(&mut sender, &mut receiver, &destination).await,
+        receive_repair_batch(sender, receiver, destination).await,
         25
     );
-    assert_eq!(destination.held(&mailbox).unwrap().len(), 75);
+    assert_eq!(destination.held(mailbox).unwrap().len(), 75);
     assert_eq!(cap.take_dropped(), 0);
     // Inventory of the complete mailbox sends nothing and consumes no units.
-    assert!(send_envelopes(&mut sender, &source, &mut cap, remote, &mailbox, |_| false).0);
+    assert!(send_envelopes(sender, source, &mut cap, remote, mailbox, |_| false).0);
     assert!(cap.allow(&remote, 25));
+}
+
+async fn wait_for_next_second() {
+    let now = || crate::clock::Clock::system().unix().as_secs();
+    let second = now();
+    tokio::time::timeout(Duration::from_secs(2), async {
+        loop {
+            if now() != second {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
 }
 
 #[tokio::test]
