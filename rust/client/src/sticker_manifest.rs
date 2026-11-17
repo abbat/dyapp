@@ -88,7 +88,7 @@ pub fn check_files<'a>(
             .checked_add(bytes.len())
             .ok_or("pack byte size overflow")?;
         if total > MAX_PACK_BYTES {
-            let excess = total - MAX_PACK_BYTES;
+            let excess = total.saturating_sub(MAX_PACK_BYTES);
             let message = format!("{name:?}: pack plaintext exceeds 6 MiB by {excess} bytes");
             return Err(message);
         }

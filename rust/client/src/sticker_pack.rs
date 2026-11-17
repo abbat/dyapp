@@ -94,7 +94,7 @@ fn check_size(plaintext: usize) -> Result<(), String> {
     if sealed > MAX_SEALED_BYTES {
         return Err(format!(
             "sealed sticker pack exceeds 6 MiB by {} bytes",
-            sealed - MAX_SEALED_BYTES
+            sealed.saturating_sub(MAX_SEALED_BYTES)
         ));
     }
     Ok(())
@@ -104,7 +104,7 @@ fn check_size(plaintext: usize) -> Result<(), String> {
 fn preflight(mut bytes: &[u8]) -> Result<(), String> {
     check_size(bytes.len())?;
     let mut manifest = false;
-    let mut count = 0;
+    let mut count = 0usize;
     while !bytes.is_empty() {
         let (tag, wire) = decode_key(&mut bytes).map_err(|_| "invalid sticker pack field")?;
         if tag != 1 && tag != 2 {
@@ -124,7 +124,7 @@ fn preflight(mut bytes: &[u8]) -> Result<(), String> {
             }
             manifest = true;
         } else {
-            count += 1;
+            count = count.saturating_add(1);
             if count > MAX_STICKERS || size == 0 || size > MAX_STICKER_BYTES {
                 return Err("sticker pack file count or byte limit exceeded".into());
             }

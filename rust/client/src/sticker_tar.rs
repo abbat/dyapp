@@ -89,10 +89,12 @@ pub fn read(bytes: &[u8]) -> Result<BTreeMap<&str, &[u8]>, String> {
         return Err("TAR archive too large or not block aligned".into());
     }
     let mut files = BTreeMap::new();
-    let mut offset = 0;
-    while let Some(header) = bytes.get(offset..offset + BLOCK) {
+    let mut offset = 0usize;
+    while let Some(header) = bytes.get(offset..offset.saturating_add(BLOCK)) {
         if header.iter().all(|b| *b == 0) {
-            let tail = bytes.get(offset + BLOCK..).ok_or("truncated TAR end")?;
+            let tail = bytes
+                .get(offset.saturating_add(BLOCK)..)
+                .ok_or("truncated TAR end")?;
             if tail.len() < BLOCK || tail.iter().any(|b| *b != 0) {
                 return Err("invalid TAR end blocks".into());
             }
