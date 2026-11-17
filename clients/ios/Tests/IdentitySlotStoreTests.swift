@@ -78,7 +78,7 @@ final class IdentitySlotStoreTests: XCTestCase {
     func testLegacyRootIdentityReopensWithItsOriginalPeerID() throws {
         let path = try identitySlotTestRoot()
         let legacyStore = PlatformKeyStore.forSlot(UUID())
-        let original = IdentityKey.generate()
+        let original = try IdentityKey.generate()
         try original.wrap(store: legacyStore).write(
             to: path.appendingPathComponent("identity.key"), options: .atomic
         )
@@ -239,7 +239,7 @@ final class IdentitySlotStoreTests: XCTestCase {
     func testRemovalRefusesDamagedSlotAndPreservesLegacyAccount() throws {
         let path = try identitySlotTestRoot()
         let legacyStore = PlatformKeyStore.forSlot(UUID())
-        let legacy = IdentityKey.generate()
+        let legacy = try IdentityKey.generate()
         let legacyFile = path.appendingPathComponent("identity.key")
         try legacy.wrap(store: legacyStore).write(to: legacyFile, options: .atomic)
         let original = try Data(contentsOf: legacyFile)

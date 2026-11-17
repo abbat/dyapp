@@ -173,8 +173,8 @@ mod tests {
             .as_nanos();
         let dir = std::env::temp_dir().join(format!("dyapp-ffi-reads-{nanos}"));
         std::fs::create_dir_all(&dir).unwrap();
-        let own = crate::IdentityKey::generate();
-        let (own_id, peer_id) = (own.peer_id(), crate::IdentityKey::generate().peer_id());
+        let own = crate::IdentityKey::generate().unwrap();
+        let (own_id, peer_id) = (own.peer_id(), crate::IdentityKey::generate().unwrap().peer_id());
         let mut store = Store::open(&dir.join("client.db"), &own.identity).unwrap();
         assert_eq!(
             due_reads(&store, &peer_id).unwrap(),

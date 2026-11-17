@@ -9,12 +9,12 @@ use std::sync::Arc;
 #[test]
 fn opaque_existing_wrap_refuses_missing_alias_and_keeps_the_owner() {
     let callbacks = Arc::new(Credentials::default());
-    let device = IdentityKey::generate();
+    let device = IdentityKey::generate().unwrap();
     assert!(callbacks
         .wrap_existing("absent".into(), device.clone())
         .is_err());
     assert!(!callbacks.contains("absent".into()).unwrap());
-    let owner = IdentityKey::generate();
+    let owner = IdentityKey::generate().unwrap();
     let owner_peer = owner.peer_id();
     let wrapped_owner = callbacks.wrap("slot".into(), owner.clone()).unwrap();
     assert!(callbacks.wrap("slot".into(), device.clone()).is_err());

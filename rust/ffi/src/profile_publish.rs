@@ -189,7 +189,7 @@ mod tests {
         let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../build/native-profile-work")
             .join(tag)
-            .join(IdentityKey::generate().peer_id());
+            .join(IdentityKey::generate().unwrap().peer_id());
         std::fs::create_dir_all(&dir).unwrap();
         dir.to_str().unwrap().to_owned()
     }
@@ -197,7 +197,7 @@ mod tests {
     #[test]
     fn empty_profile_needs_only_fresh_attestation_without_creating_a_database() {
         let dir = directory("gate");
-        let key = IdentityKey::generate();
+        let key = IdentityKey::generate().unwrap();
         assert_eq!(
             profile_publish_block(dir.clone(), key.clone(), false).unwrap(),
             Some("notAttested".into())

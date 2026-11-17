@@ -93,7 +93,7 @@ fn wrap_error(error: &crate::CoreError) -> WrapError {
 pub(crate) fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../build/native-slot-fixtures")
-        .join(IdentityKey::generate().peer_id())
+        .join(IdentityKey::generate().unwrap().peer_id())
 }
 
 #[test]
@@ -135,7 +135,7 @@ fn literal_legacy_and_uuid_layouts_reopen_without_rewriting_the_key() {
             };
             std::fs::create_dir_all(&directory).unwrap();
             let keys = Arc::new(Credentials::default());
-            let identity = IdentityKey::generate();
+            let identity = IdentityKey::generate().unwrap();
             let wrapped = keys.wrap(id.to_owned(), identity.clone()).unwrap();
             std::fs::write(directory.join("identity.key"), &wrapped).unwrap();
             if id == UUID {

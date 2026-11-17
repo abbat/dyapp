@@ -80,7 +80,7 @@ extension IdentitySlotStoreTests {
         let slots = IdentitySlotStore(root: path, legacyStore: legacyStore)
         XCTAssertEqual(try slots.resolve(), .setup)
 
-        let key = IdentityKey.generate()
+        let key = try IdentityKey.generate()
         _ = try key.wrap(store: legacyStore)
         XCTAssertEqual(try slots.resolve(), .recovery(.legacy, .missing))
         let pointer = path.appendingPathComponent("active-profile")

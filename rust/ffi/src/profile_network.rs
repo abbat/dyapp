@@ -390,7 +390,7 @@ mod tests {
             .as_nanos();
         let dir = std::env::temp_dir().join(format!("dyapp-ffi-send-held-{nanos}"));
         std::fs::create_dir_all(&dir).unwrap();
-        let key = IdentityKey::generate();
+        let key = IdentityKey::generate().unwrap();
         let store = Store::open(&dir.join("client.db"), &key.identity).unwrap();
         let (port, peer) = crate::network::tests::node();
         let network = Network {
@@ -439,7 +439,7 @@ mod tests {
                 vec!["music".into(), "café".into()],
             ),
         ] {
-            let key = IdentityKey::generate();
+            let key = IdentityKey::generate().unwrap();
             let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../../build/native-profile-hide")
                 .join(key.peer_id());
@@ -521,7 +521,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("dyapp-ffi-withdraw-{nanos}"));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.to_str().unwrap().to_owned();
-        let key = IdentityKey::generate();
+        let key = IdentityKey::generate().unwrap();
         let publisher = ProfilePublisher::new(path.clone()).unwrap();
         assert_eq!(
             publisher.withdraw(key.clone()).unwrap_err().to_string(),
@@ -544,7 +544,7 @@ mod tests {
             .as_nanos();
         let dir = std::env::temp_dir().join(format!("dyapp-ffi-publish-{nanos}"));
         std::fs::create_dir_all(&dir).unwrap();
-        let key = IdentityKey::generate();
+        let key = IdentityKey::generate().unwrap();
         crate::save_profile_draft(
             dir.to_str().unwrap().to_owned(),
             key.clone(),

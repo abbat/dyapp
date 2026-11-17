@@ -44,7 +44,7 @@
             let dir = FileManager.default.temporaryDirectory.appendingPathComponent(
                 "peer-\(UUID().uuidString)")
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            let key = IdentityKey.generate()
+            let key = try IdentityKey.generate()
             let draft = ProfileDraft(values: [
                 "gender": 1, "birthYear": 1_990, "birthMonth": 1, "birthDay": 1,
             ])
@@ -68,7 +68,7 @@
             // shortcut: the peer's Keychain wrapping key stays behind after a run, harmless on a test machine.
             let store = PlatformKeyStore.forSlot(UUID())
             let session = try ChatSession.open(
-                dir: dir.path, key: key, deviceKey: IdentityKey.generate(), store: store,
+                dir: dir.path, key: key, deviceKey: try IdentityKey.generate(), store: store,
                 wrappedStateKey: newChatStateKey(store: store)
             )
             retrying { _ = try session.publishProfile(attested: true) }

@@ -64,13 +64,13 @@ impl KeyStore for TestStore {
 
 #[test]
 fn the_first_open_stores_the_device_for_later_opens() {
-    let key = IdentityKey::generate();
+    let key = IdentityKey::generate().unwrap();
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../build/native-chat-tests")
         .join(key.peer_id());
     std::fs::create_dir_all(&dir).unwrap();
     let dir = dir.to_str().unwrap().to_owned();
-    let device_key = IdentityKey::generate();
+    let device_key = IdentityKey::generate().unwrap();
     let store: Arc<dyn KeyStore> = Arc::new(TestStore);
     let state_key = new_chat_state_key(store.clone()).unwrap();
     let open = |device_key: &Arc<IdentityKey>, state_key: &Vec<u8>| {
@@ -105,7 +105,7 @@ fn the_first_open_stores_the_device_for_later_opens() {
     let other_state = new_chat_state_key(store.clone()).unwrap();
     assert!(open(&device_key, &other_state).is_err());
     assert_eq!(
-        open(&IdentityKey::generate(), &state_key)
+        open(&IdentityKey::generate().unwrap(), &state_key)
             .err()
             .unwrap()
             .to_string(),

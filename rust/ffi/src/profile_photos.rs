@@ -178,7 +178,7 @@ mod tests {
         let path = std::env::temp_dir().join(format!("dyapp-ffi-photos-{nanos}"));
         std::fs::create_dir_all(&path).unwrap();
         let dir = path.to_str().unwrap().to_owned();
-        let key = IdentityKey::generate();
+        let key = IdentityKey::generate().unwrap();
         let add = |full: Vec<u8>, thumbnail: Vec<u8>| {
             add_profile_photo(dir.clone(), key.clone(), full, thumbnail)
         };

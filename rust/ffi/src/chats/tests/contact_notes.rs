@@ -72,7 +72,7 @@ fn uppercase_private_targets_cannot_bypass_identity_policy_or_create_aliases() {
 #[test]
 fn notes_preserve_text_across_reopen_without_peer_messages_or_identity_leaks() {
     let f = Fixture::new();
-    let peer = IdentityKey::generate().peer_id();
+    let peer = IdentityKey::generate().unwrap().peer_id();
     let text = "Case\nПриватная заметка\n😀";
     assert_eq!(f.chats.contact_note(peer.clone()).unwrap(), "");
     f.chats.set_contact_note(peer.clone(), text.into()).unwrap();
@@ -95,7 +95,7 @@ fn notes_preserve_text_across_reopen_without_peer_messages_or_identity_leaks() {
 #[test]
 fn blocked_contacts_keep_note_access_and_empty_text_is_an_explicit_clear() {
     let f = Fixture::new();
-    let peer = IdentityKey::generate().peer_id();
+    let peer = IdentityKey::generate().unwrap().peer_id();
     f.chats
         .session
         .lock()
@@ -116,7 +116,7 @@ fn blocked_contacts_keep_note_access_and_empty_text_is_an_explicit_clear() {
 #[test]
 fn invalid_text_or_targets_are_typed_errors_and_preserve_the_existing_note() {
     let f = Fixture::new();
-    let peer = IdentityKey::generate().peer_id();
+    let peer = IdentityKey::generate().unwrap().peer_id();
     f.chats
         .set_contact_note(peer.clone(), "keep".into())
         .unwrap();

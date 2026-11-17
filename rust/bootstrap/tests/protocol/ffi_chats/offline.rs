@@ -102,7 +102,7 @@ fn configured_connection_refusal_queues_and_native_receive_delivers_after_reopen
     let (alice_id, bob_id) = (owner.key.peer_id(), bob_key.peer_id());
     matched(&alice, &bob, &alice_id, &bob_id);
     set_seed(&owner, refusing_seed(&runtime));
-    let stranger = IdentityKey::generate().peer_id();
+    let stranger = IdentityKey::generate().unwrap().peer_id();
     assert!(alice
         .submit_text(stranger.clone(), "first contact".into())
         .is_err());

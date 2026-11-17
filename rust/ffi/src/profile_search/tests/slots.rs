@@ -148,7 +148,7 @@ fn every_search_disk_path_holds_core_admission_and_idle_handles_allow_removal() 
 #[test]
 fn a_foreign_key_cannot_initialize_a_bound_searchers_database() {
     let fixture = Fixture::new(MobileSlotLayout::Android);
-    let key = IdentityKey::generate();
+    let key = IdentityKey::generate().unwrap();
     assert!(fixture
         .worker
         .search(key.clone(), vec![], SearchEmployer::Any, 0)
@@ -165,7 +165,7 @@ fn a_bound_searcher_refuses_replacement_before_reading_its_database() {
     fixture.worker.contact_names_slot(vec![]).unwrap();
     let directory = PathBuf::from(&fixture.created.slot.directory);
     let original = fs::read(directory.join("client.db")).unwrap();
-    let replacement = IdentityKey::generate().wrap(Arc::new(Wrapping)).unwrap();
+    let replacement = IdentityKey::generate().unwrap().wrap(Arc::new(Wrapping)).unwrap();
     fs::write(directory.join("identity.key"), replacement).unwrap();
     fixture.refuse_reads();
     assert_eq!(fs::read(directory.join("client.db")).unwrap(), original);

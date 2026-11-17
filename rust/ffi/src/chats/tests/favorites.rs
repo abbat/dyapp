@@ -11,13 +11,13 @@ pub(super) struct Fixture {
 }
 impl Fixture {
     pub(super) fn new() -> Self {
-        let key = IdentityKey::generate();
+        let key = IdentityKey::generate().unwrap();
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../build/native-favorites")
             .join(key.peer_id());
         std::fs::create_dir_all(&dir).unwrap();
         let dir = dir.to_str().unwrap().to_owned();
-        let device = IdentityKey::generate();
+        let device = IdentityKey::generate().unwrap();
         let wrapped = new_chat_state_key(Arc::new(TestStore)).unwrap();
         let chats = ChatSession::open(
             dir.clone(),
@@ -66,7 +66,7 @@ impl Fixture {
 #[test]
 fn favorite_exports_are_offline_private_persistent_and_identity_bound() {
     let f = Fixture::new();
-    let peer = IdentityKey::generate().peer_id();
+    let peer = IdentityKey::generate().unwrap().peer_id();
     assert_eq!(f.chats.favorite_peers().unwrap(), Vec::<String>::new());
     assert!(!f.chats.favorite_state(peer.clone()).unwrap());
     f.chats.set_favorite(peer.clone(), true).unwrap();
@@ -92,7 +92,7 @@ fn favorite_exports_are_offline_private_persistent_and_identity_bound() {
 #[test]
 fn blocked_favorites_remain_readable_and_removable_with_typed_save_refusal() {
     let f = Fixture::new();
-    let peer = IdentityKey::generate().peer_id();
+    let peer = IdentityKey::generate().unwrap().peer_id();
     f.chats.set_favorite(peer.clone(), true).unwrap();
     f.chats
         .session

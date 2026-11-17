@@ -69,7 +69,7 @@ fn public_photo_admission_refusals_preserve_history_mls_and_outbox() {
     refused(
         &f,
         &peer,
-        &IdentityKey::generate().peer_id(),
+        &IdentityKey::generate().unwrap().peer_id(),
         &photo,
         "conversationNotOpen",
     );

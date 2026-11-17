@@ -352,7 +352,7 @@ final class IdentitySlotStore {
                     throw IdentitySlotError.lockFailed(errno)
                 }
                 try Data("pending\n".utf8).write(to: marker(for: id), options: .atomic)
-                let key = IdentityKey.generate()
+                let key = try IdentityKey.generate()
                 let peerId = key.peerId()
                 try key.wrap(store: store).write(to: keyFile(for: id), options: .atomic)
                 let reopened = try IdentityKey.unwrap(

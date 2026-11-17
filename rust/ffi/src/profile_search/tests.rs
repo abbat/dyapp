@@ -8,7 +8,7 @@ fn directory(tag: &str) -> std::path::PathBuf {
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../build/native-search-tests")
         .join(tag)
-        .join(IdentityKey::generate().peer_id());
+        .join(IdentityKey::generate().unwrap().peer_id());
     std::fs::create_dir_all(&dir).unwrap();
     dir
 }
@@ -16,7 +16,7 @@ fn directory(tag: &str) -> std::path::PathBuf {
 #[test]
 fn search_needs_an_answering_active_network() {
     let dir = directory("search");
-    let key = IdentityKey::generate();
+    let key = IdentityKey::generate().unwrap();
     let searcher = ProfileSearcher::new(dir.to_str().unwrap().to_owned()).unwrap();
     let network = Network {
         seeds: Vec::new(),
@@ -47,7 +47,7 @@ fn search_dials_from_a_swift_sized_stack() {
     let thread = std::thread::Builder::new()
         .stack_size(512 << 10)
         .spawn(move || {
-            let key = IdentityKey::generate();
+            let key = IdentityKey::generate().unwrap();
             let result = searcher
                 .search(key, Vec::new(), SearchEmployer::Any, 0)
                 .map(|_| ());

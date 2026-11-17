@@ -292,8 +292,8 @@ mod tests {
     #[test]
     fn draft_is_identity_bound_and_preserves_noneditable_progress() {
         let dir = temp_dir();
-        let owner = IdentityKey::generate();
-        let stranger = IdentityKey::generate();
+        let owner = IdentityKey::generate().unwrap();
+        let stranger = IdentityKey::generate().unwrap();
         assert_eq!(
             load_profile_draft(dir.clone(), owner.clone()).unwrap(),
             None
@@ -331,7 +331,7 @@ mod tests {
     #[test]
     fn height_is_saved_cleared_and_refused_out_of_range() {
         let dir = temp_dir();
-        let owner = IdentityKey::generate();
+        let owner = IdentityKey::generate().unwrap();
         let save = |height| {
             let draft = PublicProfileDraft {
                 height,
@@ -358,7 +358,7 @@ mod tests {
     #[test]
     fn seeking_round_trips_refuses_bad_values_and_not_looking_drops_it() {
         let dir = temp_dir();
-        let owner = IdentityKey::generate();
+        let owner = IdentityKey::generate().unwrap();
         let woman = dyapp_profile::Gender::Woman.code();
         let seeking = PublicProfileDraft {
             seeking_genders: vec![woman],
@@ -400,7 +400,7 @@ mod tests {
     #[test]
     fn the_new_fields_round_trip_and_about_is_trimmed_and_limited() {
         let dir = temp_dir();
-        let owner = IdentityKey::generate();
+        let owner = IdentityKey::generate().unwrap();
         let draft = PublicProfileDraft {
             about: " First line\nsecond ".into(),
             smoking: dyapp_profile::Smoking::Sometimes.code(),
@@ -445,7 +445,7 @@ mod tests {
     #[test]
     fn a_public_name_is_trimmed_and_refused_with_hidden_symbols_or_too_long() {
         let dir = temp_dir();
-        let owner = IdentityKey::generate();
+        let owner = IdentityKey::generate().unwrap();
         let named = |name: String| PublicProfileDraft {
             name,
             ..Default::default()
@@ -465,7 +465,7 @@ mod tests {
     #[test]
     fn invalid_edit_does_not_replace_a_saved_draft() {
         let dir = temp_dir();
-        let owner = IdentityKey::generate();
+        let owner = IdentityKey::generate().unwrap();
         save_profile_draft(dir.clone(), owner.clone(), PublicProfileDraft::default()).unwrap();
         let invalid = PublicProfileDraft {
             gender: u32::MAX,

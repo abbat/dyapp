@@ -154,10 +154,19 @@ impl Identity {
     /// Panics if the OS random number generator cannot fill the secret key bytes.
     #[must_use]
     pub fn generate() -> Self {
+        Self::try_generate().expect("OS random number generator")
+    }
+
+    /// A new key from the OS random number generator.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the OS random number generator cannot fill the secret key bytes.
+    pub fn try_generate() -> Result<Self, getrandom::Error> {
         let mut secret = Zeroizing::new([0u8; 32]);
         // Like OsRng before it: no key without the OS random number generator.
-        getrandom::fill(&mut secret[..]).expect("OS random number generator");
-        Self::from_secret(&secret)
+        getrandom::fill(&mut secret[..])?;
+        Ok(Self::from_secret(&secret))
     }
 
     /// The key whose Ed25519 secret is `secret`.

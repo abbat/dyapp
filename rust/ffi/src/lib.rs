@@ -441,12 +441,15 @@ pub struct IdentityKey {
 #[uniffi::export]
 impl IdentityKey {
     /// A new key from the OS random number generator.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the operating system cannot provide secret key bytes.
     #[uniffi::constructor]
-    #[must_use]
-    pub fn generate() -> Arc<Self> {
-        Arc::new(Self {
-            identity: dyapp_identity::Identity::generate(),
-        })
+    pub fn generate() -> Result<Arc<Self>, CoreError> {
+        let identity = dyapp_identity::Identity::try_generate()
+            .map_err(|error| CoreError::Failed(error.to_string()))?;
+        Ok(Arc::new(Self { identity }))
     }
 
     /// The key that `store` unwraps from `wrapped`, a blob from [`IdentityKey::wrap`].
@@ -792,7 +795,7 @@ mod tests {
     #[test]
     fn keystore_errors_reach_the_caller() {
         let store: Arc<dyn KeyStore> = Arc::new(LostStore);
-        let error = IdentityKey::generate().wrap(store.clone()).unwrap_err();
+        let error = IdentityKey::generate().unwrap().wrap(store.clone()).unwrap_err();
         assert_eq!(error.to_string(), "no key");
         assert!(IdentityKey::unwrap(store, vec![0; 32]).is_err());
     }
@@ -800,7 +803,7 @@ mod tests {
     #[test]
     fn wrapped_key_unwraps_to_the_same_peer_id() {
         let store: Arc<dyn KeyStore> = Arc::new(TestStore);
-        let key = IdentityKey::generate();
+        let key = IdentityKey::generate().unwrap();
         let wrapped = key.wrap(store.clone()).unwrap();
         assert_eq!(wrapped.len(), 32);
         assert_ne!(wrapped, key.identity.secret().to_vec());

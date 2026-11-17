@@ -16,8 +16,8 @@ impl KeyStore for TestStore {
 }
 
 fn device() -> (Arc<IdentityKey>, Arc<MlsDevice>) {
-    let identity = IdentityKey::generate();
-    let device = MlsDevice::new(identity.clone(), IdentityKey::generate(), 1).unwrap();
+    let identity = IdentityKey::generate().unwrap();
+    let device = MlsDevice::new(identity.clone(), IdentityKey::generate().unwrap(), 1).unwrap();
     (identity, device)
 }
 
@@ -34,8 +34,8 @@ fn profile(owner: &IdentityKey, device: &MlsDevice) -> Vec<u8> {
 
 #[test]
 fn the_certificate_carries_the_public_device_key() {
-    let device_key = IdentityKey::generate();
-    let device = MlsDevice::new(IdentityKey::generate(), device_key.clone(), 1).unwrap();
+    let device_key = IdentityKey::generate().unwrap();
+    let device = MlsDevice::new(IdentityKey::generate().unwrap(), device_key.clone(), 1).unwrap();
     assert_eq!(
         device.device.device_key().unwrap(),
         device_key.identity.public_key().to_vec()

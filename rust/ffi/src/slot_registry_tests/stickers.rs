@@ -104,7 +104,7 @@ fn mismatched_or_missing_identity_admission_cannot_remove_a_saved_file() {
             .registry
             .operation(
                 f.selected.slot.id.clone(),
-                IdentityKey::generate().peer_id()
+                IdentityKey::generate().unwrap().peer_id()
             )
             .is_err());
         assert!(f

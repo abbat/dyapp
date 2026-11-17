@@ -332,7 +332,7 @@ mod tests {
     fn only_a_missing_well_formed_hash_needs_the_network() {
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../build/native-peer-photo-tests")
-            .join(IdentityKey::generate().peer_id());
+            .join(IdentityKey::generate().unwrap().peer_id());
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.to_str().unwrap().to_owned();
         let searcher = ProfileSearcher::new(path.clone()).unwrap();
@@ -354,7 +354,7 @@ mod tests {
             "notFound"
         );
         // The metered flag is process-wide and other tests set it, so only the call is checked.
-        assert!(peer_photo_auto(path, IdentityKey::generate()).is_ok());
+        assert!(peer_photo_auto(path, IdentityKey::generate().unwrap()).is_ok());
         std::fs::remove_dir_all(dir).unwrap();
     }
 }

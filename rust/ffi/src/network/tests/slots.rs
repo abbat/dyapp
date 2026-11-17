@@ -134,7 +134,7 @@ fn checked_network_cannot_activate_or_overwrite_draft_after_identity_replacement
         check.activate().unwrap();
         let active = fs::read(directory.join("network")).unwrap();
         let saved = fs::read(directory.join("network-draft")).unwrap();
-        let replacement = IdentityKey::generate()
+        let replacement = IdentityKey::generate().unwrap()
             .wrap(Arc::new(crate::slot_registry_tests::Wrapping))
             .unwrap();
         fs::write(directory.join("identity.key"), replacement).unwrap();

@@ -75,7 +75,7 @@ fn retained_person(address: &Multiaddr) -> NativePeer {
     };
     network::save(&dir, Settings::Active, &active).unwrap();
     let dir = dir.to_str().unwrap().to_owned();
-    let key = IdentityKey::generate();
+    let key = IdentityKey::generate().unwrap();
     save_profile_draft(
         dir.clone(),
         key.clone(),
@@ -92,7 +92,7 @@ fn retained_person(address: &Multiaddr) -> NativePeer {
     let peer = NativePeer {
         dir,
         key,
-        device: IdentityKey::generate(),
+        device: IdentityKey::generate().unwrap(),
         state_key,
     };
     peer.open().publish_profile(true).unwrap();

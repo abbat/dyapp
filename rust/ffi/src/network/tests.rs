@@ -13,7 +13,7 @@ fn temp_dir(tag: &str) -> String {
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../build/native-network-tests")
         .join(tag)
-        .join(crate::IdentityKey::generate().peer_id());
+        .join(crate::IdentityKey::generate().unwrap().peer_id());
     std::fs::create_dir_all(&dir).unwrap();
     dir.to_str().unwrap().into()
 }

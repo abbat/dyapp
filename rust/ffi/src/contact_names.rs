@@ -182,7 +182,7 @@ mod tests {
 
     #[test]
     fn a_local_name_wins_and_a_public_name_needs_a_cached_profile_and_carries_its_mark() {
-        let key = IdentityKey::generate();
+        let key = IdentityKey::generate().unwrap();
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../build/native-contact-name-tests")
             .join(key.peer_id());
