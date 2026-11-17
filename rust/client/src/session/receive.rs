@@ -9,6 +9,8 @@ use crate::Node;
 use dyapp_identity::Identity;
 use dyapp_profile::VerifiedProfile;
 
+type GroupReceipts = Vec<(Vec<u8>, Vec<Vec<u8>>)>;
+
 impl Session {
     /// Fetch the mailbox of `device_key` from the first of `nodes` by score that answers, commit each new envelope before returning it, then
     /// acknowledge every committed ID, earlier ones whose ACK was lost included, and send each
@@ -116,7 +118,7 @@ impl Session {
         let mailbox = crate::mailbox(&device_key.public_key());
         let mut events = Vec::new();
         let mut seen = Vec::new();
-        let mut receipts: Vec<(Vec<u8>, Vec<Vec<u8>>)> = Vec::new();
+        let mut receipts = GroupReceipts::new();
         let mut pending = self.pending_groups()?;
         for envelope in envelopes {
             // Nodes only store 16-byte IDs; leave anything else alone.
@@ -154,21 +156,46 @@ impl Session {
                 }
             }
         }
+        self.acknowledge_page(nodes, device_key, at, mailbox, seen)
+            .await?;
+        self.send_receipts(nodes, mailbox, receipts, seal_key)
+            .await?;
+        Ok(events)
+    }
+
+    async fn acknowledge_page(
+        &mut self,
+        nodes: &mut [Node],
+        device_key: &Identity,
+        at: libp2p::PeerId,
+        mailbox: [u8; 32],
+        seen: Vec<InboxKey>,
+    ) -> Result<(), Error> {
         let acks = self.acks(mailbox, seen)?;
-        if !acks.is_empty() {
-            let node = nodes.iter_mut().find(|node| node.peer() == at);
-            // Always found: `at` is the one of `nodes` that answered the fetch.
-            if let Some(node) = node {
-                node.ack(device_key, acks.iter().map(|key| key.id.to_vec()).collect())
-                    .await?;
-                for key in &acks {
-                    self.store.mark_acked(key)?;
-                }
+        if acks.is_empty() {
+            return Ok(());
+        }
+        let node = nodes.iter_mut().find(|node| node.peer() == at);
+        // Always found: `at` is the one of `nodes` that answered the fetch.
+        if let Some(node) = node {
+            node.ack(device_key, acks.iter().map(|key| key.id.to_vec()).collect())
+                .await?;
+            for key in &acks {
+                self.store.mark_acked(key)?;
             }
         }
-        // shortcut: a duplicate is not receipted again, its group is unknown here, so a lost
-        // receipt costs about 35 resends over 30 days; receipt duplicates once the inbox keeps
-        // their group.
+        Ok(())
+    }
+
+    // shortcut: a duplicate is not receipted again, its group is unknown here, so a lost receipt
+    // costs about 35 resends over 30 days; receipt duplicates once the inbox keeps their group.
+    async fn send_receipts(
+        &mut self,
+        nodes: &mut [Node],
+        mailbox: [u8; 32],
+        receipts: GroupReceipts,
+        seal_key: &[u8; 32],
+    ) -> Result<(), Error> {
         for (group, ids) in receipts {
             for ids in ids.chunks(MAX_RECEIPT_IDS) {
                 let receipt = Body::Receipt(Receipt {
@@ -182,7 +209,7 @@ impl Session {
                 }
             }
         }
-        Ok(events)
+        Ok(())
     }
 
     fn pending_groups(&self) -> Result<Vec<Vec<u8>>, Error> {
