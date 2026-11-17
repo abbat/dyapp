@@ -180,6 +180,22 @@ async fn two_clients_chat_and_the_node_holds_only_mls_ciphertext() {
     );
 }
 
+async fn receive_welcome(
+    bob: &mut Person,
+    groups: &mut Vec<Group>,
+    profiles: &[VerifiedProfile],
+) -> (Vec<Event>, Vec<Vec<u8>>) {
+    chat::receive(
+        &mut bob.node,
+        &bob.device_key,
+        &bob.device,
+        groups,
+        profiles,
+    )
+    .await
+    .unwrap()
+}
+
 #[tokio::test]
 async fn a_welcome_waits_in_the_mailbox_for_its_sender_s_profile() {
     let address = start_config(|config| {
@@ -218,26 +234,10 @@ async fn a_welcome_waits_in_the_mailbox_for_its_sender_s_profile() {
     chat::send(&mut alice.node, &welcome).await.unwrap();
     // Bob holds only his own profile, so Alice's membership cannot be checked yet.
     let mut groups = Vec::new();
-    let (events, ids) = chat::receive(
-        &mut bob.node,
-        &bob.device_key,
-        &bob.device,
-        &mut groups,
-        &profiles[1..],
-    )
-    .await
-    .unwrap();
+    let (events, ids) = receive_welcome(&mut bob, &mut groups, &profiles[1..]).await;
     assert_eq!(events, vec![Event::UnknownOwner(alice.identity.peer_id())]);
     assert_eq!(ids, [] as [std::vec::Vec<u8>; 0]);
-    let (events, ids) = chat::receive(
-        &mut bob.node,
-        &bob.device_key,
-        &bob.device,
-        &mut groups,
-        &profiles,
-    )
-    .await
-    .unwrap();
+    let (events, ids) = receive_welcome(&mut bob, &mut groups, &profiles).await;
     assert!(
         matches!(events.as_slice(), [Event::Joined(_)]),
         "{events:?}"
