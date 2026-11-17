@@ -84,7 +84,7 @@ impl Attachment {
 /// `max_bytes` for each preview of a message with `count` images.
 #[must_use]
 pub fn preview_budget(count: usize) -> usize {
-    MAX_PREVIEW_BYTES.min(MESSAGE_PREVIEW_BYTES / count.max(1))
+    MAX_PREVIEW_BYTES.min(MESSAGE_PREVIEW_BYTES.checked_div(count.max(1)).unwrap_or(0))
 }
 
 /// The layout size for claimed dimensions: the aspect ratio clamped to 1:20..20:1, a zero side
@@ -96,8 +96,8 @@ pub fn preview_budget(count: usize) -> usize {
 )]
 pub fn layout_size(width: u32, height: u32) -> (u32, u32) {
     let (width, height) = (u64::from(width.max(1)), u64::from(height.max(1)));
-    let width = width.min(height * MAX_ASPECT);
-    let height = height.min(width * MAX_ASPECT);
+    let width = width.min(height.saturating_mul(MAX_ASPECT));
+    let height = height.min(width.saturating_mul(MAX_ASPECT));
     // Both stay at most the claimed u32 values.
     (width as u32, height as u32)
 }
@@ -114,12 +114,18 @@ pub fn sealed_size(plaintext_bytes: usize) -> Option<usize> {
 pub(crate) fn encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>, Error> {
     let cipher = Aes256Gcm::new(key.into());
     let count = plaintext.len().div_ceil(CHUNK_BYTES).max(1);
-    let mut blob = Vec::with_capacity(plaintext.len() + count * TAG_BYTES);
+    let capacity = sealed_size(plaintext.len())
+        .ok_or(Error::Attachment("attachment size exceeds address space"))?;
+    let mut blob = Vec::with_capacity(capacity);
     for index in 0..count {
         let chunk = plaintext
-            .get(index * CHUNK_BYTES..)
+            .get(index.saturating_mul(CHUNK_BYTES)..)
             .map_or(&[][..], |rest| &rest[..rest.len().min(CHUNK_BYTES)]);
-        let aad = if index + 1 == count { LAST } else { MORE };
+        let aad = if index.saturating_add(1) == count {
+            LAST
+        } else {
+            MORE
+        };
         let sealed = cipher
             .encrypt(&nonce(index), Payload { msg: chunk, aad })
             .map_err(|_| Error::Attachment("encryption failed"))?;
@@ -174,7 +180,7 @@ pub(crate) fn decrypt(key: &[u8; 32], blob: &[u8]) -> Result<Vec<u8>, Error> {
     if chunks.is_empty() {
         return Err(Error::Attachment("empty blob"));
     }
-    let last = chunks.len() - 1;
+    let last = chunks.len().saturating_sub(1);
     let mut plaintext = Vec::with_capacity(blob.len());
     for (index, chunk) in chunks.iter().enumerate() {
         let aad = if index == last { LAST } else { MORE };

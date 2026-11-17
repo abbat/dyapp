@@ -272,7 +272,7 @@ impl Session {
         } = event
         {
             if !blocked {
-                let wall_ms = crate::now() * 1000;
+                let wall_ms = crate::now().saturating_mul(1000);
                 // Another device of this owner sent it to the other owner of the group.
                 let own = sender == self.store.owner_peer_id();
                 let applied = match self.partner(group) {
@@ -305,7 +305,7 @@ impl Session {
         } = event
         {
             if !blocked && sender != self.store.owner_peer_id() {
-                let wall_ms = crate::now() * 1000;
+                let wall_ms = crate::now().saturating_mul(1000);
                 match self.store.receive_presence(sender, *hlc, wall_ms) {
                     Err(crate::store::Error::ClockSkew(_)) => {
                         *event = Event::Refused("presence from the future".into());
@@ -328,7 +328,7 @@ impl Session {
         } = event
         {
             if !blocked {
-                let wall_ms = crate::now() * 1000;
+                let wall_ms = crate::now().saturating_mul(1000);
                 match self
                     .store
                     .receive_peer_change(peer, change, *hlc, wall_ms, source_device)
@@ -489,7 +489,7 @@ impl Session {
                 key,
                 verified,
                 request,
-                crate::now() * 1000,
+                crate::now().saturating_mul(1000),
             )?;
             // Uniform receipts; control consumes this event.
             return Ok(Some(true));
@@ -501,7 +501,13 @@ impl Session {
         }
         // A text the request rules drop is acked but not shown.
         self.store
-            .stage_chat_inbound(sealed, key, verified, body, crate::now() * 1000)
+            .stage_chat_inbound(
+                sealed,
+                key,
+                verified,
+                body,
+                crate::now().saturating_mul(1000),
+            )
             .map(Some)
             .map_err(Error::from)
     }
