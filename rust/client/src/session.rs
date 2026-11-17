@@ -725,22 +725,28 @@ impl Session {
         let peers: Vec<_> = nodes.iter().map(Node::peer).collect();
         let mut order = self.scores.ranked(&peers, now);
         if let Some(by) = self.store.accepted_by(&write)? {
-            if let Some(at) = order.iter().position(|&i| peers[i].to_string() == by) {
+            if let Some(at) = order
+                .iter()
+                .position(|&i| peers.get(i).is_some_and(|peer| peer.to_string() == by))
+            {
                 let i = order.remove(at);
                 order.push(i);
             }
         }
         let mut last = crate::Error::Status(dyapp_p2p_net::proto::Status::NotFound);
         for i in order {
+            let (Some(node), Some(&peer)) = (nodes.get_mut(i), peers.get(i)) else {
+                continue;
+            };
             match self
-                .deliver_at(&mut nodes[i], &mut write, now_ms, today, seal_key)
+                .deliver_at(node, &mut write, now_ms, today, seal_key)
                 .await?
             {
                 None => return Ok(()),
                 Some(error) => last = error,
             }
             if scores::faulty(&last) {
-                self.scores.fault(peers[i], now);
+                self.scores.fault(peer, now);
             }
         }
         Err(last.into())

@@ -59,9 +59,11 @@ impl Session {
         let peers: Vec<_> = nodes.iter().map(Node::peer).collect();
         let mut last = crate::Error::Status(dyapp_p2p_net::proto::Status::NotFound);
         for i in self.scores.ranked(&peers, now) {
-            let at = peers[i];
+            let (Some(&at), Some(node)) = (peers.get(i), nodes.get_mut(i)) else {
+                continue;
+            };
             let cursor = self.store.mailbox_cursor_for(at)?;
-            let fetched = nodes[i]
+            let fetched = node
                 .fetch_page(device_key, cursor.as_deref(), PAGE_LIMIT)
                 .await;
             let page = match fetched {

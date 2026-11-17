@@ -140,19 +140,25 @@ impl CheckState {
             match swarm.dial(opts) {
                 Ok(()) => {
                     self.dials.insert(id, index);
-                    self.pending[index] = self.pending[index].saturating_add(1);
+                    if let Some(pending) = self.pending.get_mut(index) {
+                        *pending = pending.saturating_add(1);
+                    }
                 }
                 Err(dial) => error = dial.to_string(),
             }
         }
-        if self.pending[index] == 0 {
-            self.rows[index] = Some(Row::Unreachable(error));
+        if self.pending.get(index) == Some(&0) {
+            if let Some(row) = self.rows.get_mut(index) {
+                *row = Some(Row::Unreachable(error));
+            }
         }
     }
 
     fn decide(&mut self, id: ConnectionId, row: Row) {
         if let Some(&index) = self.dials.get(&id) {
-            self.rows[index].get_or_insert(row);
+            if let Some(current) = self.rows.get_mut(index) {
+                current.get_or_insert(row);
+            }
         }
     }
 
@@ -189,8 +195,11 @@ impl CheckState {
             return;
         }
         self.errors.insert(index, error.to_string());
-        self.pending[index] = self.pending[index].saturating_sub(1);
-        if self.pending[index] == 0 {
+        let Some(pending) = self.pending.get_mut(index) else {
+            return;
+        };
+        *pending = pending.saturating_sub(1);
+        if *pending == 0 {
             let error = self.errors.remove(&index).unwrap_or_default();
             self.decide(connection_id, Row::Unreachable(error));
         }

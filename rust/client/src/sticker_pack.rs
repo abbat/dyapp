@@ -145,10 +145,11 @@ fn validate(record: Record, expected: Option<&[u8; 32]>) -> Result<Pack, String>
     }
     let parsed = json::parse(&record.manifest)?;
     if record.files.len() < parsed.stickers().len() {
-        return Err(format!(
-            "{:?}: missing peer file",
-            parsed.stickers()[record.files.len()].file
-        ));
+        let entry = parsed
+            .stickers()
+            .get(record.files.len())
+            .ok_or("manifest.json: missing peer file")?;
+        return Err(format!("{:?}: missing peer file", entry.file));
     }
     if record.files.len() != parsed.stickers().len() {
         return Err("manifest.json: extra peer files".into());
