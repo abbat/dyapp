@@ -348,6 +348,53 @@ impl Session {
         Ok(())
     }
 
+    fn event_admission(&self, event: &mut Event) -> Result<(Option<String>, bool), Error> {
+        let mut peer = None;
+        if let Event::Joined(id) = event {
+            peer = self.partner(id).or_else(|| {
+                self.is_own_group(id)
+                    .then(|| self.store.owner_peer_id().to_owned())
+            });
+            match &peer {
+                None => *event = Event::Refused("not a one-to-one conversation".into()),
+                Some(owner) if self.store.blocked(owner)? => {
+                    *event = Event::Refused("blocked owner".into());
+                }
+                Some(_) => {}
+            }
+        }
+        let blocked = match event {
+            Event::Message { sender, .. } | Event::Interaction { sender, .. } => {
+                self.store.blocked(sender)?
+            }
+            _ => false,
+        };
+        // Until a reply or a match, a stranger's request is text only: its other bodies are
+        // acked and dropped like a blocked owner's, so no token request is answered.
+        let blocked = blocked
+            || match event {
+                Event::Message {
+                    sender,
+                    body:
+                        Body::Attachment(_)
+                        | Body::Sticker(_)
+                        | Body::PackRequest(_)
+                        | Body::PackAnswer(_)
+                        | Body::Forwarded(_)
+                        | Body::Presence { .. }
+                        | Body::Read { .. }
+                        | Body::TokenRequest(_),
+                    ..
+                } if sender != self.store.owner_peer_id() => matches!(
+                    self.store.conversation(sender)?,
+                    Conversation::None | Conversation::RequestReceived(_) | Conversation::Closed
+                ),
+                _ => false,
+            }
+            || self.misplaced(event);
+        Ok((peer, blocked))
+    }
+
     /// Apply one new envelope and commit the result with its pending ACK. A Gap, an unknown
     /// owner or group is neither recorded nor acknowledged, so it is fetched again. A blocked
     /// owner's Welcome is refused; its message advances MLS state, is acknowledged and returns
@@ -371,49 +418,7 @@ impl Session {
             Ok(Some(event)) => event,
             Err(error) => Event::Refused(error.to_string()),
         };
-        let mut peer = None;
-        if let Event::Joined(id) = &event {
-            peer = self.partner(id).or_else(|| {
-                self.is_own_group(id)
-                    .then(|| self.store.owner_peer_id().to_owned())
-            });
-            match &peer {
-                None => event = Event::Refused("not a one-to-one conversation".into()),
-                Some(owner) if self.store.blocked(owner)? => {
-                    event = Event::Refused("blocked owner".into());
-                }
-                Some(_) => {}
-            }
-        }
-        let blocked = match &event {
-            Event::Message { sender, .. } | Event::Interaction { sender, .. } => {
-                self.store.blocked(sender)?
-            }
-            _ => false,
-        };
-        // Until a reply or a match, a stranger's request is text only: its other bodies are
-        // acked and dropped like a blocked owner's, so no token request is answered.
-        let blocked = blocked
-            || match &event {
-                Event::Message {
-                    sender,
-                    body:
-                        Body::Attachment(_)
-                        | Body::Sticker(_)
-                        | Body::PackRequest(_)
-                        | Body::PackAnswer(_)
-                        | Body::Forwarded(_)
-                        | Body::Presence { .. }
-                        | Body::Read { .. }
-                        | Body::TokenRequest(_),
-                    ..
-                } if sender != self.store.owner_peer_id() => matches!(
-                    self.store.conversation(sender)?,
-                    Conversation::None | Conversation::RequestReceived(_) | Conversation::Closed
-                ),
-                _ => false,
-            }
-            || self.misplaced(&event);
+        let (peer, blocked) = self.event_admission(&mut event)?;
         self.apply_interaction_event(&mut event, blocked)?;
         self.apply_presence_event(&mut event, blocked)?;
         self.apply_peer_change_event(&mut event, blocked)?;
