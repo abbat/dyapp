@@ -1007,20 +1007,9 @@ mod tests {
         assert!(keeps(None, None, None));
     }
 
-    #[test]
-    fn a_filter_refuses_what_a_node_would_not_take() {
+    fn assert_empty_filter_ranges() {
         let today = CivilDate::new(2026, 10, 25).unwrap();
         let open = |filter: Filter| filter.conditions(today).unwrap_err();
-        let places = Filter {
-            places: vec!["1".into()],
-            ..Filter::default()
-        };
-        assert_eq!(open(places), FilterError::NeedsCountry);
-        let income = Filter {
-            income: Some((1, 2)),
-            ..Filter::default()
-        };
-        assert_eq!(open(income), FilterError::NeedsCountry);
         let young = Filter {
             age: Some((10, 17)),
             ..Filter::default()
@@ -1049,20 +1038,11 @@ mod tests {
             };
             assert_eq!(open(level), FilterError::EmptyRange);
         }
-        let many = Filter {
-            country: "DE".into(),
-            places: (0..17).map(|i| i.to_string()).collect(),
-            ..Filter::default()
-        };
-        assert_eq!(open(many), FilterError::TooManyValues);
-        let sixteen = Filter {
-            places: (0..16).map(|i| i.to_string()).collect(),
-            age: Some((18, 18)),
-            country: "DE".into(),
-            income: Some((1, 1)),
-            ..Filter::default()
-        };
-        assert_eq!(sixteen.conditions(today).unwrap().len(), 5);
+    }
+
+    fn assert_filter_scale_ranges() {
+        let today = CivilDate::new(2026, 10, 25).unwrap();
+        let open = |filter: Filter| filter.conditions(today).unwrap_err();
         for value in [0, Gender::MAX + 1] {
             assert_eq!(
                 open(Filter {
@@ -1086,5 +1066,37 @@ mod tests {
             }),
             FilterError::EmptyRange
         );
+    }
+
+    #[test]
+    fn a_filter_refuses_what_a_node_would_not_take() {
+        let today = CivilDate::new(2026, 10, 25).unwrap();
+        let open = |filter: Filter| filter.conditions(today).unwrap_err();
+        let places = Filter {
+            places: vec!["1".into()],
+            ..Filter::default()
+        };
+        assert_eq!(open(places), FilterError::NeedsCountry);
+        let income = Filter {
+            income: Some((1, 2)),
+            ..Filter::default()
+        };
+        assert_eq!(open(income), FilterError::NeedsCountry);
+        assert_empty_filter_ranges();
+        let many = Filter {
+            country: "DE".into(),
+            places: (0..17).map(|i| i.to_string()).collect(),
+            ..Filter::default()
+        };
+        assert_eq!(open(many), FilterError::TooManyValues);
+        let sixteen = Filter {
+            places: (0..16).map(|i| i.to_string()).collect(),
+            age: Some((18, 18)),
+            country: "DE".into(),
+            income: Some((1, 1)),
+            ..Filter::default()
+        };
+        assert_eq!(sixteen.conditions(today).unwrap().len(), 5);
+        assert_filter_scale_ranges();
     }
 }
