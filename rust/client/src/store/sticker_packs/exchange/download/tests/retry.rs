@@ -9,6 +9,29 @@ fn fresh(
     store.stage_fresh_sticker_pack_request(sealed, writes, &[9], job)
 }
 
+fn invalid_fresh_requests(
+    store: &mut Store,
+    peer: &str,
+    answer: PackAnswer,
+    job: &PackDownloadJob,
+) -> crate::PreparedEnvelope {
+    let snapshot = store.sealed_device().unwrap();
+    let status = download_state(store, peer, &job.pack_id);
+    let write = crate::prepare_put(&[1; 32], vec![9]).unwrap();
+    assert!(fresh(store, b"", std::slice::from_ref(&write), job).is_err());
+    assert!(fresh(store, b"fresh", &[], job).is_err());
+    assert_eq!(store.sealed_device().unwrap(), snapshot);
+    assert_eq!(download_state(store, peer, &job.pack_id), status);
+    assert!(
+        store
+            .sticker_pack_answer(&[9], peer, &job.pack_id, &job.token)
+            .unwrap()
+            == Some(answer)
+    );
+    assert!(store.due_outbound(i64::MAX).unwrap().is_empty());
+    write
+}
+
 #[test]
 fn fresh_request_rotates_generation_with_exact_outbox_and_preserves_clicked_hash() {
     let (mut store, owner, path, peer) = database();
@@ -18,20 +41,7 @@ fn fresh_request_rotates_generation_with_exact_outbox_and_preserves_clicked_hash
     store
         .defer_sticker_pack_download(&job, PackDownloadFailure::Invalid, 100)
         .unwrap();
-    let snapshot = store.sealed_device().unwrap();
-    let status = download_state(&store, &peer, &job.pack_id);
-    let write = crate::prepare_put(&[1; 32], vec![9]).unwrap();
-    assert!(fresh(&mut store, b"", std::slice::from_ref(&write), &job).is_err());
-    assert!(fresh(&mut store, b"fresh", &[], &job).is_err());
-    assert_eq!(store.sealed_device().unwrap(), snapshot);
-    assert_eq!(download_state(&store, &peer, &job.pack_id), status);
-    assert!(
-        store
-            .sticker_pack_answer(&[9], &peer, &job.pack_id, &job.token)
-            .unwrap()
-            == Some(answer)
-    );
-    assert!(store.due_outbound(i64::MAX).unwrap().is_empty());
+    let write = invalid_fresh_requests(&mut store, &peer, answer, &job);
 
     let next = fresh(&mut store, b"fresh", std::slice::from_ref(&write), &job).unwrap();
     assert!(next.token != job.token && next.sticker_hash == job.sticker_hash);
