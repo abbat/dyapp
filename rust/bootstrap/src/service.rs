@@ -212,6 +212,14 @@ impl Service {
         }
     }
 
+    fn log_tripped(name: &str) {
+        tracing::warn!(guard = name, "limit reached, refusing requests");
+    }
+
+    fn log_cleared(name: &str) {
+        tracing::info!(guard = name, "limit cleared");
+    }
+
     /// Logs when a guard starts or stops refusing; returns `tripped`.
     fn guard(&self, index: usize, tripped: bool) -> bool {
         let name = GUARDS[index];
@@ -220,9 +228,9 @@ impl Service {
         }
         if self.tripped[index].swap(tripped, Ordering::Relaxed) != tripped {
             if tripped {
-                tracing::warn!(guard = name, "limit reached, refusing requests");
+                Self::log_tripped(name);
             } else {
-                tracing::info!(guard = name, "limit cleared");
+                Self::log_cleared(name);
             }
         }
         tripped
@@ -258,26 +266,49 @@ impl Service {
         std::array::from_fn(|i| self.refused[i].load(Ordering::Relaxed))
     }
 
+    fn log_store_pages(profiles: i64, messages: i64) {
+        tracing::info!(
+            profiles,
+            messages,
+            "store maintenance done, free pages left"
+        );
+    }
+
+    fn log_store_error(error: impl std::fmt::Display) {
+        tracing::error!(%error, "store maintenance failed");
+    }
+
+    fn log_search_pages(pages: i64) {
+        tracing::info!(
+            index = pages,
+            "search index maintenance done, free pages left"
+        );
+    }
+
+    fn log_search_error(error: impl std::fmt::Display) {
+        tracing::error!(%error, "search index maintenance failed");
+    }
+
+    fn maintain_store(&self, pages: u32) {
+        match self.store.maintain(pages) {
+            Ok([profiles, messages]) => Self::log_store_pages(profiles, messages),
+            Err(error) => Self::log_store_error(error),
+        }
+    }
+
+    fn maintain_search(index: &SearchIndex, pages: u32) {
+        match index.maintain(pages) {
+            Ok(pages) => Self::log_search_pages(pages),
+            Err(error) => Self::log_search_error(error),
+        }
+    }
+
     /// Runs the stores' and the search index's maintenance, freeing at most `pages` pages
     /// each, and logs the free pages left; called hourly.
     pub fn maintain(&self, pages: u32) {
-        match self.store.maintain(pages) {
-            Ok([profiles, messages]) => {
-                tracing::info!(
-                    profiles,
-                    messages,
-                    "store maintenance done, free pages left"
-                );
-            }
-            Err(error) => tracing::error!(%error, "store maintenance failed"),
-        }
+        self.maintain_store(pages);
         if let Some(index) = &self.search {
-            match index.maintain(pages) {
-                Ok(index) => {
-                    tracing::info!(index, "search index maintenance done, free pages left");
-                }
-                Err(error) => tracing::error!(%error, "search index maintenance failed"),
-            }
+            Self::maintain_search(index, pages);
         }
     }
 
