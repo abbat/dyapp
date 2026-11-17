@@ -146,6 +146,41 @@ fn timed_text_rejects_future_clock_before_ack_and_observes_valid_clock() {
         hlc: Some(hlc),
         text: b"hello".to_vec(),
     };
+    assert_future_clock_rejected(&mut store, sender, &key);
+    let valid = Timestamp::new(61_000, 0);
+    assert!(store
+        .stage_chat_inbound(b"mls", &inbox(1), sender, &timed(valid.into()), 1_000)
+        .unwrap());
+    assert!(super::load_hlc(&store.db).unwrap() > valid);
+    assert_eq!(
+        store.chat_message(&key).unwrap().unwrap().text.as_deref(),
+        Some(&b"hello"[..])
+    );
+    assert_eq!(store.pending_acks().unwrap(), vec![inbox(1)]);
+    let stored = original_hlc(&store, &key);
+    assert_eq!(stored, i64::try_from(u64::from(valid)).unwrap());
+    assert!(matches!(
+        store.stage_chat_inbound(
+            b"other",
+            &inbox(2),
+            sender,
+            &timed(Timestamp::new(61_000, 1).into()),
+            1_000
+        ),
+        Err(Error::InboxConflict)
+    ));
+    assert!(!store.has_inbox(&inbox(2)).unwrap());
+    drop(store);
+    let store = Store::open(&path, &owner).unwrap();
+    assert_eq!(original_hlc(&store, &key), stored);
+}
+
+fn assert_future_clock_rejected(store: &mut Store, sender: VerifiedChatSender, key: &MessageKey) {
+    let timed = |hlc| Body::Text {
+        id: key.id,
+        hlc: Some(hlc),
+        text: b"hello".to_vec(),
+    };
     assert!(matches!(
         store.stage_chat_inbound(
             b"mls",
@@ -161,47 +196,17 @@ fn timed_text_rejects_future_clock_before_ack_and_observes_valid_clock() {
         Err(Error::ClockRange)
     ));
     assert!(!store.has_inbox(&inbox(1)).unwrap());
-    let valid = Timestamp::new(61_000, 0);
-    assert!(store
-        .stage_chat_inbound(b"mls", &inbox(1), sender, &timed(valid.into()), 1_000)
-        .unwrap());
-    assert!(super::load_hlc(&store.db).unwrap() > valid);
-    assert_eq!(
-        store.chat_message(&key).unwrap().unwrap().text.as_deref(),
-        Some(&b"hello"[..])
-    );
-    assert_eq!(store.pending_acks().unwrap(), vec![inbox(1)]);
-    let stored: i64 = store
+}
+
+fn original_hlc(store: &Store, key: &MessageKey) -> i64 {
+    store
         .db
         .query_row(
             "SELECT `original_hlc` FROM `chat_messages` WHERE `message_id` = ?1",
             [&key.id[..]],
             |row| row.get(0),
         )
-        .unwrap();
-    assert_eq!(stored, i64::try_from(u64::from(valid)).unwrap());
-    assert!(matches!(
-        store.stage_chat_inbound(
-            b"other",
-            &inbox(2),
-            sender,
-            &timed(Timestamp::new(61_000, 1).into()),
-            1_000
-        ),
-        Err(Error::InboxConflict)
-    ));
-    assert!(!store.has_inbox(&inbox(2)).unwrap());
-    drop(store);
-    let store = Store::open(&path, &owner).unwrap();
-    let restarted: i64 = store
-        .db
-        .query_row(
-            "SELECT `original_hlc` FROM `chat_messages` WHERE `message_id` = ?1",
-            [&key.id[..]],
-            |row| row.get(0),
-        )
-        .unwrap();
-    assert_eq!(restarted, stored);
+        .unwrap()
 }
 
 #[test]

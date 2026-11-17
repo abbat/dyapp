@@ -29,7 +29,6 @@
   {"path":"rust/bootstrap/tests/protocol/wire.rs","function":"fn node_gossip_counts_delivered_and_successfully_published_payloads ","metrics":{"lines":86}},
   {"path":"rust/client/src/store/chat_list_tests.rs","function":"fn chats_rows_keep_state_latest_time_and_unread_across_clear_and_restart ","metrics":{"cognitive":30,"lines":86}},
   {"path":"rust/client/src/store/messages/inbound_tests.rs","function":"fn chat_projection_and_delivery_commit_atomically ","metrics":{"cognitive":17,"lines":93}},
-  {"path":"rust/client/src/store/messages/inbound_tests.rs","function":"fn timed_text_rejects_future_clock_before_ack_and_observes_valid_clock ","metrics":{"lines":76}},
   {"path":"rust/client/src/store/messages/inbound_tests.rs","function":"fn unread_is_local_to_a_pair_and_survives_late_delivery_and_restart ","metrics":{"cognitive":18,"lines":107}},
   {"path":"rust/client/src/store/messages/operations/tests.rs","function":"fn early_delete_is_terminal_and_pending_budget_is_global ","metrics":{"cognitive":17,"lines":102}},
   {"path":"rust/client/src/store/messages/operations/tests.rs","function":"fn ordered_operations_replay_and_terminal_delete_survive_restart ","metrics":{"cognitive":31,"lines":100}},
