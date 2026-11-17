@@ -75,7 +75,7 @@ impl KeyRemover for Backend {
 fn fixture(layout: Layout, storage: Storage) -> (PathBuf, Registry, Backend) {
     let root = root();
     let dir = slot(&root, FIRST, b"ready\n");
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().unwrap();
     let bytes = if storage == Storage::File {
         identity.secret().to_vec()
     } else {

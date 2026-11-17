@@ -39,7 +39,7 @@ fn fixture() -> (Registry, Keys) {
     let dir = slot(&root, FIRST, b"ready\n");
     fs::write(dir.join("identity.key"), b"wrapped").unwrap();
     let keys = Keys {
-        identity: Identity::generate(),
+        identity: Identity::try_generate().unwrap(),
         lock: root.join("profiles.lock"),
     };
     (Registry::new(root, Layout::Android), keys)

@@ -94,7 +94,7 @@ fn wrapped_link_preserves_the_received_device_through_chat_bootstrap() {
     let keys = WrappedKeys::default();
     let (source, owner, _) = registry.create(Storage::Wrapped, &keys).unwrap();
     let linked = incoming();
-    let device = Identity::generate();
+    let device = Identity::try_generate().unwrap();
     let (slot, installed, _) = registry
         .link_selected_wrapped(&source.id, &owner.peer_id(), &linked, false, &keys, &device)
         .unwrap();
@@ -137,7 +137,7 @@ fn wrapped_link_failures_preserve_the_source_and_a_pending_destination() {
             &incoming(),
             true,
             &keys,
-            &Identity::generate(),
+            &Identity::try_generate().unwrap(),
         );
         assert_eq!(result.unwrap_err().to_string(), expected);
         assert_eq!(
@@ -171,7 +171,7 @@ fn wrapped_link_never_overwrites_a_device_file() {
             &incoming(),
             true,
             &keys,
-            &Identity::generate(),
+            &Identity::try_generate().unwrap(),
         )
         .is_err());
     let slots = registry.list().unwrap();

@@ -46,10 +46,10 @@ impl Fixture {
             self.peer.clone(),
             false,
             Linked {
-                identity: Identity::generate(),
+                identity: Identity::try_generate().unwrap(),
                 state: b"received state".to_vec(),
             },
-            Identity::generate(),
+            Identity::try_generate().unwrap(),
         ));
         poll
     }

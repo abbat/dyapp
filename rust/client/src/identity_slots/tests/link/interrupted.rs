@@ -45,7 +45,7 @@ fn wrapped_link_separates_source_rejection_from_unconfirmed_reservation() {
     let keys = WrappedKeys::default();
     let (source, owner, _) = registry.create(Storage::Wrapped, &keys).unwrap();
     let linked = incoming();
-    let device = Identity::generate();
+    let device = Identity::try_generate().unwrap();
     let rejected =
         registry.link_selected_wrapped(&source.id, "wrong owner", &linked, true, &keys, &device);
     assert!(matches!(rejected, Err(LinkFailure::Admission(_))));
@@ -78,7 +78,7 @@ fn known_destination_failures_report_the_exact_slot_without_claiming_rollback() 
         keys.device_failure.set(Some(failure));
         let linked = incoming();
         let linked_peer = linked.identity.peer_id();
-        let device = Identity::generate();
+        let device = Identity::try_generate().unwrap();
         let result = registry.link_selected_wrapped(
             &source.id,
             &owner.peer_id(),

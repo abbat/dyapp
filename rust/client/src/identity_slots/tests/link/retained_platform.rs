@@ -25,7 +25,7 @@ fn one_retained_outcome_supports_the_existing_platform_device_writer() {
         owner.peer_id(),
         false,
         linked,
-        Identity::generate(),
+        Identity::try_generate().unwrap(),
     );
     let (slot, installed, _) = received.install_with(&Files, &save_device).unwrap();
     assert_eq!(installed.peer_id(), peer);
@@ -55,7 +55,7 @@ fn a_platform_write_failure_never_retries_into_another_destination() {
         owner.peer_id(),
         false,
         incoming(),
-        Identity::generate(),
+        Identity::try_generate().unwrap(),
     );
     let LinkFailure::Destination { slot_id, detail } = received
         .install_with(&Files, &|_, _| Err("platform unavailable".into()))
@@ -89,7 +89,7 @@ fn wrapped_installation_still_refuses_desktop_before_any_reservation() {
         owner.peer_id(),
         false,
         incoming(),
-        Identity::generate(),
+        Identity::try_generate().unwrap(),
     );
     let keys = WrappedKeys::default();
     assert!(matches!(

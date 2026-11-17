@@ -164,7 +164,7 @@ fn a_consistent_replacement_device_or_sealing_key_cannot_authorize_bound_removal
         let mut store =
             Store::open_existing(&f.slot.dir.join("client.db"), operation.identity()).unwrap();
         let sealed = if replace_device {
-            let device = Identity::generate();
+            let device = Identity::try_generate().unwrap();
             fs::write(
                 f.slot.dir.join("device.key"),
                 device

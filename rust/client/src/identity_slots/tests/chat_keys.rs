@@ -72,7 +72,7 @@ impl ChatKeyStore for Wrapping {
 fn fixture(layout: Layout) -> (PathBuf, Registry, Wrapping) {
     let root = root();
     let directory = slot(&root, FIRST, b"ready\n");
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let wrapped: Vec<_> = owner.secret().iter().map(|byte| byte ^ 0x5a).collect();
     fs::write(directory.join("identity.key"), wrapped).unwrap();
     let name = if layout == Layout::Ios {

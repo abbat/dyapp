@@ -22,7 +22,7 @@ fn a_received_record_never_retries_an_interrupted_destination_implicitly() {
         owner.peer_id(),
         false,
         incoming(),
-        Identity::generate(),
+        Identity::try_generate().unwrap(),
     );
     mutation_available(&root);
     assert_eq!(registry.list().unwrap(), vec![source.clone()]);
@@ -60,7 +60,7 @@ fn a_platform_unwind_keeps_an_unconfirmed_outcome_instead_of_retrying() {
         owner.peer_id(),
         false,
         incoming(),
-        Identity::generate(),
+        Identity::try_generate().unwrap(),
     );
     keys.device_failure.set(Some(Failure::Panic));
     let unwound = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -94,7 +94,7 @@ fn a_completed_received_link_returns_its_receipt_without_another_installation() 
         owner.peer_id(),
         false,
         linked,
-        Identity::generate(),
+        Identity::try_generate().unwrap(),
     );
     let (slot, installed, _) = received.install(&keys).unwrap();
     assert_eq!(installed.peer_id(), peer);

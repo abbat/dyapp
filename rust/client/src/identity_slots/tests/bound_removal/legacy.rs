@@ -9,7 +9,7 @@ fn legacy_binding(f: &Fixture) -> (ChatBinding, String) {
         state: State::Ready,
         storage: Some(Storage::Wrapped),
     };
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let wrapped = f.keys.base.store(&legacy, &owner).unwrap().unwrap();
     fs::write(root.join("identity.key"), wrapped).unwrap();
     let operation = f

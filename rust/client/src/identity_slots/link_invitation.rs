@@ -38,7 +38,7 @@ impl Registry {
         let _guard = self.shared_lock()?;
         self.link_source(from, expected_peer, keys)?;
         now.checked_add(TTL_SECONDS).ok_or("Invalid link expiry")?;
-        let device = Identity::generate();
+        let device = Identity::try_generate().map_err(|error| error.to_string())?;
         let mailbox = crate::mailbox(&device.public_key());
         let invite = Invite::new(mailbox, now).map_err(|error| error.to_string())?;
         Ok(LinkInvitation {

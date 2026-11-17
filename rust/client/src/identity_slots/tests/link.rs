@@ -86,7 +86,7 @@ impl KeyWriter for WrappedKeys {
         let saved = match self.failure.get() {
             None => Some(Identity::from_secret(&identity.secret())),
             Some(WrappedFailure::Missing) => None,
-            Some(WrappedFailure::WrongOwner) => Some(Identity::generate()),
+            Some(WrappedFailure::WrongOwner) => Some(Identity::try_generate().unwrap()),
         };
         self.saved.borrow_mut().insert(slot.id.clone(), saved);
         Ok(Some(vec![1]))
@@ -164,7 +164,7 @@ fn run(wizard: bool, published: bool) -> bool {
             .unwrap();
     }
     let linked = Linked {
-        identity: Identity::generate(),
+        identity: Identity::try_generate().unwrap(),
         state: b"state".to_vec(),
     };
     let called = RefCell::new(None);
@@ -210,7 +210,7 @@ fn a_failed_device_key_leaves_the_new_slot_pending_and_the_selection_alone() {
     let registry = Registry::new(root.clone(), Layout::Desktop);
     let (old, _, _) = registry.create(Storage::File, &Files).unwrap();
     let linked = Linked {
-        identity: Identity::generate(),
+        identity: Identity::try_generate().unwrap(),
         state: b"state".to_vec(),
     };
     let device = |_: &Slot| Err("denied".to_owned());
@@ -236,7 +236,7 @@ fn a_failed_device_key_leaves_the_new_slot_pending_and_the_selection_alone() {
 
 fn incoming() -> Linked {
     Linked {
-        identity: Identity::generate(),
+        identity: Identity::try_generate().unwrap(),
         state: b"state".to_vec(),
     }
 }
@@ -302,7 +302,7 @@ fn selected_link_binds_the_slot_even_when_another_slot_has_the_same_owner() {
 #[test]
 fn selected_link_refuses_a_different_expected_owner_before_reserving_a_slot() {
     refused_selected_link(
-        |_, _, _| Identity::generate().peer_id(),
+        |_, _, _| Identity::try_generate().unwrap().peer_id(),
         "The link source changed",
     );
 }

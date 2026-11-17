@@ -27,7 +27,7 @@ impl Registry {
             return Err("Storage does not match the registry layout".into());
         }
         let mut slot = self.reserve(storage, keys)?;
-        let identity = Identity::generate();
+        let identity = Identity::try_generate().map_err(|error| error.to_string())?;
         save(&slot, storage, &identity, keys)?;
         let reopened = keys::load(&slot, keys)?.ok_or("Saved identity is missing")?;
         if reopened.peer_id() != identity.peer_id() {
