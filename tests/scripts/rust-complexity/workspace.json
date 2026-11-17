@@ -51,7 +51,6 @@
   {"path":"rust/client/src/store/messages/outbound_tests.rs","function":"fn attachment_descriptor_clock_and_delivery_survive_restart ","metrics":{"cognitive":18,"lines":107}},
   {"path":"rust/client/src/store/messages/outbound_tests.rs","function":"fn own_chat_projection_mls_and_exact_writes_share_one_commit ","metrics":{"cognitive":36,"lines":197}},
   {"path":"rust/client/src/store/messages/read_tests.rs","function":"fn pair_history_orders_legacy_and_timed_current_messages_across_groups ","metrics":{"cognitive":22,"lines":72}},
-  {"path":"rust/client/src/store/own_devices.rs","function":"mod tests # [cfg (test)]::fn only_a_newer_profile_restarts_the_clock ","metrics":{"cognitive":16}},
   {"path":"rust/client/src/store/peers.rs","function":"mod tests # [cfg (test)]::fn a_contact_never_verified_gets_the_notice_once_per_change ","metrics":{"cognitive":17}},
   {"path":"rust/client/src/tests.rs","function":"fn mailbox_pages_sign_fresh_challenges_and_reject_stalled_cursors ","metrics":{"nesting":5,"lines":108,"nested_regions":2}},
   {"path":"rust/client/src/tests.rs","function":"fn search_calls_solve_the_puzzle_and_surface_busy_nodes ","metrics":{"lines":132}},

@@ -144,6 +144,25 @@ impl Store {
 mod tests {
     use dyapp_identity::Identity;
 
+    fn assert_dropped_leaf_clock(store: &super::Store) {
+        let (one, two) = (b"one".as_slice(), b"two".as_slice());
+        assert_eq!(store.dropped_leaf_age(one, 2_000).unwrap(), 0);
+        assert_eq!(store.dropped_leaf_age(two, 2_100).unwrap(), 0);
+        assert_eq!(store.dropped_leaf_age(one, 2_500).unwrap(), 500);
+        store.forget_dropped_leaf(one).unwrap();
+        assert_eq!(store.dropped_leaf_age(one, 2_600).unwrap(), 0);
+        assert_eq!(store.dropped_leaf_age(two, 2_600).unwrap(), 500);
+    }
+
+    fn assert_device_listed_clock(store: &super::Store) {
+        assert_eq!(store.device_listed().unwrap(), 0);
+        store.note_device_listed(256).unwrap();
+        store.note_device_listed(5).unwrap();
+        assert_eq!(store.device_listed().unwrap(), 256);
+        store.note_device_listed(257).unwrap();
+        assert_eq!(store.device_listed().unwrap(), 257);
+    }
+
     #[test]
     fn only_a_newer_profile_restarts_the_clock() {
         let identity = Identity::generate();
@@ -156,18 +175,7 @@ mod tests {
         assert_eq!(store.own_profile_age(2, 1_500).unwrap(), 500);
         assert_eq!(store.own_profile_age(4, 1_600).unwrap(), 0);
         assert_eq!(store.own_profile_age(4, 1_601).unwrap(), 1);
-        let (one, two) = (b"one".as_slice(), b"two".as_slice());
-        assert_eq!(store.dropped_leaf_age(one, 2_000).unwrap(), 0);
-        assert_eq!(store.dropped_leaf_age(two, 2_100).unwrap(), 0);
-        assert_eq!(store.dropped_leaf_age(one, 2_500).unwrap(), 500);
-        store.forget_dropped_leaf(one).unwrap();
-        assert_eq!(store.dropped_leaf_age(one, 2_600).unwrap(), 0);
-        assert_eq!(store.dropped_leaf_age(two, 2_600).unwrap(), 500);
-        assert_eq!(store.device_listed().unwrap(), 0);
-        store.note_device_listed(256).unwrap();
-        store.note_device_listed(5).unwrap();
-        assert_eq!(store.device_listed().unwrap(), 256);
-        store.note_device_listed(257).unwrap();
-        assert_eq!(store.device_listed().unwrap(), 257);
+        assert_dropped_leaf_clock(&store);
+        assert_device_listed_clock(&store);
     }
 }
