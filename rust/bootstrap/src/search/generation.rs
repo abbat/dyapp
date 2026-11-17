@@ -311,7 +311,7 @@ impl SearchIndex {
             written: AtomicU64::new(0),
             over: AtomicBool::new(false),
             created: AtomicI64::new(created),
-            newcomer_seconds: i64::from(search.newcomer_days) * 86_400,
+            newcomer_seconds: i64::from(search.newcomer_days).saturating_mul(86_400),
             newcomer_quota: newcomer_quota(search),
             newcomer_bytes: AtomicU64::new(0),
             newcomer_checked: AtomicI64::new(i64::MIN),

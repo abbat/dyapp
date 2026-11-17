@@ -38,7 +38,7 @@ struct Streak {
 impl Streak {
     fn record(&mut self, kind: Kind) {
         if self.kind == Some(kind) {
-            self.count += 1;
+            self.count = self.count.saturating_add(1);
         } else {
             *self = Self {
                 kind: Some(kind),

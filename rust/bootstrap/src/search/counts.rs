@@ -110,7 +110,7 @@ impl SearchIndex {
     /// Adds `delta` record bytes of newcomer `key`; past the quota, evicts other newcomers,
     /// oldest heartbeat first.
     pub(super) fn bound_newcomers(&self, key: &[u8; 32], delta: i64, now: i64) -> Result<()> {
-        let since = now - self.newcomer_seconds;
+        let since = now.saturating_sub(self.newcomer_seconds);
         let mut held = self
             .newcomer_bytes
             .load(Ordering::Relaxed)
@@ -144,7 +144,7 @@ impl SearchIndex {
                 if held.saturating_sub(freed) <= self.newcomer_quota {
                     break;
                 }
-                freed += bytes.unsigned_abs();
+                freed = freed.saturating_add(bytes.unsigned_abs());
                 keys.push(key);
             }
             drop(statement);
@@ -165,7 +165,7 @@ impl SearchIndex {
     /// Removes up to `BATCH` established keys from the place with the most indexed profiles,
     /// highest `r` first. Tombstones and newcomers are never removed by size.
     pub(super) fn evict_established(&self, now: i64) -> Result<usize> {
-        let since = now - self.newcomer_seconds;
+        let since = now.saturating_sub(self.newcomer_seconds);
         let mut db = lock(&self.db)?;
         let mut tx = db.change()?;
         let mut keys = vec![];

@@ -340,7 +340,7 @@ impl Scan<'_> {
                 break;
             };
             let (key, version, _, ok) = heads[i].take().expect("picked a live head");
-            scanned += 1;
+            scanned = scanned.saturating_add(1);
             if ok {
                 hits.push((key, version));
             }
@@ -393,9 +393,10 @@ impl SearchIndex {
             if hits.len() >= limit || scanned >= max_scan_rows || lo > hi {
                 break;
             }
-            let (mut range_hits, range_scanned) = scan.range(lo, hi, max_scan_rows - scanned)?;
+            let (mut range_hits, range_scanned) =
+                scan.range(lo, hi, max_scan_rows.saturating_sub(scanned))?;
             hits.append(&mut range_hits);
-            scanned += range_scanned;
+            scanned = scanned.saturating_add(range_scanned);
         }
         // A refilling index misses keys: clients complete the results from other nodes.
         let partial = hits.len() < limit && scanned >= max_scan_rows || self.refilling();

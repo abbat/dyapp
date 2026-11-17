@@ -142,7 +142,7 @@ fn apply(db: &mut Connection, rows: &[([u8; 32], Option<Row>)]) -> Result<u64> {
 /// and place counts, the source rows come in, the derived tables rebuilt from the record.
 /// Idempotent. Returns the estimated bytes written.
 pub(super) fn apply_rows(tx: &Connection, rows: &[([u8; 32], Option<Row>)]) -> Result<u64> {
-    let mut bytes = 0;
+    let mut bytes: u64 = 0;
     for (key, row) in rows {
         let old: Option<i64> = tx
             .query_row(
@@ -163,7 +163,7 @@ pub(super) fn apply_rows(tx: &Connection, rows: &[([u8; 32], Option<Row>)]) -> R
                 .map_err(storage_error)?;
             }
         }
-        bytes += KEY_ROW_BYTES;
+        bytes = bytes.saturating_add(KEY_ROW_BYTES);
         let Some(row) = row else {
             continue;
         };
@@ -183,7 +183,7 @@ pub(super) fn apply_rows(tx: &Connection, rows: &[([u8; 32], Option<Row>)]) -> R
                 insert_profile(tx, key, &profile, r)?;
             }
             super::insert_record(tx, key, record)?;
-            bytes += record.len() as u64;
+            bytes = bytes.saturating_add(record.len() as u64);
         }
     }
     Ok(bytes)
@@ -266,8 +266,9 @@ impl SearchIndex {
         min_free: u64,
     ) -> std::result::Result<(), Abort> {
         let active = self.active_path();
-        let need =
-            (file_len(&active) + file_len(&sibling(&active, "-wal"))).saturating_add(min_free);
+        let need = file_len(&active)
+            .saturating_add(file_len(&sibling(&active, "-wal")))
+            .saturating_add(min_free);
         if free(&self.path)? < need {
             return Err(Abort::Disk);
         }
