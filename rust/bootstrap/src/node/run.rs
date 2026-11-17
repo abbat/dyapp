@@ -3,6 +3,7 @@
 use super::*;
 mod hangup;
 mod overload;
+mod requests;
 mod search_jobs;
 mod stored;
 use search_jobs::{start_search, SearchDone, SearchJob};
@@ -271,16 +272,15 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     peer: id,
                     connection_id,
                     message: Message::Request { request, channel, .. },
-                })) => {
-                    let from = peer(&swarm, &service, id, connection_id);
-                    enqueue(&mut store_queue, id, connection_id, Box::new(move |service, _| {
-                        if let Some(proto::key_package_request::Request::Publish(record)) = &request.request {
-                            let result = service.prepare_keypackage(&from, record.clone());
-                            return StoreDone::KeyPackagePublish(channel, record.clone(), result);
-                        }
-                        StoreDone::KeyPackage(channel, service.keypackage(&from, request))
-                    }));
-                }
+                })) => requests::keypackage(
+                    &mut swarm,
+                    &service,
+                    &mut store_queue,
+                    id,
+                    connection_id,
+                    request,
+                    channel,
+                ),
                 SwarmEvent::Behaviour(BehaviourEvent::Media(Event::Message {
                     peer: id,
                     connection_id,
@@ -326,18 +326,15 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     peer: id,
                     connection_id,
                     message: Message::Request { request, channel, .. },
-                })) => {
-                    let from = peer(&swarm, &service, id, connection_id);
-                    enqueue(&mut store_queue, id, connection_id, Box::new(move |service, nonce| {
-                        if let Some(mailbox_request::Request::Put(record)) = &request.request {
-                            let result = service.prepare_mailbox(&from, record.clone());
-                            let group = service.put_group(record, &from);
-                            return StoreDone::MailboxPut(channel, record.clone(), group, result);
-                        }
-                        let kind = request.request.clone();
-                        StoreDone::Mailbox(channel, kind, service.mailbox(&from, nonce, request))
-                    }));
-                }
+                })) => requests::mailbox(
+                    &mut swarm,
+                    &service,
+                    &mut store_queue,
+                    id,
+                    connection_id,
+                    request,
+                    channel,
+                ),
                 SwarmEvent::Behaviour(BehaviourEvent::Search(Event::Message {
                     peer: id,
                     connection_id,
@@ -406,22 +403,28 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     peer: id,
                     connection_id,
                     message: Message::Request { request, channel, .. },
-                })) => {
-                    let from = peer(&swarm, &service, id, connection_id);
-                    enqueue(&mut store_queue, id, connection_id, Box::new(move |service, _| {
-                        StoreDone::Inventory(channel, service.search_inventory(&from, request))
-                    }));
-                }
+                })) => requests::inventory(
+                    &mut swarm,
+                    &service,
+                    &mut store_queue,
+                    id,
+                    connection_id,
+                    request,
+                    channel,
+                ),
                 SwarmEvent::Behaviour(BehaviourEvent::Digest(Event::Message {
                     peer: id,
                     connection_id,
                     message: Message::Request { request, channel, .. },
-                })) => {
-                    let from = peer(&swarm, &service, id, connection_id);
-                    enqueue(&mut store_queue, id, connection_id, Box::new(move |service, _| {
-                        StoreDone::Digest(channel, service.search_digest(&from, request))
-                    }));
-                }
+                })) => requests::digest(
+                    &mut swarm,
+                    &service,
+                    &mut store_queue,
+                    id,
+                    connection_id,
+                    request,
+                    channel,
+                ),
                 SwarmEvent::Behaviour(BehaviourEvent::Gossip(gossipsub::Event::Message {
                     propagation_source,
                     message_id,
