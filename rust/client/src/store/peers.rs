@@ -801,6 +801,21 @@ mod tests {
         assert!(!store.new_device(&peer).unwrap());
     }
 
+    fn assert_removed_device_notice(
+        store: &Store,
+        added: &VerifiedProfile,
+        linked: &mut VerifiedProfile,
+    ) {
+        // A device removed by a newer profile is new again when it returns.
+        let mut removed = added.clone();
+        removed.profile.version = 8;
+        assert!(!store.verified(&removed).unwrap());
+        assert!(!store.new_device(&removed.peer_id).unwrap());
+        linked.profile.version = 9;
+        assert!(!store.verified(linked).unwrap());
+        assert!(store.new_device(&linked.peer_id).unwrap());
+    }
+
     #[test]
     fn a_contact_never_verified_gets_the_notice_once_per_change() {
         let path = temp_db_path();
@@ -843,13 +858,6 @@ mod tests {
         assert!(store.new_device(&peer).unwrap());
         store.acknowledge_new_device(&peer).unwrap();
 
-        // A device removed by a newer profile is new again when it returns.
-        let mut removed = added.clone();
-        removed.profile.version = 8;
-        assert!(!store.verified(&removed).unwrap());
-        assert!(!store.new_device(&peer).unwrap());
-        linked.profile.version = 9;
-        assert!(!store.verified(&linked).unwrap());
-        assert!(store.new_device(&peer).unwrap());
+        assert_removed_device_notice(&store, &added, &mut linked);
     }
 }
