@@ -37,59 +37,76 @@ fn ordered_operations_replay_and_terminal_delete_survive_restart() {
     assert!(store.record_chat_text(&key, b"original").unwrap());
 
     let newer = edit(key.id, 1, 200, b"newer");
-    assert!(store
-        .apply_chat_operation(&key, &[2; 32], &newer, 1_000)
-        .unwrap());
-    assert!(!store
-        .apply_chat_operation(&key, &[2; 32], &newer, 1_000)
-        .unwrap());
-    assert!(matches!(
-        store.apply_chat_operation(&key, &[3; 32], &newer, 1_000),
-        Err(Error::InboxConflict)
-    ));
-    assert!(matches!(
-        store.apply_chat_operation(&key, &[2; 31], &newer, 1_000),
-        Err(Error::InboxConflict)
-    ));
-    assert!(matches!(
-        store.apply_chat_operation(&key, &[2; 32], &edit(key.id, 1, 200, b"forged"), 1_000),
-        Err(Error::InboxConflict)
-    ));
-    assert!(!store
-        .apply_chat_operation(&key, &[9; 32], &edit(key.id, 2, 100, b"older"), 1_000)
-        .unwrap());
-    assert_eq!(
-        store.chat_message(&key).unwrap().unwrap().text.as_deref(),
-        Some(&b"newer"[..])
-    );
-    assert!(!store.record_chat_text(&key, b"original").unwrap());
-    assert_eq!(
-        store.chat_message(&key).unwrap().unwrap().text.as_deref(),
-        Some(&b"newer"[..])
-    );
+    assert_ordering_conflicts(&mut store, &key, &newer);
+    assert_tie_breaking(&mut store, &key);
+    assert_operation_isolation(&mut store, &key, &bob, &newer);
+    assert_ordered_terminal_delete(&mut store, &key);
+    drop(store);
 
+    let mut store = Store::open(&path, &alice).unwrap();
+    assert!(!store.record_chat_text(&key, b"original").unwrap());
+    let message = store.chat_message(&key).unwrap().unwrap();
+    assert!(message.text.is_none() && message.deleted);
+}
+
+fn assert_ordering_conflicts(store: &mut Store, key: &MessageKey, newer: &Body) {
+    assert!(store
+        .apply_chat_operation(key, &[2; 32], newer, 1_000)
+        .unwrap());
+    assert!(!store
+        .apply_chat_operation(key, &[2; 32], newer, 1_000)
+        .unwrap());
+    assert!(matches!(
+        store.apply_chat_operation(key, &[3; 32], newer, 1_000),
+        Err(Error::InboxConflict)
+    ));
+    assert!(matches!(
+        store.apply_chat_operation(key, &[2; 31], newer, 1_000),
+        Err(Error::InboxConflict)
+    ));
+    assert!(matches!(
+        store.apply_chat_operation(key, &[2; 32], &edit(key.id, 1, 200, b"forged"), 1_000),
+        Err(Error::InboxConflict)
+    ));
+    assert!(!store
+        .apply_chat_operation(key, &[9; 32], &edit(key.id, 2, 100, b"older"), 1_000)
+        .unwrap());
+    assert_eq!(
+        store.chat_message(key).unwrap().unwrap().text.as_deref(),
+        Some(&b"newer"[..])
+    );
+    assert!(!store.record_chat_text(key, b"original").unwrap());
+    assert_eq!(
+        store.chat_message(key).unwrap().unwrap().text.as_deref(),
+        Some(&b"newer"[..])
+    );
+}
+
+fn assert_tie_breaking(store: &mut Store, key: &MessageKey) {
     // The sending device breaks equal HLC ties, followed by operation ID.
     assert!(store
-        .apply_chat_operation(&key, &[3; 32], &edit(key.id, 3, 200, b"tie winner"), 1_000)
+        .apply_chat_operation(key, &[3; 32], &edit(key.id, 3, 200, b"tie winner"), 1_000)
         .unwrap());
     assert!(!store
-        .apply_chat_operation(&key, &[1; 32], &edit(key.id, 4, 200, b"tie loser"), 1_000)
+        .apply_chat_operation(key, &[1; 32], &edit(key.id, 4, 200, b"tie loser"), 1_000)
         .unwrap());
     assert_eq!(
-        store.chat_message(&key).unwrap().unwrap().text.as_deref(),
+        store.chat_message(key).unwrap().unwrap().text.as_deref(),
         Some(&b"tie winner"[..])
     );
+}
 
+fn assert_operation_isolation(store: &mut Store, key: &MessageKey, bob: &Identity, newer: &Body) {
     let wrong_author = MessageKey {
         author: bob.peer_id(),
         ..key.clone()
     };
     // This remains pending under the other author's key; it cannot change Alice's text.
     assert!(store
-        .apply_chat_operation(&wrong_author, &[2; 32], &newer, 1_000)
+        .apply_chat_operation(&wrong_author, &[2; 32], newer, 1_000)
         .unwrap());
     assert_eq!(
-        store.chat_message(&key).unwrap().unwrap().text.as_deref(),
+        store.chat_message(key).unwrap().unwrap().text.as_deref(),
         Some(&b"tie winner"[..])
     );
     let wrong_group = MessageKey {
@@ -97,34 +114,31 @@ fn ordered_operations_replay_and_terminal_delete_survive_restart() {
         ..key.clone()
     };
     assert!(store
-        .apply_chat_operation(&wrong_group, &[2; 32], &newer, 1_000)
+        .apply_chat_operation(&wrong_group, &[2; 32], newer, 1_000)
         .unwrap());
     assert_eq!(
-        store.chat_message(&key).unwrap().unwrap().text.as_deref(),
+        store.chat_message(key).unwrap().unwrap().text.as_deref(),
         Some(&b"tie winner"[..])
     );
     assert!(matches!(
-        store.apply_chat_operation(&key, &[2; 32], &edit(key.id, 5, 100_000, b"future"), 1_000),
+        store.apply_chat_operation(key, &[2; 32], &edit(key.id, 5, 100_000, b"future"), 1_000),
         Err(Error::ClockSkew(_))
     ));
+}
+
+fn assert_ordered_terminal_delete(store: &mut Store, key: &MessageKey) {
     assert!(store
-        .apply_chat_operation(&key, &[1; 32], &delete(key.id, 6, 50), 1_000)
+        .apply_chat_operation(key, &[1; 32], &delete(key.id, 6, 50), 1_000)
         .unwrap());
     assert!(!store
-        .apply_chat_operation(&key, &[3; 32], &edit(key.id, 7, 500, b"revive"), 1_000)
+        .apply_chat_operation(key, &[3; 32], &edit(key.id, 7, 500, b"revive"), 1_000)
         .unwrap());
-    assert!(!store.record_chat_text(&key, b"original").unwrap());
+    assert!(!store.record_chat_text(key, b"original").unwrap());
     assert!(matches!(
-        store.record_chat_text(&key, b"forged original"),
+        store.record_chat_text(key, b"forged original"),
         Err(Error::InboxConflict)
     ));
-    let message = store.chat_message(&key).unwrap().unwrap();
-    assert!(message.text.is_none() && message.deleted);
-    drop(store);
-
-    let mut store = Store::open(&path, &alice).unwrap();
-    assert!(!store.record_chat_text(&key, b"original").unwrap());
-    let message = store.chat_message(&key).unwrap().unwrap();
+    let message = store.chat_message(key).unwrap().unwrap();
     assert!(message.text.is_none() && message.deleted);
 }
 
