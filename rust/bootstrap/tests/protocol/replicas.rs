@@ -30,6 +30,16 @@ impl ReplicaRequest {
     }
 }
 
+fn replica_profile(owner: &Identity) -> ReplicaRequest {
+    ReplicaRequest::Profile(
+        Profile {
+            version: 1,
+            ..Default::default()
+        }
+        .sign(owner),
+    )
+}
+
 fn replica_requests() -> [ReplicaRequest; 4] {
     let owner = Identity::generate();
     let (manifest, shards) =
@@ -47,13 +57,7 @@ fn replica_requests() -> [ReplicaRequest; 4] {
         owner.sign(Domain::MediaKeep, keep.encode_to_vec()),
     ));
     [
-        ReplicaRequest::Profile(
-            Profile {
-                version: 1,
-                ..Default::default()
-            }
-            .sign(&owner),
-        ),
+        replica_profile(&owner),
         ReplicaRequest::Mailbox(
             owner.sign(
                 Domain::Envelope,
