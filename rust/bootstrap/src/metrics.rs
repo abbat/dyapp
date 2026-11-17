@@ -201,7 +201,15 @@ pub fn render(service: &Service) -> String {
         "Unix time the process started.",
     );
     out.sample("process_start_time_seconds", "", metrics.started);
+    render_protocols(&mut out, service);
+    render_service_guards(&mut out, service);
+    render_search(&mut out, service);
+    render_storage(&mut out, metrics);
+    out.0
+}
 
+fn render_protocols(out: &mut Text, service: &Service) {
+    let metrics = &service.metrics;
     out.family(
         "requests_total",
         "counter",
@@ -236,6 +244,10 @@ pub fn render(service: &Service) -> String {
             out.sample("wire_bytes_total", &labels, bytes);
         }
     }
+}
+
+fn render_service_guards(out: &mut Text, service: &Service) {
+    let metrics = &service.metrics;
     let (checks, forged) = service.pow.totals();
     out.family("pow_checks_total", "counter", "Proof-of-work checks run.");
     out.sample("pow_checks_total", "", checks);
@@ -254,7 +266,9 @@ pub fn render(service: &Service) -> String {
     out.sample("connected_peers", "", load(&metrics.connected_peers));
     out.family("connections", "gauge", "Established connections.");
     out.sample("connections", "", load(&metrics.connections));
+}
 
+fn render_search(out: &mut Text, service: &Service) {
     if let Some(index) = &service.search {
         let report = index.rebuild_report();
         out.family(
@@ -293,7 +307,9 @@ pub fn render(service: &Service) -> String {
             index.newcomer_evictions(),
         );
     }
+}
 
+fn render_storage(out: &mut Text, metrics: &Metrics) {
     let snapshot = metrics.snapshot.lock().map(|s| *s).unwrap_or_default();
     out.family(
         "snapshot_timestamp_seconds",
@@ -328,7 +344,6 @@ pub fn render(service: &Service) -> String {
             }
         }
     }
-    out.0
 }
 
 /// Prometheus text format 0.0.4, every name prefixed `dyapp_`.
