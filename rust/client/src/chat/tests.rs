@@ -201,39 +201,12 @@ fn body_frame_is_strict() {
     assert!(Body::decode(&text).ok() == Some(Body::text_with_id([1; 16], tagged)));
 }
 
-#[test]
-fn message_operations_have_strict_frames() {
-    let edit = Body::Edit {
-        target: [1; 16],
-        operation: [2; 16],
-        hlc: 0x0102_0304_0506_0708,
-        text: b"new text".to_vec(),
-    };
+fn assert_invalid_message_operations() {
     let delete = Body::Delete {
         target: [1; 16],
         operation: [3; 16],
         hlc: 42,
     };
-    let presence = Body::Presence {
-        hlc: 0x0102_0304_0506_0708,
-    };
-    let read = Body::Read { up_to: [6; 16] };
-    for body in [
-        Body::text_with_id([4; 16], vec![5; MAX_TEXT_BYTES]),
-        edit.clone(),
-        delete.clone(),
-        presence.clone(),
-        read.clone(),
-    ] {
-        assert!(Body::decode(&body.encode()).ok() == Some(body));
-    }
-    assert_eq!(presence.encode(), [10, 1, 2, 3, 4, 5, 6, 7, 8]);
-    assert_eq!(read.encode(), [&[11], &[6; 16][..]].concat());
-    assert_eq!(
-        &edit.encode()[33..41],
-        &0x0102_0304_0506_0708u64.to_be_bytes()
-    );
-    assert_eq!(delete.encode().len(), 41);
     for bad in [
         vec![1],
         vec![1; 16],
@@ -276,6 +249,42 @@ fn message_operations_have_strict_frames() {
             bad.len()
         );
     }
+}
+
+#[test]
+fn message_operations_have_strict_frames() {
+    let edit = Body::Edit {
+        target: [1; 16],
+        operation: [2; 16],
+        hlc: 0x0102_0304_0506_0708,
+        text: b"new text".to_vec(),
+    };
+    let delete = Body::Delete {
+        target: [1; 16],
+        operation: [3; 16],
+        hlc: 42,
+    };
+    let presence = Body::Presence {
+        hlc: 0x0102_0304_0506_0708,
+    };
+    let read = Body::Read { up_to: [6; 16] };
+    for body in [
+        Body::text_with_id([4; 16], vec![5; MAX_TEXT_BYTES]),
+        edit.clone(),
+        delete.clone(),
+        presence.clone(),
+        read.clone(),
+    ] {
+        assert!(Body::decode(&body.encode()).ok() == Some(body));
+    }
+    assert_eq!(presence.encode(), [10, 1, 2, 3, 4, 5, 6, 7, 8]);
+    assert_eq!(read.encode(), [&[11], &[6; 16][..]].concat());
+    assert_eq!(
+        &edit.encode()[33..41],
+        &0x0102_0304_0506_0708u64.to_be_bytes()
+    );
+    assert_eq!(delete.encode().len(), 41);
+    assert_invalid_message_operations();
 }
 
 #[test]
