@@ -2,157 +2,182 @@ use super::*;
 
 #[tokio::test]
 async fn different_namespaces_refuse_rpc_and_gossip_negotiation_over_tcp() {
-    fn unsupported<Req, Resp>(event: &Event<Req, Resp>) -> bool {
-        match event {
-            Event::OutboundFailure { error, .. } => {
-                assert!(
-                    matches!(
-                        error,
-                        request_response::OutboundFailure::UnsupportedProtocols
-                    ),
-                    "{error:?}"
-                );
-                true
-            }
-            Event::Message { .. } => panic!("RPC negotiated across namespaces"),
-            _ => false,
-        }
-    }
     for (server_name, client_name) in [
         ("isolated-a", ""),
         ("", "isolated-a"),
         ("isolated-a", "isolated-b"),
     ] {
-        let server_protocols =
-            std::sync::Arc::new(dyapp_p2p_net::Protocols::new(server_name).unwrap());
-        // The server's identify version keeps the node from dropping the client, so only the
-        // stream IDs differ.
-        let client_protocols = std::sync::Arc::new(dyapp_p2p_net::Protocols {
-            version: server_protocols.version.clone(),
-            ..dyapp_p2p_net::Protocols::new(client_name).unwrap()
-        });
-        let (address, wire, _) = start_config_in_protocols(
-            |c| {
-                c.roles = vec![Role::Store, Role::Media, Role::Search];
-                c.limits.requests_per_second = 1000;
-                c.limits.media_requests_per_second = 100;
-                c.limits.bytes_per_second = 0;
-                c.limits.min_free_mb = 0;
-            },
-            server_protocols,
-        )
-        .await;
-        let mut client = Client::connect_in_network(
-            &address,
-            Keypair::generate_ed25519(),
-            true,
-            client_protocols,
-        )
-        .await;
-        let id = client.server;
-        let behaviour = client.swarm.behaviour_mut();
-        behaviour.node.send_request(
-            &id,
-            proto::NodeRequest {
-                request: Some(node_request::Request::Info(proto::InfoRequest {})),
-            },
-        );
-        behaviour.profile.send_request(
-            &id,
-            proto::ProfileRequest {
-                request: Some(profile_request::Request::Get(proto::GetProfile {
-                    peer_id: vec![0; 32],
-                })),
-                age_seconds: 0,
-            },
-        );
-        behaviour.mailbox.send_request(
-            &id,
-            proto::MailboxRequest {
-                request: Some(mailbox_request::Request::Challenge(
-                    proto::ChallengeRequest {},
-                )),
-            },
-        );
-        behaviour.media.send_request(
-            &id,
-            proto::MediaRequest {
-                request: Some(proto::media_request::Request::Get(proto::GetMedia {
-                    hash: vec![0; 32],
-                    ..Default::default()
-                })),
-            },
-        );
-        behaviour.search.send_request(
-            &id,
-            proto::SearchRequest {
-                request: Some(proto::search_request::Request::Get(proto::SearchGet {
-                    keys: vec![],
-                    puzzle: None,
-                })),
-            },
-        );
-        behaviour.inventory.send_request(
-            &id,
-            proto::InventoryRequest {
-                topic: 0,
-                after: vec![],
-                before: vec![],
-            },
-        );
-        behaviour.digest.send_request(
-            &id,
-            proto::DigestRequest {
-                topic: 0,
-                bucket: None,
-            },
-        );
-        let mut failed = std::collections::HashSet::new();
-        tokio::time::timeout(Duration::from_secs(10), async {
-            while failed.len() < 8 {
-                if let SwarmEvent::Behaviour(event) = client.swarm.select_next_some().await {
-                    match event {
-                        BehaviourEvent::Node(event) if unsupported(&event) => {
-                            failed.insert("node");
-                        }
-                        BehaviourEvent::Profile(event) if unsupported(&event) => {
-                            failed.insert("profile");
-                        }
-                        BehaviourEvent::Mailbox(event) if unsupported(&event) => {
-                            failed.insert("mailbox");
-                        }
-                        BehaviourEvent::Media(event) if unsupported(&event) => {
-                            failed.insert("media");
-                        }
-                        BehaviourEvent::Search(event) if unsupported(&event) => {
-                            failed.insert("search");
-                        }
-                        BehaviourEvent::Inventory(event) if unsupported(&event) => {
-                            failed.insert("inventory");
-                        }
-                        BehaviourEvent::Digest(event) if unsupported(&event) => {
-                            failed.insert("digest");
-                        }
-                        BehaviourEvent::Gossip(
-                            libp2p::gossipsub::Event::GossipsubNotSupported { peer_id },
-                        ) => {
-                            assert_eq!(peer_id, id);
-                            failed.insert("gossip");
-                        }
-                        BehaviourEvent::Gossip(
-                            libp2p::gossipsub::Event::Subscribed { .. }
-                            | libp2p::gossipsub::Event::Message { .. },
-                        ) => panic!("gossip negotiated across namespaces"),
-                        _ => {}
-                    }
-                }
+        Box::pin(namespace_case(server_name, client_name)).await;
+    }
+}
+
+fn unsupported<Req, Resp>(event: &Event<Req, Resp>) -> bool {
+    match event {
+        Event::OutboundFailure { error, .. } => {
+            assert!(
+                matches!(
+                    error,
+                    request_response::OutboundFailure::UnsupportedProtocols
+                ),
+                "{error:?}"
+            );
+            true
+        }
+        Event::Message { .. } => panic!("RPC negotiated across namespaces"),
+        _ => false,
+    }
+}
+
+async fn namespace_case(server_name: &str, client_name: &str) {
+    let server_protocols = std::sync::Arc::new(dyapp_p2p_net::Protocols::new(server_name).unwrap());
+    // The server's identify version keeps the node from dropping the client, so only the
+    // stream IDs differ.
+    let client_protocols = std::sync::Arc::new(dyapp_p2p_net::Protocols {
+        version: server_protocols.version.clone(),
+        ..dyapp_p2p_net::Protocols::new(client_name).unwrap()
+    });
+    let (address, wire, _) = start_config_in_protocols(
+        |c| {
+            c.roles = vec![Role::Store, Role::Media, Role::Search];
+            c.limits.requests_per_second = 1000;
+            c.limits.media_requests_per_second = 100;
+            c.limits.bytes_per_second = 0;
+            c.limits.min_free_mb = 0;
+        },
+        server_protocols,
+    )
+    .await;
+    let mut client = Client::connect_in_network(
+        &address,
+        Keypair::generate_ed25519(),
+        true,
+        client_protocols,
+    )
+    .await;
+    send_core_requests(&mut client);
+    send_search_requests(&mut client);
+    wait_namespace_failures(&mut client).await;
+    let id = client.server;
+    assert!(client.swarm.is_connected(&id)); // Common transport is separate from application isolation.
+    assert_eq!(wire.take().0, [[0; 2]; 11]);
+    assert_eq!(client.wire.take().0, [[0; 2]; 11]);
+}
+
+fn send_core_requests(client: &mut Client) {
+    let id = client.server;
+    let behaviour = client.swarm.behaviour_mut();
+    behaviour.node.send_request(
+        &id,
+        proto::NodeRequest {
+            request: Some(node_request::Request::Info(proto::InfoRequest {})),
+        },
+    );
+    behaviour.profile.send_request(
+        &id,
+        proto::ProfileRequest {
+            request: Some(profile_request::Request::Get(proto::GetProfile {
+                peer_id: vec![0; 32],
+            })),
+            age_seconds: 0,
+        },
+    );
+    behaviour.mailbox.send_request(
+        &id,
+        proto::MailboxRequest {
+            request: Some(mailbox_request::Request::Challenge(
+                proto::ChallengeRequest {},
+            )),
+        },
+    );
+    behaviour.media.send_request(
+        &id,
+        proto::MediaRequest {
+            request: Some(proto::media_request::Request::Get(proto::GetMedia {
+                hash: vec![0; 32],
+                ..Default::default()
+            })),
+        },
+    );
+}
+
+fn send_search_requests(client: &mut Client) {
+    let id = client.server;
+    let behaviour = client.swarm.behaviour_mut();
+    behaviour.search.send_request(
+        &id,
+        proto::SearchRequest {
+            request: Some(proto::search_request::Request::Get(proto::SearchGet {
+                keys: vec![],
+                puzzle: None,
+            })),
+        },
+    );
+    behaviour.inventory.send_request(
+        &id,
+        proto::InventoryRequest {
+            topic: 0,
+            after: vec![],
+            before: vec![],
+        },
+    );
+    behaviour.digest.send_request(
+        &id,
+        proto::DigestRequest {
+            topic: 0,
+            bucket: None,
+        },
+    );
+}
+
+async fn wait_namespace_failures(client: &mut Client) {
+    let id = client.server;
+    let mut failed = std::collections::HashSet::new();
+    tokio::time::timeout(Duration::from_secs(10), async {
+        while failed.len() < 8 {
+            if let SwarmEvent::Behaviour(event) = client.swarm.select_next_some().await {
+                record_namespace_failure(event, &mut failed, id);
             }
-        })
-        .await
-        .unwrap();
-        assert!(client.swarm.is_connected(&id)); // Common transport is separate from application isolation.
-        assert_eq!(wire.take().0, [[0; 2]; 11]);
-        assert_eq!(client.wire.take().0, [[0; 2]; 11]);
+        }
+    })
+    .await
+    .unwrap();
+}
+
+fn record_namespace_failure(
+    event: BehaviourEvent,
+    failed: &mut std::collections::HashSet<&'static str>,
+    id: PeerId,
+) {
+    match event {
+        BehaviourEvent::Node(event) if unsupported(&event) => {
+            failed.insert("node");
+        }
+        BehaviourEvent::Profile(event) if unsupported(&event) => {
+            failed.insert("profile");
+        }
+        BehaviourEvent::Mailbox(event) if unsupported(&event) => {
+            failed.insert("mailbox");
+        }
+        BehaviourEvent::Media(event) if unsupported(&event) => {
+            failed.insert("media");
+        }
+        BehaviourEvent::Search(event) if unsupported(&event) => {
+            failed.insert("search");
+        }
+        BehaviourEvent::Inventory(event) if unsupported(&event) => {
+            failed.insert("inventory");
+        }
+        BehaviourEvent::Digest(event) if unsupported(&event) => {
+            failed.insert("digest");
+        }
+        BehaviourEvent::Gossip(libp2p::gossipsub::Event::GossipsubNotSupported { peer_id }) => {
+            assert_eq!(peer_id, id);
+            failed.insert("gossip");
+        }
+        BehaviourEvent::Gossip(
+            libp2p::gossipsub::Event::Subscribed { .. } | libp2p::gossipsub::Event::Message { .. },
+        ) => panic!("gossip negotiated across namespaces"),
+        _ => {}
     }
 }
 

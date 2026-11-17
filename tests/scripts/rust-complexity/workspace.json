@@ -8,6 +8,5 @@
   {"path":"rust/bootstrap/tests/protocol/chat_ack_failure.rs","function":"fn ack_marker_failure_keeps_projection_and_retries_without_duplicate_event ","metrics":{"lines":140}},
   {"path":"rust/bootstrap/tests/protocol/chat_edits.rs","function":"fn offline_recipient_acknowledges_original_and_delete_after_reconnect ","metrics":{"lines":90}},
   {"path":"rust/bootstrap/tests/protocol/chat_edits.rs","function":"fn two_sessions_converge_on_edit_and_terminal_delete ","metrics":{"lines":202}},
-  {"path":"rust/bootstrap/tests/protocol/namespaces.rs","function":"fn different_namespaces_refuse_rpc_and_gossip_negotiation_over_tcp ","metrics":{"nesting":6,"lines":150,"nested_regions":1}},
   {"path":"rust/bootstrap/tests/protocol/namespaces.rs","function":"fn named_node_serves_profile_search_and_configured_gossip_topics ","metrics":{"nesting":6,"lines":91,"nested_regions":3}},
 ]
