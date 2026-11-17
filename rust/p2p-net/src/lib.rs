@@ -912,52 +912,94 @@ pub fn add_search_peer(swarm: &mut Swarm<Behaviour>, peer: PeerId, address: Mult
     admit(&mut swarm.behaviour_mut().search_kad, peer, address)
 }
 
+#[derive(Default)]
+struct RoutingGroupUse {
+    bucket_count: usize,
+    table_count: usize,
+    bucket_wide: bool,
+}
+
+fn routing_group_use(
+    kad: &mut kad::Behaviour<kad::store::MemoryStore>,
+    peer: PeerId,
+    group: &str,
+    wide: &str,
+) -> Option<RoutingGroupUse> {
+    let range = kad.kbucket(peer).map(|b| b.range())?;
+    let mut usage = RoutingGroupUse::default();
+    for bucket in kad.kbuckets() {
+        let in_bucket = bucket.range() == range;
+        for entry in bucket.iter() {
+            if *entry.node.key.preimage() == peer {
+                continue;
+            }
+            let has = |g: &str, w| {
+                entry
+                    .node
+                    .value
+                    .iter()
+                    .any(|a| ip_group(a, w).as_deref() == Some(g))
+            };
+            if has(group, false) {
+                usage.table_count += 1;
+                usage.bucket_count += usize::from(in_bucket);
+            }
+            usage.bucket_wide |= in_bucket && has(wide, true);
+        }
+    }
+    Some(usage)
+}
+
+fn routing_group_full(usage: &RoutingGroupUse, distinct: bool) -> bool {
+    usage.bucket_count >= MAX_GROUP_PER_BUCKET
+        || usage.table_count >= MAX_GROUP_PER_TABLE
+        || (distinct && usage.bucket_wide)
+}
+
+fn route_ip_group(
+    kad: &mut kad::Behaviour<kad::store::MemoryStore>,
+    peer: PeerId,
+    address: &Multiaddr,
+) -> bool {
+    let (Some(group), Some(wide)) = (ip_group(address, false), ip_group(address, true)) else {
+        return true;
+    };
+    let Some(usage) = routing_group_use(kad, peer, &group, &wide) else {
+        return false;
+    };
+    if routing_group_full(&usage, DISTINCT_GROUPS.load(Ordering::Relaxed)) {
+        tracing::debug!(%peer, %address, "routing table full for this IP group");
+        return false;
+    }
+    true
+}
+
+fn has_routing_pow(peer: &PeerId) -> bool {
+    if !id_has_pow(peer, id_pow_bits()) {
+        tracing::debug!(%peer, "peer ID without proof of work not routed");
+        return false;
+    }
+    true
+}
+
+fn is_routable_address(peer: &PeerId, address: &Multiaddr) -> bool {
+    if is_circuit(address) {
+        tracing::debug!(%peer, %address, "relay circuit not routed");
+        return false;
+    }
+    true
+}
+
 fn admit(
     kad: &mut kad::Behaviour<kad::store::MemoryStore>,
     peer: PeerId,
     address: Multiaddr,
 ) -> bool {
-    if !id_has_pow(&peer, id_pow_bits()) {
-        tracing::debug!(%peer, "peer ID without proof of work not routed");
+    if !has_routing_pow(&peer)
+        || !is_routable_address(&peer, &address)
+        || !route_ip_group(kad, peer, &address)
+    {
         return false;
-    }
-    if is_circuit(&address) {
-        tracing::debug!(%peer, %address, "relay circuit not routed");
-        return false;
-    }
-    if let (Some(group), Some(wide)) = (ip_group(&address, false), ip_group(&address, true)) {
-        let Some(range) = kad.kbucket(peer).map(|b| b.range()) else {
-            return false;
-        };
-        let distinct = DISTINCT_GROUPS.load(Ordering::Relaxed);
-        let (mut bucket_count, mut table_count, mut bucket_wide) = (0, 0, false);
-        for bucket in kad.kbuckets() {
-            let in_bucket = bucket.range() == range;
-            for entry in bucket.iter() {
-                if *entry.node.key.preimage() == peer {
-                    continue;
-                }
-                let has = |g: &str, w| {
-                    entry
-                        .node
-                        .value
-                        .iter()
-                        .any(|a| ip_group(a, w).as_deref() == Some(g))
-                };
-                if has(&group, false) {
-                    table_count += 1;
-                    bucket_count += usize::from(in_bucket);
-                }
-                bucket_wide |= in_bucket && has(&wide, true);
-            }
-        }
-        if bucket_count >= MAX_GROUP_PER_BUCKET
-            || table_count >= MAX_GROUP_PER_TABLE
-            || (distinct && bucket_wide)
-        {
-            tracing::debug!(%peer, %address, "routing table full for this IP group");
-            return false;
-        }
     }
     kad.add_address(&peer, address);
     true
