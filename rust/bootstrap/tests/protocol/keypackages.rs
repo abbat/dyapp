@@ -40,9 +40,9 @@ async fn keypackage_fixture() -> KeyPackageFixture {
     })
     .await;
     let client = Client::connect(&address).await;
-    let owner = Identity::generate();
-    let device = Identity::generate();
-    let mls = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
+    let device = Identity::try_generate().unwrap();
+    let mls = Identity::try_generate().unwrap();
     let certificate = owner.sign(
         Domain::DeviceCertificate,
         dyapp_profile::DeviceCertificate {

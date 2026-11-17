@@ -220,7 +220,7 @@ async fn peers_of_another_network_are_dropped_after_identify() {
 async fn named_node_serves_profile_search_and_configured_gossip_topics() {
     let protocols = std::sync::Arc::new(dyapp_p2p_net::Protocols::new("node-test").unwrap());
     let (mut client, wire) = named_client(&protocols).await;
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let key = dyapp_identity::key_hash(&owner.public_key());
     let topic = protocols
         .search_topic(dyapp_bootstrap::search::topic(&key))

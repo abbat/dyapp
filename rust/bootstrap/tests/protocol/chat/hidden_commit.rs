@@ -105,7 +105,7 @@ async fn hide_commit_and_send(
         .remove_revoked(&alice.device, profiles)
         .unwrap()
         .unwrap();
-    let mut second = Person::device(second_address, Identity::generate(), 1)
+    let mut second = Person::device(second_address, Identity::try_generate().unwrap(), 1)
         .await
         .node;
     chat::send(&mut second, &chat::to_members(group, &commit).unwrap())

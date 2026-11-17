@@ -151,7 +151,7 @@ fn start_pending_handover(
     swarm: &mut Swarm<Behaviour>,
     replicas: &mut Replicas,
 ) -> (dyapp_identity::Identity, SignedRecord, Instant) {
-    let owner = dyapp_identity::Identity::generate();
+    let owner = dyapp_identity::Identity::try_generate().unwrap();
     let profile = profile(&owner, 1, "pending");
     republish::hold_mailbox(service, 41);
     let now = republish::ready(replicas);
@@ -337,7 +337,7 @@ fn profile_repair_prefers_only_a_strictly_newer_held_record() {
         &service.config.roles,
     )
     .unwrap();
-    let owner = dyapp_identity::Identity::generate();
+    let owner = dyapp_identity::Identity::try_generate().unwrap();
     let incoming = profile(&owner, 2, "incoming");
     let mut replicas = Replicas::default();
     assert_eq!(
@@ -380,7 +380,7 @@ async fn profile_gap_sends_the_exact_owner_age() {
     let manual = crate::clock::Manual::at(1_800_000_000);
     let sender_service = service_with_clock(manual.clock());
     let receiver_service = service();
-    let owner = dyapp_identity::Identity::generate();
+    let owner = dyapp_identity::Identity::try_generate().unwrap();
     let record = profile(&owner, 2, "age");
     assert_eq!(
         sender_service.store_profile(&record).unwrap().status,
@@ -450,7 +450,7 @@ async fn media_repair_admission_refuses_traffic_or_a_full_queue_independently() 
         } else {
             service.traffic.add(10_000);
         }
-        let owner = dyapp_identity::Identity::generate();
+        let owner = dyapp_identity::Identity::try_generate().unwrap();
         assert!(replicas
             .start_media_repair(&mut swarm, &service, keep_record(&owner, vec![9; 32]), now,)
             .is_none());

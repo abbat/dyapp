@@ -233,7 +233,7 @@ mod tests {
     fn store_repair_media(service: &Service) -> (SignedRecord, Vec<u8>) {
         let data = b"queued repair write".to_vec();
         let hash = dyapp_identity::sha256(&data).to_vec();
-        let record = dyapp_identity::Identity::generate().sign(
+        let record = dyapp_identity::Identity::try_generate().unwrap().sign(
             dyapp_identity::Domain::MediaKeep,
             proto::MediaKeep {
                 version: 1,

@@ -41,7 +41,7 @@ fn replica_profile(owner: &Identity) -> ReplicaRequest {
 }
 
 fn replica_requests() -> [ReplicaRequest; 4] {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let (manifest, shards) =
         dyapp_bootstrap::replication::media_encode(&vec![1; (1 << 20) + 1]).unwrap();
     let data = vec![3];

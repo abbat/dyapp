@@ -19,7 +19,7 @@ fn removed(index: &SearchIndex, keys: &[[u8; 32]]) -> HashSet<[u8; 32]> {
 #[test]
 fn every_mutation_marks_its_key() {
     let index = index();
-    let id = Identity::generate();
+    let id = Identity::try_generate().unwrap();
     let (key, p1, r1) = signed(&id, profile(1));
     index.put(&key, &p1, &r1, 0, true).unwrap();
     assert!(dirty(&index).is_empty());
@@ -55,7 +55,7 @@ fn every_mutation_marks_its_key() {
 #[test]
 fn newcomer_eviction_marks_the_evicted_key() {
     let one = f64::from(
-        u32::try_from(signed(&Identity::generate(), profile(1)).2.encoded_len()).unwrap(),
+        u32::try_from(signed(&Identity::try_generate().unwrap(), profile(1)).2.encoded_len()).unwrap(),
     );
     let index = quota(1 << 40, 2.0 * one / 2f64.powi(40));
     let late = index.created() + 31 * 86_400;

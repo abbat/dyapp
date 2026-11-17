@@ -131,7 +131,7 @@ async fn node_gossip_counts_delivered_and_successfully_published_payloads() {
     })
     .await;
     let mut client = Client::connect_with_search(&address, Keypair::generate_ed25519(), true).await;
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let key = dyapp_identity::key_hash(&owner.public_key());
     let topic = dyapp_p2p_net::search_topic(dyapp_bootstrap::search::topic(&key)).hash();
     announce_profile(&mut client, &owner, &topic).await;

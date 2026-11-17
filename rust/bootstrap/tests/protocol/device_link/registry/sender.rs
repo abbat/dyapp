@@ -44,7 +44,7 @@ async fn confirmed_owner_transfer_delivers_the_same_identity_and_complete_privat
     let address = link_node().await;
     let source = Source::new(&address);
     let now = dyapp_client::now();
-    let device = Identity::generate();
+    let device = Identity::try_generate().unwrap();
     let mut invitation = Invite::new(dyapp_client::mailbox(&device.public_key()), now).unwrap();
     let view = ProfileView::default();
     let sender = source

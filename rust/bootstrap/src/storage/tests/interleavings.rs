@@ -426,7 +426,7 @@ proptest! {
         schedule in prop::collection::vec(profile_step(), 1..30),
     ) {
         thread_local! {
-            static OWNERS: [Identity; 2] = [Identity::generate(), Identity::generate()];
+            static OWNERS: [Identity; 2] = [Identity::try_generate().unwrap(), Identity::try_generate().unwrap()];
         }
         OWNERS.with(|owners| check_profiles(owners, &schedule))?;
     }

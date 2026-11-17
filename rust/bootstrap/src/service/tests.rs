@@ -54,7 +54,7 @@ fn response_hints_decode_legacy_messages_and_keep_wire_tags() {
 #[test]
 fn profile_inventory_returns_only_version_and_validates_key_and_budget() {
     let s = service_with(|limits| limits.bytes_per_second = 10_000);
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let record = Profile {
         version: 2,
         ..Default::default()
@@ -192,7 +192,7 @@ fn padded_record(
 fn maintenance_shrinks_the_stores() {
     let s = service();
     for _ in 0..100 {
-        let owner = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
         let profile = Profile {
             version: 1,
             ..Default::default()
@@ -218,7 +218,7 @@ fn maintenance_shrinks_the_stores() {
 #[test]
 fn profile_size_hints_cover_send_replica_and_local_boundaries() {
     let s = service();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let profile = Profile {
         version: 1,
         ..Default::default()
@@ -294,7 +294,7 @@ fn check_oversized_profile_limits(s: &Service, from: &Peer, owner: &Identity, pr
 fn store_pow_admission_covers_weak_forged_busy_and_cached_proofs() {
     let mut s = service();
     s.config.search.min_profile_pow_bits = 2;
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let weak = Profile {
         version: 1,
         ..Default::default()
@@ -375,7 +375,7 @@ fn check_forged_and_zero_pow(s: &mut Service, from: &Peer, owner: &Identity, pro
 #[test]
 fn publish_get_stale_and_errors() {
     let service = service();
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().unwrap();
     let hex_id = identity.peer_id();
     let id: Vec<u8> = (0..hex_id.len())
         .step_by(2)
@@ -526,7 +526,7 @@ fn stored_manifest(service: &Service, hash: &[u8]) -> bool {
 fn shard_upload_requires_node_pow_and_accepts_authorised_node() {
     let mut service = media_service(|_| {});
     service.config.network.id_pow_bits = 8;
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let (manifest, shards) = crate::replication::media_encode(&vec![1; (1 << 20) + 1]).unwrap();
     let hash = manifest.hash.clone();
     let keep = proto::MediaKeep {
@@ -698,7 +698,7 @@ fn fine_groups_of_one_coarse_group_share_ten_times_the_budget() {
 
 #[test]
 fn admission_stores_nothing_and_replicas_verify_and_cost_one_unit() {
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().unwrap();
     let record = Profile {
         version: 1,
         ..Profile::default()
@@ -815,7 +815,7 @@ fn stored_profile_seen(db: &rusqlite::Connection, identity: &Identity) -> i64 {
 #[test]
 fn heartbeat_keeps_the_profile_seen() {
     let service = service();
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().unwrap();
     let now = crate::clock::Clock::system().timestamp().unsigned_abs();
     assert_eq!(
         send_profile_status(&service, profile_heartbeat_request(&identity, now)),

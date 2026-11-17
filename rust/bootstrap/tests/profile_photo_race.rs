@@ -268,7 +268,7 @@ async fn serve(mut server: Box<libp2p::Swarm<dyapp_p2p_net::Behaviour>>, mut fix
 }
 
 fn local() -> (Identity, Store, Profile) {
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().unwrap();
     let mut store = Store::open(&path(), &identity).unwrap();
     store
         .add_profile_photo(&[0xff, 0xd8, 0xff, 1], &[0xff, 0xd8, 0xff, 2])

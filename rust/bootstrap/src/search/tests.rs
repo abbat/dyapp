@@ -36,7 +36,7 @@ pub(super) fn put_at(
                 place: place.into(),
                 ..profile(1)
             };
-            let (key, p, r) = signed(&Identity::generate(), profile);
+            let (key, p, r) = signed(&Identity::try_generate().unwrap(), profile);
             let at = now + i64::try_from(i).unwrap();
             assert_eq!(index.put(&key, &p, &r, at, limit).unwrap(), Put::Stored);
             key
@@ -93,7 +93,7 @@ impl SearchIndex {
 pub(super) fn fill(index: &SearchIndex, n: u64, from: i64) -> Vec<[u8; 32]> {
     (0..n)
         .map(|i| {
-            let (key, p, r) = signed(&Identity::generate(), profile(1));
+            let (key, p, r) = signed(&Identity::try_generate().unwrap(), profile(1));
             let now = from + i64::try_from(i).unwrap();
             index.put(&key, &p, &r, now, true).unwrap();
             key
@@ -159,7 +159,7 @@ fn unknown_places_go_to_the_country_bucket() {
             place: place.into(),
             ..profile(1)
         };
-        let (key, p, r) = signed(&Identity::generate(), profile);
+        let (key, p, r) = signed(&Identity::try_generate().unwrap(), profile);
         index.put(&key, &p, &r, 1_000, true).unwrap();
         keys.push(key);
     }
@@ -178,7 +178,7 @@ fn unknown_places_go_to_the_country_bucket() {
 #[test]
 fn place_counts_follow_put_remove_and_expiry() {
     let index = index();
-    let id = Identity::generate();
+    let id = Identity::try_generate().unwrap();
     let (key, p, r) = signed(&id, profile(1));
     index.put(&key, &p, &r, 1_000, true).unwrap();
     let moved = Profile {
@@ -201,7 +201,7 @@ fn place_counts_follow_put_remove_and_expiry() {
 #[test]
 fn first_seen_and_bytes_are_kept() {
     let index = index();
-    let id = Identity::generate();
+    let id = Identity::try_generate().unwrap();
     let (key, p, r) = signed(&id, profile(1));
     index.put(&key, &p, &r, 1_000, true).unwrap();
     let (_, p, r) = signed(&id, profile(2));

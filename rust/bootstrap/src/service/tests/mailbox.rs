@@ -59,8 +59,8 @@ fn fetch_from(
 #[test]
 fn fetch_cursor_advances_and_rejects_malformed_position() {
     let service = service_with(|_| {});
-    let sender = Identity::generate();
-    let device = Identity::generate();
+    let sender = Identity::try_generate().unwrap();
+    let device = Identity::try_generate().unwrap();
     let address = dyapp_identity::key_hash(&device.public_key()).to_vec();
     for n in [1u8, 2] {
         let envelope = proto::Envelope {
@@ -102,7 +102,7 @@ fn fetch_cursor_advances_and_rejects_malformed_position() {
 #[test]
 fn put_group_binds_the_mailbox_and_source_group() {
     let service = service();
-    let sender = Identity::generate();
+    let sender = Identity::try_generate().unwrap();
     let envelope = proto::Envelope {
         id: vec![1; 16],
         mailbox: vec![7; 32],
@@ -130,7 +130,7 @@ fn put_group_binds_the_mailbox_and_source_group() {
 #[test]
 fn deny_list_refuses_without_strikes() {
     let mut service = service_with(|l| l.strikes_to_ban = 1);
-    let (listed, device) = (Identity::generate(), Identity::generate());
+    let (listed, device) = (Identity::try_generate().unwrap(), Identity::try_generate().unwrap());
     let address = dyapp_identity::key_hash(&device.public_key()).to_vec();
     let listed_id = dyapp_identity::key_hash(&listed.public_key()).to_vec();
     *service.deny.get_mut().unwrap() =
@@ -153,7 +153,7 @@ fn deny_list_refuses_without_strikes() {
         ciphertext: vec![1],
         ..Default::default()
     };
-    let to_listed = Identity::generate().sign(Domain::Envelope, envelope.encode_to_vec());
+    let to_listed = Identity::try_generate().unwrap().sign(Domain::Envelope, envelope.encode_to_vec());
     let put = mailbox_request::Request::Put(to_listed);
     assert_eq!(
         mailbox_status(&mailbox(&service, &mut None, put)),
@@ -192,7 +192,7 @@ fn replica_inventory(service: &Service, address: &[u8], ids: Vec<Vec<u8>>) -> Ma
 #[test]
 fn inventory_names_gaps_and_replica_put_fills_them() {
     let service = service_with(|l| l.strikes_to_ban = 1);
-    let sender = Identity::generate();
+    let sender = Identity::try_generate().unwrap();
     let address = vec![7; 32];
     let signed = |id: u8| {
         let envelope = proto::Envelope {
@@ -243,7 +243,7 @@ fn inventory_names_gaps_and_replica_put_fills_them() {
 #[test]
 fn mailbox_size_hints_cover_boundaries_local_replicas_and_denied_batch_priority() {
     let s = service();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let mut envelope = proto::Envelope {
         id: vec![4; 16],
         mailbox: vec![7; 32],
@@ -364,9 +364,9 @@ fn check_replica_mailbox_hints(s: &Service, large: SignedRecord, exact: SignedRe
 fn mailbox_put_fetch_ack_forged_and_replayed() {
     let service = service();
     let (device, sender, thief) = (
-        Identity::generate(),
-        Identity::generate(),
-        Identity::generate(),
+        Identity::try_generate().unwrap(),
+        Identity::try_generate().unwrap(),
+        Identity::try_generate().unwrap(),
     );
     let address = dyapp_identity::key_hash(&device.public_key()).to_vec();
     let (mut conn, mut other) = (None, None);
@@ -536,7 +536,7 @@ fn check_replica_acks(
 
 #[test]
 fn full_stores_and_byte_rate_refuse_requests() {
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().unwrap();
     let profile = || {
         publish(
             Profile {
@@ -635,7 +635,7 @@ fn group_and_sender_quotas_and_bans() {
 }
 
 fn check_sender_quotas_and_bans() {
-    let sender = Identity::generate();
+    let sender = Identity::try_generate().unwrap();
     let put = |id: u8| {
         let envelope = proto::Envelope {
             id: vec![id; 16],
@@ -774,7 +774,7 @@ fn signals_are_small_counted_apart_and_evict_the_oldest() {
         l.signal_max_kb = 2;
         l.sender_puts_per_second = 1000;
     });
-    let (device, sender) = (Identity::generate(), Identity::generate());
+    let (device, sender) = (Identity::try_generate().unwrap(), Identity::try_generate().unwrap());
     let address = dyapp_identity::key_hash(&device.public_key()).to_vec();
     let record = |id: u8, class: proto::EnvelopeClass, len| {
         let envelope = proto::Envelope {

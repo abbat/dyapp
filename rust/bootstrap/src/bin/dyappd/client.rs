@@ -165,7 +165,7 @@ async fn heartbeat_command(addr: &str, secret: &str) -> anyhow::Result<Value> {
 
 async fn profile_command(args: &[&str]) -> anyhow::Result<Option<Value>> {
     let output = match args {
-        ["sign-profile"] => sign_profile(&Identity::generate(), 1),
+        ["sign-profile"] => sign_profile(&Identity::try_generate()?, 1),
         ["sign-profile", secret, version] => {
             let secret = decode_secret(secret)?;
             sign_profile(&Identity::from_secret(&secret), version.parse()?)
@@ -174,7 +174,7 @@ async fn profile_command(args: &[&str]) -> anyhow::Result<Option<Value>> {
         ["info", addr] => timeout(info(addr)).await?,
         ["publish", addr, record] => timeout(publish(addr, record)).await?,
         ["get", addr, peer_id] => timeout(get(addr, peer_id)).await?,
-        ["device-key"] => device_key(),
+        ["device-key"] => device_key()?,
         _ => return Ok(None),
     };
     Ok(Some(output))
@@ -298,7 +298,7 @@ async fn profile(addr: &str, request: profile_request::Request) -> anyhow::Resul
 
 async fn media(addr: &str, data: &str, include_details: bool) -> anyhow::Result<Value> {
     let data = unhex(data)?;
-    let owner = Identity::generate();
+    let owner = Identity::try_generate()?;
     let hash = dyapp_identity::sha256(&data).to_vec();
     let keep = proto::MediaKeep {
         version: 1,
@@ -550,10 +550,10 @@ async fn lookup(swarm: &mut Swarm<Behaviour>, key: Vec<u8>) -> anyhow::Result<Ve
     Ok(found.peers.into_iter().map(|peer| peer.peer_id).collect())
 }
 
-fn device_key() -> Value {
-    let device = Identity::generate();
+fn device_key() -> anyhow::Result<Value> {
+    let device = Identity::try_generate()?;
     let mailbox = dyapp_identity::key_hash(&device.public_key());
-    json!({ "secret": hex(&device.secret()[..]), "mailbox": hex(&mailbox) })
+    Ok(json!({ "secret": hex(&device.secret()[..]), "mailbox": hex(&mailbox) }))
 }
 
 /// An envelope with a random id, signed by a fresh sender key.
@@ -567,7 +567,7 @@ fn envelope(mailbox: Vec<u8>, ciphertext: Vec<u8>) -> anyhow::Result<(Vec<u8>, S
         ciphertext,
         ..Default::default()
     };
-    let record = Identity::generate().sign(Domain::Envelope, envelope.encode_to_vec());
+    let record = Identity::try_generate()?.sign(Domain::Envelope, envelope.encode_to_vec());
     Ok((id.to_vec(), record))
 }
 

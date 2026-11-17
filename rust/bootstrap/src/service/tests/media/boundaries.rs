@@ -8,7 +8,7 @@ fn legacy_keep_admits_exact_version_hash_and_clock_boundaries() {
     s.clock = manual.clock();
     let now = s.clock.timestamp().unsigned_abs();
     let check = |keep: proto::MediaKeep| {
-        let owner = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
         let record = owner.sign(Domain::MediaKeep, keep.encode_to_vec());
         Status::try_from(
             s.media(
@@ -63,7 +63,7 @@ fn conditional_keep_admits_exact_clock_boundaries() {
         (now - CLOCK_SKEW, Status::Ok),
         (now - CLOCK_SKEW - 1, Status::Invalid),
     ] {
-        let owner = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
         let caller = Peer {
             id: libp2p::PeerId::random().to_string(),
             group: "g".into(),
@@ -105,7 +105,7 @@ fn attachment_admits_the_exact_future_clock_boundary() {
         (now + CLOCK_SKEW, Status::Ok),
         (now + CLOCK_SKEW + 1, Status::Invalid),
     ] {
-        let owner = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
         let data = b"attachment boundary".to_vec();
         let attach = proto::MediaAttach {
             release: vec![9; 32],

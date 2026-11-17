@@ -51,7 +51,7 @@ async fn search_profile_spreads_between_nodes() {
             "no profile reached B"
         );
         let year = 2000 + i64::try_from(published.len()).unwrap();
-        let identity = Identity::generate();
+        let identity = Identity::try_generate().unwrap();
         let pow_nonce = dyapp_profile::solve(&identity.public_key(), 2, 0, 100_000).unwrap();
         let record = Profile {
             version: 1,
@@ -310,7 +310,7 @@ async fn search_tombstone_keeps_the_direct_profile() {
     let mut node = dyapp_client::Node::connect(address.clone(), protocols.clone())
         .await
         .unwrap();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let nonce = dyapp_profile::solve(&owner.public_key(), 2, 0, 100_000).unwrap();
     let profile = Profile {
         version: 1,
@@ -357,7 +357,7 @@ async fn hiding_withdraws_the_profile_from_search_and_stops_heartbeats() {
     let connect = |address| dyapp_client::Node::connect(address, protocols.clone());
     let mut node = connect(a.clone()).await.unwrap();
     let mut nodes = vec![connect(a).await.unwrap()];
-    let alice = Identity::generate();
+    let alice = Identity::try_generate().unwrap();
     let store = dyapp_client::store::Store::open(&super::chat::store_path("hide"), &alice).unwrap();
     let mut draft = Profile {
         birth_year: Some(1990),

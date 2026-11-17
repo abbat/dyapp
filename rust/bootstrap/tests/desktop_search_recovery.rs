@@ -22,7 +22,7 @@ struct Fixture {
 }
 impl Fixture {
     fn new() -> Self {
-        let key = Arc::new(Identity::generate());
+        let key = Arc::new(Identity::try_generate().unwrap());
         let dir = std::env::temp_dir().join(format!("dyapp-desktop-search-{}", key.peer_id()));
         std::fs::create_dir_all(&dir).unwrap();
         let store = Store::open(&dir.join("client.db"), &key).unwrap();
@@ -81,7 +81,7 @@ fn idle_review_retains_no_key_or_lease_and_refuses_a_new_identity_generation() {
     let f = Fixture::new();
     let token = f.prepare();
     assert_eq!(Arc::strong_count(&f.key), 2);
-    switch_selection(&f.gate, (Arc::new(Identity::generate()), f.dir.clone()));
+    switch_selection(&f.gate, (Arc::new(Identity::try_generate().unwrap()), f.dir.clone()));
     let lease = f.lease();
     let (key, dir) = lease.active();
     assert!(f

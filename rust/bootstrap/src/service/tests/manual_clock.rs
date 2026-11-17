@@ -21,7 +21,7 @@ impl Node {
         let store = BootstrapStore::new(&dir).unwrap();
         Self {
             service: Service::with_clock(store, config, manual.clock()).unwrap(),
-            identity: Identity::generate(),
+            identity: Identity::try_generate().unwrap(),
         }
     }
 
@@ -128,9 +128,9 @@ fn replica_age_meets_the_profile_ttl_at_the_expiry_cutoff() {
     let ttl = node.service.config.limits.profile_ttl_days * 86_400;
     let cutoff = |now: u64| i64::try_from(now - u64::from(ttl)).unwrap();
     let (fresh, last, expired) = (
-        Identity::generate(),
-        Identity::generate(),
-        Identity::generate(),
+        Identity::try_generate().unwrap(),
+        Identity::try_generate().unwrap(),
+        Identity::try_generate().unwrap(),
     );
 
     assert_eq!(node.replica(&fresh, 0), Status::Ok);

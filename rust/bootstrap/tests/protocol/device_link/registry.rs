@@ -77,7 +77,7 @@ async fn a_wire_invitation_releases_admission_before_retained_installation() {
         .begin_link(&source.id, &original.peer_id(), false, &Files, now)
         .unwrap();
     let code = waiting.code().unwrap();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     code.send(&mut sender, &owner, b"received private state", now)
         .await
         .unwrap();

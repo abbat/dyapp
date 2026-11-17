@@ -3,9 +3,9 @@ use dyapp_profile::DeviceCertificate;
 
 fn setup() -> (Service, Identity, Identity, Vec<u8>) {
     let service = service();
-    let owner = Identity::generate();
-    let device = Identity::generate();
-    let mls = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
+    let device = Identity::try_generate().unwrap();
+    let mls = Identity::try_generate().unwrap();
     let certificate = owner.sign(
         Domain::DeviceCertificate,
         DeviceCertificate {
@@ -78,7 +78,7 @@ fn publication_requires_current_certificate_and_device_signature() {
         status_of(service.store_keypackage(&forged).unwrap().status),
         Status::Denied
     );
-    let stranger = Identity::generate();
+    let stranger = Identity::try_generate().unwrap();
     let unlisted = package(
         &owner,
         &stranger,

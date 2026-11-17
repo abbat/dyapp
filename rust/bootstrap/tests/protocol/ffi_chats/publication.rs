@@ -103,7 +103,7 @@ fn ordinary_native_fields_publish_without_restoring_another_devices_certificate_
         .block_on(remote.get_profile(&identity.peer_id()))
         .unwrap()
         .profile;
-    let other_key = Identity::generate();
+    let other_key = Identity::try_generate().unwrap();
     let other = dyapp_messaging::mls::Device::new(&identity, other_key.public_key(), 2).unwrap();
     publish::list_device(
         &mut joined,

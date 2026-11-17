@@ -64,7 +64,7 @@ fn eviction_takes_the_oldest_first() {
     assert_eq!(store.evict_envelopes(u64::MAX).unwrap(), 0);
 
     // A republished profile moves to the end of the eviction order.
-    let owners: Vec<_> = (0..3).map(|_| Identity::generate()).collect();
+    let owners: Vec<_> = (0..3).map(|_| Identity::try_generate().unwrap()).collect();
     let publish = |owner: &Identity, version| {
         let profile = Profile {
             version,
@@ -290,7 +290,7 @@ fn tombstone(previous: &SignedRecord) -> Profile {
 #[test]
 fn signed_profile_versions_and_tombstone() {
     let store = temp_store();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let profile = |version| Profile {
         version,
         ..Profile::default()
@@ -377,7 +377,7 @@ fn cursors_resume_skip_dead_rows_and_use_indexes() {
         [] as [std::vec::Vec<u8>; 0]
     );
 
-    let mut owners: Vec<_> = (0..3).map(|_| Identity::generate()).collect();
+    let mut owners: Vec<_> = (0..3).map(|_| Identity::try_generate().unwrap()).collect();
     owners.sort_by_key(Identity::peer_id);
     for owner in &owners {
         let profile = Profile {
@@ -402,7 +402,7 @@ fn cursors_resume_skip_dead_rows_and_use_indexes() {
 #[test]
 fn data_survives_reopen() {
     let path = format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4());
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     BootstrapStore::new(&path)
         .unwrap()
         .put_profile(

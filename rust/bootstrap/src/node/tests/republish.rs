@@ -49,7 +49,7 @@ fn remote(swarm: &mut Swarm<Behaviour>) -> PeerId {
 }
 
 pub(super) fn hold_mailbox(service: &Service, mailbox: u8) {
-    let record = dyapp_identity::Identity::generate().sign(
+    let record = dyapp_identity::Identity::try_generate().unwrap().sign(
         dyapp_identity::Domain::Envelope,
         proto::Envelope {
             id: vec![mailbox; 16],
@@ -115,7 +115,7 @@ async fn waits_for_bootstrap_warmup() {
 async fn hands_every_store_to_the_repair_paths() {
     let (service, mut swarm) = node();
     hold_mailbox(&service, 1);
-    let owner = dyapp_identity::Identity::generate();
+    let owner = dyapp_identity::Identity::try_generate().unwrap();
     let profile = dyapp_profile::Profile {
         version: 2,
         ..Default::default()

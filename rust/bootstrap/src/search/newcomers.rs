@@ -7,7 +7,7 @@ const DAY: i64 = 86_400;
 
 /// The share of a 1 TiB file that holds `n` records.
 fn records(n: u64) -> f64 {
-    let one = signed(&Identity::generate(), profile(1)).2.encoded_len() as u64;
+    let one = signed(&Identity::try_generate().unwrap(), profile(1)).2.encoded_len() as u64;
     f64::from(u32::try_from(n * one).unwrap()) / 2f64.powi(40)
 }
 
@@ -103,7 +103,7 @@ fn the_larger_country_bucket_goes_first() {
 
 #[test]
 fn size_eviction_keeps_tombstones_and_newcomers() {
-    let id = Identity::generate();
+    let id = Identity::try_generate().unwrap();
     let (key, tomb, rt) = signed(&id, Profile::tombstone(1, 0, 0));
     let probe = index();
     probe

@@ -80,7 +80,7 @@ async fn empty_poll_restores_the_invitation_and_success_never_repeats_network_or
     assert_eq!(receiver.code(), code);
     assert_eq!(fixture.registry.list().unwrap().len(), 1);
     let mut sender = connect(address.clone()).await.unwrap();
-    code.send(&mut sender, &Identity::generate(), b"private state", now)
+    code.send(&mut sender, &Identity::try_generate().unwrap(), b"private state", now)
         .await
         .unwrap();
     assert_eq!(
@@ -117,7 +117,7 @@ async fn cancellation_during_receive_retains_the_record_without_installing_it() 
     let mut sender = connect(address.clone()).await.unwrap();
     receiver
         .code()
-        .send(&mut sender, &Identity::generate(), b"cancelled state", now)
+        .send(&mut sender, &Identity::try_generate().unwrap(), b"cancelled state", now)
         .await
         .unwrap();
     let result = receiver
@@ -150,7 +150,7 @@ async fn a_callback_unwind_retains_interrupted_state_instead_of_retrying() {
         .code()
         .send(
             &mut sender,
-            &Identity::generate(),
+            &Identity::try_generate().unwrap(),
             b"interrupted state",
             now,
         )
@@ -200,7 +200,7 @@ async fn a_writer_failure_is_cached_without_a_second_destination_or_callback() {
     let mut sender = connect(address.clone()).await.unwrap();
     receiver
         .code()
-        .send(&mut sender, &Identity::generate(), b"failed state", now)
+        .send(&mut sender, &Identity::try_generate().unwrap(), b"failed state", now)
         .await
         .unwrap();
     let phase = receiver

@@ -131,7 +131,7 @@ mod tests {
             false,
             Instant::now(),
         );
-        let owner = dyapp_identity::Identity::generate();
+        let owner = dyapp_identity::Identity::try_generate().unwrap();
         let record = dyapp_profile::Profile {
             version: 2,
             ..Default::default()

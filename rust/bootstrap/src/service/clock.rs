@@ -38,7 +38,7 @@ fn profile_heartbeat(service: &Service, record: SignedRecord) -> ProfileResponse
 fn info_and_heartbeat_time_failures_report_clock_without_changing_gossip() {
     let s = service();
     let search = search_service();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let now = crate::clock::Clock::system().timestamp().unsigned_abs();
     let info = s.node(
         &peer("clock"),
@@ -186,7 +186,7 @@ fn media_time_hints_cover_direct_replica_and_shard_authorizations() {
     use proto::media_replica_put::Authorization;
     let s = media_service(|l| l.media_requests_per_second = 100);
     let from = replica_peer("clock");
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let data = b"clock".to_vec();
     let hash = dyapp_identity::sha256(&data).to_vec();
     let (manifest, shards) = crate::replication::media_encode(&data).unwrap();
@@ -235,7 +235,7 @@ fn media_time_hints_cover_direct_replica_and_shard_authorizations() {
 fn media_non_clock_errors_and_old_replica_keeps_preserve_existing_rules() {
     let s = media_service(|l| l.media_requests_per_second = 100);
     let from = replica_peer("clock-errors");
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let data = b"old-keep".to_vec();
     let now = crate::clock::Clock::system().timestamp().unsigned_abs();
     let mut keep = proto::MediaKeep {

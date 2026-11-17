@@ -5,7 +5,7 @@ use dyapp_identity::Identity;
 #[test]
 fn versions_limits_and_tombstones() {
     let index = index();
-    let id = Identity::generate();
+    let id = Identity::try_generate().unwrap();
     let (key, p1, r1) = signed(&id, profile(1));
     assert_eq!(index.put(&key, &p1, &r1, 1_000, true).unwrap(), Put::Stored);
     assert_eq!(index.put(&key, &p1, &r1, 2_000, true).unwrap(), Put::Stale);
@@ -37,7 +37,7 @@ fn versions_limits_and_tombstones() {
 #[test]
 fn search_tombstone_expires_with_its_version() {
     let index = index();
-    let id = Identity::generate();
+    let id = Identity::try_generate().unwrap();
     let (key, p1, r1) = signed(&id, profile(1));
     let (_, tombstone, signed_tombstone) = signed(&id, Profile::tombstone(2, 0, 0));
     assert_eq!(index.put(&key, &p1, &r1, 1_000, true).unwrap(), Put::Stored);
@@ -58,7 +58,7 @@ fn search_tombstone_expires_with_its_version() {
 #[test]
 fn stored_pow_difficulty_handles_missing_and_corrupt_records() {
     let index = index();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let mut profile = profile(1);
     profile.pow_bits = 7;
     let (key, profile, record) = signed(&owner, profile);
@@ -87,7 +87,7 @@ fn stored_pow_difficulty_handles_missing_and_corrupt_records() {
 #[test]
 fn heartbeats_two_per_day() {
     let index = index();
-    let id = Identity::generate();
+    let id = Identity::try_generate().unwrap();
     let (key, p, r) = signed(&id, profile(4));
     let day = 86_400 * 20_000;
     assert_eq!(index.heartbeat(&key, 4, day).unwrap(), Beat::NotFound);
@@ -108,7 +108,7 @@ fn heartbeats_two_per_day() {
 #[test]
 fn catch_up_skips_the_update_limit() {
     let index = index();
-    let id = Identity::generate();
+    let id = Identity::try_generate().unwrap();
     let (key, p1, r1) = signed(&id, profile(1));
     let (_, p2, r2) = signed(&id, profile(2));
     index.put(&key, &p1, &r1, 1_000, false).unwrap();
@@ -122,7 +122,7 @@ fn catch_up_skips_the_update_limit() {
 #[test]
 fn reader_works_during_a_write_transaction() {
     let index = index();
-    let (key, p, r) = signed(&Identity::generate(), profile(1));
+    let (key, p, r) = signed(&Identity::try_generate().unwrap(), profile(1));
     index.put(&key, &p, &r, 1_000, true).unwrap();
     let mut db = lock(&index.db).unwrap();
     let tx = db.change().unwrap();
@@ -152,7 +152,7 @@ fn expiry_and_inventory() {
     let index = index();
     let keys: Vec<_> = (0..40)
         .map(|i| {
-            let (key, p, r) = signed(&Identity::generate(), profile(1));
+            let (key, p, r) = signed(&Identity::try_generate().unwrap(), profile(1));
             index.put(&key, &p, &r, i * 100, true).unwrap();
             key
         })

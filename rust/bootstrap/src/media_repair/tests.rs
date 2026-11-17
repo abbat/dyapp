@@ -67,7 +67,7 @@ fn fresh_inventory(origin: &Service, record: &SignedRecord, hash: &[u8], remote:
 }
 
 fn proof(hash: Vec<u8>) -> SignedRecord {
-    Identity::generate().sign(
+    Identity::try_generate().unwrap().sign(
         Domain::MediaKeep,
         proto::MediaKeep {
             hashes: vec![hash],

@@ -5,7 +5,7 @@ async fn signed_time_failures_keep_clock_hints_over_real_tcp() {
     let address = clock_node().await;
     let mut client = Client::connect(&address).await;
     let server_time = clock_server_time(&mut client).await;
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let data = b"wire-clock".to_vec();
     let hash = dyapp_identity::sha256(&data).to_vec();
     let (manifest, shards) = dyapp_bootstrap::replication::media_encode(&data).unwrap();
@@ -163,7 +163,7 @@ async fn assert_invalid_signed_records(client: &mut Client, owner: &Identity, ha
 async fn future_clock_boundary_preserves_valid_request_statuses_over_tcp() {
     let address = clock_node().await;
     let mut client = Client::connect(&address).await;
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     publish_clock_profile(&mut client, &owner).await;
     let time = dyapp_bootstrap::clock::Clock::system()
         .timestamp()

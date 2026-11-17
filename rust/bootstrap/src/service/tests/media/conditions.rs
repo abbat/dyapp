@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn store_media_checks_each_condition_and_evicts_cache_before_refusing() {
     let s = media_service(|_| {});
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     check_keep_conditions(&s, &owner);
     check_attachment_conditions(&s, &owner);
     check_cache_eviction_and_disk_space(&owner);
@@ -32,7 +32,7 @@ fn check_keep_conditions(s: &Service, owner: &Identity) {
             data: data.to_vec(),
             manifest: None,
             authorization: Some(Authorization::Keep(
-                Identity::generate().sign(Domain::MediaKeep, keep.encode_to_vec()),
+                Identity::try_generate().unwrap().sign(Domain::MediaKeep, keep.encode_to_vec()),
             )),
         }
     };

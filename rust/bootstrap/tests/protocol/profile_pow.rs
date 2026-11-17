@@ -12,7 +12,7 @@ async fn store_and_mixed_nodes_verify_profile_proofs_before_holding_copies() {
         .await;
         let mut client = Client::connect(&address).await;
         assert_eq!(client.info().await.info.unwrap().min_profile_pow, 2);
-        let owner = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
         let key = owner.public_key();
         let owner_id = owner.peer_id();
         assert_weak_rejected(&mut client, &service, &owner, &owner_id).await;
@@ -150,7 +150,7 @@ async fn refused_profile_flood_keeps_the_tcp_connection_usable() {
         version: 1,
         ..Default::default()
     }
-    .sign(&Identity::generate());
+    .sign(&Identity::try_generate().unwrap());
     assert_eq!(
         status(
             client

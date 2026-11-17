@@ -523,7 +523,7 @@ async fn rejection_limits_survive_node_dispatch_over_tcp() {
     })
     .await;
     let mut client = Client::connect(&address).await;
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     assert_store_rejections(&mut client).await;
     assert_media_rejections(&mut client, &owner).await;
     assert_search_rejections(&mut client, &owner).await;
@@ -538,7 +538,7 @@ async fn store_profile_pow_is_checked_on_network_publish() {
     })
     .await;
     let mut client = Client::connect(&address).await;
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let weak = Profile {
         version: 1,
         ..Default::default()
@@ -828,7 +828,7 @@ async fn repeated_keep_uses_network_recoverability_without_a_local_copy() {
         .map(|s| *s.local_peer_id())
         .collect::<Vec<_>>();
     let (data, hash) = remote_network_keep_data(&ids);
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let keep = proto::MediaKeep {
         hashes: vec![hash.clone()],
         version: 1,
@@ -857,7 +857,7 @@ async fn check_info_and_profile(client: &mut Client) {
     assert_eq!(info.roles, roles);
     assert_eq!(info.max_message_bytes, 100 * 1024);
 
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().unwrap();
     // A bidi override in any profile string is refused before it is stored.
     let hidden = Profile {
         version: 1,
@@ -886,14 +886,14 @@ async fn check_info_and_profile(client: &mut Client) {
 }
 
 async fn check_mailbox_requests(client: &mut Client) {
-    let device = Identity::generate();
+    let device = Identity::try_generate().unwrap();
     let envelope = proto::Envelope {
         id: vec![7; 16],
         mailbox: dyapp_identity::key_hash(&device.public_key()).to_vec(),
         ciphertext: b"hello".to_vec(),
         ..Default::default()
     };
-    let put: SignedRecord = Identity::generate().sign(Domain::Envelope, envelope.encode_to_vec());
+    let put: SignedRecord = Identity::try_generate().unwrap().sign(Domain::Envelope, envelope.encode_to_vec());
     let reply = client
         .mailbox(mailbox_request::Request::Put(put.clone()))
         .await;

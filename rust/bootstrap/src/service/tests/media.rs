@@ -32,7 +32,7 @@ fn media_size_hints_preserve_object_boundaries() {
         l.media_requests_per_second = 100;
         l.bytes_per_second = 0;
     });
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let max = crate::replication::MEDIA_OBJECT_BYTES;
     let put = |size| {
         media_request::Request::Put(proto::MediaPut {
@@ -188,7 +188,7 @@ fn media_authorization_records_are_bounded_before_storage() {
 #[test]
 fn media_replicas_verify_proofs_and_never_restore_dropped_hashes() {
     let mut s = media_service(|_| {});
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let replica = media_replica(&owner, b"replica".to_vec(), 1);
     let hash = dyapp_identity::sha256(&replica.data);
     check_replica_proofs(&s, &replica);
@@ -315,7 +315,7 @@ fn check_attachment_lifecycle(
 #[test]
 fn deny_list_refuses_replica_and_shard_restoration() {
     let s = media_service(|_| {});
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let whole = media_replica(&owner, b"blocked whole".to_vec(), 1);
     let hash = dyapp_identity::sha256(&whole.data);
     assert_eq!(s.store_media(&whole).unwrap().status, i32::from(Status::Ok));
@@ -356,7 +356,7 @@ fn deny_list_refuses_replica_and_shard_restoration() {
 #[test]
 fn media_bills_whole_copy_puts_five_times_and_gets_by_reply_bytes() {
     let mut s = media_service(|l| l.bytes_per_second = 10_000);
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let put = check_whole_copy_billing(&mut s, &owner);
     check_get_reply_billing(&mut s, &put);
     check_replica_billing(&mut s, &owner, &put);
@@ -445,7 +445,7 @@ fn check_replica_billing(s: &mut Service, owner: &Identity, put: &proto::MediaPu
 #[test]
 fn media_whole_copy_owner_quota_includes_five_copies() {
     let s = media_service(|l| l.media_per_owner_mb = 1);
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let replica = media_replica(&owner, vec![1; 210_000], 1);
     assert_eq!(
         s.store_media(&replica).unwrap().status,
@@ -457,7 +457,7 @@ fn media_whole_copy_owner_quota_includes_five_copies() {
         i32::from(Status::Ok)
     );
     // A second owner cannot bypass its quota by listing a copy already on this node.
-    let other = Identity::generate();
+    let other = Identity::try_generate().unwrap();
     let first = media_replica(&other, vec![3; 20_000], 1);
     assert_eq!(s.store_media(&first).unwrap().status, i32::from(Status::Ok));
     let shared = media_replica(&other, replica.data.clone(), 2);
@@ -484,7 +484,7 @@ fn media_whole_copy_owner_quota_includes_five_copies() {
 #[test]
 fn media_manifests_shards_quota_and_corruption() {
     let s = media_service(|_| {});
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let data = vec![7; (1 << 20) + 1];
     let mut replica = media_replica(&owner, data.clone(), 1);
     let (manifest, shards) = crate::replication::media_encode(&data).unwrap();
@@ -618,7 +618,7 @@ fn check_wrong_manifest_cleanup(
 #[test]
 fn a_verified_whole_copy_wins_and_sharded_uploads_pay_their_ratio() {
     let mut s = media_service(|l| l.bytes_per_second = 4 << 20);
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let small = media_replica(&owner, b"whole".to_vec(), 1);
     let (proof, manifest) = check_verified_whole_copy(&s, &small);
     check_whole_copy_replaces_manifest(&small, &proof, &manifest);
@@ -719,7 +719,7 @@ fn media_keep_put_get() {
 
     let dir = format!("/tmp/ai/test-service-media-{}", uuid::Uuid::new_v4());
     service.media = Some(MediaStore::open(std::path::Path::new(&dir)).unwrap());
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().unwrap();
     let owner = dyapp_identity::key_hash(&identity.public_key()).to_vec();
     let data = b"photo".to_vec();
     let hash = dyapp_identity::sha256(&data).to_vec();

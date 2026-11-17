@@ -5,7 +5,7 @@ async fn challenge_is_bound_to_its_connection() {
     let addr = start(100).await;
     let mut first = Client::connect(&addr).await;
     let mut second = Client::connect(&addr).await;
-    let device = Identity::generate();
+    let device = Identity::try_generate().unwrap();
     let nonce = first.challenge().await;
     second.challenge().await;
     let reply = second.mailbox(fetch(&device, nonce.clone())).await;

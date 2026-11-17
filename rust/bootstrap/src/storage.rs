@@ -686,7 +686,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let store = BootstrapStore::new(&dir).unwrap();
         let now = crate::clock::Clock::system().timestamp();
-        let owner = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
         let profile = Profile {
             version: 1,
             ..Profile::default()

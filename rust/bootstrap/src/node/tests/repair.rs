@@ -99,7 +99,7 @@ async fn profile_repair_only_fills_gaps_once_an_hour_within_budget() {
         .behaviour_mut()
         .kad
         .add_address(&remote, "/ip4/127.0.0.1/tcp/1".parse().unwrap());
-    let owner = dyapp_identity::Identity::generate();
+    let owner = dyapp_identity::Identity::try_generate().unwrap();
     let record = dyapp_profile::Profile {
         version: 2,
         ..Default::default()

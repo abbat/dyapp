@@ -67,7 +67,7 @@ fn status_reports_absent_and_populated_stores_without_creating_missing_databases
     );
 
     let store = BootstrapStore::new(dir.to_str().unwrap()).unwrap();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     store
         .put_profile(
             &dyapp_profile::Profile {
@@ -169,7 +169,7 @@ fn deny_cli_add_is_idempotent_and_received_lists_are_not_locally_applied() {
     assert!(listed.trim_end().ends_with("\toperator note"));
     assert!(stopped_status(&dir).contains("deny_entries 1\n"));
 
-    let remote = Identity::generate();
+    let remote = Identity::try_generate().unwrap();
     let peer = remote.peer_id().clone();
     let record = deny::sign(&remote, &["198.51.100.0/24".to_owned()].into());
     let list = proto::DenyList::decode(record.payload.as_slice()).unwrap();

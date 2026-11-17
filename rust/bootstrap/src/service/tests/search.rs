@@ -67,7 +67,7 @@ fn beat(identity: &Identity, version: u64, time: u64) -> SignedRecord {
 #[test]
 fn search_publish_query_get() {
     let s = search_service();
-    let id = Identity::generate();
+    let id = Identity::try_generate().unwrap();
     let record = proven(
         &id,
         Profile {
@@ -268,7 +268,7 @@ fn search_network_accepts_records_above_local_send_limit_and_bounds_the_network(
     let mut s = search_service();
     s.config.search.max_profile_bytes = 4096;
     s.config.search.min_profile_pow_bits = 0;
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let profile = Profile {
         version: 1,
         ..Default::default()
@@ -328,7 +328,7 @@ fn check_large_profile_publish(s: &Service, record: &SignedRecord) {
 fn low_pow_heartbeat_does_not_refresh_or_remove_the_stored_record() {
     let mut s = search_service();
     s.config.search.min_profile_pow_bits = 0;
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let record = Profile {
         version: 1,
         ..Default::default()
@@ -408,7 +408,7 @@ fn check_weak_heartbeat(
 }
 
 fn check_other_heartbeats(s: &Service) {
-    let unknown = Identity::generate();
+    let unknown = Identity::try_generate().unwrap();
     let response = search(
         s,
         search_request::Request::Heartbeat(beat(
@@ -421,7 +421,7 @@ fn check_other_heartbeats(s: &Service) {
         (response.status, response.required_pow_bits),
         (i32::from(Status::NotFound), 0)
     );
-    let strong = Identity::generate();
+    let strong = Identity::try_generate().unwrap();
     let record = proven(
         &strong,
         Profile {
@@ -451,7 +451,7 @@ fn check_other_heartbeats(s: &Service) {
 #[test]
 fn search_pow_hint_is_specific_to_insufficient_difficulty() {
     let s = search_service();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let weak = Profile {
         version: 1,
         ..Default::default()
@@ -498,7 +498,7 @@ fn search_refusals_and_gossip() {
     let s = search_service();
     let unknown = s.search(&peer("p"), SearchRequest::default()).unwrap();
     assert!(matches!(unknown, Search::Reply(r) if search_status(&r) == Status::Unsupported));
-    let id = Identity::generate();
+    let id = Identity::try_generate().unwrap();
     let mut forged = Profile {
         version: 1,
         ..Profile::default()
@@ -551,7 +551,7 @@ fn search_profile_pow() {
     s.config.search.min_profile_pow_bits = 2;
     let index = SearchIndex::open(&s.config.storage.search_path(), &s.config.search);
     s.search = Some(Arc::new(index.unwrap()));
-    let id = Identity::generate();
+    let id = Identity::try_generate().unwrap();
     let v1 = || Profile {
         version: 1,
         ..Profile::default()
@@ -589,7 +589,7 @@ fn search_profile_pow() {
         }
         .encode_to_vec()
     };
-    let other = Identity::generate();
+    let other = Identity::try_generate().unwrap();
     assert_eq!(s.search_gossip(&wrap(v1().sign(&other))), Verdict::Ignore);
     let lie = Profile {
         pow_bits: 20,
@@ -602,7 +602,7 @@ fn search_profile_pow() {
 #[test]
 fn search_peers_sync_on_their_own_budget() {
     let s = search_service();
-    let id = Identity::generate();
+    let id = Identity::try_generate().unwrap();
     let record = proven(
         &id,
         Profile {
@@ -753,7 +753,7 @@ fn beat_service(id: &Identity) -> Service {
 
 #[test]
 fn search_heartbeat_pow() {
-    let id = Identity::generate();
+    let id = Identity::try_generate().unwrap();
     let s = beat_service(&id);
     let send = |who: &str, r: SignedRecord| {
         search_status(&search_as(
@@ -803,7 +803,7 @@ fn search_heartbeat_pow() {
 
 #[test]
 fn heartbeat_just_before_midnight_passes() {
-    let id = Identity::generate();
+    let id = Identity::try_generate().unwrap();
     let s = beat_service(&id);
     let day = u32::try_from(crate::clock::Clock::system().timestamp() / 86_400).unwrap() + 1;
     let now = i64::from(day) * 86_400 + 86_370;

@@ -52,7 +52,7 @@ async fn the_daily_keep_puts_back_a_lost_photo_of_the_live_profile() {
         )
     };
     let (mut node, mut reader) = (connect().await.unwrap(), connect().await.unwrap());
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let mut store = Store::open(&store_path("photo-keep"), &owner).unwrap();
     let (full, thumbnail) = (vec![0xFF, 0xD8, 0xFF, 1], vec![0xFF, 0xD8, 0xFF, 2]);
     let draft = store.add_profile_photo(&full, &thumbnail).unwrap();
@@ -97,7 +97,7 @@ async fn six_photos_fit_the_default_rate_of_a_node() {
     let mut node = dyapp_client::Node::connect(address, protocols)
         .await
         .unwrap();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let mut store = Store::open(&store_path("six-photos"), &owner).unwrap();
     for seed in 1..=6 {
         store
@@ -120,7 +120,7 @@ async fn profile_photos_reach_readers_and_leave_with_the_profile() {
         )
     };
     let (mut node, mut reader) = (connect().await.unwrap(), connect().await.unwrap());
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let mut store = Store::open(&store_path("profile-photos"), &owner).unwrap();
     let (full, thumbnail) = (vec![0xFF, 0xD8, 0xFF, 1], vec![0xFF, 0xD8, 0xFF, 2]);
 
@@ -178,7 +178,7 @@ async fn client_keeps_attaches_reads_and_releases_media() {
     )
     .await
     .unwrap();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
 
     // A kept blob is accepted, read back whole and checked against its hash.
     let photo = b"profile photo".to_vec();

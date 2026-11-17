@@ -50,7 +50,7 @@ async fn changes_during_the_copy_reach_the_candidate() {
     let index = index();
     let t = index.created();
     let keys = fill(&index, 600, t);
-    let id = Identity::generate();
+    let id = Identity::try_generate().unwrap();
     let (gone, p1, r1) = signed(&id, profile(1));
     index.put(&gone, &p1, &r1, t, true).unwrap();
     let budget = RebuildBudget::new(64);

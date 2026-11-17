@@ -145,7 +145,7 @@ proptest! {
     ) {
         thread_local! {
             static OWNERS: [Identity; 3] =
-                [Identity::generate(), Identity::generate(), Identity::generate()];
+                [Identity::try_generate().unwrap(), Identity::try_generate().unwrap(), Identity::try_generate().unwrap()];
         }
         OWNERS.with(|owners| check(owners, &schedule, switch))?;
     }

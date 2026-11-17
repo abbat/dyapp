@@ -20,7 +20,7 @@ pub(super) struct Person {
 
 impl Person {
     pub(super) async fn new(address: &Multiaddr) -> Self {
-        let mut person = Box::new(Self::device(address, Identity::generate(), 1).await);
+        let mut person = Box::new(Self::device(address, Identity::try_generate().unwrap(), 1).await);
         let profile = Profile {
             version: 1,
             devices: vec![person.device.certificate().clone()],
@@ -36,7 +36,7 @@ impl Person {
 
     /// A device `generation` of `identity`, not yet in any published profile.
     pub(super) async fn device(address: &Multiaddr, identity: Identity, generation: u64) -> Self {
-        let device_key = Identity::generate();
+        let device_key = Identity::try_generate().unwrap();
         let device = Device::new(&identity, device_key.public_key(), generation).unwrap();
         let node = dyapp_client::Node::connect(
             address.clone(),
@@ -288,9 +288,9 @@ async fn the_client_takes_the_newest_replica_profile_and_refuses_a_rollback() {
             config.limits.min_free_mb = 0;
         })
         .await;
-        nodes.push(Person::device(&address, Identity::generate(), 1).await.node);
+        nodes.push(Person::device(&address, Identity::try_generate().unwrap(), 1).await.node);
     }
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     for (node, version) in nodes.iter_mut().zip([3, 5]) {
         let profile = Profile {
             version,

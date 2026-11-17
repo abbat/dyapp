@@ -94,7 +94,7 @@ async fn background_media_repair_holds_no_channel() {
         &service.config.roles,
     )
     .unwrap();
-    let owner = dyapp_identity::Identity::generate();
+    let owner = dyapp_identity::Identity::try_generate().unwrap();
     let hash = dyapp_identity::sha256(b"unavailable blob").to_vec();
     let keep = proto::MediaKeep {
         version: 1,
@@ -129,7 +129,7 @@ async fn media_queue_drops_capped_writes_without_tracking_or_trust_penalties() {
         &service.config.roles,
     )
     .unwrap();
-    let owner = dyapp_identity::Identity::generate();
+    let owner = dyapp_identity::Identity::try_generate().unwrap();
     let data = vec![1];
     let keep = proto::MediaKeep {
         version: 1,
@@ -262,7 +262,7 @@ async fn mailbox_repair_over_fifty_envelopes_makes_progress_after_refill() {
     };
     let (source, destination) = (service(), service());
     let (mut sender, mut receiver, remote) = Box::pin(repair_swarms(&source, &destination)).await;
-    let owner = dyapp_identity::Identity::generate();
+    let owner = dyapp_identity::Identity::try_generate().unwrap();
     let mailbox = vec![2; 32];
     store_repair_envelopes(&source, &owner, &mailbox);
     check_repair_refill(
@@ -381,7 +381,7 @@ async fn repair_sends_no_signals_but_lists_them() {
     config.network.id_pow_bits = 0;
     config.limits.sender_puts_per_second = 1000;
     let service = Service::new(crate::storage::BootstrapStore::new(&dir).unwrap(), config).unwrap();
-    let owner = dyapp_identity::Identity::generate();
+    let owner = dyapp_identity::Identity::try_generate().unwrap();
     let mailbox = vec![2; 32];
     for i in 0..4u8 {
         let class = if i == 0 {
@@ -450,7 +450,7 @@ async fn mailbox_profile_and_profile_repair_share_the_sender_cap() {
     let watchers = Watchers::default();
     let remote = PeerId::random();
     replicas.trust.add(remote, 5);
-    let owner = dyapp_identity::Identity::generate();
+    let owner = dyapp_identity::Identity::try_generate().unwrap();
     let record = dyapp_profile::Profile {
         version: 1,
         ..Default::default()
@@ -757,7 +757,7 @@ async fn media_holder_status_counts_distinct_confirmations_for_the_latest_write(
 
 #[test]
 fn stale_profile_confirmation_must_verify_the_owner_and_version() {
-    let owner = dyapp_identity::Identity::generate();
+    let owner = dyapp_identity::Identity::try_generate().unwrap();
     let sign = |version| {
         dyapp_profile::Profile {
             version,
@@ -833,7 +833,7 @@ async fn holders_store_once_and_replica_puts_never_fan_out() {
 }
 
 fn mailbox_envelope_record() -> SignedRecord {
-    let sender = dyapp_identity::Identity::generate();
+    let sender = dyapp_identity::Identity::try_generate().unwrap();
     sender.sign(
         dyapp_identity::Domain::Envelope,
         proto::Envelope {

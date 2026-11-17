@@ -28,7 +28,7 @@ fn population() -> (SearchIndex, std::collections::HashSet<[u8; 32]>) {
     let index = index();
     let mut p03 = std::collections::HashSet::new();
     for i in 0..600i64 {
-        let id = Identity::generate();
+        let id = Identity::try_generate().unwrap();
         let p = Profile {
             version: 1,
             birth_year: Some(2026 - u32::try_from(20 + i % 60).unwrap()),
@@ -82,7 +82,7 @@ fn virtual_age_condition_contains_the_whole_birth_interval() {
             birth_day: day,
             ..Profile::default()
         };
-        let (key, p, record) = signed(&Identity::generate(), profile);
+        let (key, p, record) = signed(&Identity::try_generate().unwrap(), profile);
         index.put(&key, &p, &record, 0, true).unwrap();
         keys.push(key);
     }
@@ -143,10 +143,10 @@ fn query_matches_closed_scales_and_skips_unpublished_values() {
         pets: 2,
         ..Profile::default()
     };
-    let (key, profile, record) = signed(&Identity::generate(), filled);
+    let (key, profile, record) = signed(&Identity::try_generate().unwrap(), filled);
     index.put(&key, &profile, &record, 0, true).unwrap();
     let (empty_key, profile, record) = signed(
-        &Identity::generate(),
+        &Identity::try_generate().unwrap(),
         Profile {
             version: 1,
             ..Profile::default()
@@ -181,7 +181,7 @@ fn a_code_above_the_maximum_is_not_stated_and_a_gap_code_falls_inside_its_range(
     use dyapp_profile::{CareerAmbition, EducationLevel, Gender};
     let index = index();
     let (newer, profile, record) = signed(
-        &Identity::generate(),
+        &Identity::try_generate().unwrap(),
         Profile {
             version: 1,
             gender: Gender::MAX + 1,
@@ -192,7 +192,7 @@ fn a_code_above_the_maximum_is_not_stated_and_a_gap_code_falls_inside_its_range(
     );
     index.put(&newer, &profile, &record, 0, true).unwrap();
     let (between, profile, record) = signed(
-        &Identity::generate(),
+        &Identity::try_generate().unwrap(),
         Profile {
             version: 1,
             career_ambition: 15,
@@ -225,7 +225,7 @@ fn query_filters_height_with_inclusive_bounds_and_skips_unset() {
     let index = index();
     for height in [None, Some(170), Some(180)] {
         let (key, profile, record) = signed(
-            &Identity::generate(),
+            &Identity::try_generate().unwrap(),
             Profile {
                 version: 1,
                 height,
@@ -271,7 +271,7 @@ fn query_filters_activity_by_day() {
     let day = 86_400;
     let mut keys = Vec::new();
     for now in [10 * day, 12 * day - 1, 12 * day] {
-        let (key, p, r) = signed(&Identity::generate(), Profile::default());
+        let (key, p, r) = signed(&Identity::try_generate().unwrap(), Profile::default());
         index.put(&key, &p, &r, now, true).unwrap();
         keys.push(key);
     }
@@ -343,7 +343,7 @@ fn mutual_conditions_keep_only_who_seeks_the_gender_and_the_age() {
     let index = index();
     let put = |genders: Vec<u32>, from, to, not_looking| {
         let (key, p, r) = signed(
-            &Identity::generate(),
+            &Identity::try_generate().unwrap(),
             Profile {
                 version: 1,
                 seeking_genders: genders,
@@ -392,7 +392,7 @@ fn mutual_conditions_keep_only_who_seeks_the_gender_and_the_age() {
 #[test]
 fn a_republish_replaces_who_a_profile_seeks() {
     let index = index();
-    let id = Identity::generate();
+    let id = Identity::try_generate().unwrap();
     let seeking = Profile {
         version: 1,
         seeking_genders: vec![1],

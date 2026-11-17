@@ -791,12 +791,12 @@ async fn a_link_record_crosses_a_node_and_restores_the_owner() {
     }
     phone.set_profile_hidden(true).unwrap();
 
-    let laptop_key = Identity::generate();
+    let laptop_key = Identity::try_generate().unwrap();
     let mut invite = Invite::new(dyapp_client::mailbox(&laptop_key.public_key()), NOW).unwrap();
     let code = Code::parse(&invite.code().text(), NOW).unwrap();
-    let mut stranger = Person::device(&address, Identity::generate(), 1).await;
+    let mut stranger = Person::device(&address, Identity::try_generate().unwrap(), 1).await;
     stranger.node.put(&code.mailbox, vec![7; 64]).await.unwrap();
-    let mut inbox = Person::device(&address, Identity::generate(), 1).await.node;
+    let mut inbox = Person::device(&address, Identity::try_generate().unwrap(), 1).await.node;
     assert!(invite
         .receive(&mut inbox, &laptop_key, NOW)
         .await
@@ -885,7 +885,7 @@ async fn a_linked_device_finishes_after_a_failed_step_without_spending_a_version
     let address = link_node().await;
     let mut alice = Person::new(&address).await;
     let owner = alice.identity.peer_id();
-    let device_key = Identity::generate();
+    let device_key = Identity::try_generate().unwrap();
     let copy = Identity::from_secret(&alice.identity.secret());
     let path = store_path("finish-laptop");
     let mut laptop = Person::device(&address, copy, 2).await;
@@ -903,7 +903,7 @@ async fn a_linked_device_finishes_after_a_failed_step_without_spending_a_version
     store
         .set_link_pending(&phone.link_state().unwrap())
         .unwrap();
-    let stranger = Identity::generate();
+    let stranger = Identity::try_generate().unwrap();
     assert!(
         finish_pending(store, &mut laptop.node, &stranger, &device_key)
             .await

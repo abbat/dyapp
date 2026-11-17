@@ -26,9 +26,9 @@ fn close(identity: &Identity, owner: &Identity, device: &Identity) -> SignedReco
 #[test]
 fn a_revoke_deletes_the_keys_envelopes_and_refuses_their_puts_without_a_strike() {
     let (owner, contact, other) = (
-        Identity::generate(),
-        Identity::generate(),
-        Identity::generate(),
+        Identity::try_generate().unwrap(),
+        Identity::try_generate().unwrap(),
+        Identity::try_generate().unwrap(),
     );
     let mailbox = mailbox_of(&owner);
     let service = service_with(|l| l.strikes_to_ban = 1);
@@ -75,9 +75,9 @@ fn a_revoke_deletes_the_keys_envelopes_and_refuses_their_puts_without_a_strike()
 #[test]
 fn forged_revokes_strike_and_future_or_expired_ones_do_not() {
     let (owner, contact, stranger) = (
-        Identity::generate(),
-        Identity::generate(),
-        Identity::generate(),
+        Identity::try_generate().unwrap(),
+        Identity::try_generate().unwrap(),
+        Identity::try_generate().unwrap(),
     );
     let mailbox = mailbox_of(&owner);
     let service = service_with(|l| l.strikes_to_ban = 1);
@@ -120,10 +120,10 @@ fn forged_revokes_strike_and_future_or_expired_ones_do_not() {
 #[test]
 fn the_owner_closes_a_revoked_device_mailbox() {
     let (identity, device, contact, stranger) = (
-        Identity::generate(),
-        Identity::generate(),
-        Identity::generate(),
-        Identity::generate(),
+        Identity::try_generate().unwrap(),
+        Identity::try_generate().unwrap(),
+        Identity::try_generate().unwrap(),
+        Identity::try_generate().unwrap(),
     );
     let mailbox = mailbox_of(&device);
     let service = service_with(|l| l.strikes_to_ban = 1);
