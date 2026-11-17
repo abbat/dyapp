@@ -164,10 +164,31 @@ async fn media_permits_are_shared_and_reject_before_reading() {
 
 #[tokio::test]
 async fn named_builder_announces_only_its_network_and_exchanges_large_media_over_tcp() {
-    use prost::Message;
     let protocols = Arc::new(Protocols::new("builder-test").unwrap());
     let a_wire = Arc::new(WireBytes::default());
     let b_wire = Arc::new(WireBytes::default());
+    let (mut a, mut b) = configured_peers(&protocols, a_wire.clone(), b_wire.clone());
+    a.listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+        .unwrap();
+    let address = loop {
+        if let SwarmEvent::NewListenAddr { address, .. } = a.select_next_some().await {
+            break address;
+        }
+    };
+    let (request_len, response_len) =
+        exchange_large_media(&mut a, &mut b, address, &protocols).await;
+    let mut expected = [[0; 2]; 11];
+    expected[4] = [request_len, response_len];
+    assert_eq!(a_wire.take().0, expected);
+    expected[4] = [response_len, request_len];
+    assert_eq!(b_wire.take().0, expected);
+}
+
+fn configured_peers(
+    protocols: &Arc<Protocols>,
+    a_wire: Arc<WireBytes>,
+    b_wire: Arc<WireBytes>,
+) -> (Swarm<Behaviour>, Swarm<Behaviour>) {
     let make = |mode, wire| {
         build_configured_swarm(
             Keypair::generate_ed25519(),
@@ -181,67 +202,81 @@ async fn named_builder_announces_only_its_network_and_exchanges_large_media_over
         )
         .unwrap()
     };
-    let mut a = make(Mode::Auto, a_wire.clone());
-    let mut b = make(Mode::Client, b_wire.clone());
+    let mut a = make(Mode::Auto, a_wire);
+    let b = make(Mode::Client, b_wire);
     a.behaviour_mut().kad.set_mode(Some(kad::Mode::Server));
-    a.listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
-        .unwrap();
-    let address = loop {
-        if let SwarmEvent::NewListenAddr { address, .. } = a.select_next_some().await {
-            break address;
-        }
-    };
+    (a, b)
+}
+
+fn media_messages() -> (proto::MediaRequest, proto::MediaResponse) {
     let request = proto::MediaRequest {
         request: Some(proto::media_request::Request::Put(proto::MediaPut {
             owner: vec![1; 32],
             data: vec![7; 2 << 20],
         })),
     };
-    let request_len = request.encoded_len() as u64;
-    let expected_response = proto::MediaResponse {
+    let response = proto::MediaResponse {
         status: proto::Status::Ok.into(),
         data: vec![7; 2 << 20],
         ..Default::default()
     };
-    let response_len = expected_response.encoded_len() as u64;
-    let check_identify = |info: &identify::Info, server: bool| {
-        assert_eq!(info.protocol_version, protocols.version);
-        assert_eq!(info.agent_version, crate::AGENT_VERSION);
-        // A loopback-only node still announces its address; the client listens on none.
-        let listening = if server {
-            vec![address.clone()]
-        } else {
-            Vec::new()
-        };
-        assert_eq!(info.listen_addrs, listening);
-        let ids = info
-            .protocols
-            .iter()
-            .map(std::convert::AsRef::as_ref)
-            .collect::<Vec<_>>();
-        for id in &ids {
-            if id.starts_with("/dyapp") || id.starts_with("/meshsub") {
-                assert!(
-                    id.starts_with(&format!("{}/", protocols.version)),
-                    "public protocol leaked: {id}"
-                );
-            }
-        }
-        if server {
-            for id in protocols
-                .all()
-                .into_iter()
-                .filter(|id| *id != &protocols.mailbox_push)
-            {
-                assert!(ids.contains(&id.as_ref()), "not advertised: {id}");
-            }
-        } else {
-            assert!(ids.contains(&protocols.mailbox_push.as_ref()));
-        }
-        assert!(ids
-            .iter()
-            .any(|id| id.starts_with(protocols.gossip_prefix.as_ref().unwrap())));
+    (request, response)
+}
+
+fn assert_identify(
+    info: &identify::Info,
+    server: bool,
+    address: &Multiaddr,
+    protocols: &Protocols,
+) {
+    assert_eq!(info.protocol_version, protocols.version);
+    assert_eq!(info.agent_version, crate::AGENT_VERSION);
+    // A loopback-only node still announces its address; the client listens on none.
+    let listening = if server {
+        vec![address.clone()]
+    } else {
+        Vec::new()
     };
+    assert_eq!(info.listen_addrs, listening);
+    let ids = info
+        .protocols
+        .iter()
+        .map(std::convert::AsRef::as_ref)
+        .collect::<Vec<_>>();
+    for id in &ids {
+        if id.starts_with("/dyapp") || id.starts_with("/meshsub") {
+            assert!(
+                id.starts_with(&format!("{}/", protocols.version)),
+                "public protocol leaked: {id}"
+            );
+        }
+    }
+    if server {
+        for id in protocols
+            .all()
+            .into_iter()
+            .filter(|id| *id != &protocols.mailbox_push)
+        {
+            assert!(ids.contains(&id.as_ref()), "not advertised: {id}");
+        }
+    } else {
+        assert!(ids.contains(&protocols.mailbox_push.as_ref()));
+    }
+    assert!(ids
+        .iter()
+        .any(|id| id.starts_with(protocols.gossip_prefix.as_ref().unwrap())));
+}
+
+async fn exchange_large_media(
+    a: &mut Swarm<Behaviour>,
+    b: &mut Swarm<Behaviour>,
+    address: Multiaddr,
+    protocols: &Protocols,
+) -> (u64, u64) {
+    use prost::Message;
+    let (request, expected_response) = media_messages();
+    let request_len = request.encoded_len() as u64;
+    let response_len = expected_response.encoded_len() as u64;
     b.dial(address.clone()).unwrap();
     let (mut a_identified, mut b_identified, mut received) = (false, false, false);
     tokio::time::timeout(Duration::from_secs(10), async {
@@ -249,7 +284,7 @@ async fn named_builder_announces_only_its_network_and_exchanges_large_media_over
             tokio::select! {
                 event = a.select_next_some() => match event {
                     SwarmEvent::Behaviour(BehaviourEvent::Identify(identify::Event::Received { info, .. })) => {
-                        check_identify(&info, false);
+                        assert_identify(&info, false, &address, protocols);
                         a_identified = true;
                     }
                     SwarmEvent::Behaviour(BehaviourEvent::Media(request_response::Event::Message {
@@ -267,7 +302,7 @@ async fn named_builder_announces_only_its_network_and_exchanges_large_media_over
                         b.behaviour_mut().media.send_request(&peer_id, request.clone());
                     }
                     SwarmEvent::Behaviour(BehaviourEvent::Identify(identify::Event::Received { info, .. })) => {
-                        check_identify(&info, true);
+                        assert_identify(&info, true, &address, protocols);
                         b_identified = true;
                     }
                     SwarmEvent::Behaviour(BehaviourEvent::Media(request_response::Event::Message {
@@ -281,11 +316,7 @@ async fn named_builder_announces_only_its_network_and_exchanges_large_media_over
             }
         }
     }).await.unwrap();
-    let mut expected = [[0; 2]; 11];
-    expected[4] = [request_len, response_len];
-    assert_eq!(a_wire.take().0, expected);
-    expected[4] = [response_len, request_len];
-    assert_eq!(b_wire.take().0, expected);
+    (request_len, response_len)
 }
 
 #[tokio::test]
