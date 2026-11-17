@@ -329,64 +329,23 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     connection_id,
                     message: Message::Request { request, channel, .. },
                 })) => {
-                    let gossip = search_key(&request).map(|key| (key, request.encode_to_vec()));
-                    let solution = match &request.request {
-                        Some(proto::search_request::Request::Query(query)) => query.puzzle.clone(),
-                        Some(proto::search_request::Request::Get(get)) => get.puzzle.clone(),
-                        _ => None,
-                    };
-                    let from = peer(&swarm, &service, id, connection_id);
-                    match service.search(&from, request) {
-                        Ok(Search::Reply(response)) => {
-                            answered += 1;
-                            spread(&mut swarm, gossip, &response, &service);
-                            service.traffic.add(response.encoded_len() as u64);
-                            let _ = swarm.behaviour_mut().search.send_response(channel, response);
-                        }
-                        Ok(Search::Pow(check, request)) => if let Ok(permit) = pow_permits.clone().try_acquire_owned() {
-                            let (cache, done) = (service.pow.clone(), pow_tx.clone());
-                            tokio::task::spawn_blocking(move || {
-                                let _permit = permit;
-                                let ok = cache.check(&check);
-                                let _ = done.send(PowDone::Publish { peer: id, from, channel, request, ok });
-                            });
-                        } else {
-                            answered += 1;
-                            let response = SearchResponse {
-                                status: Status::RateLimited.into(),
-                                retry_after: 1,
-                                ..SearchResponse::default()
-                            };
-                            let _ = swarm.behaviour_mut().search.send_response(channel, response);
+                    let outcome = search_jobs::request(
+                        search_jobs::RequestContext {
+                            swarm: &mut swarm,
+                            service: &service,
+                            queue: &mut search_queue,
+                            running: &mut searching,
+                            done: &search_done_tx,
+                            pow_permits: &pow_permits,
+                            pow_done: &pow_tx,
                         },
-                        Ok(work) => {
-                            let group = (!service.is_search_peer(&from)).then(|| from.group.clone());
-                            let peer_id = from.id.clone();
-                            let job = SearchJob { from, channel, work, queued: service.clock.instant() };
-                            match search_queue.push(group.as_deref(), job) {
-                                Ok(()) => {
-                                    if let Some(solution) = &solution {
-                                        service.puzzle.consume(&peer_id, solution);
-                                    }
-                                }
-                                Err(SearchJob { channel, .. }) => {
-                                    answered += 1;
-                                    let response = SearchResponse {
-                                        status: Status::RateLimited.into(),
-                                        retry_after: 1,
-                                        ..SearchResponse::default()
-                                    };
-                                    let _ = swarm.behaviour_mut().search.send_response(channel, response);
-                                }
-                            }
-                            start_search(&mut search_queue, &mut searching, &service, &search_done_tx);
-                        }
-                        Err(error) => {
-                            failed += 1;
-                            tracing::error!(%error, "search request failed");
-                        }
-                    }
-                    drop_banned(&mut swarm, &service, id);
+                        id,
+                        connection_id,
+                        request,
+                        channel,
+                    );
+                    answered += outcome.answered;
+                    failed += outcome.failed;
                 }
                 SwarmEvent::Behaviour(BehaviourEvent::Inventory(Event::Message {
                     peer: id,
