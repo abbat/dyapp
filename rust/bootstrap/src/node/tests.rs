@@ -696,17 +696,7 @@ async fn holders_store_once_and_replica_puts_never_fan_out() {
     let me = *swarm.local_peer_id();
     let mut replicas = Replicas::default();
     let mut watchers = Watchers::new();
-    let sender = dyapp_identity::Identity::generate();
-    let record = sender.sign(
-        dyapp_identity::Domain::Envelope,
-        proto::Envelope {
-            id: vec![1; 16],
-            mailbox: vec![2; 32],
-            ciphertext: vec![3],
-            ..Default::default()
-        }
-        .encode_to_vec(),
-    );
+    let record = mailbox_envelope_record();
     replicas
         .puts
         .insert(0, pending(PutRecord::Mailbox(record.clone(), vec![])));
@@ -740,14 +730,32 @@ async fn holders_store_once_and_replica_puts_never_fan_out() {
         1,
         "replica_put forwarded again"
     );
+    fill_pending_puts(&mut replicas, &record);
+    replicas.finish_puts(&mut swarm, &service, Instant::now() + PUT_TIMEOUT);
+    assert!(!replicas.at_capacity() && replicas.puts.is_empty());
+}
+
+fn mailbox_envelope_record() -> SignedRecord {
+    let sender = dyapp_identity::Identity::generate();
+    sender.sign(
+        dyapp_identity::Domain::Envelope,
+        proto::Envelope {
+            id: vec![1; 16],
+            mailbox: vec![2; 32],
+            ciphertext: vec![3],
+            ..Default::default()
+        }
+        .encode_to_vec(),
+    )
+}
+
+fn fill_pending_puts(replicas: &mut Replicas, record: &SignedRecord) {
     for id in 1..MAX_PENDING_PUTS as u64 {
         replicas
             .puts
             .insert(id, pending(PutRecord::Mailbox(record.clone(), vec![])));
     }
     assert!(replicas.at_capacity());
-    replicas.finish_puts(&mut swarm, &service, Instant::now() + PUT_TIMEOUT);
-    assert!(!replicas.at_capacity() && replicas.puts.is_empty());
 }
 
 #[test]
