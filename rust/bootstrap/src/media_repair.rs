@@ -40,8 +40,10 @@ impl Schedule {
         hashes: &[Vec<u8>],
         now: Instant,
     ) -> Vec<Vec<u8>> {
-        self.recent.retain(|_, (at, _)| now < *at + INTERVAL);
-        self.cursors.retain(|_, (_, at)| now < *at + INTERVAL);
+        self.recent
+            .retain(|_, (at, _)| at.checked_add(INTERVAL).is_none_or(|end| now < end));
+        self.cursors
+            .retain(|_, (_, at)| at.checked_add(INTERVAL).is_none_or(|end| now < end));
         if hashes.is_empty()
             || (!self.cursors.contains_key(&owner) && self.cursors.len() >= MAX_TRACKED)
         {
@@ -52,10 +54,17 @@ impl Schedule {
         // Only ever used modulo the length, so a cursor past a shrunken list still works.
         let start = *cursor;
         let count = hashes.len().min(WINDOW);
-        *cursor = (start + count) % hashes.len();
+        *cursor = start
+            .wrapping_add(count)
+            .checked_rem(hashes.len())
+            .unwrap_or(0);
         let mut selected = Vec::new();
         for offset in 0..count {
-            let hash = &hashes[(start + offset) % hashes.len()];
+            let index = start
+                .wrapping_add(offset)
+                .checked_rem(hashes.len())
+                .unwrap_or(0);
+            let hash = &hashes[index];
             if !self.recent.contains_key(hash) && self.recent.len() < MAX_TRACKED {
                 self.recent.insert(hash.clone(), (now, true));
                 selected.push(hash.clone());
@@ -67,7 +76,7 @@ impl Schedule {
     pub(crate) fn result(&self, hash: &[u8], now: Instant) -> Option<bool> {
         self.recent
             .get(hash)
-            .filter(|(at, _)| now < *at + INTERVAL)
+            .filter(|(at, _)| at.checked_add(INTERVAL).is_none_or(|end| now < end))
             .map(|(_, missing)| *missing)
     }
 
@@ -183,7 +192,7 @@ impl Repair {
             jobs: HashMap::new(),
             queued: Vec::new(),
             next_job: 0,
-            deadline: now + TIMEOUT,
+            deadline: now.checked_add(TIMEOUT).unwrap_or(now),
         };
         repair.lookups = (0..repair.blobs.len()).map(|i| repair.keys(i).len()).sum();
         Ok(repair)
@@ -240,7 +249,7 @@ impl Repair {
 
     fn issue(&mut self, job: Job) {
         let id = self.next_job;
-        self.next_job += 1;
+        self.next_job = self.next_job.wrapping_add(1);
         self.queued.push((job.peer(), id));
         self.jobs.insert(id, job);
     }
@@ -267,7 +276,10 @@ impl Repair {
             Job::Have(peer) => {
                 let items = self.groups.get(peer)?.clone();
                 // Reserve both partition lists and one bounded manifest per requested hash.
-                let reply = items.len() as u64 * 512 + 1024;
+                let reply = u64::try_from(items.len())
+                    .unwrap_or(u64::MAX)
+                    .saturating_mul(512)
+                    .saturating_add(1024);
                 (Request::Have(proto::MediaHave { items }), reply)
             }
             Job::Get(blob, _) => (
@@ -282,7 +294,14 @@ impl Repair {
                     hash: self.blobs[*blob].hash.clone(),
                     index: *index,
                 }),
-                (self.blobs[*blob].manifest.as_ref()?.shard_size()? + 1024) as u64,
+                u64::try_from(
+                    self.blobs[*blob]
+                        .manifest
+                        .as_ref()?
+                        .shard_size()?
+                        .saturating_add(1024),
+                )
+                .unwrap_or(u64::MAX),
             ),
             Job::Put(blob, index, _) => (self.write(*blob, *index)?, 1024),
         };
@@ -347,7 +366,8 @@ impl Repair {
             self.unconfirmed = true;
             return;
         }
-        self.unconfirmed |= inventory.present.len() + inventory.missing.len() != requested.len();
+        self.unconfirmed |= inventory.present.len().saturating_add(inventory.missing.len())
+            != requested.len();
         for blob in &mut self.blobs {
             blob.record_inventory(peer, inventory);
         }
@@ -384,7 +404,7 @@ impl Repair {
         b.data = None;
         b.shards.clear();
         b.encoded.clear();
-        self.active += 1;
+        self.active = self.active.saturating_add(1);
         self.stage = Stage::Inventory;
     }
 

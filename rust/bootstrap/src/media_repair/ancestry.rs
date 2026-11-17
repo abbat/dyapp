@@ -270,7 +270,11 @@ impl Repair {
             return;
         }
         match history.receive(peer, response) {
-            Ok(true) => self.deadline = self.deadline.max(now + TIMEOUT),
+            Ok(true) => {
+                self.deadline = now
+                    .checked_add(TIMEOUT)
+                    .map_or(self.deadline, |deadline| self.deadline.max(deadline));
+            }
             Ok(false) => {}
             Err(_) => {
                 history.fail(peer);
