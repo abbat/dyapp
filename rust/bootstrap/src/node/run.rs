@@ -3,9 +3,11 @@
 use super::*;
 mod hangup;
 mod overload;
+mod pow;
 mod requests;
 mod search_jobs;
 mod stored;
+use pow::PowDone;
 use search_jobs::{start_search, SearchDone, SearchJob};
 
 fn clock_instant(service: &Service) -> tokio::time::Instant {
@@ -68,27 +70,32 @@ fn request_deny_lists(swarm: &mut Swarm<Behaviour>, service: &Service, routed: &
     }
 }
 
+fn store_local_providers(swarm: &mut Swarm<Behaviour>, turn: bool, search: bool) {
+    // Until announced, the node lists itself only in its own store, enough for a client that asks it.
+    let local = *swarm.local_peer_id();
+    let keys = [(turn, dyapp_p2p_net::TURN_KEY), (search, SEARCH_KEY)];
+    for (_, key) in keys.into_iter().filter(|(provides, _)| *provides) {
+        use libp2p::kad::store::RecordStore as _;
+        let record = kad::ProviderRecord::new(kad::RecordKey::new(&key), local, Vec::new());
+        if let Err(error) = swarm.behaviour_mut().kad.store_mut().add_provider(record) {
+            tracing::error!(%error, "provider record not stored");
+        }
+    }
+}
+
+fn subscribe_search_topics(swarm: &mut Swarm<Behaviour>, service: &Service) {
+    if let Some(gossip) = swarm.behaviour_mut().gossip.as_mut() {
+        for topic in (0..SEARCH_TOPICS).filter(|topic| service.config.search.keeps(*topic)) {
+            if let Err(error) = gossip.subscribe(&service.protocols.search_topic(topic)) {
+                tracing::error!(%error, topic, "search topic not joined");
+            }
+        }
+    }
+}
+
 /// Serves requests on `swarm` until the task is dropped. The deny list is checked for changes
 /// every 10 seconds and, on Unix, on SIGHUP.
 pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
-    enum PowDone {
-        Publish {
-            peer: PeerId,
-            from: Peer,
-            channel: ResponseChannel<SearchResponse>,
-            request: proto::SearchRequest,
-            ok: bool,
-        },
-        Gossip {
-            source: PeerId,
-            id: gossipsub::MessageId,
-            data: Vec<u8>,
-            ok: bool,
-        },
-        CatchUp {
-            records: Vec<SignedRecord>,
-        },
-    }
     const POW_GOSSIP_QUEUE: usize = 64;
     let mut hangup = match hangup::Hangup::new() {
         Ok(hangup) => hangup,
@@ -121,26 +128,8 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
     // A search node announces itself the same way, under SEARCH_KEY.
     let mut search_unannounced = service.search.is_some();
     let mut search_query = None;
-    // Until then the node lists itself only in its own store, enough for a client that asks it.
-    let local = *swarm.local_peer_id();
-    let keys = [
-        (turn_unannounced, dyapp_p2p_net::TURN_KEY),
-        (search_unannounced, SEARCH_KEY),
-    ];
-    for (_, key) in keys.into_iter().filter(|(provides, _)| *provides) {
-        use libp2p::kad::store::RecordStore as _;
-        let record = kad::ProviderRecord::new(kad::RecordKey::new(&key), local, Vec::new());
-        if let Err(error) = swarm.behaviour_mut().kad.store_mut().add_provider(record) {
-            tracing::error!(%error, "provider record not stored");
-        }
-    }
-    if let Some(gossip) = swarm.behaviour_mut().gossip.as_mut() {
-        for topic in (0..SEARCH_TOPICS).filter(|t| service.config.search.keeps(*t)) {
-            if let Err(error) = gossip.subscribe(&service.protocols.search_topic(topic)) {
-                tracing::error!(%error, topic, "search topic not joined");
-            }
-        }
-    }
+    store_local_providers(&mut swarm, turn_unannounced, search_unannounced);
+    subscribe_search_topics(&mut swarm, &service);
     // Index reads run off the swarm loop on two workers, fed from a queue fair between IP
     // groups; a read the queue refuses gets RATE_LIMITED. At most two items are ever in the
     // channel: one per worker.
@@ -772,34 +761,15 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
             Some(done) = pow_done.recv() => match done {
                 PowDone::Publish { peer, from, channel, request, ok } => {
                     answered += 1;
-                    match service.search_pow_done(&from, &request, ok) {
-                        Ok(response) => {
-                            let gossip = search_key(&request).map(|key| (key, request.encode_to_vec()));
-                            spread(&mut swarm, gossip, &response, &service);
-                            service.traffic.add(response.encoded_len() as u64);
-                            let _ = swarm.behaviour_mut().search.send_response(channel, response);
-                        }
-                        Err(error) => {
-                            failed += 1;
-                            tracing::error!(%error, "search request failed");
-                        }
-                    }
-                    drop_banned(&mut swarm, &service, peer);
+                    failed += u64::from(!pow::publish(
+                        &mut swarm, &service, peer, &from, channel, &request, ok,
+                    ));
                 }
                 PowDone::Gossip { source, id, data, ok } => {
                     pow_gossip -= 1;
-                    let verdict = match ok.then(|| service.search_gossip(&data)) {
-                        None => Verdict::Reject,
-                        // A cache cleared since the check asks again: drop without a strike.
-                        Some(Verdict::Pow(_)) => Verdict::Ignore,
-                        Some(verdict) => verdict,
-                    };
-                    judge(&mut swarm, &service, &id, &source, &verdict);
+                    pow::gossip(&mut swarm, &service, source, &id, &data, ok);
                 }
-                PowDone::CatchUp { records } => {
-                    let stored = records.iter().filter(|r| matches!(service.search_apply(r), Ok(Caught::Stored))).count();
-                    tracing::debug!(stored, "search catch-up records applied after proof of work");
-                }
+                PowDone::CatchUp { records } => pow::catch_up(&service, &records),
             },
             () = tokio::time::sleep_until(catch_up_at), if !catch_up_queue.is_empty() => {
                 catch_up_at = send_catch_up(&mut swarm, &service.rebuild_budget, &mut catch_up_queue, &mut catch_up_asked, clock_instant(&service))
