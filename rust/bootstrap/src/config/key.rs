@@ -32,8 +32,8 @@ impl NodeConfig {
     ///
     /// # Errors
     ///
-    /// Returns an error if a key, node ID or existing node data is present, network binding fails,
-    /// or key encoding, output writing or node-ID persistence fails.
+    /// Returns an error if a key, node ID or existing node data is present, random generation,
+    /// network binding, key encoding, output writing or node-ID persistence fails.
     pub fn keygen(&self, out: Option<&mut dyn Write>) -> anyhow::Result<PeerId> {
         let key_path = self.storage.key_path();
         let id_path = self.storage.dir.join("node.id");
@@ -58,7 +58,7 @@ impl NodeConfig {
             );
         }
         self.bind_network()?;
-        let keypair = dyapp_p2p_net::generate_pow_keypair(self.network.id_pow_bits);
+        let keypair = dyapp_p2p_net::generate_pow_keypair(self.network.id_pow_bits)?;
         let encoded = Zeroizing::new(keypair.to_protobuf_encoding()?);
         if let Some(out) = out {
             out.write_all(&encoded)?;

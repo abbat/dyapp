@@ -751,7 +751,9 @@ pub fn build_configured_swarm(
 }
 
 mod pow;
-pub use pow::{generate_pow_keypair, id_has_pow, id_pow_bits, set_id_pow_bits, ID_POW_BITS};
+pub use pow::{
+    generate_keypair, generate_pow_keypair, id_has_pow, id_pow_bits, set_id_pow_bits, ID_POW_BITS,
+};
 
 /// Starts joining the network: adds `cached` peers (`.../p2p/<id>` addresses from
 /// [`known_peers`]) to the routing table and dials every seed. Kademlia bootstraps on its own once the first peer is in the table.

@@ -33,32 +33,52 @@ pub fn id_has_pow(peer: &PeerId, bits: u32) -> bool {
     zeros >= bits
 }
 
-fn pow_worker(found: &AtomicBool, bits: u32) -> Option<Keypair> {
+/// A fresh Ed25519 key from the OS random number generator.
+///
+/// # Errors
+/// Returns random-source or key-decoding failures.
+pub fn generate_keypair() -> anyhow::Result<Keypair> {
+    let identity = dyapp_identity::Identity::try_generate()?;
+    let secret = libp2p::identity::ed25519::SecretKey::try_from_bytes(identity.secret())?;
+    Ok(Keypair::from(libp2p::identity::ed25519::Keypair::from(
+        secret,
+    )))
+}
+
+fn pow_worker(found: &AtomicBool, bits: u32) -> anyhow::Result<Option<Keypair>> {
     while !found.load(Ordering::Relaxed) {
-        let keypair = Keypair::generate_ed25519();
+        let keypair = generate_keypair()?;
         if id_has_pow(&keypair.public().to_peer_id(), bits) {
             found.store(true, Ordering::Relaxed);
-            return Some(keypair);
+            return Ok(Some(keypair));
         }
     }
-    None
+    Ok(None)
 }
 
 /// A fresh Ed25519 key whose peer ID has the proof of work of `bits`, searched on every CPU.
 ///
-/// # Panics
-/// Panics if a search worker cannot be spawned or panics, or if every worker
-/// returns without a key. Key generation also requires an available OS random source.
-pub fn generate_pow_keypair(bits: u32) -> Keypair {
+/// # Errors
+/// Returns random-source, key-decoding, worker creation or worker join failures, or an error
+/// if every worker returns without a key.
+pub fn generate_pow_keypair(bits: u32) -> anyhow::Result<Keypair> {
     let threads = std::thread::available_parallelism().map_or(1, usize::from);
     let found = AtomicBool::new(false);
     std::thread::scope(|s| {
         let workers: Vec<_> = (0..threads)
-            .map(|_| s.spawn(|| pow_worker(&found, bits)))
-            .collect();
-        workers
-            .into_iter()
-            .find_map(|w| w.join().expect("key search thread panicked"))
-            .expect("a worker found the key")
+            .map(|_| {
+                std::thread::Builder::new()
+                    .spawn_scoped(s, || pow_worker(&found, bits))
+            })
+            .collect::<std::io::Result<_>>()?;
+        for worker in workers {
+            let candidate = worker
+                .join()
+                .map_err(|_| anyhow::anyhow!("key search thread panicked"))??;
+            if let Some(keypair) = candidate {
+                return Ok(keypair);
+            }
+        }
+        anyhow::bail!("key search workers returned without a key")
     })
 }

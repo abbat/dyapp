@@ -491,7 +491,7 @@ fn replica_status(service: &Service, sender: &Peer, protocol: u8) -> Status {
 
 #[test]
 fn replicas_reject_missing_pow_and_bad_signatures_with_strikes() {
-    let valid = dyapp_p2p_net::generate_pow_keypair(8).public().to_peer_id();
+    let valid = dyapp_p2p_net::generate_pow_keypair(8).unwrap().public().to_peer_id();
     let invalid = loop {
         let id = libp2p::PeerId::random();
         if !dyapp_p2p_net::id_has_pow(&id, 8) {
@@ -559,7 +559,7 @@ fn shard_upload_requires_node_pow_and_accepts_authorised_node() {
         i32::from(Status::Denied)
     );
     assert!(!stored_manifest(&service, &hash));
-    let node = dyapp_p2p_net::generate_pow_keypair(8).public().to_peer_id();
+    let node = dyapp_p2p_net::generate_pow_keypair(8).unwrap().public().to_peer_id();
     assert_eq!(
         service
             .media(&peer(&node.to_string()), request())

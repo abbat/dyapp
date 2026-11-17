@@ -32,6 +32,7 @@ pub static PEER: LazyLock<Peer> = LazyLock::new(|| Peer {
 /// A node peer with the zero-bit PoW accepted by the fuzz node configuration.
 pub static NODE_PEER: LazyLock<Peer> = LazyLock::new(|| Peer {
     id: dyapp_p2p_net::generate_pow_keypair(0)
+        .unwrap()
         .public()
         .to_peer_id()
         .to_string(),
@@ -57,7 +58,7 @@ pub static SERVICE: LazyLock<Service> = LazyLock::new(|| {
     limits.strikes_to_ban = u32::MAX;
     let store = BootstrapStore::new(dir.to_str().unwrap()).unwrap();
     let index = SearchIndex::open(&config.storage.search_path(), &config.search).unwrap();
-    let mut service = Service::new(store, config);
+    let mut service = Service::new(store, config).unwrap();
     service.media = Some(MediaStore::open(&dir).unwrap());
     service.search = Some(Arc::new(index));
     service

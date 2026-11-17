@@ -624,7 +624,7 @@ use libp2p::Multiaddr;
 
 #[test]
 fn pow_keypair_has_the_leading_zero_bits() {
-    let peer = generate_pow_keypair(12).public().to_peer_id();
+    let peer = generate_pow_keypair(12).unwrap().public().to_peer_id();
     assert!(id_has_pow(&peer, 12));
     assert!(id_has_pow(&peer, 0));
     let weak = (0..64)

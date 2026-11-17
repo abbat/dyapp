@@ -115,7 +115,7 @@ async fn replica_writes_check_transport_pow_before_accepting_the_record() {
             "replica {i}"
         );
     }
-    let key = dyapp_p2p_net::generate_pow_keypair(8);
+    let key = dyapp_p2p_net::generate_pow_keypair(8).unwrap();
     let mut node = Client::connect_with_key(&addr, key).await;
     for (i, request) in requests.iter().enumerate() {
         assert_eq!(request.send(&mut node).await, Status::Ok, "replica {i}");
@@ -124,7 +124,7 @@ async fn replica_writes_check_transport_pow_before_accepting_the_record() {
 
 #[tokio::test]
 async fn replica_peer_and_group_refusals_keep_the_connection_open() {
-    let key = dyapp_p2p_net::generate_pow_keypair(8);
+    let key = dyapp_p2p_net::generate_pow_keypair(8).unwrap();
     let requests = replica_requests();
     for group_bucket in [false, true] {
         for (i, request) in requests.iter().enumerate() {

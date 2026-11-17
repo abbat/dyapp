@@ -586,9 +586,9 @@ async fn put(
                 "PoW ID узла: не более 32 бит"
             )
         );
-        tokio::task::spawn_blocking(move || dyapp_p2p_net::generate_pow_keypair(bits)).await?
+        tokio::task::spawn_blocking(move || dyapp_p2p_net::generate_pow_keypair(bits)).await??
     } else {
-        Keypair::generate_ed25519()
+        dyapp_p2p_net::generate_keypair()?
     };
     // Key generation may take longer than the network operation's timeout.
     timeout(async {
