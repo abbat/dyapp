@@ -28,46 +28,54 @@ fn media_replica(owner: &Identity, data: Vec<u8>, version: u64) -> proto::MediaR
 
 #[test]
 fn media_size_hints_preserve_object_boundaries() {
-    use proto::media_replica_put::Authorization;
     let s = media_service(|l| {
         l.media_requests_per_second = 100;
         l.bytes_per_second = 0;
     });
     let owner = Identity::generate();
     let max = crate::replication::MEDIA_OBJECT_BYTES;
-    let call = |request| {
-        s.media(
-            &peer("media-size"),
-            MediaRequest {
-                request: Some(request),
-            },
-        )
-        .unwrap()
-    };
     let put = |size| {
         media_request::Request::Put(proto::MediaPut {
             owner: dyapp_identity::key_hash(&owner.public_key()).to_vec(),
             data: vec![0; size],
         })
     };
-    let exact = call(put(MAX_MEDIA_BYTES));
+    let exact = media_size_call(&s, put(MAX_MEDIA_BYTES));
     assert_eq!(
         (exact.status, exact.max_bytes),
         (i32::from(Status::NotFound), 0)
     );
-    let over = call(put(MAX_MEDIA_BYTES + 1));
+    let over = media_size_call(&s, put(MAX_MEDIA_BYTES + 1));
     assert_eq!(
         (over.status, over.max_bytes),
         (i32::from(Status::TooLarge), MAX_MEDIA_BYTES as u64)
     );
-    let exact = media_replica(&owner, vec![7; max], 1);
+    check_replica_size_hints(&s, &owner, max);
+    check_authorization_size_hints(&s, &owner, max);
+}
+
+fn media_size_call(s: &Service, request: media_request::Request) -> MediaResponse {
+    s.media(
+        &peer("media-size"),
+        MediaRequest {
+            request: Some(request),
+        },
+    )
+    .unwrap()
+}
+
+fn check_replica_size_hints(s: &Service, owner: &Identity, max: usize) {
+    let exact = media_replica(owner, vec![7; max], 1);
     assert_eq!(s.store_media(&exact).unwrap().status, i32::from(Status::Ok));
-    let over = media_replica(&owner, vec![7; max + 1], 2);
+    let over = media_replica(owner, vec![7; max + 1], 2);
     let response = s.store_media(&over).unwrap();
     assert_eq!(
         (response.status, response.max_bytes),
         (i32::from(Status::TooLarge), max as u64)
     );
+}
+
+fn check_authorization_size_hints(s: &Service, owner: &Identity, max: usize) {
     let data = b"authorization-boundary".to_vec();
     let hash = dyapp_identity::sha256(&data).to_vec();
     let now = chrono::Utc::now().timestamp().unsigned_abs();
@@ -86,40 +94,54 @@ fn media_size_hints_preserve_object_boundaries() {
         (Domain::MediaAttach, attach.encode_to_vec()),
     ] {
         for size in [max, max + 1] {
-            // For these sizes both payload varints have the same length.
-            let probe = padded_record(&owner, domain, payload.clone(), max);
-            let overhead = probe.encoded_len() - probe.payload.len();
-            let record = padded_record(&owner, domain, payload.clone(), size - overhead);
-            assert_eq!(record.encoded_len(), size);
-            let (request, authorization) = if domain == Domain::MediaKeep {
-                (
-                    media_request::Request::Keep(record.clone()),
-                    Authorization::Keep(record),
-                )
-            } else {
-                (
-                    media_request::Request::Attach(record.clone()),
-                    Authorization::Attach(record),
-                )
-            };
-            let direct = call(request);
-            let replica = proto::MediaReplicaPut {
-                data: data.clone(),
-                authorization: Some(authorization),
-                manifest: None,
-            };
-            let stored = s.store_media(&replica).unwrap();
-            for response in [direct, stored] {
-                assert_eq!(
-                    (response.status, response.max_bytes),
-                    if size == max {
-                        (i32::from(Status::Ok), 0)
-                    } else {
-                        (i32::from(Status::TooLarge), max as u64)
-                    }
-                );
-            }
+            check_authorization_size_hint(s, owner, max, &data, domain, &payload, size);
         }
+    }
+}
+
+fn check_authorization_size_hint(
+    s: &Service,
+    owner: &Identity,
+    max: usize,
+    data: &[u8],
+    domain: Domain,
+    payload: &[u8],
+    size: usize,
+) {
+    use proto::media_replica_put::Authorization;
+
+    // For these sizes both payload varints have the same length.
+    let probe = padded_record(owner, domain, payload.to_vec(), max);
+    let overhead = probe.encoded_len() - probe.payload.len();
+    let record = padded_record(owner, domain, payload.to_vec(), size - overhead);
+    assert_eq!(record.encoded_len(), size);
+    let (request, authorization) = if domain == Domain::MediaKeep {
+        (
+            media_request::Request::Keep(record.clone()),
+            Authorization::Keep(record),
+        )
+    } else {
+        (
+            media_request::Request::Attach(record.clone()),
+            Authorization::Attach(record),
+        )
+    };
+    let direct = media_size_call(s, request);
+    let replica = proto::MediaReplicaPut {
+        data: data.to_vec(),
+        authorization: Some(authorization),
+        manifest: None,
+    };
+    let stored = s.store_media(&replica).unwrap();
+    for response in [direct, stored] {
+        assert_eq!(
+            (response.status, response.max_bytes),
+            if size == max {
+                (i32::from(Status::Ok), 0)
+            } else {
+                (i32::from(Status::TooLarge), max as u64)
+            }
+        );
     }
 }
 
