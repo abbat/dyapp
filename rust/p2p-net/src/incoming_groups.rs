@@ -263,6 +263,27 @@ mod tests {
         assert_eq!(guard.connections.len(), 1);
     }
 
+    fn assert_group_masks() {
+        let zero = IncomingGroupLimits::new(1, 0, 0).unwrap();
+        assert_eq!(
+            zero.group(&"/ip4/1.2.3.4/tcp/1".parse().unwrap()),
+            zero.group(&"/ip4/9.8.7.6/tcp/2".parse().unwrap())
+        );
+        assert_ne!(
+            zero.group(&"/ip4/1.2.3.4/tcp/1".parse().unwrap()),
+            zero.group(&"/ip6/::ffff:1.2.3.4/tcp/1".parse().unwrap())
+        );
+        let full = IncomingGroupLimits::new(1, 32, 128).unwrap();
+        assert_ne!(
+            full.group(&"/ip6/::1/tcp/1".parse().unwrap()),
+            full.group(&"/ip6/::2/tcp/1".parse().unwrap())
+        );
+        assert_ne!(
+            full.group(&"/ip4/1.2.3.4/tcp/1".parse().unwrap()),
+            full.group(&"/ip4/1.2.3.5/tcp/1".parse().unwrap())
+        );
+    }
+
     #[test]
     fn group_masks_bound_unknown_endpoints_and_keep_address_families_separate() {
         assert!(IncomingGroupLimits::new(0, 24, 48).is_err());
@@ -312,23 +333,6 @@ mod tests {
                 )
                 .unwrap();
         }
-        let zero = IncomingGroupLimits::new(1, 0, 0).unwrap();
-        assert_eq!(
-            zero.group(&"/ip4/1.2.3.4/tcp/1".parse().unwrap()),
-            zero.group(&"/ip4/9.8.7.6/tcp/2".parse().unwrap())
-        );
-        assert_ne!(
-            zero.group(&"/ip4/1.2.3.4/tcp/1".parse().unwrap()),
-            zero.group(&"/ip6/::ffff:1.2.3.4/tcp/1".parse().unwrap())
-        );
-        let full = IncomingGroupLimits::new(1, 32, 128).unwrap();
-        assert_ne!(
-            full.group(&"/ip6/::1/tcp/1".parse().unwrap()),
-            full.group(&"/ip6/::2/tcp/1".parse().unwrap())
-        );
-        assert_ne!(
-            full.group(&"/ip4/1.2.3.4/tcp/1".parse().unwrap()),
-            full.group(&"/ip4/1.2.3.5/tcp/1".parse().unwrap())
-        );
+        assert_group_masks();
     }
 }
