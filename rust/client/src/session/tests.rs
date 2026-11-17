@@ -171,40 +171,21 @@ fn attachment_request_is_dropped_then_forwarded_photo_survives_restart() {
     assert_forwarded_photo_after_restart(&path, &bob_id, &alice_id, &seal_key);
 }
 
-#[test]
-fn received_envelopes_commit_before_ack_and_survive_restart() {
-    let path = temp_path();
-    let seal_key = [5; 32];
-    let Invite {
-        mut session,
-        bob_id,
-        alice_id,
-        alice,
-        mut group,
-        welcome,
-        profiles,
-    } = bob_invited(&path, &seal_key);
-    assert_eq!(
-        session
-            .stage_envelope(&key(1), &welcome, &profiles, &seal_key)
-            .unwrap(),
-        Some(Event::Joined(group.id().to_vec()))
-    );
-    assert_eq!(
-        session.store.known_groups().unwrap(),
-        [(group.id().to_vec(), alice_id.peer_id())]
-    );
-    let hi = chat::message(
-        &mut group,
-        &alice,
-        &Body::text_with_id([1; 16], b"hi".to_vec()),
-    )
-    .unwrap();
+fn receive_first_text(
+    path: &std::path::Path,
+    session: &mut Session,
+    group: &mut dyapp_messaging::mls::Group,
+    alice: &Device,
+    alice_id: &Identity,
+    profiles: &[dyapp_profile::VerifiedProfile; 2],
+    seal_key: &[u8; 32],
+) -> MessageKey {
+    let hi = chat::message(group, alice, &Body::text_with_id([1; 16], b"hi".to_vec())).unwrap();
     assert!(matches!(
-        session.stage_envelope(&key(2), &hi[0].mls, &profiles, &seal_key),
+        session.stage_envelope(&key(2), &hi[0].mls, profiles, seal_key),
         Ok(Some(Event::Message { .. }))
     ));
-    let payload: Vec<u8> = rusqlite::Connection::open(&path)
+    let payload: Vec<u8> = rusqlite::Connection::open(path)
         .unwrap()
         .query_row(
             "SELECT `payload` FROM `inbox` WHERE `envelope_id` = ?1",
@@ -231,16 +212,23 @@ fn received_envelopes_commit_before_ack_and_survive_restart() {
             .as_deref(),
         Some(&b"hi"[..])
     );
-    drop(session);
+    message
+}
 
-    // Restarted before the ACK: the joined group and both pending ACKs are back.
-    let mut session = Session::open(Store::open(&path, &bob_id).unwrap(), &seal_key).unwrap();
+fn assert_restart_and_drop_second_text(
+    session: &mut Session,
+    group: &mut dyapp_messaging::mls::Group,
+    alice: &Device,
+    profiles: &[dyapp_profile::VerifiedProfile; 2],
+    seal_key: &[u8; 32],
+    message: &MessageKey,
+) {
     assert!(session.store.has_inbox(&key(2)).unwrap());
     assert_eq!(session.acks([9; 32], vec![]).unwrap(), [key(1), key(2)]);
     assert_eq!(
         session
             .store
-            .chat_message(&message)
+            .chat_message(message)
             .unwrap()
             .unwrap()
             .text
@@ -248,14 +236,14 @@ fn received_envelopes_commit_before_ack_and_survive_restart() {
         Some(&b"hi"[..])
     );
     let again = chat::message(
-        &mut group,
-        &alice,
+        group,
+        alice,
         &Body::text_with_id([2; 16], b"again".to_vec()),
     )
     .unwrap();
     // A second text before Bob replies is a second pending request: acked, never shown.
     assert!(session
-        .stage_envelope(&key(3), &again[0].mls, &profiles, &seal_key)
+        .stage_envelope(&key(3), &again[0].mls, profiles, seal_key)
         .unwrap()
         .is_none());
     assert!(session.store.has_inbox(&key(3)).unwrap());
@@ -264,7 +252,9 @@ fn received_envelopes_commit_before_ack_and_survive_restart() {
         ..message.clone()
     };
     assert!(session.store.chat_message(&dropped).unwrap().is_none());
+}
 
+fn assert_duplicate_ack_only_for_same_mailbox(session: &mut Session) {
     // A duplicate seen after its ACK is acknowledged again; another mailbox is not.
     for id in [1, 2, 3] {
         assert!(session.store.mark_acked(&key(id)).unwrap());
@@ -278,6 +268,53 @@ fn received_envelopes_commit_before_ack_and_survive_restart() {
         .stage_inbound(b"sealed", &other, InboxKind::StateChange, b"", None)
         .unwrap();
     assert_eq!(session.acks([9; 32], vec![key(2)]).unwrap(), [key(2)]);
+}
+
+#[test]
+fn received_envelopes_commit_before_ack_and_survive_restart() {
+    let path = temp_path();
+    let seal_key = [5; 32];
+    let Invite {
+        mut session,
+        bob_id,
+        alice_id,
+        alice,
+        mut group,
+        welcome,
+        profiles,
+    } = bob_invited(&path, &seal_key);
+    assert_eq!(
+        session
+            .stage_envelope(&key(1), &welcome, &profiles, &seal_key)
+            .unwrap(),
+        Some(Event::Joined(group.id().to_vec()))
+    );
+    assert_eq!(
+        session.store.known_groups().unwrap(),
+        [(group.id().to_vec(), alice_id.peer_id())]
+    );
+    let message = receive_first_text(
+        &path,
+        &mut session,
+        &mut group,
+        &alice,
+        &alice_id,
+        &profiles,
+        &seal_key,
+    );
+    drop(session);
+
+    // Restarted before the ACK: the joined group and both pending ACKs are back.
+    let mut session = Session::open(Store::open(&path, &bob_id).unwrap(), &seal_key).unwrap();
+    assert_restart_and_drop_second_text(
+        &mut session,
+        &mut group,
+        &alice,
+        &profiles,
+        &seal_key,
+        &message,
+    );
+    assert_duplicate_ack_only_for_same_mailbox(&mut session);
 }
 
 #[tokio::test]
