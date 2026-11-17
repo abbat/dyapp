@@ -325,9 +325,29 @@ async fn a_revoked_device_loses_its_mailbox_and_new_messages() {
         config.limits.min_free_mb = 0;
     })
     .await;
-    let mut alice = Person::new(&address).await;
+    let (mut alice, mut lost, binding) = Box::pin(linked_devices(&address)).await;
+    let mut bob = Person::new(&address).await;
+    let mut profiles = revocation_profiles(&mut alice, &mut lost, &mut bob).await;
+    let (group, mut lost_groups, mut bob_groups) =
+        join_linked_group(&mut alice, &mut lost, &mut bob, &profiles).await;
+    revoke_lost_device(&mut alice, &mut bob, binding, &mut profiles).await;
+    let sent = remove_revoked_and_send(&alice, &mut bob, &mut bob_groups, &profiles).await;
+    assert_revocation_delivery(
+        &mut alice,
+        &bob,
+        &mut lost,
+        group,
+        &mut lost_groups,
+        &profiles,
+        &sent,
+    )
+    .await;
+}
+
+async fn linked_devices(address: &Multiaddr) -> (Person, Person, SignedRecord) {
+    let mut alice = Person::new(address).await;
     let identity = Identity::from_secret(&alice.identity.secret());
-    let mut lost = Person::device(&address, identity, 2).await;
+    let lost = Person::device(address, identity, 2).await;
     // Signed when the second device is linked, and kept by the first.
     let binding = dyapp_client::owner_binding(&lost.device_key, &alice.identity.public_key());
     // A profile lists its devices sorted by mailbox address.
@@ -343,8 +363,15 @@ async fn a_revoked_device_loses_its_mailbox_and_new_messages() {
         .publish_profile(linked.sign(&alice.identity))
         .await
         .unwrap();
-    let mut bob = Person::new(&address).await;
-    for person in [&mut lost, &mut bob] {
+    (alice, lost, binding)
+}
+
+async fn revocation_profiles(
+    alice: &mut Person,
+    lost: &mut Person,
+    bob: &mut Person,
+) -> Vec<VerifiedProfile> {
+    for person in [lost, bob] {
         let owner = person.identity.peer_id();
         chat::publish_key_packages(
             &mut person.node,
@@ -356,7 +383,7 @@ async fn a_revoked_device_loses_its_mailbox_and_new_messages() {
         .await
         .unwrap();
     }
-    let mut profiles = vec![
+    vec![
         alice
             .node
             .get_profile(&alice.identity.peer_id())
@@ -367,37 +394,37 @@ async fn a_revoked_device_loses_its_mailbox_and_new_messages() {
             .get_profile(&bob.identity.peer_id())
             .await
             .unwrap(),
-    ];
+    ]
+}
+
+async fn join_linked_group(
+    alice: &mut Person,
+    lost: &mut Person,
+    bob: &mut Person,
+    profiles: &[VerifiedProfile],
+) -> (Group, Vec<Group>, Vec<Group>) {
     let alice_mailbox = alice.mailbox();
-    let (group, welcome) = chat::invite(&mut alice.node, &alice.device, &alice_mailbox, &profiles)
+    let (group, welcome) = chat::invite(&mut alice.node, &alice.device, &alice_mailbox, profiles)
         .await
         .unwrap();
     assert_eq!(welcome.len(), 2);
     chat::send(&mut alice.node, &welcome).await.unwrap();
     let mut lost_groups = Vec::new();
-    chat::receive(
-        &mut lost.node,
-        &lost.device_key,
-        &lost.device,
-        &mut lost_groups,
-        &profiles,
-    )
-    .await
-    .unwrap();
+    receive_welcome(lost, &mut lost_groups, profiles).await;
     let mut bob_groups = Vec::new();
-    let (_, ids) = chat::receive(
-        &mut bob.node,
-        &bob.device_key,
-        &bob.device,
-        &mut bob_groups,
-        &profiles,
-    )
-    .await
-    .unwrap();
+    let (_, ids) = receive_welcome(bob, &mut bob_groups, profiles).await;
     bob.node.ack(&bob.device_key, ids).await.unwrap();
     assert_eq!(lost_groups.len(), 1);
     assert_eq!(bob_groups.len(), 1);
+    (group, lost_groups, bob_groups)
+}
 
+async fn revoke_lost_device(
+    alice: &mut Person,
+    bob: &mut Person,
+    binding: SignedRecord,
+    profiles: &mut [VerifiedProfile],
+) {
     // The owner drops the lost device and closes its mailbox from the first device.
     let dropped = Profile {
         version: 3,
@@ -419,33 +446,51 @@ async fn a_revoked_device_loses_its_mailbox_and_new_messages() {
         .get_profile(&alice.identity.peer_id())
         .await
         .unwrap();
+}
 
+async fn remove_revoked_and_send(
+    alice: &Person,
+    bob: &mut Person,
+    bob_groups: &mut [Group],
+    profiles: &[VerifiedProfile],
+) -> Vec<dyapp_client::chat::Delivery> {
     // Bob, a contact, sees the newer profile and removes the device from the group.
     let commit = bob_groups[0]
-        .remove_revoked(&bob.device, &profiles)
+        .remove_revoked(&bob.device, profiles)
         .unwrap()
         .unwrap();
     let deliveries = chat::to_members(&bob_groups[0], &commit).unwrap();
     assert_eq!(deliveries.len(), 1);
     assert_eq!(deliveries[0].mailbox, alice.mailbox());
     chat::send(&mut bob.node, &deliveries).await.unwrap();
-    let secret = b"after the revocation";
     let sent = chat::message(
         &mut bob_groups[0],
         &bob.device,
-        &Body::text_with_id([1; 16], secret.to_vec()),
+        &Body::text_with_id([1; 16], b"after the revocation".to_vec()),
     )
     .unwrap();
     assert_eq!(sent.len(), 1);
     chat::send(&mut bob.node, &sent).await.unwrap();
+    sent
+}
 
+async fn assert_revocation_delivery(
+    alice: &mut Person,
+    bob: &Person,
+    lost: &mut Person,
+    group: Group,
+    lost_groups: &mut [Group],
+    profiles: &[VerifiedProfile],
+    sent: &[dyapp_client::chat::Delivery],
+) {
+    let secret = b"after the revocation";
     let mut alice_groups = vec![group];
     let (events, _) = chat::receive(
         &mut alice.node,
         &alice.device_key,
         &alice.device,
         &mut alice_groups,
-        &profiles,
+        profiles,
     )
     .await
     .unwrap();
@@ -464,7 +509,7 @@ async fn a_revoked_device_loses_its_mailbox_and_new_messages() {
         Err(dyapp_client::Error::Status(Status::Refused))
     ));
     assert!(lost_groups[0]
-        .process(&lost.device, &sent[0].mls, &profiles)
+        .process(&lost.device, &sent[0].mls, profiles)
         .is_err());
 }
 
