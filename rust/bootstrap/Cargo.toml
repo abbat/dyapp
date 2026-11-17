@@ -16,7 +16,7 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 rusqlite = { version = "0.41", features = ["bundled"] }
 uuid = { version = "1.0", features = ["v4"] }
-chrono = "0.4"
+jiff = { version = "0.2", default-features = false, features = ["std"] }
 prost.workspace = true
 dyapp-identity = { path = "../identity" }
 dyapp-profile = { path = "../profile" }

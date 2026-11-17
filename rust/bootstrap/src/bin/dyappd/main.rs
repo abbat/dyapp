@@ -270,17 +270,17 @@ fn deny_remove(config: &NodeConfig, deny: &DenyStore, entry: &str) -> anyhow::Re
 
 fn deny_list(deny: &DenyStore) -> anyhow::Result<()> {
     for (entry, note, added) in deny.list()? {
-        let added = chrono::DateTime::from_timestamp(added, 0).unwrap_or_default();
-        println!("{entry}\t{}\t{note}", added.format("%Y-%m-%d %H:%M"));
+        let added = jiff::Timestamp::new(added, 0).unwrap_or_default();
+        println!("{entry}\t{}\t{note}", added.strftime("%Y-%m-%d %H:%M"));
     }
     Ok(())
 }
 
 fn deny_received(deny: &DenyStore) -> anyhow::Result<()> {
     for (peer, time, record) in deny.received()? {
-        let time = chrono::DateTime::from_timestamp(time, 0).unwrap_or_default();
+        let time = jiff::Timestamp::new(time, 0).unwrap_or_default();
         let list = proto::DenyList::decode(record.payload.as_slice())?;
-        println!("{peer}\t{}", time.format("%Y-%m-%d %H:%M"));
+        println!("{peer}\t{}", time.strftime("%Y-%m-%d %H:%M"));
         for entry in list.entries {
             println!("\t{entry}");
         }

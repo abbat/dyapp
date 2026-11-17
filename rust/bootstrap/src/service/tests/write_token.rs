@@ -5,7 +5,7 @@ use mailbox_role::{check_token, TokenError};
 const DAY: i64 = 86_400;
 
 pub(super) fn today() -> u32 {
-    u32::try_from(chrono::Utc::now().timestamp() / DAY).unwrap()
+    u32::try_from(crate::clock::Clock::system().timestamp() / DAY).unwrap()
 }
 
 /// A token for `owner`'s mailbox handed to `token_key` on `epoch`.
@@ -158,7 +158,7 @@ fn replica_put_drops_bad_tokens_without_a_strike() {
 
     // A token of two days ago, its day ended a TTL and part of an hour ago: still in the last
     // hour of grace on replica paths.
-    let since = chrono::Utc::now().timestamp() - i64::from(today() - 1) * 86_400;
+    let since = crate::clock::Clock::system().timestamp() - i64::from(today() - 1) * 86_400;
     let hours = u32::try_from(since / 3600).unwrap();
     let service = service_with(|l| l.message_ttl_hours = hours);
     let late = token(&owner, &mailbox, &contact, today() - 2);

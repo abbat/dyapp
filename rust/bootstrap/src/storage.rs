@@ -683,7 +683,7 @@ mod tests {
         let dir = format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4());
         std::fs::create_dir_all(&dir).unwrap();
         let store = BootstrapStore::new(&dir).unwrap();
-        let now = chrono::Utc::now().timestamp();
+        let now = crate::clock::Clock::system().timestamp();
         let owner = Identity::generate();
         let profile = Profile {
             version: 1,

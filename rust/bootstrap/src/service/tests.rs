@@ -532,7 +532,7 @@ fn shard_upload_requires_node_pow_and_accepts_authorised_node() {
     let keep = proto::MediaKeep {
         version: 1,
         hashes: vec![hash.clone()],
-        time: chrono::Utc::now().timestamp().unsigned_abs(),
+        time: crate::clock::Clock::system().timestamp().unsigned_abs(),
     };
     let put = proto::MediaShardPut {
         replica: Some(proto::MediaReplicaPut {
@@ -816,7 +816,7 @@ fn stored_profile_seen(db: &rusqlite::Connection, identity: &Identity) -> i64 {
 fn heartbeat_keeps_the_profile_seen() {
     let service = service();
     let identity = Identity::generate();
-    let now = chrono::Utc::now().timestamp().unsigned_abs();
+    let now = crate::clock::Clock::system().timestamp().unsigned_abs();
     assert_eq!(
         send_profile_status(&service, profile_heartbeat_request(&identity, now)),
         Status::NotFound

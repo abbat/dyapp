@@ -31,7 +31,7 @@ fn signed(source: &Service, owner: &Identity, hashes: Vec<Vec<u8>>) -> SignedRec
         proto::MediaKeepIntent {
             version: current.version + 1,
             hashes,
-            time: chrono::Utc::now().timestamp().unsigned_abs(),
+            time: crate::clock::Clock::system().timestamp().unsigned_abs(),
             intent_hash: vec![7; 32],
             requester: peer().id,
             expected: Some(proto::MediaKeepCondition {

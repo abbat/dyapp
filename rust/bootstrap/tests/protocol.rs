@@ -374,7 +374,9 @@ fn response<Req, Resp>(event: Event<Req, Resp>) -> Option<Resp> {
 
 fn assert_clock_invalid(status: i32, server_time: u64, before: u64) {
     assert_eq!(Status::try_from(status).unwrap(), Status::Invalid);
-    let after = chrono::Utc::now().timestamp().unsigned_abs();
+    let after = dyapp_bootstrap::clock::Clock::system()
+        .timestamp()
+        .unsigned_abs();
     assert!(
         (before..=after).contains(&server_time),
         "{before} <= {server_time} <= {after}"
@@ -829,7 +831,9 @@ async fn repeated_keep_uses_network_recoverability_without_a_local_copy() {
     let keep = proto::MediaKeep {
         hashes: vec![hash.clone()],
         version: 1,
-        time: chrono::Utc::now().timestamp().unsigned_abs(),
+        time: dyapp_bootstrap::clock::Clock::system()
+            .timestamp()
+            .unsigned_abs(),
     };
     let record = owner.sign(Domain::MediaKeep, keep.encode_to_vec());
     let mut client = start_network_keep(swarms, services, &addresses, &ids, &data, record).await;

@@ -128,7 +128,7 @@ async fn hands_every_store_to_the_repair_paths() {
     let keep = proto::MediaKeep {
         version: 1,
         hashes: vec![dyapp_identity::sha256(b"blob").to_vec()],
-        time: chrono::Utc::now().timestamp().unsigned_abs(),
+        time: crate::clock::Clock::system().timestamp().unsigned_abs(),
     };
     let record = owner.sign(dyapp_identity::Domain::MediaKeep, keep.encode_to_vec());
     let media = service.media.as_ref().unwrap();

@@ -29,16 +29,24 @@ async fn signed_time_failures_keep_clock_hints_over_real_tcp() {
 }
 
 async fn clock_server_time(client: &mut Client) -> u64 {
-    let before = chrono::Utc::now().timestamp().unsigned_abs();
+    let before = dyapp_bootstrap::clock::Clock::system()
+        .timestamp()
+        .unsigned_abs();
     let response = client.info().await;
     assert_eq!(status(response.status), Status::Ok);
     let server_time = response.info.unwrap().server_time;
-    assert!((before..=chrono::Utc::now().timestamp().unsigned_abs()).contains(&server_time));
+    assert!((before
+        ..=dyapp_bootstrap::clock::Clock::system()
+            .timestamp()
+            .unsigned_abs())
+        .contains(&server_time));
     server_time
 }
 
 async fn assert_future_heartbeat(client: &mut Client, heartbeat: SignedRecord) {
-    let before = chrono::Utc::now().timestamp().unsigned_abs();
+    let before = dyapp_bootstrap::clock::Clock::system()
+        .timestamp()
+        .unsigned_abs();
     let response = client
         .profile(profile_request::Request::Heartbeat(heartbeat.clone()))
         .await;
@@ -107,7 +115,9 @@ async fn assert_media_clock_invalid(
         proto::media_request::Request::ReplicaPut(replica),
         proto::media_request::Request::ShardPut(shard),
     ] {
-        let before = chrono::Utc::now().timestamp().unsigned_abs();
+        let before = dyapp_bootstrap::clock::Clock::system()
+            .timestamp()
+            .unsigned_abs();
         let response = client.media(request).await;
         assert_clock_invalid(response.status, response.server_time, before);
     }
@@ -155,7 +165,10 @@ async fn future_clock_boundary_preserves_valid_request_statuses_over_tcp() {
     let mut client = Client::connect(&address).await;
     let owner = Identity::generate();
     publish_clock_profile(&mut client, &owner).await;
-    let time = chrono::Utc::now().timestamp().unsigned_abs() + 600;
+    let time = dyapp_bootstrap::clock::Clock::system()
+        .timestamp()
+        .unsigned_abs()
+        + 600;
     assert_boundary_heartbeat(&mut client, &owner, time).await;
     assert_boundary_keep(&mut client, &owner).await;
     let data = b"clock-boundary".to_vec();
@@ -166,7 +179,10 @@ async fn future_clock_boundary_preserves_valid_request_statuses_over_tcp() {
         proto::MediaKeep {
             version: 2,
             hashes: vec![hash],
-            time: chrono::Utc::now().timestamp().unsigned_abs() + 600,
+            time: dyapp_bootstrap::clock::Clock::system()
+                .timestamp()
+                .unsigned_abs()
+                + 600,
         }
         .encode_to_vec(),
     );
@@ -220,7 +236,10 @@ async fn assert_boundary_keep(client: &mut Client, owner: &Identity) {
         proto::MediaKeep {
             version: 1,
             hashes: vec![],
-            time: chrono::Utc::now().timestamp().unsigned_abs() + 600,
+            time: dyapp_bootstrap::clock::Clock::system()
+                .timestamp()
+                .unsigned_abs()
+                + 600,
         }
         .encode_to_vec(),
     );
@@ -243,7 +262,10 @@ async fn assert_boundary_attach(
         proto::MediaAttach {
             release: dyapp_identity::sha256(b"boundary-release").to_vec(),
             hashes: vec![hash.to_vec()],
-            created: chrono::Utc::now().timestamp().unsigned_abs() + 600,
+            created: dyapp_bootstrap::clock::Clock::system()
+                .timestamp()
+                .unsigned_abs()
+                + 600,
         }
         .encode_to_vec(),
     );

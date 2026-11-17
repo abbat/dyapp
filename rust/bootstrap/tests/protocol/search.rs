@@ -364,7 +364,9 @@ async fn hiding_withdraws_the_profile_from_search_and_stops_heartbeats() {
         ..Profile::default()
     };
     assert!(publish::work(&mut draft, &alice.public_key(), 2, u64::MAX));
-    let now = chrono::Utc::now().timestamp().unsigned_abs();
+    let now = dyapp_bootstrap::clock::Clock::system()
+        .timestamp()
+        .unsigned_abs();
     let shown = publish::publish(&store, &mut node, &alice, &draft);
     let shown = shown.await.unwrap();
     assert!(search::publish_due(&store, &mut nodes, now).await.unwrap());

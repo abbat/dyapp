@@ -12,7 +12,7 @@ fn store_media_checks_each_condition_and_evicts_cache_before_refusing() {
 fn check_keep_conditions(s: &Service, owner: &Identity) {
     use proto::media_replica_put::Authorization;
 
-    let now = || chrono::Utc::now().timestamp().unsigned_abs();
+    let now = || crate::clock::Clock::system().timestamp().unsigned_abs();
     // Manifest replicas carry their data in shards, never inline.
     let data = b"manifested".to_vec();
     let (manifest, _) = crate::replication::media_encode(&data).unwrap();
@@ -64,7 +64,7 @@ fn check_keep_conditions(s: &Service, owner: &Identity) {
 fn check_attachment_conditions(s: &Service, owner: &Identity) {
     use proto::media_replica_put::Authorization;
 
-    let now = || chrono::Utc::now().timestamp().unsigned_abs();
+    let now = || crate::clock::Clock::system().timestamp().unsigned_abs();
     let hashes = media_hashes;
     // Each attachment rule rejects on its own; exactly MAX_ATTACH hashes are allowed.
     let data = b"attached".to_vec();

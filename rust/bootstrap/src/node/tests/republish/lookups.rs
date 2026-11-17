@@ -9,7 +9,7 @@ fn photo(source: &Service) -> (proto::MediaReplicaPut, Vec<u8>) {
         proto::MediaKeep {
             version: 1,
             hashes: vec![hash.clone()],
-            time: chrono::Utc::now().timestamp().unsigned_abs(),
+            time: crate::clock::Clock::system().timestamp().unsigned_abs(),
         }
         .encode_to_vec(),
     );

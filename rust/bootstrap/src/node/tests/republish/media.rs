@@ -28,7 +28,7 @@ fn conditional_record(swarm: &Swarm<Behaviour>, hash: Vec<u8>) -> dyapp_identity
         proto::MediaKeepIntent {
             version: 1,
             hashes: vec![hash],
-            time: chrono::Utc::now().timestamp().unsigned_abs(),
+            time: crate::clock::Clock::system().timestamp().unsigned_abs(),
             requester: swarm.local_peer_id().to_string(),
             expected: Some(proto::MediaKeepCondition::default()),
             intent_hash: vec![1; 32],
@@ -114,7 +114,7 @@ impl Transfer {
             proto::MediaKeep {
                 version: 1,
                 hashes: vec![hash.clone()],
-                time: chrono::Utc::now().timestamp().unsigned_abs(),
+                time: crate::clock::Clock::system().timestamp().unsigned_abs(),
             }
             .encode_to_vec(),
         );

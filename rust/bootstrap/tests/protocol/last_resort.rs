@@ -28,7 +28,9 @@ async fn invites_work_from_one_last_resort_package_across_lost_replies_and_rotat
         .stage_outbound(&bob.device.seal(&SEAL).unwrap(), &[])
         .unwrap();
     let mut session = Session::open(store, &SEAL).unwrap();
-    let now = chrono::Utc::now().timestamp().unsigned_abs();
+    let now = dyapp_bootstrap::clock::Clock::system()
+        .timestamp()
+        .unsigned_abs();
     assert_repeats_after_lost_reply(&mut session, &mut bob, now).await;
     let profile = assert_rotation(&mut session, &mut bob, &mut alice, &owner, now).await;
     drop(session);

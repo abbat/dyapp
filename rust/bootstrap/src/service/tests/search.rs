@@ -153,7 +153,7 @@ fn check_search_get_and_heartbeat(s: &Service, id: &Identity, record: SignedReco
         search_status(&search(s, get(vec![key; 51]))),
         Status::Invalid
     );
-    let now = chrono::Utc::now().timestamp().unsigned_abs();
+    let now = crate::clock::Clock::system().timestamp().unsigned_abs();
     let r = search(s, search_request::Request::Heartbeat(beat(id, 1, now)));
     assert_eq!(search_status(&r), Status::Ok);
     let r = search(
@@ -342,7 +342,11 @@ fn low_pow_heartbeat_does_not_refresh_or_remove_the_stored_record() {
     let index = s.search.clone().unwrap();
     let before = heartbeat_counters(&index, &key);
     s.config.search.min_profile_pow_bits = 2;
-    let heartbeat = beat(&owner, 1, chrono::Utc::now().timestamp().unsigned_abs());
+    let heartbeat = beat(
+        &owner,
+        1,
+        crate::clock::Clock::system().timestamp().unsigned_abs(),
+    );
     check_weak_heartbeat(&s, &index, &key, record, &heartbeat, before);
     check_other_heartbeats(&s);
     s.config.search.min_profile_pow_bits = 0;
@@ -410,7 +414,7 @@ fn check_other_heartbeats(s: &Service) {
         search_request::Request::Heartbeat(beat(
             &unknown,
             1,
-            chrono::Utc::now().timestamp().unsigned_abs(),
+            crate::clock::Clock::system().timestamp().unsigned_abs(),
         )),
     );
     assert_eq!(
@@ -436,7 +440,7 @@ fn check_other_heartbeats(s: &Service) {
             search_request::Request::Heartbeat(beat(
                 &strong,
                 1,
-                chrono::Utc::now().timestamp().unsigned_abs()
+                crate::clock::Clock::system().timestamp().unsigned_abs()
             ))
         )
         .status,
@@ -758,7 +762,7 @@ fn search_heartbeat_pow() {
             search_request::Request::Heartbeat(r),
         ))
     };
-    let now = chrono::Utc::now().timestamp().unsigned_abs();
+    let now = crate::clock::Clock::system().timestamp().unsigned_abs();
     let day = u32::try_from(now / 86_400).unwrap();
     let nonce = dyapp_profile::solve_heartbeat(&id.public_key(), day, 2, 0, 100_000).unwrap();
     let other = dyapp_profile::solve_heartbeat(&id.public_key(), day - 1, 2, 0, 100_000).unwrap();
@@ -801,7 +805,7 @@ fn search_heartbeat_pow() {
 fn heartbeat_just_before_midnight_passes() {
     let id = Identity::generate();
     let s = beat_service(&id);
-    let day = u32::try_from(chrono::Utc::now().timestamp() / 86_400).unwrap() + 1;
+    let day = u32::try_from(crate::clock::Clock::system().timestamp() / 86_400).unwrap() + 1;
     let now = i64::from(day) * 86_400 + 86_370;
     let nonce = dyapp_profile::solve_heartbeat(&id.public_key(), day, 2, 0, 100_000).unwrap();
     let record = beat_with(&id, now.unsigned_abs(), day, nonce, 2);

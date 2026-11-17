@@ -28,7 +28,9 @@ async fn client_fetches_turn_credentials_only_from_a_turn_node() {
     let mut node = dyapp_client::Node::connect(relay, protocols).await.unwrap();
     let turn = node.turn().await.unwrap();
     assert_eq!(turn.urls, ["turn:relay.example:3478"]);
-    let now = chrono::Utc::now().timestamp().unsigned_abs();
+    let now = dyapp_bootstrap::clock::Clock::system()
+        .timestamp()
+        .unsigned_abs();
     assert!(turn.expires > now);
     assert!(turn.username.starts_with(&format!("{}:", turn.expires)));
     assert_ne!(turn.password, "");

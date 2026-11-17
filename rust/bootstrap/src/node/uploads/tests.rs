@@ -48,7 +48,7 @@ fn signed(source: &Service, owner: &Identity, hash: Vec<u8>) -> SignedRecord {
         proto::MediaKeepIntent {
             version: before.version + 1,
             hashes: vec![hash],
-            time: chrono::Utc::now().timestamp().unsigned_abs(),
+            time: crate::clock::Clock::system().timestamp().unsigned_abs(),
             requester: peer().id,
             expected: Some(proto::MediaKeepCondition {
                 owner_present: before.owner_present,
@@ -215,7 +215,7 @@ fn actual_legacy_signature_bypasses_admission_but_corruption_does_not() {
         proto::MediaKeep {
             version: 1,
             hashes: vec![dyapp_identity::sha256(b"legacy").to_vec()],
-            time: chrono::Utc::now().timestamp().unsigned_abs(),
+            time: crate::clock::Clock::system().timestamp().unsigned_abs(),
         }
         .encode_to_vec(),
     );

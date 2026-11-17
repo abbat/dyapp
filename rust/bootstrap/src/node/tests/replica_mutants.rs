@@ -139,7 +139,7 @@ fn keep_record(owner: &dyapp_identity::Identity, hash: Vec<u8>) -> SignedRecord 
         proto::MediaKeep {
             version: 1,
             hashes: vec![hash],
-            time: chrono::Utc::now().timestamp().unsigned_abs(),
+            time: crate::clock::Clock::system().timestamp().unsigned_abs(),
         }
         .encode_to_vec(),
     )

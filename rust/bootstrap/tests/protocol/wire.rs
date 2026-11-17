@@ -136,7 +136,9 @@ async fn node_gossip_counts_delivered_and_successfully_published_payloads() {
     let topic = dyapp_p2p_net::search_topic(dyapp_bootstrap::search::topic(&key)).hash();
     announce_profile(&mut client, &owner, &topic).await;
     wire.take();
-    let time = chrono::Utc::now().timestamp().unsigned_abs();
+    let time = dyapp_bootstrap::clock::Clock::system()
+        .timestamp()
+        .unsigned_abs();
     assert_incoming_gossip(&mut client, &wire, topic, &owner, time).await;
     assert_outgoing_gossip(&mut client, &wire, &owner, time + 1).await;
 }

@@ -3,7 +3,7 @@ use super::*;
 use dyapp_identity::Identity;
 
 fn assert_server_clock(server_time: u64, before: u64) {
-    let after = chrono::Utc::now().timestamp().unsigned_abs();
+    let after = crate::clock::Clock::system().timestamp().unsigned_abs();
     assert!(
         (before..=after).contains(&server_time),
         "{before} <= {server_time} <= {after}"
@@ -39,7 +39,7 @@ fn info_and_heartbeat_time_failures_report_clock_without_changing_gossip() {
     let s = service();
     let search = search_service();
     let owner = Identity::generate();
-    let now = chrono::Utc::now().timestamp().unsigned_abs();
+    let now = crate::clock::Clock::system().timestamp().unsigned_abs();
     let info = s.node(
         &peer("clock"),
         NodeRequest {
@@ -50,7 +50,7 @@ fn info_and_heartbeat_time_failures_report_clock_without_changing_gossip() {
     assert_server_clock(info.info.unwrap().server_time, now);
     for time in [0, now + 3600, u64::MAX] {
         let record = signed_heartbeat(&owner, time);
-        let before = chrono::Utc::now().timestamp().unsigned_abs();
+        let before = crate::clock::Clock::system().timestamp().unsigned_abs();
         let response = profile_heartbeat(&s, record.clone());
         assert_eq!(response.status, i32::from(Status::Invalid));
         assert_server_clock(response.server_time, before);
@@ -73,7 +73,10 @@ fn info_and_heartbeat_time_failures_report_clock_without_changing_gossip() {
 }
 
 fn check_current_and_forged_heartbeats(s: &Service, search: &Service, owner: &Identity) {
-    let record = signed_heartbeat(owner, chrono::Utc::now().timestamp().unsigned_abs());
+    let record = signed_heartbeat(
+        owner,
+        crate::clock::Clock::system().timestamp().unsigned_abs(),
+    );
     let response = profile_heartbeat(s, record.clone());
     assert_eq!(
         (response.status, response.server_time),
@@ -164,7 +167,7 @@ fn assert_media_time_response(
     time: u64,
     path: usize,
 ) {
-    let before = chrono::Utc::now().timestamp().unsigned_abs();
+    let before = crate::clock::Clock::system().timestamp().unsigned_abs();
     let response = send_media(service, from, request);
     if !keep && time == 0 && path == 0 {
         // Direct attach has no past-freshness gate; expiry is cleaned up later.
@@ -187,7 +190,7 @@ fn media_time_hints_cover_direct_replica_and_shard_authorizations() {
     let data = b"clock".to_vec();
     let hash = dyapp_identity::sha256(&data).to_vec();
     let (manifest, shards) = crate::replication::media_encode(&data).unwrap();
-    let now = chrono::Utc::now().timestamp().unsigned_abs();
+    let now = crate::clock::Clock::system().timestamp().unsigned_abs();
     for (keep, time) in [
         (true, 0),
         (true, now + 3600),
@@ -234,7 +237,7 @@ fn media_non_clock_errors_and_old_replica_keeps_preserve_existing_rules() {
     let from = replica_peer("clock-errors");
     let owner = Identity::generate();
     let data = b"old-keep".to_vec();
-    let now = chrono::Utc::now().timestamp().unsigned_abs();
+    let now = crate::clock::Clock::system().timestamp().unsigned_abs();
     let mut keep = proto::MediaKeep {
         version: 1,
         hashes: vec![dyapp_identity::sha256(&data).to_vec()],

@@ -51,7 +51,9 @@ fn replica_requests() -> [ReplicaRequest; 4] {
             dyapp_identity::sha256(&data).to_vec(),
             manifest.hash.clone(),
         ],
-        time: chrono::Utc::now().timestamp().unsigned_abs(),
+        time: dyapp_bootstrap::clock::Clock::system()
+            .timestamp()
+            .unsigned_abs(),
     };
     let authorization = Some(proto::media_replica_put::Authorization::Keep(
         owner.sign(Domain::MediaKeep, keep.encode_to_vec()),

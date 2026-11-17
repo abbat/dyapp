@@ -15,7 +15,7 @@ fn media_replica(owner: &Identity, data: Vec<u8>, version: u64) -> proto::MediaR
     let keep = proto::MediaKeep {
         version,
         hashes: vec![dyapp_identity::sha256(&data).to_vec()],
-        time: chrono::Utc::now().timestamp().unsigned_abs(),
+        time: crate::clock::Clock::system().timestamp().unsigned_abs(),
     };
     proto::MediaReplicaPut {
         data,
@@ -78,7 +78,7 @@ fn check_replica_size_hints(s: &Service, owner: &Identity, max: usize) {
 fn check_authorization_size_hints(s: &Service, owner: &Identity, max: usize) {
     let data = b"authorization-boundary".to_vec();
     let hash = dyapp_identity::sha256(&data).to_vec();
-    let now = chrono::Utc::now().timestamp().unsigned_abs();
+    let now = crate::clock::Clock::system().timestamp().unsigned_abs();
     let keep = proto::MediaKeep {
         version: 2,
         hashes: vec![hash.clone()],
@@ -240,7 +240,7 @@ fn check_keep_replacement(
     let newer = proto::MediaKeep {
         version: 2,
         hashes: Vec::new(),
-        time: chrono::Utc::now().timestamp().unsigned_abs(),
+        time: crate::clock::Clock::system().timestamp().unsigned_abs(),
     };
     let record = owner.sign(Domain::MediaKeep, newer.encode_to_vec());
     s.media
@@ -277,7 +277,7 @@ fn check_attachment_lifecycle(
     let attach = proto::MediaAttach {
         release: dyapp_identity::sha256(b"release").to_vec(),
         hashes: vec![hash.to_vec()],
-        created: chrono::Utc::now().timestamp().unsigned_abs(),
+        created: crate::clock::Clock::system().timestamp().unsigned_abs(),
     };
     let mut attachment = replica.clone();
     attachment.authorization = Some(Authorization::Attach(
@@ -467,7 +467,7 @@ fn media_whole_copy_owner_quota_includes_five_copies() {
             dyapp_identity::sha256(&first.data).to_vec(),
             dyapp_identity::sha256(&shared.data).to_vec(),
         ],
-        time: chrono::Utc::now().timestamp().unsigned_abs(),
+        time: crate::clock::Clock::system().timestamp().unsigned_abs(),
     };
     let shared = proto::MediaReplicaPut {
         authorization: Some(proto::media_replica_put::Authorization::Keep(
@@ -585,7 +585,7 @@ fn check_wrong_manifest_cleanup(
     let keep = proto::MediaKeep {
         version: 2,
         hashes: vec![wrong.hash.clone()],
-        time: chrono::Utc::now().timestamp().unsigned_abs(),
+        time: crate::clock::Clock::system().timestamp().unsigned_abs(),
     };
     replica.manifest = Some(wrong.clone());
     replica.authorization = Some(proto::media_replica_put::Authorization::Keep(
@@ -781,7 +781,7 @@ fn check_keep_clock(service: &Service, identity: &Identity, hash: &[u8]) -> Sign
     let keep = proto::MediaKeep {
         version: 1,
         hashes: vec![hash.to_vec()],
-        time: chrono::Utc::now().timestamp().unsigned_abs(),
+        time: crate::clock::Clock::system().timestamp().unsigned_abs(),
     };
     for time in [keep.time - 3600, keep.time + 3600] {
         let off_clock = proto::MediaKeep {
@@ -859,7 +859,7 @@ fn check_attachment_release(
         media_request::Request::Attach(identity.sign(Domain::MediaAttach, attach.encode_to_vec()))
     };
     let call = |request| call_media_as(service, "q", request).0;
-    let now = chrono::Utc::now().timestamp().unsigned_abs();
+    let now = crate::clock::Clock::system().timestamp().unsigned_abs();
     assert_eq!(call(attach(now + 3600)), Status::Invalid);
     let (got, response) = call_media_as(service, "q", attach(now));
     assert_eq!(

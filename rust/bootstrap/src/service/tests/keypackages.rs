@@ -43,7 +43,7 @@ fn package(
             owner: dyapp_identity::key_hash(&owner.public_key()).to_vec(),
             mailbox: mailbox.to_vec(),
             package: bytes,
-            expires: chrono::Utc::now().timestamp().unsigned_abs() + 3600,
+            expires: crate::clock::Clock::system().timestamp().unsigned_abs() + 3600,
             last_resort,
             revision: u32::from(last_resort),
         }

@@ -85,7 +85,10 @@ fn signed_package(
             owner: fixture.owner_hash.clone(),
             mailbox: fixture.mailbox.clone(),
             package,
-            expires: chrono::Utc::now().timestamp().unsigned_abs() + 3600,
+            expires: dyapp_bootstrap::clock::Clock::system()
+                .timestamp()
+                .unsigned_abs()
+                + 3600,
             last_resort,
             revision,
         }

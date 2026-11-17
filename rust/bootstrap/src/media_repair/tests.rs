@@ -72,7 +72,7 @@ fn proof(hash: Vec<u8>) -> SignedRecord {
         proto::MediaKeep {
             hashes: vec![hash],
             version: 1,
-            time: chrono::Utc::now().timestamp().unsigned_abs(),
+            time: crate::clock::Clock::system().timestamp().unsigned_abs(),
         }
         .encode_to_vec(),
     )

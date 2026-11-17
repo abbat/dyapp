@@ -40,7 +40,7 @@ fn near(actual: Option<i64>, expected: i64) {
 #[test]
 fn a_replica_put_carries_the_remaining_time_capped_at_the_retention() {
     let (service, expiries) = replicate(&[1, 2], vec![600, u32::MAX]);
-    let now = chrono::Utc::now().timestamp();
+    let now = crate::clock::Clock::system().timestamp();
     near(expiries[0], now + 600);
     near(expiries[1], now + service.retention());
 }
@@ -56,7 +56,7 @@ fn a_zero_remaining_time_drops_the_envelope() {
 fn a_mismatched_or_missing_list_gives_a_fresh_retention() {
     for remaining in [vec![], vec![600]] {
         let (service, expiries) = replicate(&[1, 2], remaining);
-        let fresh = chrono::Utc::now().timestamp() + service.retention();
+        let fresh = crate::clock::Clock::system().timestamp() + service.retention();
         near(expiries[0], fresh);
         near(expiries[1], fresh);
     }
@@ -81,7 +81,7 @@ fn a_carried_expiry_leaves_a_stored_envelope_alone() {
     };
     let request = mailbox_request::Request::ReplicaPut(batch);
     assert_eq!(put(&service, &replica_peer("r"), request), Status::Ok);
-    let fresh = chrono::Utc::now().timestamp() + service.retention();
+    let fresh = crate::clock::Clock::system().timestamp() + service.retention();
     near(Some(service.held(&mailbox).unwrap()[&vec![1; 16]].2), fresh);
 }
 
@@ -105,7 +105,7 @@ fn a_profile_replica_carries_the_owner_age_and_an_expired_one_is_not_stored() {
     let (aged, expired) = (Identity::generate(), Identity::generate());
     assert_eq!(send(&aged, 3600), Status::Ok);
     let seen = service.store.profile_last_seen(&aged.peer_id()).unwrap();
-    near(seen, chrono::Utc::now().timestamp() - 3600);
+    near(seen, crate::clock::Clock::system().timestamp() - 3600);
     assert_eq!(send(&expired, ttl), Status::Ok);
     assert!(service
         .store

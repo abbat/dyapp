@@ -128,7 +128,7 @@ async fn lost_staged_ownership_is_an_explicit_failure_and_can_be_retried() {
     let mut fixture = duplicate(&identity, &store, &original, 6);
     let media = Arc::clone(&fixture.media);
     fixture.before_finalize = Some(Box::new(|fixture| {
-        let cutoff = chrono::Utc::now().timestamp() + 1;
+        let cutoff = dyapp_bootstrap::clock::Clock::system().timestamp() + 1;
         assert_eq!(fixture.media.expire_owners(cutoff).unwrap(), 1);
     }));
     let mut node = connect(fixture).await;

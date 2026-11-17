@@ -16,7 +16,7 @@ fn revoke(owner: &Identity, mailbox: &[u8], keys: &[&Identity], created_at: i64)
 fn close(identity: &Identity, owner: &Identity, device: &Identity) -> SignedRecord {
     let payload = proto::Revoke {
         mailbox: mailbox_of(device),
-        created_at: chrono::Utc::now().timestamp(),
+        created_at: crate::clock::Clock::system().timestamp(),
         owner: Some(device.sign(Domain::DeviceOwner, owner.public_key().to_vec())),
         ..Default::default()
     };
@@ -44,7 +44,7 @@ fn a_revoke_deletes_the_keys_envelopes_and_refuses_their_puts_without_a_strike()
         let request = mailbox_request::Request::Put(signed(id, by));
         assert_eq!(put(&service, &client, request), Status::Ok);
     }
-    let now = chrono::Utc::now().timestamp();
+    let now = crate::clock::Clock::system().timestamp();
     let record = revoke(&owner, &mailbox, &[&contact], now);
     let request = mailbox_request::Request::Revoke(record.clone());
     assert_eq!(put(&service, &client, request), Status::Ok);
@@ -81,7 +81,7 @@ fn forged_revokes_strike_and_future_or_expired_ones_do_not() {
     );
     let mailbox = mailbox_of(&owner);
     let service = service_with(|l| l.strikes_to_ban = 1);
-    let now = chrono::Utc::now().timestamp();
+    let now = crate::clock::Clock::system().timestamp();
     let send = |from: &str, record: SignedRecord| {
         put(
             &service,
