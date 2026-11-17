@@ -262,10 +262,8 @@ async fn mailbox_pages_sign_fresh_challenges_and_reject_stalled_cursors() {
     assert_eq!(requests[4].limit, 0);
 }
 
-#[tokio::test]
-async fn providers_are_dialed_for_their_addresses() {
+async fn provider_server() -> (libp2p::Multiaddr, tokio::task::JoinHandle<()>) {
     use libp2p::kad::{self, store::RecordStore};
-    dyapp_p2p_net::set_id_pow_bits(0);
     let mut server =
         build_configured_swarm(Keypair::generate_ed25519(), SwarmOptions::default()).unwrap();
     server
@@ -301,6 +299,13 @@ async fn providers_are_dialed_for_their_addresses() {
             server.select_next_some().await;
         }
     });
+    (address, task)
+}
+
+#[tokio::test]
+async fn providers_are_dialed_for_their_addresses() {
+    dyapp_p2p_net::set_id_pow_bits(0);
+    let (address, task) = Box::pin(provider_server()).await;
     let mut node = Node::connect(address.clone(), Arc::new(Protocols::public()))
         .await
         .unwrap();
