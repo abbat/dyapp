@@ -546,40 +546,38 @@ mod tests {
         );
     }
 
-    #[test]
-    fn staged_interaction_rolls_back_with_outbox_and_survives_restart() {
-        let path = temp_db_path();
-        let alice = Identity::generate();
-        let bob = Identity::generate().peer_id();
-        let mut store = Store::open(&path, &alice).unwrap();
-        let write = prepare_put(&[7; 32], vec![5]).unwrap();
+    fn stage_and_check_interaction_conflicts(
+        store: &mut Store,
+        bob: &str,
+        write: &PreparedEnvelope,
+    ) -> crate::interactions::Interaction {
         let first = store
-            .draft_interaction(&bob, Kind::Like, 1_000)
+            .draft_interaction(bob, Kind::Like, 1_000)
             .unwrap()
             .unwrap();
         assert!(matches!(
-            store.stage_interaction(&bob, b"device", first, b"", std::slice::from_ref(&write)),
+            store.stage_interaction(bob, b"device", first, b"", std::slice::from_ref(write)),
             Err(Error::EmptyMlsState)
         ));
-        assert!(!store.likes(&bob).unwrap().ours);
+        assert!(!store.likes(bob).unwrap().ours);
         assert!(store.due_outbound(0).unwrap().is_empty());
         assert!(store.sealed_device().unwrap().is_none());
         let retry = store
-            .draft_interaction(&bob, Kind::Like, 1_000)
+            .draft_interaction(bob, Kind::Like, 1_000)
             .unwrap()
             .unwrap();
         assert_eq!(retry.hlc, first.hlc);
         store
             .stage_interaction(
-                &bob,
+                bob,
                 b"device",
                 retry,
                 b"sealed",
-                std::slice::from_ref(&write),
+                std::slice::from_ref(write),
             )
             .unwrap();
         let unlike = store
-            .draft_interaction(&bob, Kind::Unlike, 1_000)
+            .draft_interaction(bob, Kind::Unlike, 1_000)
             .unwrap()
             .unwrap();
         let record = SignedRecord::decode(write.as_bytes()).unwrap();
@@ -588,19 +586,30 @@ mod tests {
         let conflicting = Identity::generate().sign(Domain::Envelope, envelope.encode_to_vec());
         let conflicting = PreparedEnvelope::from_bytes(conflicting.encode_to_vec()).unwrap();
         assert!(matches!(
-            store.stage_interaction(&bob, b"device", unlike, b"changed", &[conflicting]),
+            store.stage_interaction(bob, b"device", unlike, b"changed", &[conflicting]),
             Err(Error::OutboxConflict)
         ));
-        assert!(store.likes(&bob).unwrap().ours);
+        assert!(store.likes(bob).unwrap().ours);
         assert_eq!(store.sealed_device().unwrap(), Some(b"sealed".to_vec()));
         assert_eq!(
             store
-                .draft_interaction(&bob, Kind::Unlike, 1_000)
+                .draft_interaction(bob, Kind::Unlike, 1_000)
                 .unwrap()
                 .unwrap()
                 .hlc,
             unlike.hlc
         );
+        retry
+    }
+
+    #[test]
+    fn staged_interaction_rolls_back_with_outbox_and_survives_restart() {
+        let path = temp_db_path();
+        let alice = Identity::generate();
+        let bob = Identity::generate().peer_id();
+        let mut store = Store::open(&path, &alice).unwrap();
+        let write = prepare_put(&[7; 32], vec![5]).unwrap();
+        let retry = stage_and_check_interaction_conflicts(&mut store, &bob, &write);
         drop(store);
 
         let mut store = Store::open(&path, &alice).unwrap();

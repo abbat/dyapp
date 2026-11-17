@@ -35,7 +35,6 @@
   {"path":"rust/client/src/session/tests.rs","function":"fn received_envelopes_commit_before_ack_and_survive_restart ","metrics":{"cognitive":16,"lines":100}},
   {"path":"rust/client/src/sticker_webp.rs","function":"fn check_header ","metrics":{"lines":110}},
   {"path":"rust/client/src/store/chat_list_tests.rs","function":"fn chats_rows_keep_state_latest_time_and_unread_across_clear_and_restart ","metrics":{"cognitive":30,"lines":86}},
-  {"path":"rust/client/src/store/likes.rs","function":"mod tests # [cfg (test)]::fn staged_interaction_rolls_back_with_outbox_and_survives_restart ","metrics":{"cognitive":18,"lines":73}},
   {"path":"rust/client/src/store/messages.rs","function":"impl Store ::fn current_chat_messages ","metrics":{"lines":72}},
   {"path":"rust/client/src/store/messages.rs","function":"impl Store ::fn stage_chat_inbound ","metrics":{"lines":105}},
   {"path":"rust/client/src/store/messages/clear.rs","function":"mod tests # [cfg (test)]::fn cleared_messages_stay_gone_while_new_ones_and_other_groups_show ","metrics":{"lines":98}},
