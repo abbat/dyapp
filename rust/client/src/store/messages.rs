@@ -586,6 +586,111 @@ impl Store {
         Ok(())
     }
 
+    fn inbound_message_key(
+        sender: &VerifiedChatSender<'_>,
+        body: &Body,
+    ) -> Result<MessageKey, Error> {
+        let id = match body {
+            Body::Text { id, .. } => id,
+            Body::Attachment(message) => &message.id,
+            Body::Sticker(sticker) => &sticker.id,
+            Body::Forwarded(inner) => match inner.as_ref() {
+                Body::Text { id, .. } => id,
+                Body::Attachment(message) => &message.id,
+                _ => return Err(Error::InboxConflict),
+            },
+            Body::Edit { target, .. } | Body::Delete { target, .. } => target,
+            _ => return Err(Error::InboxConflict),
+        };
+        if sender.group.is_empty() || sender.author.is_empty() || sender.device.len() != 32 {
+            return Err(Error::InboxConflict);
+        }
+        Ok(MessageKey {
+            group: sender.group.to_vec(),
+            author: sender.author.to_owned(),
+            id: *id,
+        })
+    }
+
+    fn observe_inbound_hlc(tx: &Transaction, hlc: u64, wall_ms: u64) -> Result<(), Error> {
+        i64::try_from(hlc).map_err(|_| Error::ClockRange)?;
+        let observed =
+            HybridClock::resume(load_hlc(tx)?).observe_at(Timestamp::from(hlc), wall_ms)?;
+        save_hlc(tx, observed)
+    }
+
+    fn record_inbound_body_tx(
+        tx: &Transaction,
+        owner: &str,
+        key: &MessageKey,
+        sender: VerifiedChatSender<'_>,
+        body: &Body,
+        unread: bool,
+        wall_ms: u64,
+    ) -> Result<bool, Error> {
+        if let Some(message) = body.attachment_message() {
+            Self::observe_inbound_hlc(tx, message.hlc, wall_ms)?;
+            return Self::record_chat_attachment_tx(tx, owner, sender, body, unread);
+        }
+        match body {
+            Body::Sticker(sticker) => {
+                Self::observe_inbound_hlc(tx, sticker.hlc, wall_ms)?;
+                Self::record_chat_sticker_tx(tx, owner, sender, sticker, unread)
+            }
+            Body::Text { hlc, text, .. } => {
+                if let Some(hlc) = hlc {
+                    Self::observe_inbound_hlc(tx, *hlc, wall_ms)?;
+                }
+                Self::record_chat_text_tx(tx, key, text, *hlc, unread, false)?;
+                Ok(true)
+            }
+            Body::Forwarded(inner) => {
+                let Body::Text { hlc, text, .. } = inner.as_ref() else {
+                    return Err(Error::InboxConflict);
+                };
+                if let Some(hlc) = hlc {
+                    Self::observe_inbound_hlc(tx, *hlc, wall_ms)?;
+                }
+                Self::record_chat_text_tx(tx, key, text, *hlc, unread, true)?;
+                Ok(true)
+            }
+            Body::Edit { .. } | Body::Delete { .. } => {
+                Self::apply_chat_operation_tx(tx, key, sender.device, body, wall_ms)?;
+                Ok(true)
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    fn project_chat_inbound_tx(
+        tx: &Transaction,
+        owner: &str,
+        key: &MessageKey,
+        sender: VerifiedChatSender<'_>,
+        body: &Body,
+        unread: bool,
+        wall_ms: u64,
+    ) -> Result<bool, Error> {
+        // A cleared message stays gone; its envelope is still recorded and ACKed.
+        if clear::is_cleared(tx, key)? {
+            return Ok(false);
+        }
+        let shown = if body.is_media_message() {
+            conversations::on_attachment(tx, owner, &key.group, &key.author, key.id)?
+        } else {
+            match body {
+                Body::Text { .. } | Body::Forwarded(_) => {
+                    conversations::on_text(tx, owner, &key.group, &key.author, key.id, false)?
+                }
+                _ => conversations::allows_operation(tx, owner, &key.group, &key.author, key.id)?,
+            }
+        };
+        if !shown {
+            return Ok(false);
+        }
+        Self::record_inbound_body_tx(tx, owner, key, sender, body, unread, wall_ms)
+    }
+
     /// Commit one authenticated chat body, sealed MLS state, inbox dedupe and ACK intent together.
     /// The inbox retains only a body digest, never a second copy of chat content. Returns false for
     /// a duplicate envelope and for a body the request rules drop, which is still `ACKed`.
@@ -603,26 +708,7 @@ impl Store {
         body: &Body,
         wall_ms: u64,
     ) -> Result<bool, Error> {
-        let id = match body {
-            Body::Text { id, .. } => id,
-            Body::Attachment(message) => &message.id,
-            Body::Sticker(sticker) => &sticker.id,
-            Body::Forwarded(inner) => match inner.as_ref() {
-                Body::Text { id, .. } => id,
-                Body::Attachment(message) => &message.id,
-                _ => return Err(Error::InboxConflict),
-            },
-            Body::Edit { target, .. } | Body::Delete { target, .. } => target,
-            _ => return Err(Error::InboxConflict),
-        };
-        if sender.group.is_empty() || sender.author.is_empty() || sender.device.len() != 32 {
-            return Err(Error::InboxConflict);
-        }
-        let key = MessageKey {
-            group: sender.group.to_vec(),
-            author: sender.author.to_owned(),
-            id: *id,
-        };
+        let key = Self::inbound_message_key(&sender, body)?;
         let digest = sha256(&body.encode());
         let owner = self.owner_peer_id.clone();
         let unread = key.author != owner;
@@ -634,77 +720,8 @@ impl Store {
             &digest,
             None,
             |tx| {
-                // A cleared message stays gone; its envelope is still recorded and ACKed.
-                if clear::is_cleared(tx, &key)? {
-                    shown = false;
-                    return Ok(());
-                }
-                shown = if body.is_media_message() {
-                    conversations::on_attachment(tx, &owner, &key.group, &key.author, key.id)?
-                } else {
-                    match body {
-                        Body::Text { .. } | Body::Forwarded(_) => conversations::on_text(
-                            tx,
-                            &owner,
-                            &key.group,
-                            &key.author,
-                            key.id,
-                            false,
-                        )?,
-                        _ => conversations::allows_operation(
-                            tx,
-                            &owner,
-                            &key.group,
-                            &key.author,
-                            key.id,
-                        )?,
-                    }
-                };
-                if !shown {
-                    return Ok(());
-                }
-                if let Some(message) = body.attachment_message() {
-                    i64::try_from(message.hlc).map_err(|_| Error::ClockRange)?;
-                    let observed = HybridClock::resume(load_hlc(tx)?)
-                        .observe_at(Timestamp::from(message.hlc), wall_ms)?;
-                    save_hlc(tx, observed)?;
-                    shown = Self::record_chat_attachment_tx(tx, &owner, sender, body, unread)?;
-                    return Ok(());
-                }
-                match body {
-                    Body::Sticker(sticker) => {
-                        i64::try_from(sticker.hlc).map_err(|_| Error::ClockRange)?;
-                        let observed = HybridClock::resume(load_hlc(tx)?)
-                            .observe_at(Timestamp::from(sticker.hlc), wall_ms)?;
-                        save_hlc(tx, observed)?;
-                        shown = Self::record_chat_sticker_tx(tx, &owner, sender, sticker, unread)?;
-                    }
-                    Body::Text { hlc, text, .. } => {
-                        if let Some(hlc) = hlc {
-                            i64::try_from(*hlc).map_err(|_| Error::ClockRange)?;
-                            let observed = HybridClock::resume(load_hlc(tx)?)
-                                .observe_at(Timestamp::from(*hlc), wall_ms)?;
-                            save_hlc(tx, observed)?;
-                        }
-                        Self::record_chat_text_tx(tx, &key, text, *hlc, unread, false)?;
-                    }
-                    Body::Forwarded(inner) => {
-                        let Body::Text { hlc, text, .. } = inner.as_ref() else {
-                            return Err(Error::InboxConflict);
-                        };
-                        if let Some(hlc) = hlc {
-                            i64::try_from(*hlc).map_err(|_| Error::ClockRange)?;
-                            let observed = HybridClock::resume(load_hlc(tx)?)
-                                .observe_at(Timestamp::from(*hlc), wall_ms)?;
-                            save_hlc(tx, observed)?;
-                        }
-                        Self::record_chat_text_tx(tx, &key, text, *hlc, unread, true)?;
-                    }
-                    Body::Edit { .. } | Body::Delete { .. } => {
-                        Self::apply_chat_operation_tx(tx, &key, sender.device, body, wall_ms)?;
-                    }
-                    _ => unreachable!(),
-                }
+                shown =
+                    Self::project_chat_inbound_tx(tx, &owner, &key, sender, body, unread, wall_ms)?;
                 Ok(())
             },
         )?;
