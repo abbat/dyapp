@@ -191,6 +191,72 @@ fn newcomer_quota(search: &crate::config::Search) -> u64 {
     (search.max_bytes as f64 * search.newcomer_share).round() as u64
 }
 
+fn replay_bound(replay: Replay) -> usize {
+    match replay {
+        Replay::Settled => SETTLED_KEYS,
+        Replay::All | Replay::Drop => usize::MAX,
+    }
+}
+
+fn select_generation(path: &Path, target: u32) -> Result<(u32, PathBuf)> {
+    let mut done = Vec::new();
+    let mut stale = Vec::new();
+    for (version, file) in generations(path)? {
+        if complete(version, &file)? {
+            done.push((version, file));
+        } else {
+            stale.push(file);
+        }
+    }
+    if let Some((version, file)) = done.iter().find(|(version, _)| *version > target) {
+        return Err(storage_error(format!(
+            "{} has search index format {version}, this dyappd knows up to {target}; \
+             run a newer dyappd or delete the file to roll back",
+            file.display()
+        )));
+    }
+    // Never downgrade: the highest complete generation is active, the rest is left over.
+    let version = done.last().map_or(target, |(version, _)| *version);
+    stale.extend(done.into_iter().filter(|g| g.0 < version).map(|g| g.1));
+    for file in stale {
+        tracing::info!(file = %file.display(), "old search index generation deleted");
+        remove_files(&file);
+    }
+    Ok((version, generation_file(path, version)))
+}
+
+fn finish_candidate(
+    db: &Connection,
+    candidate: &Candidate,
+    keys: &[[u8; 32]],
+    replay: Replay,
+) -> Result<(Connection, i64)> {
+    let mut conn = storage::open(&candidate.path, &[SCHEMA])?
+        .into_inner()
+        .map_err(storage_error)?;
+    let rows = read(db, keys)?;
+    let tx = conn.transaction().map_err(storage_error)?;
+    apply_rows(&tx, &rows)?;
+    if replay == Replay::Drop {
+        tx.execute(
+            "INSERT OR REPLACE INTO `meta` (`name`, `value`) VALUES ('refilling', 1)",
+            [],
+        )
+        .map_err(storage_error)?;
+    }
+    tx.execute("UPDATE `generation` SET `complete` = 1", [])
+        .map_err(storage_error)?;
+    tx.commit().map_err(storage_error)?;
+    let created = conn
+        .query_row(
+            "SELECT `value` FROM `meta` WHERE `name` = 'created'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(storage_error)?;
+    Ok((conn, created))
+}
+
 impl SearchIndex {
     /// Opens or creates the index whose first generation is `path`, keeping it below
     /// `search.max_bytes`. Holds `search.lock` beside it until dropped.
@@ -210,30 +276,7 @@ impl SearchIndex {
         target: u32,
     ) -> Result<Self> {
         let held = hold(path)?;
-        let mut done = Vec::new();
-        let mut stale = Vec::new();
-        for (version, file) in generations(path)? {
-            if complete(version, &file)? {
-                done.push((version, file));
-            } else {
-                stale.push(file);
-            }
-        }
-        if let Some((version, file)) = done.iter().find(|(version, _)| *version > target) {
-            return Err(storage_error(format!(
-                "{} has search index format {version}, this dyappd knows up to {target}; \
-                 run a newer dyappd or delete the file to roll back",
-                file.display()
-            )));
-        }
-        // Never downgrade: the highest complete generation is active, the rest is left over.
-        let version = done.last().map_or(target, |(version, _)| *version);
-        stale.extend(done.into_iter().filter(|g| g.0 < version).map(|g| g.1));
-        for file in stale {
-            tracing::info!(file = %file.display(), "old search index generation deleted");
-            remove_files(&file);
-        }
-        let active = generation_file(path, version);
+        let (version, active) = select_generation(path, target)?;
         let fresh = version >= 2 && !active.exists();
         let conn = storage::open(&active, &[SCHEMA])?
             .into_inner()
@@ -334,10 +377,7 @@ impl SearchIndex {
     pub fn activate(&self, candidate: Candidate, replay: Replay) -> std::result::Result<(), Abort> {
         let started = crate::clock::Clock::system().instant();
         let mut db = lock(&self.db)?;
-        let bound = match replay {
-            Replay::Settled => SETTLED_KEYS,
-            Replay::All | Replay::Drop => usize::MAX,
-        };
+        let bound = replay_bound(replay);
         let keys = match (replay, db.take_at_most(bound)) {
             (Replay::Drop, _) => Vec::new(),
             (_, Ok(Some(keys))) => keys,
@@ -348,33 +388,7 @@ impl SearchIndex {
                 return Err(Abort::Overflow);
             }
         };
-        let finish = || -> Result<(Connection, i64)> {
-            let mut conn = storage::open(&candidate.path, &[SCHEMA])?
-                .into_inner()
-                .map_err(storage_error)?;
-            let rows = read(&db, &keys)?;
-            let tx = conn.transaction().map_err(storage_error)?;
-            apply_rows(&tx, &rows)?;
-            if replay == Replay::Drop {
-                tx.execute(
-                    "INSERT OR REPLACE INTO `meta` (`name`, `value`) VALUES ('refilling', 1)",
-                    [],
-                )
-                .map_err(storage_error)?;
-            }
-            tx.execute("UPDATE `generation` SET `complete` = 1", [])
-                .map_err(storage_error)?;
-            tx.commit().map_err(storage_error)?;
-            let created = conn
-                .query_row(
-                    "SELECT `value` FROM `meta` WHERE `name` = 'created'",
-                    [],
-                    |row| row.get(0),
-                )
-                .map_err(storage_error)?;
-            Ok((conn, created))
-        };
-        let (conn, created) = match finish() {
+        let (conn, created) = match finish_candidate(&db, &candidate, &keys, replay) {
             Ok(done) => done,
             Err(error) => {
                 drop(db);

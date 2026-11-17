@@ -25,8 +25,6 @@
   {"path":"rust/bootstrap/src/node/tests/groups.rs","function":"fn incoming_group_caps_pending_tcp_and_releases_failed_handshakes ","metrics":{"lines":82}},
   {"path":"rust/bootstrap/src/search/find.rs","function":"fn filter ","metrics":{"lines":91}},
   {"path":"rust/bootstrap/src/search/find.rs","function":"impl SearchIndex ::fn query ","metrics":{"cognitive":16,"lines":120}},
-  {"path":"rust/bootstrap/src/search/generation.rs","function":"impl SearchIndex ::fn activate ","metrics":{"lines":79}},
-  {"path":"rust/bootstrap/src/search/generation.rs","function":"impl SearchIndex ::fn open_target ","metrics":{"lines":67}},
   {"path":"rust/bootstrap/src/search/worker.rs","function":"impl SearchIndex ::fn rebuild_with ","metrics":{"cognitive":39,"lines":59}},
   {"path":"rust/bootstrap/src/service.rs","function":"impl Service ::fn guard ","metrics":{"cognitive":18}},
   {"path":"rust/bootstrap/src/service.rs","function":"impl Service ::fn info ","metrics":{"lines":64}},
