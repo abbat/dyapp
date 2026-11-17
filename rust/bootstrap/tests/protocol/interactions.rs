@@ -154,13 +154,76 @@ async fn likes_match_unlike_and_retry_as_opaque_signals() {
     let mut alice = Person::new(&address).await;
     let mut bob = Person::new(&address).await;
     let (alice_owner, bob_owner) = (alice.identity.peer_id(), bob.identity.peer_id());
-    chat::publish_key_packages(&mut bob.node, &bob.device_key, &bob.device, &bob_owner, 1)
+    let (mut alice_session, mut bob_session, profiles, group_id, bob_path) =
+        open_like_sessions(&mut alice, &mut bob, &bob_owner).await;
+    assert_opaque_signal(
+        &mut alice,
+        &mut bob,
+        &mut alice_session,
+        &mut bob_session,
+        &profiles,
+        &group_id,
+        &alice_owner,
+    )
+    .await;
+
+    // Bob likes back: both see a match.
+    send_interaction(&mut bob_session, &mut bob, &group_id, Kind::Like)
+        .await
+        .unwrap();
+    receive(&mut alice_session, &mut alice, &profiles).await;
+    assert!(alice_session.likes(&bob_owner).unwrap().matched());
+    assert!(bob_session.likes(&alice_owner).unwrap().matched());
+
+    bob_session = retry_unlike(&mut bob, bob_session, &bob_path, &group_id, &alice_owner).await;
+    assert_unlike_received(
+        &mut alice,
+        &mut alice_session,
+        &bob_session,
+        &profiles,
+        &alice_owner,
+        &bob_owner,
+    )
+    .await;
+    assert_daily_view(
+        &mut alice,
+        &mut bob,
+        &mut alice_session,
+        &mut bob_session,
+        &profiles,
+        &group_id,
+        &alice_owner,
+    )
+    .await;
+}
+
+async fn like_profiles(
+    alice: &mut Person,
+    bob: &mut Person,
+    bob_owner: &str,
+) -> Vec<dyapp_profile::VerifiedProfile> {
+    chat::publish_key_packages(&mut bob.node, &bob.device_key, &bob.device, bob_owner, 1)
         .await
         .unwrap();
     let mut profiles = Vec::new();
-    for owner in [alice_owner.clone(), bob_owner.clone()] {
+    for owner in [alice.identity.peer_id(), bob_owner.to_owned()] {
         profiles.push(alice.node.get_profile(&owner).await.unwrap());
     }
+    profiles
+}
+
+async fn open_like_sessions(
+    alice: &mut Person,
+    bob: &mut Person,
+    bob_owner: &str,
+) -> (
+    Session,
+    Session,
+    Vec<dyapp_profile::VerifiedProfile>,
+    Vec<u8>,
+    std::path::PathBuf,
+) {
+    let profiles = like_profiles(alice, bob, bob_owner).await;
     let alice_mailbox = alice.mailbox();
     let (group, welcome) = chat::invite(&mut alice.node, &alice.device, &alice_mailbox, &profiles)
         .await
@@ -181,15 +244,50 @@ async fn likes_match_unlike_and_retry_as_opaque_signals() {
         .unwrap();
     let mut bob_session = Session::open(store, &SEAL).unwrap();
     for _ in 0..2 {
-        receive(&mut bob_session, &mut bob, &profiles).await;
-        receive(&mut alice_session, &mut alice, &profiles).await;
+        receive(&mut bob_session, bob, &profiles).await;
+        receive(&mut alice_session, alice, &profiles).await;
     }
+    (alice_session, bob_session, profiles, group_id, bob_path)
+}
 
-    // Alice's like reaches the node as a signal whose ciphertext hides the event.
-    let like = alice_session
-        .interact(from_mut(&mut alice.node), &group_id, Kind::Like, &SEAL)
+async fn send_interaction(
+    session: &mut Session,
+    person: &mut Person,
+    group_id: &[u8],
+    kind: Kind,
+) -> Option<dyapp_client::interactions::Interaction> {
+    session
+        .interact(from_mut(&mut person.node), group_id, kind, &SEAL)
         .await
         .unwrap()
+}
+
+fn interaction_event(
+    group_id: &[u8],
+    sender: &str,
+    device: Vec<u8>,
+    event: dyapp_client::interactions::Interaction,
+) -> Event {
+    Event::Interaction {
+        group: group_id.to_vec(),
+        sender: sender.to_owned(),
+        device,
+        event,
+    }
+}
+
+async fn assert_opaque_signal(
+    alice: &mut Person,
+    bob: &mut Person,
+    alice_session: &mut Session,
+    bob_session: &mut Session,
+    profiles: &[dyapp_profile::VerifiedProfile],
+    group_id: &[u8],
+    alice_owner: &str,
+) {
+    // Alice's like reaches the node as a signal whose ciphertext hides the event.
+    let like = send_interaction(alice_session, alice, group_id, Kind::Like)
+        .await
         .unwrap();
     let writes = alice_session.due_outbound(i64::MAX).unwrap();
     let classes = writes.iter().map(|write| {
@@ -205,88 +303,97 @@ async fn likes_match_unlike_and_retry_as_opaque_signals() {
         .ciphertext
         .windows(16)
         .any(|window| window == like.event_id)));
-    let liked = |sender: &str, device: Vec<u8>, event| Event::Interaction {
-        group: group_id.clone(),
-        sender: sender.to_owned(),
-        device,
-        event,
-    };
     assert_eq!(
-        receive(&mut bob_session, &mut bob, &profiles).await,
-        [liked(
-            &alice_owner,
+        receive(bob_session, bob, profiles).await,
+        [interaction_event(
+            group_id,
+            alice_owner,
             alice.device.device_key().unwrap(),
-            like
+            like,
         )]
     );
-    assert!(!bob_session.likes(&alice_owner).unwrap().matched());
-
+    assert!(!bob_session.likes(alice_owner).unwrap().matched());
     // A repeated put of the same signal changes nothing.
     for write in writes {
         alice.node.put_prepared(&write).await.unwrap();
     }
-    let checked_items = receive(&mut bob_session, &mut bob, &profiles).await;
-    assert_eq!(checked_items.len(), 0);
+    assert_eq!(receive(bob_session, bob, profiles).await.len(), 0);
+}
 
-    // Bob likes back: both see a match.
-    bob_session
-        .interact(from_mut(&mut bob.node), &group_id, Kind::Like, &SEAL)
-        .await
-        .unwrap()
-        .unwrap();
-    receive(&mut alice_session, &mut alice, &profiles).await;
-    assert!(alice_session.likes(&bob_owner).unwrap().matched());
-    assert!(bob_session.likes(&alice_owner).unwrap().matched());
-
+async fn retry_unlike(
+    bob: &mut Person,
+    mut session: Session,
+    path: &std::path::Path,
+    group_id: &[u8],
+    alice_owner: &str,
+) -> Session {
     // Bob's unlike, sent offline, is retried later and ends the match for Alice.
     assert!(matches!(
-        bob_session
-            .interact(&mut [], &group_id, Kind::Unlike, &SEAL)
+        session
+            .interact(&mut [], group_id, Kind::Unlike, &SEAL)
             .await,
         Err(Error::Client(_))
     ));
-    assert!(!bob_session.likes(&alice_owner).unwrap().matched());
-    drop(bob_session);
-    let store = Store::open(&bob_path, &bob.identity).unwrap();
-    let mut bob_session = Session::open(store, &SEAL).unwrap();
-    assert!(!bob_session.likes(&alice_owner).unwrap().matched());
+    assert!(!session.likes(alice_owner).unwrap().matched());
+    drop(session);
+    let store = Store::open(path, &bob.identity).unwrap();
+    let mut session = Session::open(store, &SEAL).unwrap();
+    assert!(!session.likes(alice_owner).unwrap().matched());
     let now_ms = super::now_ms();
-    bob_session
+    session
         .retry_due(from_mut(&mut bob.node), now_ms + 120_000, &SEAL)
         .await
         .unwrap();
-    let events = receive(&mut alice_session, &mut alice, &profiles).await;
+    session
+}
+
+async fn assert_unlike_received(
+    alice: &mut Person,
+    alice_session: &mut Session,
+    bob_session: &Session,
+    profiles: &[dyapp_profile::VerifiedProfile],
+    alice_owner: &str,
+    bob_owner: &str,
+) {
+    let events = receive(alice_session, alice, profiles).await;
     assert!(matches!(
         events.as_slice(),
         [Event::Interaction { event, .. }] if event.kind == Kind::Unlike
     ));
-    assert!(!alice_session.likes(&bob_owner).unwrap().matched());
-    for (session, peer) in [(&alice_session, &bob_owner), (&bob_session, &alice_owner)] {
+    assert!(!alice_session.likes(bob_owner).unwrap().matched());
+    for (session, peer) in [(&*alice_session, bob_owner), (bob_session, alice_owner)] {
         let state = session.conversation(peer).unwrap();
         assert_eq!(state, dyapp_client::store::Conversation::Closed);
     }
+}
 
+async fn assert_daily_view(
+    alice: &mut Person,
+    bob: &mut Person,
+    alice_session: &mut Session,
+    bob_session: &mut Session,
+    profiles: &[dyapp_profile::VerifiedProfile],
+    group_id: &[u8],
+    alice_owner: &str,
+) {
     // Alice sends one view a day; Bob receives it without sending views himself.
-    let view = alice_session
-        .interact(from_mut(&mut alice.node), &group_id, Kind::View, &SEAL)
+    let view = send_interaction(alice_session, alice, group_id, Kind::View)
         .await
-        .unwrap()
         .unwrap();
-    assert!(alice_session
-        .interact(from_mut(&mut alice.node), &group_id, Kind::View, &SEAL)
+    assert!(send_interaction(alice_session, alice, group_id, Kind::View)
         .await
-        .unwrap()
         .is_none());
     assert_eq!(
-        receive(&mut bob_session, &mut bob, &profiles).await,
-        [liked(
-            &alice_owner,
+        receive(bob_session, bob, profiles).await,
+        [interaction_event(
+            group_id,
+            alice_owner,
             alice.device.device_key().unwrap(),
-            view
+            view,
         )]
     );
     assert!(bob_session
-        .interact(&mut [], &group_id, Kind::View, &SEAL)
+        .interact(&mut [], group_id, Kind::View, &SEAL)
         .await
         .unwrap()
         .is_none());
