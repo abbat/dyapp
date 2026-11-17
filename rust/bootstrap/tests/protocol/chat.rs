@@ -1,9 +1,14 @@
 use super::*;
 use dyapp_client::chat::{self, Body, Event};
 use dyapp_client::profiles;
+use dyapp_client::session::{Error, Session};
 use dyapp_client::store::Store;
+use dyapp_client::PreparedEnvelope;
 use dyapp_messaging::mls::{Device, Group};
 use dyapp_profile::VerifiedProfile;
+
+const ALICE_SEAL: [u8; 32] = [1; 32];
+const BOB_SEAL: [u8; 32] = [2; 32];
 
 /// One person with one device: identity, device mailbox key, MLS state and node connection.
 pub(super) struct Person {
@@ -746,37 +751,72 @@ async fn key_packages_past_a_full_stock_publish_as_done() {
 
 #[tokio::test]
 async fn durable_chat_survives_restarts_storage_faults_and_retries() {
-    use dyapp_client::session::{Error, Session};
-
     let address = start_config(|config| {
         config.roles = vec![Role::Store];
         config.limits.requests_per_second = 1000;
         config.limits.min_free_mb = 0;
     })
     .await;
-    let mut alice = Person::new(&address).await;
-    let mut bob = Person::new(&address).await;
     let (alice_path, bob_path) = (store_path("alice"), store_path("bob"));
-    let (alice_key, bob_key) = ([1; 32], [2; 32]);
-    let bob_owner = bob.identity.peer_id();
-    Store::open(&bob_path, &bob.identity)
+    let (mut alice, mut bob, profiles) = Box::pin(durable_chat_people(&address, &bob_path)).await;
+    let (group_id, writes) =
+        stage_durable_group(&mut alice, &mut bob, &profiles, &alice_path).await;
+    retry_staged_welcome(&mut alice, &alice_path, &writes).await;
+    send_after_failed_alice_commit(&mut alice, &mut bob, &group_id, &alice_path).await;
+    fail_bob_receive(&mut bob, &profiles, &bob_path).await;
+    receive_restored_bob(&alice, &mut bob, &profiles, &group_id, &bob_path).await;
+    acknowledge_welcome_and_ignore_duplicate(
+        &mut alice,
+        &mut bob,
+        &profiles,
+        &writes,
+        &alice_path,
+        &bob_path,
+    )
+    .await;
+    reply_after_restore(
+        &mut alice,
+        &mut bob,
+        &profiles,
+        &group_id,
+        &alice_path,
+        &bob_path,
+    )
+    .await;
+}
+
+async fn durable_chat_people(
+    address: &Multiaddr,
+    bob_path: &std::path::Path,
+) -> (Person, Person, Vec<VerifiedProfile>) {
+    let mut alice = Person::new(address).await;
+    let mut bob = Person::new(address).await;
+    Store::open(bob_path, &bob.identity)
         .unwrap()
-        .stage_outbound(&bob.device.seal(&bob_key).unwrap(), &[])
+        .stage_outbound(&bob.device.seal(&BOB_SEAL).unwrap(), &[])
         .unwrap();
     // The KeyPackage's private key is in Bob's snapshot before the package is public.
-    Session::open(Store::open(&bob_path, &bob.identity).unwrap(), &bob_key)
+    Session::open(Store::open(bob_path, &bob.identity).unwrap(), &BOB_SEAL)
         .unwrap()
-        .publish_key_packages(&mut bob.node, &bob.device_key, 1, &bob_key)
+        .publish_key_packages(&mut bob.node, &bob.device_key, 1, &BOB_SEAL)
         .await
         .unwrap();
     let mut profiles = Vec::new();
-    for owner in [alice.identity.peer_id(), bob_owner.clone()] {
+    for owner in [alice.identity.peer_id(), bob.identity.peer_id()] {
         profiles.push(alice.node.get_profile(&owner).await.unwrap());
     }
+    (alice, bob, profiles)
+}
 
+async fn stage_durable_group(
+    alice: &mut Person,
+    bob: &mut Person,
+    profiles: &[VerifiedProfile],
+    alice_path: &std::path::Path,
+) -> (Vec<u8>, Vec<PreparedEnvelope>) {
     // Alice commits the new group and its Welcome, then stops before any put.
     let alice_mailbox = alice.mailbox();
-    let (group, welcome) = chat::invite(&mut alice.node, &alice.device, &alice_mailbox, &profiles)
+    let (group, welcome) = chat::invite(&mut alice.node, &alice.device, &alice_mailbox, profiles)
         .await
         .unwrap();
     let group_id = group.id().to_vec();
@@ -784,133 +824,152 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
         .into_iter()
         .map(|delivery| dyapp_client::prepare_put(&delivery.mailbox, delivery.mls).unwrap())
         .collect::<Vec<_>>();
-    Store::open(&alice_path, &alice.identity)
+    Store::open(alice_path, &alice.identity)
         .unwrap()
         .stage_group(
             &group,
             &profiles[1],
-            &alice.device.seal(&alice_key).unwrap(),
+            &alice.device.seal(&ALICE_SEAL).unwrap(),
             &writes,
         )
         .unwrap();
     drop(group);
     assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 0);
+    (group_id, writes)
+}
 
+async fn retry_staged_welcome(
+    alice: &mut Person,
+    alice_path: &std::path::Path,
+    writes: &[PreparedEnvelope],
+) {
     // After a restart the exact signed Welcome is retried from the outbox.
-    let mut alice_session = Session::open(
-        Store::open(&alice_path, &alice.identity).unwrap(),
-        &alice_key,
-    )
-    .unwrap();
-    let due = alice_session.due_outbound(i64::MAX).unwrap();
+    let mut session = open_durable_session(alice, alice_path, &ALICE_SEAL);
+    let due = session.due_outbound(i64::MAX).unwrap();
     assert_eq!(due.len(), 1);
     assert_eq!(due[0].as_bytes(), writes[0].as_bytes());
     let now_ms = super::now_ms();
-    alice_session
-        .retry_due(std::slice::from_mut(&mut alice.node), now_ms, &alice_key)
+    session
+        .retry_due(std::slice::from_mut(&mut alice.node), now_ms, &ALICE_SEAL)
         .await
         .unwrap();
     // Accepted, it waits an hour for Bob's receipt before the next put.
-    assert!(alice_session
-        .due_outbound(now_ms + 3_599_999)
-        .unwrap()
-        .is_empty());
-    assert_eq!(alice_session.due_outbound(i64::MAX).unwrap().len(), 1);
+    assert!(session.due_outbound(now_ms + 3_599_999).unwrap().is_empty());
+    assert_eq!(session.due_outbound(i64::MAX).unwrap().len(), 1);
+}
 
+async fn send_after_failed_alice_commit(
+    alice: &mut Person,
+    bob: &mut Person,
+    group_id: &[u8],
+    alice_path: &std::path::Path,
+) {
     // A failed local commit sends nothing and needs the saved snapshot reopened.
-    break_mls_writes(&alice_path);
+    let mut session = open_durable_session(alice, alice_path, &ALICE_SEAL);
+    break_mls_writes(alice_path);
     assert!(matches!(
-        alice_session
+        session
             .send_message(
                 std::slice::from_mut(&mut alice.node),
-                &group_id,
+                group_id,
                 b"never sent",
-                &alice_key
+                &ALICE_SEAL
             )
             .await,
         Err(Error::Store(_))
     ));
     assert!(matches!(
-        alice_session
+        session
             .send_message(
                 std::slice::from_mut(&mut alice.node),
-                &group_id,
+                group_id,
                 b"never sent",
-                &alice_key
+                &ALICE_SEAL
             )
             .await,
         Err(Error::Invalidated)
     ));
-    heal(&alice_path);
-    alice_session.recover(&alice_key).unwrap();
-    alice_session
+    heal(alice_path);
+    session.recover(&ALICE_SEAL).unwrap();
+    session
         .send_message(
             std::slice::from_mut(&mut alice.node),
-            &group_id,
+            group_id,
             b"hello bob",
-            &alice_key,
+            &ALICE_SEAL,
         )
         .await
         .unwrap();
     assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 2);
+}
 
+async fn fail_bob_receive(
+    bob: &mut Person,
+    profiles: &[VerifiedProfile],
+    bob_path: &std::path::Path,
+) {
     // Bob's failed receive commit shows and acknowledges nothing.
-    let mut bob_session =
-        Session::open(Store::open(&bob_path, &bob.identity).unwrap(), &bob_key).unwrap();
-    break_mls_writes(&bob_path);
+    let mut session = open_durable_session(bob, bob_path, &BOB_SEAL);
+    break_mls_writes(bob_path);
     assert!(matches!(
-        bob_session
+        session
             .receive(
                 std::slice::from_mut(&mut bob.node),
                 &bob.device_key,
-                &profiles,
-                &bob_key
+                profiles,
+                &BOB_SEAL
             )
             .await,
         Err(Error::Store(_))
     ));
     assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 2);
-    heal(&bob_path);
-    drop(bob_session);
+    heal(bob_path);
+}
 
-    let mut bob_session =
-        Session::open(Store::open(&bob_path, &bob.identity).unwrap(), &bob_key).unwrap();
-    let (events, more) = bob_session
+async fn receive_restored_bob(
+    alice: &Person,
+    bob: &mut Person,
+    profiles: &[VerifiedProfile],
+    group_id: &[u8],
+    bob_path: &std::path::Path,
+) {
+    let mut session = open_durable_session(bob, bob_path, &BOB_SEAL);
+    let (events, more) = session
         .receive_page(
             std::slice::from_mut(&mut bob.node),
             &bob.device_key,
-            &profiles,
-            &bob_key,
+            profiles,
+            &BOB_SEAL,
         )
         .await
         .unwrap();
     assert!(!more);
     assert_eq!(
-        bob_session
-            .store()
-            .mailbox_cursor_for(bob.node.peer())
-            .unwrap(),
+        session.store().mailbox_cursor_for(bob.node.peer()).unwrap(),
         None
     );
     assert!(matches!(events.as_slice(),
         [Event::Joined(joined), Event::Message { group, sender, body: Body::Text { text, .. }, .. }]
-        if joined == &group_id && group == &group_id && sender == &alice.identity.peer_id() && text == b"hello bob"));
+        if joined == group_id && group == group_id && sender == &alice.identity.peer_id() && text == b"hello bob"));
     assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 0);
+}
 
-    // Bob's receipt drops the Welcome from Alice's outbox; a repeated put of the exact Welcome
-    // shows nothing twice.
-    drop(alice_session);
-    let mut alice_session = Session::open(
-        Store::open(&alice_path, &alice.identity).unwrap(),
-        &alice_key,
-    )
-    .unwrap();
+async fn acknowledge_welcome_and_ignore_duplicate(
+    alice: &mut Person,
+    bob: &mut Person,
+    profiles: &[VerifiedProfile],
+    writes: &[PreparedEnvelope],
+    alice_path: &std::path::Path,
+    bob_path: &std::path::Path,
+) {
+    // Bob's receipt drops the Welcome from Alice's outbox; a repeated put shows nothing twice.
+    let mut alice_session = open_durable_session(alice, alice_path, &ALICE_SEAL);
     alice_session
         .receive(
             std::slice::from_mut(&mut alice.node),
             &alice.device_key,
-            &profiles,
-            &alice_key,
+            profiles,
+            &ALICE_SEAL,
         )
         .await
         .unwrap();
@@ -920,43 +979,57 @@ async fn durable_chat_survives_restarts_storage_faults_and_retries() {
         .iter()
         .all(|write| write.id() != writes[0].id()));
     alice.node.put_prepared(&writes[0]).await.unwrap();
-    drop(bob_session);
-    let mut bob_session =
-        Session::open(Store::open(&bob_path, &bob.identity).unwrap(), &bob_key).unwrap();
+    let mut bob_session = open_durable_session(bob, bob_path, &BOB_SEAL);
     let checked_items = bob_session
         .receive(
             std::slice::from_mut(&mut bob.node),
             &bob.device_key,
-            &profiles,
-            &bob_key,
+            profiles,
+            &BOB_SEAL,
         )
         .await
         .unwrap();
     assert_eq!(checked_items.len(), 0);
     assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 0);
+}
 
+async fn reply_after_restore(
+    alice: &mut Person,
+    bob: &mut Person,
+    profiles: &[VerifiedProfile],
+    group_id: &[u8],
+    alice_path: &std::path::Path,
+    bob_path: &std::path::Path,
+) {
     // The restored group keeps working in both directions.
+    let bob_owner = bob.identity.peer_id();
+    let mut bob_session = open_durable_session(bob, bob_path, &BOB_SEAL);
     bob_session
         .send_message(
             std::slice::from_mut(&mut bob.node),
-            &group_id,
+            group_id,
             b"hi alice",
-            &bob_key,
+            &BOB_SEAL,
         )
         .await
         .unwrap();
+    let mut alice_session = open_durable_session(alice, alice_path, &ALICE_SEAL);
     let events = alice_session
         .receive(
             std::slice::from_mut(&mut alice.node),
             &alice.device_key,
-            &profiles,
-            &alice_key,
+            profiles,
+            &ALICE_SEAL,
         )
         .await
         .unwrap();
     assert!(matches!(events.as_slice(),
         [Event::Message { group, sender, body: Body::Text { text, .. }, .. }]
-        if group == &group_id && sender == &bob_owner && text == b"hi alice"));
+        if group == group_id && sender == &bob_owner && text == b"hi alice"));
+}
+
+fn open_durable_session(person: &Person, path: &std::path::Path, seal: &[u8; 32]) -> Session {
+    Session::open(Store::open(path, &person.identity).unwrap(), seal).unwrap()
 }
 
 async fn post(person: &mut Person, group: &mut Group, bodies: &[Body]) {
