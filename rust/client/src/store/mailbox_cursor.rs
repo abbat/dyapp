@@ -34,10 +34,11 @@ impl Store {
             return Ok(None);
         }
         let peer_len = usize::from(value[0]);
+        let cursor_start = 1usize.saturating_add(peer_len);
         if peer_len == 0
             || peer_len > MAX_PEER_ID
-            || value.len() <= 1 + peer_len
-            || value.len() > 1 + peer_len + MAX_CURSOR
+            || value.len() <= cursor_start
+            || value.len() > cursor_start.saturating_add(MAX_CURSOR)
         {
             return Err(Error::InvalidSetting);
         }
@@ -46,7 +47,7 @@ impl Store {
             self.clear_mailbox_cursor()?;
             return Ok(None);
         }
-        Ok(Some(value[1 + peer_len..].to_vec()))
+        Ok(Some(value[cursor_start..].to_vec()))
     }
 
     /// Save a cursor only after the page's durable processing and ACK attempt.
@@ -64,7 +65,10 @@ impl Store {
         {
             return Err(Error::InvalidSetting);
         }
-        let mut value = Vec::with_capacity(1 + peer.len() + cursor.len());
+        let capacity = 1usize
+            .saturating_add(peer.len())
+            .saturating_add(cursor.len());
+        let mut value = Vec::with_capacity(capacity);
         value.push(u8::try_from(peer.len()).map_err(|_| Error::InvalidSetting)?);
         value.extend_from_slice(&peer);
         value.extend_from_slice(cursor);

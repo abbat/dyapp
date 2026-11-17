@@ -50,9 +50,9 @@ pub(in crate::store) fn clear_pair_tx(tx: &Transaction<'_>, peer_id: &str) -> Re
         let rows = query.query_map([peer_id], |row| row.get::<_, Vec<u8>>(0))?;
         rows.collect::<Result<Vec<_>, _>>()?
     };
-    let mut removed = 0;
+    let mut removed = 0usize;
     for group in groups {
-        removed += clear_group_tx(tx, &group)?;
+        removed = removed.saturating_add(clear_group_tx(tx, &group)?);
     }
     tx.execute(
         "DELETE FROM `sticker_pack_requests` WHERE `peer_id` = ?1",
@@ -85,7 +85,7 @@ fn clear_group_tx(tx: &Transaction<'_>, group: &[u8]) -> Result<usize, Error> {
         "DELETE FROM `outbox` WHERE `chat_group` = ?1 AND `accepted_at_ms` IS NULL",
         [group],
     )?;
-    Ok(texts + attachments)
+    Ok(texts.saturating_add(attachments))
 }
 
 /// Whether Clear chat removed `key`.

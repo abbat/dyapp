@@ -123,10 +123,6 @@ impl Store {
     /// Returns an error if querying, decoding, or updating stored delivery and
     /// outbox state fails, or the transaction cannot be committed.
     ///
-    /// # Panics
-    ///
-    /// Panics if subtracting the grace interval from a stored acceptance time
-    /// overflows `i64` when overflow checks are enabled.
     pub fn receipted(
         &mut self,
         mailbox: &[u8; 32],
@@ -134,7 +130,7 @@ impl Store {
     ) -> Result<(usize, Vec<String>), Error> {
         let tx = self.db.transaction()?;
         let mut fetched_after: Option<i64> = None;
-        let mut dropped = 0;
+        let mut dropped = 0usize;
         for id in ids {
             let at: Option<i64> = tx
                 .query_row(
@@ -149,11 +145,11 @@ impl Store {
                 fetched_after = Some(fetched_after.map_or(at, |t| t.min(at)));
             }
             advance_chat_delivery(&tx, &self.owner_peer_id, mailbox, id, 2)?;
-            dropped += tx.execute(
+            dropped = dropped.saturating_add(tx.execute(
                 "DELETE FROM `outbox`
                  WHERE `mailbox` = ?1 AND `envelope_id` = ?2 AND `awaits_receipt` = 1",
                 params![mailbox.as_slice(), id.as_slice()],
-            )?;
+            )?);
         }
         let Some(fetched_after) = fetched_after else {
             tx.commit()?;
@@ -162,7 +158,7 @@ impl Store {
         let overtaken =
             "WHERE `mailbox` = ?1 AND `awaits_receipt` = 1 AND `accepted_by` IS NOT NULL
              AND `last_accepted_ms` < ?2";
-        let row = params![mailbox.as_slice(), fetched_after - GRACE_MS];
+        let row = params![mailbox.as_slice(), fetched_after.saturating_sub(GRACE_MS)];
         let faulty = tx
             .prepare(&format!("SELECT `accepted_by` FROM `outbox` {overtaken}"))?
             .query_map(row, |row| row.get(0))?
