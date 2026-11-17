@@ -27,25 +27,23 @@ impl Saved {
     }
 
     pub(super) fn decode(format: Format, data: &[u8]) -> Result<Self, Error> {
-        if data.first() != Some(&1) {
-            return Err(Error::InvalidRecord);
-        }
-        let (mode, failures, start) = match format {
-            Format::Android if data.len() == 51 && data[2] == 1 => (Mode::Pin, data[1], 2),
-            Format::Ios if data.len() >= 3 => {
-                let mode = match data[1] {
-                    0 => Mode::Off,
-                    1 => Mode::Pin,
-                    2 => Mode::Biometric,
-                    _ => return Err(Error::InvalidRecord),
-                };
-                let size = if mode == Mode::Pin { 52 } else { 3 };
-                if data.len() != size {
-                    return Err(Error::InvalidRecord);
+        let (mode, failures, verifier) = match format {
+            Format::Android => match data {
+                [1, failures, verifier @ ..]
+                    if verifier.len() == 49 && verifier.first() == Some(&1) =>
+                {
+                    (Mode::Pin, *failures, verifier)
                 }
-                (mode, data[2], 3)
-            }
-            Format::Android | Format::Ios => return Err(Error::InvalidRecord),
+                _ => return Err(Error::InvalidRecord),
+            },
+            Format::Ios => match data {
+                [1, 0, failures] => (Mode::Off, *failures, &[][..]),
+                [1, 1, failures, verifier @ ..] if verifier.len() == 49 => {
+                    (Mode::Pin, *failures, verifier)
+                }
+                [1, 2, failures] => (Mode::Biometric, *failures, &[][..]),
+                _ => return Err(Error::InvalidRecord),
+            },
         };
         if failures > MAX_FAILURES {
             return Err(Error::InvalidRecord);
@@ -53,7 +51,7 @@ impl Saved {
         Ok(Self {
             mode,
             failures,
-            verifier: Zeroizing::new(data[start..].to_vec()),
+            verifier: Zeroizing::new(verifier.to_vec()),
         })
     }
 

@@ -111,11 +111,15 @@ pub fn verify(pin: String, record: &[u8]) -> Result<bool, Error> {
     if !valid_pin(&pin) {
         return Err(Error::InvalidPin);
     }
-    if record.len() != RECORD_LEN || record[0] != FORMAT {
+    let [version, fields @ ..] = record else {
+        return Err(Error::InvalidRecord);
+    };
+    if *version != FORMAT || fields.len() != SALT_LEN + TAG_LEN {
         return Err(Error::InvalidRecord);
     }
-    let computed = Zeroizing::new(tag(&pin, &record[1..=SALT_LEN])?);
-    Ok(bool::from(computed[..].ct_eq(&record[1 + SALT_LEN..])))
+    let (salt, stored) = fields.split_at(SALT_LEN);
+    let computed = Zeroizing::new(tag(&pin, salt)?);
+    Ok(bool::from(computed[..].ct_eq(stored)))
 }
 
 #[cfg(test)]

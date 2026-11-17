@@ -244,14 +244,18 @@ impl Invite {
         let mut records: BTreeMap<(&[u8], u16), Parts> = BTreeMap::new();
         for part in parts.iter().filter(|part| part.len() > HEADER_LEN) {
             let (id, rest) = part.split_at(ID_LEN);
-            let index = u16::from_be_bytes([rest[0], rest[1]]);
-            let count = u16::from_be_bytes([rest[2], rest[3]]);
+            let Some((header, payload)) = rest.split_first_chunk::<4>() else {
+                continue;
+            };
+            let [index_hi, index_lo, count_hi, count_lo] = header;
+            let index = u16::from_be_bytes([*index_hi, *index_lo]);
+            let count = u16::from_be_bytes([*count_hi, *count_lo]);
             if index < count {
                 records
                     .entry((id, count))
                     .or_default()
                     .entry(index)
-                    .or_insert(&rest[4..]);
+                    .or_insert(payload);
             }
         }
         for ((_, count), record) in records {

@@ -79,13 +79,16 @@ impl Interaction {
         if bytes.len() != ENCODED_LEN {
             return Err(DecodeError::Length);
         }
-        if bytes[0] != VERSION {
+        let (header, hlc) = bytes.split_at_checked(18).ok_or(DecodeError::Length)?;
+        let (version, rest) = header.split_first().ok_or(DecodeError::Length)?;
+        let (kind, event_id) = rest.split_first().ok_or(DecodeError::Length)?;
+        if *version != VERSION {
             return Err(DecodeError::Version);
         }
         Ok(Self {
-            kind: Kind::from_byte(bytes[1])?,
-            event_id: bytes[2..18].try_into().map_err(|_| DecodeError::Length)?,
-            hlc: u64::from_be_bytes(bytes[18..].try_into().map_err(|_| DecodeError::Length)?),
+            kind: Kind::from_byte(*kind)?,
+            event_id: event_id.try_into().map_err(|_| DecodeError::Length)?,
+            hlc: u64::from_be_bytes(hlc.try_into().map_err(|_| DecodeError::Length)?),
         })
     }
 }

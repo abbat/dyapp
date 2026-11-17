@@ -118,9 +118,10 @@ pub(crate) fn encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>, Error
         .ok_or(Error::Attachment("attachment size exceeds address space"))?;
     let mut blob = Vec::with_capacity(capacity);
     for index in 0..count {
-        let chunk = plaintext
+        let rest = plaintext
             .get(index.saturating_mul(CHUNK_BYTES)..)
-            .map_or(&[][..], |rest| &rest[..rest.len().min(CHUNK_BYTES)]);
+            .unwrap_or_default();
+        let chunk = rest.get(..CHUNK_BYTES).unwrap_or(rest);
         let aad = if index.saturating_add(1) == count {
             LAST
         } else {
