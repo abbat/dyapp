@@ -654,6 +654,45 @@ fn failed_store_write_invalidates_session_until_recovery() {
     assert!(session.device.is_some());
 }
 
+fn assert_hourly_match_presence(
+    session: &mut Session,
+    a: &str,
+    b: &str,
+    now: u64,
+    seal_key: &[u8; 32],
+) {
+    for (sender, target, id) in [(a, b, 1), (b, a, 2)] {
+        let event = crate::interactions::Interaction {
+            kind: crate::interactions::Kind::Like,
+            event_id: [id; 16],
+            hlc: 1,
+        };
+        session
+            .store
+            .apply_interaction(sender, target, b"d", event)
+            .unwrap();
+    }
+    let writes = session.stage_presence(now, seal_key).unwrap();
+    assert_eq!(writes.len(), 1);
+    assert!(session
+        .stage_presence(now + 1, seal_key)
+        .unwrap()
+        .is_empty());
+    let hour = now + 3_600_000;
+    assert_eq!(session.stage_presence(hour, seal_key).unwrap().len(), 1);
+    // Unsent presence is given up when the receiver would stop showing it.
+    let due = |session: &Session| session.due_outbound(i64::MAX).unwrap().len();
+    assert_eq!(due(session), 2);
+    let expiry = |at: u64| i64::try_from(at + 2 * 3_600_000).unwrap();
+    assert_eq!(session.store.expire_outbound(expiry(now) - 1).unwrap(), 0);
+    assert_eq!(session.store.expire_outbound(expiry(now)).unwrap(), 1);
+    assert_eq!(session.store.expire_outbound(expiry(hour)).unwrap(), 1);
+    assert_eq!(due(session), 0);
+    session.store.set_send_presence(false).unwrap();
+    let later = now + 2 * 3_600_000;
+    assert!(session.stage_presence(later, seal_key).unwrap().is_empty());
+}
+
 #[test]
 fn presence_goes_to_a_match_hourly_and_is_seen_only_from_a_match() {
     let seal_key = [6; 32];
@@ -687,36 +726,7 @@ fn presence_goes_to_a_match_hourly_and_is_seen_only_from_a_match() {
         .is_none());
     assert!(!session.store.active_recently(&a, now).unwrap());
 
-    for (sender, target, id) in [(&a, &b, 1), (&b, &a, 2)] {
-        let event = crate::interactions::Interaction {
-            kind: crate::interactions::Kind::Like,
-            event_id: [id; 16],
-            hlc: 1,
-        };
-        session
-            .store
-            .apply_interaction(sender, target, b"d", event)
-            .unwrap();
-    }
-    let writes = session.stage_presence(now, &seal_key).unwrap();
-    assert_eq!(writes.len(), 1);
-    assert!(session
-        .stage_presence(now + 1, &seal_key)
-        .unwrap()
-        .is_empty());
-    let hour = now + 3_600_000;
-    assert_eq!(session.stage_presence(hour, &seal_key).unwrap().len(), 1);
-    // Unsent presence is given up when the receiver would stop showing it.
-    let due = |session: &Session| session.due_outbound(i64::MAX).unwrap().len();
-    assert_eq!(due(&session), 2);
-    let expiry = |at: u64| i64::try_from(at + 2 * 3_600_000).unwrap();
-    assert_eq!(session.store.expire_outbound(expiry(now) - 1).unwrap(), 0);
-    assert_eq!(session.store.expire_outbound(expiry(now)).unwrap(), 1);
-    assert_eq!(session.store.expire_outbound(expiry(hour)).unwrap(), 1);
-    assert_eq!(due(&session), 0);
-    session.store.set_send_presence(false).unwrap();
-    let later = now + 2 * 3_600_000;
-    assert!(session.stage_presence(later, &seal_key).unwrap().is_empty());
+    assert_hourly_match_presence(&mut session, &a, &b, now, &seal_key);
 
     // A match's presence shows even with ours hidden; one from the future is refused.
     let seen = presence(&mut group, now);
