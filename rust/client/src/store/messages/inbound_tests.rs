@@ -22,6 +22,38 @@ fn photo(id: u8, time: u64) -> Body {
     })
 }
 
+fn open_photo_conversation(
+    store: &mut Store,
+    sender: VerifiedChatSender,
+    group: &[u8],
+    owner: &Identity,
+    device: &[u8; 32],
+) {
+    let request = Body::text_with_id([2; 16], b"hello".to_vec());
+    assert!(store
+        .stage_chat_inbound(b"mls-2", &inbox(2), sender, &request, 1_000)
+        .unwrap());
+    let reply = Body::text_with_id([3; 16], b"yes".to_vec());
+    let owner_id = owner.peer_id();
+    let own = VerifiedChatSender {
+        group,
+        author: &owner_id,
+        device,
+    };
+    assert!(store
+        .stage_chat_inbound(b"mls-3", &inbox(3), own, &reply, 1_000)
+        .unwrap());
+}
+
+fn assert_future_photo_rejected(store: &mut Store, sender: VerifiedChatSender) {
+    assert!(matches!(
+        store.stage_chat_inbound(b"future", &inbox(4), sender, &photo(4, 61_001), 1_000),
+        Err(Error::ClockSkew(_))
+    ));
+    assert!(!store.has_inbox(&inbox(4)).unwrap());
+    assert_eq!(store.sealed_device().unwrap().unwrap(), b"mls-3");
+}
+
 #[test]
 fn inbound_photo_projects_once_with_snapshot_and_digest() {
     let path = crate::store::tests::temp_db_path();
@@ -43,27 +75,9 @@ fn inbound_photo_projects_once_with_snapshot_and_digest() {
         .unwrap());
     assert!(store.current_chat_attachments(&peer).unwrap().is_empty());
     assert!(store.has_inbox(&inbox(1)).unwrap());
-    let request = Body::text_with_id([2; 16], b"hello".to_vec());
-    assert!(store
-        .stage_chat_inbound(b"mls-2", &inbox(2), sender, &request, 1_000)
-        .unwrap());
-    let reply = Body::text_with_id([3; 16], b"yes".to_vec());
-    let owner_id = owner.peer_id();
-    let own = VerifiedChatSender {
-        group: &group,
-        author: &owner_id,
-        device: &device,
-    };
-    assert!(store
-        .stage_chat_inbound(b"mls-3", &inbox(3), own, &reply, 1_000)
-        .unwrap());
+    open_photo_conversation(&mut store, sender, &group, &owner, &device);
 
-    assert!(matches!(
-        store.stage_chat_inbound(b"future", &inbox(4), sender, &photo(4, 61_001), 1_000),
-        Err(Error::ClockSkew(_))
-    ));
-    assert!(!store.has_inbox(&inbox(4)).unwrap());
-    assert_eq!(store.sealed_device().unwrap().unwrap(), b"mls-3");
+    assert_future_photo_rejected(&mut store, sender);
     assert!(store
         .stage_chat_inbound(b"mls-4", &inbox(4), sender, &first, 1_000)
         .unwrap());

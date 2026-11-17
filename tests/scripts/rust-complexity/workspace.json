@@ -49,7 +49,6 @@
   {"path":"rust/client/src/store/messages/clear.rs","function":"mod tests # [cfg (test)]::fn clearing_pair_removes_every_group_but_keeps_other_peer_and_replay_marks ","metrics":{"lines":79}},
   {"path":"rust/client/src/store/messages/clear.rs","function":"mod tests # [cfg (test)]::fn read_and_clear_apply_to_attachments_across_groups_and_restart ","metrics":{"cognitive":18,"lines":82}},
   {"path":"rust/client/src/store/messages/inbound_tests.rs","function":"fn chat_projection_and_delivery_commit_atomically ","metrics":{"cognitive":17,"lines":93}},
-  {"path":"rust/client/src/store/messages/inbound_tests.rs","function":"fn inbound_photo_projects_once_with_snapshot_and_digest ","metrics":{"cognitive":19,"lines":62}},
   {"path":"rust/client/src/store/messages/inbound_tests.rs","function":"fn late_original_after_delete_keeps_placeholder_and_ack_intent ","metrics":{"lines":71}},
   {"path":"rust/client/src/store/messages/inbound_tests.rs","function":"fn timed_text_rejects_future_clock_before_ack_and_observes_valid_clock ","metrics":{"lines":76}},
   {"path":"rust/client/src/store/messages/inbound_tests.rs","function":"fn unread_is_local_to_a_pair_and_survives_late_delivery_and_restart ","metrics":{"cognitive":18,"lines":107}},
