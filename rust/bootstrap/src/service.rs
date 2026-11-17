@@ -336,7 +336,7 @@ impl Service {
         let max = max_mb.saturating_mul(1 << 20);
         let (mut used, free) = usage(&self.store)?;
         if used >= max {
-            let evicted = evict(&self.store, max - max / 20)?;
+            let evicted = evict(&self.store, max.saturating_sub(max / 20))?;
             if evicted > 0 {
                 tracing::info!(guard = GUARDS[index], evicted, "evicted the oldest records");
                 used = usage(&self.store)?.0;
@@ -525,7 +525,7 @@ impl Service {
             signal_quota_bytes: if store { self.signal_quota() } else { 0 },
             mailbox_pool_bytes: if store { self.mailbox_pool() } else { 0 },
             require_write_tokens: store && self.config.limits.require_write_tokens,
-            retention_seconds: self.retention().unsigned_abs() * u64::from(store),
+            retention_seconds: self.retention().unsigned_abs().saturating_mul(u64::from(store)),
             search_fields: if self.search.is_some() {
                 SEARCH_FIELDS.to_vec()
             } else {
@@ -554,7 +554,7 @@ impl Service {
     }
 
     fn retention(&self) -> i64 {
-        i64::from(self.config.limits.message_ttl_hours) * 3600
+        i64::from(self.config.limits.message_ttl_hours).saturating_mul(3600)
     }
 
     /// Signal bytes kept per mailbox.
@@ -818,7 +818,11 @@ impl Service {
                 // Expired replicas acknowledge without reviving the owner.
                 return Ok(reply(Status::Ok, None));
             }
-            last_seen = Some(self.clock.timestamp() - i64::from(request.age_seconds));
+            last_seen = Some(
+                self.clock
+                    .timestamp()
+                    .saturating_sub(i64::from(request.age_seconds)),
+            );
         }
         let response = self.publish(&record, store, max, last_seen, check_pow)?;
         if response.status == i32::from(Status::Denied) {

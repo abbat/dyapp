@@ -210,13 +210,13 @@ impl Service {
         let Some(k) = manifest.data_shards() else {
             return false;
         };
-        let assembly =
-            manifest.shard_size().unwrap() as u64 * (k + crate::replication::MEDIA_PARITY) as u64;
+        let assembly = (manifest.shard_size().unwrap() as u64)
+            .saturating_mul(k.saturating_add(crate::replication::MEDIA_PARITY) as u64);
         let piece = match get.len {
             0 => manifest.length,
             len => len.min(manifest.length.saturating_sub(get.offset)),
         };
-        self.media_charge(peer, piece, piece + assembly)
+        self.media_charge(peer, piece, piece.saturating_add(assembly))
     }
 
     /// Byte charges are separate from the request-count buckets; 0 disables the byte cap.
@@ -273,9 +273,11 @@ impl Service {
         let bytes = put.data.len() as u64;
         let billed = if put.data.len() > self.config.media.shard_threshold {
             let k = bytes.div_ceil(crate::replication::MEDIA_OBJECT_BYTES as u64);
-            (bytes * (k + crate::replication::MEDIA_PARITY as u64)).div_ceil(k)
+            bytes
+                .saturating_mul(k.saturating_add(crate::replication::MEDIA_PARITY as u64))
+                .div_ceil(k)
         } else {
-            bytes * u64::from(dyapp_p2p_net::REPLICAS)
+            bytes.saturating_mul(u64::from(dyapp_p2p_net::REPLICAS))
         };
         if !self.media_charge(peer, billed, billed.saturating_sub(bytes)) {
             return Ok(Err(Status::RateLimited));
