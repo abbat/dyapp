@@ -3,7 +3,7 @@ use super::*;
 
 #[tokio::test]
 async fn publication_refuses_max_but_accepts_the_last_representable_successor() {
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().unwrap();
     let store = Store::open(&temp_db_path(), &identity).unwrap();
     let exhausted = Profile {
         version: u64::MAX,
@@ -40,7 +40,7 @@ fn state(identity: &Identity, hidden: bool) -> Vec<u8> {
 
 #[tokio::test]
 async fn hidden_adoption_refuses_exhaustion_without_replacing_the_existing_draft() {
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().unwrap();
     let mut store = Store::open(&temp_db_path(), &identity).unwrap();
     let before = Profile {
         version: 4,
@@ -76,7 +76,7 @@ async fn hidden_adoption_refuses_exhaustion_without_replacing_the_existing_draft
 #[tokio::test]
 async fn visible_max_and_hidden_last_successor_adoption_remain_supported() {
     for (hidden, version) in [(false, u64::MAX), (true, u64::MAX - 1)] {
-        let identity = Identity::generate();
+        let identity = Identity::try_generate().unwrap();
         let mut store = Store::open(&temp_db_path(), &identity).unwrap();
         let (mut node, held) = profile_node(Vec::new()).await;
         *held.lock().unwrap() = Some(
@@ -106,7 +106,7 @@ async fn visible_max_and_hidden_last_successor_adoption_remain_supported() {
 }
 
 async fn renew_empty_media(remote: u64) -> (Result<(), Failure>, Vec<u64>) {
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().unwrap();
     let store = Store::open(&temp_db_path(), &identity).unwrap();
     let versions = Arc::new(Mutex::new(Vec::new()));
     let observed = Arc::clone(&versions);

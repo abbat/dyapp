@@ -91,7 +91,7 @@ struct Fixture {
 }
 impl Fixture {
     fn new() -> Self {
-        let owner = dyapp_identity::Identity::generate();
+        let owner = dyapp_identity::Identity::try_generate().unwrap();
         let mut store = Store::open(&crate::store::tests::temp_db_path(), &owner).unwrap();
         let source = "ab".repeat(32);
         let target = "cd".repeat(32);

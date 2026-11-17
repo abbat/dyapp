@@ -533,7 +533,7 @@ mod tests {
 
     #[tokio::test]
     async fn age_filter_marks_skipped_node_partial_and_rechecks_its_records() {
-        let [a, b, c] = [(); 3].map(|()| Identity::generate());
+        let [a, b, c] = [(); 3].map(|()| Identity::try_generate().unwrap());
         let dated = |identity: &Identity| {
             Profile {
                 version: 1,
@@ -604,7 +604,7 @@ mod tests {
 
     #[tokio::test]
     async fn drops_nodes_that_skip_the_activity_condition() {
-        let [a, b] = [(); 2].map(|()| Identity::generate());
+        let [a, b] = [(); 2].map(|()| Identity::try_generate().unwrap());
         let mut nodes = Vec::new();
         for (identity, applied) in [(&a, vec![search_results::ACTIVE_DAY]), (&b, vec![])] {
             let mut query = ok(vec![hit(key(identity), 1)], Vec::new(), false);
@@ -699,7 +699,7 @@ mod tests {
         reason = "Alphabetic identities track the distinct cache, age-filter and retry cases in this fixture"
     )]
     async fn merges_nodes_skips_cached_hits_and_resends_cut_gets() {
-        let [a, b, c, d, e, f, g, h] = [(); 8].map(|()| Identity::generate());
+        let [a, b, c, d, e, f, g, h] = [(); 8].map(|()| Identity::try_generate().unwrap());
         let mut cache = Profiles::default();
         let held = [(&a, 1, 30), (&b, 1, 30), (&e, 5, 60), (&f, 5, 31)];
         for (identity, version, age) in held {
@@ -753,7 +753,7 @@ mod tests {
 
     #[tokio::test]
     async fn classifies_failures_and_drops_forged_records() {
-        let [a, b] = [(); 2].map(|()| Identity::generate());
+        let [a, b] = [(); 2].map(|()| Identity::try_generate().unwrap());
         let mut forged = record(&b, 1, 30);
         forged.signature[0] ^= 1;
         let mut answers = vec![
@@ -823,7 +823,7 @@ mod tests {
 
     #[tokio::test]
     async fn publishes_the_held_profile_once_due_and_waits_out_rate_limits() {
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let store = Store::open(&crate::store::tests::temp_db_path(), &alice).unwrap();
         let first = record(&alice, 1, 30);
         let busy = [
@@ -870,7 +870,7 @@ mod tests {
 
     #[tokio::test]
     async fn beats_once_a_day_with_a_proof_for_the_day() {
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let store = Store::open(&crate::store::tests::temp_db_path(), &alice).unwrap();
         let answers = [Status::Denied, Status::RateLimited, Status::Ok];
         let mut answers = answers.map(|s| status(s, 60)).into_iter();
@@ -912,7 +912,7 @@ mod tests {
                 company: company.into(),
                 ..Profile::default()
             };
-            dyapp_profile::verify(&profile.sign(&Identity::generate())).unwrap()
+            dyapp_profile::verify(&profile.sign(&Identity::try_generate().unwrap())).unwrap()
         };
         let all = vec![found("Acme  Corp"), found(""), found("Other")];
         let kept = |filter: Employer| {

@@ -129,7 +129,7 @@ fn wrong_pack_identity_is_corruption_not_an_available_recent_choice() {
 
 #[test]
 fn saved_file_filtering_keeps_unreadable_bytes_and_recent_metadata() {
-    let owner = dyapp_identity::Identity::generate();
+    let owner = dyapp_identity::Identity::try_generate().unwrap();
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../build/core-picker-recents")
         .join(owner.peer_id());

@@ -126,8 +126,8 @@ mod tests {
 
     #[test]
     fn an_older_profile_is_refused_and_a_newer_one_replaces_it() {
-        let alice = Identity::generate();
-        let bob = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
+        let bob = Identity::try_generate().unwrap();
         let mut profiles = Profiles::default();
         assert_eq!(
             profiles.accept(signed(&alice, 3)).unwrap().profile.version,
@@ -192,7 +192,7 @@ mod tests {
 
     #[test]
     fn a_tombstone_is_final() {
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let mut profiles = Profiles::default();
         profiles.accept(signed(&alice, 3)).unwrap();
         let source = Profile {

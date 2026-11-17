@@ -42,8 +42,8 @@ pub(crate) struct Fixture {
 
 impl Fixture {
     pub(crate) fn new(open: bool, attached: bool) -> Self {
-        let owner = dyapp_identity::Identity::generate();
-        let peer = dyapp_identity::Identity::generate().peer_id();
+        let owner = dyapp_identity::Identity::try_generate().unwrap();
+        let peer = dyapp_identity::Identity::try_generate().unwrap().peer_id();
         let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../build/sticker-media-core-tests")
             .join(owner.peer_id());

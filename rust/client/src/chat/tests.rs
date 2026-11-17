@@ -13,8 +13,8 @@ use dyapp_profile::{Profile, VerifiedProfile};
 use prost::Message as _;
 
 fn person() -> (Identity, Device, VerifiedProfile) {
-    let identity = Identity::generate();
-    let device = Device::new(&identity, Identity::generate().public_key(), 1).unwrap();
+    let identity = Identity::try_generate().unwrap();
+    let device = Device::new(&identity, Identity::try_generate().unwrap().public_key(), 1).unwrap();
     let profile = Profile {
         version: 1,
         devices: vec![device.certificate().clone()],

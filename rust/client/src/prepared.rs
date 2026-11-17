@@ -78,8 +78,8 @@ impl std::fmt::Debug for PreparedEnvelope {
 /// Sign an ordinary MLS mailbox message with a fresh one-off key, before any network write.
 ///
 /// # Errors
-/// Returns [`Error::Input`] for an invalid mailbox length, [`Error::Request`] if
-/// envelope ID generation fails, or [`Error::PreparedEnvelope`] if reopening fails.
+/// Returns [`Error::Input`] for an invalid mailbox length, [`Error::Request`] if signing-key
+/// or envelope ID generation fails, or [`Error::PreparedEnvelope`] if reopening fails.
 pub fn prepare_put(mailbox: &[u8], ciphertext: Vec<u8>) -> Result<PreparedEnvelope, Error> {
     prepare(mailbox, ciphertext, proto::EnvelopeClass::Message, None)
 }
@@ -120,7 +120,7 @@ pub(crate) fn prepare(
             Some(SignedRecord::decode(token).map_err(|_| Error::Input("bad write token"))?),
         )
     } else {
-        one_off = Identity::generate();
+        one_off = Identity::try_generate().map_err(|error| Error::Request(error.to_string()))?;
         (&one_off, None)
     };
     let mailbox: [u8; 32] = mailbox

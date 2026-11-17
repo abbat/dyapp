@@ -777,7 +777,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_refused_publish_keeps_the_draft_and_a_retry_reads_back_the_preview() {
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let store = Store::open(&temp_db_path(), &alice).unwrap();
         let preview = draft(None, Some(5), None);
         store.save_profile_draft(&preview).unwrap();
@@ -810,7 +810,7 @@ mod tests {
 
     #[tokio::test]
     async fn hide_only_withdraws_search_and_publish_shows_again() {
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let store = Store::open(&temp_db_path(), &alice).unwrap();
         let (mut node, held) = profile_node(Vec::new()).await;
         let shown = draft(None, None, None);
@@ -854,7 +854,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_newer_version_from_another_device_replaces_the_draft() {
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let store = Store::open(&temp_db_path(), &alice).unwrap();
         let (mut node, held) = profile_node(Vec::new()).await;
         let other = Profile {
@@ -874,14 +874,14 @@ mod tests {
 
     #[test]
     fn listed_devices_stay_sorted_and_unique() {
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let mut draft = Profile {
             version: 1,
             ..Profile::default()
         };
         let certificates: Vec<_> = (0..3)
             .map(|_| {
-                let device_key = Identity::generate();
+                let device_key = Identity::try_generate().unwrap();
                 let device = dyapp_messaging::mls::Device::new(&alice, device_key.public_key(), 1);
                 let certificate = device.unwrap().certificate().clone();
                 let binding = crate::owner_binding(&device_key, &alice.public_key());

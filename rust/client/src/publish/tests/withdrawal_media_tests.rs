@@ -2,7 +2,7 @@ use super::*;
 
 #[tokio::test]
 async fn withdrawal_uses_independent_conditional_media_revisions() {
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().unwrap();
     let mut store = Store::open(&temp_db_path(), &identity).unwrap();
     let request = Profile {
         version: 7,

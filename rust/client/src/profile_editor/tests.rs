@@ -48,7 +48,7 @@ fn node_verification_accepts_future_codes_that_the_editor_does_not_offer() {
         seeking_genders: vec![u32::MAX],
         ..Profile::default()
     };
-    let owner = dyapp_identity::Identity::generate();
+    let owner = dyapp_identity::Identity::try_generate().unwrap();
     assert!(profile::verify(&draft.sign(&owner)).is_ok());
     assert_eq!(validate(&draft), Err(DraftError::Seeking));
     draft.seeking_genders.clear();

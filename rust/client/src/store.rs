@@ -670,8 +670,8 @@ pub(crate) mod tests {
     #[test]
     fn binds_database_to_one_identity_across_reopens() {
         let path = temp_db_path();
-        let alice = Identity::generate();
-        let bob = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
+        let bob = Identity::try_generate().unwrap();
         let store = Store::open(&path, &alice).unwrap();
         drop(store);
         assert!(matches!(
@@ -684,7 +684,7 @@ pub(crate) mod tests {
     #[test]
     fn refuses_future_and_unknown_schemas_without_replacing_them() {
         let path = temp_db_path();
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         drop(Store::open(&path, &alice).unwrap());
         let db = Connection::open(&path).unwrap();
         db.pragma_update(None, "user_version", VERSION + 1).unwrap();
@@ -707,7 +707,7 @@ pub(crate) mod tests {
 
     #[test]
     fn refuses_relative_path_and_corrupt_database() {
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         assert!(matches!(
             Store::open(std::path::Path::new("client.db"), &alice),
             Err(Error::RelativePath)
@@ -720,7 +720,7 @@ pub(crate) mod tests {
     #[test]
     fn privacy_settings_survive_restart_without_crossing_profiles() {
         let path = temp_db_path();
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let store = Store::open(&path, &alice).unwrap();
         assert!(!store.send_profile_views().unwrap());
         assert!(store.send_typing().unwrap());
@@ -739,7 +739,7 @@ pub(crate) mod tests {
             .unwrap()
             .send_profile_views()
             .unwrap());
-        let other = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        let other = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
         assert!(!other.send_profile_views().unwrap());
         assert!(other.send_typing().unwrap());
         assert!(other.notifications().unwrap());
@@ -748,7 +748,7 @@ pub(crate) mod tests {
     #[test]
     fn download_and_notice_settings_roundtrip_and_survive_restart() {
         let path = temp_db_path();
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let store = Store::open(&path, &alice).unwrap();
         assert_eq!(store.auto_download().unwrap(), AutoDownload::ByNetwork);
         for mode in [AutoDownload::Always, AutoDownload::OnTap] {
@@ -768,8 +768,8 @@ pub(crate) mod tests {
     #[test]
     fn pass_history_orders_updates_and_survives_restart_without_crossing_profiles() {
         let path = temp_db_path();
-        let alice = Identity::generate();
-        let peer = Identity::generate().peer_id();
+        let alice = Identity::try_generate().unwrap();
+        let peer = Identity::try_generate().unwrap().peer_id();
         let store = Store::open(&path, &alice).unwrap();
         assert!(!store.passed(&peer).unwrap());
         assert!(store.set_pass(&peer, true, Timestamp::new(10, 0)).unwrap());
@@ -779,13 +779,13 @@ pub(crate) mod tests {
         assert!(store.passed(&peer).unwrap());
         assert!(store.set_pass(&peer, false, Timestamp::new(11, 0)).unwrap());
         assert!(!store.passed(&peer).unwrap());
-        let other = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        let other = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
         assert!(!other.passed(&peer).unwrap());
     }
 
     #[test]
     fn unknown_setting_format_fails_closed() {
-        let store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        let store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
         store
             .db
             .execute(
@@ -822,8 +822,8 @@ pub(crate) mod tests {
     }
 
     pub(super) fn person() -> (Identity, Device, VerifiedProfile) {
-        let identity = Identity::generate();
-        let device = Device::new(&identity, Identity::generate().public_key(), 1).unwrap();
+        let identity = Identity::try_generate().unwrap();
+        let device = Device::new(&identity, Identity::try_generate().unwrap().public_key(), 1).unwrap();
         let profile = Profile {
             version: 1,
             devices: vec![device.certificate().clone()],
@@ -836,13 +836,13 @@ pub(crate) mod tests {
     #[test]
     fn the_owner_catalogs_a_group_of_only_own_devices() {
         let path = temp_db_path();
-        let identity = Identity::generate();
+        let identity = Identity::try_generate().unwrap();
         let mut draft = Profile {
             version: 2,
             ..Default::default()
         };
         let [first, second] = [1, 2].map(|sequence| {
-            let key = Identity::generate();
+            let key = Identity::try_generate().unwrap();
             let device = Device::new(&identity, key.public_key(), sequence).unwrap();
             let binding = crate::owner_binding(&key, &identity.public_key());
             crate::publish::list_device(&mut draft, device.certificate().clone(), binding);
@@ -862,8 +862,8 @@ pub(crate) mod tests {
     #[test]
     fn outbound_and_mls_snapshot_survive_restart_and_roll_back_together() {
         let path = temp_db_path();
-        let owner = Identity::generate();
-        let device = Device::new(&owner, Identity::generate().public_key(), 1).unwrap();
+        let owner = Identity::try_generate().unwrap();
+        let device = Device::new(&owner, Identity::try_generate().unwrap().public_key(), 1).unwrap();
         device.key_package(false).unwrap();
         let seal_key = [3; 32];
         let sealed = device.seal(&seal_key).unwrap();
@@ -894,7 +894,7 @@ pub(crate) mod tests {
         let record = SignedRecord::decode(write.as_bytes()).unwrap();
         let mut envelope = proto::Envelope::decode(record.payload.as_slice()).unwrap();
         envelope.ciphertext = vec![9];
-        let conflicting = Identity::generate().sign(Domain::Envelope, envelope.encode_to_vec());
+        let conflicting = Identity::try_generate().unwrap().sign(Domain::Envelope, envelope.encode_to_vec());
         let conflicting = PreparedEnvelope::from_bytes(conflicting.encode_to_vec()).unwrap();
         assert!(matches!(
             store.stage_outbound(b"different state", &[conflicting]),
@@ -910,7 +910,7 @@ pub(crate) mod tests {
     #[test]
     fn inbound_ack_waits_for_durable_mls_and_deduplication() {
         let path = temp_db_path();
-        let owner = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
         let key = InboxKey {
             mailbox: [4; 32],
             id: [5; 16],
@@ -942,7 +942,7 @@ pub(crate) mod tests {
 
     #[test]
     fn failed_mls_write_rolls_back_inbox_and_ack() {
-        let mut store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        let mut store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
         store
             .db
             .execute_batch(
@@ -965,7 +965,7 @@ pub(crate) mod tests {
 
     #[test]
     fn outbox_rejects_a_mismatch_in_either_key_part() {
-        let mut store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        let mut store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
         let write = prepare_put(&[7; 32], vec![1]).unwrap();
         store
             .stage_outbound(b"sealed", std::slice::from_ref(&write))

@@ -309,7 +309,7 @@ mod tests {
 
     #[test]
     fn a_record_crosses_in_parts_among_junk_and_opens_once() {
-        let identity = Identity::generate();
+        let identity = Identity::try_generate().unwrap();
         let state = vec![9; 2 * PART_DATA + 1];
         let mut invite = invite();
         let code = Code::parse(&invite.code().text(), NOW).unwrap();
@@ -338,7 +338,7 @@ mod tests {
     fn only_the_key_of_the_code_opens_a_record() {
         let parts = invite()
             .code()
-            .seal_record(&Identity::generate(), b"state", NOW)
+            .seal_record(&Identity::try_generate().unwrap(), b"state", NOW)
             .unwrap();
         assert!(invite().open(&parts, NOW).unwrap().is_none());
     }
@@ -347,7 +347,7 @@ mod tests {
     fn an_expired_code_seals_and_opens_nothing() {
         let mut invite = invite();
         let code = *invite.code();
-        let identity = Identity::generate();
+        let identity = Identity::try_generate().unwrap();
         assert!(code.seal_record(&identity, b"", code.expires_at).is_err());
         let parts = code.seal_record(&identity, b"", NOW).unwrap();
         assert!(invite.open(&parts, code.expires_at).is_err());

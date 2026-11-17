@@ -47,7 +47,7 @@ mod tests {
                 Domain::DeviceCertificate,
                 DeviceCertificate {
                     device_key: device.public_key().to_vec(),
-                    mls_signature_key: Identity::generate().public_key().to_vec(),
+                    mls_signature_key: Identity::try_generate().unwrap().public_key().to_vec(),
                     generation: 1,
                 }
                 .encode_to_vec(),
@@ -58,9 +58,9 @@ mod tests {
 
     #[test]
     fn offline_equal_and_older_readbacks_preserve_the_local_directory_and_fields() {
-        let owner = Identity::generate();
-        let local_device = Identity::generate();
-        let other = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
+        let local_device = Identity::try_generate().unwrap();
+        let other = Identity::try_generate().unwrap();
         let local = profile(&owner, &local_device, 5);
         let before = local.clone();
         let expected = vec![OwnDevice {
@@ -80,9 +80,9 @@ mod tests {
 
     #[test]
     fn newer_verified_directory_marks_each_actual_device_without_mutating_either_profile() {
-        let owner = Identity::generate();
-        let local_device = Identity::generate();
-        let other = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
+        let local_device = Identity::try_generate().unwrap();
+        let other = Identity::try_generate().unwrap();
         let local = profile(&owner, &local_device, 5);
         let mut remote = profile(&owner, &other, 6);
         remote.devices.extend(local.devices.clone());
@@ -105,10 +105,10 @@ mod tests {
 
     #[test]
     fn current_first_preserves_other_devices_order_and_absent_current_keeps_all_rows() {
-        let owner = Identity::generate();
-        let current = Identity::generate();
-        let first = Identity::generate();
-        let second = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
+        let current = Identity::try_generate().unwrap();
+        let first = Identity::try_generate().unwrap();
+        let second = Identity::try_generate().unwrap();
         let draft = profile(&owner, &current, 5);
         let others = [profile(&owner, &first, 6), profile(&owner, &second, 6)];
         let mut remote = others[0].clone();
@@ -140,8 +140,8 @@ mod tests {
 
     #[test]
     fn newer_removed_profile_has_no_devices_instead_of_restoring_cached_authorization() {
-        let owner = Identity::generate();
-        let device = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
+        let device = Identity::try_generate().unwrap();
         let local = profile(&owner, &device, 5);
         let removed = Profile {
             version: 6,

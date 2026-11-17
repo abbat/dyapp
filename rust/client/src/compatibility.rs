@@ -69,7 +69,7 @@ mod tests {
     use dyapp_profile::{verify, Profile};
 
     fn verified(profile: &Profile) -> VerifiedProfile {
-        verify(&profile.sign(&Identity::generate())).unwrap()
+        verify(&profile.sign(&Identity::try_generate().unwrap())).unwrap()
     }
 
     #[test]

@@ -136,8 +136,8 @@ fn like(store: &mut Store, sender: &str, target: &str, n: u8) {
 #[test]
 fn store_capture_excludes_muted_blocked_likes_and_rows_without_changing_private_state() {
     let (owner, peer) = (
-        dyapp_identity::Identity::generate(),
-        dyapp_identity::Identity::generate(),
+        dyapp_identity::Identity::try_generate().unwrap(),
+        dyapp_identity::Identity::try_generate().unwrap(),
     );
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../build/core-notice-waiting")

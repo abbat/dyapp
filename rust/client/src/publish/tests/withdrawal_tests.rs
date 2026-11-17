@@ -86,7 +86,7 @@ async fn withdrawal_readback_cannot_replace_an_edit_committed_while_waiting() {
 
 #[tokio::test]
 async fn newer_local_publication_projection_supersedes_withdrawal_readback() {
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().unwrap();
     let path = temp_db_path();
     let store = Store::open(&path, &identity).unwrap();
     let request = Profile::default();
