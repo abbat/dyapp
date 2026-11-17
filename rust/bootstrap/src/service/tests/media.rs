@@ -711,35 +711,11 @@ fn check_sharded_upload_ratio(s: &mut Service, owner: &Identity) {
 
 #[test]
 fn media_keep_put_get() {
-    use media_request::Request::{Attach, Release};
-    use media_request::Request::{Get, Keep, Put};
-    // Each peer within the media request rate.
-    let call_as = |service: &Service, name: &str, request| {
-        let response = service.media(
-            &peer(name),
-            MediaRequest {
-                request: Some(request),
-            },
-        );
-        let response = response.unwrap();
-        (Status::try_from(response.status).unwrap(), response)
-    };
-    let call = |service: &Service, request| call_as(service, "p", request);
-    let get = |hash: &[u8]| {
-        Get(proto::GetMedia {
-            hash: hash.to_vec(),
-            ..Default::default()
-        })
-    };
-    let range = |hash: &[u8], offset, len| {
-        Get(proto::GetMedia {
-            hash: hash.to_vec(),
-            offset,
-            len,
-        })
-    };
     let mut service = service();
-    assert_eq!(call(&service, get(&[0; 32])).0, Status::Unsupported);
+    assert_eq!(
+        call_media(&service, media_get(&[0; 32])).0,
+        Status::Unsupported
+    );
 
     let dir = format!("/tmp/ai/test-service-media-{}", uuid::Uuid::new_v4());
     service.media = Some(MediaStore::open(std::path::Path::new(&dir)).unwrap());
@@ -747,15 +723,64 @@ fn media_keep_put_get() {
     let owner = dyapp_identity::key_hash(&identity.public_key()).to_vec();
     let data = b"photo".to_vec();
     let hash = dyapp_identity::sha256(&data).to_vec();
-    let put = || {
-        Put(proto::MediaPut {
-            owner: owner.clone(),
-            data: data.clone(),
-        })
-    };
+    let keep = check_keep_clock(&service, &identity, &hash);
+    check_keep_put_get(&service, &owner, &data, &hash, &keep);
+    check_attachment_release(&service, &identity, &owner, &hash);
+    check_denied_media_and_info(&mut service, &hash);
+}
+
+fn call_media_as(
+    service: &Service,
+    name: &str,
+    request: media_request::Request,
+) -> (Status, MediaResponse) {
+    let response = service
+        .media(
+            &peer(name),
+            MediaRequest {
+                request: Some(request),
+            },
+        )
+        .unwrap();
+    (Status::try_from(response.status).unwrap(), response)
+}
+
+fn call_media(service: &Service, request: media_request::Request) -> (Status, MediaResponse) {
+    call_media_as(service, "p", request)
+}
+
+fn media_get(hash: &[u8]) -> media_request::Request {
+    media_request::Request::Get(proto::GetMedia {
+        hash: hash.to_vec(),
+        ..Default::default()
+    })
+}
+
+fn media_range(hash: &[u8], offset: u64, len: u64) -> media_request::Request {
+    media_request::Request::Get(proto::GetMedia {
+        hash: hash.to_vec(),
+        offset,
+        len,
+    })
+}
+
+fn media_put(owner: &[u8], data: &[u8]) -> media_request::Request {
+    media_request::Request::Put(proto::MediaPut {
+        owner: owner.to_vec(),
+        data: data.to_vec(),
+    })
+}
+
+fn media_release(secret: &[u8]) -> media_request::Request {
+    media_request::Request::Release(proto::MediaRelease {
+        secret: secret.to_vec(),
+    })
+}
+
+fn check_keep_clock(service: &Service, identity: &Identity, hash: &[u8]) -> SignedRecord {
     let keep = proto::MediaKeep {
         version: 1,
-        hashes: vec![hash.clone()],
+        hashes: vec![hash.to_vec()],
         time: chrono::Utc::now().timestamp().unsigned_abs(),
     };
     for time in [keep.time - 3600, keep.time + 3600] {
@@ -764,36 +789,63 @@ fn media_keep_put_get() {
             ..keep.clone()
         };
         let signed = identity.sign(Domain::MediaKeep, off_clock.encode_to_vec());
-        assert_eq!(call_as(&service, "clock", Keep(signed)).0, Status::Invalid);
+        assert_eq!(
+            call_media_as(service, "clock", media_request::Request::Keep(signed)).0,
+            Status::Invalid
+        );
     }
-    let keep = identity.sign(Domain::MediaKeep, keep.encode_to_vec());
+    identity.sign(Domain::MediaKeep, keep.encode_to_vec())
+}
 
-    assert_eq!(call(&service, put()).0, Status::NotFound);
-    let (got, response) = call(&service, Keep(keep.clone()));
-    assert_eq!((got, response.missing), (Status::Ok, vec![hash.clone()]));
-    assert_eq!(call(&service, Keep(keep.clone())).0, Status::Stale);
-    assert_eq!(call(&service, put()).0, Status::Ok);
-    let (got, response) = call(&service, get(&hash));
-    assert_eq!((got, response.data), (Status::Ok, data));
-    assert_eq!(call(&service, get(&[1; 5])).0, Status::Invalid);
-    let (got, response) = call_as(&service, "range", range(&hash, 1, 3));
+fn check_keep_put_get(
+    service: &Service,
+    owner: &[u8],
+    data: &[u8],
+    hash: &[u8],
+    keep: &SignedRecord,
+) {
+    assert_eq!(
+        call_media(service, media_put(owner, data)).0,
+        Status::NotFound
+    );
+    let (got, response) = call_media(service, media_request::Request::Keep(keep.clone()));
+    assert_eq!((got, response.missing), (Status::Ok, vec![hash.to_vec()]));
+    assert_eq!(
+        call_media(service, media_request::Request::Keep(keep.clone())).0,
+        Status::Stale
+    );
+    assert_eq!(call_media(service, media_put(owner, data)).0, Status::Ok);
+    let (got, response) = call_media(service, media_get(hash));
+    assert_eq!((got, response.data), (Status::Ok, data.to_vec()));
+    assert_eq!(call_media(service, media_get(&[1; 5])).0, Status::Invalid);
+    let (got, response) = call_media_as(service, "range", media_range(hash, 1, 3));
     assert_eq!(
         (got, response.data, response.total_size),
         (Status::Ok, b"hot".to_vec(), 5)
     );
-    let (_, response) = call_as(&service, "range", range(&hash, 3, 1 << 20));
+    let (_, response) = call_media_as(service, "range", media_range(hash, 3, 1 << 20));
     assert_eq!(response.data, b"to");
     for (offset, len) in [(5, 1), (1, 0), (0, (1 << 20) + 1)] {
         assert_eq!(
-            call_as(&service, "range", range(&hash, offset, len)).0,
+            call_media_as(service, "range", media_range(hash, offset, len)).0,
             Status::Invalid
         );
     }
 
-    let mut forged = keep;
+    let mut forged = keep.clone();
     forged.payload.push(0);
-    assert_eq!(call(&service, Keep(forged)).0, Status::Denied);
+    assert_eq!(
+        call_media(service, media_request::Request::Keep(forged)).0,
+        Status::Denied
+    );
+}
 
+fn check_attachment_release(
+    service: &Service,
+    identity: &Identity,
+    owner: &[u8],
+    kept_hash: &[u8],
+) {
     // An attachment: put after the attach, gone after the release.
     let file = b"attachment".to_vec();
     let file_hash = dyapp_identity::sha256(&file).to_vec();
@@ -804,45 +856,30 @@ fn media_keep_put_get() {
             hashes: vec![file_hash.clone()],
             created,
         };
-        Attach(identity.sign(Domain::MediaAttach, attach.encode_to_vec()))
+        media_request::Request::Attach(identity.sign(Domain::MediaAttach, attach.encode_to_vec()))
     };
+    let call = |request| call_media_as(service, "q", request).0;
     let now = chrono::Utc::now().timestamp().unsigned_abs();
-    assert_eq!(
-        call_as(&service, "q", attach(now + 3600)).0,
-        Status::Invalid
-    );
-    let (got, response) = call_as(&service, "q", attach(now));
+    assert_eq!(call(attach(now + 3600)), Status::Invalid);
+    let (got, response) = call_media_as(service, "q", attach(now));
     assert_eq!(
         (got, response.missing),
         (Status::Ok, vec![file_hash.clone()])
     );
-    let put = Put(proto::MediaPut {
-        owner: owner.clone(),
-        data: file,
-    });
-    assert_eq!(call_as(&service, "q", put).0, Status::Ok);
-    assert_eq!(call_as(&service, "q", get(&file_hash)).0, Status::Ok);
-    let release = |secret: &[u8]| {
-        Release(proto::MediaRelease {
-            secret: secret.to_vec(),
-        })
-    };
+    assert_eq!(call(media_put(owner, &file)), Status::Ok);
+    assert_eq!(call(media_get(&file_hash)), Status::Ok);
+    assert_eq!(call(media_release(&[8; 32])), Status::NotFound);
+    assert_eq!(call(media_release(&secret)), Status::Ok);
+    assert_eq!(call(media_get(&file_hash)), Status::NotFound);
+    assert_eq!(call(attach(now)), Status::Refused);
+    assert_eq!(call(media_get(&file_hash)), Status::NotFound);
+    assert_eq!(call(media_get(kept_hash)), Status::Ok, "kept blob stays");
+}
+
+fn check_denied_media_and_info(service: &mut Service, hash: &[u8]) {
+    *service.deny.get_mut().unwrap() = [hex(hash)].into();
     assert_eq!(
-        call_as(&service, "q", release(&[8; 32])).0,
-        Status::NotFound
-    );
-    assert_eq!(call_as(&service, "q", release(&secret)).0, Status::Ok);
-    assert_eq!(call_as(&service, "q", get(&file_hash)).0, Status::NotFound);
-    assert_eq!(call_as(&service, "q", attach(now)).0, Status::Refused);
-    assert_eq!(call_as(&service, "q", get(&file_hash)).0, Status::NotFound);
-    assert_eq!(
-        call_as(&service, "q", get(&hash)).0,
-        Status::Ok,
-        "kept blob stays"
-    );
-    *service.deny.get_mut().unwrap() = [hex(&hash)].into();
-    assert_eq!(
-        call_as(&service, "r", get(&hash)).0,
+        call_media_as(service, "r", media_get(hash)).0,
         Status::Refused,
         "blocked blob"
     );
