@@ -2,14 +2,9 @@ use super::*;
 
 #[tokio::test]
 async fn signed_time_failures_keep_clock_hints_over_real_tcp() {
-    use proto::media_replica_put::Authorization;
     let address = clock_node().await;
     let mut client = Client::connect(&address).await;
-    let before = chrono::Utc::now().timestamp().unsigned_abs();
-    let response = client.info().await;
-    assert_eq!(status(response.status), Status::Ok);
-    let server_time = response.info.unwrap().server_time;
-    assert!((before..=chrono::Utc::now().timestamp().unsigned_abs()).contains(&server_time));
+    let server_time = clock_server_time(&mut client).await;
     let owner = Identity::generate();
     let data = b"wire-clock".to_vec();
     let hash = dyapp_identity::sha256(&data).to_vec();
@@ -24,65 +19,101 @@ async fn signed_time_failures_keep_clock_hints_over_real_tcp() {
             }
             .encode_to_vec(),
         );
-        let before = chrono::Utc::now().timestamp().unsigned_abs();
-        let response = client
-            .profile(profile_request::Request::Heartbeat(heartbeat.clone()))
-            .await;
-        assert_clock_invalid(response.status, response.server_time, before);
-        let response = client
-            .search(proto::search_request::Request::Heartbeat(heartbeat))
-            .await;
-        assert_clock_invalid(response.status, response.server_time, before);
-        let keep = owner.sign(
-            Domain::MediaKeep,
-            proto::MediaKeep {
-                version: 1,
-                hashes: vec![hash.clone()],
-                time,
-            }
-            .encode_to_vec(),
-        );
-        let attach = owner.sign(
-            Domain::MediaAttach,
-            proto::MediaAttach {
-                release: dyapp_identity::sha256(b"wire-release").to_vec(),
-                hashes: vec![hash.clone()],
-                created: time,
-            }
-            .encode_to_vec(),
-        );
-        for authorization in [Authorization::Keep(keep), Authorization::Attach(attach)] {
-            let direct = match &authorization {
-                Authorization::Keep(record) => proto::media_request::Request::Keep(record.clone()),
-                Authorization::Attach(record) => {
-                    proto::media_request::Request::Attach(record.clone())
-                }
-            };
-            let replica = proto::MediaReplicaPut {
-                data: data.clone(),
-                authorization: Some(authorization.clone()),
-                manifest: None,
-            };
-            let shard = proto::MediaShardPut {
-                replica: Some(proto::MediaReplicaPut {
-                    data: vec![],
-                    authorization: Some(authorization),
-                    manifest: Some(manifest.clone()),
-                }),
-                index: 0,
-                data: shards[0].clone(),
-            };
-            for request in [
-                direct,
-                proto::media_request::Request::ReplicaPut(replica),
-                proto::media_request::Request::ShardPut(shard),
-            ] {
-                let before = chrono::Utc::now().timestamp().unsigned_abs();
-                let response = client.media(request).await;
-                assert_clock_invalid(response.status, response.server_time, before);
-            }
+        assert_future_heartbeat(&mut client, heartbeat).await;
+        for authorization in signed_media_authorizations(&owner, &hash, time) {
+            assert_media_clock_invalid(&mut client, authorization, &data, &manifest, &shards).await;
         }
     }
+    assert_invalid_signed_records(&mut client, &owner, hash).await;
+    assert_eq!(status(client.info().await.status), Status::Ok);
+}
+
+async fn clock_server_time(client: &mut Client) -> u64 {
+    let before = chrono::Utc::now().timestamp().unsigned_abs();
+    let response = client.info().await;
+    assert_eq!(status(response.status), Status::Ok);
+    let server_time = response.info.unwrap().server_time;
+    assert!((before..=chrono::Utc::now().timestamp().unsigned_abs()).contains(&server_time));
+    server_time
+}
+
+async fn assert_future_heartbeat(client: &mut Client, heartbeat: SignedRecord) {
+    let before = chrono::Utc::now().timestamp().unsigned_abs();
+    let response = client
+        .profile(profile_request::Request::Heartbeat(heartbeat.clone()))
+        .await;
+    assert_clock_invalid(response.status, response.server_time, before);
+    let response = client
+        .search(proto::search_request::Request::Heartbeat(heartbeat))
+        .await;
+    assert_clock_invalid(response.status, response.server_time, before);
+}
+
+fn signed_media_authorizations(
+    owner: &Identity,
+    hash: &[u8],
+    time: u64,
+) -> [proto::media_replica_put::Authorization; 2] {
+    use proto::media_replica_put::Authorization;
+    let keep = owner.sign(
+        Domain::MediaKeep,
+        proto::MediaKeep {
+            version: 1,
+            hashes: vec![hash.to_vec()],
+            time,
+        }
+        .encode_to_vec(),
+    );
+    let attach = owner.sign(
+        Domain::MediaAttach,
+        proto::MediaAttach {
+            release: dyapp_identity::sha256(b"wire-release").to_vec(),
+            hashes: vec![hash.to_vec()],
+            created: time,
+        }
+        .encode_to_vec(),
+    );
+    [Authorization::Keep(keep), Authorization::Attach(attach)]
+}
+
+async fn assert_media_clock_invalid(
+    client: &mut Client,
+    authorization: proto::media_replica_put::Authorization,
+    data: &[u8],
+    manifest: &proto::MediaManifest,
+    shards: &[Vec<u8>],
+) {
+    use proto::media_replica_put::Authorization;
+    let direct = match &authorization {
+        Authorization::Keep(record) => proto::media_request::Request::Keep(record.clone()),
+        Authorization::Attach(record) => proto::media_request::Request::Attach(record.clone()),
+    };
+    let replica = proto::MediaReplicaPut {
+        data: data.to_vec(),
+        authorization: Some(authorization.clone()),
+        manifest: None,
+    };
+    let shard = proto::MediaShardPut {
+        replica: Some(proto::MediaReplicaPut {
+            data: vec![],
+            authorization: Some(authorization),
+            manifest: Some(manifest.clone()),
+        }),
+        index: 0,
+        data: shards[0].clone(),
+    };
+    for request in [
+        direct,
+        proto::media_request::Request::ReplicaPut(replica),
+        proto::media_request::Request::ShardPut(shard),
+    ] {
+        let before = chrono::Utc::now().timestamp().unsigned_abs();
+        let response = client.media(request).await;
+        assert_clock_invalid(response.status, response.server_time, before);
+    }
+}
+
+async fn assert_invalid_signed_records(client: &mut Client, owner: &Identity, hash: Vec<u8>) {
     let mut forged = owner.sign(
         Domain::Heartbeat,
         proto::Heartbeat {
@@ -116,7 +147,6 @@ async fn signed_time_failures_keep_clock_hints_over_real_tcp() {
         (response.status, response.server_time),
         (i32::from(Status::Invalid), 0)
     );
-    assert_eq!(status(client.info().await.status), Status::Ok);
 }
 
 #[tokio::test]
