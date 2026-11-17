@@ -43,7 +43,7 @@ pub(super) fn start_search(
             return;
         };
         service.puzzle.record_wait(queued.elapsed());
-        *running += 1;
+        *running = (*running).saturating_add(1);
         let (index, done) = (index.clone(), done.clone());
         let rows = service.config.search.max_scan_rows;
         tokio::task::spawn_blocking(move || {
@@ -95,7 +95,7 @@ pub(super) fn request(
     let mut outcome = RequestOutcome::default();
     match context.service.search(&from, request) {
         Ok(Search::Reply(response)) => {
-            outcome.answered += 1;
+            outcome.answered = outcome.answered.saturating_add(1);
             spread(context.swarm, gossip, &response, context.service);
             context.service.traffic.add(response.encoded_len() as u64);
             let _ = context
@@ -105,13 +105,17 @@ pub(super) fn request(
                 .send_response(channel, response);
         }
         Ok(Search::Pow(check, request)) => {
-            outcome.answered += check_pow(&mut context, id, from, channel, check, request);
+            outcome.answered = outcome
+                .answered
+                .saturating_add(check_pow(&mut context, id, from, channel, check, request));
         }
         Ok(work) => {
-            outcome.answered += queue_work(&mut context, from, channel, work, solution.as_ref());
+            outcome.answered = outcome
+                .answered
+                .saturating_add(queue_work(&mut context, from, channel, work, solution.as_ref()));
         }
         Err(error) => {
-            outcome.failed += 1;
+            outcome.failed = outcome.failed.saturating_add(1);
             tracing::error!(%error, "search request failed");
         }
     }
