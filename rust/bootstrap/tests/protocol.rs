@@ -251,10 +251,12 @@ impl Client {
     async fn wait<R>(&mut self, pick: impl Fn(BehaviourEvent) -> Option<R>) -> R {
         tokio::time::timeout(Duration::from_secs(10), async {
             loop {
-                if let SwarmEvent::Behaviour(event) = self.swarm.select_next_some().await {
-                    if let Some(reply) = pick(event) {
-                        return reply;
-                    }
+                let event = self.swarm.select_next_some().await;
+                let SwarmEvent::Behaviour(event) = event else {
+                    continue;
+                };
+                if let Some(reply) = pick(event) {
+                    return reply;
                 }
             }
         })
