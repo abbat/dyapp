@@ -223,13 +223,58 @@ async fn an_attachment_reaches_the_member_while_the_node_holds_only_ciphertext()
     let mut alice = Person::new(&address).await;
     let mut bob = Person::new(&address).await;
     let bob_owner = bob.identity.peer_id();
-    chat::publish_key_packages(&mut bob.node, &bob.device_key, &bob.device, &bob_owner, 1)
+    let (mut alice_session, mut bob_session, profiles, group_id) =
+        open_media_chat(&mut alice, &mut bob, &bob_owner).await;
+    match_media_chat(
+        &mut alice,
+        &mut bob,
+        &mut alice_session,
+        &mut bob_session,
+        &profiles,
+        &group_id,
+    )
+    .await;
+    let photo = b"a photo only bob may see".repeat(4096);
+    let (sent, sent_id) =
+        send_photo_attachment(&mut alice_session, &mut alice, &bob_owner, &photo).await;
+    assert_attachment_ciphertext(&mut bob, &sent, &photo).await;
+    receive_photo_attachment(
+        &mut bob,
+        &mut bob_session,
+        &profiles,
+        &sent,
+        sent_id,
+        &photo,
+    )
+    .await;
+}
+
+async fn media_profiles(
+    alice: &mut Person,
+    bob: &mut Person,
+    bob_owner: &str,
+) -> Vec<dyapp_profile::VerifiedProfile> {
+    chat::publish_key_packages(&mut bob.node, &bob.device_key, &bob.device, bob_owner, 1)
         .await
         .unwrap();
     let mut profiles = Vec::new();
-    for owner in [alice.identity.peer_id(), bob_owner.clone()] {
+    for owner in [alice.identity.peer_id(), bob_owner.to_owned()] {
         profiles.push(alice.node.get_profile(&owner).await.unwrap());
     }
+    profiles
+}
+
+async fn open_media_chat(
+    alice: &mut Person,
+    bob: &mut Person,
+    bob_owner: &str,
+) -> (
+    Session,
+    Session,
+    Vec<dyapp_profile::VerifiedProfile>,
+    Vec<u8>,
+) {
+    let profiles = media_profiles(alice, bob, bob_owner).await;
     let alice_mailbox = alice.mailbox();
     let (group, welcome) = chat::invite(&mut alice.node, &alice.device, &alice_mailbox, &profiles)
         .await
@@ -241,70 +286,101 @@ async fn an_attachment_reaches_the_member_while_the_node_holds_only_ciphertext()
     store
         .stage_group(&group, &profiles[1], &sealed, &[])
         .unwrap();
-    let mut alice_session = Session::open(store, &SEAL).unwrap();
+    let alice_session = Session::open(store, &SEAL).unwrap();
     let mut store = Store::open(&store_path("media-bob"), &bob.identity).unwrap();
     store
         .stage_outbound(&bob.device.seal(&SEAL).unwrap(), &[])
         .unwrap();
-    let mut bob_session = Session::open(store, &SEAL).unwrap();
+    let bob_session = Session::open(store, &SEAL).unwrap();
+    (alice_session, bob_session, profiles, group_id)
+}
+
+async fn match_media_chat(
+    alice: &mut Person,
+    bob: &mut Person,
+    alice_session: &mut Session,
+    bob_session: &mut Session,
+    profiles: &[dyapp_profile::VerifiedProfile],
+    group_id: &[u8],
+) {
     bob_session
-        .receive(from_mut(&mut bob.node), &bob.device_key, &profiles, &SEAL)
+        .receive(from_mut(&mut bob.node), &bob.device_key, profiles, &SEAL)
         .await
         .unwrap();
     // A match opens the chat: an attachment is no message request.
     alice_session
-        .interact(from_mut(&mut alice.node), &group_id, Kind::Like, &SEAL)
+        .interact(from_mut(&mut alice.node), group_id, Kind::Like, &SEAL)
         .await
         .unwrap();
     bob_session
-        .interact(from_mut(&mut bob.node), &group_id, Kind::Like, &SEAL)
+        .interact(from_mut(&mut bob.node), group_id, Kind::Like, &SEAL)
         .await
         .unwrap();
     bob_session
-        .receive(from_mut(&mut bob.node), &bob.device_key, &profiles, &SEAL)
+        .receive(from_mut(&mut bob.node), &bob.device_key, profiles, &SEAL)
         .await
         .unwrap();
-
     alice_session
         .receive(
             from_mut(&mut alice.node),
             &alice.device_key,
-            &profiles,
+            profiles,
             &SEAL,
         )
         .await
         .unwrap();
-    let photo = b"a photo only bob may see".repeat(4096);
-    let (mut sent, sealed) = attachment::seal(&photo).unwrap();
+}
+
+async fn send_photo_attachment(
+    session: &mut Session,
+    alice: &mut Person,
+    bob_owner: &str,
+    photo: &[u8],
+) -> (attachment::Attachment, [u8; 16]) {
+    let (mut sent, sealed) = attachment::seal(photo).unwrap();
     sent.preview = b"preview".to_vec();
     sent.mime = "image/jpeg".into();
-    let sent_id = alice_session
+    let sent_id = session
         .send_attachment_to(
             from_mut(&mut alice.node),
             &alice.identity,
-            &bob_owner,
+            bob_owner,
             &sent,
             &sealed,
             &SEAL,
         )
         .await
         .unwrap();
-    let own = alice_session
-        .store()
-        .current_chat_attachments(&bob_owner)
-        .unwrap();
+    let own = session.store().current_chat_attachments(bob_owner).unwrap();
     assert_eq!(own.len(), 1);
     assert_eq!(own[0].key.id, sent_id);
     assert_eq!(
         own[0].delivery,
         Some(dyapp_client::store::messages::DeliveryState::NodeAccepted)
     );
+    (sent, sent_id)
+}
+
+async fn assert_attachment_ciphertext(
+    bob: &mut Person,
+    sent: &attachment::Attachment,
+    photo: &[u8],
+) {
     let sealed = bob.node.get_media(&sent.blob_sha256).await.unwrap();
     assert!(!sealed.windows(16).any(|window| photo.starts_with(window)));
     assert!(!sealed.windows(32).any(|window| window == sent.key));
+}
 
-    let events = bob_session
-        .receive(from_mut(&mut bob.node), &bob.device_key, &profiles, &SEAL)
+async fn receive_photo_attachment(
+    bob: &mut Person,
+    session: &mut Session,
+    profiles: &[dyapp_profile::VerifiedProfile],
+    sent: &attachment::Attachment,
+    sent_id: [u8; 16],
+    photo: &[u8],
+) {
+    let events = session
+        .receive(from_mut(&mut bob.node), &bob.device_key, profiles, &SEAL)
         .await
         .unwrap();
     let [Event::Message {
@@ -316,7 +392,7 @@ async fn an_attachment_reaches_the_member_while_the_node_holds_only_ciphertext()
     };
     assert_eq!(received.id, sent_id);
     assert!(received.hlc > 0);
-    assert_eq!(received.attachment, sent);
+    assert_eq!(&received.attachment, sent);
     assert_eq!(
         attachment::fetch(from_mut(&mut bob.node), &received.attachment)
             .await
