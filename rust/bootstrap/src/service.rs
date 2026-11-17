@@ -286,40 +286,17 @@ impl Service {
         })
     }
 
-    fn log_store_pages(profiles: i64, messages: i64) {
-        tracing::info!(
-            profiles,
-            messages,
-            "store maintenance done, free pages left"
-        );
-    }
-
-    fn log_store_error(error: impl std::fmt::Display) {
-        tracing::error!(%error, "store maintenance failed");
-    }
-
-    fn log_search_pages(pages: i64) {
-        tracing::info!(
-            index = pages,
-            "search index maintenance done, free pages left"
-        );
-    }
-
-    fn log_search_error(error: impl std::fmt::Display) {
-        tracing::error!(%error, "search index maintenance failed");
-    }
-
     fn maintain_store(&self, pages: u32) {
         match self.store.maintain(pages) {
-            Ok([profiles, messages]) => Self::log_store_pages(profiles, messages),
-            Err(error) => Self::log_store_error(error),
+            Ok([profiles, messages]) => helpers::log_store_pages(profiles, messages),
+            Err(error) => helpers::log_store_error(error),
         }
     }
 
     fn maintain_search(index: &SearchIndex, pages: u32) {
         match index.maintain(pages) {
-            Ok(pages) => Self::log_search_pages(pages),
-            Err(error) => Self::log_search_error(error),
+            Ok(pages) => helpers::log_search_pages(pages),
+            Err(error) => helpers::log_search_error(error),
         }
     }
 

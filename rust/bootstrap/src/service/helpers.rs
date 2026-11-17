@@ -78,6 +78,29 @@ pub(super) fn turn_credentials(
     })
 }
 
+pub(super) fn log_store_pages(profiles: i64, messages: i64) {
+    tracing::info!(
+        profiles,
+        messages,
+        "store maintenance done, free pages left"
+    );
+}
+
+pub(super) fn log_store_error(error: impl std::fmt::Display) {
+    tracing::error!(%error, "store maintenance failed");
+}
+
+pub(super) fn log_search_pages(pages: i64) {
+    tracing::info!(
+        index = pages,
+        "search index maintenance done, free pages left"
+    );
+}
+
+pub(super) fn log_search_error(error: impl std::fmt::Display) {
+    tracing::error!(%error, "search index maintenance failed");
+}
+
 pub(super) fn hex(bytes: &[u8]) -> String {
     dyapp_identity::hex(bytes)
 }
