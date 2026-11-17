@@ -67,7 +67,6 @@
   {"path":"rust/client/src/store/own_devices.rs","function":"mod tests # [cfg (test)]::fn only_a_newer_profile_restarts_the_clock ","metrics":{"cognitive":16}},
   {"path":"rust/client/src/store/peers.rs","function":"mod tests # [cfg (test)]::fn a_contact_never_verified_gets_the_notice_once_per_change ","metrics":{"cognitive":17}},
   {"path":"rust/client/src/store/peers.rs","function":"mod tests # [cfg (test)]::fn equal_clock_changes_converge_by_device_and_survive_linking ","metrics":{"lines":60}},
-  {"path":"rust/client/src/store/peers.rs","function":"mod tests # [cfg (test)]::fn the_newest_change_from_any_own_device_wins ","metrics":{"cognitive":23,"lines":57}},
   {"path":"rust/client/src/tests.rs","function":"fn mailbox_pages_sign_fresh_challenges_and_reject_stalled_cursors ","metrics":{"nesting":5,"lines":108,"nested_regions":2}},
   {"path":"rust/client/src/tests.rs","function":"fn node_put_and_prepared_retry_reach_the_mailbox ","metrics":{"nesting":5,"lines":60,"nested_regions":1}},
   {"path":"rust/client/src/tests.rs","function":"fn search_calls_solve_the_puzzle_and_surface_busy_nodes ","metrics":{"lines":132}},

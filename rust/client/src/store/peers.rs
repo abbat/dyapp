@@ -469,12 +469,8 @@ mod tests {
         assert!(left.favorite("bob").unwrap() && right.favorite("bob").unwrap());
     }
 
-    #[test]
-    fn the_newest_change_from_any_own_device_wins() {
+    fn assert_newest_own_device_changes(store: &mut Store, wall: u64) {
         let at = |ms| u64::from(Timestamp::new(ms, 0));
-        let wall = 1_000_000;
-        let alice = Identity::generate();
-        let mut store = Store::open(&temp_db_path(), &alice).unwrap();
         for (new, old) in [
             (PeerChange::Blocked(true), PeerChange::Blocked(false)),
             (PeerChange::Muted(true), PeerChange::Muted(false)),
@@ -499,6 +495,15 @@ mod tests {
         assert_eq!(store.passed_peers().unwrap(), ["bob"]);
         assert!(store.favorite("bob").unwrap());
         assert_eq!(store.local_name("bob").unwrap(), "New");
+    }
+
+    #[test]
+    fn the_newest_change_from_any_own_device_wins() {
+        let at = |ms| u64::from(Timestamp::new(ms, 0));
+        let wall = 1_000_000;
+        let alice = Identity::generate();
+        let mut store = Store::open(&temp_db_path(), &alice).unwrap();
+        assert_newest_own_device_changes(&mut store, wall);
 
         let unblock = PeerChange::Blocked(false);
         assert!(store
