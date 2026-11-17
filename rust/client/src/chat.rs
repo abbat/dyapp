@@ -341,19 +341,21 @@ impl Body {
             .concat(),
             Self::Presence { hlc } => [&[10], &hlc.to_be_bytes()[..]].concat(),
             Self::Read { up_to } => [&[11], up_to.as_slice()].concat(),
-            Self::PeerChange { peer, hlc, change } => {
-                let (kind, value) = match change {
-                    PeerChange::Blocked(on) => (1, vec![u8::from(*on)]),
-                    PeerChange::Muted(on) => (2, vec![u8::from(*on)]),
-                    PeerChange::Passed(on) => (3, vec![u8::from(*on)]),
-                    PeerChange::Name(name) => (4, name.clone().into_bytes()),
-                    PeerChange::Favorite(on) => (5, vec![u8::from(*on)]),
-                    PeerChange::Note(note) => (6, note.clone().into_bytes()),
-                };
-                let head = [&[13, kind], hlc.to_be_bytes().as_slice()].concat();
-                [head.as_slice(), peer.as_bytes(), value.as_slice()].concat()
-            }
+            Self::PeerChange { peer, hlc, change } => Self::encode_peer_change(peer, *hlc, change),
         }
+    }
+
+    fn encode_peer_change(peer: &str, hlc: u64, change: &PeerChange) -> Vec<u8> {
+        let (kind, value) = match change {
+            PeerChange::Blocked(on) => (1, vec![u8::from(*on)]),
+            PeerChange::Muted(on) => (2, vec![u8::from(*on)]),
+            PeerChange::Passed(on) => (3, vec![u8::from(*on)]),
+            PeerChange::Name(name) => (4, name.clone().into_bytes()),
+            PeerChange::Favorite(on) => (5, vec![u8::from(*on)]),
+            PeerChange::Note(note) => (6, note.clone().into_bytes()),
+        };
+        let head = [&[13, kind], hlc.to_be_bytes().as_slice()].concat();
+        [head.as_slice(), peer.as_bytes(), value.as_slice()].concat()
     }
 
     /// Refuses an unknown or missing tag, a malformed interaction, a token body that is empty or
