@@ -6,7 +6,6 @@
   {"path":"rust/bootstrap/tests/protocol/chat.rs","function":"fn a_hidden_commit_shows_as_a_gap_and_the_second_replica_delivers_it ","metrics":{"lines":125}},
   {"path":"rust/bootstrap/tests/protocol/chat.rs","function":"fn a_revoked_device_loses_its_mailbox_and_new_messages ","metrics":{"lines":139}},
   {"path":"rust/bootstrap/tests/protocol/chat.rs","function":"fn a_welcome_waits_in_the_mailbox_for_its_sender_s_profile ","metrics":{"lines":60}},
-  {"path":"rust/bootstrap/tests/protocol/chat.rs","function":"fn contacts_trade_a_month_of_write_tokens_after_join_and_refill_them ","metrics":{"lines":56}},
   {"path":"rust/bootstrap/tests/protocol/chat.rs","function":"fn durable_chat_survives_restarts_storage_faults_and_retries ","metrics":{"lines":194}},
   {"path":"rust/bootstrap/tests/protocol/chat.rs","function":"fn two_clients_chat_and_the_node_holds_only_mls_ciphertext ","metrics":{"lines":118}},
   {"path":"rust/bootstrap/tests/protocol/chat_ack_failure.rs","function":"fn ack_marker_failure_keeps_projection_and_retries_without_duplicate_event ","metrics":{"lines":140}},

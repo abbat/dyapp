@@ -911,6 +911,11 @@ fn trade(
     (answers, stored)
 }
 
+fn assert_token_month(store: &Store, mailbox: [u8; 32], day: u32) {
+    let month = (day..day + 30).collect::<Vec<_>>();
+    assert_eq!(store.write_token_epochs(&mailbox, day).unwrap(), month);
+}
+
 #[tokio::test]
 async fn contacts_trade_a_month_of_write_tokens_after_join_and_refill_them() {
     let address = start_config(|config| {
@@ -963,15 +968,8 @@ async fn contacts_trade_a_month_of_write_tokens_after_join_and_refill_them() {
         let events = fetch(&mut bob, &mut bob_groups, &profiles).await;
         assert_eq!(trade(&bob, &bob_store, &events, day, &bob_seal).1, expected);
 
-        let month = (day..day + 30).collect::<Vec<_>>();
-        assert_eq!(
-            alice_store.write_token_epochs(&bob.mailbox(), day).unwrap(),
-            month
-        );
-        assert_eq!(
-            bob_store.write_token_epochs(&alice.mailbox(), day).unwrap(),
-            month
-        );
+        assert_token_month(&alice_store, bob.mailbox(), day);
+        assert_token_month(&bob_store, alice.mailbox(), day);
     }
     assert!(ask(&mut alice_store, &alice_groups[0], today + 17, &alice_seal).is_empty());
 }
