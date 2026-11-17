@@ -167,7 +167,9 @@ fn valid_condition(condition: &proto::MediaKeepCondition) -> bool {
 fn verify_missing(missing: &[Vec<u8>], requested: &[Vec<u8>]) -> Result<(), Error> {
     if missing.len() > requested.len()
         || missing.iter().enumerate().any(|(i, hash)| {
-            hash.len() != 32 || !requested.contains(hash) || missing[..i].contains(hash)
+            hash.len() != 32
+                || !requested.contains(hash)
+                || missing.get(..i).is_some_and(|seen| seen.contains(hash))
         })
     {
         return Err(Error::Reply(

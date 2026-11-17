@@ -41,7 +41,7 @@ impl Scores {
     #[must_use]
     pub fn ranked(&self, nodes: &[PeerId], now: u64) -> Vec<usize> {
         let mut order: Vec<usize> = (0..nodes.len()).collect();
-        order.sort_by_key(|&i| self.penalty(nodes[i], now));
+        order.sort_by_key(|&i| nodes.get(i).map_or(0, |node| self.penalty(*node, now)));
         order
     }
 }
@@ -71,11 +71,14 @@ pub async fn first<T, R>(
     let peers: Vec<PeerId> = nodes.iter().map(&peer).collect();
     let mut last = Error::Status(Status::NotFound);
     for i in scores.ranked(&peers, now) {
-        match request(&mut nodes[i]).await {
+        let (Some(node), Some(&peer)) = (nodes.get_mut(i), peers.get(i)) else {
+            continue;
+        };
+        match request(node).await {
             Ok(reply) => return Ok(reply),
             Err(error) => {
                 if faulty(&error) {
-                    scores.fault(peers[i], now);
+                    scores.fault(peer, now);
                 }
                 last = error;
             }

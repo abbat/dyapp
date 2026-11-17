@@ -2,7 +2,7 @@
 
 use image::codecs::jpeg::JpegEncoder;
 use image::imageops::{self, FilterType};
-use image::{Rgb, RgbImage};
+use image::RgbImage;
 use jpeg_decoder::{Decoder, PixelFormat};
 use std::borrow::Cow;
 
@@ -69,24 +69,26 @@ fn flatten(rgba: &[u8], width: u32, height: u32) -> Result<RgbImage, PhotoError>
     if width == 0 || height == 0 || u64::try_from(rgba.len()).ok() != Some(expected) {
         return Err(failed("pixels do not match width and height"));
     }
-    Ok(RgbImage::from_fn(width, height, |x, y| {
-        let at = (y as usize)
-            .saturating_mul(width as usize)
-            .saturating_add(x as usize)
-            .saturating_mul(4);
-        let alpha = u32::from(rgba[at.saturating_add(3)]);
-        #[expect(
-            clippy::cast_possible_truncation,
-            reason = "Rounded blending of u8 colors stays within 0..=255"
-        )]
-        Rgb(std::array::from_fn(|i| {
-            (u32::from(rgba[at.saturating_add(i)])
-                .saturating_mul(alpha)
-                .saturating_add(255u32.saturating_mul(255u32.saturating_sub(alpha)))
-                .saturating_add(127)
-                / 255) as u8
-        }))
-    }))
+    let (pixels, _) = rgba.as_chunks::<4>();
+    let pixels = pixels
+        .iter()
+        .flat_map(|&[red, green, blue, alpha]| {
+            let alpha = u32::from(alpha);
+            #[expect(
+                clippy::cast_possible_truncation,
+                reason = "Rounded blending of u8 colors stays within 0..=255"
+            )]
+            [red, green, blue].map(|channel| {
+                (u32::from(channel)
+                    .saturating_mul(alpha)
+                    .saturating_add(255u32.saturating_mul(255u32.saturating_sub(alpha)))
+                    .saturating_add(127)
+                    / 255) as u8
+            })
+        })
+        .collect();
+    RgbImage::from_raw(width, height, pixels)
+        .ok_or_else(|| failed("pixels do not match width and height"))
 }
 
 fn preview_rgb(flat: &RgbImage, max_bytes: u32) -> Result<Vec<u8>, PhotoError> {
@@ -171,8 +173,11 @@ pub fn frame_size(bytes: &[u8]) -> Result<(u32, u32), PhotoError> {
                 let sof = bytes
                     .get(at.saturating_add(5)..at.saturating_add(9))
                     .ok_or_else(|| failed("truncated SOF"))?;
-                let height = u32::from(u16::from_be_bytes([sof[0], sof[1]]));
-                let width = u32::from(u16::from_be_bytes([sof[2], sof[3]]));
+                let [height_hi, height_lo, width_hi, width_lo] = *sof else {
+                    return Err(failed("truncated SOF"));
+                };
+                let height = u32::from(u16::from_be_bytes([height_hi, height_lo]));
+                let width = u32::from(u16::from_be_bytes([width_hi, width_lo]));
                 if size.replace((width, height)).is_some() {
                     return Err(failed("repeated SOF"));
                 }

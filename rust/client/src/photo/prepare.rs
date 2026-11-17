@@ -73,7 +73,16 @@ pub fn decode_plan(
     {
         return Err(PrepareError::TooLarge);
     }
-    let (width, height) = fit(width, height, purpose.policy().0[0]);
+    let (width, height) = fit(
+        width,
+        height,
+        purpose
+            .policy()
+            .0
+            .first()
+            .copied()
+            .ok_or(PrepareError::Unsupported)?,
+    );
     Ok(DecodePlan { width, height })
 }
 
@@ -101,7 +110,10 @@ pub fn prepare_photo(
     purpose: Purpose,
 ) -> Result<PreparedPhoto, PrepareError> {
     let (sides, qualities, limit) = purpose.policy();
-    if width.max(height) > sides[0] {
+    let Some(&max_side) = sides.first() else {
+        return Err(PrepareError::Unsupported);
+    };
+    if width.max(height) > max_side {
         return Err(PrepareError::TooLarge);
     }
     let flat = flatten(rgba, width, height).map_err(|_| PrepareError::Unsupported)?;
