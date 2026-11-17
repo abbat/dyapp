@@ -34,6 +34,11 @@ fn server_clock_hints_keep_fixed_tags_and_legacy_decoding() {
     ] {
         assert_eq!(encoded, legacy);
     }
+    check_legacy_info();
+    check_fixed_clock_tags(profile, media, search);
+}
+
+fn check_legacy_info() {
     let legacy_info = [0x10, 0x07]; // max_profile_bytes = 7.
     let mut info = proto::NodeInfo::decode(legacy_info.as_slice()).unwrap();
     assert_eq!(info.server_time, 0);
@@ -46,7 +51,13 @@ fn server_clock_hints_keep_fixed_tags_and_legacy_decoding() {
             .max_profile_bytes,
         7
     );
+}
 
+fn check_fixed_clock_tags(
+    profile: proto::ProfileResponse,
+    media: proto::MediaResponse,
+    search: proto::SearchResponse,
+) {
     let profile = proto::ProfileResponse {
         max_bytes: 100,
         server_time: 123,
