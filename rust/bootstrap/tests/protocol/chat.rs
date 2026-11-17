@@ -60,8 +60,17 @@ async fn two_clients_chat_and_the_node_holds_only_mls_ciphertext() {
         config.limits.min_free_mb = 0;
     })
     .await;
-    let mut alice = Person::new(&address).await;
-    let mut bob = Person::new(&address).await;
+    let (mut alice, mut bob, profiles) = Box::pin(two_chat_people(&address)).await;
+    let hello = b"hello bob, this text must never reach the node";
+    let group = invite_and_send_hello(&mut alice, &mut bob, &profiles, hello).await;
+    assert_wire_ciphertext(&alice, &mut bob, hello).await;
+    let mut bob_groups = receive_hello(&alice, &mut bob, &profiles, &group, hello).await;
+    reply_to_hello(&mut alice, &mut bob, group, &mut bob_groups, &profiles).await;
+}
+
+async fn two_chat_people(address: &Multiaddr) -> (Person, Person, Vec<VerifiedProfile>) {
+    let mut alice = Person::new(address).await;
+    let mut bob = Person::new(address).await;
     chat::publish_key_packages(
         &mut bob.node,
         &bob.device_key,
@@ -83,16 +92,23 @@ async fn two_clients_chat_and_the_node_holds_only_mls_ciphertext() {
             .await
             .unwrap(),
     ];
+    (alice, bob, profiles)
+}
 
+async fn invite_and_send_hello(
+    alice: &mut Person,
+    bob: &mut Person,
+    profiles: &[VerifiedProfile],
+    hello: &[u8],
+) -> Group {
     let alice_mailbox = alice.mailbox();
     let (mut group, welcome) =
-        chat::invite(&mut alice.node, &alice.device, &alice_mailbox, &profiles)
+        chat::invite(&mut alice.node, &alice.device, &alice_mailbox, profiles)
             .await
             .unwrap();
     assert_eq!(welcome.len(), 1);
     assert_eq!(welcome[0].mailbox, bob.mailbox());
     chat::send(&mut alice.node, &welcome).await.unwrap();
-    let hello = b"hello bob, this text must never reach the node";
     let sent = chat::message(
         &mut group,
         &alice.device,
@@ -100,7 +116,10 @@ async fn two_clients_chat_and_the_node_holds_only_mls_ciphertext() {
     )
     .unwrap();
     chat::send(&mut alice.node, &sent).await.unwrap();
+    group
+}
 
+async fn assert_wire_ciphertext(alice: &Person, bob: &mut Person, hello: &[u8]) {
     // What the node stores and returns is MLS bytes, padded and encrypted.
     let (stored, _) = bob.node.fetch(&bob.device_key).await.unwrap();
     assert_eq!(stored.len(), 2);
@@ -125,17 +144,17 @@ async fn two_clients_chat_and_the_node_holds_only_mls_ciphertext() {
             .windows(envelope.sender_key.len())
             .any(|window| window == envelope.sender_key));
     }
+}
 
+async fn receive_hello(
+    alice: &Person,
+    bob: &mut Person,
+    profiles: &[VerifiedProfile],
+    group: &Group,
+    hello: &[u8],
+) -> Vec<Group> {
     let mut bob_groups = Vec::new();
-    let (events, ids) = chat::receive(
-        &mut bob.node,
-        &bob.device_key,
-        &bob.device,
-        &mut bob_groups,
-        &profiles,
-    )
-    .await
-    .unwrap();
+    let (events, ids) = receive_welcome(bob, &mut bob_groups, profiles).await;
     assert_eq!(
         events,
         vec![
@@ -150,7 +169,16 @@ async fn two_clients_chat_and_the_node_holds_only_mls_ciphertext() {
     );
     bob.node.ack(&bob.device_key, ids).await.unwrap();
     assert_eq!(bob.node.fetch(&bob.device_key).await.unwrap().0.len(), 0);
+    bob_groups
+}
 
+async fn reply_to_hello(
+    alice: &mut Person,
+    bob: &mut Person,
+    group: Group,
+    bob_groups: &mut [Group],
+    profiles: &[VerifiedProfile],
+) {
     let reply = chat::message(
         &mut bob_groups[0],
         &bob.device,
@@ -165,7 +193,7 @@ async fn two_clients_chat_and_the_node_holds_only_mls_ciphertext() {
         &alice.device_key,
         &alice.device,
         &mut alice_groups,
-        &profiles,
+        profiles,
     )
     .await
     .unwrap();
