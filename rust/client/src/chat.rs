@@ -358,6 +358,90 @@ impl Body {
         [head.as_slice(), peer.as_bytes(), value.as_slice()].concat()
     }
 
+    fn decode_text(body: &[u8], timed: bool) -> Result<Self, Error> {
+        let error = if timed { "bad timed text" } else { "bad text" };
+        let (id, rest) = body
+            .split_first_chunk::<MESSAGE_ID_BYTES>()
+            .ok_or(Error::Reply(error))?;
+        let (hlc, text) = if timed {
+            let (hlc, text) = rest.split_first_chunk::<8>().ok_or(Error::Reply(error))?;
+            (Some(u64::from_be_bytes(*hlc)), text)
+        } else {
+            (None, rest)
+        };
+        if text.len() > MAX_TEXT_BYTES {
+            return Err(Error::Reply(error));
+        }
+        Ok(Self::Text {
+            id: *id,
+            hlc,
+            text: text.to_vec(),
+        })
+    }
+
+    fn decode_edit(body: &[u8]) -> Result<Self, Error> {
+        let (target, operation, hlc, text) =
+            operation_parts(body).ok_or(Error::Reply("bad edit"))?;
+        if text.len() > MAX_TEXT_BYTES {
+            return Err(Error::Reply("bad edit"));
+        }
+        Ok(Self::Edit {
+            target,
+            operation,
+            hlc,
+            text: text.to_vec(),
+        })
+    }
+
+    fn decode_delete(body: &[u8]) -> Result<Self, Error> {
+        let (target, operation, hlc, rest) =
+            operation_parts(body).ok_or(Error::Reply("bad delete"))?;
+        if !rest.is_empty() {
+            return Err(Error::Reply("bad delete"));
+        }
+        Ok(Self::Delete {
+            target,
+            operation,
+            hlc,
+        })
+    }
+
+    fn decode_token_request(request: &[u8]) -> Result<Self, Error> {
+        TokenRequest::decode(request)
+            .ok()
+            .filter(|r| {
+                (1..=MAX_TOKENS).contains(&r.asks.len())
+                    && r.asks
+                        .iter()
+                        .all(|a| a.mailbox.len() == 32 && a.token_key.len() == 32)
+            })
+            .map(Self::TokenRequest)
+            .ok_or(Error::Reply("bad token request"))
+    }
+
+    fn decode_token_answer(answer: &[u8]) -> Result<Self, Error> {
+        TokenAnswer::decode(answer)
+            .ok()
+            .filter(|a| {
+                (1..=MAX_TOKENS).contains(&a.signed_tokens.len())
+                    && a.signed_tokens.iter().all(|t| !t.is_empty())
+            })
+            .map(Self::TokenAnswer)
+            .ok_or(Error::Reply("bad token answer"))
+    }
+
+    fn decode_receipt(receipt: &[u8]) -> Result<Self, Error> {
+        Receipt::decode(receipt)
+            .ok()
+            .filter(|r| {
+                r.mailbox.len() == 32
+                    && (1..=MAX_RECEIPT_IDS).contains(&r.ids.len())
+                    && r.ids.iter().all(|id| id.len() == 16)
+            })
+            .map(Self::Receipt)
+            .ok_or(Error::Reply("bad receipt"))
+    }
+
     /// Refuses an unknown or missing tag, a malformed interaction, a token body that is empty or
     /// too long, a token, receipt or attachment field of the wrong length, and a forward of
     /// anything but a text or attachment.
@@ -367,19 +451,7 @@ impl Body {
     /// that violate the body size, length or content rules.
     pub fn decode(bytes: &[u8]) -> Result<Self, Error> {
         match bytes.split_first() {
-            Some((1, body)) => {
-                let (id, text) = body
-                    .split_first_chunk::<MESSAGE_ID_BYTES>()
-                    .ok_or(Error::Reply("bad text"))?;
-                if text.len() > MAX_TEXT_BYTES {
-                    return Err(Error::Reply("bad text"));
-                }
-                Ok(Self::Text {
-                    id: *id,
-                    hlc: None,
-                    text: text.to_vec(),
-                })
-            }
+            Some((1, body)) => Self::decode_text(body, false),
             Some((13, body)) => peer_change(body).ok_or(Error::Reply("bad peer change")),
             Some((15, body)) => pack_control::PackRequest::decode(body).map(Self::PackRequest),
             Some((16, body)) => pack_control::PackAnswer::decode(body)
@@ -390,33 +462,9 @@ impl Body {
             Some((2, event)) => Interaction::decode(event)
                 .map(Self::Interaction)
                 .map_err(|_| Error::Reply("bad interaction")),
-            Some((3, request)) => TokenRequest::decode(request)
-                .ok()
-                .filter(|r| {
-                    (1..=MAX_TOKENS).contains(&r.asks.len())
-                        && r.asks
-                            .iter()
-                            .all(|a| a.mailbox.len() == 32 && a.token_key.len() == 32)
-                })
-                .map(Self::TokenRequest)
-                .ok_or(Error::Reply("bad token request")),
-            Some((4, answer)) => TokenAnswer::decode(answer)
-                .ok()
-                .filter(|a| {
-                    (1..=MAX_TOKENS).contains(&a.signed_tokens.len())
-                        && a.signed_tokens.iter().all(|t| !t.is_empty())
-                })
-                .map(Self::TokenAnswer)
-                .ok_or(Error::Reply("bad token answer")),
-            Some((5, receipt)) => Receipt::decode(receipt)
-                .ok()
-                .filter(|r| {
-                    r.mailbox.len() == 32
-                        && (1..=MAX_RECEIPT_IDS).contains(&r.ids.len())
-                        && r.ids.iter().all(|id| id.len() == 16)
-                })
-                .map(Self::Receipt)
-                .ok_or(Error::Reply("bad receipt")),
+            Some((3, request)) => Self::decode_token_request(request),
+            Some((4, answer)) => Self::decode_token_answer(answer),
+            Some((5, receipt)) => Self::decode_receipt(receipt),
             Some((6, attachment)) => AttachmentWire::decode(attachment)
                 .ok()
                 .and_then(AttachmentWire::open)
@@ -426,53 +474,15 @@ impl Body {
                 Some(1 | 6 | 12) => Ok(Self::Forwarded(Box::new(Self::decode(body)?))),
                 _ => Err(Error::Reply("bad forward")),
             },
-            Some((8, body)) => {
-                let (target, operation, hlc, text) =
-                    operation_parts(body).ok_or(Error::Reply("bad edit"))?;
-                if text.len() > MAX_TEXT_BYTES {
-                    return Err(Error::Reply("bad edit"));
-                }
-                Ok(Self::Edit {
-                    target,
-                    operation,
-                    hlc,
-                    text: text.to_vec(),
-                })
-            }
-            Some((9, body)) => {
-                let (target, operation, hlc, rest) =
-                    operation_parts(body).ok_or(Error::Reply("bad delete"))?;
-                if !rest.is_empty() {
-                    return Err(Error::Reply("bad delete"));
-                }
-                Ok(Self::Delete {
-                    target,
-                    operation,
-                    hlc,
-                })
-            }
+            Some((8, body)) => Self::decode_edit(body),
+            Some((9, body)) => Self::decode_delete(body),
             Some((10, body)) => Ok(Self::Presence {
                 hlc: u64::from_be_bytes(body.try_into().map_err(|_| Error::Reply("bad presence"))?),
             }),
             Some((11, body)) => Ok(Self::Read {
                 up_to: body.try_into().map_err(|_| Error::Reply("bad read"))?,
             }),
-            Some((12, body)) => {
-                let (id, rest) = body
-                    .split_first_chunk::<MESSAGE_ID_BYTES>()
-                    .ok_or(Error::Reply("bad timed text"))?;
-                let (hlc, text) = rest
-                    .split_first_chunk::<8>()
-                    .ok_or(Error::Reply("bad timed text"))?;
-                if text.len() > MAX_TEXT_BYTES {
-                    return Err(Error::Reply("bad timed text"));
-                }
-                Ok(Self::Text {
-                    id: *id,
-                    hlc: Some(u64::from_be_bytes(*hlc)),
-                    text: text.to_vec(),
-                })
-            }
+            Some((12, body)) => Self::decode_text(body, true),
             _ => Err(Error::Reply("unknown message kind")),
         }
     }
