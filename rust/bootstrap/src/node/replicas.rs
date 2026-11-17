@@ -42,23 +42,27 @@ impl Replicas {
     /// Entries that wait for a reply, a lookup or a queue slot; each leaves on its answer, failure
     /// or timeout, so an idle node holds none.
     pub(super) fn pending(&self) -> usize {
-        self.puts.len()
-            + self.mailbox_puts.len()
-            + self.profile_puts.len()
-            + self.keypackage_puts.len()
-            + self.media_puts.len()
-            + self.uploads.len()
-            + self.shard_puts.len()
-            + self.shard_gets.len()
-            + self.media_reads.len()
-            + self.media_repairs.len()
-            + self.media_repair_requests.len()
-            + self.media_queue.len()
-            + self.media_outgoing.len()
-            + self.lookups.len()
-            + self.inventories.len()
-            + self.profile_inventories.len()
-            + self.republish.len()
+        [
+            self.puts.len(),
+            self.mailbox_puts.len(),
+            self.profile_puts.len(),
+            self.keypackage_puts.len(),
+            self.media_puts.len(),
+            self.uploads.len(),
+            self.shard_puts.len(),
+            self.shard_gets.len(),
+            self.media_reads.len(),
+            self.media_repairs.len(),
+            self.media_repair_requests.len(),
+            self.media_queue.len(),
+            self.media_outgoing.len(),
+            self.lookups.len(),
+            self.inventories.len(),
+            self.profile_inventories.len(),
+            self.republish.len(),
+        ]
+        .into_iter()
+        .fold(0usize, usize::saturating_add)
     }
 
     pub(super) fn repair_media(
@@ -246,8 +250,10 @@ impl Replicas {
         };
         let key =
             dyapp_identity::key_hash(&record.public_key.as_slice().try_into().unwrap()).to_vec();
-        self.profile_repaired
-            .retain(|_, (at, _)| now < *at + PROFILE_REPAIR_INTERVAL);
+        self.profile_repaired.retain(|_, (at, _)| {
+            at.checked_add(PROFILE_REPAIR_INTERVAL)
+                .is_none_or(|deadline| now < deadline)
+        });
         if self.profile_repaired.contains_key(&key)
             || self.profile_repaired.len() >= MAX_PROFILE_REPAIRS
         {
@@ -348,7 +354,7 @@ impl Replicas {
         let request = proto::ProfileRequest {
             request: Some(proto::profile_request::Request::ReplicaPut(record.clone())),
             age_seconds: last_seen.map_or(0, |seen| {
-                u32::try_from((now - seen).max(0)).unwrap_or(u32::MAX)
+                u32::try_from(now.saturating_sub(seen).max(0)).unwrap_or(u32::MAX)
             }),
         };
         if !self.trust.trusted(&to) {
@@ -564,11 +570,12 @@ impl Replicas {
     ) {
         let id = self.next_put;
         self.next_put = self.next_put.wrapping_add(1);
+        let now = service.clock.instant();
         let mut read = MediaRead {
             manifest,
             get,
             reply,
-            deadline: service.clock.instant() + PUT_TIMEOUT,
+            deadline: now.checked_add(PUT_TIMEOUT).unwrap_or(now),
             shards: HashMap::new(),
         };
         for index in 0..read.manifest.shard_hashes.len() {
@@ -640,7 +647,7 @@ impl Replicas {
             };
             service
                 .traffic
-                .add((response.encoded_len() - response.data.len()) as u64);
+                .add(response.encoded_len().saturating_sub(response.data.len()) as u64);
             let _ = swarm
                 .behaviour_mut()
                 .media
