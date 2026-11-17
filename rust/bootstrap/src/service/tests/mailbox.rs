@@ -748,7 +748,7 @@ fn check_deny_and_turn(service: &mut Service) {
     let other = service.node(&other, turn).turn.unwrap();
     assert!(!other.username.ends_with(&format!(":{user}")));
     // Vector from Python: base64(hmac.new(b"secret", user, sha1).digest()).
-    let known = turn_credentials(&service.config.turn, "12D3KooWpeer", 1_000_000);
+    let known = turn_credentials(&service.config.turn, "12D3KooWpeer", 1_000_000).unwrap();
     assert_eq!(known.username, "1003600:12D3KooWpeer");
     assert_eq!(known.password, "33Vkitp/KSZTCIYERO5wm1HgMoc="); // gitleaks:allow (test vector)
 }

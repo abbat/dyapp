@@ -53,25 +53,30 @@ pub(super) fn node_status(status: Status) -> NodeResponse {
 
 /// A stable pseudonym of an IP group: the username leaks no address, and rotating `turn.secret`
 /// renews every pseudonym.
-pub(super) fn turn_user(turn: &Turn, group: &str) -> String {
-    hex(&turn
-        .secret
-        .hmac_sha1(format!("ip-group:{group}").as_bytes())[..8])
+pub(super) fn turn_user(
+    turn: &Turn,
+    group: &str,
+) -> Result<String, hmac::digest::InvalidLength> {
+    Ok(hex(&turn.secret.hmac_sha1(format!("ip-group:{group}").as_bytes())?[..8]))
 }
 
 /// TURN REST credentials as coturn's `use-auth-secret` checks them: username
 /// `<expiry>:<user>`, password base64(HMAC-SHA1(secret, username)).
-pub(super) fn turn_credentials(turn: &Turn, user: &str, now: u64) -> TurnCredentials {
+pub(super) fn turn_credentials(
+    turn: &Turn,
+    user: &str,
+    now: u64,
+) -> Result<TurnCredentials, hmac::digest::InvalidLength> {
     use base64::Engine;
     let expires = now.saturating_add(u64::from(turn.credential_minutes).saturating_mul(60));
     let username = format!("{expires}:{user}");
-    let mac = turn.secret.hmac_sha1(username.as_bytes());
-    TurnCredentials {
+    let mac = turn.secret.hmac_sha1(username.as_bytes())?;
+    Ok(TurnCredentials {
         password: base64::engine::general_purpose::STANDARD.encode(mac),
         username,
         urls: turn.urls.clone(),
         expires,
-    }
+    })
 }
 
 pub(super) fn hex(bytes: &[u8]) -> String {

@@ -22,18 +22,18 @@ impl Secret {
         clippy::disallowed_types,
         reason = "coturn's use-auth-secret is HMAC-SHA1"
     )]
-    #[must_use]
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the HMAC backend rejects the secret's length. The current HMAC-SHA1 backend
-    /// accepts keys of every length, so this invariant cannot fail.
-    pub fn hmac_sha1(&self, message: &[u8]) -> [u8; 20] {
+    /// Returns an error if the HMAC backend rejects the secret's length.
+    pub fn hmac_sha1(
+        &self,
+        message: &[u8],
+    ) -> Result<[u8; 20], hmac::digest::InvalidLength> {
         use hmac::Mac;
-        let mut mac = hmac::Hmac::<sha1::Sha1>::new_from_slice(self.0.as_bytes())
-            .expect("HMAC takes a key of any length");
+        let mut mac = hmac::Hmac::<sha1::Sha1>::new_from_slice(self.0.as_bytes())?;
         mac.update(message);
-        mac.finalize().into_bytes().into()
+        Ok(mac.finalize().into_bytes().into())
     }
 }
 

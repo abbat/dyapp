@@ -469,13 +469,17 @@ impl Service {
             return node_status(Status::Refused);
         }
         let now = self.clock.unix_secs();
-        NodeResponse {
-            turn: Some(turn_credentials(
-                &self.config.turn,
-                &turn_user(&self.config.turn, &peer.group),
-                now,
-            )),
-            ..node_status(Status::Ok)
+        let credentials = turn_user(&self.config.turn, &peer.group)
+            .and_then(|user| turn_credentials(&self.config.turn, &user, now));
+        match credentials {
+            Ok(credentials) => NodeResponse {
+                turn: Some(credentials),
+                ..node_status(Status::Ok)
+            },
+            Err(error) => {
+                tracing::error!(%error, "TURN credentials failed");
+                node_status(Status::Unspecified)
+            }
         }
     }
 
