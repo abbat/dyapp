@@ -136,54 +136,8 @@ async fn incoming_group_caps_established_tcp_but_exempts_outgoing_and_releases_c
         ..Limits::default()
     };
     let (mut node, address) = group_test_node(&limits).await;
-    let mut clients = Vec::new();
-    for _ in 0..32 {
-        let (id, client) = group_test_client(address.clone(), Keypair::generate_ed25519());
-        let event = connection_event(&mut node, |e| {
-            matches!(e,
-            SwarmEvent::ConnectionEstablished { peer_id, .. } if *peer_id == id)
-        })
-        .await;
-        assert!(
-            matches!(event, SwarmEvent::ConnectionEstablished { endpoint, .. } if endpoint.is_listener())
-        );
-        clients.push(client);
-    }
-    let (_, refused) = group_test_client(address.clone(), Keypair::generate_ed25519());
-    connection_event(&mut node, |e| {
-        matches!(
-            e,
-            SwarmEvent::IncomingConnectionError {
-                error: ListenError::Denied { .. },
-                ..
-            }
-        )
-    })
-    .await;
-    stop_group_client(refused).await;
-    assert_eq!(
-        node.behaviour_mut()
-            .incoming_groups
-            .as_mut()
-            .unwrap()
-            .take_denied(),
-        1
-    );
-
-    // A node can still make an outgoing connection while its inbound group is full.
-    let (mut other, other_address) = group_test_node(&limits).await;
-    let other_id = *other.local_peer_id();
-    let other_task = tokio::spawn(async move { while other.next().await.is_some() {} });
-    node.dial(other_address).unwrap();
-    let event = connection_event(&mut node, |e| {
-        matches!(e,
-        SwarmEvent::ConnectionEstablished { peer_id, .. } if *peer_id == other_id)
-    })
-    .await;
-    assert!(
-        matches!(event, SwarmEvent::ConnectionEstablished { endpoint, .. } if endpoint.is_dialer())
-    );
-    assert_eq!(node.network_info().num_peers(), 33);
+    let mut clients = fill_established_group(&mut node, &address).await;
+    let other_task = check_outgoing_with_full_inbound(&mut node, &limits).await;
 
     stop_group_client(clients.pop().unwrap()).await;
     connection_event(&mut node, |e| {
@@ -209,6 +163,67 @@ async fn incoming_group_caps_established_tcp_but_exempts_outgoing_and_releases_c
         stop_group_client(client).await;
     }
     stop_group_client(other_task).await;
+}
+
+async fn fill_established_group(
+    node: &mut Swarm<Behaviour>,
+    address: &Multiaddr,
+) -> Vec<tokio::task::JoinHandle<()>> {
+    let mut clients = Vec::new();
+    for _ in 0..32 {
+        let (id, client) = group_test_client(address.clone(), Keypair::generate_ed25519());
+        let event = connection_event(node, |e| {
+            matches!(e,
+            SwarmEvent::ConnectionEstablished { peer_id, .. } if *peer_id == id)
+        })
+        .await;
+        assert!(
+            matches!(event, SwarmEvent::ConnectionEstablished { endpoint, .. } if endpoint.is_listener())
+        );
+        clients.push(client);
+    }
+    let (_, refused) = group_test_client(address.clone(), Keypair::generate_ed25519());
+    connection_event(node, |e| {
+        matches!(
+            e,
+            SwarmEvent::IncomingConnectionError {
+                error: ListenError::Denied { .. },
+                ..
+            }
+        )
+    })
+    .await;
+    stop_group_client(refused).await;
+    assert_eq!(
+        node.behaviour_mut()
+            .incoming_groups
+            .as_mut()
+            .unwrap()
+            .take_denied(),
+        1
+    );
+    clients
+}
+
+async fn check_outgoing_with_full_inbound(
+    node: &mut Swarm<Behaviour>,
+    limits: &Limits,
+) -> tokio::task::JoinHandle<()> {
+    // A node can still make an outgoing connection while its inbound group is full.
+    let (mut other, other_address) = group_test_node(limits).await;
+    let other_id = *other.local_peer_id();
+    let other_task = tokio::spawn(async move { while other.next().await.is_some() {} });
+    node.dial(other_address).unwrap();
+    let event = connection_event(node, |e| {
+        matches!(e,
+        SwarmEvent::ConnectionEstablished { peer_id, .. } if *peer_id == other_id)
+    })
+    .await;
+    assert!(
+        matches!(event, SwarmEvent::ConnectionEstablished { endpoint, .. } if endpoint.is_dialer())
+    );
+    assert_eq!(node.network_info().num_peers(), 33);
+    other_task
 }
 
 #[tokio::test]
