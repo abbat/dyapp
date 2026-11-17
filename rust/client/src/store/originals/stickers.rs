@@ -76,21 +76,14 @@ fn sealed_sticker_original_survives_restart_and_follows_last_history_reference()
         .is_some());
 }
 
-#[test]
-fn stickers_share_photo_lru_and_off_setting_but_saved_packs_are_never_evicted() {
-    let (mut store, _, dir, peer, pack, sticker, bytes) = fixture();
-    store
-        .record_chat_sticker(sender(&peer, &[9]), &sticker, true)
-        .unwrap();
-    let descriptor = sticker.download().unwrap();
-    keep(&dir, &[7; 32], descriptor, &bytes).unwrap();
+fn cached_photos(store: &mut Store, dir: &Path, peer: &str) -> Vec<Attachment> {
     let mut photos = Vec::new();
     for id in 2..=3 {
         let plain = vec![id; 600 * 1024];
         let (photo, _) = attachment::seal(&plain).unwrap();
         store
             .record_chat_attachment(
-                sender(&peer, &[9]),
+                sender(peer, &[9]),
                 &Body::Attachment(AttachmentMessage {
                     id: [id; 16],
                     hlc: id.into(),
@@ -99,9 +92,21 @@ fn stickers_share_photo_lru_and_off_setting_but_saved_packs_are_never_evicted() 
                 true,
             )
             .unwrap();
-        keep(&dir, &[7; 32], &photo, &plain).unwrap();
+        keep(dir, &[7; 32], &photo, &plain).unwrap();
         photos.push(photo);
     }
+    photos
+}
+
+#[test]
+fn stickers_share_photo_lru_and_off_setting_but_saved_packs_are_never_evicted() {
+    let (mut store, _, dir, peer, pack, sticker, bytes) = fixture();
+    store
+        .record_chat_sticker(sender(&peer, &[9]), &sticker, true)
+        .unwrap();
+    let descriptor = sticker.download().unwrap();
+    keep(&dir, &[7; 32], descriptor, &bytes).unwrap();
+    let photos = cached_photos(&mut store, &dir, &peer);
     // Explicit fixture mtimes make recency order independent of clock resolution and sleeps.
     for (index, photo) in photos.iter().chain(std::iter::once(descriptor)).enumerate() {
         File::options()

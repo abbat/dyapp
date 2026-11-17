@@ -63,7 +63,6 @@
   {"path":"rust/client/src/store/messages/outbound_tests.rs","function":"fn own_chat_projection_mls_and_exact_writes_share_one_commit ","metrics":{"cognitive":36,"lines":197}},
   {"path":"rust/client/src/store/messages/read_tests.rs","function":"fn pair_history_orders_legacy_and_timed_current_messages_across_groups ","metrics":{"cognitive":22,"lines":72}},
   {"path":"rust/client/src/store/messages/stickers/tests.rs","function":"fn media_ids_and_verified_context_cannot_be_reused ","metrics":{"lines":68}},
-  {"path":"rust/client/src/store/originals/stickers.rs","function":"fn stickers_share_photo_lru_and_off_setting_but_saved_packs_are_never_evicted ","metrics":{"lines":58}},
   {"path":"rust/client/src/store/own_devices.rs","function":"mod tests # [cfg (test)]::fn only_a_newer_profile_restarts_the_clock ","metrics":{"cognitive":16}},
   {"path":"rust/client/src/store/peers.rs","function":"mod tests # [cfg (test)]::fn a_contact_never_verified_gets_the_notice_once_per_change ","metrics":{"cognitive":17}},
   {"path":"rust/client/src/store/peers.rs","function":"mod tests # [cfg (test)]::fn equal_clock_changes_converge_by_device_and_survive_linking ","metrics":{"lines":60}},
