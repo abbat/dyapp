@@ -32,13 +32,18 @@ The summary starts with a capitalized imperative verb; the local `commit-msg` ho
 
 ## Cargo.lock
 
-Every `Cargo.lock` is committed (`Cargo.lock`, `clients/linux/Cargo.lock`,
-`clients/windows/Cargo.lock`) for reproducible builds. Update it only through Cargo,
-in the same commit as the `Cargo.toml` change. A shared crate dependency change also updates
-both platform lockfiles: the root workspace lock does not cover their separate dependency
-graphs. Verify each with `cargo metadata --manifest-path clients/linux/Cargo.toml --locked`
-and the equivalent Windows manifest command in the appropriate build environment. Omit
-`--no-deps` for this check: it skips dependency resolution and can miss a stale lockfile.
+Every `Cargo.lock` is committed (including the root, native desktop and `tests/fuzz`
+lockfiles) for reproducible builds. Update it only through Cargo, in the same commit as the
+`Cargo.toml` change. A shared crate dependency change also updates both platform lockfiles:
+the root workspace lock does not cover their separate dependency graphs. Check the fuzz
+workspace too when it depends on the changed crate. Verify each with
+`cargo metadata --manifest-path clients/linux/Cargo.toml --locked` and the equivalent Windows
+manifest command in the appropriate build environment. Omit `--no-deps` for this check: it
+skips dependency resolution and can miss a stale lockfile.
+
+For a direct `dyapp:dev-prepared` run, mount the checkout at `/workspace`, the image's working
+directory, not `/app`. Otherwise Cargo reads the image's embedded sources and can validate a
+stale lockfile instead of the checkout.
 
 ## Rust version (MSRV)
 
