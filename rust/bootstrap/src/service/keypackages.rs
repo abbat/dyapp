@@ -167,7 +167,7 @@ impl Service {
             || package.package.len() < 5
             || !package.package.starts_with(&[0, 1, 0, 1])
             || package.expires <= now
-            || package.expires > now + MAX_AGE_SECONDS
+            || package.expires > now.saturating_add(MAX_AGE_SECONDS)
             || (package.last_resort && package.revision == 0)
             || (!package.last_resort && package.revision != 0)
         {

@@ -10,7 +10,9 @@ use dyapp_identity::SignedRecord;
 use std::ops::RangeInclusive;
 
 fn framed(bytes: usize) -> usize {
-    1 + prost::encoding::encoded_len_varint(bytes as u64) + bytes
+    1usize
+        .saturating_add(prost::encoding::encoded_len_varint(bytes as u64))
+        .saturating_add(bytes)
 }
 
 fn bounded(segment: &proto::MediaKeepCatchup) -> bool {
@@ -25,7 +27,8 @@ fn bounded(segment: &proto::MediaKeepCatchup) -> bool {
             .iter()
             .all(|record| record.encoded_len() <= record_limit)
         && segment.encoded_len()
-            <= MediaStore::keep_history_page_bytes() + framed(target.encoded_len())
+            <= MediaStore::keep_history_page_bytes()
+                .saturating_add(framed(target.encoded_len()))
 }
 
 fn matches_target(
@@ -98,7 +101,7 @@ impl Service {
         if !bounded(segment) {
             return Ok(media_too_large(
                 MediaStore::keep_history_page_bytes()
-                    + framed(crate::replication::MEDIA_OBJECT_BYTES),
+                    .saturating_add(framed(crate::replication::MEDIA_OBJECT_BYTES)),
             ));
         }
         if !self.media_charge(peer, segment.encoded_len() as u64, 0) {

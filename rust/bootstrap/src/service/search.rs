@@ -566,7 +566,7 @@ impl Service {
             status: Status::Ok.into(),
             hashes: hashes.iter().map(|hash| hash.to_vec()).collect(),
         };
-        let charge = response.encoded_len().max(rows * 40) as u64;
+        let charge = response.encoded_len().max(rows.saturating_mul(40)) as u64;
         if sync && !self.search_sync.try_add(charge, 100) {
             return Ok(reply(Status::RateLimited));
         }

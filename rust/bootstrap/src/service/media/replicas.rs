@@ -58,7 +58,7 @@ impl Service {
             media.put(
                 &hex(&owner),
                 &replica.data,
-                quota / u64::from(dyapp_p2p_net::REPLICAS),
+                quota.checked_div(u64::from(dyapp_p2p_net::REPLICAS)).unwrap_or(0),
             )?
         };
         Ok(media_status(match stored {
@@ -74,7 +74,7 @@ impl Service {
         let max = limits.media_max_mb.saturating_mul(1 << 20);
         let (mut used, mut free) = media.usage()?;
         if used >= max {
-            let removed = media.evict(max / 100 * 95)?;
+            let removed = media.evict(max.checked_div(100).unwrap_or(0).saturating_mul(95))?;
             tracing::info!(removed, "media lists evicted");
             (used, free) = media.usage()?;
         }

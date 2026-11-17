@@ -38,7 +38,7 @@ impl Service {
             return Ok((status(Status::Invalid), false));
         }
         let now = self.clock.timestamp();
-        if revoke.created_at > now + 3600 {
+        if revoke.created_at > now.saturating_add(3600) {
             return Ok((status(Status::Denied), false));
         }
         if self.listed(&revoke.mailbox) {
@@ -46,7 +46,12 @@ impl Service {
         }
         let expires_at = revoke
             .created_at
-            .saturating_add(REVOKE_DAYS * 86_400 + self.retention() + 3600);
+            .saturating_add(
+                REVOKE_DAYS
+                    .saturating_mul(86_400)
+                    .saturating_add(self.retention())
+                    .saturating_add(3600),
+            );
         if expires_at <= now {
             return Ok((status(Status::Stale), false));
         }
