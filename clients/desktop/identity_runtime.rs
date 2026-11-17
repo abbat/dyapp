@@ -195,7 +195,7 @@ mod tests {
             .start_transition()
             .unwrap()
             .commit(Some((
-                Arc::new(Identity::generate()),
+                Arc::new(Identity::try_generate().unwrap()),
                 PathBuf::from("first"),
             )))
             .unwrap();
@@ -231,7 +231,7 @@ mod tests {
     async fn failed_removal_reopens_the_selection_and_never_another_identity() {
         let root = std::env::temp_dir().join(format!(
             "dyapp-reconcile-{}",
-            Identity::generate().peer_id()
+            Identity::try_generate().unwrap().peer_id()
         ));
         std::fs::create_dir_all(&root).unwrap();
         let (other, _) = slots::create(&root, "file", &crate::save, &crate::load).unwrap();
@@ -278,7 +278,7 @@ mod tests {
     #[tokio::test]
     async fn selection_waits_for_a_paused_lease_and_failed_selection_rolls_back() {
         let state = IdentityState::new();
-        let first = Identity::generate();
+        let first = Identity::try_generate().unwrap();
         let transition = state.start_transition().unwrap();
         transition
             .commit(Some((Arc::new(first), PathBuf::from("first"))))
@@ -290,7 +290,7 @@ mod tests {
         assert!(!draining.is_finished());
         drop(lease);
         let transition = draining.await.unwrap().unwrap();
-        let second = Identity::generate();
+        let second = Identity::try_generate().unwrap();
         transition
             .commit(Some((Arc::new(second), PathBuf::from("second"))))
             .unwrap();

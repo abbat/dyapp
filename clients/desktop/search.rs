@@ -375,7 +375,7 @@ mod tests {
 
     #[tokio::test]
     async fn search_needs_an_answering_active_network_and_retries_by_calling_again() {
-        let (dir, alice, cache) = (temp_dir(), Identity::generate(), Mutex::default());
+        let (dir, alice, cache) = (temp_dir(), Identity::try_generate().unwrap(), Mutex::default());
         let run = |age_max: &str| {
             let query = Query {
                 offered: vec![BIRTH_AGE],
@@ -688,7 +688,7 @@ mod tests {
 
     #[test]
     fn result_projection_rejects_old_network_but_allows_repeated_profiles() {
-        let owner = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
         let verified = dyapp_profile::verify(
             &Profile {
                 version: 1,
@@ -750,8 +750,8 @@ mod tests {
 
     #[test]
     fn known_peer_id_can_be_blocked_without_a_search_result() {
-        let (dir, alice) = (temp_dir(), Identity::generate());
-        let peer = Identity::generate().peer_id();
+        let (dir, alice) = (temp_dir(), Identity::try_generate().unwrap());
+        let peer = Identity::try_generate().unwrap().peer_id();
         assert_eq!(block(&dir, &alice, "bad"), Err("invalidPeer".into()));
         assert_eq!(
             block(&dir, &alice, &alice.peer_id()),

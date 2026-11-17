@@ -13,7 +13,7 @@ fn saved_pack() -> SavedPack {
         .join("../../build")
         .join(format!(
             "native-sticker-send-{}",
-            Identity::generate().peer_id()
+            Identity::try_generate().unwrap().peer_id()
         ));
     std::fs::create_dir_all(&root).unwrap();
     let (slot, identity) = crate::slots::create(&root, "file", &crate::save, &crate::load).unwrap();
@@ -44,8 +44,8 @@ async fn invalid_saved_entry_or_closed_chat_never_opens_mls_or_stages_a_message(
         sessions,
         pack_id,
     } = saved_pack();
-    let peer_id = Identity::generate().peer_id();
-    let device = Identity::generate();
+    let peer_id = Identity::try_generate().unwrap().peer_id();
+    let device = Identity::try_generate().unwrap();
     let cache = Mutex::new(ProfileCache::default());
     let mut selection = Selection {
         peer_id: peer_id.clone(),

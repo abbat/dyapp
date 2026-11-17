@@ -44,7 +44,7 @@ mod tests {
     fn directory() -> std::path::PathBuf {
         let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../build/desktop-notes")
-            .join(Identity::generate().peer_id());
+            .join(Identity::try_generate().unwrap().peer_id());
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -53,8 +53,8 @@ mod tests {
     async fn offline_notes_are_private_bounded_and_identity_scoped() {
         let (dir, owner, peer) = (
             directory(),
-            Identity::generate(),
-            Identity::generate().peer_id(),
+            Identity::try_generate().unwrap(),
+            Identity::try_generate().unwrap().peer_id(),
         );
         assert_eq!(read(&dir, &owner, &peer).unwrap(), "");
         own::change_peer(
@@ -86,7 +86,7 @@ mod tests {
         assert_eq!(read(&dir, &owner, &peer).unwrap(), "");
         assert!(store.due_outbound(0).unwrap().is_empty());
         assert_eq!(
-            read(&directory(), &Identity::generate(), &peer).unwrap(),
+            read(&directory(), &Identity::try_generate().unwrap(), &peer).unwrap(),
             ""
         );
         assert!(read(&dir, &owner, "bad").is_err());

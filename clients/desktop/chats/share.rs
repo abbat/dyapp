@@ -188,7 +188,7 @@ mod tests {
 
     #[test]
     fn previous_network_result_is_not_returned_but_reopening_is_allowed() {
-        let peer = Identity::generate();
+        let peer = Identity::try_generate().unwrap();
         let fetched = dyapp_profile::verify(
             &dyapp_profile::Profile {
                 version: 1,
@@ -224,8 +224,8 @@ mod tests {
             .join("../../build")
             .join(format!("desktop-profile-share-{unique}"));
         std::fs::create_dir_all(&dir).unwrap();
-        let identity = Identity::generate();
-        let peer = Identity::generate().peer_id();
+        let identity = Identity::try_generate().unwrap();
+        let peer = Identity::try_generate().unwrap().peer_id();
         let store = super::super::open(&dir, &identity).unwrap();
         let cache = Mutex::default();
 

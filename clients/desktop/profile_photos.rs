@@ -138,7 +138,7 @@ mod tests {
     fn the_editor_lists_thumbnails_in_order_and_refuses_what_is_not_a_jpeg() {
         let dir = std::env::temp_dir().join(format!("dyapp-photos-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let identity = Identity::generate();
+        let identity = Identity::try_generate().unwrap();
         let (first, second) = (
             encoded(ImageFormat::Jpeg, 3),
             encoded(ImageFormat::Jpeg, 300),

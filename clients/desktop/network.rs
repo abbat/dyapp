@@ -145,7 +145,7 @@ mod tests {
         let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../build/desktop-network-tests")
             .join(tag)
-            .join(dyapp_identity::Identity::generate().peer_id());
+            .join(dyapp_identity::Identity::try_generate().unwrap().peer_id());
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }

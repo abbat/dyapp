@@ -187,7 +187,7 @@ mod tests {
 
     #[test]
     fn stickers_are_delete_only_and_require_the_exact_own_key() {
-        let own = Identity::generate().peer_id();
+        let own = Identity::try_generate().unwrap().peer_id();
         let message = sticker_fixture(&own);
         assert!(item_matches(
             ChatItem::Sticker(message.clone()),
@@ -228,8 +228,8 @@ mod tests {
 
     #[test]
     fn edit_target_is_a_live_own_text_in_the_selected_group() {
-        let own = Identity::generate().peer_id();
-        let peer = Identity::generate().peer_id();
+        let own = Identity::try_generate().unwrap().peer_id();
+        let peer = Identity::try_generate().unwrap().peer_id();
         let mut message = ChatMessage {
             key: MessageKey {
                 group: vec![4],

@@ -71,7 +71,7 @@ mod tests {
     fn directory() -> std::path::PathBuf {
         let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../build/desktop-favorites")
-            .join(Identity::generate().peer_id());
+            .join(Identity::try_generate().unwrap().peer_id());
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -80,8 +80,8 @@ mod tests {
     async fn local_reads_and_synchronized_changes_respect_identity_and_blocks() {
         let (dir, owner, peer) = (
             directory(),
-            Identity::generate(),
-            Identity::generate().peer_id(),
+            Identity::try_generate().unwrap(),
+            Identity::try_generate().unwrap().peer_id(),
         );
         assert_eq!(list(&dir, &owner).unwrap(), Vec::<String>::new());
         assert!(!saved(&dir, &owner, &peer).unwrap());
@@ -104,7 +104,7 @@ mod tests {
             .unwrap();
         assert!(!saved(&dir, &owner, &peer).unwrap());
         assert_eq!(
-            list(&directory(), &Identity::generate()).unwrap(),
+            list(&directory(), &Identity::try_generate().unwrap()).unwrap(),
             Vec::<String>::new()
         );
         assert!(saved(&dir, &owner, "bad").is_err());

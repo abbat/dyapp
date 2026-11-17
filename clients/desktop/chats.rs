@@ -703,8 +703,8 @@ mod tests {
     async fn block_without_issued_tokens_needs_no_network() {
         let (dir, owner, peer) = (
             temp_dir(),
-            Identity::generate(),
-            Identity::generate().peer_id(),
+            Identity::try_generate().unwrap(),
+            Identity::try_generate().unwrap().peer_id(),
         );
         assert_eq!(
             block(&dir, &dir, &owner, &peer).await,
@@ -720,8 +720,8 @@ mod tests {
     async fn offline_revocation_remains_retryable_without_undoing_the_block() {
         let (dir, owner, peer) = (
             temp_dir(),
-            Identity::generate(),
-            Identity::generate().peer_id(),
+            Identity::try_generate().unwrap(),
+            Identity::try_generate().unwrap().peer_id(),
         );
         let store = open(&dir, &owner).unwrap();
         let today = today().unwrap();
@@ -740,9 +740,9 @@ mod tests {
 
     #[tokio::test]
     async fn only_a_returned_peer_can_be_liked_and_no_like_needs_no_network() {
-        let (dir, alice, cache) = (temp_dir(), Identity::generate(), Mutex::default());
-        let stranger = Identity::generate().peer_id();
-        let device = Identity::generate();
+        let (dir, alice, cache) = (temp_dir(), Identity::try_generate().unwrap(), Mutex::default());
+        let stranger = Identity::try_generate().unwrap().peer_id();
+        let device = Identity::try_generate().unwrap();
         assert_eq!(
             Box::pin(like(&cache, &dir, &dir, &alice, &device, &stranger, true)).await,
             Err("unknownPeer".into())
@@ -795,7 +795,7 @@ mod tests {
     #[test]
     fn chat_reads_are_identity_bound_and_hide_blocked_peers() {
         use super::view::ChatRowView;
-        let (dir, alice, bob) = (temp_dir(), Identity::generate(), Identity::generate());
+        let (dir, alice, bob) = (temp_dir(), Identity::try_generate().unwrap(), Identity::try_generate().unwrap());
         let alice_id = alice.peer_id();
         let bob_id = bob.peer_id();
         match_fixture_peers(&dir, &alice, &bob);
@@ -813,7 +813,7 @@ mod tests {
             mark_chat_read(&dir, &alice, &alice_id),
             Err("ownPeer".into())
         );
-        let unknown = Identity::generate().peer_id();
+        let unknown = Identity::try_generate().unwrap().peer_id();
         assert_eq!(
             clear_chat(&dir, &alice, &unknown),
             Err("unknownPeer".into())
@@ -833,9 +833,9 @@ mod tests {
     #[tokio::test]
     async fn text_send_rejects_bad_local_state_before_network() {
         let dir = temp_dir();
-        let owner = Identity::generate();
-        let device = Identity::generate();
-        let peer = Identity::generate().peer_id();
+        let owner = Identity::try_generate().unwrap();
+        let device = Identity::try_generate().unwrap();
+        let peer = Identity::try_generate().unwrap().peer_id();
         let cache = Mutex::default();
         assert_eq!(
             Box::pin(send_text(
@@ -877,7 +877,7 @@ mod tests {
     #[test]
     fn send_uses_only_a_current_signed_peer_profile() {
         use dyapp_profile::Profile;
-        let owner = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
         let peer_id = owner.peer_id();
         let signed = |version| {
             dyapp_profile::verify(
@@ -901,7 +901,7 @@ mod tests {
             accept_peer(&cache, 0, &peer_id, signed(1)),
             Err("staleProfile".into())
         );
-        let other = Identity::generate().peer_id();
+        let other = Identity::try_generate().unwrap().peer_id();
         assert_eq!(
             accept_peer(&cache, 0, &other, signed(3)),
             Err("unknownPeer".into())

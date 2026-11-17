@@ -48,7 +48,7 @@ mod tests {
     fn saved_pack_files_prevent_key_regeneration_before_mls() {
         let root = std::env::current_dir().unwrap().join("build").join(format!(
             "dyapp-pack-seal-test-{}",
-            Identity::generate().peer_id()
+            Identity::try_generate().unwrap().peer_id()
         ));
         std::fs::create_dir_all(&root).unwrap();
         let (slot, owner) = slots::create(&root, "file", &save, &load).unwrap();
@@ -68,7 +68,7 @@ mod tests {
     fn per_slot_seal_secret_persists_and_missing_key_refuses_existing_state() {
         let root = std::env::temp_dir().join(format!(
             "dyapp-seal-test-{}",
-            Identity::generate().peer_id()
+            Identity::try_generate().unwrap().peer_id()
         ));
         std::fs::create_dir_all(&root).unwrap();
         let (slot, owner) = slots::create(&root, "file", &save, &load).unwrap();

@@ -13,12 +13,12 @@ async fn identity_transition_clears_profiles_only_after_old_work_drains() {
         .start_transition()
         .unwrap()
         .commit(Some((
-            Arc::new(Identity::generate()),
+            Arc::new(Identity::try_generate().unwrap()),
             PathBuf::from("first"),
         )))
         .unwrap();
     let lease = state.lease().unwrap();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let verified = dyapp_profile::verify(
         &Profile {
             version: 1,

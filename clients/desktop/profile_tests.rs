@@ -47,7 +47,7 @@ fn woman(year: Option<u32>) -> Draft {
 
 #[test]
 fn every_public_field_can_remain_unspecified() {
-    let (dir, owner) = (temp_dir(), Identity::generate());
+    let (dir, owner) = (temp_dir(), Identity::try_generate().unwrap());
     let empty = save(&dir, &owner, Draft::default()).unwrap();
     assert_eq!(empty.draft, Draft::default());
     assert_eq!((empty.ages, empty.problem), (None, None));
@@ -63,7 +63,7 @@ fn every_public_field_can_remain_unspecified() {
 
 #[test]
 fn a_draft_survives_reopening_with_its_ages_and_problem() {
-    let (dir, alice) = (temp_dir(), Identity::generate());
+    let (dir, alice) = (temp_dir(), Identity::try_generate().unwrap());
     let empty = load(&dir, &alice).unwrap();
     assert_eq!(empty.draft, Draft::default());
     assert_eq!(empty.problem, None);
@@ -80,7 +80,7 @@ fn a_draft_survives_reopening_with_its_ages_and_problem() {
 
 #[test]
 fn a_public_name_is_trimmed_and_refused_with_hidden_symbols_or_too_long() {
-    let (dir, alice) = (temp_dir(), Identity::generate());
+    let (dir, alice) = (temp_dir(), Identity::try_generate().unwrap());
     let named = |name: String| Draft {
         name,
         ..woman(None)
@@ -97,7 +97,7 @@ fn a_public_name_is_trimmed_and_refused_with_hidden_symbols_or_too_long() {
 
 #[test]
 fn interests_are_canonical_persisted_and_explicitly_cleared() {
-    let (dir, owner) = (temp_dir(), Identity::generate());
+    let (dir, owner) = (temp_dir(), Identity::try_generate().unwrap());
     let draft = Draft {
         interests: vec!["  Музыка  ".into(), " E\u{301}COLE ".into()],
         ..Draft::default()
@@ -143,7 +143,7 @@ fn interest_limits_apply_after_normalization() {
 
 #[test]
 fn height_is_saved_cleared_and_refused_out_of_range() {
-    let (dir, alice) = (temp_dir(), Identity::generate());
+    let (dir, alice) = (temp_dir(), Identity::try_generate().unwrap());
     let tall = |height| Draft {
         height,
         ..woman(None)
@@ -161,7 +161,7 @@ fn height_is_saved_cleared_and_refused_out_of_range() {
 
 #[test]
 fn seeking_is_saved_cleared_refused_when_invalid_and_dropped_when_not_looking() {
-    let (dir, alice) = (temp_dir(), Identity::generate());
+    let (dir, alice) = (temp_dir(), Identity::try_generate().unwrap());
     let seeks = Draft {
         seeking_genders: vec![dyapp_profile::Gender::Woman.code()],
         seeking_age_from: Some(30),
@@ -212,7 +212,7 @@ fn seeking_is_saved_cleared_refused_when_invalid_and_dropped_when_not_looking() 
 
 #[test]
 fn habits_and_about_are_saved_cleared_and_refused_when_invalid() {
-    let (dir, alice) = (temp_dir(), Identity::generate());
+    let (dir, alice) = (temp_dir(), Identity::try_generate().unwrap());
     let filled = Draft {
         about: "  First line\nSecond line  ".into(),
         smoking: dyapp_profile::Smoking::Sometimes.code(),
@@ -256,7 +256,7 @@ fn habits_and_about_are_saved_cleared_and_refused_when_invalid() {
 
 #[test]
 fn only_a_picked_place_is_saved_and_it_survives_reopening() {
-    let (dir, alice) = (temp_dir(), Identity::generate());
+    let (dir, alice) = (temp_dir(), Identity::try_generate().unwrap());
     let at = |country: &str, place: &str| Draft {
         country: country.into(),
         place: place.into(),
@@ -302,7 +302,7 @@ fn the_puzzle_is_gated_resumes_after_cancel_and_edits_keep_it() {
 
 #[tokio::test]
 async fn the_view_says_when_a_held_profile_reaches_search() {
-    let (dir, alice) = (temp_dir(), Identity::generate());
+    let (dir, alice) = (temp_dir(), Identity::try_generate().unwrap());
     assert_eq!(load(&dir, &alice).unwrap().search_minutes, None);
     save(&dir, &alice, woman(None)).unwrap();
     assert_eq!(load(&dir, &alice).unwrap().search_minutes, None);
@@ -332,8 +332,8 @@ async fn the_view_says_when_a_held_profile_reaches_search() {
 
 #[tokio::test]
 async fn publishing_needs_a_solved_puzzle_and_an_active_network() {
-    let (dir, alice) = (temp_dir(), Identity::generate());
-    let device = Identity::generate();
+    let (dir, alice) = (temp_dir(), Identity::try_generate().unwrap());
+    let device = Identity::try_generate().unwrap();
     save(&dir, &alice, woman(None)).unwrap();
     assert_eq!(
         Box::pin(publish(&dir, &dir, &alice, &device, true, 4)).await,

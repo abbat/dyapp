@@ -190,7 +190,7 @@ mod platform {
 
         #[test]
         fn identity_encoding_round_trips_and_rejects_corruption() {
-            let identity = Identity::generate();
+            let identity = Identity::try_generate().unwrap();
             let encoded = encode_identity(&identity);
             assert_eq!(
                 decode_identity(encoded.as_bytes()).unwrap().peer_id(),
@@ -208,13 +208,13 @@ mod platform {
             assert_eq!(probe(), Ok(()));
             let slot = "controlled-test";
             assert!(load_slot(slot).unwrap().is_none());
-            let identity = Identity::generate();
+            let identity = Identity::try_generate().unwrap();
             save_slot(slot, &identity).unwrap();
             assert_eq!(
                 load_slot(slot).unwrap().unwrap().peer_id(),
                 identity.peer_id()
             );
-            assert!(save_slot(slot, &Identity::generate()).is_err());
+            assert!(save_slot(slot, &Identity::try_generate().unwrap()).is_err());
             assert_eq!(
                 load_slot(slot).unwrap().unwrap().peer_id(),
                 identity.peer_id()
@@ -235,7 +235,7 @@ mod platform {
             }
             let slot = "controlled-old-item";
             let query = ["application", "dyapp", "kind", "identity", "slot", slot];
-            let identity = Identity::generate();
+            let identity = Identity::try_generate().unwrap();
             let stored = encode_identity(&identity);
             let mut tool = Command::new("secret-tool")
                 .args(["store", "--label=DYApp identity"])
@@ -280,7 +280,7 @@ mod platform {
             let slot = "controlled-test";
             assert_eq!(probe(), Err(expected));
             assert!(load_slot(slot).is_err());
-            assert!(save_slot(slot, &Identity::generate()).is_err());
+            assert!(save_slot(slot, &Identity::try_generate().unwrap()).is_err());
             assert!(delete_slot(slot).is_err());
         }
 
@@ -447,13 +447,13 @@ mod platform {
             assert_eq!(probe(), Ok(()));
             let user = "controlled-test";
             assert!(load_slot(user).unwrap().is_none());
-            let identity = Identity::generate();
+            let identity = Identity::try_generate().unwrap();
             save_slot(user, &identity).unwrap();
             assert_eq!(
                 load_slot(user).unwrap().unwrap().peer_id(),
                 identity.peer_id()
             );
-            assert!(save_slot(user, &Identity::generate()).is_err());
+            assert!(save_slot(user, &Identity::try_generate().unwrap()).is_err());
             assert_eq!(
                 load_slot(user).unwrap().unwrap().peer_id(),
                 identity.peer_id()

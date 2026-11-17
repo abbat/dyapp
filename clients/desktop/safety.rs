@@ -455,7 +455,7 @@ mod tests {
 
     #[test]
     fn the_mark_is_read_for_a_cached_profile_and_can_be_taken_back() {
-        let (me, bob) = (Identity::generate(), Identity::generate());
+        let (me, bob) = (Identity::try_generate().unwrap(), Identity::try_generate().unwrap());
         let (dir, store) = temp_store("marked", &me);
         let peer = bob.peer_id();
         let cache = Mutex::<ProfileCache>::default();

@@ -129,7 +129,7 @@ mod tests {
     #[test]
     fn nothing_due_never_reaches_the_network() {
         use dyapp_client::interactions::{Interaction, Kind};
-        let (dir, alice, bob) = (temp_dir(), Identity::generate(), Identity::generate());
+        let (dir, alice, bob) = (temp_dir(), Identity::try_generate().unwrap(), Identity::try_generate().unwrap());
         let (alice_id, bob_id) = (alice.peer_id(), bob.peer_id());
         let mut store = super::super::open(&dir, &alice).unwrap();
         for (sender, target, device, event_id, wall_ms) in [
@@ -148,7 +148,7 @@ mod tests {
         assert!(!store.send_read_receipts().unwrap());
         drop(store);
         // No network file exists, so reaching the connect step would return notConnected.
-        let device = Identity::generate();
+        let device = Identity::try_generate().unwrap();
         let sent = send_read_receipts(&dir, &dir, &alice, &device, &bob_id);
         assert_eq!(tauri::async_runtime::block_on(sent), Ok(0));
     }

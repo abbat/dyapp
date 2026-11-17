@@ -195,7 +195,7 @@ mod tests {
 
     #[test]
     fn invalid_import_does_not_create_local_state_and_owner_is_checked() {
-        let identity = Identity::generate();
+        let identity = Identity::try_generate().unwrap();
         let dir = std::env::current_dir()
             .unwrap()
             .join("build")
@@ -211,6 +211,6 @@ mod tests {
             assert!(!dir.exists());
         }
         assert!(owner_matches(&identity, &identity.peer_id()).is_ok());
-        assert!(owner_matches(&identity, &Identity::generate().peer_id()).is_err());
+        assert!(owner_matches(&identity, &Identity::try_generate().unwrap().peer_id()).is_err());
     }
 }

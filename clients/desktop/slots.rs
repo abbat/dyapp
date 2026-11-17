@@ -103,18 +103,20 @@ fn is_uuid(name: &str) -> bool {
         })
 }
 
-fn new_uuid() -> String {
+fn new_uuid() -> Result<String, String> {
     // A throwaway key gives 16 OS-random bytes without another crate; it is never an identity.
-    let bytes = Identity::generate().public_key();
+    let bytes = Identity::try_generate()
+        .map_err(|e| e.to_string())?
+        .public_key();
     let hex = dyapp_identity::hex(&bytes[..16]);
-    format!(
+    Ok(format!(
         "{}-{}-{}-{}-{}",
         &hex[..8],
         &hex[8..12],
         &hex[12..16],
         &hex[16..20],
         &hex[20..]
-    )
+    ))
 }
 
 /// Reads a short marker file; `Ok(None)` if absent, `Err` if it is not a regular file.
@@ -282,7 +284,7 @@ pub fn reserve(root: &Path, mode: &'static str) -> Result<Slot, String> {
     let profiles = root.join("profiles");
     fs::create_dir_all(&profiles).map_err(|e| e.to_string())?;
     for _ in 0..8 {
-        let id = new_uuid();
+        let id = new_uuid()?;
         let dir = profiles.join(&id);
         match fs::create_dir(&dir) {
             Err(error) if error.kind() == ErrorKind::AlreadyExists => continue,
@@ -414,7 +416,7 @@ pub fn create(
     save: &dyn Fn(&Slot, &Identity) -> Result<(), String>,
     load: Load<'_>,
 ) -> Result<(Slot, Identity), String> {
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().map_err(|e| e.to_string())?;
     let slot = adopt(root, mode, &identity, save, load, &|_| Ok(()))?;
     Ok((slot, identity))
 }
@@ -462,7 +464,7 @@ pub fn device_key(
     if let Some(key) = load(&slot)? {
         return Ok(key);
     }
-    let key = Identity::generate();
+    let key = Identity::try_generate().map_err(|e| e.to_string())?;
     save(&slot, &key)?;
     match load(&slot)? {
         Some(saved) if saved.public_key() == key.public_key() => Ok(key),
@@ -541,7 +543,7 @@ mod tests {
 
     #[test]
     fn uuids_are_fresh_and_well_formed() {
-        let (a, b) = (new_uuid(), new_uuid());
+        let (a, b) = (new_uuid().unwrap(), new_uuid().unwrap());
         assert!(is_uuid(&a) && is_uuid(&b) && a != b);
         assert!(!is_uuid("legacy-primary") && !is_uuid(&a.to_uppercase()));
     }
@@ -594,7 +596,7 @@ mod tests {
         // A corrupt or dangling pointer falls back to the picker.
         fs::write(root.join("active-profile"), "../escape\n").unwrap();
         assert_eq!(active(&root), None);
-        set_active(&root, &new_uuid()).unwrap();
+        set_active(&root, &new_uuid().unwrap()).unwrap();
         assert!(choose(&root, &list(&root).unwrap()).is_none());
         fs::remove_dir_all(root).unwrap();
     }
@@ -691,7 +693,7 @@ mod tests {
         let load =
             |slot: &Slot| Ok::<_, String>(keys.borrow().get(&slot.id).map(Identity::from_secret));
         let (first, _) = create(&root, "file", &save, &load).unwrap();
-        let linked = Identity::generate();
+        let linked = Identity::try_generate().unwrap();
         let failed = adopt(&root, "file", &linked, &save, &load, &|_| {
             Err("no".to_owned())
         });
@@ -848,7 +850,7 @@ mod tests {
         assert!(set_state(&mut slot, State::Ready).is_err());
         #[cfg(unix)]
         {
-            let id = new_uuid();
+            let id = new_uuid().unwrap();
             std::os::unix::fs::symlink(&slot.dir, root.join("profiles").join(&id)).unwrap();
             fs::remove_file(slot.dir.join("state")).unwrap();
             std::os::unix::fs::symlink("/dev/null", slot.dir.join("state")).unwrap();

@@ -87,17 +87,17 @@ mod tests {
 
     #[test]
     fn nothing_due_never_reaches_the_network() {
-        let (dir, alice) = (temp_dir(), Identity::generate());
+        let (dir, alice) = (temp_dir(), Identity::try_generate().unwrap());
         drop(super::super::open(&dir, &alice).unwrap());
         // No network file exists, so reaching the connect step would return notConnected.
-        let device = Identity::generate();
+        let device = Identity::try_generate().unwrap();
         let sent = announce(&dir, &dir, &alice, &device);
         assert_eq!(tauri::async_runtime::block_on(sent), Ok(false));
     }
 
     #[test]
     fn a_chat_shows_a_match_active_after_its_presence() {
-        let (dir, alice, bob) = (temp_dir(), Identity::generate(), Identity::generate());
+        let (dir, alice, bob) = (temp_dir(), Identity::try_generate().unwrap(), Identity::try_generate().unwrap());
         let (alice_id, bob_id) = (alice.peer_id(), bob.peer_id());
         let mut store = super::super::open(&dir, &alice).unwrap();
         for (sender, target, device, event_id, wall_ms) in [

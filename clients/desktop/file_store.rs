@@ -66,10 +66,10 @@ mod tests {
             std::env::temp_dir().join(format!("dyapp-file-test-{}-{nonce}", std::process::id()));
         fs::create_dir(&dir).unwrap();
         let path = dir.join("identity.key");
-        let identity = Identity::generate();
+        let identity = Identity::try_generate().unwrap();
         save(&path, &identity).unwrap();
         assert_eq!(load(&path).unwrap().peer_id(), identity.peer_id());
-        assert!(save(&path, &Identity::generate()).is_err());
+        assert!(save(&path, &Identity::try_generate().unwrap()).is_err());
         assert_eq!(load(&path).unwrap().peer_id(), identity.peer_id());
         #[cfg(unix)]
         {

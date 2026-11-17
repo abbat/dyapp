@@ -3,8 +3,8 @@ use dyapp_identity::Identity;
 
 #[test]
 fn unknown_blocked_and_own_peer_actions_cannot_create_intent_or_mls() {
-    let owner = Identity::generate();
-    let peer = Identity::generate().peer_id();
+    let owner = Identity::try_generate().unwrap();
+    let peer = Identity::try_generate().unwrap().peer_id();
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../build")
         .join(format!("native-pack-actions-{}", owner.peer_id()));

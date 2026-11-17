@@ -74,7 +74,7 @@ pub fn start_link(
     links: tauri::State<'_, Links>,
 ) -> Result<Shown, String> {
     let lease = state.lease()?;
-    let device = Identity::generate();
+    let device = Identity::try_generate().map_err(|e| e.to_string())?;
     let mailbox = dyapp_client::mailbox(&device.public_key());
     let invite = Invite::new(mailbox, dyapp_client::now()).map_err(|e| e.to_string())?;
     let code = invite.code().text();
@@ -271,14 +271,14 @@ mod tests {
             let store = crate::profile::open(&old.dir, &current).unwrap();
             store.save_profile_draft(&Profile::default()).unwrap();
         }
-        let device = Identity::generate();
+        let device = Identity::try_generate().unwrap();
         let pending = Pending {
             invite: Invite::new([0; 32], dyapp_client::now()).unwrap(),
             device: Identity::from_secret(&device.secret()),
             dir: old.dir.clone(),
         };
         let linked = Linked {
-            identity: Identity::generate(),
+            identity: Identity::try_generate().unwrap(),
             state: b"state".to_vec(),
         };
         let wizard = wizard.then_some(old.id.as_str());

@@ -232,8 +232,8 @@ mod tests {
 
     #[test]
     fn a_lone_device_applies_a_change_with_its_clock_value() {
-        let (dir, alice) = (temp_dir(), Identity::generate());
-        let peer = Identity::generate().peer_id();
+        let (dir, alice) = (temp_dir(), Identity::try_generate().unwrap());
+        let peer = Identity::try_generate().unwrap().peer_id();
         let change =
             |change| tauri::async_runtime::block_on(change_peer(&dir, &dir, &alice, &peer, change));
         change(PeerChange::Blocked(true)).unwrap();

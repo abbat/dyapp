@@ -4,7 +4,7 @@ use std::{fs, path::Path, sync::Arc};
 
 #[tokio::test]
 async fn cache_commands_are_numeric_local_and_reject_stale_or_closed_identity() {
-    let owner = Arc::new(Identity::generate());
+    let owner = Arc::new(Identity::try_generate().unwrap());
     let peer = owner.peer_id();
     let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../build/desktop-media-cache")
