@@ -155,13 +155,13 @@ pub(super) fn trim(db: &Connection, target: u64) -> Result<usize> {
         .prepare("SELECT `owner` FROM `keep_pending` WHERE `bytes` > 0 ORDER BY `time`, `owner`")
         .and_then(|mut query| query.query_map([], |row| row.get(0))?.collect())
         .map_err(storage_error)?;
-    let mut removed = 0;
+    let mut removed: usize = 0;
     for owner in owners {
         if MediaStore::used(db)? <= target {
             break;
         }
         discard(db, &owner)?;
-        removed += 1;
+        removed = removed.saturating_add(1);
     }
     Ok(removed)
 }

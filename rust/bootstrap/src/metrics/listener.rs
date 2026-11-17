@@ -86,7 +86,7 @@ async fn answer(mut stream: TcpStream, service: &Service) -> std::io::Result<()>
         if read == 0 {
             return Ok(());
         }
-        len += read;
+        len = len.saturating_add(read);
         if head[..len].windows(4).any(|w| w == b"\r\n\r\n") {
             break route(&head[..len]);
         }

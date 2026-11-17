@@ -127,7 +127,10 @@ impl Parts {
                     return Err(storage_error("staged target changed"));
                 }
             } else {
-                let next = self.proof(db, owner, version + 1)?;
+                let next_version = version
+                    .checked_add(1)
+                    .ok_or_else(|| storage_error("history version overflow"))?;
+                let next = self.proof(db, owner, next_version)?;
                 history::follows(&part.record, &next)?;
             }
             if frontier.version.checked_add(1) == Some(version) {
@@ -135,7 +138,10 @@ impl Parts {
                     return Err(storage_error("staged frontier changed"));
                 }
             } else {
-                let previous = self.proof(db, owner, version - 1)?;
+                let previous_version = version
+                    .checked_sub(1)
+                    .ok_or_else(|| storage_error("history version underflow"))?;
+                let previous = self.proof(db, owner, previous_version)?;
                 history::follows(&previous, &part.record)?;
             }
         }

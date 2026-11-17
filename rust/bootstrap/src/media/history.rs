@@ -48,7 +48,9 @@ pub(super) fn verified(
 
 pub(super) fn framed_bytes(bytes: usize) -> usize {
     // A repeated message field: tag 1, its actual length delimiter, then the record.
-    1 + prost::encoding::encoded_len_varint(bytes as u64) + bytes
+    1usize
+        .saturating_add(prost::encoding::encoded_len_varint(bytes as u64))
+        .saturating_add(bytes)
 }
 
 fn decode(owner: &str, version: i64, bytes: &[u8]) -> Result<SignedRecord> {
@@ -84,7 +86,7 @@ fn read_page(
     link: fn(&SignedRecord, &SignedRecord) -> Result<()>,
 ) -> Result<Vec<SignedRecord>> {
     let mut records = Vec::new();
-    let mut used = 0;
+    let mut used: usize = 0;
     while let Some(row) = rows.next().map_err(storage_error)? {
         let record = decode(
             owner,
@@ -95,7 +97,7 @@ fn read_page(
                 .map_err(storage_error)?,
         )?;
         let size = framed_bytes(record.encoded_len());
-        if used + size > max_bytes {
+        if used.saturating_add(size) > max_bytes {
             if records.is_empty() {
                 return Err(storage_error("history page cannot fit a record"));
             }
@@ -104,7 +106,7 @@ fn read_page(
         if let Some(previous) = records.last() {
             link(previous, &record)?;
         }
-        used += size;
+        used = used.saturating_add(size);
         records.push(record);
     }
     Ok(records)
