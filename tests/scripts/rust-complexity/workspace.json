@@ -1,7 +1,6 @@
 [
   {"path":"tests/integration_tests.rs","function":"fn test_nated_peers_exchange_a_message_through_a_dyappd_relay ","metrics":{"lines":110}},
   {"path":"rust/bootstrap/src/node/run.rs","function":"fn run ","metrics":{"cognitive":248,"lines":767}},
-  {"path":"rust/bootstrap/tests/protocol/chat.rs","function":"fn a_hidden_commit_shows_as_a_gap_and_the_second_replica_delivers_it ","metrics":{"lines":125}},
   {"path":"rust/bootstrap/tests/protocol/chat.rs","function":"fn a_revoked_device_loses_its_mailbox_and_new_messages ","metrics":{"lines":139}},
   {"path":"rust/bootstrap/tests/protocol/chat.rs","function":"fn durable_chat_survives_restarts_storage_faults_and_retries ","metrics":{"lines":194}},
   {"path":"rust/bootstrap/tests/protocol/chat_ack_failure.rs","function":"fn ack_marker_failure_keeps_projection_and_retries_without_duplicate_event ","metrics":{"lines":140}},
