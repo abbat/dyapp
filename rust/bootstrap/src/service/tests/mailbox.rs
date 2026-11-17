@@ -287,6 +287,15 @@ fn mailbox_size_hints_cover_boundaries_local_replicas_and_denied_batch_priority(
         (response.status, response.max_bytes),
         (i32::from(Status::Ok), 0)
     );
+    check_oversized_mailbox_hints(&s, &mut envelope, &owner, exact);
+}
+
+fn check_oversized_mailbox_hints(
+    s: &Service,
+    envelope: &mut proto::Envelope,
+    owner: &Identity,
+    exact: SignedRecord,
+) {
     envelope.ciphertext.push(0);
     let large = owner.sign(Domain::Envelope, envelope.encode_to_vec());
     assert_eq!(large.payload.len(), MAX_ENVELOPE_BYTES + 1);
@@ -308,6 +317,10 @@ fn mailbox_size_hints_cover_boundaries_local_replicas_and_denied_batch_priority(
         (response.status, response.max_bytes),
         (i32::from(Status::TooLarge), ENVELOPE_ACCEPT_BYTES as u64)
     );
+    check_replica_mailbox_hints(s, large, exact);
+}
+
+fn check_replica_mailbox_hints(s: &Service, large: SignedRecord, exact: SignedRecord) {
     let from = replica_peer("limit-node");
     let response = s
         .mailbox(
@@ -664,6 +677,10 @@ fn rate_limit_and_info() {
         info.info.unwrap().roles,
         vec![i32::from(proto::Role::Store)]
     );
+    check_deny_and_turn(&mut service);
+}
+
+fn check_deny_and_turn(service: &mut Service) {
     let deny_list = || NodeRequest {
         request: Some(node_request::Request::DenyList(proto::DenyListRequest {})),
     };
