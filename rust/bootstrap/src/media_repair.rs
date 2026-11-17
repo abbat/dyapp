@@ -64,7 +64,9 @@ impl Schedule {
                 .wrapping_add(offset)
                 .checked_rem(hashes.len())
                 .unwrap_or(0);
-            let hash = &hashes[index];
+            let Some(hash) = hashes.get(index) else {
+                continue;
+            };
             if !self.recent.contains_key(hash) && self.recent.len() < MAX_TRACKED {
                 self.recent.insert(hash.clone(), (now, true));
                 selected.push(hash.clone());
@@ -205,7 +207,9 @@ impl Repair {
     }
 
     pub(crate) fn keys(&self, blob: usize) -> Vec<u8> {
-        let b = &self.blobs[blob];
+        let Some(b) = self.blobs.get(blob) else {
+            return Vec::new();
+        };
         let count = if b.whole {
             usize::from(REPLICAS)
         } else {
@@ -226,7 +230,9 @@ impl Repair {
             self.unconfirmed = true;
             return;
         };
-        let b = &self.blobs[blob];
+        let Some(b) = self.blobs.get(blob) else {
+            return;
+        };
         let items = self.groups.entry(peer).or_default();
         let mut add = |index| {
             let part = proto::MediaPart {
@@ -286,25 +292,22 @@ impl Repair {
             }
             Job::Get(blob, _) => (
                 Request::Get(proto::GetMedia {
-                    hash: self.blobs[*blob].hash.clone(),
+                    hash: self.blobs.get(*blob)?.hash.clone(),
                     ..Default::default()
                 }),
                 (MEDIA_OBJECT_BYTES + 1024) as u64,
             ),
-            Job::ShardGet(blob, index, _) => (
-                Request::ShardGet(proto::MediaShardGet {
-                    hash: self.blobs[*blob].hash.clone(),
-                    index: *index,
-                }),
-                u64::try_from(
-                    self.blobs[*blob]
-                        .manifest
-                        .as_ref()?
-                        .shard_size()?
-                        .saturating_add(1024),
+            Job::ShardGet(blob, index, _) => {
+                let blob = self.blobs.get(*blob)?;
+                (
+                    Request::ShardGet(proto::MediaShardGet {
+                        hash: blob.hash.clone(),
+                        index: *index,
+                    }),
+                    u64::try_from(blob.manifest.as_ref()?.shard_size()?.saturating_add(1024))
+                        .unwrap_or(u64::MAX),
                 )
-                .unwrap_or(u64::MAX),
-            ),
+            }
             Job::Put(blob, index, _) => (self.write(*blob, *index)?, 1024),
         };
         Some((
@@ -334,16 +337,21 @@ impl Repair {
             Job::History(peer) => self.history_response(peer, response, now),
             Job::Have(peer) => self.inventory_response(peer, response),
             Job::Get(blob, _) => {
+                let Some(blob) = self.blobs.get_mut(blob) else {
+                    return;
+                };
                 if let Some(data) = response.map(|r| r.data).filter(|d| {
                     d.len() <= MEDIA_OBJECT_BYTES
-                        && dyapp_identity::sha256(d).as_slice() == self.blobs[blob].hash
+                        && dyapp_identity::sha256(d).as_slice() == blob.hash
                 }) {
-                    self.blobs[blob].data = Some(data);
-                    self.blobs[blob].whole = true;
+                    blob.data = Some(data);
+                    blob.whole = true;
                 }
             }
             Job::ShardGet(blob, index, _) => {
-                let b = &mut self.blobs[blob];
+                let Some(b) = self.blobs.get_mut(blob) else {
+                    return;
+                };
                 if let Some(data) = response.map(|r| r.data).filter(|d| {
                     b.manifest
                         .as_ref()
@@ -363,12 +371,18 @@ impl Repair {
     }
 
     fn inventory(&mut self, peer: PeerId, inventory: &proto::MediaInventory) {
-        let requested = &self.groups[&peer];
+        let Some(requested) = self.groups.get(&peer) else {
+            self.unconfirmed = true;
+            return;
+        };
         if !inventory::valid(requested, inventory) {
             self.unconfirmed = true;
             return;
         }
-        self.unconfirmed |= inventory.present.len().saturating_add(inventory.missing.len())
+        self.unconfirmed |= inventory
+            .present
+            .len()
+            .saturating_add(inventory.missing.len())
             != requested.len();
         for blob in &mut self.blobs {
             blob.record_inventory(peer, inventory);
@@ -402,10 +416,11 @@ impl Repair {
     }
 
     fn clear_active(&mut self) {
-        let b = &mut self.blobs[self.active];
-        b.data = None;
-        b.shards.clear();
-        b.encoded.clear();
+        if let Some(b) = self.blobs.get_mut(self.active) {
+            b.data = None;
+            b.shards.clear();
+            b.encoded.clear();
+        }
         self.active = self.active.saturating_add(1);
         self.stage = Stage::Inventory;
     }

@@ -4,7 +4,7 @@ use dyapp_p2p_net::proto::{self, media_request::Request};
 
 impl Repair {
     pub(super) fn write(&self, blob: usize, index: Option<u32>) -> Option<Request> {
-        let blob = &self.blobs[blob];
+        let blob = self.blobs.get(blob)?;
         let authorization = Some(proto::media_replica_put::Authorization::Keep(
             (*self.record).clone(),
         ));

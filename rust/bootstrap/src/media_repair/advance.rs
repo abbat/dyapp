@@ -137,7 +137,10 @@ impl Repair {
     }
     pub(super) fn prepare_active(&mut self, service: &Service) -> bool {
         let history = &self.history;
-        let blob = &mut self.blobs[self.active];
+        let Some(blob) = self.blobs.get_mut(self.active) else {
+            self.clear_active();
+            return false;
+        };
         let Some(media) = service.media.as_ref() else {
             self.clear_active();
             return false;
@@ -163,7 +166,10 @@ impl Repair {
     }
 
     pub(super) fn fetch_active(&mut self, service: &Service, me: PeerId) -> Step {
-        let blob = &self.blobs[self.active];
+        let Some(blob) = self.blobs.get(self.active) else {
+            self.clear_active();
+            return Step::Retry;
+        };
         if blob.whole && blob.data.is_none() {
             return self.fetch_whole(me);
         }
@@ -174,7 +180,10 @@ impl Repair {
     }
 
     fn fetch_whole(&mut self, me: PeerId) -> Step {
-        let blob = &mut self.blobs[self.active];
+        let Some(blob) = self.blobs.get_mut(self.active) else {
+            self.clear_active();
+            return Step::Retry;
+        };
         if let Some(peer) = blob.sources.pop() {
             if peer != me {
                 self.issue(Job::Get(self.active, peer));
@@ -190,8 +199,15 @@ impl Repair {
     }
 
     fn fetch_shards(&mut self, service: &Service, me: PeerId) -> Step {
-        let blob = &mut self.blobs[self.active];
-        let Some(count) = blob.manifest.as_ref().and_then(MediaManifestExt::data_shards) else {
+        let Some(blob) = self.blobs.get_mut(self.active) else {
+            self.clear_active();
+            return Step::Retry;
+        };
+        let Some(count) = blob
+            .manifest
+            .as_ref()
+            .and_then(MediaManifestExt::data_shards)
+        else {
             blob.missing = true;
             self.clear_active();
             return Step::Retry;
@@ -217,9 +233,11 @@ impl Repair {
     }
 
     pub(super) fn store_active(&mut self) {
-        let jobs = self.blobs[self.active]
-            .gaps
-            .iter()
+        let jobs = self
+            .blobs
+            .get(self.active)
+            .into_iter()
+            .flat_map(|blob| &blob.gaps)
             .map(|(peer, index)| Job::Put(self.active, *index, *peer))
             .collect::<Vec<_>>();
         self.stage = Stage::Store;

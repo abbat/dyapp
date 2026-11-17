@@ -38,7 +38,7 @@ max_lines = 400
 
 [indexing]
 # Checked slicing/indexing sites; lower each count as sites become checked or iterator-based.
-"dyapp-bootstrap" = 59
+"dyapp-bootstrap" = 41
 "dyapp-client" = 0
 "dyapp-ffi" = 0
 "dyapp-identity" = 0
