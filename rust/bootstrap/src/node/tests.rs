@@ -58,6 +58,10 @@ async fn hourly_status_reports_and_resets_wire_bytes_and_failed_gossip_adds_none
         status(&service, &swarm, 0, 3, 0, 0, 0, 0);
         status(&service, &swarm, 0, 0, 0, 0, 0, 0);
     });
+    check_status_log(&path, &service);
+}
+
+fn check_status_log(path: &str, service: &Service) {
     let log = std::fs::read_to_string(path).unwrap();
     let lines = log.lines().collect::<Vec<_>>();
     assert_eq!(lines.len(), 2);
