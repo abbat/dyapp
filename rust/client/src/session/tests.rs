@@ -437,6 +437,20 @@ fn a_text_opened_after_many_later_ones_is_refused() {
     ));
 }
 
+fn message_body(event: Result<Option<Event>, Error>) -> Body {
+    let Some(Event::Message { body, .. }) = event.unwrap() else {
+        panic!("expected the message after recovery");
+    };
+    body
+}
+
+fn assert_chat_text(store: &Store, key: &MessageKey, expected: &[u8]) {
+    assert_eq!(
+        store.chat_message(key).unwrap().unwrap().text.as_deref(),
+        Some(expected)
+    );
+}
+
 #[test]
 fn failed_receive_commit_neither_acks_nor_loses_the_envelope() {
     let path = temp_path();
@@ -484,23 +498,9 @@ fn failed_receive_commit_neither_acks_nor_loses_the_envelope() {
 
     db.execute_batch("DROP TRIGGER `fail_mls`").unwrap();
     session.recover(&seal_key).unwrap();
-    let Some(Event::Message { body, .. }) = session
-        .stage_envelope(&key(2), &hi[0].mls, &profiles, &seal_key)
-        .unwrap()
-    else {
-        panic!("expected the message after recovery");
-    };
+    let body = message_body(session.stage_envelope(&key(2), &hi[0].mls, &profiles, &seal_key));
     assert!(body == Body::text_with_id([1; 16], b"hi".to_vec()));
-    assert_eq!(
-        session
-            .store
-            .chat_message(&message)
-            .unwrap()
-            .unwrap()
-            .text
-            .as_deref(),
-        Some(&b"hi"[..])
-    );
+    assert_chat_text(&session.store, &message, b"hi");
 }
 
 #[test]
