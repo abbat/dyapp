@@ -357,22 +357,31 @@ fn plan(tiers: Vec<Vec<Row>>, mut over: i64) -> Option<Vec<i64>> {
 /// holding most bytes (ties: the one holding the oldest row), then its oldest row.
 fn pick(rows: &[Row]) -> usize {
     let mut candidates: Vec<usize> = (0..rows.len()).collect();
-    for level in 0..rows[0].labels.len() {
+    for level in 0..rows.first().map_or(0, |row| row.labels.len()) {
         let mut bytes: BTreeMap<&[u8], i64> = BTreeMap::new();
         for &i in &candidates {
-            let total = bytes.entry(&rows[i].labels[level]).or_default();
-            *total = total.saturating_add(rows[i].size);
+            let Some(row) = rows.get(i) else {
+                continue;
+            };
+            let Some(label) = row.labels.get(level) else {
+                continue;
+            };
+            let total = bytes.entry(label.as_slice()).or_default();
+            *total = total.saturating_add(row.size);
         }
         let most = bytes.values().copied().max().unwrap_or_default();
         let label = candidates
             .iter()
-            .map(|&i| rows[i].labels[level].as_slice())
-            .find(|label| bytes[label] == most)
+            .filter_map(|&i| rows.get(i)?.labels.get(level))
+            .map(Vec::as_slice)
+            .find(|label| bytes.get(*label).copied() == Some(most))
             .unwrap_or_default()
             .to_vec();
-        candidates.retain(|&i| rows[i].labels[level] == label);
+        candidates.retain(|&i| {
+            rows.get(i).and_then(|row| row.labels.get(level)) == Some(&label)
+        });
     }
-    candidates[0]
+    candidates.first().copied().unwrap_or_default()
 }
 
 #[cfg(test)]

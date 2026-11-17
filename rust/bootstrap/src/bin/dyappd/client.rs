@@ -129,7 +129,7 @@ async fn media_refresh(addr: &str, record: &str, secret: &str) -> anyhow::Result
         media_request::Request::Keep(record.clone()),
     ))
     .await?;
-    response["keep_record"] = hex(&record.encode_to_vec()).into();
+    set_field(&mut response, "keep_record", hex(&record.encode_to_vec()))?;
     Ok(response)
 }
 
@@ -291,7 +291,7 @@ async fn profile(addr: &str, request: profile_request::Request) -> anyhow::Resul
     .await?;
     let mut output = json!({ "status": status(response.status) });
     if let Some(record) = response.record {
-        output["record"] = hex(&record.encode_to_vec()).into();
+        set_field(&mut output, "record", hex(&record.encode_to_vec()))?;
     }
     Ok(output)
 }
@@ -332,15 +332,11 @@ async fn media(addr: &str, data: &str, include_details: bool) -> anyhow::Result<
         .await?;
         let changed =
             name == "get" && response.status == i32::from(Status::Ok) && response.data != data;
-        output[name] = if changed {
-            "CHANGED"
-        } else {
-            status(response.status)
-        }
-        .into();
+        let value = if changed { "CHANGED" } else { status(response.status) };
+        set_field(&mut output, name, value)?;
     }
     if include_details {
-        output["details"] = details;
+        set_field(&mut output, "details", details)?;
     }
     Ok(output)
 }
@@ -654,7 +650,9 @@ async fn watch(addr: &str, secret: &str) -> anyhow::Result<Value> {
         .iter()
         .map(|record| Ok(hex(&proto::Envelope::decode(record.payload.as_slice())?.id)))
         .collect::<anyhow::Result<Vec<_>>>()?;
-    Ok(json!({ "status": status(response.status), "id": put?["id"], "pushed": ids }))
+    let put = put?;
+    let id = put.get("id").cloned().unwrap_or(Value::Null);
+    Ok(json!({ "status": status(response.status), "id": id, "pushed": ids }))
 }
 
 async fn fetch(addr: &str, secret: &str) -> anyhow::Result<Value> {
@@ -808,6 +806,12 @@ fn status(value: i32) -> &'static str {
     Status::try_from(value).map_or("unknown", |status| status.as_str_name())
 }
 
+fn set_field(output: &mut Value, key: &str, value: impl Into<Value>) -> anyhow::Result<()> {
+    let fields = output.as_object_mut().context("response is not a JSON object")?;
+    fields.insert(key.to_string(), value.into());
+    Ok(())
+}
+
 fn hex(bytes: &[u8]) -> String {
     dyapp_identity::hex(bytes)
 }
@@ -830,7 +834,16 @@ fn unhex(text: &str) -> anyhow::Result<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
-    use super::address;
+    use super::{address, set_field};
+    use serde_json::{json, Value};
+
+    #[test]
+    fn json_fields_require_an_object() {
+        let mut output = json!({});
+        assert!(set_field(&mut output, "status", "ok").is_ok());
+        assert_eq!(output, json!({"status": "ok"}));
+        assert!(set_field(&mut Value::Null, "status", "ok").is_err());
+    }
 
     #[test]
     fn familiar_addresses_dial_tcp() {
