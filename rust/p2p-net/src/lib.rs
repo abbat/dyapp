@@ -17,7 +17,7 @@ use libp2p::{
 use std::error::Error;
 use std::io;
 use std::marker::PhantomData;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
@@ -745,64 +745,8 @@ pub fn build_configured_swarm(
         .build())
 }
 
-/// Leading zero bits of SHA-256 over a node's peer ID bytes: the static S/Kademlia puzzle that
-/// makes every node ID cost about a minute on 2 vCPU (ADR 0008).
-pub const ID_POW_BITS: u32 = 22;
-
-// The unit tests route random peer IDs.
-static POW_BITS: AtomicU32 = AtomicU32::new(if cfg!(test) { 0 } else { ID_POW_BITS });
-
-/// Overrides [`ID_POW_BITS`] for this process: a test network sets it low.
-pub fn set_id_pow_bits(bits: u32) {
-    POW_BITS.store(bits, Ordering::Relaxed);
-}
-
-/// Required leading zero bits of a peer ID proof of work in this process.
-pub fn id_pow_bits() -> u32 {
-    POW_BITS.load(Ordering::Relaxed)
-}
-
-/// Whether `peer` carries the node-ID proof of work of `bits` leading zero bits.
-#[must_use]
-pub fn id_has_pow(peer: &PeerId, bits: u32) -> bool {
-    let hash = dyapp_identity::sha256(&peer.to_bytes());
-    let zeros = hash
-        .iter()
-        .zip(0u32..)
-        .find(|(byte, _)| **byte != 0)
-        .map_or(256, |(byte, index)| index * 8 + byte.leading_zeros());
-    zeros >= bits
-}
-
-fn pow_worker(found: &AtomicBool, bits: u32) -> Option<Keypair> {
-    while !found.load(Ordering::Relaxed) {
-        let keypair = Keypair::generate_ed25519();
-        if id_has_pow(&keypair.public().to_peer_id(), bits) {
-            found.store(true, Ordering::Relaxed);
-            return Some(keypair);
-        }
-    }
-    None
-}
-
-/// A fresh Ed25519 key whose peer ID has the proof of work of `bits`, searched on every CPU.
-///
-/// # Panics
-/// Panics if a search worker cannot be spawned or panics, or if every worker
-/// returns without a key. Key generation also requires an available OS random source.
-pub fn generate_pow_keypair(bits: u32) -> Keypair {
-    let threads = std::thread::available_parallelism().map_or(1, usize::from);
-    let found = AtomicBool::new(false);
-    std::thread::scope(|s| {
-        let workers: Vec<_> = (0..threads)
-            .map(|_| s.spawn(|| pow_worker(&found, bits)))
-            .collect();
-        workers
-            .into_iter()
-            .find_map(|w| w.join().expect("key search thread panicked"))
-            .expect("a worker found the key")
-    })
-}
+mod pow;
+pub use pow::{generate_pow_keypair, id_has_pow, id_pow_bits, set_id_pow_bits, ID_POW_BITS};
 
 /// Starts joining the network: adds `cached` peers (`.../p2p/<id>` addresses from
 /// [`known_peers`]) to the routing table and dials every seed. Kademlia bootstraps on its own once the first peer is in the table.
@@ -834,66 +778,9 @@ pub fn set_distinct_groups(on: bool) {
     DISTINCT_GROUPS.store(on, Ordering::Relaxed);
 }
 
-/// Whether `address` routes through a relay circuit.
-pub fn is_circuit(address: &Multiaddr) -> bool {
-    address.iter().any(|p| p == Protocol::P2pCircuit)
-}
-
-/// Whether two direct addresses name exactly the same IP, independent of port and transport.
-/// DNS, relayed routes and multiple IP components cannot prove a direct remote endpoint.
-pub fn same_ip(observed: &Multiaddr, claimed: &Multiaddr) -> bool {
-    fn direct_ip(address: &Multiaddr) -> Option<std::net::IpAddr> {
-        let mut parts = address.iter();
-        let ip = match parts.next()? {
-            Protocol::Ip4(ip) => ip.into(),
-            Protocol::Ip6(ip) => ip.into(),
-            _ => return None,
-        };
-        if parts.any(|p| {
-            matches!(
-                p,
-                Protocol::Ip4(_)
-                    | Protocol::Ip6(_)
-                    | Protocol::Dns(_)
-                    | Protocol::Dns4(_)
-                    | Protocol::Dns6(_)
-                    | Protocol::Dnsaddr(_)
-                    | Protocol::P2pCircuit
-            )
-        }) {
-            return None;
-        }
-        Some(ip)
-    }
-    direct_ip(observed).is_some_and(|ip| direct_ip(claimed) == Some(ip))
-}
-
-/// The IP group of `address`: /24 (IPv6 /48), or /16 (IPv6 /32) when `wide`; a DNS name is its
-/// own group.
-fn ip_group(address: &Multiaddr, wide: bool) -> Option<String> {
-    address.iter().find_map(|p| match p {
-        Protocol::Ip4(ip) => {
-            let [a, b, c, _] = ip.octets();
-            Some(if wide {
-                format!("{a}.{b}")
-            } else {
-                format!("{a}.{b}.{c}")
-            })
-        }
-        Protocol::Ip6(ip) => {
-            let s = ip.segments();
-            Some(if wide {
-                format!("{:x}:{:x}", s[0], s[1])
-            } else {
-                format!("{:x}:{:x}:{:x}", s[0], s[1], s[2])
-            })
-        }
-        Protocol::Dns(h) | Protocol::Dns4(h) | Protocol::Dns6(h) | Protocol::Dnsaddr(h) => {
-            Some(h.to_string())
-        }
-        _ => None,
-    })
-}
+mod address;
+use address::ip_group;
+pub use address::{is_circuit, same_ip};
 
 /// Adds `peer` at `address` to the routing table unless its IP group already has
 /// [`MAX_GROUP_PER_BUCKET`] other peers in the peer's bucket or [`MAX_GROUP_PER_TABLE`] in the
