@@ -375,7 +375,11 @@ mod tests {
 
     #[tokio::test]
     async fn search_needs_an_answering_active_network_and_retries_by_calling_again() {
-        let (dir, alice, cache) = (temp_dir(), Identity::try_generate().unwrap(), Mutex::default());
+        let (dir, alice, cache) = (
+            temp_dir(),
+            Identity::try_generate().unwrap(),
+            Mutex::default(),
+        );
         let run = |age_max: &str| {
             let query = Query {
                 offered: vec![BIRTH_AGE],

@@ -509,7 +509,9 @@ mod tests {
     fn liked_you_lists_unanswered_likes_of_unblocked_peers() {
         let alice = Identity::try_generate().unwrap();
         let a = alice.peer_id();
-        let mut peers: Vec<_> = (0..3).map(|_| Identity::try_generate().unwrap().peer_id()).collect();
+        let mut peers: Vec<_> = (0..3)
+            .map(|_| Identity::try_generate().unwrap().peer_id())
+            .collect();
         peers.sort();
         let [b, c, d] = &peers[..] else {
             unreachable!()
@@ -583,7 +585,9 @@ mod tests {
         let record = SignedRecord::decode(write.as_bytes()).unwrap();
         let mut envelope = proto::Envelope::decode(record.payload.as_slice()).unwrap();
         envelope.ciphertext = vec![9];
-        let conflicting = Identity::try_generate().unwrap().sign(Domain::Envelope, envelope.encode_to_vec());
+        let conflicting = Identity::try_generate()
+            .unwrap()
+            .sign(Domain::Envelope, envelope.encode_to_vec());
         let conflicting = PreparedEnvelope::from_bytes(conflicting.encode_to_vec()).unwrap();
         assert!(matches!(
             store.stage_interaction(bob, b"device", unlike, b"changed", &[conflicting]),

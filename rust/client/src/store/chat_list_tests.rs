@@ -157,7 +157,11 @@ fn chats_rows_keep_state_latest_time_and_unread_across_clear_and_restart() {
         Store::open(&path, &Identity::try_generate().unwrap()),
         Err(Error::WrongIdentity)
     ));
-    let separate = Store::open(&super::tests::temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
+    let separate = Store::open(
+        &super::tests::temp_db_path(),
+        &Identity::try_generate().unwrap(),
+    )
+    .unwrap();
     assert!(separate.chat_rows().unwrap().is_empty());
 }
 

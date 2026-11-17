@@ -46,10 +46,10 @@ pub(super) fn archive_labels(labels: &[&str]) -> Vec<u8> {
 }
 #[test]
 fn imported_collection_reopens_with_the_slot_secret() {
-    let root = std::env::current_dir()
-        .unwrap()
-        .join("build")
-        .join(format!("sticker-native-{}", Identity::try_generate().unwrap().peer_id()));
+    let root = std::env::current_dir().unwrap().join("build").join(format!(
+        "sticker-native-{}",
+        Identity::try_generate().unwrap().peer_id()
+    ));
     std::fs::create_dir_all(&root).unwrap();
     let (slot, identity) = crate::slots::create(&root, "file", &crate::save, &crate::load).unwrap();
     let sessions = chats::Sessions::default();
@@ -91,8 +91,10 @@ fn a_pack_made_with_the_system_bsdtar_imports() {
     } else {
         "/usr/bin/tar"
     };
-    let dir =
-        std::env::temp_dir().join(format!("sticker-bsdtar-{}", Identity::try_generate().unwrap().peer_id()));
+    let dir = std::env::temp_dir().join(format!(
+        "sticker-bsdtar-{}",
+        Identity::try_generate().unwrap().peer_id()
+    ));
     std::fs::create_dir_all(&dir).unwrap();
     let reference = archive();
     let files = dyapp_client::sticker_tar::read(&reference).unwrap();

@@ -920,7 +920,9 @@ fn a_write_carries_the_token_of_today() {
             .to_vec(),
         epoch: today,
     };
-    let signed = Identity::try_generate().unwrap().sign(Domain::WriteToken, token.encode_to_vec());
+    let signed = Identity::try_generate()
+        .unwrap()
+        .sign(Domain::WriteToken, token.encode_to_vec());
     store
         .set_write_token(&mailbox, today, &signed.encode_to_vec())
         .unwrap();
@@ -934,7 +936,10 @@ fn a_write_carries_the_token_of_today() {
 
 #[test]
 fn the_first_open_creates_the_device_and_later_opens_keep_it() {
-    let (identity, device_key) = (Identity::try_generate().unwrap(), Identity::try_generate().unwrap());
+    let (identity, device_key) = (
+        Identity::try_generate().unwrap(),
+        Identity::try_generate().unwrap(),
+    );
     let path = crate::store::tests::temp_db_path();
     let seal_key = [5; 32];
     let first = Session::open_or_create(

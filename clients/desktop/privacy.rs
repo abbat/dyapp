@@ -208,7 +208,10 @@ mod tests {
 
     #[test]
     fn defaults_then_saved_settings_stay_with_their_identity() {
-        let (alice, bob) = (Identity::try_generate().unwrap(), Identity::try_generate().unwrap());
+        let (alice, bob) = (
+            Identity::try_generate().unwrap(),
+            Identity::try_generate().unwrap(),
+        );
         let (dir, other) = (temp_dir(), temp_dir());
         let defaults = Privacy {
             send_views: false,

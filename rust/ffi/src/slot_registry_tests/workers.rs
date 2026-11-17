@@ -148,7 +148,10 @@ fn profile_worker_refuses_replaced_keys_before_touching_the_database() {
     solve.run_step(true).unwrap();
     let directory = PathBuf::from(created.slot.directory);
     let original = fs::read(directory.join("client.db")).unwrap();
-    let replacement = IdentityKey::generate().unwrap().wrap(Arc::new(Wrapping)).unwrap();
+    let replacement = IdentityKey::generate()
+        .unwrap()
+        .wrap(Arc::new(Wrapping))
+        .unwrap();
     fs::write(directory.join("identity.key"), replacement).unwrap();
     assert!(solve.run_step(true).is_err());
     assert_eq!(fs::read(directory.join("client.db")).unwrap(), original);

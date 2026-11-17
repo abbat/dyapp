@@ -9,7 +9,10 @@ fn fixture() -> (String, Arc<IdentityKey>) {
         u128::from_be_bytes(nonce)
     ));
     std::fs::create_dir(&root).unwrap();
-    (root.to_str().unwrap().to_owned(), IdentityKey::generate().unwrap())
+    (
+        root.to_str().unwrap().to_owned(),
+        IdentityKey::generate().unwrap(),
+    )
 }
 
 #[test]

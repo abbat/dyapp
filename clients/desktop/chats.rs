@@ -740,7 +740,11 @@ mod tests {
 
     #[tokio::test]
     async fn only_a_returned_peer_can_be_liked_and_no_like_needs_no_network() {
-        let (dir, alice, cache) = (temp_dir(), Identity::try_generate().unwrap(), Mutex::default());
+        let (dir, alice, cache) = (
+            temp_dir(),
+            Identity::try_generate().unwrap(),
+            Mutex::default(),
+        );
         let stranger = Identity::try_generate().unwrap().peer_id();
         let device = Identity::try_generate().unwrap();
         assert_eq!(
@@ -795,7 +799,11 @@ mod tests {
     #[test]
     fn chat_reads_are_identity_bound_and_hide_blocked_peers() {
         use super::view::ChatRowView;
-        let (dir, alice, bob) = (temp_dir(), Identity::try_generate().unwrap(), Identity::try_generate().unwrap());
+        let (dir, alice, bob) = (
+            temp_dir(),
+            Identity::try_generate().unwrap(),
+            Identity::try_generate().unwrap(),
+        );
         let alice_id = alice.peer_id();
         let bob_id = bob.peer_id();
         match_fixture_peers(&dir, &alice, &bob);

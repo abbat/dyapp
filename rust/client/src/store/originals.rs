@@ -179,8 +179,10 @@ mod tests {
     use std::time::{Duration, SystemTime};
 
     fn folder() -> PathBuf {
-        let dir =
-            std::env::temp_dir().join(format!("originals-{}", Identity::try_generate().unwrap().peer_id()));
+        let dir = std::env::temp_dir().join(format!(
+            "originals-{}",
+            Identity::try_generate().unwrap().peer_id()
+        ));
         fs::create_dir_all(&dir).unwrap();
         dir
     }

@@ -728,7 +728,10 @@ mod tests {
         // SAFETY: the completed failed export transferred one owned error buffer to the caller.
         let buffer = unsafe { std::mem::ManuallyDrop::take(&mut status.error_buf) };
         let message = String::from_utf8(buffer.destroy_into_vec()).unwrap_or_default();
-        assert!(message.contains("UniFFI panic boundary fixture"), "{message}");
+        assert!(
+            message.contains("UniFFI panic boundary fixture"),
+            "{message}"
+        );
     }
 
     #[test]
@@ -812,7 +815,10 @@ mod tests {
     #[test]
     fn keystore_errors_reach_the_caller() {
         let store: Arc<dyn KeyStore> = Arc::new(LostStore);
-        let error = IdentityKey::generate().unwrap().wrap(store.clone()).unwrap_err();
+        let error = IdentityKey::generate()
+            .unwrap()
+            .wrap(store.clone())
+            .unwrap_err();
         assert_eq!(error.to_string(), "no key");
         assert!(IdentityKey::unwrap(store, vec![0; 32]).is_err());
     }

@@ -45,7 +45,8 @@ fn prepared_mailbox_write_reopens_with_exact_signed_bytes() {
 #[test]
 fn a_tokened_write_carries_the_token_and_is_signed_by_its_key() {
     let token_key = dyapp_identity::Identity::try_generate().unwrap();
-    let token = dyapp_identity::Identity::try_generate().unwrap()
+    let token = dyapp_identity::Identity::try_generate()
+        .unwrap()
         .sign(dyapp_identity::Domain::WriteToken, vec![1])
         .encode_to_vec();
     let prepared = prepare_tokened_put(&[7; 32], vec![1], &token_key, &token).unwrap();
@@ -454,7 +455,9 @@ async fn assert_search_exchanges(node: &mut Node) {
 }
 
 async fn assert_search_busy_errors(node: &mut Node) {
-    let record = Identity::try_generate().unwrap().sign(Domain::Profile, vec![]);
+    let record = Identity::try_generate()
+        .unwrap()
+        .sign(Domain::Profile, vec![]);
     assert!(matches!(
         node.search_publish(record.clone()).await,
         Err(Error::RateLimited(after)) if after.as_secs() == 30

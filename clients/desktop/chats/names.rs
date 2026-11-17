@@ -105,7 +105,10 @@ mod tests {
 
     #[test]
     fn a_local_name_wins_and_a_public_name_needs_a_profile_and_carries_its_mark() {
-        let (me, bob) = (Identity::try_generate().unwrap(), Identity::try_generate().unwrap());
+        let (me, bob) = (
+            Identity::try_generate().unwrap(),
+            Identity::try_generate().unwrap(),
+        );
         let dir = super::super::tests::temp_dir();
         let store = Store::open(&dir.join("client.db"), &me).unwrap();
         let cache = Mutex::<ProfileCache>::default();

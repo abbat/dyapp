@@ -97,7 +97,11 @@ mod tests {
 
     #[test]
     fn a_chat_shows_a_match_active_after_its_presence() {
-        let (dir, alice, bob) = (temp_dir(), Identity::try_generate().unwrap(), Identity::try_generate().unwrap());
+        let (dir, alice, bob) = (
+            temp_dir(),
+            Identity::try_generate().unwrap(),
+            Identity::try_generate().unwrap(),
+        );
         let (alice_id, bob_id) = (alice.peer_id(), bob.peer_id());
         let mut store = super::super::open(&dir, &alice).unwrap();
         for (sender, target, device, event_id, wall_ms) in [
