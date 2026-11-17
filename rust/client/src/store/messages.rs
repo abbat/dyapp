@@ -228,6 +228,209 @@ impl CurrentMessage {
     }
 }
 
+fn outbound_ids(body: &Body) -> Result<(&[u8; 16], &[u8; 16]), Error> {
+    match body {
+        Body::Text { id, .. } => Ok((id, id)),
+        Body::Attachment(message) => Ok((&message.id, &message.id)),
+        Body::Sticker(sticker) => Ok((&sticker.id, &sticker.id)),
+        Body::Forwarded(inner) => match inner.as_ref() {
+            Body::Text { id, .. } => Ok((id, id)),
+            Body::Attachment(message) => Ok((&message.id, &message.id)),
+            _ => Err(Error::InboxConflict),
+        },
+        Body::Edit {
+            target, operation, ..
+        }
+        | Body::Delete {
+            target, operation, ..
+        } => Ok((target, operation)),
+        _ => Err(Error::InboxConflict),
+    }
+}
+
+fn timed_text(body: &Body) -> Option<Timestamp> {
+    match body {
+        Body::Text { hlc: Some(hlc), .. } => Some(Timestamp::from(*hlc)),
+        Body::Sticker(sticker) => Some(Timestamp::from(sticker.hlc)),
+        Body::Forwarded(inner) => match inner.as_ref() {
+            Body::Text { hlc: Some(hlc), .. } => Some(Timestamp::from(*hlc)),
+            _ => None,
+        },
+        _ => None,
+    }
+    .or_else(|| {
+        body.attachment_message()
+            .map(|message| Timestamp::from(message.hlc))
+    })
+}
+
+struct OutboundMessage {
+    key: MessageKey,
+    generation: [u8; 16],
+    timed_text: Option<Timestamp>,
+}
+
+impl OutboundMessage {
+    fn new(sender: VerifiedChatSender<'_>, body: &Body) -> Result<Self, Error> {
+        let (id, generation) = outbound_ids(body)?;
+        Ok(Self {
+            key: MessageKey {
+                group: sender.group.to_vec(),
+                author: sender.author.to_owned(),
+                id: *id,
+            },
+            generation: *generation,
+            timed_text: timed_text(body),
+        })
+    }
+
+    fn validate_operation(tx: &Transaction<'_>, body: &Body) -> Result<(), Error> {
+        if let Body::Edit { hlc, .. } | Body::Delete { hlc, .. } = body {
+            if Timestamp::from(*hlc) <= load_hlc(tx)? {
+                return Err(Error::InboxConflict);
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_timed_text(&self, tx: &Transaction<'_>, wall_ms: u64) -> Result<(), Error> {
+        let Some(hlc) = self.timed_text else {
+            return Ok(());
+        };
+        if hlc <= load_hlc(tx)? {
+            return Err(Error::InboxConflict);
+        }
+        if hlc.wall_ms() > wall_ms.saturating_add(MAX_CLOCK_SKEW_MS) {
+            return Err(Error::ClockSkew(ClockSkew {
+                remote_ms: hlc.wall_ms(),
+                local_ms: wall_ms,
+            }));
+        }
+        i64::try_from(u64::from(hlc)).map_err(|_| Error::ClockRange)?;
+        Ok(())
+    }
+
+    fn allow(
+        &self,
+        tx: &Transaction<'_>,
+        owner: &str,
+        sender: VerifiedChatSender<'_>,
+        body: &Body,
+    ) -> Result<(), Error> {
+        if body.is_media_message() {
+            if !conversations::on_attachment(tx, owner, sender.group, sender.author, self.key.id)? {
+                return Err(Error::RequestPending);
+            }
+        } else if matches!(body, Body::Text { .. } | Body::Forwarded(_)) {
+            conversations::on_text(tx, owner, sender.group, sender.author, self.key.id, true)?;
+        } else if !conversations::allows_operation(
+            tx,
+            owner,
+            sender.group,
+            sender.author,
+            self.key.id,
+        )? {
+            return Err(Error::ChatClosed);
+        }
+        Ok(())
+    }
+
+    fn link_outbox(
+        &self,
+        tx: &Transaction<'_>,
+        writes: &[PreparedEnvelope],
+        group: &[u8],
+    ) -> Result<(), Error> {
+        for write in writes {
+            let linked = tx.execute(
+                "UPDATE `outbox` SET `chat_group` = ?3, `chat_message_id` = ?4,
+                 `chat_generation_id` = ?5 WHERE `mailbox` = ?1 AND `envelope_id` = ?2
+                 AND (`chat_group` IS NULL OR `chat_group` = ?3)
+                 AND (`chat_message_id` IS NULL OR `chat_message_id` = ?4)
+                 AND (`chat_generation_id` IS NULL OR `chat_generation_id` = ?5)",
+                params![
+                    write.mailbox().as_slice(),
+                    write.id().as_slice(),
+                    group,
+                    self.key.id.as_slice(),
+                    self.generation.as_slice()
+                ],
+            )?;
+            if linked != 1 {
+                return Err(Error::OutboxConflict);
+            }
+        }
+        Ok(())
+    }
+
+    fn record(
+        &self,
+        tx: &Transaction<'_>,
+        owner: &str,
+        sender: VerifiedChatSender<'_>,
+        body: &Body,
+        wall_ms: u64,
+    ) -> Result<bool, Error> {
+        if let Body::Sticker(sticker) = body {
+            Store::record_chat_sticker_tx(tx, owner, sender, sticker, false)
+        } else if body.attachment_message().is_some() {
+            Store::record_chat_attachment_tx(tx, owner, sender, body, false)
+        } else {
+            match body {
+                Body::Text { hlc, text, .. } => {
+                    Store::record_chat_text_tx(tx, &self.key, text, *hlc, false, false)
+                }
+                Body::Forwarded(inner) => match inner.as_ref() {
+                    Body::Text { hlc, text, .. } => {
+                        Store::record_chat_text_tx(tx, &self.key, text, *hlc, false, true)
+                    }
+                    _ => unreachable!(),
+                },
+                Body::Edit { .. } | Body::Delete { .. } => {
+                    Store::apply_chat_operation_tx(tx, &self.key, sender.device, body, wall_ms)
+                }
+                _ => unreachable!(),
+            }
+        }
+    }
+
+    fn set_delivery(
+        &self,
+        tx: &Transaction<'_>,
+        owner: &str,
+        group: &[u8],
+        media: bool,
+    ) -> Result<(), Error> {
+        let updated = if media {
+            tx.execute(
+                "UPDATE `chat_attachments` SET `delivery_generation` = ?4, `delivery_state` = 0
+                 WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
+                params![
+                    group,
+                    owner,
+                    self.key.id.as_slice(),
+                    self.generation.as_slice()
+                ],
+            )?
+        } else {
+            tx.execute(
+                "UPDATE `chat_messages` SET `delivery_generation` = ?4, `delivery_state` = 0
+                 WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
+                params![
+                    group,
+                    owner,
+                    self.key.id.as_slice(),
+                    self.generation.as_slice()
+                ],
+            )?
+        };
+        if updated != 1 {
+            return Err(Error::InboxConflict);
+        }
+        Ok(())
+    }
+}
+
 impl Store {
     /// Draft the original time for one text without changing durable state. The staged MLS
     /// body and the outbox commit must use this exact value.
@@ -350,108 +553,13 @@ impl Store {
         if sender.author != owner || sender.group.is_empty() || sender.device.len() != 32 {
             return Err(Error::InboxConflict);
         }
-        let (id, generation) = match body {
-            Body::Text { id, .. } => (id, id),
-            Body::Attachment(message) => (&message.id, &message.id),
-            Body::Sticker(sticker) => (&sticker.id, &sticker.id),
-            Body::Forwarded(inner) => match inner.as_ref() {
-                Body::Text { id, .. } => (id, id),
-                Body::Attachment(message) => (&message.id, &message.id),
-                _ => return Err(Error::InboxConflict),
-            },
-            Body::Edit {
-                target, operation, ..
-            }
-            | Body::Delete {
-                target, operation, ..
-            } => (target, operation),
-            _ => return Err(Error::InboxConflict),
-        };
-        let key = MessageKey {
-            group: sender.group.to_vec(),
-            author: sender.author.to_owned(),
-            id: *id,
-        };
-        if let Body::Edit { hlc, .. } | Body::Delete { hlc, .. } = body {
-            if Timestamp::from(*hlc) <= load_hlc(tx)? {
-                return Err(Error::InboxConflict);
-            }
-        }
-        let timed_text = match body {
-            Body::Text { hlc: Some(hlc), .. } => Some(Timestamp::from(*hlc)),
-            Body::Sticker(sticker) => Some(Timestamp::from(sticker.hlc)),
-            Body::Forwarded(inner) => match inner.as_ref() {
-                Body::Text { hlc: Some(hlc), .. } => Some(Timestamp::from(*hlc)),
-                _ => None,
-            },
-            _ => None,
-        }
-        .or_else(|| {
-            body.attachment_message()
-                .map(|message| Timestamp::from(message.hlc))
-        });
-        if let Some(hlc) = timed_text {
-            if hlc <= load_hlc(tx)? {
-                return Err(Error::InboxConflict);
-            }
-            if hlc.wall_ms() > wall_ms.saturating_add(MAX_CLOCK_SKEW_MS) {
-                return Err(Error::ClockSkew(ClockSkew {
-                    remote_ms: hlc.wall_ms(),
-                    local_ms: wall_ms,
-                }));
-            }
-            i64::try_from(u64::from(hlc)).map_err(|_| Error::ClockRange)?;
-        }
-        if body.is_media_message() {
-            if !conversations::on_attachment(tx, owner, sender.group, sender.author, *id)? {
-                return Err(Error::RequestPending);
-            }
-        } else if matches!(body, Body::Text { .. } | Body::Forwarded(_)) {
-            conversations::on_text(tx, owner, sender.group, sender.author, *id, true)?;
-        } else if !conversations::allows_operation(tx, owner, sender.group, sender.author, *id)? {
-            return Err(Error::ChatClosed);
-        }
+        let message = OutboundMessage::new(sender, body)?;
+        OutboundMessage::validate_operation(tx, body)?;
+        message.validate_timed_text(tx, wall_ms)?;
+        message.allow(tx, owner, sender, body)?;
         Self::stage_outbound_tx(tx, None, sealed_device, writes, true)?;
-        for write in writes {
-            let linked = tx.execute(
-                "UPDATE `outbox` SET `chat_group` = ?3, `chat_message_id` = ?4,
-                 `chat_generation_id` = ?5 WHERE `mailbox` = ?1 AND `envelope_id` = ?2
-                 AND (`chat_group` IS NULL OR `chat_group` = ?3)
-                 AND (`chat_message_id` IS NULL OR `chat_message_id` = ?4)
-                 AND (`chat_generation_id` IS NULL OR `chat_generation_id` = ?5)",
-                params![
-                    write.mailbox().as_slice(),
-                    write.id().as_slice(),
-                    sender.group,
-                    id.as_slice(),
-                    generation.as_slice()
-                ],
-            )?;
-            if linked != 1 {
-                return Err(Error::OutboxConflict);
-            }
-        }
-        let changed = if let Body::Sticker(sticker) = body {
-            Self::record_chat_sticker_tx(tx, owner, sender, sticker, false)?
-        } else if body.attachment_message().is_some() {
-            Self::record_chat_attachment_tx(tx, owner, sender, body, false)?
-        } else {
-            match body {
-                Body::Text { hlc, text, .. } => {
-                    Self::record_chat_text_tx(tx, &key, text, *hlc, false, false)?
-                }
-                Body::Forwarded(inner) => match inner.as_ref() {
-                    Body::Text { hlc, text, .. } => {
-                        Self::record_chat_text_tx(tx, &key, text, *hlc, false, true)?
-                    }
-                    _ => unreachable!(),
-                },
-                Body::Edit { .. } | Body::Delete { .. } => {
-                    Self::apply_chat_operation_tx(tx, &key, sender.device, body, wall_ms)?
-                }
-                _ => unreachable!(),
-            }
-        };
+        message.link_outbox(tx, writes, sender.group)?;
+        let changed = message.record(tx, owner, sender, body, wall_ms)?;
         // An outbound action must change local state; replay uses the exact existing outbox write.
         if !changed {
             return Err(Error::InboxConflict);
@@ -459,23 +567,8 @@ impl Store {
         if let Body::Sticker(sticker) = body {
             super::sticker_packs::recents::record(tx, sticker)?;
         }
-        let updated = if body.is_media_message() {
-            tx.execute(
-                "UPDATE `chat_attachments` SET `delivery_generation` = ?4, `delivery_state` = 0
-                 WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
-                params![sender.group, owner, id.as_slice(), generation.as_slice()],
-            )?
-        } else {
-            tx.execute(
-                "UPDATE `chat_messages` SET `delivery_generation` = ?4, `delivery_state` = 0
-                 WHERE `group_id` = ?1 AND `author` = ?2 AND `message_id` = ?3",
-                params![sender.group, owner, id.as_slice(), generation.as_slice()],
-            )?
-        };
-        if updated != 1 {
-            return Err(Error::InboxConflict);
-        }
-        if let Some(hlc) = timed_text {
+        message.set_delivery(tx, owner, sender.group, body.is_media_message())?;
+        if let Some(hlc) = message.timed_text {
             save_hlc(tx, hlc)?;
         }
         Ok(())
