@@ -628,6 +628,71 @@ mod tests {
         assert_eq!(peers, [a.peer_id()]);
     }
 
+    async fn second_search_node(
+        uncached: &Identity,
+        cached: &Identity,
+        unprompted: &Identity,
+    ) -> (Node, Requests) {
+        // 51 uncached hits: two gets. uncached was not asked for; cached is newer and no longer fits.
+        let mut hits: Vec<_> = (0..51u8).map(|n| hit(vec![n; 32], 1)).collect();
+        // A whole reply that misses keys is not asked again.
+        hits[0] = hit(key(unprompted), 1);
+        hits.insert(0, hit(key(cached), 4));
+        let mut responses = vec![
+            ok(hits, Vec::new(), false),
+            ok(
+                Vec::new(),
+                vec![
+                    record(uncached, 1, 30),
+                    record(cached, 4, 30),
+                    record(unprompted, 1, 30),
+                ],
+                false,
+            ),
+            ok(Vec::new(), Vec::new(), false),
+        ]
+        .into_iter();
+        fake(move |_| responses.next().unwrap()).await
+    }
+
+    async fn assert_merged_search(
+        nodes: &mut [Node],
+        conditions: &[Condition],
+        cache: &Profiles,
+        blocked: &[String],
+        one_asked: &Requests,
+        two_asked: &Requests,
+        identities: &[Identity; 8],
+    ) {
+        let [newer, _, _, _, cached, older, missing, unprompted] = identities;
+        let search = search(nodes, conditions, 0, 0, cache, blocked);
+        let found = tokio::time::timeout(Duration::from_secs(10), search)
+            .await
+            .unwrap();
+        assert!(found.partial); // One node failed and two get replies omitted keys.
+        let mut found: Vec<_> = found
+            .profiles
+            .iter()
+            .map(|p| (p.peer_id.clone(), p.profile.version))
+            .collect();
+        found.sort();
+        let mut expected = vec![
+            (newer.peer_id(), 2),
+            (older.peer_id(), 5),
+            (unprompted.peer_id(), 1),
+        ];
+        expected.sort();
+        assert_eq!(found, expected);
+        let one_gets = gets(one_asked);
+        assert_eq!(one_gets.len(), 3);
+        assert_eq!(one_gets[0], [key(newer), key(older), key(missing)]);
+        assert_eq!(one_gets[1].len(), 2);
+        assert_eq!(one_gets[2], [key(missing)]);
+        let two_gets = gets(two_asked);
+        assert_eq!(two_gets.iter().map(Vec::len).collect::<Vec<_>>(), [50, 1]);
+        assert!(!two_gets.concat().contains(&key(cached)));
+    }
+
     #[tokio::test]
     #[expect(
         clippy::many_single_char_names,
@@ -658,22 +723,7 @@ mod tests {
         ]
         .into_iter();
         let (one, one_asked) = fake(move |_| first.next().unwrap()).await;
-        // 51 uncached hits: two gets. d was not asked for; e is cached newer and no longer fits.
-        let mut hits: Vec<_> = (0..51u8).map(|n| hit(vec![n; 32], 1)).collect();
-        // A whole reply that misses keys is not asked again.
-        hits[0] = hit(key(&h), 1);
-        hits.insert(0, hit(key(&e), 4));
-        let mut second = vec![
-            ok(hits, Vec::new(), false),
-            ok(
-                Vec::new(),
-                vec![record(&d, 1, 30), record(&e, 4, 30), record(&h, 1, 30)],
-                false,
-            ),
-            ok(Vec::new(), Vec::new(), false),
-        ]
-        .into_iter();
-        let (two, two_asked) = fake(move |_| second.next().unwrap()).await;
+        let (two, two_asked) = second_search_node(&d, &e, &h).await;
         let (down, _) = fake(|_| SearchResponse {
             status: Status::Denied.into(),
             ..SearchResponse::default()
@@ -688,28 +738,17 @@ mod tests {
         let mut nodes = vec![one, two, down].into_boxed_slice();
         // Blocked: b is cached and c would be fetched.
         let blocked = [b.peer_id(), c.peer_id()];
-        let search = search(&mut nodes, &conditions, 0, 0, &cache, &blocked);
-        let found = tokio::time::timeout(Duration::from_secs(10), search)
-            .await
-            .unwrap();
-        assert!(found.partial); // One node failed and two get replies omitted keys.
-        let mut found: Vec<_> = found
-            .profiles
-            .iter()
-            .map(|p| (p.peer_id.clone(), p.profile.version))
-            .collect();
-        found.sort();
-        let mut expected = vec![(a.peer_id(), 2), (f.peer_id(), 5), (h.peer_id(), 1)];
-        expected.sort();
-        assert_eq!(found, expected);
-        let one_gets = gets(&one_asked);
-        assert_eq!(one_gets.len(), 3);
-        assert_eq!(one_gets[0], [key(&a), key(&f), key(&g)]);
-        assert_eq!(one_gets[1].len(), 2);
-        assert_eq!(one_gets[2], [key(&g)]);
-        let two_gets = gets(&two_asked);
-        assert_eq!(two_gets.iter().map(Vec::len).collect::<Vec<_>>(), [50, 1]);
-        assert!(!two_gets.concat().contains(&key(&e)));
+        let identities = [a, b, c, d, e, f, g, h];
+        assert_merged_search(
+            &mut nodes,
+            &conditions,
+            &cache,
+            &blocked,
+            &one_asked,
+            &two_asked,
+            &identities,
+        )
+        .await;
     }
 
     #[tokio::test]
