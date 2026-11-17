@@ -67,7 +67,7 @@ fn stale_wrong_unsolicited_or_disallowed_request_never_publishes() {
         .save_requested_sticker_pack(&[7; 32], &[9], &stale, &pack)
         .is_err());
     stale = job.clone();
-    stale.peer = Identity::generate().peer_id();
+    stale.peer = Identity::try_generate().unwrap().peer_id();
     assert!(store
         .save_requested_sticker_pack(&[7; 32], &[9], &stale, &pack)
         .is_err());

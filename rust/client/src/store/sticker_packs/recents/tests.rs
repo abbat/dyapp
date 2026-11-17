@@ -7,8 +7,8 @@ use crate::{
 use dyapp_identity::Identity;
 
 fn fixture() -> (Store, Identity, std::path::PathBuf, String) {
-    let owner = Identity::generate();
-    let peer = Identity::generate().peer_id();
+    let owner = Identity::try_generate().unwrap();
+    let peer = Identity::try_generate().unwrap().peer_id();
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../build/recent-sticker-tests")
         .join(owner.peer_id());

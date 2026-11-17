@@ -7,7 +7,7 @@ fn store(owner: &str, path: Option<&Path>) -> Store {
         .join("../../build")
         .join(format!(
             "saved-pack-test-{}",
-            dyapp_identity::Identity::generate().peer_id()
+            dyapp_identity::Identity::try_generate().unwrap().peer_id()
         ));
     let path = if let Some(path) = path {
         path.to_path_buf()

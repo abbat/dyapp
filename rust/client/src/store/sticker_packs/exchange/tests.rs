@@ -14,8 +14,8 @@ pub(super) fn database() -> (Store, Identity, std::path::PathBuf, String) {
     let directory = root.join(format!("{:032x}", u128::from_be_bytes(random)));
     std::fs::create_dir(&directory).unwrap();
     let path = directory.join("client.db");
-    let owner = Identity::generate();
-    let peer = Identity::generate().peer_id();
+    let owner = Identity::try_generate().unwrap();
+    let peer = Identity::try_generate().unwrap().peer_id();
     let mut store = Store::open(&path, &owner).unwrap();
     catalog_group(&mut store, &[9], &peer);
     store

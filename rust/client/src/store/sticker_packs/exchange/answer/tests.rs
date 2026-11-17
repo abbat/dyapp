@@ -43,7 +43,7 @@ fn stage(
 }
 
 fn cross_peer(store: &mut Store) -> String {
-    let stranger = dyapp_identity::Identity::generate().peer_id();
+    let stranger = dyapp_identity::Identity::try_generate().unwrap().peer_id();
     crate::store::tests::catalog_group(store, &[10], &stranger);
     store
         .db

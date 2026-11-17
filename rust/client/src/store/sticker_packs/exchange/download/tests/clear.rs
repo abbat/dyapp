@@ -11,7 +11,7 @@ fn full_clear_releases_pending_quota_and_late_answers_cannot_restart_intent() {
     for id in 2..=63 {
         request(&mut store, &peer, id);
     }
-    let other = dyapp_identity::Identity::generate().peer_id();
+    let other = dyapp_identity::Identity::try_generate().unwrap().peer_id();
     // Independent peer metadata makes the global pending cap full.
     store.db.execute(
         "INSERT INTO `sticker_pack_requests` (`peer_id`, `pack_id`, `sticker_hash`, `request_token`) VALUES (?1, ?2, ?3, ?4)",

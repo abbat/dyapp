@@ -10,7 +10,7 @@ fn database() -> (Store, Identity, std::path::PathBuf) {
     let mut random = [0; 16];
     getrandom::fill(&mut random).unwrap();
     let path = root.join(format!("{:032x}.db", u128::from_be_bytes(random)));
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     (Store::open(&path, &owner).unwrap(), owner, path)
 }
 fn candidate(byte: u8, size: usize) -> Attachment {
