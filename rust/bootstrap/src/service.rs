@@ -479,6 +479,27 @@ impl Service {
         }
     }
 
+    fn enabled_roles(roles: [(bool, proto::Role); 4]) -> Vec<i32> {
+        roles
+            .into_iter()
+            .filter_map(|(on, role)| on.then_some(role.into()))
+            .collect()
+    }
+
+    fn capabilities(&self, store: bool, search: bool) -> Vec<i32> {
+        [
+            (store, proto::Capability::ProfileHeartbeat),
+            (search, proto::Capability::SearchPuzzle),
+            (
+                self.config.network.share_deny_list,
+                proto::Capability::SharedDenyList,
+            ),
+        ]
+        .into_iter()
+        .filter_map(|(on, capability)| on.then_some(capability.into()))
+        .collect()
+    }
+
     fn info(&self) -> NodeInfo {
         let store = self.config.roles.contains(&Role::Store);
         let media = self.media.is_some();
@@ -489,17 +510,13 @@ impl Service {
         } else {
             ([0; 16], 0)
         };
-        let roles = [
-            (store, proto::Role::Store),
-            (media, proto::Role::Media),
-            (search, proto::Role::Search),
-            (turn, proto::Role::Turn),
-        ];
         NodeInfo {
-            roles: roles
-                .into_iter()
-                .filter_map(|(on, role)| on.then_some(role.into()))
-                .collect(),
+            roles: Self::enabled_roles([
+                (store, proto::Role::Store),
+                (media, proto::Role::Media),
+                (search, proto::Role::Search),
+                (turn, proto::Role::Turn),
+            ]),
             max_media_bytes: if media { MAX_MEDIA_BYTES as u64 } else { 0 },
             max_profile_bytes: if store { PROFILE_SEND_BYTES as u64 } else { 0 },
             max_message_bytes: if store { MAX_ENVELOPE_BYTES as u64 } else { 0 },
@@ -532,17 +549,7 @@ impl Service {
             puzzle_bits: puzzle.1,
             puzzle_challenge: if search { puzzle.0.to_vec() } else { vec![] },
             server_time: self.clock.unix_secs(),
-            capabilities: [
-                (store, proto::Capability::ProfileHeartbeat),
-                (search, proto::Capability::SearchPuzzle),
-                (
-                    self.config.network.share_deny_list,
-                    proto::Capability::SharedDenyList,
-                ),
-            ]
-            .into_iter()
-            .filter_map(|(on, capability)| on.then_some(capability.into()))
-            .collect(),
+            capabilities: self.capabilities(store, search),
         }
     }
 
@@ -796,6 +803,39 @@ impl Service {
         Ok(response)
     }
 
+    fn check_profile_pow(
+        &self,
+        record: &SignedRecord,
+        profile: &dyapp_profile::Profile,
+        check_pow: &impl Fn(&PowCheck) -> Option<bool>,
+    ) -> Option<ProfileResponse> {
+        let minimum = self.config.search.min_profile_pow_bits;
+        if profile.pow_bits < minimum {
+            return Some(ProfileResponse {
+                required_pow_bits: minimum,
+                ..reply(Status::Invalid, None)
+            });
+        }
+        // Zero difficulty needs no hash. Every positive claim must be checked, even on a
+        // zero-minimum test network, or a forged claim could enter a store.
+        if profile.pow_bits > 0 {
+            let check = PowCheck {
+                key: record.public_key.as_slice().try_into().unwrap_or_default(),
+                nonce: profile.pow_nonce,
+                bits: profile.pow_bits,
+                day: None,
+            };
+            if !self.pow.confirmed(&check) {
+                match check_pow(&check) {
+                    Some(true) => {}
+                    Some(false) => return Some(reply(Status::Denied, None)),
+                    None => return Some(reply(Status::RateLimited, None)),
+                }
+            }
+        }
+        None
+    }
+
     fn publish(
         &self,
         record: &SignedRecord,
@@ -816,29 +856,8 @@ impl Service {
             Err(_) => return Ok(reply(Status::Invalid, None)),
         };
         let profile = &verified.profile;
-        let minimum = self.config.search.min_profile_pow_bits;
-        if profile.pow_bits < minimum {
-            return Ok(ProfileResponse {
-                required_pow_bits: minimum,
-                ..reply(Status::Invalid, None)
-            });
-        }
-        // Zero difficulty needs no hash. Every positive claim must be checked, even on a
-        // zero-minimum test network, or a forged claim could enter a store.
-        if profile.pow_bits > 0 {
-            let check = PowCheck {
-                key: record.public_key.as_slice().try_into().unwrap_or_default(),
-                nonce: profile.pow_nonce,
-                bits: profile.pow_bits,
-                day: None,
-            };
-            if !self.pow.confirmed(&check) {
-                match check_pow(&check) {
-                    Some(true) => {}
-                    Some(false) => return Ok(reply(Status::Denied, None)),
-                    None => return Ok(reply(Status::RateLimited, None)),
-                }
-            }
+        if let Some(response) = self.check_profile_pow(record, profile, check_pow) {
+            return Ok(response);
         }
         if !store {
             // Reject revival before replica fan-out: otherwise an isolated node waits for
