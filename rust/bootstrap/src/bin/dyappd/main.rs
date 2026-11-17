@@ -54,28 +54,75 @@ fn usage() -> (&'static str, &'static str) {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let Some(arguments) = parse_args()? else {
+        return Ok(());
+    };
+    let Arguments {
+        file,
+        options,
+        command,
+    } = arguments;
+    // A subcommand prints its result to stdout, so its logs go to stderr.
+    if command.is_empty() {
+        tracing_subscriber::fmt::init();
+    } else {
+        tracing_subscriber::fmt()
+            .with_writer(std::io::stderr)
+            .init();
+    }
+    let file = file.or_else(default_file);
+    let (mut config, ignored) = NodeConfig::load(file.as_deref(), std::env::vars(), &options)?;
+    for key in ignored {
+        tracing::warn!("unknown config key ignored: {key}");
+    }
+    let command: Vec<&str> = command.iter().map(String::as_str).collect();
+    if let Some(output) = client::run(&config.network.name, &command).await? {
+        println!("{output}");
+        return Ok(());
+    }
+    configure_node(&mut config, &command)?;
+    if !command.is_empty() {
+        run_command(&config, &command).await?;
+        return Ok(());
+    }
+    tracing::info!(file = ?file, "config");
+    node::open(config).await?.run().await;
+    Ok(())
+}
+
+struct Arguments {
+    file: Option<PathBuf>,
+    options: Vec<(String, String)>,
+    command: Vec<String>,
+}
+
+fn print_help() {
+    let (usage, client_usage) = usage();
+    if russian_locale() {
+        print!(
+            "{usage}\n{client_usage}\n\nБез --config читается первый существующий файл: \
+             ./dyappd.toml, ~/dyappd.toml или /etc/dyappd.toml. Параметры командной строки \
+             переопределяют файл и переменные DYAPPD_; для каждого элемента списка укажите \
+             параметр отдельно. Значения по умолчанию:\n{}",
+            options_help_russian()
+        );
+    } else {
+        print!(
+            "{usage}\n{client_usage}\n\nWithout --config the first of ./dyappd.toml, ~/dyappd.toml and \
+             /etc/dyappd.toml that exists is read. Options override the config file and \
+             DYAPPD_ variables; a list option is given once per item. Defaults:\n{}",
+            options_help()
+        );
+    }
+}
+
+fn parse_args() -> anyhow::Result<Option<Arguments>> {
     let (mut file, mut options, mut command) = (None, Vec::new(), Vec::new());
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         if arg == "-h" || arg == "--help" {
-            let (usage, client_usage) = usage();
-            if russian_locale() {
-                print!(
-                    "{usage}\n{client_usage}\n\nБез --config читается первый существующий файл: \
-                     ./dyappd.toml, ~/dyappd.toml или /etc/dyappd.toml. Параметры командной строки \
-                     переопределяют файл и переменные DYAPPD_; для каждого элемента списка укажите \
-                     параметр отдельно. Значения по умолчанию:\n{}",
-                    options_help_russian()
-                );
-            } else {
-                print!(
-                    "{usage}\n{client_usage}\n\nWithout --config the first of ./dyappd.toml, ~/dyappd.toml and \
-                     /etc/dyappd.toml that exists is read. Options override the config file and \
-                     DYAPPD_ variables; a list option is given once per item. Defaults:\n{}",
-                    options_help()
-                );
-            }
-            return Ok(());
+            print_help();
+            return Ok(None);
         }
         let Some(option) = arg.strip_prefix("--") else {
             command.push(arg);
@@ -98,24 +145,14 @@ async fn main() -> anyhow::Result<()> {
             options.push((key, value));
         }
     }
-    // A subcommand prints its result to stdout, so its logs go to stderr.
-    if command.is_empty() {
-        tracing_subscriber::fmt::init();
-    } else {
-        tracing_subscriber::fmt()
-            .with_writer(std::io::stderr)
-            .init();
-    }
-    let file = file.or_else(default_file);
-    let (mut config, ignored) = NodeConfig::load(file.as_deref(), std::env::vars(), &options)?;
-    for key in ignored {
-        tracing::warn!("unknown config key ignored: {key}");
-    }
-    let command: Vec<&str> = command.iter().map(String::as_str).collect();
-    if let Some(output) = client::run(&config.network.name, &command).await? {
-        println!("{output}");
-        return Ok(());
-    }
+    Ok(Some(Arguments {
+        file,
+        options,
+        command,
+    }))
+}
+
+fn configure_node(config: &mut NodeConfig, command: &[&str]) -> anyhow::Result<()> {
     config.resolve_secrets()?;
     config.validate()?;
     // Keeps the node key out of core dumps and away from ptrace by the user's other processes.
@@ -137,7 +174,11 @@ async fn main() -> anyhow::Result<()> {
             );
         }
     }
-    match command.as_slice() {
+    Ok(())
+}
+
+async fn run_command(config: &NodeConfig, command: &[&str]) -> anyhow::Result<()> {
+    match command {
         [] => {}
         ["keygen"] => println!("{}", config.keygen(None)?),
         ["keygen", "-"] => {
@@ -152,27 +193,22 @@ async fn main() -> anyhow::Result<()> {
             );
             eprintln!("{}", config.keygen(Some(&mut stdout))?);
         }
-        ["id"] => print!("{}", id(&config)?),
+        ["id"] => print!("{}", id(config)?),
         ["probe-key"] => println!("{}", config.node_key()?.public().to_peer_id()),
         ["status"] => {
-            let running = running(&config).await;
-            print!("{}", status(&config, running));
+            let running = running(config).await;
+            print!("{}", status(config, running));
             if !running {
                 // The LSB status code for "not running".
                 std::process::exit(3);
             }
         }
-        ["deny", rest @ ..] => deny(&config, rest)?,
+        ["deny", rest @ ..] => deny(config, rest)?,
         _ => {
             let (usage, client_usage) = usage();
             anyhow::bail!("{usage}\n{client_usage}")
         }
     }
-    if !command.is_empty() {
-        return Ok(());
-    }
-    tracing::info!(file = ?file, "config");
-    node::open(config).await?.run().await;
     Ok(())
 }
 
