@@ -91,7 +91,7 @@ impl Blob {
             .iter()
             .map(|(index, data)| (*index, data.clone()))
             .collect::<Vec<_>>();
-        match media_decode(self.manifest.as_ref().unwrap(), &shards) {
+        match media_decode(self.manifest.as_ref()?, &shards) {
             Ok(data) => Some(data),
             Err(error) => {
                 self.decode_failed(media, &error);
@@ -106,7 +106,10 @@ impl Blob {
             return false;
         };
         self.data = Some(data);
-        match media_encode(self.data.as_ref().unwrap()) {
+        let Some(data) = self.data.as_ref() else {
+            return false;
+        };
+        match media_encode(data) {
             Ok((manifest, shards)) => {
                 self.manifest = Some(manifest);
                 self.encoded = shards;
@@ -135,7 +138,11 @@ impl Repair {
     pub(super) fn prepare_active(&mut self, service: &Service) -> bool {
         let history = &self.history;
         let blob = &mut self.blobs[self.active];
-        blob.local(service.media.as_ref().unwrap());
+        let Some(media) = service.media.as_ref() else {
+            self.clear_active();
+            return false;
+        };
+        blob.local(media);
         if !blob.recoverable() {
             self.clear_active();
             return false;
@@ -184,7 +191,11 @@ impl Repair {
 
     fn fetch_shards(&mut self, service: &Service, me: PeerId) -> Step {
         let blob = &mut self.blobs[self.active];
-        let count = blob.manifest.as_ref().unwrap().data_shards().unwrap();
+        let Some(count) = blob.manifest.as_ref().and_then(MediaManifestExt::data_shards) else {
+            blob.missing = true;
+            self.clear_active();
+            return Step::Retry;
+        };
         if blob.shards.len() < count {
             let jobs = blob.shard_jobs(self.active, me);
             if !jobs.is_empty() {
@@ -194,7 +205,11 @@ impl Repair {
                 return Step::Wait;
             }
             blob.missing = true;
-        } else if blob.rebuild(service.media.as_ref().unwrap()) {
+        } else if service
+            .media
+            .as_ref()
+            .is_some_and(|media| blob.rebuild(media))
+        {
             return Step::Ready;
         }
         self.clear_active();

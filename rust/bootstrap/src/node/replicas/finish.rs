@@ -9,7 +9,9 @@ fn written(put: &PendingPut, profiles: &mut Vec<SignedRecord>, media: &mut Vec<V
     match &put.record {
         PutRecord::Media(replica) => media.push(dyapp_identity::sha256(&replica.data).to_vec()),
         PutRecord::Sharded(replica, _) => {
-            media.push(replica.manifest.as_ref().unwrap().hash.clone());
+            if let Some(manifest) = &replica.manifest {
+                media.push(manifest.hash.clone());
+            }
         }
         PutRecord::Profile(record) => {
             profiles.push(put.stale.clone().unwrap_or_else(|| record.clone()));
