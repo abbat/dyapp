@@ -65,6 +65,29 @@ impl Replicas {
         .fold(0usize, usize::saturating_add)
     }
 
+    fn merge_repaired_keep(
+        &mut self,
+        service: &Service,
+        record: &SignedRecord,
+        response: &mut proto::MediaResponse,
+        now: Instant,
+    ) {
+        let Ok(keep) = proto::MediaKeep::decode(record.payload.as_slice()) else {
+            return;
+        };
+        for hash in &keep.hashes {
+            if service.listed(hash) {
+                continue;
+            }
+            if let Some(missing) = self.media_repaired.result(hash, now) {
+                response.missing.retain(|held| held != hash);
+                if missing {
+                    response.missing.push(hash.clone());
+                }
+            }
+        }
+    }
+
     pub(super) fn repair_media(
         &mut self,
         swarm: &mut Swarm<Behaviour>,
@@ -84,18 +107,7 @@ impl Replicas {
                 self.media_repaired.forget(&hash);
             }
         }
-        let keep = proto::MediaKeep::decode(record.payload.as_slice()).unwrap();
-        for hash in &keep.hashes {
-            if service.listed(hash) {
-                continue;
-            }
-            if let Some(missing) = self.media_repaired.result(hash, now) {
-                response.missing.retain(|h| h != hash);
-                if missing {
-                    response.missing.push(hash.clone());
-                }
-            }
-        }
+        self.merge_repaired_keep(service, &record, &mut response, now);
         if let Some((_, answer)) = self
             .start_media_repair(swarm, service, record, now)
             .and_then(|id| self.media_repairs.get_mut(&id))
@@ -119,8 +131,10 @@ impl Replicas {
             return None;
         }
         let keep = proto::MediaKeep::decode(record.payload.as_slice()).ok()?;
-        let owner =
-            dyapp_identity::key_hash(&record.public_key.as_slice().try_into().unwrap()).to_vec();
+        let owner = dyapp_identity::key_hash(
+            &record.public_key.as_slice().try_into().ok()?,
+        )
+        .to_vec();
         let allowed: Vec<_> = keep
             .hashes
             .iter()
@@ -207,7 +221,9 @@ impl Replicas {
         }
         let mut finished = Vec::with_capacity(done.len());
         for id in done {
-            let (repair, mut answer) = self.media_repairs.remove(&id).unwrap();
+            let Some((repair, mut answer)) = self.media_repairs.remove(&id) else {
+                continue;
+            };
             let mut complete = repair.transferred();
             for (hash, missing) in repair.results() {
                 let missing = missing || service.listed(hash);
@@ -248,8 +264,10 @@ impl Replicas {
         let Ok(verified) = dyapp_profile::verify(&record) else {
             return Vec::new();
         };
-        let key =
-            dyapp_identity::key_hash(&record.public_key.as_slice().try_into().unwrap()).to_vec();
+        let Ok(key) = <[u8; 32]>::try_from(record.public_key.as_slice()) else {
+            return Vec::new();
+        };
+        let key = dyapp_identity::key_hash(&key).to_vec();
         self.profile_repaired.retain(|_, (at, _)| {
             at.checked_add(PROFILE_REPAIR_INTERVAL)
                 .is_none_or(|deadline| now < deadline)
@@ -300,8 +318,10 @@ impl Replicas {
         if to == *swarm.local_peer_id() || !self.trust.trusted(&to) {
             return Ok(None);
         }
-        let key =
-            dyapp_identity::key_hash(&record.public_key.as_slice().try_into().unwrap()).to_vec();
+        let Ok(key) = <[u8; 32]>::try_from(record.public_key.as_slice()) else {
+            return Ok(None);
+        };
+        let key = dyapp_identity::key_hash(&key).to_vec();
         let Some((_, sent)) = self.profile_repaired.get_mut(&key) else {
             return Ok(None);
         };
@@ -541,7 +561,9 @@ impl Replicas {
     ) {
         let count = self.media_queue.len();
         for _ in 0..count {
-            let (to, job) = self.media_queue.pop_front().unwrap();
+            let Some((to, job)) = self.media_queue.pop_front() else {
+                break;
+            };
             if !self.media_job_live(&job) {
                 continue;
             }
@@ -579,12 +601,10 @@ impl Replicas {
             shards: HashMap::new(),
         };
         for index in 0..read.manifest.shard_hashes.len() {
-            match service
-                .media
-                .as_ref()
-                .unwrap()
-                .shard(&read.manifest.hash, index)
-            {
+            let Some(media) = service.media.as_ref() else {
+                break;
+            };
+            match media.shard(&read.manifest.hash, index) {
                 Ok(Some(data)) if read.manifest.accepts(index, &data) => {
                     read.shards.insert(index, data);
                 }
@@ -594,12 +614,16 @@ impl Replicas {
         }
         let hash = read.manifest.hash.clone();
         let count = read.manifest.shard_hashes.len();
+        let required = read.manifest.data_shards().unwrap_or(0);
+        let stored = read.shards.len();
         self.media_reads.insert(id, read);
-        if self.media_reads[&id].shards.len()
-            < self.media_reads[&id].manifest.data_shards().unwrap()
-        {
+        if stored < required {
             for index in 0..count {
-                if self.media_reads[&id].shards.contains_key(&index) {
+                if self
+                    .media_reads
+                    .get(&id)
+                    .is_some_and(|read| read.shards.contains_key(&index))
+                {
                     continue;
                 }
                 let query = swarm
@@ -612,6 +636,32 @@ impl Replicas {
         self.finish_puts(swarm, service, service.clock.instant());
     }
 
+    fn read_response(
+        service: &Service,
+        manifest: &proto::MediaManifest,
+        get: &proto::GetMedia,
+        shards: &[(usize, Vec<u8>)],
+    ) -> proto::MediaResponse {
+        if manifest
+            .data_shards()
+            .is_none_or(|required| shards.len() < required)
+        {
+            return proto::MediaResponse {
+                status: Status::NotFound.into(),
+                ..Default::default()
+            };
+        }
+        service
+            .assemble_media(manifest, shards, get)
+            .unwrap_or_else(|error| {
+                tracing::error!(%error, "media assembly failed");
+                proto::MediaResponse {
+                    status: Status::NotFound.into(),
+                    ..Default::default()
+                }
+            })
+    }
+
     pub(super) fn finish_reads(
         &mut self,
         swarm: &mut Swarm<Behaviour>,
@@ -622,29 +672,19 @@ impl Replicas {
             .media_reads
             .iter()
             .filter_map(|(id, read)| {
-                (now >= read.deadline || read.shards.len() >= read.manifest.data_shards().unwrap())
-                    .then_some(*id)
+                let complete = read
+                    .manifest
+                    .data_shards()
+                    .is_some_and(|required| read.shards.len() >= required);
+                (now >= read.deadline || complete).then_some(*id)
             })
             .collect();
         for id in done {
-            let read = self.media_reads.remove(&id).unwrap();
-            let shards: Vec<_> = read.shards.into_iter().collect();
-            let response = if shards.len() >= read.manifest.data_shards().unwrap() {
-                service
-                    .assemble_media(&read.manifest, &shards, &read.get)
-                    .unwrap_or_else(|error| {
-                        tracing::error!(%error, "media assembly failed");
-                        proto::MediaResponse {
-                            status: Status::NotFound.into(),
-                            ..Default::default()
-                        }
-                    })
-            } else {
-                proto::MediaResponse {
-                    status: Status::NotFound.into(),
-                    ..Default::default()
-                }
+            let Some(read) = self.media_reads.remove(&id) else {
+                continue;
             };
+            let shards: Vec<_> = read.shards.into_iter().collect();
+            let response = Self::read_response(service, &read.manifest, &read.get, &shards);
             service
                 .traffic
                 .add(response.encoded_len().saturating_sub(response.data.len()) as u64);
