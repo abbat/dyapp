@@ -95,49 +95,48 @@ impl NodeConfig {
         )
     }
 
-    pub(super) fn load_key(&self, credentials: Option<&Path>) -> anyhow::Result<Keypair> {
-        let (key_path, check_mode) = self.storage.key_source(credentials);
-        let id_path = self.storage.dir.join("node.id");
-        let keypair = {
-            let mut file = match File::open(&key_path) {
-                Ok(file) => file,
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => anyhow::bail!(
-                    "{} {}",
-                    key_path.display(),
-                    message(
-                        "is missing: run `dyappd keygen` once and keep the key safe",
-                        "не найден: один раз выполните `dyappd keygen` и сохраните ключ в надёжном месте"
-                    )
-                ),
-                Err(e) => return Err(anyhow::anyhow!("{}: {e}", key_path.display())),
-            };
-            // Check the opened file, not a path that could be replaced before reading.
-            let metadata = file
-                .metadata()
-                .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?;
-            check_permissions(&metadata, check_mode, &key_path)?;
-            // Read into one fixed allocation: growing a Vec could leave freed secret copies.
-            let mut bytes = Zeroizing::new(vec![0; usize::try_from(metadata.len())?]);
-            file.read_exact(&mut bytes)
-                .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?;
-            let mut extra = Zeroizing::new([0u8; 1]);
-            if file
-                .read(&mut extra[..])
-                .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?
-                != 0
-            {
-                anyhow::bail!(
-                    "{} {}",
-                    key_path.display(),
-                    message(
-                        "grew while reading; retry startup",
-                        "изменился во время чтения; повторите запуск"
-                    )
-                );
-            }
-            Keypair::from_protobuf_encoding(&bytes)
-                .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?
+    fn read_key(key_path: &Path, check_mode: bool) -> anyhow::Result<Keypair> {
+        let mut file = match File::open(key_path) {
+            Ok(file) => file,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => anyhow::bail!(
+                "{} {}",
+                key_path.display(),
+                message(
+                    "is missing: run `dyappd keygen` once and keep the key safe",
+                    "не найден: один раз выполните `dyappd keygen` и сохраните ключ в надёжном месте"
+                )
+            ),
+            Err(e) => return Err(anyhow::anyhow!("{}: {e}", key_path.display())),
         };
+        // Check the opened file, not a path that could be replaced before reading.
+        let metadata = file
+            .metadata()
+            .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?;
+        check_permissions(&metadata, check_mode, key_path)?;
+        // Read into one fixed allocation: growing a Vec could leave freed secret copies.
+        let mut bytes = Zeroizing::new(vec![0; usize::try_from(metadata.len())?]);
+        file.read_exact(&mut bytes)
+            .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?;
+        let mut extra = Zeroizing::new([0u8; 1]);
+        if file
+            .read(&mut extra[..])
+            .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?
+            != 0
+        {
+            anyhow::bail!(
+                "{} {}",
+                key_path.display(),
+                message(
+                    "grew while reading; retry startup",
+                    "изменился во время чтения; повторите запуск"
+                )
+            );
+        }
+        Keypair::from_protobuf_encoding(&bytes)
+            .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))
+    }
+
+    fn validate_key(&self, key_path: &Path, keypair: &Keypair) -> anyhow::Result<()> {
         let peer_id = keypair.public().to_peer_id();
         if !dyapp_p2p_net::id_has_pow(&peer_id, self.network.id_pow_bits) {
             anyhow::bail!(
@@ -154,6 +153,7 @@ impl NodeConfig {
                 )
             );
         }
+        let id_path = self.storage.dir.join("node.id");
         let stored: PeerId = fs::read_to_string(&id_path)
             .map_err(|e| anyhow::anyhow!("{}: {e}", id_path.display()))?
             .trim()
@@ -171,6 +171,13 @@ impl NodeConfig {
                 )
             );
         }
+        Ok(())
+    }
+
+    pub(super) fn load_key(&self, credentials: Option<&Path>) -> anyhow::Result<Keypair> {
+        let (key_path, check_mode) = self.storage.key_source(credentials);
+        let keypair = Self::read_key(&key_path, check_mode)?;
+        self.validate_key(&key_path, &keypair)?;
         Ok(keypair)
     }
 }

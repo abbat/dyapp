@@ -26,6 +26,70 @@ pub(super) const DELETE_CLOSED: &str = "DELETE FROM `envelopes` WHERE `mailbox` 
 pub(super) const IS_REVOKED: &str = "SELECT EXISTS (SELECT 1 FROM `revoked` \
      WHERE `mailbox` = ? AND `token_key` = ? AND `expires_at` > ?)";
 
+fn revocation_fits(
+    tx: &rusqlite::Transaction<'_>,
+    mailbox: &[u8],
+    record: &[u8],
+    keys: &[Vec<u8>],
+) -> Result<bool> {
+    let count = |sql: &str| -> Result<i64> {
+        tx.query_row(sql, [mailbox], |row| row.get(0))
+            .map_err(storage_error)
+    };
+    let mut new = 0;
+    for key in keys {
+        let known: bool = tx
+            .query_row(
+                "SELECT EXISTS (SELECT 1 FROM `revoked` WHERE `mailbox` = ? AND `token_key` = ?)",
+                params![mailbox, key],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        new += i64::from(!known);
+    }
+    let stored: bool = tx
+        .query_row(
+            "SELECT EXISTS (SELECT 1 FROM `revokes` WHERE `mailbox` = ? AND `record` = ?)",
+            params![mailbox, record],
+            |row| row.get(0),
+        )
+        .map_err(storage_error)?;
+    Ok(
+        count("SELECT COUNT(*) FROM `revoked` WHERE `mailbox` = ?")? + new <= MAX_REVOKED
+            && (stored
+                || count("SELECT COUNT(*) FROM `revokes` WHERE `mailbox` = ?")? < MAX_REVOKED),
+    )
+}
+
+fn apply_revocations(
+    tx: &rusqlite::Transaction<'_>,
+    mailbox: &[u8],
+    record: &[u8],
+    keys: &[Vec<u8>],
+    expires_at: i64,
+) -> Result<()> {
+    for key in keys {
+        tx.execute(
+            "INSERT INTO `revoked` VALUES (?, ?, ?) ON CONFLICT (`mailbox`, `token_key`) \
+             DO UPDATE SET `expires_at` = MAX(`expires_at`, excluded.`expires_at`)",
+            params![mailbox, key, expires_at],
+        )
+        .map_err(storage_error)?;
+        if key.is_empty() {
+            tx.execute(DELETE_CLOSED, [mailbox])
+        } else {
+            tx.execute(DELETE_REVOKED, params![mailbox, key])
+        }
+        .map_err(storage_error)?;
+    }
+    tx.execute(
+        "INSERT OR IGNORE INTO `revokes` (`mailbox`, `record`, `expires_at`) VALUES (?, ?, ?)",
+        params![mailbox, record, expires_at],
+    )
+    .map_err(storage_error)?;
+    Ok(())
+}
+
 impl BootstrapStore {
     /// Revokes `keys` of `mailbox` until `expires_at` (a key revoked longer keeps its later
     /// expiry), keeps `record` for repair and deletes the stored envelopes of the keys; an empty
@@ -57,53 +121,10 @@ impl BootstrapStore {
             )
             .map_err(storage_error)?;
         }
-        let count = |sql: &str| -> Result<i64> {
-            tx.query_row(sql, [mailbox], |row| row.get(0))
-                .map_err(storage_error)
-        };
-        let mut new = 0;
-        for key in keys {
-            let known: bool = tx
-                .query_row(
-                    "SELECT EXISTS (SELECT 1 FROM `revoked` WHERE `mailbox` = ? AND `token_key` = ?)",
-                    params![mailbox, key],
-                    |row| row.get(0),
-                )
-                .map_err(storage_error)?;
-            new += i64::from(!known);
-        }
-        let stored: bool = tx
-            .query_row(
-                "SELECT EXISTS (SELECT 1 FROM `revokes` WHERE `mailbox` = ? AND `record` = ?)",
-                params![mailbox, record],
-                |row| row.get(0),
-            )
-            .map_err(storage_error)?;
-        if count("SELECT COUNT(*) FROM `revoked` WHERE `mailbox` = ?")? + new > MAX_REVOKED
-            || (!stored
-                && count("SELECT COUNT(*) FROM `revokes` WHERE `mailbox` = ?")? >= MAX_REVOKED)
-        {
+        if !revocation_fits(&tx, mailbox, &record, keys)? {
             return Ok(false);
         }
-        for key in keys {
-            tx.execute(
-                "INSERT INTO `revoked` VALUES (?, ?, ?) ON CONFLICT (`mailbox`, `token_key`) \
-                 DO UPDATE SET `expires_at` = MAX(`expires_at`, excluded.`expires_at`)",
-                params![mailbox, key, expires_at],
-            )
-            .map_err(storage_error)?;
-            if key.is_empty() {
-                tx.execute(DELETE_CLOSED, [mailbox])
-            } else {
-                tx.execute(DELETE_REVOKED, params![mailbox, key])
-            }
-            .map_err(storage_error)?;
-        }
-        tx.execute(
-            "INSERT OR IGNORE INTO `revokes` (`mailbox`, `record`, `expires_at`) VALUES (?, ?, ?)",
-            params![mailbox, record, expires_at],
-        )
-        .map_err(storage_error)?;
+        apply_revocations(&tx, mailbox, &record, keys, expires_at)?;
         tx.commit().map_err(storage_error)?;
         Ok(true)
     }
