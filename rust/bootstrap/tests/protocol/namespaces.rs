@@ -219,6 +219,30 @@ async fn peers_of_another_network_are_dropped_after_identify() {
 #[tokio::test]
 async fn named_node_serves_profile_search_and_configured_gossip_topics() {
     let protocols = std::sync::Arc::new(dyapp_p2p_net::Protocols::new("node-test").unwrap());
+    let (mut client, wire) = named_client(&protocols).await;
+    let owner = Identity::generate();
+    let key = dyapp_identity::key_hash(&owner.public_key());
+    let topic = protocols
+        .search_topic(dyapp_bootstrap::search::topic(&key))
+        .hash();
+    wait_topic_subscription(&mut client, &topic).await;
+    assert_eq!(status(client.info().await.status), Status::Ok);
+    let bytes = publish_named_record(&mut client, &owner).await;
+    wait_named_search_gossip(&mut client, &topic, &bytes).await;
+    let counts = wire.take();
+    assert_eq!(counts.0[dyapp_p2p_net::WireBytes::OTHER], [0, 0]);
+    assert_eq!(
+        counts.0[dyapp_p2p_net::WireBytes::GOSSIP],
+        [0, bytes.len() as u64]
+    );
+    assert!(
+        counts.0[dyapp_p2p_net::WireBytes::protocol_slot_for(&protocols.search, &protocols)][0] > 0
+    );
+}
+
+async fn named_client(
+    protocols: &std::sync::Arc<dyapp_p2p_net::Protocols>,
+) -> (Client, std::sync::Arc<dyapp_p2p_net::WireBytes>) {
     let (address, wire, _) = start_config_in_protocols(
         |c| {
             c.roles = vec![Role::Store, Role::Search];
@@ -230,33 +254,34 @@ async fn named_node_serves_profile_search_and_configured_gossip_topics() {
         protocols.clone(),
     )
     .await;
-    let mut client = Client::connect_in_network(
+    let client = Client::connect_in_network(
         &address,
         Keypair::generate_ed25519(),
         true,
         protocols.clone(),
     )
     .await;
-    let owner = Identity::generate();
-    let key = dyapp_identity::key_hash(&owner.public_key());
-    let topic = protocols
-        .search_topic(dyapp_bootstrap::search::topic(&key))
-        .hash();
+    (client, wire)
+}
+
+async fn wait_topic_subscription(client: &mut Client, topic: &libp2p::gossipsub::TopicHash) {
     client
         .wait(|event| match event {
             BehaviourEvent::Gossip(libp2p::gossipsub::Event::Subscribed {
                 topic: subscribed,
                 ..
-            }) if subscribed == topic => Some(()),
+            }) if &subscribed == topic => Some(()),
             _ => None,
         })
         .await;
-    assert_eq!(status(client.info().await.status), Status::Ok);
+}
+
+async fn publish_named_record(client: &mut Client, owner: &Identity) -> Vec<u8> {
     let record = Profile {
         version: 1,
         ..Default::default()
     }
-    .sign(&owner);
+    .sign(owner);
     assert_eq!(
         status(
             client
@@ -275,38 +300,45 @@ async fn named_node_serves_profile_search_and_configured_gossip_topics() {
         .behaviour_mut()
         .search
         .send_request(&client.server, request);
+    bytes
+}
+
+async fn wait_named_search_gossip(
+    client: &mut Client,
+    topic: &libp2p::gossipsub::TopicHash,
+    bytes: &[u8],
+) {
     let (mut replied, mut gossiped) = (false, false);
     tokio::time::timeout(Duration::from_secs(10), async {
         while !(replied && gossiped) {
             if let SwarmEvent::Behaviour(event) = client.swarm.select_next_some().await {
-                match event {
-                    BehaviourEvent::Search(event) => {
-                        if let Some(response) = response(event) {
-                            assert_eq!(status(response.status), Status::Ok);
-                            replied = true;
-                        }
-                    }
-                    BehaviourEvent::Gossip(libp2p::gossipsub::Event::Message {
-                        message, ..
-                    }) => {
-                        assert_eq!(message.topic, topic);
-                        assert_eq!(message.data, bytes);
-                        gossiped = true;
-                    }
-                    _ => {}
-                }
+                record_named_event(event, &mut replied, &mut gossiped, topic, bytes);
             }
         }
     })
     .await
     .unwrap();
-    let counts = wire.take();
-    assert_eq!(counts.0[dyapp_p2p_net::WireBytes::OTHER], [0, 0]);
-    assert_eq!(
-        counts.0[dyapp_p2p_net::WireBytes::GOSSIP],
-        [0, bytes.len() as u64]
-    );
-    assert!(
-        counts.0[dyapp_p2p_net::WireBytes::protocol_slot_for(&protocols.search, &protocols)][0] > 0
-    );
+}
+
+fn record_named_event(
+    event: BehaviourEvent,
+    replied: &mut bool,
+    gossiped: &mut bool,
+    topic: &libp2p::gossipsub::TopicHash,
+    bytes: &[u8],
+) {
+    match event {
+        BehaviourEvent::Search(event) => {
+            if let Some(response) = response(event) {
+                assert_eq!(status(response.status), Status::Ok);
+                *replied = true;
+            }
+        }
+        BehaviourEvent::Gossip(libp2p::gossipsub::Event::Message { message, .. }) => {
+            assert_eq!(&message.topic, topic);
+            assert_eq!(message.data, bytes);
+            *gossiped = true;
+        }
+        _ => {}
+    }
 }
