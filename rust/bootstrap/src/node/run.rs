@@ -19,6 +19,54 @@ fn catch_up_timer(service: &Service) -> (tokio::time::Instant, tokio::time::Inte
     )
 }
 
+fn run_catch_up(
+    swarm: &mut Swarm<Behaviour>,
+    service: &Service,
+    asks: &mut crate::catch_up::Asks,
+    refill_round: &mut refill::Round,
+) {
+    if service.busy(SHED_MEDIA) {
+        return;
+    }
+    if !asks.idle() {
+        tracing::debug!("search catch-up still running, tick skipped");
+        return;
+    }
+    let Some(gossip) = swarm.behaviour().gossip.as_ref() else {
+        return;
+    };
+    let peers: Vec<PeerId> = gossip.all_peers().map(|(peer, _)| *peer).collect();
+    if peers.is_empty() {
+        return;
+    }
+    refill_round.start(service);
+    for topic in (0..SEARCH_TOPICS).filter(|t| service.config.search.keeps(*t)) {
+        let Ok(pick) = getrandom::u32() else {
+            continue;
+        };
+        for peer in catch_up_peers(&peers, pick) {
+            asks.topic(peer, topic);
+        }
+    }
+    asks.send(swarm);
+}
+
+fn request_deny_lists(swarm: &mut Swarm<Behaviour>, service: &Service, routed: &HashSet<PeerId>) {
+    if !service.config.network.accept_deny_lists {
+        return;
+    }
+    let request = proto::NodeRequest {
+        request: Some(proto::node_request::Request::DenyList(
+            proto::DenyListRequest {},
+        )),
+    };
+    for peer in routed {
+        if swarm.is_connected(peer) {
+            swarm.behaviour_mut().node.send_request(peer, request);
+        }
+    }
+}
+
 /// Serves requests on `swarm` until the task is dropped. The deny list is checked for changes
 /// every 10 seconds and, on Unix, on SIGHUP.
 pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
@@ -756,26 +804,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
             }
             // Hourly, each kept topic's digest from two random search peers finds what gossip missed.
             _ = catch_up.tick(), if service.search.is_some() => {
-                if service.busy(SHED_MEDIA) {
-                    continue;
-                }
-                if !asks.idle() {
-                    tracing::debug!("search catch-up still running, tick skipped");
-                    continue;
-                }
-                let Some(gossip) = swarm.behaviour().gossip.as_ref() else { continue };
-                let peers: Vec<PeerId> = gossip.all_peers().map(|(peer, _)| *peer).collect();
-                if peers.is_empty() {
-                    continue;
-                }
-                refill_round.start(&service);
-                for topic in (0..SEARCH_TOPICS).filter(|t| service.config.search.keeps(*t)) {
-                    let Ok(pick) = getrandom::u32() else { continue };
-                    for peer in catch_up_peers(&peers, pick) {
-                        asks.topic(peer, topic);
-                    }
-                }
-                asks.send(&mut swarm);
+                run_catch_up(&mut swarm, &service, &mut asks, &mut refill_round);
             }
             _ = maintain.tick() => {
                 service.maintain(maintenance.vacuum_pages);
@@ -804,18 +833,7 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                 replicas
                     .trust
                     .retain(|peer| routed.contains(peer) || swarm.is_connected(peer));
-                if service.config.network.accept_deny_lists {
-                    let request = proto::NodeRequest {
-                        request: Some(proto::node_request::Request::DenyList(
-                            proto::DenyListRequest {},
-                        )),
-                    };
-                    for peer in &routed {
-                        if swarm.is_connected(peer) {
-                            swarm.behaviour_mut().node.send_request(peer, request);
-                        }
-                    }
-                }
+                request_deny_lists(&mut swarm, &service, &routed);
                 let group_refused = swarm.behaviour_mut().incoming_groups.as_mut()
                     .map_or(0, dyapp_p2p_net::IncomingGroupGuard::take_denied);
                 if refused > 0 {
