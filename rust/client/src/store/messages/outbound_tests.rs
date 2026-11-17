@@ -361,12 +361,7 @@ fn attachment_descriptor_clock_and_delivery_survive_restart() {
 
 #[test]
 fn received_operations_and_interactions_advance_chat_drafts_but_failure_does_not() {
-    let mut random = [0; 16];
-    getrandom::fill(&mut random).unwrap();
-    let path = std::env::temp_dir().join(format!(
-        "dyapp-chat-clock-{:032x}.db",
-        u128::from_be_bytes(random)
-    ));
+    let path = super::super::tests::temp_db_path();
     let owner = Identity::generate();
     let peer = Identity::generate();
     let mut store = Store::open(&path, &owner).unwrap();
