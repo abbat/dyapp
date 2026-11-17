@@ -54,15 +54,12 @@ fn client_put_denies_forged_tokens_with_a_strike_and_expired_without() {
     let mailbox = mailbox_of(&owner);
     let other = mailbox_of(&stranger);
     let valid = token(&owner, &mailbox, &contact, today());
-    let signed = |by: &Identity, envelope: proto::Envelope| {
-        mailbox_request::Request::Put(by.sign(Domain::Envelope, envelope.encode_to_vec()))
-    };
     let service = service_with(|l| l.strikes_to_ban = 1);
     assert_eq!(
         put(
             &service,
             &peer("p"),
-            signed(&contact, envelope(1, &mailbox, valid.clone()))
+            signed_put(&contact, &envelope(1, &mailbox, valid.clone()))
         ),
         Status::Ok
     );
@@ -73,35 +70,50 @@ fn client_put_denies_forged_tokens_with_a_strike_and_expired_without() {
         put(
             &service,
             &peer("p"),
-            signed(&contact, envelope(2, &mailbox, expired))
+            signed_put(&contact, &envelope(2, &mailbox, expired))
         ),
         Status::Stale
     );
     assert!(!service.reputation.banned("p"));
+    check_forged_tokens(&owner, &contact, &stranger, &mailbox, &other, &valid);
+}
+
+fn signed_put(by: &Identity, envelope: &proto::Envelope) -> mailbox_request::Request {
+    mailbox_request::Request::Put(by.sign(Domain::Envelope, envelope.encode_to_vec()))
+}
+
+fn check_forged_tokens(
+    owner: &Identity,
+    contact: &Identity,
+    stranger: &Identity,
+    mailbox: &[u8],
+    other: &[u8],
+    valid: &SignedRecord,
+) {
     let mut bad_signature = valid.clone();
     bad_signature.signature[0] ^= 1;
     let forged = [
         // Bad token signature.
-        signed(&contact, envelope(3, &mailbox, bad_signature)),
+        signed_put(contact, &envelope(3, mailbox, bad_signature)),
         // Signed by a stranger, not the mailbox's device key.
-        signed(
-            &contact,
-            envelope(3, &mailbox, token(&stranger, &mailbox, &contact, today())),
+        signed_put(
+            contact,
+            &envelope(3, mailbox, token(stranger, mailbox, contact, today())),
         ),
         // A token for another mailbox.
-        signed(&contact, envelope(3, &other, valid.clone())),
-        signed(
-            &contact,
-            envelope(3, &other, token(&owner, &other, &contact, today())),
+        signed_put(contact, &envelope(3, other, valid.clone())),
+        signed_put(
+            contact,
+            &envelope(3, other, token(owner, other, contact, today())),
         ),
         // The envelope is not signed by the token key.
-        signed(&stranger, envelope(3, &mailbox, valid)),
+        signed_put(stranger, &envelope(3, mailbox, valid.clone())),
     ];
     for (i, request) in forged.into_iter().enumerate() {
         let service = service_with(|l| l.strikes_to_ban = 1);
         assert_eq!(put(&service, &peer("p"), request), Status::Denied, "{i}");
         assert!(service.reputation.banned("p"), "{i}");
-        assert_eq!(service.held_ids(&mailbox).unwrap().len(), 0);
+        assert_eq!(service.held_ids(mailbox).unwrap().len(), 0);
     }
 }
 
