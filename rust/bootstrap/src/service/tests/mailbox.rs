@@ -369,77 +369,99 @@ fn mailbox_put_fetch_ack_forged_and_replayed() {
         Identity::generate(),
     );
     let address = dyapp_identity::key_hash(&device.public_key()).to_vec();
-    let envelope = |id: Vec<u8>, ciphertext| proto::Envelope {
+    let (mut conn, mut other) = (None, None);
+
+    let signed = check_invalid_puts(&service, &sender, &address, &mut conn);
+    check_fetch_replays(&service, &device, &mut conn, &mut other, signed);
+    check_ack_replays(&service, &device, &thief, &mut conn);
+    check_replica_acks(&service, &device, &sender, &thief, &address, &mut conn);
+}
+
+fn signed_test_envelope(
+    sender: &Identity,
+    address: &[u8],
+    id: Vec<u8>,
+    ciphertext: Vec<u8>,
+) -> SignedRecord {
+    let envelope = proto::Envelope {
         id,
-        mailbox: address.clone(),
+        mailbox: address.to_vec(),
         ciphertext,
         ..Default::default()
     };
-    let put = |envelope: proto::Envelope| {
-        mailbox_request::Request::Put(sender.sign(Domain::Envelope, envelope.encode_to_vec()))
-    };
-    let (mut conn, mut other) = (None, None);
+    sender.sign(Domain::Envelope, envelope.encode_to_vec())
+}
 
-    let signed = sender.sign(
-        Domain::Envelope,
-        envelope(vec![7; 16], vec![1]).encode_to_vec(),
-    );
-    let response = mailbox(
-        &service,
-        &mut conn,
-        mailbox_request::Request::Put(signed.clone()),
-    );
+fn check_invalid_puts(
+    service: &Service,
+    sender: &Identity,
+    address: &[u8],
+    conn: &mut Option<[u8; 32]>,
+) -> SignedRecord {
+    let signed = signed_test_envelope(sender, address, vec![7; 16], vec![1]);
+    let response = mailbox(service, conn, mailbox_request::Request::Put(signed.clone()));
     assert_eq!(mailbox_status(&response), Status::Ok);
     let mut forged = signed.clone();
     forged.payload.push(0);
-    let response = mailbox(&service, &mut conn, mailbox_request::Request::Put(forged));
+    let response = mailbox(service, conn, mailbox_request::Request::Put(forged));
     assert_eq!(mailbox_status(&response), Status::Denied);
     let wrong_domain = sender.sign(Domain::Profile, signed.payload.clone());
-    let response = mailbox(
-        &service,
-        &mut conn,
-        mailbox_request::Request::Put(wrong_domain),
-    );
+    let response = mailbox(service, conn, mailbox_request::Request::Put(wrong_domain));
     assert_eq!(mailbox_status(&response), Status::Denied);
-    let response = mailbox(&service, &mut conn, put(envelope(vec![7; 5], vec![1])));
+    let malformed = signed_test_envelope(sender, address, vec![7; 5], vec![1]);
+    let response = mailbox(service, conn, mailbox_request::Request::Put(malformed));
     assert_eq!(mailbox_status(&response), Status::Invalid);
-    let large = envelope(vec![8; 16], vec![0; MAX_ENVELOPE_BYTES]);
-    assert_eq!(
-        mailbox_status(&mailbox(&service, &mut conn, put(large))),
-        Status::TooLarge
-    );
+    let large = signed_test_envelope(sender, address, vec![8; 16], vec![0; MAX_ENVELOPE_BYTES]);
+    let response = mailbox(service, conn, mailbox_request::Request::Put(large));
+    assert_eq!(mailbox_status(&response), Status::TooLarge);
+    signed
+}
 
+fn check_fetch_replays(
+    service: &Service,
+    device: &Identity,
+    conn: &mut Option<[u8; 32]>,
+    other: &mut Option<[u8; 32]>,
+    signed: SignedRecord,
+) {
     // No challenge yet, then a nonce issued on another connection.
-    let response = mailbox(&service, &mut conn, fetch(&device, vec![0; 32]));
+    let response = mailbox(service, conn, fetch(device, vec![0; 32]));
     assert_eq!(mailbox_status(&response), Status::Denied);
-    let foreign = challenge(&service, &mut other);
-    let response = mailbox(&service, &mut conn, fetch(&device, foreign));
+    let foreign = challenge(service, other);
+    let response = mailbox(service, conn, fetch(device, foreign));
     assert_eq!(mailbox_status(&response), Status::Denied);
 
     // A fetch signed as an ack, then the real fetch and its replay.
-    let nonce = challenge(&service, &mut conn);
+    let nonce = challenge(service, conn);
     let ack_signed = proto::Fetch {
         nonce: nonce.clone(),
         ..proto::Fetch::default()
     };
     let cross = device.sign(Domain::MailboxAck, ack_signed.encode_to_vec());
-    let response = mailbox(&service, &mut conn, mailbox_request::Request::Fetch(cross));
+    let response = mailbox(service, conn, mailbox_request::Request::Fetch(cross));
     assert_eq!(mailbox_status(&response), Status::Denied);
-    let nonce = challenge(&service, &mut conn);
-    let request = fetch(&device, nonce);
-    let response = mailbox(&service, &mut conn, request.clone());
+    let nonce = challenge(service, conn);
+    let request = fetch(device, nonce);
+    let response = mailbox(service, conn, request.clone());
     assert_eq!(
         (mailbox_status(&response), response.envelopes, response.more),
         (Status::Ok, vec![signed], false)
     );
     assert_eq!(
-        mailbox_status(&mailbox(&service, &mut conn, request)),
+        mailbox_status(&mailbox(service, conn, request)),
         Status::Denied
     );
+}
 
+fn check_ack_replays(
+    service: &Service,
+    device: &Identity,
+    thief: &Identity,
+    conn: &mut Option<[u8; 32]>,
+) {
     // Another key reads and acks only its own, empty mailbox.
-    let nonce = challenge(&service, &mut conn);
-    let response = mailbox(&service, &mut conn, fetch(&thief, nonce));
+    let nonce = challenge(service, conn);
+    let response = mailbox(service, conn, fetch(thief, nonce));
     assert_eq!(
         (mailbox_status(&response), response.envelopes.len()),
         (Status::Ok, 0)
@@ -451,35 +473,43 @@ fn mailbox_put_fetch_ack_forged_and_replayed() {
         };
         mailbox_request::Request::Ack(key.sign(Domain::MailboxAck, ack.encode_to_vec()))
     };
-    let nonce = challenge(&service, &mut conn);
+    let nonce = challenge(service, conn);
     assert_eq!(
-        mailbox_status(&mailbox(&service, &mut conn, ack(&thief, nonce))),
+        mailbox_status(&mailbox(service, conn, ack(thief, nonce))),
         Status::Ok
     );
-    let nonce = challenge(&service, &mut conn);
+    let nonce = challenge(service, conn);
     assert_eq!(
-        mailbox(&service, &mut conn, fetch(&device, nonce))
-            .envelopes
-            .len(),
+        mailbox(service, conn, fetch(device, nonce)).envelopes.len(),
         1
     );
 
-    let nonce = challenge(&service, &mut conn);
-    let request = ack(&device, nonce);
+    let nonce = challenge(service, conn);
+    let request = ack(device, nonce);
     assert_eq!(
-        mailbox_status(&mailbox(&service, &mut conn, request.clone())),
+        mailbox_status(&mailbox(service, conn, request.clone())),
         Status::Ok
     );
     assert_eq!(
-        mailbox_status(&mailbox(&service, &mut conn, request)),
+        mailbox_status(&mailbox(service, conn, request)),
         Status::Denied
     );
-    let nonce = challenge(&service, &mut conn);
-    let checked_items = mailbox(&service, &mut conn, fetch(&device, nonce)).envelopes;
+    let nonce = challenge(service, conn);
+    let checked_items = mailbox(service, conn, fetch(device, nonce)).envelopes;
     assert_eq!(checked_items.len(), 0);
+}
 
+fn check_replica_acks(
+    service: &Service,
+    device: &Identity,
+    sender: &Identity,
+    thief: &Identity,
+    address: &[u8],
+    conn: &mut Option<[u8; 32]>,
+) {
     // An ack forwarded by another replica needs no nonce of this connection, only the key.
-    let response = mailbox(&service, &mut conn, put(envelope(vec![7; 16], vec![2])));
+    let signed = signed_test_envelope(sender, address, vec![7; 16], vec![2]);
+    let response = mailbox(service, conn, mailbox_request::Request::Put(signed));
     assert_eq!(mailbox_status(&response), Status::Ok);
     let replica = |key: &Identity| {
         let ack = proto::Ack {
@@ -489,18 +519,18 @@ fn mailbox_put_fetch_ack_forged_and_replayed() {
         mailbox_request::Request::ReplicaAck(key.sign(Domain::MailboxAck, ack.encode_to_vec()))
     };
     assert_eq!(
-        mailbox_status(&mailbox(&service, &mut conn, replica(&thief))),
+        mailbox_status(&mailbox(service, conn, replica(thief))),
         Status::Ok
     );
-    let nonce = challenge(&service, &mut conn);
-    let left = mailbox(&service, &mut conn, fetch(&device, nonce));
+    let nonce = challenge(service, conn);
+    let left = mailbox(service, conn, fetch(device, nonce));
     assert_eq!(left.envelopes.len(), 1);
     assert_eq!(
-        mailbox_status(&mailbox(&service, &mut conn, replica(&device))),
+        mailbox_status(&mailbox(service, conn, replica(device))),
         Status::Ok
     );
-    let nonce = challenge(&service, &mut conn);
-    let checked_items = mailbox(&service, &mut conn, fetch(&device, nonce)).envelopes;
+    let nonce = challenge(service, conn);
+    let checked_items = mailbox(service, conn, fetch(device, nonce)).envelopes;
     assert_eq!(checked_items.len(), 0);
 }
 
