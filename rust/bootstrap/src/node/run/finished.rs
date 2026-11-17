@@ -20,7 +20,7 @@ pub(super) fn store(
         state.nonces.insert(connection, nonce);
     }
     let Some(done) = done else {
-        state.failed += 1;
+        state.failed = state.failed.saturating_add(1);
         tracing::error!(peer = %id, "store request panicked");
         return;
     };
@@ -32,9 +32,9 @@ pub(super) fn store(
         (id, connection),
         done,
     ) {
-        state.answered += 1;
+        state.answered = state.answered.saturating_add(1);
     } else {
-        state.failed += 1;
+        state.failed = state.failed.saturating_add(1);
     }
 }
 
@@ -44,7 +44,7 @@ pub(super) fn search(
     service: &Service,
     done: super::search_jobs::SearchDone,
 ) {
-    state.searching -= 1;
+    state.searching = state.searching.saturating_sub(1);
     start_search(
         &mut state.search_queue,
         &mut state.searching,
@@ -61,12 +61,12 @@ pub(super) fn search(
         }
         Ok(reply) => reply,
         Err(error) => {
-            state.failed += 1;
+            state.failed = state.failed.saturating_add(1);
             tracing::error!(%error, "search failed");
             return;
         }
     };
-    state.answered += 1;
+    state.answered = state.answered.saturating_add(1);
     service.traffic.add(response.encoded_len() as u64);
     let _ = swarm
         .behaviour_mut()
@@ -88,10 +88,10 @@ pub(super) fn pow_done(
             request,
             ok,
         } => {
-            state.answered += 1;
-            state.failed += u64::from(!pow::publish(
+            state.answered = state.answered.saturating_add(1);
+            state.failed = state.failed.saturating_add(u64::from(!pow::publish(
                 swarm, service, peer, &from, channel, &request, ok,
-            ));
+            )));
         }
         PowDone::Gossip {
             source,
@@ -99,7 +99,7 @@ pub(super) fn pow_done(
             data,
             ok,
         } => {
-            state.pow_gossip -= 1;
+            state.pow_gossip = state.pow_gossip.saturating_sub(1);
             pow::gossip(swarm, service, source, &id, &data, ok);
         }
         PowDone::CatchUp { records } => pow::catch_up(service, &records),
