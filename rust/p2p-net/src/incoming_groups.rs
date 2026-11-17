@@ -184,6 +184,45 @@ mod tests {
     use libp2p::swarm::behaviour::{ConnectionClosed, ListenFailure};
     use libp2p::swarm::ListenError;
 
+    fn release_connections_once(
+        guard: &mut IncomingGroupGuard,
+        ids: &[ConnectionId],
+        local: &Multiaddr,
+        remote: &Multiaddr,
+        peer: PeerId,
+    ) {
+        let error = ListenError::Denied {
+            cause: ConnectionDenied::new(std::io::Error::other("other guard")),
+        };
+        for id in ids.iter().skip(1).step_by(2) {
+            let event = FromSwarm::ListenFailure(ListenFailure {
+                local_addr: local,
+                send_back_addr: remote,
+                error: &error,
+                connection_id: *id,
+                peer_id: Some(peer),
+            });
+            guard.on_swarm_event(event);
+            guard.on_swarm_event(event);
+        }
+        let endpoint = ConnectedPoint::Listener {
+            local_addr: local.clone(),
+            send_back_addr: remote.clone(),
+        };
+        for id in ids.iter().step_by(2) {
+            let event = FromSwarm::ConnectionClosed(ConnectionClosed {
+                peer_id: peer,
+                connection_id: *id,
+                endpoint: &endpoint,
+                cause: None,
+                remaining_established: 0,
+            });
+            guard.on_swarm_event(event);
+            guard.on_swarm_event(event);
+        }
+        assert!(guard.connections.is_empty() && guard.groups.is_empty());
+    }
+
     #[test]
     fn pending_and_established_share_slots_and_failure_or_close_releases_once() {
         let mut guard = IncomingGroupGuard::new(IncomingGroupLimits::new(32, 24, 48).unwrap());
@@ -226,36 +265,7 @@ mod tests {
             .unwrap();
         assert_eq!(guard.connections.len(), 32);
 
-        let error = ListenError::Denied {
-            cause: ConnectionDenied::new(std::io::Error::other("other guard")),
-        };
-        for id in ids.iter().skip(1).step_by(2) {
-            let event = FromSwarm::ListenFailure(ListenFailure {
-                local_addr: &local,
-                send_back_addr: &remote,
-                error: &error,
-                connection_id: *id,
-                peer_id: Some(peer),
-            });
-            guard.on_swarm_event(event);
-            guard.on_swarm_event(event);
-        }
-        let endpoint = ConnectedPoint::Listener {
-            local_addr: local.clone(),
-            send_back_addr: remote.clone(),
-        };
-        for id in ids.iter().step_by(2) {
-            let event = FromSwarm::ConnectionClosed(ConnectionClosed {
-                peer_id: peer,
-                connection_id: *id,
-                endpoint: &endpoint,
-                cause: None,
-                remaining_established: 0,
-            });
-            guard.on_swarm_event(event);
-            guard.on_swarm_event(event);
-        }
-        assert!(guard.connections.is_empty() && guard.groups.is_empty());
+        release_connections_once(&mut guard, &ids, &local, &remote, peer);
         // A preauthenticated transport may reach established admission without a pending callback.
         guard
             .handle_established_inbound_connection(refused, peer, &local, &remote)
