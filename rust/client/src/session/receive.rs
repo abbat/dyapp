@@ -106,6 +106,19 @@ impl Session {
         Ok(more || resolved)
     }
 
+    fn track_pending_join(&self, event: &Event, pending: &mut Vec<Vec<u8>>) -> Result<(), Error> {
+        let Event::Joined(group) = event else {
+            return Ok(());
+        };
+        let Some(peer) = self.partner(group) else {
+            return Ok(());
+        };
+        if self.store.conversation(&peer)? != Conversation::Open {
+            pending.push(group.clone());
+        }
+        Ok(())
+    }
+
     async fn process_page(
         &mut self,
         nodes: &mut [Node],
@@ -135,13 +148,7 @@ impl Session {
             if let Some(event) =
                 self.stage_envelope(&key, &envelope.ciphertext, profiles, seal_key)?
             {
-                if let Event::Joined(group) = &event {
-                    if let Some(peer) = self.partner(group) {
-                        if self.store.conversation(&peer)? != Conversation::Open {
-                            pending.push(group.clone());
-                        }
-                    }
-                }
+                self.track_pending_join(&event, &mut pending)?;
                 let opened = self.newly_opened_group(&event, &pending)?;
                 if let Some(group) = receipted_group(&event) {
                     match receipts.iter_mut().find(|(g, _)| g == group) {
