@@ -5,13 +5,15 @@
 
 use dyapp_identity::network::Network;
 use dyapp_p2p_net::seed::{self, SeedError};
-use dyapp_p2p_net::{build_configured_swarm, BehaviourEvent, Mode, Protocols, SwarmOptions};
+use dyapp_p2p_net::{
+    build_configured_swarm, Behaviour, BehaviourEvent, Mode, Protocols, SwarmOptions,
+};
 use libp2p::futures::StreamExt;
 use libp2p::identity::Keypair;
 use libp2p::multiaddr::Protocol;
 use libp2p::swarm::dial_opts::{DialOpts, PeerCondition};
 use libp2p::swarm::{ConnectionId, DialError, SwarmEvent};
-use libp2p::{identify, Multiaddr, PeerId};
+use libp2p::{identify, Multiaddr, PeerId, Swarm};
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -79,94 +81,132 @@ pub async fn check(network: &Network, wait: Duration) -> Result<Vec<Row>, CheckE
     let mut swarm = build_configured_swarm(Keypair::generate_ed25519(), options)
         .map_err(|error| CheckError::Swarm(error.to_string()))?;
 
-    let mut rows = Vec::with_capacity(network.seeds.len());
-    let mut seen = Vec::new();
-    let mut dials = HashMap::new();
-    let mut pending = vec![0usize; network.seeds.len()];
-    for (index, row) in network.seeds.iter().enumerate() {
+    let mut state = CheckState::dial(&network.seeds, &mut swarm);
+    let _ = tokio::time::timeout(wait, async {
+        while state.rows.iter().any(Option::is_none) {
+            state.event(swarm.select_next_some().await, &version);
+        }
+    })
+    .await;
+    Ok(state.finish())
+}
+
+struct CheckState {
+    rows: Vec<Option<Row>>,
+    dials: HashMap<ConnectionId, usize>,
+    pending: Vec<usize>,
+    errors: HashMap<usize, String>,
+}
+
+impl CheckState {
+    fn dial(seeds: &[String], swarm: &mut Swarm<Behaviour>) -> Self {
+        let mut state = Self {
+            rows: Vec::with_capacity(seeds.len()),
+            dials: HashMap::new(),
+            pending: vec![0; seeds.len()],
+            errors: HashMap::new(),
+        };
+        let mut seen = Vec::new();
+        for (index, row) in seeds.iter().enumerate() {
+            state.dial_row(index, row, swarm, &mut seen);
+        }
+        state
+    }
+
+    fn dial_row(
+        &mut self,
+        index: usize,
+        row: &str,
+        swarm: &mut Swarm<Behaviour>,
+        seen: &mut Vec<Vec<Multiaddr>>,
+    ) {
         let addresses = match seed::parse(row.trim()) {
             Err(error) => {
-                rows.push(Some(Row::Invalid(error)));
-                continue;
+                self.rows.push(Some(Row::Invalid(error)));
+                return;
             }
             Ok(addresses) if seen.contains(&addresses) => {
-                rows.push(Some(Row::Duplicate));
-                continue;
+                self.rows.push(Some(Row::Duplicate));
+                return;
             }
             Ok(addresses) => addresses,
         };
         seen.push(addresses.clone());
-        rows.push(None);
+        self.rows.push(None);
         let mut error = String::new();
         for address in addresses {
             let opts = dial_opts(address);
             let id = opts.connection_id();
             match swarm.dial(opts) {
                 Ok(()) => {
-                    dials.insert(id, index);
-                    pending[index] += 1;
+                    self.dials.insert(id, index);
+                    self.pending[index] += 1;
                 }
                 Err(dial) => error = dial.to_string(),
             }
         }
-        if pending[index] == 0 {
-            rows[index] = Some(Row::Unreachable(error));
+        if self.pending[index] == 0 {
+            self.rows[index] = Some(Row::Unreachable(error));
         }
     }
 
-    let decide = |rows: &mut Vec<Option<Row>>, id: &ConnectionId, row: Row| {
-        if let Some(&index) = dials.get(id) {
-            rows[index].get_or_insert(row);
+    fn decide(&mut self, id: &ConnectionId, row: Row) {
+        if let Some(&index) = self.dials.get(id) {
+            self.rows[index].get_or_insert(row);
         }
-    };
-    let mut errors: HashMap<usize, String> = HashMap::new();
-    let _ = tokio::time::timeout(wait, async {
-        while rows.iter().any(Option::is_none) {
-            match swarm.select_next_some().await {
-                // The node's identify names its network; ours goes out at the same time.
-                SwarmEvent::Behaviour(BehaviourEvent::Identify(identify::Event::Received {
-                    connection_id,
-                    peer_id,
-                    info,
-                })) => {
-                    let row = if info.protocol_version == version {
-                        Row::Connected(peer_id)
-                    } else {
-                        Row::WrongNetwork
-                    };
-                    decide(&mut rows, &connection_id, row);
-                }
-                SwarmEvent::OutgoingConnectionError {
-                    connection_id,
-                    error,
-                    ..
-                } => {
-                    let Some(&index) = dials.get(&connection_id) else {
-                        continue;
-                    };
-                    if matches!(error, DialError::WrongPeerId { .. }) {
-                        decide(&mut rows, &connection_id, Row::WrongPin);
-                        continue;
-                    }
-                    errors.insert(index, error.to_string());
-                    pending[index] -= 1;
-                    if pending[index] == 0 {
-                        let error = errors.remove(&index).unwrap_or_default();
-                        decide(&mut rows, &connection_id, Row::Unreachable(error));
-                    }
-                }
-                _ => {}
+    }
+
+    fn event(&mut self, event: SwarmEvent<BehaviourEvent>, version: &str) {
+        match event {
+            // The node's identify names its network; ours goes out at the same time.
+            SwarmEvent::Behaviour(BehaviourEvent::Identify(identify::Event::Received {
+                connection_id,
+                peer_id,
+                info,
+            })) => {
+                let row = if info.protocol_version == version {
+                    Row::Connected(peer_id)
+                } else {
+                    Row::WrongNetwork
+                };
+                self.decide(&connection_id, row);
             }
+            SwarmEvent::OutgoingConnectionError {
+                connection_id,
+                error,
+                ..
+            } => self.dial_error(connection_id, error),
+            _ => {}
         }
-    })
-    .await;
-    Ok(rows
-        .into_iter()
-        .enumerate()
-        .map(|(index, row)| {
-            row.unwrap_or_else(|| Row::Unreachable(errors.remove(&index).unwrap_or_default()))
-        })
-        .collect())
+    }
+
+    fn dial_error(&mut self, connection_id: ConnectionId, error: DialError) {
+        let Some(&index) = self.dials.get(&connection_id) else {
+            return;
+        };
+        if matches!(error, DialError::WrongPeerId { .. }) {
+            self.decide(&connection_id, Row::WrongPin);
+            return;
+        }
+        self.errors.insert(index, error.to_string());
+        self.pending[index] -= 1;
+        if self.pending[index] == 0 {
+            let error = self.errors.remove(&index).unwrap_or_default();
+            self.decide(&connection_id, Row::Unreachable(error));
+        }
+    }
+
+    fn finish(mut self) -> Vec<Row> {
+        self.rows
+            .into_iter()
+            .enumerate()
+            .map(|(index, row)| {
+                row.unwrap_or_else(|| {
+                    Row::Unreachable(self.errors.remove(&index).unwrap_or_default())
+                })
+            })
+            .collect()
+    }
 }
 
 #[cfg(test)]
