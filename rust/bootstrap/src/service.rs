@@ -636,19 +636,43 @@ impl Service {
         store: bool,
         check_pow: &impl Fn(&PowCheck) -> Option<bool>,
     ) -> crate::Result<ProfileResponse> {
-        if !self.config.roles.contains(&Role::Store) {
-            return Ok(reply(Status::Unsupported, None));
-        }
         let is_replica = matches!(
             request.request,
             Some(profile_request::Request::ReplicaPut(_))
         );
+        if let Some(response) = self.profile_admission(peer, &request, is_replica) {
+            return Ok(response);
+        }
+        match request.request {
+            Some(
+                profile_request::Request::Publish(_)
+                | profile_request::Request::ConditionalPublish(_)
+                | profile_request::Request::ReplicaPut(_),
+            ) => self.profile_write_request(peer, request, store, check_pow),
+            Some(profile_request::Request::Get(get)) => self.profile_get(&get.peer_id),
+            Some(profile_request::Request::Inventory(get)) => self.profile_inventory(&get.peer_id),
+            Some(profile_request::Request::Heartbeat(record)) => {
+                self.profile_heartbeat(peer, &record)
+            }
+            None => Ok(reply(Status::Unsupported, None)),
+        }
+    }
+
+    fn profile_admission(
+        &self,
+        peer: &Peer,
+        request: &ProfileRequest,
+        is_replica: bool,
+    ) -> Option<ProfileResponse> {
+        if !self.config.roles.contains(&Role::Store) {
+            return Some(reply(Status::Unsupported, None));
+        }
         if is_replica && !self.node_peer(peer) {
             self.strike(peer);
-            return Ok(reply(Status::Denied, None));
+            return Some(reply(Status::Denied, None));
         }
         let units = if matches!(
-            request.request,
+            request.request.as_ref(),
             Some(
                 profile_request::Request::Publish(_)
                     | profile_request::Request::ConditionalPublish(_)
@@ -659,7 +683,7 @@ impl Service {
             1
         };
         let share = if matches!(
-            request.request,
+            request.request.as_ref(),
             Some(profile_request::Request::Inventory(_))
         ) {
             SHED_MEDIA
@@ -673,76 +697,76 @@ impl Service {
                 self.admit_units(peer, units)
             }
         {
-            return Ok(reply(Status::RateLimited, None));
+            return Some(reply(Status::RateLimited, None));
         }
         if self.refused(peer) {
+            return Some(reply(Status::Refused, None));
+        }
+        None
+    }
+
+    fn profile_get(&self, peer_id: &[u8]) -> crate::Result<ProfileResponse> {
+        let Ok(peer_id) = <[u8; 32]>::try_from(peer_id) else {
+            return Ok(reply(Status::Invalid, None));
+        };
+        if self.listed(&peer_id) {
             return Ok(reply(Status::Refused, None));
         }
-        match request.request {
-            Some(
-                profile_request::Request::Publish(_)
-                | profile_request::Request::ConditionalPublish(_)
-                | profile_request::Request::ReplicaPut(_),
-            ) => self.profile_write_request(peer, request, store, check_pow),
-            Some(profile_request::Request::Get(get)) => {
-                let Ok(peer_id) = <[u8; 32]>::try_from(get.peer_id.as_slice()) else {
-                    return Ok(reply(Status::Invalid, None));
-                };
-                if self.listed(&peer_id) {
-                    return Ok(reply(Status::Refused, None));
-                }
-                Ok(match self.store.get_profile(&hex(&peer_id))? {
-                    Some(record) => reply(Status::Ok, Some(record)),
-                    None => reply(Status::NotFound, None),
-                })
-            }
-            Some(profile_request::Request::Inventory(get)) => {
-                let Ok(peer_id) = <[u8; 32]>::try_from(get.peer_id.as_slice()) else {
-                    return Ok(reply(Status::Invalid, None));
-                };
-                if self.listed(&peer_id) {
-                    return Ok(reply(Status::Refused, None));
-                }
-                let response = match self.store.get_profile(&hex(&peer_id))? {
-                    Some(record) => ProfileResponse {
-                        version: dyapp_profile::stored_version(&record)?,
-                        ..reply(Status::Ok, None)
-                    },
-                    None => reply(Status::NotFound, None),
-                };
-                Ok(response)
-            }
-            Some(profile_request::Request::Heartbeat(record)) => {
-                let Ok((owner, beat)) =
-                    owner_request::<proto::Heartbeat>(&record, Domain::Heartbeat, |_| true)
-                else {
-                    self.strike(peer);
-                    return Ok(reply(Status::Denied, None));
-                };
-                if self.listed(&owner) {
-                    return Ok(reply(Status::Refused, None));
-                }
-                let now = self.clock.timestamp();
-                if beat.time.abs_diff(now.unsigned_abs()) > CLOCK_SKEW {
-                    return Ok(ProfileResponse {
-                        server_time: now.unsigned_abs(),
-                        ..reply(Status::Invalid, None)
-                    });
-                }
-                let Ok(time) = i64::try_from(beat.time) else {
-                    return Ok(ProfileResponse {
-                        server_time: now.unsigned_abs(),
-                        ..reply(Status::Invalid, None)
-                    });
-                };
-                let found = self.store.touch_profile(&hex(&owner), time)?;
-                Ok(reply(
-                    if found { Status::Ok } else { Status::NotFound },
-                    None,
-                ))
-            }
-            None => Ok(reply(Status::Unsupported, None)),
+        Ok(match self.store.get_profile(&hex(&peer_id))? {
+            Some(record) => reply(Status::Ok, Some(record)),
+            None => reply(Status::NotFound, None),
+        })
+    }
+
+    fn profile_inventory(&self, peer_id: &[u8]) -> crate::Result<ProfileResponse> {
+        let Ok(peer_id) = <[u8; 32]>::try_from(peer_id) else {
+            return Ok(reply(Status::Invalid, None));
+        };
+        if self.listed(&peer_id) {
+            return Ok(reply(Status::Refused, None));
         }
+        let response = match self.store.get_profile(&hex(&peer_id))? {
+            Some(record) => ProfileResponse {
+                version: dyapp_profile::stored_version(&record)?,
+                ..reply(Status::Ok, None)
+            },
+            None => reply(Status::NotFound, None),
+        };
+        Ok(response)
+    }
+
+    fn profile_heartbeat(
+        &self,
+        peer: &Peer,
+        record: &SignedRecord,
+    ) -> crate::Result<ProfileResponse> {
+        let Ok((owner, beat)) =
+            owner_request::<proto::Heartbeat>(record, Domain::Heartbeat, |_| true)
+        else {
+            self.strike(peer);
+            return Ok(reply(Status::Denied, None));
+        };
+        if self.listed(&owner) {
+            return Ok(reply(Status::Refused, None));
+        }
+        let now = self.clock.timestamp();
+        if beat.time.abs_diff(now.unsigned_abs()) > CLOCK_SKEW {
+            return Ok(ProfileResponse {
+                server_time: now.unsigned_abs(),
+                ..reply(Status::Invalid, None)
+            });
+        }
+        let Ok(time) = i64::try_from(beat.time) else {
+            return Ok(ProfileResponse {
+                server_time: now.unsigned_abs(),
+                ..reply(Status::Invalid, None)
+            });
+        };
+        let found = self.store.touch_profile(&hex(&owner), time)?;
+        Ok(reply(
+            if found { Status::Ok } else { Status::NotFound },
+            None,
+        ))
     }
 
     /// Verifies and stores a profile record, without per-peer limits.
