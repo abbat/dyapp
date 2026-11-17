@@ -97,7 +97,6 @@ fn subscribe_search_topics(swarm: &mut Swarm<Behaviour>, service: &Service) {
 /// Serves requests on `swarm` until the task is dropped. The deny list is checked for changes
 /// every 10 seconds and, on Unix, on SIGHUP.
 pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
-    const POW_GOSSIP_QUEUE: usize = 64;
     let mut hangup = match hangup::Hangup::new() {
         Ok(hangup) => hangup,
         Err(error) => return tracing::error!(%error, "SIGHUP handler not installed"),
@@ -331,30 +330,14 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     propagation_source,
                     message_id,
                     message,
-                })) => {
-                    service.wire.add(dyapp_p2p_net::WireBytes::GOSSIP, dyapp_p2p_net::Dir::In, message.data.len());
-                    match service.search_gossip(&message.data) {
-                        // Queue full: drop without a strike.
-                        Verdict::Pow(_) if pow_gossip >= POW_GOSSIP_QUEUE => {
-                            judge(&mut swarm, &service, &message_id, &propagation_source, &Verdict::Ignore);
-                        }
-                        Verdict::Pow(check) => {
-                            pow_gossip += 1;
-                            let (permits, cache, done) = (pow_permits.clone(), service.pow.clone(), pow_tx.clone());
-                            let data = message.data;
-                            tokio::spawn(async move {
-                                let Ok(permit) = permits.acquire_owned().await else { return };
-                                let _ = tokio::task::spawn_blocking(move || {
-                                    let _permit = permit;
-                                    let ok = cache.check(&check);
-                                    let _ = done.send(PowDone::Gossip { source: propagation_source, id: message_id, data, ok });
-                                })
-                                .await;
-                            });
-                        }
-                        verdict => judge(&mut swarm, &service, &message_id, &propagation_source, &verdict),
-                    }
-                }
+                })) => pow::receive_gossip(
+                    &mut swarm,
+                    &service,
+                    &pow_permits,
+                    &pow_tx,
+                    &mut pow_gossip,
+                    (propagation_source, message_id, message.data),
+                ),
                 // Catch-up: queue the keys this node lacks or holds older, and fetch the next page
                 // while pages are full.
                 SwarmEvent::Behaviour(BehaviourEvent::Inventory(Event::Message {
