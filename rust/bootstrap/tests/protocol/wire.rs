@@ -21,27 +21,29 @@ async fn tcp_exchange_counts_exact_request_and_response_frames() {
     assert_eq!(client.wire.take().0, [[0; 2]; 11]);
 }
 
-#[tokio::test]
-async fn node_gossip_counts_delivered_and_successfully_published_payloads() {
-    let (address, wire) = start_config_with_wire(|c| {
-        c.roles = vec![Role::Store, Role::Search];
-        c.search.min_profile_pow_bits = 0;
-        c.search.min_heartbeat_pow_bits = 0;
-        c.limits.requests_per_second = 1000;
-        c.limits.bytes_per_second = 0;
-        c.limits.min_free_mb = 0;
-    })
-    .await;
-    let mut client = Client::connect_with_search(&address, Keypair::generate_ed25519(), true).await;
-    let owner = Identity::generate();
-    let key = dyapp_identity::key_hash(&owner.public_key());
-    let topic = dyapp_p2p_net::search_topic(dyapp_bootstrap::search::topic(&key)).hash();
+fn heartbeat(owner: &Identity, time: u64) -> dyapp_identity::SignedRecord {
+    owner.sign(
+        Domain::Heartbeat,
+        proto::Heartbeat {
+            time,
+            version: 1,
+            ..Default::default()
+        }
+        .encode_to_vec(),
+    )
+}
+
+async fn announce_profile(
+    client: &mut Client,
+    owner: &Identity,
+    topic: &libp2p::gossipsub::TopicHash,
+) {
     client
         .wait(|event| match event {
             BehaviourEvent::Gossip(libp2p::gossipsub::Event::Subscribed {
                 topic: subscribed,
                 ..
-            }) if subscribed == topic => Some(()),
+            }) if &subscribed == topic => Some(()),
             _ => None,
         })
         .await;
@@ -51,25 +53,23 @@ async fn node_gossip_counts_delivered_and_successfully_published_payloads() {
                 version: 1,
                 ..Default::default()
             }
-            .sign(&owner),
+            .sign(owner),
         ))
         .await;
     assert_eq!(status(published.status), Status::Ok);
-    wire.take();
-    let time = chrono::Utc::now().timestamp().unsigned_abs();
-    let heartbeat = |time| {
-        owner.sign(
-            Domain::Heartbeat,
-            proto::Heartbeat {
-                time,
-                version: 1,
-                ..Default::default()
-            }
-            .encode_to_vec(),
-        )
-    };
+}
+
+async fn assert_incoming_gossip(
+    client: &mut Client,
+    wire: &std::sync::Arc<dyapp_p2p_net::WireBytes>,
+    topic: libp2p::gossipsub::TopicHash,
+    owner: &Identity,
+    time: u64,
+) {
     let incoming = proto::SearchRequest {
-        request: Some(proto::search_request::Request::Heartbeat(heartbeat(time))),
+        request: Some(proto::search_request::Request::Heartbeat(heartbeat(
+            owner, time,
+        ))),
     }
     .encode_to_vec();
     client
@@ -98,7 +98,15 @@ async fn node_gossip_counts_delivered_and_successfully_published_payloads() {
         counts.0[dyapp_p2p_net::WireBytes::GOSSIP],
         [incoming.len() as u64, 0]
     );
-    let request = proto::search_request::Request::Heartbeat(heartbeat(time + 1));
+}
+
+async fn assert_outgoing_gossip(
+    client: &mut Client,
+    wire: &std::sync::Arc<dyapp_p2p_net::WireBytes>,
+    owner: &Identity,
+    time: u64,
+) {
+    let request = proto::search_request::Request::Heartbeat(heartbeat(owner, time));
     let sent = proto::SearchRequest {
         request: Some(request.clone()),
     }
@@ -109,4 +117,26 @@ async fn node_gossip_counts_delivered_and_successfully_published_payloads() {
     assert_eq!(counts.0[dyapp_p2p_net::WireBytes::GOSSIP], [0, sent]);
     let slot = dyapp_p2p_net::WireBytes::protocol_slot(&dyapp_p2p_net::SEARCH_PROTOCOL);
     assert_eq!(counts.0[slot], [sent, response.encoded_len() as u64]);
+}
+
+#[tokio::test]
+async fn node_gossip_counts_delivered_and_successfully_published_payloads() {
+    let (address, wire) = start_config_with_wire(|c| {
+        c.roles = vec![Role::Store, Role::Search];
+        c.search.min_profile_pow_bits = 0;
+        c.search.min_heartbeat_pow_bits = 0;
+        c.limits.requests_per_second = 1000;
+        c.limits.bytes_per_second = 0;
+        c.limits.min_free_mb = 0;
+    })
+    .await;
+    let mut client = Client::connect_with_search(&address, Keypair::generate_ed25519(), true).await;
+    let owner = Identity::generate();
+    let key = dyapp_identity::key_hash(&owner.public_key());
+    let topic = dyapp_p2p_net::search_topic(dyapp_bootstrap::search::topic(&key)).hash();
+    announce_profile(&mut client, &owner, &topic).await;
+    wire.take();
+    let time = chrono::Utc::now().timestamp().unsigned_abs();
+    assert_incoming_gossip(&mut client, &wire, topic, &owner, time).await;
+    assert_outgoing_gossip(&mut client, &wire, &owner, time + 1).await;
 }
