@@ -151,21 +151,43 @@ async fn assert_invalid_signed_records(client: &mut Client, owner: &Identity, ha
 
 #[tokio::test]
 async fn future_clock_boundary_preserves_valid_request_statuses_over_tcp() {
-    use proto::media_replica_put::Authorization;
     let address = clock_node().await;
     let mut client = Client::connect(&address).await;
     let owner = Identity::generate();
+    publish_clock_profile(&mut client, &owner).await;
+    let time = chrono::Utc::now().timestamp().unsigned_abs() + 600;
+    assert_boundary_heartbeat(&mut client, &owner, time).await;
+    assert_boundary_keep(&mut client, &owner).await;
+    let data = b"clock-boundary".to_vec();
+    let hash = dyapp_identity::sha256(&data).to_vec();
+    let attach = assert_boundary_attach(&mut client, &owner, &hash).await;
+    let keep = owner.sign(
+        Domain::MediaKeep,
+        proto::MediaKeep {
+            version: 2,
+            hashes: vec![hash],
+            time: chrono::Utc::now().timestamp().unsigned_abs() + 600,
+        }
+        .encode_to_vec(),
+    );
+    assert_boundary_replicas(&mut client, &data, &keep, attach).await;
+    assert_boundary_shard(&mut client, &data, keep).await;
+}
+
+async fn publish_clock_profile(client: &mut Client, owner: &Identity) {
     let response = client
         .profile(profile_request::Request::Publish(
             Profile {
                 version: 1,
                 ..Default::default()
             }
-            .sign(&owner),
+            .sign(owner),
         ))
         .await;
     assert_eq!(status(response.status), Status::Ok);
-    let time = chrono::Utc::now().timestamp().unsigned_abs() + 600;
+}
+
+async fn assert_boundary_heartbeat(client: &mut Client, owner: &Identity, time: u64) {
     let heartbeat = owner.sign(
         Domain::Heartbeat,
         proto::Heartbeat {
@@ -190,6 +212,9 @@ async fn future_clock_boundary_preserves_valid_request_statuses_over_tcp() {
         Status::Ok | Status::NotFound
     ));
     assert_eq!(response.server_time, 0);
+}
+
+async fn assert_boundary_keep(client: &mut Client, owner: &Identity) {
     let keep = owner.sign(
         Domain::MediaKeep,
         proto::MediaKeep {
@@ -206,13 +231,18 @@ async fn future_clock_boundary_preserves_valid_request_statuses_over_tcp() {
         (response.status, response.server_time),
         (i32::from(Status::Ok), 0)
     );
-    let data = b"clock-boundary".to_vec();
-    let hash = dyapp_identity::sha256(&data).to_vec();
+}
+
+async fn assert_boundary_attach(
+    client: &mut Client,
+    owner: &Identity,
+    hash: &[u8],
+) -> SignedRecord {
     let attach = owner.sign(
         Domain::MediaAttach,
         proto::MediaAttach {
             release: dyapp_identity::sha256(b"boundary-release").to_vec(),
-            hashes: vec![hash.clone()],
+            hashes: vec![hash.to_vec()],
             created: chrono::Utc::now().timestamp().unsigned_abs() + 600,
         }
         .encode_to_vec(),
@@ -224,15 +254,16 @@ async fn future_clock_boundary_preserves_valid_request_statuses_over_tcp() {
         (response.status, response.server_time),
         (i32::from(Status::Ok), 0)
     );
-    let keep = owner.sign(
-        Domain::MediaKeep,
-        proto::MediaKeep {
-            version: 2,
-            hashes: vec![hash],
-            time: chrono::Utc::now().timestamp().unsigned_abs() + 600,
-        }
-        .encode_to_vec(),
-    );
+    attach
+}
+
+async fn assert_boundary_replicas(
+    client: &mut Client,
+    data: &[u8],
+    keep: &SignedRecord,
+    attach: SignedRecord,
+) {
+    use proto::media_replica_put::Authorization;
     for authorization in [
         Authorization::Keep(keep.clone()),
         Authorization::Attach(attach),
@@ -240,7 +271,7 @@ async fn future_clock_boundary_preserves_valid_request_statuses_over_tcp() {
         let response = client
             .media(proto::media_request::Request::ReplicaPut(
                 proto::MediaReplicaPut {
-                    data: data.clone(),
+                    data: data.to_vec(),
                     authorization: Some(authorization),
                     manifest: None,
                 },
@@ -251,7 +282,11 @@ async fn future_clock_boundary_preserves_valid_request_statuses_over_tcp() {
             (i32::from(Status::Ok), 0)
         );
     }
-    let (manifest, shards) = dyapp_bootstrap::replication::media_encode(&data).unwrap();
+}
+
+async fn assert_boundary_shard(client: &mut Client, data: &[u8], keep: SignedRecord) {
+    use proto::media_replica_put::Authorization;
+    let (manifest, shards) = dyapp_bootstrap::replication::media_encode(data).unwrap();
     let response = client
         .media(proto::media_request::Request::ShardPut(
             proto::MediaShardPut {
