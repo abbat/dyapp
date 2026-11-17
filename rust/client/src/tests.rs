@@ -371,27 +371,13 @@ fn search_kind(request: &proto::search_request::Request) -> &'static str {
     }
 }
 
-#[tokio::test]
-async fn search_calls_solve_the_puzzle_and_surface_busy_nodes() {
-    use proto::{search_request::Request, SearchResponse, Status};
+fn search_replies() -> std::vec::IntoIter<proto::SearchResponse> {
+    use proto::{SearchResponse, Status};
     let reply = |status: Status| SearchResponse {
         status: status.into(),
         ..Default::default()
     };
-    let options = SwarmOptions {
-        search: true,
-        ..SwarmOptions::default()
-    };
-    let mut server = build_configured_swarm(Keypair::generate_ed25519(), options).unwrap();
-    server
-        .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
-        .unwrap();
-    let address = loop {
-        if let SwarmEvent::NewListenAddr { address, .. } = server.select_next_some().await {
-            break address;
-        }
-    };
-    let mut replies = vec![
+    vec![
         SearchResponse {
             puzzle_challenge: vec![3; 16],
             puzzle_bits: 8,
@@ -424,45 +410,62 @@ async fn search_calls_solve_the_puzzle_and_surface_busy_nodes() {
             ..reply(Status::Puzzle)
         },
     ]
-    .into_iter();
-    let received = Arc::new(Mutex::new(Vec::new()));
-    let copy = Arc::clone(&received);
-    let task = tokio::spawn(async move {
+    .into_iter()
+}
+
+fn spawn_search_server(
+    mut server: libp2p::Swarm<dyapp_p2p_net::Behaviour>,
+    mut replies: std::vec::IntoIter<proto::SearchResponse>,
+    received: Arc<Mutex<Vec<(libp2p::PeerId, proto::search_request::Request)>>>,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
         loop {
-            if let SwarmEvent::Behaviour(BehaviourEvent::Search(RequestEvent::Message {
+            let event = server.select_next_some().await;
+            let SwarmEvent::Behaviour(BehaviourEvent::Search(RequestEvent::Message {
                 peer,
                 message:
                     RequestMessage::Request {
                         request, channel, ..
                     },
                 ..
-            })) = server.select_next_some().await
-            {
-                copy.lock().unwrap().push((peer, request.request.unwrap()));
-                let response = replies.next().unwrap();
-                server
-                    .behaviour_mut()
-                    .search
-                    .send_response(channel, response)
-                    .unwrap();
-            }
+            })) = event
+            else {
+                continue;
+            };
+            received
+                .lock()
+                .unwrap()
+                .push((peer, request.request.unwrap()));
+            server
+                .behaviour_mut()
+                .search
+                .send_response(channel, replies.next().unwrap())
+                .unwrap();
         }
-    });
-    let mut node = Node::connect(address, Arc::new(Protocols::public()))
-        .await
-        .unwrap();
+    })
+}
+
+async fn assert_search_exchanges(node: &mut Node) {
     let hits = node.search_query(Vec::new(), 7).await.unwrap().hits;
     assert_eq!(hits.len(), 1);
     assert!(node.search_get(vec![vec![1; 32]]).await.unwrap().partial);
-    let record = dyapp_identity::Identity::generate().sign(dyapp_identity::Domain::Profile, vec![]);
+    assert_search_busy_errors(node).await;
+    assert_search_puzzle_errors(node).await;
+}
+
+async fn assert_search_busy_errors(node: &mut Node) {
+    let record = Identity::generate().sign(Domain::Profile, vec![]);
     assert!(matches!(
         node.search_publish(record.clone()).await,
         Err(Error::RateLimited(after)) if after.as_secs() == 30
     ));
     assert!(matches!(
         node.search_heartbeat(record).await,
-        Err(Error::Status(Status::Denied))
+        Err(Error::Status(proto::Status::Denied))
     ));
+}
+
+async fn assert_search_puzzle_errors(node: &mut Node) {
     assert!(matches!(
         node.search_get(Vec::new()).await,
         Err(Error::Reply("puzzle too hard"))
@@ -471,7 +474,10 @@ async fn search_calls_solve_the_puzzle_and_surface_busy_nodes() {
         node.search_query(Vec::new(), 0).await,
         Err(Error::Reply("bad puzzle challenge"))
     ));
-    let received = received.lock().unwrap();
+}
+
+fn assert_search_requests(received: &[(libp2p::PeerId, proto::search_request::Request)]) {
+    use proto::search_request::Request;
     let kinds: Vec<_> = received
         .iter()
         .map(|(_, request)| search_kind(request))
@@ -504,5 +510,30 @@ async fn search_calls_solve_the_puzzle_and_surface_busy_nodes() {
         8
     ));
     assert_eq!(get.keys, [vec![1; 32]]);
+}
+
+#[tokio::test]
+async fn search_calls_solve_the_puzzle_and_surface_busy_nodes() {
+    let options = SwarmOptions {
+        search: true,
+        ..SwarmOptions::default()
+    };
+    let mut server = build_configured_swarm(Keypair::generate_ed25519(), options).unwrap();
+    server
+        .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+        .unwrap();
+    let address = loop {
+        if let SwarmEvent::NewListenAddr { address, .. } = server.select_next_some().await {
+            break address;
+        }
+    };
+    let received = Arc::new(Mutex::new(Vec::new()));
+    let task = spawn_search_server(server, search_replies(), Arc::clone(&received));
+    let mut node = Node::connect(address, Arc::new(Protocols::public()))
+        .await
+        .unwrap();
+    assert_search_exchanges(&mut node).await;
+    let received = received.lock().unwrap();
+    assert_search_requests(&received);
     task.abort();
 }
