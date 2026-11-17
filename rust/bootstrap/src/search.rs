@@ -543,7 +543,7 @@ impl SearchIndex {
         )
         .map_err(storage_error)?;
         if !p.deleted {
-            insert_profile(&tx, key, p, i64::from_ne_bytes(rand_bytes()))?;
+            insert_profile(&tx, key, p, i64::from_ne_bytes(rand_bytes()?))?;
         }
         // Retain purpose-separated negative evidence for authenticated discovery catch-up.
         if !p.deleted || p.search_only {
@@ -788,7 +788,7 @@ impl SearchIndex {
     }
 }
 
-fn rand_bytes() -> [u8; 8] {
+fn rand_bytes() -> Result<[u8; 8]> {
     crate::random()
 }
 

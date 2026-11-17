@@ -469,7 +469,7 @@ mod tests {
         let dir = format!("/tmp/ai/test-hourly-media-cache-{}", uuid::Uuid::new_v4());
         let mut config = crate::NodeConfig::default();
         config.storage.dir = dir.clone().into();
-        let mut service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config);
+        let mut service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config).unwrap();
         service.media = Some(crate::media::MediaStore::open(&service.config.storage.dir).unwrap());
         let media = service.media.as_ref().unwrap();
         let now = service.clock.timestamp();

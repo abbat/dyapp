@@ -86,7 +86,8 @@ async fn profile_repair_only_fills_gaps_once_an_hour_within_budget() {
         crate::storage::BootstrapStore::new(&dir).unwrap(),
         config,
         clock.clone(),
-    );
+    )
+    .unwrap();
     let mut swarm = swarm(
         Keypair::generate_ed25519(),
         &service.config.limits,

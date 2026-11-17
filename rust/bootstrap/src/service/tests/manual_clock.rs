@@ -20,7 +20,7 @@ impl Node {
         config.search.min_profile_pow_bits = 0;
         let store = BootstrapStore::new(&dir).unwrap();
         Self {
-            service: Service::with_clock(store, config, manual.clock()),
+            service: Service::with_clock(store, config, manual.clock()).unwrap(),
             identity: Identity::generate(),
         }
     }

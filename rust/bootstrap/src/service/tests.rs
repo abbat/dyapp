@@ -141,7 +141,7 @@ fn service_with(change: impl FnOnce(&mut crate::config::Limits)) -> Service {
     config.network.id_pow_bits = 0;
     config.search.min_profile_pow_bits = 0;
     change(&mut config.limits);
-    Service::new(BootstrapStore::new(dir.to_str().unwrap()).unwrap(), config)
+    Service::new(BootstrapStore::new(dir.to_str().unwrap()).unwrap(), config).unwrap()
 }
 
 fn publish(record: SignedRecord) -> ProfileRequest {

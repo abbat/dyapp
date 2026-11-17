@@ -18,7 +18,7 @@ async fn hourly_status_reports_and_resets_wire_bytes_and_failed_gossip_adds_none
     let dir = format!("/tmp/ai/test-wire-status-{}", uuid::Uuid::new_v4());
     let mut config = crate::NodeConfig::default();
     config.storage.dir = dir.clone().into();
-    let service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config);
+    let service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config).unwrap();
     let mut swarm = swarm_with_wire(
         Keypair::generate_ed25519(),
         &service.config.limits,
@@ -86,7 +86,7 @@ async fn background_media_repair_holds_no_channel() {
     );
     let mut config = crate::NodeConfig::default();
     config.storage.dir = dir.clone().into();
-    let mut service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config);
+    let mut service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config).unwrap();
     service.media = Some(crate::media::MediaStore::open(&service.config.storage.dir).unwrap());
     let mut swarm = swarm(
         Keypair::generate_ed25519(),
@@ -121,7 +121,7 @@ async fn media_queue_drops_capped_writes_without_tracking_or_trust_penalties() {
     let dir = format!("/tmp/ai/test-media-cap-{}", uuid::Uuid::new_v4());
     let mut config = crate::NodeConfig::default();
     config.storage.dir = dir.clone().into();
-    let mut service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config);
+    let mut service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config).unwrap();
     service.media = Some(crate::media::MediaStore::open(&service.config.storage.dir).unwrap());
     let mut swarm = swarm(
         Keypair::generate_ed25519(),
@@ -258,7 +258,7 @@ async fn mailbox_repair_over_fifty_envelopes_makes_progress_after_refill() {
         config.storage.dir = dir.clone().into();
         config.network.id_pow_bits = 0;
         config.limits.sender_puts_per_second = 1000;
-        Service::new(crate::storage::BootstrapStore::new(&dir).unwrap(), config)
+        Service::new(crate::storage::BootstrapStore::new(&dir).unwrap(), config).unwrap()
     };
     let (source, destination) = (service(), service());
     let (mut sender, mut receiver, remote) = Box::pin(repair_swarms(&source, &destination)).await;
@@ -380,7 +380,7 @@ async fn repair_sends_no_signals_but_lists_them() {
     config.storage.dir = dir.clone().into();
     config.network.id_pow_bits = 0;
     config.limits.sender_puts_per_second = 1000;
-    let service = Service::new(crate::storage::BootstrapStore::new(&dir).unwrap(), config);
+    let service = Service::new(crate::storage::BootstrapStore::new(&dir).unwrap(), config).unwrap();
     let owner = dyapp_identity::Identity::generate();
     let mailbox = vec![2; 32];
     for i in 0..4u8 {
@@ -436,7 +436,7 @@ async fn mailbox_profile_and_profile_repair_share_the_sender_cap() {
     let mut config = crate::config::NodeConfig::default();
     config.storage.dir = dir.clone().into();
     config.search.min_profile_pow_bits = 0;
-    let service = Service::new(crate::storage::BootstrapStore::new(&dir).unwrap(), config);
+    let service = Service::new(crate::storage::BootstrapStore::new(&dir).unwrap(), config).unwrap();
     let mut swarm = swarm(
         Keypair::generate_ed25519(),
         &service.config.limits,
@@ -558,7 +558,8 @@ async fn media_inventory_requires_near_trusted_peers_and_budget() {
     let mut config = crate::config::NodeConfig::default();
     config.storage.dir = dir.clone().into();
     config.limits.bytes_per_second = 10_000;
-    let mut service = Service::new(crate::storage::BootstrapStore::new(&dir).unwrap(), config);
+    let mut service =
+        Service::new(crate::storage::BootstrapStore::new(&dir).unwrap(), config).unwrap();
     service.media = Some(crate::media::MediaStore::open(Path::new(&dir)).unwrap());
     let mut swarm = swarm(
         Keypair::generate_ed25519(),
@@ -677,7 +678,8 @@ async fn sharded_writes_require_k_indices_and_queue_two_streams_per_peer() {
         ))
         .unwrap(),
         crate::NodeConfig::default(),
-    );
+    )
+    .unwrap();
     let mut swarm = dyapp_p2p_net::build_swarm(Keypair::generate_ed25519(), Mode::Auto).unwrap();
     let mut replicas = Replicas::default();
     replicas.puts.insert(1, put);
@@ -714,7 +716,8 @@ async fn media_holder_status_counts_distinct_confirmations_for_the_latest_write(
         ))
         .unwrap(),
         crate::NodeConfig::default(),
-    );
+    )
+    .unwrap();
     let mut swarm = dyapp_p2p_net::build_swarm(Keypair::generate_ed25519(), Mode::Auto).unwrap();
     let mut replicas = Replicas::default();
     let a = PeerId::random();
@@ -780,7 +783,7 @@ async fn holders_store_once_and_replica_puts_never_fan_out() {
     let dir = format!("/tmp/ai/test-fanout-{}", uuid::Uuid::new_v4());
     let mut config = crate::config::NodeConfig::default();
     config.storage.dir = dir.clone().into();
-    let service = Service::new(crate::storage::BootstrapStore::new(&dir).unwrap(), config);
+    let service = Service::new(crate::storage::BootstrapStore::new(&dir).unwrap(), config).unwrap();
     let mut swarm = swarm(
         Keypair::generate_ed25519(),
         &service.config.limits,

@@ -11,7 +11,10 @@ pub(super) fn fixture() -> (Service, Identity) {
     config.limits.requests_per_second = 1000;
     config.limits.min_free_mb = 0;
     let store = BootstrapStore::new(config.storage.dir.to_str().unwrap()).unwrap();
-    (Service::new(store, config), Identity::from_secret(&[7; 32]))
+    (
+        Service::new(store, config).unwrap(),
+        Identity::from_secret(&[7; 32]),
+    )
 }
 
 fn record(owner: &Identity, version: u64, name: &str) -> SignedRecord {

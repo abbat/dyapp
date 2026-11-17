@@ -6,7 +6,7 @@ pub(super) fn service() -> Service {
     let dir = format!("/tmp/ai/test-metrics-{}", uuid::Uuid::new_v4());
     let mut config = NodeConfig::default();
     config.storage.dir = dir.clone().into();
-    Service::new(BootstrapStore::new(&dir).unwrap(), config)
+    Service::new(BootstrapStore::new(&dir).unwrap(), config).unwrap()
 }
 
 fn value(text: &str, sample: &str) -> Option<u64> {

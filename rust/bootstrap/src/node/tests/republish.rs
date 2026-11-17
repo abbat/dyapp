@@ -21,7 +21,7 @@ pub(super) fn node() -> (Service, Swarm<Behaviour>) {
     config.search.min_profile_pow_bits = 0;
     config.limits.bytes_per_second = 10_000;
     config.limits.min_free_mb = 0;
-    let mut service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config);
+    let mut service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config).unwrap();
     service.media = Some(crate::media::MediaStore::open(&service.config.storage.dir).unwrap());
     let mut swarm = swarm(
         Keypair::generate_ed25519(),

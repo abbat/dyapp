@@ -251,7 +251,7 @@ async fn start_dht_node() -> (Multiaddr, PeerId) {
     config.network.id_pow_bits = 0;
     let key = Keypair::generate_ed25519();
     let peer = key.public().to_peer_id();
-    let mut service = Service::new(BootstrapStore::new(&dir).unwrap(), config);
+    let mut service = Service::new(BootstrapStore::new(&dir).unwrap(), config).unwrap();
     if service.config.roles.contains(&Role::Search) {
         service.search = Some(std::sync::Arc::new(
             SearchIndex::open(

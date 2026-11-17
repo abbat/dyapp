@@ -114,10 +114,10 @@ impl Replicas {
             self.repair_reply(id, job, None, service.clock.instant());
             return;
         };
-        if !service
-            .traffic
-            .try_add((request.encoded_len() as u64).saturating_add(reserve), SHED_MEDIA)
-            || !self.allow_repair(to, payload)
+        if !service.traffic.try_add(
+            (request.encoded_len() as u64).saturating_add(reserve),
+            SHED_MEDIA,
+        ) || !self.allow_repair(to, payload)
         {
             self.repair_reply(id, job, None, service.clock.instant());
             return;
@@ -225,7 +225,7 @@ mod tests {
         config.storage.dir = dir.clone().into();
         config.limits.bytes_per_second = 10_000;
         config.limits.min_free_mb = 0;
-        let mut service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config);
+        let mut service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config).unwrap();
         service.media = Some(crate::media::MediaStore::open(&service.config.storage.dir).unwrap());
         service
     }

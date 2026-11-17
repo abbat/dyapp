@@ -17,6 +17,12 @@ fn clock_instant(service: &Service) -> tokio::time::Instant {
     tokio::time::Instant::from_std(service.clock.instant())
 }
 
+fn tick_puzzle(service: &Service) {
+    if let Err(error) = service.puzzle.tick(service.clock.instant()) {
+        tracing::error!(%error, "puzzle challenge rotation failed");
+    }
+}
+
 /// Serves requests on `swarm` until the task is dropped. The deny list is checked for changes
 /// every 10 seconds and, on Unix, on SIGHUP.
 pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
@@ -47,7 +53,7 @@ async fn event_loop(mut swarm: Swarm<Behaviour>, service: Arc<Service>, mut stat
             Some(done) = state.channels.store_done.recv() => {
                 finished::store(&mut state, &mut swarm, &service, done);
             }
-            _ = state.timers.puzzle_tick.tick() => service.puzzle.tick(service.clock.instant()),
+            _ = state.timers.puzzle_tick.tick() => tick_puzzle(&service),
             Some(done) = state.channels.search_done.recv() => {
                 finished::search(&mut state, &mut swarm, &service, done);
             }

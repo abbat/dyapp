@@ -21,7 +21,8 @@ fn service_with_clock(clock: crate::clock::Clock) -> Service {
     config.search.min_profile_pow_bits = 0;
     config.limits.bytes_per_second = 10_000;
     config.limits.min_free_mb = 0;
-    let mut service = Service::with_clock(crate::BootstrapStore::new(&dir).unwrap(), config, clock);
+    let mut service =
+        Service::with_clock(crate::BootstrapStore::new(&dir).unwrap(), config, clock).unwrap();
     service.media = Some(crate::media::MediaStore::open(&service.config.storage.dir).unwrap());
     service
 }

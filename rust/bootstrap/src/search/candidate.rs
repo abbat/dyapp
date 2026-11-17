@@ -179,7 +179,10 @@ pub(super) fn apply_rows(tx: &Connection, rows: &[([u8; 32], Option<Row>)]) -> R
                 .and_then(|signed| Profile::decode(signed.payload.as_slice()).ok())
                 .ok_or_else(|| storage_error("invalid indexed record"))?;
             if !profile.deleted {
-                let r = row.r.unwrap_or_else(|| i64::from_ne_bytes(rand_bytes()));
+                let r = match row.r {
+                    Some(r) => r,
+                    None => i64::from_ne_bytes(rand_bytes()?),
+                };
                 insert_profile(tx, key, &profile, r)?;
             }
             super::insert_record(tx, key, record)?;

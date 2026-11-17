@@ -134,7 +134,7 @@ fn build_service(
         .contains(&Role::Media)
         .then(|| MediaStore::open(&config.storage.dir))
         .transpose()?;
-    let mut service = Service::new(store, config);
+    let mut service = Service::new(store, config)?;
     service.wire = wire;
     service.dial_filter = dial_filter;
     service.protocols = protocols;

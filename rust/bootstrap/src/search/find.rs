@@ -383,7 +383,7 @@ impl SearchIndex {
             rest_values: &rest_values,
             limit,
         };
-        let start = i64::from_ne_bytes(rand_bytes());
+        let start = i64::from_ne_bytes(rand_bytes()?);
         let (mut hits, mut scanned) = (Vec::new(), 0u32);
         // From `start` up, then wrap to below `start`.
         for (lo, hi) in [(start, i64::MAX), (i64::MIN, start.saturating_sub(1))] {

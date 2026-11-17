@@ -34,27 +34,30 @@ struct State {
     rotated: Instant,
 }
 
-fn fresh() -> [u8; 16] {
+fn fresh() -> crate::Result<[u8; 16]> {
     crate::random()
 }
 
 impl Puzzle {
     /// Off until the median queue wait passes `wait_ms`; at most `max_bits`.
-    #[must_use]
-    pub fn new(wait_ms: u64, max_bits: u32, now: Instant) -> Self {
-        Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the operating system cannot provide a random challenge.
+    pub fn new(wait_ms: u64, max_bits: u32, now: Instant) -> crate::Result<Self> {
+        Ok(Self {
             inner: Mutex::new(State {
                 wait_ms,
                 max_bits,
                 bits: 0,
                 waits: Vec::new(),
-                challenge: fresh(),
-                previous: fresh(),
+                challenge: fresh()?,
+                previous: fresh()?,
                 used: HashSet::new(),
                 used_previous: HashSet::new(),
                 rotated: now,
             }),
-        }
+        })
     }
 
     fn state(&self) -> std::sync::MutexGuard<'_, State> {
@@ -104,7 +107,11 @@ impl Puzzle {
     }
 
     /// Every [`TICK`]: the median wait sets the difficulty; every minute a new challenge.
-    pub fn tick(&self, now: Instant) {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the operating system cannot provide the next random challenge.
+    pub fn tick(&self, now: Instant) -> crate::Result<()> {
         let mut state = self.state();
         let mut waits = std::mem::take(&mut state.waits);
         waits.sort_unstable();
@@ -121,10 +128,11 @@ impl Puzzle {
             };
         }
         if now.duration_since(state.rotated) >= ROTATE {
-            state.previous = std::mem::replace(&mut state.challenge, fresh());
+            state.previous = std::mem::replace(&mut state.challenge, fresh()?);
             state.used_previous = std::mem::take(&mut state.used);
             state.rotated = now;
         }
+        Ok(())
     }
 
     /// Sets the difficulty, for tests.
@@ -145,7 +153,7 @@ mod tests {
                 p.record_wait(Duration::from_millis(ms));
             }
             now += TICK;
-            p.tick(now);
+            p.tick(now).unwrap();
         }
         now
     }
@@ -153,7 +161,7 @@ mod tests {
     #[test]
     fn difficulty_ramps_and_decays() {
         let t = Instant::now();
-        let p = Puzzle::new(100, 20, t);
+        let p = Puzzle::new(100, 20, t).unwrap();
         assert_eq!(p.current().1, 0);
         let t = loaded(&p, t, 10, 500);
         assert_eq!(p.current().1, 12);
@@ -169,7 +177,7 @@ mod tests {
     #[test]
     fn solutions_are_bound_to_peer_challenge_and_use() {
         let t = Instant::now();
-        let p = Puzzle::new(100, 20, t);
+        let p = Puzzle::new(100, 20, t).unwrap();
         let t = loaded(&p, t, 10, 500);
         let (challenge, bits) = p.current();
         let solution = |peer, start| proto::Puzzle {
@@ -194,10 +202,10 @@ mod tests {
         let fresh = solution("me", mine.nonce + 1);
         // A tick without waits would also lower the difficulty; keep it.
         let t = t + ROTATE;
-        p.tick(t);
+        p.tick(t).unwrap();
         p.set_bits(bits);
         assert!(p.check("me", &fresh));
-        p.tick(t + ROTATE);
+        p.tick(t + ROTATE).unwrap();
         p.set_bits(bits);
         assert!(!p.check("me", &fresh));
     }

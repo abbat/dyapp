@@ -12,7 +12,8 @@ fn service() -> Service {
     let mut config = NodeConfig::default();
     config.storage.dir = dir.clone();
     config.limits.min_free_mb = 0;
-    let mut service = Service::new(BootstrapStore::new(dir.to_str().unwrap()).unwrap(), config);
+    let mut service =
+        Service::new(BootstrapStore::new(dir.to_str().unwrap()).unwrap(), config).unwrap();
     service.media = Some(MediaStore::open(&dir).unwrap());
     service
 }

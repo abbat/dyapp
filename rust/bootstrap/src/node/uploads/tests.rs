@@ -19,7 +19,7 @@ fn service() -> Service {
     config.limits.requests_per_second = 10_000;
     config.limits.media_requests_per_second = 10_000;
     config.limits.bytes_per_second = 100_000_000;
-    let mut service = Service::new(BootstrapStore::new(&dir).unwrap(), config);
+    let mut service = Service::new(BootstrapStore::new(&dir).unwrap(), config).unwrap();
     service.media = Some(MediaStore::open(std::path::Path::new(&dir)).unwrap());
     service
 }

@@ -153,15 +153,27 @@ const GUARDS: [&str; 7] = [
 
 impl Service {
     /// A service over `store` with every limit from `config`, no other role store and no deny list.
-    pub fn new(store: BootstrapStore, config: NodeConfig) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the operating system cannot provide random keys.
+    pub fn new(store: BootstrapStore, config: NodeConfig) -> crate::Result<Self> {
         Self::with_clock(store, config, Clock::system())
     }
 
     /// [`Service::new`] reading time from `clock`.
-    pub fn with_clock(store: BootstrapStore, config: NodeConfig, clock: Clock) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the operating system cannot provide random keys.
+    pub fn with_clock(
+        store: BootstrapStore,
+        config: NodeConfig,
+        clock: Clock,
+    ) -> crate::Result<Self> {
         let l = &config.limits;
         let ban = Duration::from_secs(u64::from(l.ban_minutes) * 60);
-        Self {
+        Ok(Self {
             store,
             media: None,
             search: None,
@@ -175,7 +187,7 @@ impl Service {
                 config.search.puzzle_wait_ms,
                 config.search.max_puzzle_bits,
                 clock.instant(),
-            ),
+            )?,
             rate_limiter: PeerRateLimiter::with_clock(l.requests_per_second, clock.clone()),
             media_peers: PeerRateLimiter::with_clock(l.media_requests_per_second, clock.clone()),
             media_bytes: PeerRateLimiter::with_clock(
@@ -207,9 +219,9 @@ impl Service {
             refused: Default::default(),
             reported: Default::default(),
             metrics: crate::metrics::Metrics::default(),
-            salt: crate::random(),
+            salt: crate::random()?,
             clock,
-        }
+        })
     }
 
     fn log_tripped(name: &str) {

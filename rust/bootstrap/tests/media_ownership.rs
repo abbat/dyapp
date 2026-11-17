@@ -52,7 +52,8 @@ impl Fixture {
         config.limits.requests_per_second = 10_000;
         config.limits.media_requests_per_second = 10_000;
         config.limits.min_free_mb = 0;
-        let mut service = Service::new(BootstrapStore::new(dir.to_str().unwrap()).unwrap(), config);
+        let mut service =
+            Service::new(BootstrapStore::new(dir.to_str().unwrap()).unwrap(), config).unwrap();
         service.media = Some(MediaStore::open(&dir).unwrap());
         let id = Keypair::ed25519_from_bytes([23; 32])
             .unwrap()

@@ -106,7 +106,8 @@ async fn start_config_in_protocols(
     change(&mut config);
     let keypair = Keypair::generate_ed25519();
     let peer = keypair.public().to_peer_id();
-    let mut service = Service::new(BootstrapStore::new(dir.to_str().unwrap()).unwrap(), config);
+    let mut service =
+        Service::new(BootstrapStore::new(dir.to_str().unwrap()).unwrap(), config).unwrap();
     service.protocols = protocols;
     let mut swarm = Box::new(
         node::swarm_with_protocols(
@@ -694,7 +695,7 @@ async fn network_keep_nodes() -> (Vec<Swarm<Behaviour>>, Vec<Service>, Vec<Multi
         config.roles = vec![Role::Store, Role::Media];
         config.network.storage_trust_minutes = 0;
         config.limits.min_free_mb = 0;
-        let mut service = Service::new(BootstrapStore::new(&dir).unwrap(), config);
+        let mut service = Service::new(BootstrapStore::new(&dir).unwrap(), config).unwrap();
         service.media =
             Some(dyapp_bootstrap::media::MediaStore::open(std::path::Path::new(&dir)).unwrap());
         let mut swarm = node::swarm_with_protocols(

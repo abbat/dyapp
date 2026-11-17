@@ -3,6 +3,10 @@ use thiserror::Error;
 /// Errors of the node's stores and request handling.
 #[derive(Debug, Error)]
 pub enum BootstrapError {
+    /// The operating system could not provide random bytes.
+    #[error("OS random source: {0}")]
+    Random(#[from] getrandom::Error),
+
     /// A database or file operation failed.
     #[error("Storage error: {0}")]
     StorageError(String),
