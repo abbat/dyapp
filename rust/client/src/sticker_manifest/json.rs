@@ -89,12 +89,12 @@ fn hash(text: &str) -> Option<[u8; 32]> {
     let mut hash = [0; 32];
     for (out, pair) in hash.iter_mut().zip(text.as_bytes().as_chunks::<2>().0) {
         let nibble = |byte: u8| match byte {
-            b'0'..=b'9' => byte - b'0',
-            b'a'..=b'f' => byte - b'a' + 10,
-            b'A'..=b'F' => byte - b'A' + 10,
-            _ => 0, // All bytes were checked above.
+            b'0'..=b'9' => byte.checked_sub(b'0'),
+            b'a'..=b'f' => byte.checked_sub(b'a')?.checked_add(10),
+            b'A'..=b'F' => byte.checked_sub(b'A')?.checked_add(10),
+            _ => None,
         };
-        *out = (nibble(pair[0]) << 4) | nibble(pair[1]);
+        *out = (nibble(pair[0])? << 4) | nibble(pair[1])?;
     }
     Some(hash)
 }

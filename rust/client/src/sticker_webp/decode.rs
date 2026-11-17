@@ -42,8 +42,12 @@ fn decode(bytes: &[u8]) -> Result<Frame, &'static str> {
     }
     let alpha = decoder.has_alpha();
     let channels = if alpha { 4 } else { 3 };
-    let count = width as usize * height as usize;
-    let expected = count * channels;
+    let count = (width as usize)
+        .checked_mul(height as usize)
+        .ok_or("WebP output size mismatch")?;
+    let expected = count
+        .checked_mul(channels)
+        .ok_or("WebP output size mismatch")?;
     if decoder.output_buffer_size() != Some(expected) {
         return Err("WebP output size mismatch");
     }
@@ -57,7 +61,8 @@ fn decode(bytes: &[u8]) -> Result<Frame, &'static str> {
         }
         buffer
     } else {
-        let mut rgba = Vec::with_capacity(count * 4);
+        let capacity = count.checked_mul(4).ok_or("WebP output size mismatch")?;
+        let mut rgba = Vec::with_capacity(capacity);
         for rgb in buffer.as_chunks::<3>().0 {
             rgba.extend_from_slice(rgb);
             rgba.push(255);
