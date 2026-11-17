@@ -197,11 +197,10 @@ fn apply_resolved(
     deleted_sticker: bool,
 ) -> Result<bool, Error> {
     let (deleted, _, last_hlc, last_device, last_operation) = row;
-    if deleted == 1 {
-        return Ok(deleted_sticker);
-    }
-    if deleted != 0 {
-        return Err(Error::InboxConflict);
+    match deleted {
+        1 => return Ok(deleted_sticker),
+        0 => {}
+        _ => return Err(Error::InboxConflict),
     }
     let last = match (last_hlc, last_device, last_operation) {
         (None, None, None) => None,
