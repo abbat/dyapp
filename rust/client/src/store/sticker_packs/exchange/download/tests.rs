@@ -49,6 +49,36 @@ fn download_state(store: &Store, peer: &str, pack_id: &[u8; 32]) -> Option<PackD
     store.sticker_pack_download_state(peer, pack_id).unwrap()
 }
 
+fn generation_safe_retry(
+    store: &mut Store,
+    peer: &str,
+    answer: &PackAnswer,
+    job: &PackDownloadJob,
+) -> PackDownloadJob {
+    let sealed = store.sealed_device().unwrap();
+    let next = store.retry_sticker_pack_download(job).unwrap().unwrap();
+    assert!(next.token != job.token && next.sticker_hash == job.sticker_hash);
+    assert!(
+        store
+            .sticker_pack_answer(&[9], peer, &answer.pack_id, &next.token)
+            .unwrap()
+            == Some(answer.clone())
+    );
+    assert!(store
+        .sticker_pack_answer(&[9], peer, &answer.pack_id, &job.token)
+        .unwrap()
+        .is_none());
+    assert!(!store
+        .defer_sticker_pack_download(job, PackDownloadFailure::Storage, 200)
+        .unwrap());
+    assert!(!store
+        .finish_sticker_pack(peer, &answer.pack_id, &job.token)
+        .unwrap());
+    assert!(store.retry_sticker_pack_download(job).unwrap().is_none());
+    assert_eq!(store.sealed_device().unwrap(), sealed);
+    next
+}
+
 #[test]
 fn waiting_answer_failure_and_generation_safe_retry_survive_restart() {
     let (mut store, owner, path, peer) = database();
@@ -69,27 +99,7 @@ fn waiting_answer_failure_and_generation_safe_retry_survive_restart() {
     assert_eq!(download_state(&store, &peer, &answer.pack_id), Some(failed));
     assert!(store.due_sticker_pack_downloads(1099).unwrap().is_empty());
     assert!(store.due_sticker_pack_downloads(1100).unwrap() == vec![job.clone()]);
-    let sealed = store.sealed_device().unwrap();
-    let next = store.retry_sticker_pack_download(&job).unwrap().unwrap();
-    assert!(next.token != job.token && next.sticker_hash == job.sticker_hash);
-    assert!(
-        store
-            .sticker_pack_answer(&[9], &peer, &answer.pack_id, &next.token)
-            .unwrap()
-            == Some(answer.clone())
-    );
-    assert!(store
-        .sticker_pack_answer(&[9], &peer, &answer.pack_id, &job.token)
-        .unwrap()
-        .is_none());
-    assert!(!store
-        .defer_sticker_pack_download(&job, PackDownloadFailure::Storage, 200)
-        .unwrap());
-    assert!(!store
-        .finish_sticker_pack(&peer, &answer.pack_id, &job.token)
-        .unwrap());
-    assert!(store.retry_sticker_pack_download(&job).unwrap().is_none());
-    assert_eq!(store.sealed_device().unwrap(), sealed);
+    let next = generation_safe_retry(&mut store, &peer, &answer, &job);
     drop(store);
     let store = Store::open(&path, &owner).unwrap();
     assert!(store.due_sticker_pack_downloads(0).unwrap() == vec![next]);
