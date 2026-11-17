@@ -257,51 +257,34 @@ mod tests {
         assert!(crate::add_peer(&mut swarm, peer, direct));
     }
 
-    #[tokio::test]
-    async fn a_private_node_listens_on_a_circuit_through_a_connected_relay() {
-        fn dial(node: &mut libp2p::Swarm<crate::Behaviour>, peer: PeerId) -> Vec<Multiaddr> {
-            node.behaviour_mut()
-                .handle_pending_outbound_connection(
-                    ConnectionId::new_unchecked(usize::MAX),
-                    Some(peer),
-                    &[],
-                    Endpoint::Dialer,
-                )
-                .unwrap()
-        }
-        let make = |mode, relay| {
-            let autonat = autonat::Config {
-                boot_delay: Duration::from_millis(100),
-                retry_interval: Duration::from_millis(500),
-                throttle_server_period: Duration::ZERO,
-                confidence_max: 0,
-                only_global_ips: false,
+    fn auto_relay_swarm(
+        mode: Mode,
+        relay: Option<relay::Config>,
+    ) -> libp2p::Swarm<crate::Behaviour> {
+        let autonat = autonat::Config {
+            boot_delay: Duration::from_millis(100),
+            retry_interval: Duration::from_millis(500),
+            throttle_server_period: Duration::ZERO,
+            confidence_max: 0,
+            only_global_ips: false,
+            ..Default::default()
+        };
+        build_configured_swarm(
+            Keypair::generate_ed25519(),
+            SwarmOptions {
+                mode,
+                relay,
+                autonat,
                 ..Default::default()
-            };
-            build_configured_swarm(
-                Keypair::generate_ed25519(),
-                SwarmOptions {
-                    mode,
-                    relay,
-                    autonat,
-                    ..Default::default()
-                },
-            )
-            .unwrap()
-        };
-        let mut relay = make(Mode::Auto, Some(relay::Config::default()));
-        let mut node = make(Mode::Client, None);
-        relay
-            .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
-            .unwrap();
-        let address = loop {
-            if let SwarmEvent::NewListenAddr { address, .. } = relay.select_next_some().await {
-                break address.with(Protocol::P2p(*relay.local_peer_id()));
-            }
-        };
-        relay.add_external_address(address.clone());
-        // Without a listener the dial-back to the observed address fails: AutoNAT says private.
-        node.dial(address.clone()).unwrap();
+            },
+        )
+        .unwrap()
+    }
+
+    async fn wait_for_private_circuit(
+        relay: &mut libp2p::Swarm<crate::Behaviour>,
+        node: &mut libp2p::Swarm<crate::Behaviour>,
+    ) {
         let (mut private, mut circuit) = (false, None);
         tokio::time::timeout(Duration::from_secs(30), async {
             while circuit.is_none() {
@@ -322,6 +305,34 @@ mod tests {
         let circuit = circuit.unwrap();
         assert!(private);
         assert!(crate::is_circuit(&circuit), "{circuit}");
+    }
+
+    #[tokio::test]
+    async fn a_private_node_listens_on_a_circuit_through_a_connected_relay() {
+        fn dial(node: &mut libp2p::Swarm<crate::Behaviour>, peer: PeerId) -> Vec<Multiaddr> {
+            node.behaviour_mut()
+                .handle_pending_outbound_connection(
+                    ConnectionId::new_unchecked(usize::MAX),
+                    Some(peer),
+                    &[],
+                    Endpoint::Dialer,
+                )
+                .unwrap()
+        }
+        let mut relay = auto_relay_swarm(Mode::Auto, Some(relay::Config::default()));
+        let mut node = auto_relay_swarm(Mode::Client, None);
+        relay
+            .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+            .unwrap();
+        let address = loop {
+            if let SwarmEvent::NewListenAddr { address, .. } = relay.select_next_some().await {
+                break address.with(Protocol::P2p(*relay.local_peer_id()));
+            }
+        };
+        relay.add_external_address(address.clone());
+        // Without a listener the dial-back to the observed address fails: AutoNAT says private.
+        node.dial(address.clone()).unwrap();
+        wait_for_private_circuit(&mut relay, &mut node).await;
 
         // A dial to another peer adds the circuit through the relay after its direct address.
         let relay_peer = *relay.local_peer_id();
