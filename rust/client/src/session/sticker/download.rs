@@ -28,8 +28,9 @@ impl Session {
         seal_key: &[u8; 32],
         stop: impl Fn() -> bool,
     ) -> Result<usize, Error> {
-        let jobs = self.store.due_sticker_pack_downloads(crate::now() * 1000)?;
-        let mut completed = 0;
+        let jobs = self.store.due_sticker_pack_downloads(crate::now_ms())?;
+        let mut completed = 0usize;
+        let add = |count: usize, downloaded: bool| count.saturating_add(usize::from(downloaded));
         for job in jobs.into_iter().take(4) {
             if stop() {
                 break;
@@ -51,17 +52,9 @@ impl Session {
             else {
                 continue;
             };
-            match self.store.saved_sticker_pack(seal_key, &job.pack_id) {
-                Ok(Some(pack)) => {
-                    completed +=
-                        usize::from(self.retain_downloaded_pack(&group, &job, &pack, seal_key)?);
-                    continue;
-                }
-                Ok(None) => {}
-                Err(_) => {
-                    self.defer_pack_download(&job, Failure::Storage)?;
-                    continue;
-                }
+            if let Some(downloaded) = self.reuse_saved_pack(&group, &job, seal_key)? {
+                completed = add(completed, downloaded);
+                continue;
             }
             let fetched = attachment::fetch(nodes, &answer.attachment).await;
             if stop() {
@@ -71,14 +64,35 @@ impl Session {
                 self.defer_pack_download(&job, Failure::Fetch)?;
                 continue;
             };
-            completed += usize::from(self.complete_pack_download(&group, &job, &bytes, seal_key)?);
+            completed = add(
+                completed,
+                self.complete_pack_download(&group, &job, &bytes, seal_key)?,
+            );
         }
         Ok(completed)
     }
 
+    fn reuse_saved_pack(
+        &mut self,
+        group: &[u8],
+        job: &PackDownloadJob,
+        seal_key: &[u8; 32],
+    ) -> Result<Option<bool>, Error> {
+        match self.store.saved_sticker_pack(seal_key, &job.pack_id) {
+            Ok(Some(pack)) => self
+                .retain_downloaded_pack(group, job, &pack, seal_key)
+                .map(Some),
+            Ok(None) => Ok(None),
+            Err(_) => {
+                self.defer_pack_download(job, Failure::Storage)?;
+                Ok(Some(false))
+            }
+        }
+    }
+
     fn defer_pack_download(&self, job: &PackDownloadJob, failure: Failure) -> Result<(), Error> {
         self.store
-            .defer_sticker_pack_download(job, failure, crate::now() * 1000)?;
+            .defer_sticker_pack_download(job, failure, crate::now_ms())?;
         Ok(())
     }
 

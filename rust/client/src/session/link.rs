@@ -203,7 +203,7 @@ impl Session {
             }
             .into());
         }
-        let hlc = self.store.tick(crate::now() * 1000)?;
+        let hlc = self.store.tick(crate::now_ms())?;
         let groups: Vec<_> = self.own_groups().map(|g| g.id().to_vec()).collect();
         if groups.is_empty() {
             let actor = self
@@ -318,14 +318,14 @@ impl Session {
             .try_into()
             .map_err(|_| crate::Error::Reply("bad device key"))?;
         let address = mailbox(&key);
-        let mut turn = 0;
+        let mut turn = 0u64;
         for certificate in listed {
             if chat::device_mailbox(certificate)?.as_slice() < address.as_slice() {
-                turn += 1;
+                turn = turn.saturating_add(1);
             }
         }
         let age = self.store.own_profile_age(own.profile.version, now)?;
-        if age < turn * ADD_TURN_SECONDS {
+        if age < turn.saturating_mul(ADD_TURN_SECONDS) {
             return Ok(false);
         }
         let profiles = std::slice::from_ref(own);
@@ -366,7 +366,7 @@ impl Session {
                 due.push((group.id().to_vec(), missing));
             }
         }
-        let mut added = 0;
+        let mut added = 0usize;
         for (group, missing) in due {
             let mut packages = Vec::new();
             for key in missing {
@@ -385,7 +385,7 @@ impl Session {
             if !packages.is_empty() {
                 let writes = self.stage_add(&group, &packages, profiles, seal_key)?;
                 self.send_staged(nodes, writes, seal_key).await?;
-                added += 1;
+                added = added.saturating_add(1);
             }
         }
         Ok(added)

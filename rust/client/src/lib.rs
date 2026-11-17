@@ -971,6 +971,10 @@ pub fn now() -> u64 {
         .map_or(0, |since| since.as_secs())
 }
 
+pub(crate) fn now_ms() -> u64 {
+    now().saturating_mul(1000)
+}
+
 fn clock_range(_: std::num::TryFromIntError) -> store::Error {
     store::Error::ClockRange
 }
