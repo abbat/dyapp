@@ -88,7 +88,7 @@ pub fn on_digest(
             && a.hashes.iter().all(|h| h.len() == 32)
     });
     let Some(remote) = remote else {
-        let last = bucket.map_or(SLOTS, |_| first + 256);
+        let last = bucket.map_or(SLOTS, |_| first.saturating_add(256));
         return vec![Ask::Range(range(topic, first, last))];
     };
     let differs = |i: usize| local.get(i).is_none_or(|l| remote.hashes[i] != l[..]);
@@ -110,22 +110,26 @@ pub fn on_digest(
     let mut i = 0u16;
     while i < 256 {
         if !differs(usize::from(i)) {
-            i += 1;
+            i = i.saturating_add(1);
             continue;
         }
         let start = i;
         while i < 256 && differs(usize::from(i)) {
-            i += 1;
+            i = i.saturating_add(1);
         }
         asks.push(Ask::Range(range(
             topic,
-            first + u32::from(start),
-            first + u32::from(i),
+            first.saturating_add(u32::from(start)),
+            first.saturating_add(u32::from(i)),
         )));
     }
     // Too many separate ranges: one request for the whole bucket is cheaper.
     if asks.len() > MAX_RUNS {
-        return vec![Ask::Range(range(topic, first, first + 256))];
+        return vec![Ask::Range(range(
+            topic,
+            first,
+            first.saturating_add(256),
+        ))];
     }
     asks
 }
@@ -234,7 +238,7 @@ impl Asks {
 
     /// Sends waiting asks while fewer than `IN_FLIGHT` are out.
     pub fn send(&mut self, swarm: &mut Swarm<Behaviour>) {
-        while self.digests.len() + self.ranges.len() < IN_FLIGHT {
+        while self.digests.len().saturating_add(self.ranges.len()) < IN_FLIGHT {
             let Some((peer, ask)) = self.queue.pop_front() else {
                 return;
             };
