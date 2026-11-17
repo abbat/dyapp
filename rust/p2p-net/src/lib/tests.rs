@@ -337,6 +337,44 @@ async fn search_nodes_gossip() {
     assert!(plain.behaviour().gossip.as_ref().is_none());
 }
 
+async fn assert_foreign_media_handling(
+    codec: &mut ProtoCodec<Frame, Frame>,
+    protocols: &Protocols,
+    bytes: &[u8],
+    wire: &WireBytes,
+) {
+    use libp2p::futures::io::Cursor;
+    use request_response::Codec;
+    for foreign in [&protocols.node, &StreamProtocol::new("/unknown/media")] {
+        assert!(codec
+            .read_request(foreign, &mut Cursor::new(bytes))
+            .await
+            .is_err());
+        assert!(codec
+            .read_response(foreign, &mut Cursor::new(bytes))
+            .await
+            .is_err());
+    }
+    if protocols.media != MEDIA_PROTOCOL {
+        assert!(codec
+            .read_request(&MEDIA_PROTOCOL, &mut Cursor::new(bytes))
+            .await
+            .is_err());
+    }
+    assert_eq!(wire.take().0, [[0; 2]; 11]);
+    let unknown = frame_bytes(16);
+    codec
+        .read_request(
+            &StreamProtocol::new("/unknown/media"),
+            &mut Cursor::new(&unknown),
+        )
+        .await
+        .unwrap();
+    let counts = wire.take();
+    assert_eq!(counts.0[WireBytes::OTHER], [16, 0]);
+    assert_eq!(counts.0[4], [0, 0]);
+}
+
 #[tokio::test]
 async fn configured_media_ids_keep_large_frames_and_stable_counter_slots() {
     use libp2p::futures::io::Cursor;
@@ -379,34 +417,7 @@ async fn configured_media_ids_keep_large_frames_and_stable_counter_slots() {
         expected[4] = [2 * bytes.len() as u64; 2];
         assert_eq!(wire.take().0, expected);
         assert_eq!(codec.permits.as_ref().unwrap().available_permits(), 16);
-        for foreign in [&protocols.node, &StreamProtocol::new("/unknown/media")] {
-            assert!(codec
-                .read_request(foreign, &mut Cursor::new(&bytes))
-                .await
-                .is_err());
-            assert!(codec
-                .read_response(foreign, &mut Cursor::new(&bytes))
-                .await
-                .is_err());
-        }
-        if protocols.media != MEDIA_PROTOCOL {
-            assert!(codec
-                .read_request(&MEDIA_PROTOCOL, &mut Cursor::new(&bytes))
-                .await
-                .is_err());
-        }
-        assert_eq!(wire.take().0, [[0; 2]; 11]);
-        let unknown = frame_bytes(16);
-        codec
-            .read_request(
-                &StreamProtocol::new("/unknown/media"),
-                &mut Cursor::new(&unknown),
-            )
-            .await
-            .unwrap();
-        let counts = wire.take();
-        assert_eq!(counts.0[WireBytes::OTHER], [16, 0]);
-        assert_eq!(counts.0[4], [0, 0]);
+        assert_foreign_media_handling(&mut codec, &protocols, &bytes, &wire).await;
     }
 }
 
