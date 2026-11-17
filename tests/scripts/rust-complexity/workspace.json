@@ -8,8 +8,6 @@
   {"path":"rust/bootstrap/src/media/tests.rs","function":"fn attach_put_release_and_expire ","metrics":{"cognitive":19}},
   {"path":"rust/bootstrap/src/media/tests.rs","function":"fn keep_put_get_and_drop ","metrics":{"cognitive":18}},
   {"path":"rust/bootstrap/src/metrics.rs","function":"fn render ","metrics":{"lines":132}},
-  {"path":"rust/bootstrap/src/node/delivery.rs","function":"fn after_mailbox ","metrics":{"lines":59}},
-  {"path":"rust/bootstrap/src/node/delivery.rs","function":"fn send_envelopes ","metrics":{"cognitive":20,"lines":57}},
   {"path":"rust/bootstrap/src/node/identified.rs","function":"fn add_node ","metrics":{"cognitive":19}},
   {"path":"rust/bootstrap/src/node/identified.rs","function":"fn drop_foreign ","metrics":{"cognitive":16}},
   {"path":"rust/bootstrap/src/node/open.rs","function":"fn open ","metrics":{"cognitive":34,"lines":81}},

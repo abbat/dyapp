@@ -25,21 +25,13 @@ fn repair_batch(batch: &[crate::service::Held], now: i64) -> MailboxRequest {
     }
 }
 
-pub(super) fn send_envelopes(
+fn send_revokes(
     swarm: &mut Swarm<Behaviour>,
     service: &Service,
     cap: &mut ReplicaCap,
     to: PeerId,
-    mailbox: &[u8],
-    wanted: impl Fn(&Vec<u8>) -> bool,
+    revokes: Vec<SignedRecord>,
 ) -> (bool, Vec<OutboundRequestId>) {
-    let revokes = match service.revokes(mailbox) {
-        Ok(revokes) => revokes,
-        Err(error) => {
-            tracing::error!(%error, "mailbox repair failed");
-            return (false, Vec::new());
-        }
-    };
     let mut complete = true;
     let mut sent = Vec::new();
     for record in revokes {
@@ -53,15 +45,14 @@ pub(super) fn send_envelopes(
         service.traffic.add(request.encoded_len() as u64);
         sent.push(swarm.behaviour_mut().mailbox.send_request(&to, request));
     }
-    let held = match service.held(mailbox) {
-        Ok(held) => held,
-        Err(error) => {
-            tracing::error!(%error, "mailbox repair failed");
-            return (false, sent);
-        }
-    };
+    (complete, sent)
+}
+
+fn repair_envelopes(
+    held: HashMap<Vec<u8>, crate::service::Held>,
+    wanted: impl Fn(&Vec<u8>) -> bool,
+) -> (Vec<crate::service::Held>, bool) {
     let mut bytes = 0;
-    let now = service.clock.timestamp();
     let mut wanted: Vec<crate::service::Held> = held
         .into_iter()
         .filter(|(id, (record, _, _))| {
@@ -79,7 +70,20 @@ pub(super) fn send_envelopes(
             bytes <= REPAIR_BYTES
         })
         .collect();
-    complete &= envelopes.len() == count;
+    let complete = envelopes.len() == count;
+    (envelopes, complete)
+}
+
+fn send_batches(
+    swarm: &mut Swarm<Behaviour>,
+    service: &Service,
+    cap: &mut ReplicaCap,
+    to: PeerId,
+    envelopes: &[crate::service::Held],
+    now: i64,
+) -> (bool, Vec<OutboundRequestId>) {
+    let mut complete = true;
+    let mut sent = Vec::new();
     for batch in envelopes.chunks(usize::try_from(REPLICA_UNITS_PER_SECOND).unwrap()) {
         if !cap.allow(&to, u32::try_from(batch.len()).unwrap()) {
             complete = false;
@@ -92,6 +96,47 @@ pub(super) fn send_envelopes(
     (complete, sent)
 }
 
+fn send_stored_revokes(
+    swarm: &mut Swarm<Behaviour>,
+    service: &Service,
+    cap: &mut ReplicaCap,
+    to: PeerId,
+    mailbox: &[u8],
+) -> Option<(bool, Vec<OutboundRequestId>)> {
+    match service.revokes(mailbox) {
+        Ok(revokes) => Some(send_revokes(swarm, service, cap, to, revokes)),
+        Err(error) => {
+            tracing::error!(%error, "mailbox repair failed");
+            None
+        }
+    }
+}
+
+pub(super) fn send_envelopes(
+    swarm: &mut Swarm<Behaviour>,
+    service: &Service,
+    cap: &mut ReplicaCap,
+    to: PeerId,
+    mailbox: &[u8],
+    wanted: impl Fn(&Vec<u8>) -> bool,
+) -> (bool, Vec<OutboundRequestId>) {
+    let Some((complete, mut sent)) = send_stored_revokes(swarm, service, cap, to, mailbox) else {
+        return (false, Vec::new());
+    };
+    let held = match service.held(mailbox) {
+        Ok(held) => held,
+        Err(error) => {
+            tracing::error!(%error, "mailbox repair failed");
+            return (false, sent);
+        }
+    };
+    let now = service.clock.timestamp();
+    let (envelopes, selected) = repair_envelopes(held, wanted);
+    let (batches, batch_sent) = send_batches(swarm, service, cap, to, &envelopes, now);
+    sent.extend(batch_sent);
+    (complete && selected && batches, sent)
+}
+
 /// What follows a successful mailbox request: a put is pushed to the mailbox's watchers; a
 /// watching fetch is remembered and starts a repair; a device's ack or revoke is forwarded to the
 /// nodes closest to the replica keys (their replies are ignored: the envelopes expire anyway); an
@@ -99,6 +144,66 @@ pub(super) fn send_envelopes(
 /// ponytail: acks and inventories go to the closest node of each replica key only, where clients
 /// write; a replica written elsewhere because that node was full is not repaired and keeps an
 /// acked envelope until it expires.
+fn mailbox_owner(record: &SignedRecord) -> Result<Vec<u8>, std::array::TryFromSliceError> {
+    <[u8; 32]>::try_from(record.public_key.as_slice())
+        .map(|key| dyapp_identity::key_hash(&key).to_vec())
+}
+
+fn lookup_replicas(
+    swarm: &mut Swarm<Behaviour>,
+    replicas: &mut Replicas,
+    mailbox: &[u8],
+    then: &dyn Fn() -> Lookup,
+) {
+    for i in 0..REPLICAS {
+        let key = replica_key(mailbox, i);
+        let query = swarm.behaviour_mut().kad.get_closest_peers(key);
+        replicas.lookups.insert(query, then());
+    }
+}
+
+fn forward_replica(
+    swarm: &mut Swarm<Behaviour>,
+    replicas: &mut Replicas,
+    record: &SignedRecord,
+    request: impl Fn(SignedRecord) -> mailbox_request::Request,
+) {
+    let Ok(mailbox) = mailbox_owner(record) else {
+        return;
+    };
+    lookup_replicas(swarm, replicas, &mailbox, &|| {
+        Lookup::Forward(request(record.clone()))
+    });
+}
+
+fn after_inventory(
+    swarm: &mut Swarm<Behaviour>,
+    service: &Service,
+    replicas: &mut Replicas,
+    peer: PeerId,
+    inventory: proto::Inventory,
+) {
+    // An arbitrary peer may send an inventory; only one this node's routing table
+    // places near a replica key gets envelopes back.
+    let near = (0..REPLICAS).any(|i| {
+        let key = kad::KBucketKey::new(replica_key(&inventory.mailbox, i));
+        let kad = &mut swarm.behaviour_mut().kad;
+        let mut closest = kad.get_closest_local_peers(&key).take(REPLICAS.into());
+        closest.any(|p| *p.preimage() == peer)
+    });
+    if near && replicas.trust.trusted(&peer) {
+        let listed: HashSet<Vec<u8>> = inventory.ids.into_iter().collect();
+        let _ = send_envelopes(
+            swarm,
+            service,
+            &mut replicas.cap,
+            peer,
+            &inventory.mailbox,
+            |id| !listed.contains(id),
+        );
+    }
+}
+
 pub(super) fn after_mailbox(
     swarm: &mut Swarm<Behaviour>,
     service: &Service,
@@ -107,65 +212,43 @@ pub(super) fn after_mailbox(
     (peer, connection): (PeerId, ConnectionId),
     request: Option<mailbox_request::Request>,
 ) {
-    let owner = |record: &SignedRecord| {
-        <[u8; 32]>::try_from(record.public_key.as_slice())
-            .map(|key| dyapp_identity::key_hash(&key).to_vec())
-    };
-    let mut lookup = |swarm: &mut Swarm<Behaviour>, mailbox: &[u8], then: &dyn Fn() -> Lookup| {
-        for i in 0..REPLICAS {
-            let key = replica_key(mailbox, i);
-            let query = swarm.behaviour_mut().kad.get_closest_peers(key);
-            replicas.lookups.insert(query, then());
-        }
-    };
-    let repaired = &mut replicas.repaired;
     match request {
         Some(mailbox_request::Request::Put(record)) => push(swarm, watchers, vec![record]),
         // ponytail: a batch with one failed envelope is not pushed; the device fetches the rest.
         Some(mailbox_request::Request::ReplicaPut(batch)) => push(swarm, watchers, batch.envelopes),
         Some(mailbox_request::Request::Fetch(record)) => {
             let watch = proto::Fetch::decode(record.payload.as_slice()).is_ok_and(|f| f.watch);
-            let (true, Ok(mailbox)) = (watch, owner(&record)) else {
+            let (true, Ok(mailbox)) = (watch, mailbox_owner(&record)) else {
                 return;
             };
             let list = watchers.entry(mailbox.clone()).or_default();
             if !list.contains(&(peer, connection)) {
                 list.push((peer, connection));
             }
-            if service.traffic.second() < SHED_MEDIA && repaired.insert(mailbox.clone()) {
-                lookup(swarm, &mailbox, &|| Lookup::Repair(mailbox.clone()));
+            if service.traffic.second() < SHED_MEDIA && replicas.repaired.insert(mailbox.clone()) {
+                lookup_replicas(swarm, replicas, &mailbox, &|| {
+                    Lookup::Repair(mailbox.clone())
+                });
             }
         }
         Some(mailbox_request::Request::Ack(record)) => {
-            let Ok(mailbox) = owner(&record) else { return };
-            let request = || mailbox_request::Request::ReplicaAck(record.clone());
-            lookup(swarm, &mailbox, &|| Lookup::Forward(request()));
+            forward_replica(
+                swarm,
+                replicas,
+                &record,
+                mailbox_request::Request::ReplicaAck,
+            );
         }
         Some(mailbox_request::Request::Revoke(record)) => {
-            let Ok(mailbox) = owner(&record) else { return };
-            let request = || mailbox_request::Request::ReplicaRevoke(record.clone());
-            lookup(swarm, &mailbox, &|| Lookup::Forward(request()));
+            forward_replica(
+                swarm,
+                replicas,
+                &record,
+                mailbox_request::Request::ReplicaRevoke,
+            );
         }
         Some(mailbox_request::Request::Inventory(inventory)) => {
-            // An arbitrary peer may send an inventory; only one this node's routing table
-            // places near a replica key gets envelopes back.
-            let near = (0..REPLICAS).any(|i| {
-                let key = kad::KBucketKey::new(replica_key(&inventory.mailbox, i));
-                let kad = &mut swarm.behaviour_mut().kad;
-                let mut closest = kad.get_closest_local_peers(&key).take(REPLICAS.into());
-                closest.any(|p| *p.preimage() == peer)
-            });
-            if near && replicas.trust.trusted(&peer) {
-                let listed: HashSet<Vec<u8>> = inventory.ids.into_iter().collect();
-                let _ = send_envelopes(
-                    swarm,
-                    service,
-                    &mut replicas.cap,
-                    peer,
-                    &inventory.mailbox,
-                    |id| !listed.contains(id),
-                );
-            }
+            after_inventory(swarm, service, replicas, peer, inventory);
         }
         _ => {}
     }
