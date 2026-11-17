@@ -870,21 +870,25 @@ fn media_hashes(data: &[u8], count: usize) -> Vec<Vec<u8>> {
 
 #[test]
 fn store_media_checks_each_condition_and_evicts_cache_before_refusing() {
-    use proto::media_replica_put::Authorization;
-    let status = |s: &Service, replica: &proto::MediaReplicaPut| {
-        Status::try_from(s.store_media(replica).unwrap().status).unwrap()
-    };
-    let now = || chrono::Utc::now().timestamp().unsigned_abs();
     let s = media_service(|_| {});
     let owner = Identity::generate();
+    check_keep_conditions(&s, &owner);
+    check_attachment_conditions(&s, &owner);
+    check_cache_eviction_and_disk_space(&owner);
+}
+
+fn check_keep_conditions(s: &Service, owner: &Identity) {
+    use proto::media_replica_put::Authorization;
+
+    let now = || chrono::Utc::now().timestamp().unsigned_abs();
     // Manifest replicas carry their data in shards, never inline.
     let data = b"manifested".to_vec();
     let (manifest, _) = crate::replication::media_encode(&data).unwrap();
-    let mut replica = media_replica(&owner, data, 1);
+    let mut replica = media_replica(owner, data, 1);
     replica.manifest = Some(manifest);
-    assert_eq!(status(&s, &replica), Status::Invalid);
-    let zero = media_replica(&owner, b"version zero".to_vec(), 0);
-    assert_eq!(status(&s, &zero), Status::Invalid);
+    assert_eq!(store_media_status(s, &replica), Status::Invalid);
+    let zero = media_replica(owner, b"version zero".to_vec(), 0);
+    assert_eq!(store_media_status(s, &zero), Status::Invalid);
     let hashes = media_hashes;
     let keep = |data: &[u8], hashes: Vec<Vec<u8>>, time| {
         let keep = proto::MediaKeep {
@@ -908,18 +912,28 @@ fn store_media_checks_each_condition_and_evicts_cache_before_refusing() {
         (hashes(b"kept", MAX_KEEP + 1), Status::Invalid),
         (bad, Status::Invalid),
     ] {
-        assert_eq!(status(&s, &keep(b"kept", hashes, now())), expected);
+        assert_eq!(
+            store_media_status(s, &keep(b"kept", hashes, now())),
+            expected
+        );
     }
     // A keep exactly profile_ttl_days old is still live; retry if the second ticks over.
     let ttl = u64::from(s.config.limits.profile_ttl_days) * 86400;
     loop {
         let before = now();
-        let result = status(&s, &keep(b"aged", hashes(b"aged", 1), before - ttl));
+        let result = store_media_status(s, &keep(b"aged", hashes(b"aged", 1), before - ttl));
         if now() == before {
             assert_eq!(result, Status::Ok);
             break;
         }
     }
+}
+
+fn check_attachment_conditions(s: &Service, owner: &Identity) {
+    use proto::media_replica_put::Authorization;
+
+    let now = || chrono::Utc::now().timestamp().unsigned_abs();
+    let hashes = media_hashes;
     // Each attachment rule rejects on its own; exactly MAX_ATTACH hashes are allowed.
     let data = b"attached".to_vec();
     let hash = dyapp_identity::sha256(&data).to_vec();
@@ -955,14 +969,17 @@ fn store_media_checks_each_condition_and_evicts_cache_before_refusing() {
     {
         // Two hours old stays within attachment_retention_hours.
         let replica = attach(release, hashes, now() - 7200);
-        assert_eq!(status(&s, &replica), expected, "case {i}");
+        assert_eq!(store_media_status(s, &replica), expected, "case {i}");
     }
     let future = attach(release(7), vec![hash.clone()], now() + 3600);
-    assert_eq!(status(&s, &future), Status::Invalid);
+    assert_eq!(store_media_status(s, &future), Status::Invalid);
     // A deny-listed owner alone refuses an attachment of an allowed hash.
     s.deny.write().unwrap().insert(owner.peer_id());
     let denied = attach(release(8), vec![hash.clone()], now());
-    assert_eq!(status(&s, &denied), Status::Refused);
+    assert_eq!(store_media_status(s, &denied), Status::Refused);
+}
+
+fn check_cache_eviction_and_disk_space(owner: &Identity) {
     // A full store first evicts cached blobs, oldest read first, down to 95%.
     let s = media_service(|l| l.media_max_mb = 1);
     let media = s.media.as_ref().unwrap();
@@ -970,13 +987,13 @@ fn store_media_checks_each_condition_and_evicts_cache_before_refusing() {
         let data = vec![read; 400 << 10].into_boxed_slice();
         media.cache(&[read; 32], &data, read.into()).unwrap();
     }
-    let fits = media_replica(&owner, b"fits".to_vec(), 1);
-    assert_eq!(status(&s, &fits), Status::Ok);
+    let fits = media_replica(owner, b"fits".to_vec(), 1);
+    assert_eq!(store_media_status(&s, &fits), Status::Ok);
     assert_eq!(media.cached(&[1; 32], 4).unwrap(), None);
     assert!(media.cached(&[3; 32], 4).unwrap().is_some());
     // Low disk space alone refuses storage.
     let s = media_service(|l| l.min_free_mb = 1 << 40);
-    assert_eq!(status(&s, &fits), Status::Full);
+    assert_eq!(store_media_status(&s, &fits), Status::Full);
 }
 
 #[test]
