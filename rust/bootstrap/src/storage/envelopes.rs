@@ -199,13 +199,15 @@ impl BootstrapStore {
         };
         let message = !envelope.signal;
         let pooled = message && pool.is_some() && envelope.token_key.is_none();
+        let tokenless = || bytes(TOKENLESS_BYTES);
         let (used, limit) = match pool {
-            Some(pool) if pooled => (bytes(TOKENLESS_BYTES)?, pool),
-            Some(_) if message => (bytes(CLASS_BYTES)? - bytes(TOKENLESS_BYTES)?, max_bytes),
+            Some(pool) if pooled => (tokenless()?, pool),
+            Some(_) if message => (bytes(CLASS_BYTES)?.saturating_sub(tokenless()?), max_bytes),
             _ => (bytes(CLASS_BYTES)?, max_bytes),
         };
         let size = i64::try_from(record.len()).map_err(storage_error)?;
-        let over = used + size - i64::try_from(limit).unwrap_or(i64::MAX);
+        let limit = i64::try_from(limit).unwrap_or(i64::MAX);
+        let over = used.saturating_add(size).saturating_sub(limit);
         if over > 0 {
             if let Some(put) = evict_for(&tx, envelope, class, size, over, message, pooled)? {
                 return Ok(put);
@@ -271,15 +273,16 @@ impl BootstrapStore {
         let classes: &[i64] = if messages { &[0, 1] } else { &[1] };
         let limit = i64::try_from(limit).unwrap_or(i64::MAX);
         let mut db = lock(&self.messages)?;
-        let mut evicted = 0;
+        let mut evicted = 0usize;
         for _ in 0..EVICT_STEPS {
             let tx = db.transaction().map_err(storage_error)?;
-            let mut total = 0;
+            let mut total = 0i64;
             let mut largest: Vec<(i64, Vec<u8>, i64)> = Vec::new();
             for &class in classes {
-                total += tx
-                    .query_row(TOTAL, [class], |row| row.get::<_, i64>(0))
-                    .map_err(storage_error)?;
+                total = total.saturating_add(
+                    tx.query_row(TOTAL, [class], |row| row.get::<_, i64>(0))
+                        .map_err(storage_error)?,
+                );
                 let mut query = tx.prepare(LARGEST).map_err(storage_error)?;
                 let rows = query
                     .query_map([class], |row| Ok((row.get(0)?, row.get(1)?, class)))
@@ -295,7 +298,9 @@ impl BootstrapStore {
                 break;
             }
             let next = largest.get(1).map_or(0, |row| row.0);
-            let over = (total - limit).min(bytes - next + 1);
+            let over = total
+                .saturating_sub(limit)
+                .min(bytes.saturating_sub(next).saturating_add(1));
             let rows = rows(&tx, TOKENLESS_ROWS, mailbox, *class)?;
             let victims = plan(vec![rows], over).unwrap_or_default();
             if victims.is_empty() {
@@ -305,7 +310,7 @@ impl BootstrapStore {
                 tx.execute(DELETE, [seq]).map_err(storage_error)?;
             }
             tx.commit().map_err(storage_error)?;
-            evicted += victims.len();
+            evicted = evicted.saturating_add(victims.len());
         }
         Ok(evicted)
     }
@@ -341,7 +346,7 @@ fn plan(tiers: Vec<Vec<Row>>, mut over: i64) -> Option<Vec<i64>> {
             if row.seq == INCOMING {
                 return None;
             }
-            over -= row.size;
+            over = over.saturating_sub(row.size);
             victims.push(row.seq);
         }
     }
@@ -355,7 +360,8 @@ fn pick(rows: &[Row]) -> usize {
     for level in 0..rows[0].labels.len() {
         let mut bytes: BTreeMap<&[u8], i64> = BTreeMap::new();
         for &i in &candidates {
-            *bytes.entry(&rows[i].labels[level]).or_default() += rows[i].size;
+            let total = bytes.entry(&rows[i].labels[level]).or_default();
+            *total = total.saturating_add(rows[i].size);
         }
         let most = bytes.values().copied().max().unwrap_or_default();
         let label = candidates
