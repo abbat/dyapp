@@ -255,6 +255,99 @@ impl Session {
         Ok(seen)
     }
 
+    // The ledger ignores a replay, so applying before the inbox commit is safe to repeat.
+    fn apply_interaction_event(&mut self, event: &mut Event, blocked: bool) -> Result<(), Error> {
+        if let Event::Interaction {
+            group,
+            sender,
+            device,
+            event: interaction,
+        } = event
+        {
+            if !blocked {
+                let wall_ms = crate::now() * 1000;
+                // Another device of this owner sent it to the other owner of the group.
+                let own = sender == self.store.owner_peer_id();
+                let applied = match self.partner(group) {
+                    Some(peer) if own => {
+                        self.store
+                            .receive_own_interaction(&peer, device, *interaction, wall_ms)
+                    }
+                    _ => self
+                        .store
+                        .receive_interaction(sender, device, *interaction, wall_ms),
+                };
+                match applied {
+                    Err(crate::store::Error::ClockSkew(_)) => {
+                        *event = Event::Refused("interaction from the future".into());
+                    }
+                    applied => applied?,
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn apply_presence_event(&mut self, event: &mut Event, blocked: bool) -> Result<(), Error> {
+        if let Event::Message {
+            sender,
+            body: Body::Presence { hlc },
+            ..
+        } = event
+        {
+            if !blocked && sender != self.store.owner_peer_id() {
+                let wall_ms = crate::now() * 1000;
+                match self.store.receive_presence(sender, *hlc, wall_ms) {
+                    Err(crate::store::Error::ClockSkew(_)) => {
+                        *event = Event::Refused("presence from the future".into());
+                    }
+                    applied => applied?,
+                }
+            }
+        }
+        Ok(())
+    }
+
+    // A replay changes nothing: the newest change wins.
+    fn apply_peer_change_event(&mut self, event: &mut Event, blocked: bool) -> Result<(), Error> {
+        if let Event::Message {
+            body: Body::PeerChange { peer, hlc, change },
+            device: source_device,
+            ..
+        } = event
+        {
+            if !blocked {
+                let wall_ms = crate::now() * 1000;
+                match self
+                    .store
+                    .receive_peer_change(peer, change, *hlc, wall_ms, source_device)
+                {
+                    Err(crate::store::Error::ClockSkew(_)) => {
+                        *event = Event::Refused("change from the future".into());
+                    }
+                    applied => applied?,
+                }
+            }
+        }
+        Ok(())
+    }
+
+    // Only the other owner of a one-to-one chat marks own texts read; a replay changes nothing.
+    fn apply_read_event(&self, event: &Event, blocked: bool) -> Result<(), Error> {
+        if let Event::Message {
+            group,
+            sender,
+            body: Body::Read { up_to },
+            ..
+        } = event
+        {
+            if !blocked && self.partner(group).as_ref() == Some(sender) {
+                self.store.receive_read(group, sender, *up_to)?;
+            }
+        }
+        Ok(())
+    }
+
     /// Apply one new envelope and commit the result with its pending ACK. A Gap, an unknown
     /// owner or group is neither recorded nor acknowledged, so it is fetched again. A blocked
     /// owner's Welcome is refused; its message advances MLS state, is acknowledged and returns
@@ -321,89 +414,10 @@ impl Session {
                 _ => false,
             }
             || self.misplaced(&event);
-        // The ledger ignores a replay, so applying before the inbox commit is safe to repeat.
-        if let Event::Interaction {
-            group,
-            sender,
-            device,
-            event: interaction,
-        } = &event
-        {
-            if !blocked {
-                let wall_ms = crate::now() * 1000;
-                // Another device of this owner sent it to the other owner of the group.
-                let own = sender == self.store.owner_peer_id();
-                let applied = match self.partner(group) {
-                    Some(peer) if own => {
-                        self.store
-                            .receive_own_interaction(&peer, device, *interaction, wall_ms)
-                    }
-                    _ => self
-                        .store
-                        .receive_interaction(sender, device, *interaction, wall_ms),
-                };
-                match applied {
-                    Err(crate::store::Error::ClockSkew(_)) => {
-                        event = Event::Refused("interaction from the future".into());
-                    }
-                    applied => {
-                        applied?;
-                    }
-                }
-            }
-        }
-        if let Event::Message {
-            sender,
-            body: Body::Presence { hlc },
-            ..
-        } = &event
-        {
-            if !blocked && sender != self.store.owner_peer_id() {
-                let wall_ms = crate::now() * 1000;
-                match self.store.receive_presence(sender, *hlc, wall_ms) {
-                    Err(crate::store::Error::ClockSkew(_)) => {
-                        event = Event::Refused("presence from the future".into());
-                    }
-                    applied => {
-                        applied?;
-                    }
-                }
-            }
-        }
-        // A replay changes nothing: the newest change wins.
-        if let Event::Message {
-            body: Body::PeerChange { peer, hlc, change },
-            device: source_device,
-            ..
-        } = &event
-        {
-            if !blocked {
-                let wall_ms = crate::now() * 1000;
-                match self
-                    .store
-                    .receive_peer_change(peer, change, *hlc, wall_ms, source_device)
-                {
-                    Err(crate::store::Error::ClockSkew(_)) => {
-                        event = Event::Refused("change from the future".into());
-                    }
-                    applied => {
-                        applied?;
-                    }
-                }
-            }
-        }
-        // Only the other owner of a one-to-one chat marks own texts read; a replay changes nothing.
-        if let Event::Message {
-            group,
-            sender,
-            body: Body::Read { up_to },
-            ..
-        } = &event
-        {
-            if !blocked && self.partner(group).as_ref() == Some(sender) {
-                self.store.receive_read(group, sender, *up_to)?;
-            }
-        }
+        self.apply_interaction_event(&mut event, blocked)?;
+        self.apply_presence_event(&mut event, blocked)?;
+        self.apply_peer_change_event(&mut event, blocked)?;
+        self.apply_read_event(&event, blocked)?;
         let staged = if matches!(event, Event::Refused(_)) {
             // Keep the saved MLS state and reopen it: a refused envelope must change nothing.
             (|| {
