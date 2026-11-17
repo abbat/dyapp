@@ -462,8 +462,19 @@ fn media_manifests_shards_quota_and_corruption() {
     let (manifest, shards) = crate::replication::media_encode(&data).unwrap();
     replica.data.clear();
     replica.manifest = Some(manifest.clone());
+    let mut put = check_manifest_and_shard_corruption(&s, &replica, &manifest, &shards);
+    let fragments = check_assembled_media(&s, &manifest, &shards, data.len());
+    check_wrong_manifest_cleanup(&s, &owner, replica, &manifest, &mut put, &fragments);
+}
+
+fn check_manifest_and_shard_corruption(
+    s: &Service,
+    replica: &proto::MediaReplicaPut,
+    manifest: &proto::MediaManifest,
+    shards: &[Vec<u8>],
+) -> proto::MediaShardPut {
     assert_eq!(
-        s.store_media(&replica).unwrap().status,
+        s.store_media(replica).unwrap().status,
         i32::from(Status::Ok)
     );
     assert_eq!(
@@ -488,14 +499,23 @@ fn media_manifests_shards_quota_and_corruption() {
     );
     put.data = shards[5].clone();
     assert_eq!(s.store_shard(&put).unwrap().status, i32::from(Status::Ok));
+    put
+}
+
+fn check_assembled_media(
+    s: &Service,
+    manifest: &proto::MediaManifest,
+    shards: &[Vec<u8>],
+    data_len: usize,
+) -> Vec<(usize, Vec<u8>)> {
     let fragments = vec![(4, shards[4].clone()), (5, shards[5].clone())];
     let last = proto::GetMedia {
         offset: 1 << 20,
         len: 1 << 20,
         ..Default::default()
     };
-    let piece = s.assemble_media(&manifest, &fragments, &last).unwrap();
-    assert_eq!((piece.data, piece.total_size), (vec![7], data.len() as u64));
+    let piece = s.assemble_media(manifest, &fragments, &last).unwrap();
+    assert_eq!((piece.data, piece.total_size), (vec![7], data_len as u64));
     // The next piece reads the assembled copy: no shards are passed in.
     let first = s
         .media(
@@ -520,6 +540,18 @@ fn media_manifests_shards_quota_and_corruption() {
     );
     // Shards plus the assembled copy.
     assert!(persisted.usage().unwrap().0 <= 2 * ((1 << 20) + 1024));
+    fragments
+}
+
+fn check_wrong_manifest_cleanup(
+    s: &Service,
+    owner: &Identity,
+    mut replica: proto::MediaReplicaPut,
+    manifest: &proto::MediaManifest,
+    put: &mut proto::MediaShardPut,
+    fragments: &[(usize, Vec<u8>)],
+) {
+    let persisted = MediaStore::open(&s.config.storage.dir).unwrap();
     let mut wrong = manifest.clone();
     wrong.hash[0] ^= 1;
     let keep = proto::MediaKeep {
@@ -536,9 +568,9 @@ fn media_manifests_shards_quota_and_corruption() {
         i32::from(Status::Ok)
     );
     put.replica = Some(replica);
-    assert_eq!(s.store_shard(&put).unwrap().status, i32::from(Status::Ok));
+    assert_eq!(s.store_shard(put).unwrap().status, i32::from(Status::Ok));
     assert_eq!(
-        s.assemble_media(&wrong, &fragments, &proto::GetMedia::default())
+        s.assemble_media(&wrong, fragments, &proto::GetMedia::default())
             .unwrap()
             .status,
         i32::from(Status::NotFound)
