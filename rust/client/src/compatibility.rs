@@ -27,8 +27,8 @@ pub fn rank(own: &Profile, results: &mut [VerifiedProfile]) {
 fn evidence(a: &Profile, b: &Profile) -> Evidence {
     let mut evidence = Evidence::default();
     let mut add = |matched: bool| {
-        evidence.compared += 1;
-        evidence.matches += u8::from(matched);
+        evidence.compared = evidence.compared.saturating_add(1);
+        evidence.matches = evidence.matches.saturating_add(u8::from(matched));
     };
     if a.relationship_goal != 0 && b.relationship_goal != 0 {
         add(a.relationship_goal == b.relationship_goal);

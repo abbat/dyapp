@@ -61,13 +61,13 @@ pub fn request(
 /// absent when storing its token, or a database operation fails. Tokens stored
 /// before a later failure remain stored; invalid signed answers are skipped.
 pub fn accept(store: &Store, answer: &TokenAnswer, seal_key: &[u8; 32]) -> Result<usize, Error> {
-    let mut stored = 0;
+    let mut stored = 0usize;
     for signed in &answer.signed_tokens {
         let Some((mailbox, epoch)) = check(store, signed, seal_key)? else {
             continue;
         };
         store.set_write_token(&mailbox, epoch, signed)?;
-        stored += 1;
+        stored = stored.saturating_add(1);
     }
     Ok(stored)
 }
@@ -186,7 +186,7 @@ pub(crate) fn fallback(
             write.mailbox(),
             ciphertext,
             class,
-            epoch + 1,
+            epoch.saturating_add(1),
             seal_key,
         )?,
         Status::Stale | Status::Denied => crate::prepare(write.mailbox(), ciphertext, class, None)?,

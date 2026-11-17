@@ -144,7 +144,9 @@ pub fn check_due(
     let period = interval.seconds();
     let due_after = if trigger == Trigger::Timer {
         let window = period / 24;
-        period - window + jitter % (window + 1)
+        period
+            .saturating_sub(window)
+            .saturating_add(jitter.checked_rem(window.saturating_add(1)).unwrap_or(0))
     } else {
         period
     };

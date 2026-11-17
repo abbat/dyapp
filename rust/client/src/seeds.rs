@@ -140,7 +140,7 @@ impl CheckState {
             match swarm.dial(opts) {
                 Ok(()) => {
                     self.dials.insert(id, index);
-                    self.pending[index] += 1;
+                    self.pending[index] = self.pending[index].saturating_add(1);
                 }
                 Err(dial) => error = dial.to_string(),
             }
@@ -189,7 +189,7 @@ impl CheckState {
             return;
         }
         self.errors.insert(index, error.to_string());
-        self.pending[index] -= 1;
+        self.pending[index] = self.pending[index].saturating_sub(1);
         if self.pending[index] == 0 {
             let error = self.errors.remove(&index).unwrap_or_default();
             self.decide(connection_id, Row::Unreachable(error));
