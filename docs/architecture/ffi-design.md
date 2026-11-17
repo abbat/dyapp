@@ -1384,6 +1384,10 @@ depends on the native side not using a handle after freeing it.
 checks that keystore errors reach the caller; a `ConnectionCheck` saves its draft, activates
 only after reaching an in-process node and is cancelled mid-check; two `MlsDevice`s exchange
 a message across a sealed restart, and a wrong state key or a malformed profile fails.
+Generated UniFFI exports call `rust_call`, which catches Rust panics and returns
+`UnexpectedError` to the foreign caller. `exported_panics_are_unexpected_errors` invokes a
+test-only panic export through its generated C scaffolding and verifies the status, panic
+message and foreign-owned error-buffer cleanup.
 App-lock tests cover random salt, a correct and wrong PIN, invalid PIN and malformed verifier records. Preview tests size a 4000 × 3000 photo and noise, and feed `check_preview` a hostile corpus
 and 10 000 seeded mutations of a valid preview without a panic. The Android UI test
 (`AppUITests.kt`) checks that the stored identity keeps its peer ID when the activity is

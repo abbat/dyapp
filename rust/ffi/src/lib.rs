@@ -711,8 +711,25 @@ pub struct UserProfile {
 }
 
 #[cfg(test)]
+#[uniffi::export]
+fn panic_fixture() {
+    panic!("UniFFI panic boundary fixture");
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn exported_panics_are_unexpected_errors() {
+        let mut status = uniffi::RustCallStatus::default();
+        uniffi_dyapp_ffi_fn_func_panic_fixture(&mut status);
+        assert_eq!(status.code, uniffi::RustCallStatusCode::UnexpectedError);
+        // SAFETY: the completed failed export transferred one owned error buffer to the caller.
+        let buffer = unsafe { std::mem::ManuallyDrop::take(&mut status.error_buf) };
+        let message = String::from_utf8(buffer.destroy_into_vec()).unwrap_or_default();
+        assert!(message.contains("UniFFI panic boundary fixture"), "{message}");
+    }
 
     #[test]
     fn birth_assessment_keeps_optional_parts_and_rejects_impossible_dates() {
