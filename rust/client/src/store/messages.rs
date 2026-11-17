@@ -26,6 +26,8 @@ mod outbound_tests;
 #[cfg(test)]
 mod read_tests;
 
+type SavedChatText = (Option<Vec<u8>>, Option<i64>, i64);
+
 pub(super) const SCHEMA: &str = r"
 CREATE TABLE `chat_messages` (
     `arrival_order` INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -753,7 +755,7 @@ impl Store {
     fn saved_chat_text(
         tx: &Transaction<'_>,
         key: &MessageKey,
-    ) -> Result<Option<(Option<Vec<u8>>, Option<i64>, i64)>, Error> {
+    ) -> Result<Option<SavedChatText>, Error> {
         Ok(tx
             .query_row(
                 "SELECT `original_digest`, `original_hlc`, `forwarded` FROM `chat_messages`
