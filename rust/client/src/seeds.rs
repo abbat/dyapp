@@ -216,6 +216,49 @@ mod tests {
 
     #[tokio::test]
     async fn rows_are_classified_and_a_foreign_network_is_named() {
+        let (real, port, mut heard, server) = seed_server().await;
+        let closed = TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let live = format!("127.0.0.1:{port}");
+        let network = |name: &str| Network {
+            seeds: vec![
+                live.clone(),
+                format!("127.0.0.1:{closed}"),
+                format!("{live}/{}", PeerId::random()),
+                format!("{live}/{real}"),
+                "/ip4/127.0.0.1/tcp/1".into(),
+                format!(" {live} "),
+            ],
+            name: name.into(),
+        };
+        // A QUIC dial to the closed port may only end with the wait: still unreachable.
+        let wait = Duration::from_secs(5);
+        assert_classified(&network(""), real, wait).await;
+        assert_foreign_network(&network("city"), &mut heard, wait).await;
+        assert_eq!(
+            check(&Network::default(), wait).await,
+            Err(CheckError::NoSeeds)
+        );
+        let bad_name = Network {
+            seeds: vec![live],
+            name: " city".into(),
+        };
+        assert!(matches!(
+            check(&bad_name, wait).await,
+            Err(CheckError::Name(_))
+        ));
+        server.abort();
+    }
+
+    async fn seed_server() -> (
+        PeerId,
+        u16,
+        tokio::sync::mpsc::UnboundedReceiver<String>,
+        tokio::task::JoinHandle<()>,
+    ) {
         let options = SwarmOptions {
             mode: Mode::Auto,
             ..SwarmOptions::default()
@@ -237,71 +280,42 @@ mod tests {
             }
         };
         // The versions clients announce: dyappd drops a peer of another network by it.
-        let heard = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-        let record = heard.clone();
-        let server = tokio::spawn(async move {
+        let (record, heard) = tokio::sync::mpsc::unbounded_channel();
+        let task = tokio::spawn(async move {
             loop {
                 if let SwarmEvent::Behaviour(BehaviourEvent::Identify(
                     identify::Event::Received { info, .. },
                 )) = server.select_next_some().await
                 {
-                    record.lock().unwrap().push(info.protocol_version);
+                    record.send(info.protocol_version).unwrap();
                 }
             }
         });
-        let closed = TcpListener::bind("127.0.0.1:0")
-            .unwrap()
-            .local_addr()
-            .unwrap()
-            .port();
-        let live = format!("127.0.0.1:{port}");
-        let network = |name: &str| Network {
-            seeds: vec![
-                live.clone(),
-                format!("127.0.0.1:{closed}"),
-                format!("{live}/{}", PeerId::random()),
-                format!("{live}/{real}"),
-                "/ip4/127.0.0.1/tcp/1".into(),
-                format!(" {live} "),
-            ],
-            name: name.into(),
-        };
-        // A QUIC dial to the closed port may only end with the wait: still unreachable.
-        let wait = Duration::from_secs(5);
+        (real, port, heard, task)
+    }
 
-        let rows = check(&network(""), wait).await.unwrap();
+    async fn assert_classified(network: &Network, real: PeerId, wait: Duration) {
+        let rows = check(network, wait).await.unwrap();
         assert_eq!(rows[0], Row::Connected(real));
         assert!(matches!(rows[1], Row::Unreachable(_)), "{:?}", rows[1]);
         assert_eq!(rows[2], Row::WrongPin);
         assert_eq!(rows[3], Row::Connected(real));
         assert_eq!(rows[4], Row::Invalid(SeedError::Address));
         assert_eq!(rows[5], Row::Duplicate);
+    }
 
-        let rows = check(&network("city"), wait).await.unwrap();
+    async fn assert_foreign_network(
+        network: &Network,
+        heard: &mut tokio::sync::mpsc::UnboundedReceiver<String>,
+        wait: Duration,
+    ) {
+        let rows = check(network, wait).await.unwrap();
         assert_eq!(rows[0], Row::WrongNetwork);
         assert_eq!(rows[2], Row::WrongPin);
         assert_eq!(rows[3], Row::WrongNetwork);
         let city = Protocols::new("city").unwrap().version;
-        tokio::time::timeout(wait, async {
-            while !heard.lock().unwrap().contains(&city) {
-                tokio::time::sleep(Duration::from_millis(50)).await;
-            }
-        })
-        .await
-        .expect("the node never heard the checked network's version");
-
-        assert_eq!(
-            check(&Network::default(), wait).await,
-            Err(CheckError::NoSeeds)
-        );
-        let bad_name = Network {
-            seeds: vec![live],
-            name: " city".into(),
-        };
-        assert!(matches!(
-            check(&bad_name, wait).await,
-            Err(CheckError::Name(_))
-        ));
-        server.abort();
+        tokio::time::timeout(wait, async { while heard.recv().await.unwrap() != city {} })
+            .await
+            .expect("the node never heard the checked network's version");
     }
 }
