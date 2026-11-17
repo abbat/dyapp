@@ -187,35 +187,53 @@ fn media_authorization_records_are_bounded_before_storage() {
 
 #[test]
 fn media_replicas_verify_proofs_and_never_restore_dropped_hashes() {
-    use proto::media_replica_put::Authorization;
     let mut s = media_service(|_| {});
     let owner = Identity::generate();
     let replica = media_replica(&owner, b"replica".to_vec(), 1);
     let hash = dyapp_identity::sha256(&replica.data);
-    let result = |s: &Service, replica: &proto::MediaReplicaPut| {
-        Status::try_from(s.store_media(replica).unwrap().status).unwrap()
-    };
+    check_replica_proofs(&s, &replica);
+    check_keep_replacement(&mut s, &owner, &replica, &hash);
+    check_attachment_lifecycle(&mut s, &owner, &replica, &hash);
+}
+
+fn store_media_status(s: &Service, replica: &proto::MediaReplicaPut) -> Status {
+    Status::try_from(s.store_media(replica).unwrap().status).unwrap()
+}
+
+fn check_replica_proofs(s: &Service, replica: &proto::MediaReplicaPut) {
+    use proto::media_replica_put::Authorization;
+
     let mut bad = replica.clone();
     bad.authorization = None;
-    assert_eq!(result(&s, &bad), Status::Denied);
+    assert_eq!(store_media_status(s, &bad), Status::Denied);
     bad.authorization = Some(Authorization::Keep(SignedRecord::default()));
-    assert_eq!(result(&s, &bad), Status::Denied);
+    assert_eq!(store_media_status(s, &bad), Status::Denied);
     bad.data.push(1);
     bad.authorization = replica.authorization.clone();
-    assert_eq!(result(&s, &bad), Status::NotFound);
-    assert_eq!(result(&s, &replica), Status::Ok);
+    assert_eq!(store_media_status(s, &bad), Status::NotFound);
+    assert_eq!(store_media_status(s, replica), Status::Ok);
     assert_eq!(
-        result(&s, &replica),
+        store_media_status(s, replica),
         Status::Ok,
         "already held counts as stored"
     );
+}
+
+fn check_keep_replacement(
+    s: &mut Service,
+    owner: &Identity,
+    replica: &proto::MediaReplicaPut,
+    hash: &[u8],
+) {
+    use proto::media_replica_put::Authorization;
+
     // The signed proof survives a restart and supports acceptor forwarding.
     s.media = Some(MediaStore::open(&s.config.storage.dir).unwrap());
     assert_eq!(
         s.media
             .as_ref()
             .unwrap()
-            .authorization(&owner.peer_id(), &hash)
+            .authorization(&owner.peer_id(), hash)
             .unwrap(),
         replica.authorization,
     );
@@ -230,22 +248,32 @@ fn media_replicas_verify_proofs_and_never_restore_dropped_hashes() {
         .unwrap()
         .keep_signed(&owner.peer_id(), &newer, &record)
         .unwrap();
-    assert_eq!(result(&s, &replica), Status::NotFound);
-    assert_eq!(s.media.as_ref().unwrap().get(&hash).unwrap(), None);
+    assert_eq!(store_media_status(s, replica), Status::NotFound);
+    assert_eq!(s.media.as_ref().unwrap().get(hash).unwrap(), None);
     assert_eq!(
         s.media
             .as_ref()
             .unwrap()
-            .authorization(&owner.peer_id(), &hash)
+            .authorization(&owner.peer_id(), hash)
             .unwrap(),
         None
     );
     // Even if the latest keep permits a hash, a carried proof must name it too.
-    let current = media_replica(&owner, replica.data.clone(), 3);
-    assert_eq!(result(&s, &current), Status::Ok);
-    bad = current;
+    let current = media_replica(owner, replica.data.clone(), 3);
+    assert_eq!(store_media_status(s, &current), Status::Ok);
+    let mut bad = current;
     bad.authorization = Some(Authorization::Keep(record));
-    assert_eq!(result(&s, &bad), Status::NotFound);
+    assert_eq!(store_media_status(s, &bad), Status::NotFound);
+}
+
+fn check_attachment_lifecycle(
+    s: &mut Service,
+    owner: &Identity,
+    replica: &proto::MediaReplicaPut,
+    hash: &[u8],
+) {
+    use proto::media_replica_put::Authorization;
+
     let attach = proto::MediaAttach {
         release: dyapp_identity::sha256(b"release").to_vec(),
         hashes: vec![hash.to_vec()],
@@ -255,22 +283,22 @@ fn media_replicas_verify_proofs_and_never_restore_dropped_hashes() {
     attachment.authorization = Some(Authorization::Attach(
         owner.sign(Domain::MediaAttach, attach.encode_to_vec()),
     ));
-    assert_eq!(result(&s, &attachment), Status::Ok);
+    assert_eq!(store_media_status(s, &attachment), Status::Ok);
     s.media = Some(MediaStore::open(&s.config.storage.dir).unwrap());
     assert_eq!(
         s.media
             .as_ref()
             .unwrap()
-            .authorization(&owner.peer_id(), &hash)
+            .authorization(&owner.peer_id(), hash)
             .unwrap(),
         attachment.authorization,
         "unexpired attachments take precedence over potentially aged keeps"
     );
     // Releasing the attachment leaves the independently kept copy alive.
     assert!(s.media.as_ref().unwrap().release(b"release").unwrap());
-    assert_eq!(result(&s, &replica), Status::Ok);
+    assert_eq!(store_media_status(s, replica), Status::Ok);
     assert_eq!(
-        result(&s, &attachment),
+        store_media_status(s, &attachment),
         Status::Refused,
         "a released attachment is not restored"
     );
@@ -281,7 +309,7 @@ fn media_replicas_verify_proofs_and_never_restore_dropped_hashes() {
     attachment.authorization = Some(Authorization::Attach(
         owner.sign(Domain::MediaAttach, expired.encode_to_vec()),
     ));
-    assert_eq!(result(&s, &attachment), Status::Invalid);
+    assert_eq!(store_media_status(s, &attachment), Status::Invalid);
 }
 
 #[test]
