@@ -203,17 +203,7 @@ pub async fn search(
             partial = true;
             continue;
         }
-        let mut keys = Vec::new();
-        for hit in reply.hits {
-            let peer_id: String = dyapp_identity::hex(&hit.key);
-            if blocked.contains(&peer_id) {
-                continue;
-            }
-            match cache.get(&peer_id) {
-                Some(held) if held.profile.version >= hit.version => cached.push(held),
-                _ => keys.push(hit.key),
-            }
-        }
+        let keys = cache_keys(reply.hits, cache, blocked, &mut cached);
         let (records, incomplete) = fetch(node, keys, &mut failures).await;
         partial |= incomplete;
         // `check` drops such a record anyway; the node that sent it is not to be trusted.
@@ -223,8 +213,38 @@ pub async fn search(
         replies.push(records);
     }
     let mut found = search_results::check(conditions, min_pow_bits, &replies);
+    merge_cached(&mut found, cached, cache);
+    found.retain(|profile| result_matches(profile, blocked, &observed, conditions, min_pow_bits));
+    SearchResults {
+        profiles: found,
+        partial,
+        failures,
+    }
+}
+
+fn cache_keys(
+    hits: Vec<proto::SearchHit>,
+    cache: &Profiles,
+    blocked: &[String],
+    cached: &mut Vec<VerifiedProfile>,
+) -> Vec<Vec<u8>> {
+    let mut keys = Vec::new();
+    for hit in hits {
+        let peer_id: String = dyapp_identity::hex(&hit.key);
+        if blocked.contains(&peer_id) {
+            continue;
+        }
+        match cache.get(&peer_id) {
+            Some(held) if held.profile.version >= hit.version => cached.push(held),
+            _ => keys.push(hit.key),
+        }
+    }
+    keys
+}
+
+fn merge_cached(found: &mut Vec<VerifiedProfile>, cached: Vec<VerifiedProfile>, cache: &Profiles) {
     // A node may serve an older version than the cache holds.
-    for profile in &mut found {
+    for profile in &mut *found {
         match cache.get(&profile.peer_id) {
             Some(held) if held.profile.version > profile.profile.version => *profile = held.clone(),
             _ => {}
@@ -235,16 +255,18 @@ pub async fn search(
             found.push(held.clone());
         }
     }
-    found.retain(|profile| {
-        !blocked.contains(&profile.peer_id)
-            && observed.permits(profile)
-            && search_results::passes(conditions, min_pow_bits, &profile.profile)
-    });
-    SearchResults {
-        profiles: found,
-        partial,
-        failures,
-    }
+}
+
+fn result_matches(
+    profile: &VerifiedProfile,
+    blocked: &[String],
+    observed: &evidence::Observed,
+    conditions: &[Condition],
+    min_pow_bits: u32,
+) -> bool {
+    !blocked.contains(&profile.peer_id)
+        && observed.permits(profile)
+        && search_results::passes(conditions, min_pow_bits, &profile.profile)
 }
 
 /// Sends the profile [`Store::hold_search_profile`] holds to every node in `nodes` (search nodes
