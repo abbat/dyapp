@@ -678,11 +678,7 @@ impl request_response::Codec for RawCodec {
     }
 }
 
-#[tokio::test]
-async fn repeated_keep_uses_network_recoverability_without_a_local_copy() {
-    use dyapp_bootstrap::{config::Role, media::MediaStore};
-    use dyapp_p2p_net::proto::media_request::Request;
-    dyapp_p2p_net::set_id_pow_bits(0);
+async fn network_keep_nodes() -> (Vec<Swarm<Behaviour>>, Vec<Service>, Vec<Multiaddr>) {
     let mut swarms = Vec::new();
     let mut services = Vec::new();
     let mut addresses = Vec::new();
@@ -695,7 +691,8 @@ async fn repeated_keep_uses_network_recoverability_without_a_local_copy() {
         config.network.storage_trust_minutes = 0;
         config.limits.min_free_mb = 0;
         let mut service = Service::new(BootstrapStore::new(&dir).unwrap(), config);
-        service.media = Some(MediaStore::open(std::path::Path::new(&dir)).unwrap());
+        service.media =
+            Some(dyapp_bootstrap::media::MediaStore::open(std::path::Path::new(&dir)).unwrap());
         let mut swarm = node::swarm_with_protocols(
             Keypair::generate_ed25519(),
             &service.config.limits,
@@ -723,11 +720,11 @@ async fn repeated_keep_uses_network_recoverability_without_a_local_copy() {
         services.push(service);
         swarms.push(swarm);
     }
-    let ids = swarms
-        .iter()
-        .map(|s| *s.local_peer_id())
-        .collect::<Vec<_>>();
-    let (data, hash) = (0u32..1000)
+    (swarms, services, addresses)
+}
+
+fn remote_network_keep_data(ids: &[PeerId]) -> (Vec<u8>, Vec<u8>) {
+    (0u32..1000)
         .find_map(|n| {
             let data = n.to_le_bytes().to_vec();
             let hash = dyapp_identity::sha256(&data).to_vec();
@@ -741,21 +738,23 @@ async fn repeated_keep_uses_network_recoverability_without_a_local_copy() {
                 .collect::<std::collections::HashSet<_>>();
             (holders.len() == 2 && !holders.contains(&ids[0])).then_some((data, hash))
         })
-        .expect("no blob keys outside the accepting node");
-    let owner = Identity::generate();
-    let mut keep = proto::MediaKeep {
-        hashes: vec![hash.clone()],
-        version: 1,
-        time: chrono::Utc::now().timestamp().unsigned_abs(),
-    };
-    let sign = |keep: &proto::MediaKeep| owner.sign(Domain::MediaKeep, keep.encode_to_vec());
-    let record = sign(&keep);
+        .expect("no blob keys outside the accepting node")
+}
+
+async fn start_network_keep(
+    mut swarms: Vec<Swarm<Behaviour>>,
+    services: Vec<Service>,
+    addresses: &[Multiaddr],
+    ids: &[PeerId],
+    data: &[u8],
+    record: SignedRecord,
+) -> Client {
     for service in &services[1..] {
         assert_eq!(
             status(
                 service
                     .store_media(&proto::MediaReplicaPut {
-                        data: data.clone(),
+                        data: data.to_vec(),
                         authorization: Some(proto::media_replica_put::Authorization::Keep(
                             record.clone()
                         )),
@@ -777,14 +776,25 @@ async fn repeated_keep_uses_network_recoverability_without_a_local_copy() {
     for (swarm, service) in swarms.into_iter().zip(services) {
         tokio::spawn(node::run(swarm, std::sync::Arc::new(service)));
     }
-    let mut client = Client::connect(&addresses[0]).await;
-    let reply = client.media(Request::Keep(record)).await;
+    Client::connect(&addresses[0]).await
+}
+
+async fn assert_remote_network_keep(
+    client: &mut Client,
+    hash: Vec<u8>,
+    mut keep: proto::MediaKeep,
+    owner: &Identity,
+) {
+    let sign = |keep: &proto::MediaKeep| owner.sign(Domain::MediaKeep, keep.encode_to_vec());
+    let reply = client
+        .media(proto::media_request::Request::Keep(sign(&keep)))
+        .await;
     assert_eq!(status(reply.status), Status::Ok);
     assert_eq!(reply.missing, [] as [std::vec::Vec<u8>; 0]);
     assert_eq!(
         status(
             client
-                .media(Request::Get(proto::GetMedia {
+                .media(proto::media_request::Request::Get(proto::GetMedia {
                     hash: hash.clone(),
                     ..Default::default()
                 }))
@@ -794,12 +804,34 @@ async fn repeated_keep_uses_network_recoverability_without_a_local_copy() {
         Status::NotFound
     );
     keep.version += 1;
-    let reply = client.media(Request::Keep(sign(&keep))).await;
+    let reply = client
+        .media(proto::media_request::Request::Keep(sign(&keep)))
+        .await;
     assert_eq!(status(reply.status), Status::Ok);
     assert!(
         reply.missing.is_empty(),
         "fresh cached network availability was replaced by a local miss"
     );
+}
+
+#[tokio::test]
+async fn repeated_keep_uses_network_recoverability_without_a_local_copy() {
+    dyapp_p2p_net::set_id_pow_bits(0);
+    let (swarms, services, addresses) = Box::pin(network_keep_nodes()).await;
+    let ids = swarms
+        .iter()
+        .map(|s| *s.local_peer_id())
+        .collect::<Vec<_>>();
+    let (data, hash) = remote_network_keep_data(&ids);
+    let owner = Identity::generate();
+    let keep = proto::MediaKeep {
+        hashes: vec![hash.clone()],
+        version: 1,
+        time: chrono::Utc::now().timestamp().unsigned_abs(),
+    };
+    let record = owner.sign(Domain::MediaKeep, keep.encode_to_vec());
+    let mut client = start_network_keep(swarms, services, &addresses, &ids, &data, record).await;
+    assert_remote_network_keep(&mut client, hash, keep, &owner).await;
 }
 
 #[tokio::test]
