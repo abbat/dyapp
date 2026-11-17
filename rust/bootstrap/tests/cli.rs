@@ -316,30 +316,28 @@ fn without_config_the_working_directory_file_is_read() {
     assert!(stdout.contains("\npeer_id from-cwd\n"), "{stdout}");
 }
 
-#[test]
-fn status_tells_a_running_node_and_its_traffic_from_a_stopped_one() {
-    let dir = directory();
-    let free_port = || {
-        std::net::TcpListener::bind("127.0.0.1:0")
-            .unwrap()
-            .local_addr()
-            .unwrap()
-            .port()
-            .to_string()
-    };
+fn free_port() -> String {
+    std::net::TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port()
+        .to_string()
+}
+
+fn status_ports(listen: &str, metrics: &str) -> Vec<String> {
     let base = ["--network.id-pow-bits", "0", "--limits.min-free-mb", "0"];
-    let ports = |listen: &str, metrics: &str| -> Vec<String> {
-        let ports = ["--listen", listen, "--metrics.port", metrics];
-        base.iter()
-            .chain(&ports)
-            .map(std::string::ToString::to_string)
-            .collect()
-    };
-    success(&dir, &[&["keygen"], &base[..]].concat());
+    let ports = ["--listen", listen, "--metrics.port", metrics];
+    base.iter()
+        .chain(&ports)
+        .map(std::string::ToString::to_string)
+        .collect()
+}
+
+fn keep_status_media(dir: &Path) -> (&'static [u8], String) {
     let blob = b"media CLI roundtrip";
     let hash = dyapp_identity::sha256(blob);
-    let hash_hex: String = dyapp_identity::hex(&hash);
-    let media = dyapp_bootstrap::media::MediaStore::open(&dir).unwrap();
+    let media = dyapp_bootstrap::media::MediaStore::open(dir).unwrap();
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
@@ -352,49 +350,43 @@ fn status_tells_a_running_node_and_its_traffic_from_a_stopped_one() {
         media.put("test", blob, 1 << 20).unwrap(),
         dyapp_bootstrap::media::Put::Stored
     );
-    drop(media);
+    (blob, dyapp_identity::hex(&hash))
+}
+
+fn start_status_node(dir: &Path) -> (std::process::Child, Vec<String>) {
     // A loaded host can start the node slowly. free_port releases its port, so a parallel test
     // can take it before dyappd binds it; the node then exits and starts again on fresh ports.
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(180);
-    let (mut node, options) = 'spawn: {
-        for _ in 0..3 {
-            let options = ports(&format!("127.0.0.1:{}", free_port()), &free_port());
-            let mut node = Command::new(env!("CARGO_BIN_EXE_dyappd"))
-                .env_clear()
-                .envs(std::env::var_os("LLVM_PROFILE_FILE").map(|path| ("LLVM_PROFILE_FILE", path)))
-                .env("DYAPPD_ROLES", "[\"store\", \"media\"]")
-                .arg("--storage.dir")
-                .arg(&dir)
-                .args(&options)
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .spawn()
-                .unwrap();
-            let args: Vec<&str> = options.iter().map(String::as_str).collect();
-            loop {
-                let output = command(&dir, &[&["status"], &args[..]].concat());
-                if output.status.success() {
-                    break 'spawn (node, options);
-                }
-                if node.try_wait().unwrap().is_some() {
-                    break;
-                }
-                assert!(std::time::Instant::now() < deadline, "{output:?}");
-                std::thread::sleep(std::time::Duration::from_millis(500));
+    for _ in 0..3 {
+        let options = status_ports(&format!("127.0.0.1:{}", free_port()), &free_port());
+        let mut node = Command::new(env!("CARGO_BIN_EXE_dyappd"))
+            .env_clear()
+            .envs(std::env::var_os("LLVM_PROFILE_FILE").map(|path| ("LLVM_PROFILE_FILE", path)))
+            .env("DYAPPD_ROLES", "[\"store\", \"media\"]")
+            .arg("--storage.dir")
+            .arg(dir)
+            .args(&options)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        let args: Vec<&str> = options.iter().map(String::as_str).collect();
+        loop {
+            let output = command(dir, &[&["status"], &args[..]].concat());
+            if output.status.success() {
+                return (node, options);
             }
+            if node.try_wait().unwrap().is_some() {
+                break;
+            }
+            assert!(std::time::Instant::now() < deadline, "{output:?}");
+            std::thread::sleep(std::time::Duration::from_millis(500));
         }
-        panic!("dyappd exited on three port pairs");
-    };
-    let options: Vec<&str> = options.iter().map(String::as_str).collect();
-    let listen = options[options.len() - 3];
-    let status = |extra: &[&str]| command(&dir, &[&["status"], &options[..], extra].concat());
-    // A status scrape does not count as a protocol request. Make one before
-    // checking traffic, even when the first readiness probe already succeeds.
-    let fetched: serde_json::Value =
-        serde_json::from_str(&success(&dir, &["media-get", listen, &hash_hex])).unwrap();
-    assert_eq!(fetched["status"], "STATUS_OK");
-    assert_eq!(fetched["data"], dyapp_identity::hex(blob));
-    let running = String::from_utf8(status(&[]).stdout).unwrap();
+    }
+    panic!("dyappd exited on three port pairs");
+}
+
+fn assert_running_status(running: &str) {
     assert!(running.starts_with("node running\n"), "{running}");
     for name in [
         "uptime_seconds",
@@ -407,7 +399,26 @@ fn status_tells_a_running_node_and_its_traffic_from_a_stopped_one() {
     }
     // The media request was observed before its response, so it is counted.
     assert!(!running.contains("\nrequests 0\n"), "{running}");
+}
 
+#[test]
+fn status_tells_a_running_node_and_its_traffic_from_a_stopped_one() {
+    let dir = directory();
+    let base = ["--network.id-pow-bits", "0", "--limits.min-free-mb", "0"];
+    success(&dir, &[&["keygen"], &base[..]].concat());
+    let (blob, hash_hex) = keep_status_media(&dir);
+    let (mut node, options) = start_status_node(&dir);
+    let options: Vec<&str> = options.iter().map(String::as_str).collect();
+    let listen = options[options.len() - 3];
+    let status = |extra: &[&str]| command(&dir, &[&["status"], &options[..], extra].concat());
+    // A status scrape does not count as a protocol request. Make one before
+    // checking traffic, even when the first readiness probe already succeeds.
+    let fetched: serde_json::Value =
+        serde_json::from_str(&success(&dir, &["media-get", listen, &hash_hex])).unwrap();
+    assert_eq!(fetched["status"], "STATUS_OK");
+    assert_eq!(fetched["data"], dyapp_identity::hex(blob));
+
+    assert_running_status(&String::from_utf8(status(&[]).stdout).unwrap());
     let output = status(&["--metrics.port", "0"]);
     assert!(output.status.success());
     let unmetered = String::from_utf8(output.stdout).unwrap();
