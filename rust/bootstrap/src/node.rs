@@ -167,10 +167,16 @@ pub fn ip_group(address: &Multiaddr, limits: &Limits) -> String {
 /// `ip` masked to its leading `ipv4` / `ipv6` bits as `ip/bits`, an IPv4-mapped IPv6 address
 /// as IPv4.
 fn masked(ip: IpAddr, ipv4: u8, ipv6: u8) -> String {
-    let mask = |bits: u8, width: u8| u128::MAX.checked_shl(u32::from(width - bits)).unwrap_or(0);
+    let mask = |bits: u8, width: u8| {
+        u128::MAX
+            .checked_shl(u32::from(width.checked_sub(bits).unwrap_or(width)))
+            .unwrap_or(0)
+    };
     match ip.to_canonical() {
         IpAddr::V4(ip) => {
-            let mask = u32::MAX.checked_shl(u32::from(32 - ipv4)).unwrap_or(0);
+            let mask = u32::MAX
+                .checked_shl(u32::from(32u8.checked_sub(ipv4).unwrap_or(32)))
+                .unwrap_or(0);
             let ip = u32::from(ip) & mask;
             format!("{}/{ipv4}", std::net::Ipv4Addr::from(ip))
         }
@@ -384,7 +390,7 @@ impl PendingPut {
         Self {
             record,
             reply,
-            deadline: now + PUT_TIMEOUT,
+            deadline: now.checked_add(PUT_TIMEOUT).unwrap_or(now),
             sent: HashSet::new(),
             stored: HashSet::new(),
             required: if isolated { 1 } else { 2 },
@@ -502,7 +508,8 @@ impl Trust {
     }
 
     fn add(&mut self, peer: PeerId, points: i64) {
-        *self.score.entry(peer).or_default() += points;
+        let score = self.score.entry(peer).or_default();
+        *score = score.saturating_add(points);
     }
 
     fn forget(&mut self, peer: &PeerId) {
@@ -709,9 +716,15 @@ fn dispatch(
 /// peer that keeps a subset or withholds records cannot leave a silent hole.
 // ponytail: keys missing from both inventories are fetched twice; dedupe if catch-up traffic shows.
 fn catch_up_peers(peers: &[PeerId], pick: u32) -> Vec<PeerId> {
-    let start = pick as usize % peers.len().max(1);
+    let start = (pick as usize).checked_rem(peers.len().max(1)).unwrap_or(0);
     (0..peers.len().min(2))
-        .map(|i| peers[(start + i) % peers.len()])
+        .map(|i| {
+            let index = start
+                .wrapping_add(i)
+                .checked_rem(peers.len())
+                .unwrap_or(0);
+            peers[index]
+        })
         .collect()
 }
 
@@ -737,7 +750,7 @@ fn send_catch_up(
             };
             let id = swarm.behaviour_mut().search.send_request(peer, request);
             asked.insert(id, (*peer, chunk));
-            in_flight += 1;
+            in_flight = in_flight.saturating_add(1);
             // A reply holds at most 1 MiB; the next get waits until the budget covers it.
             let next = budget.reserve(now, 1 << 20, "profiles-idx.db", 0);
             if next > now {
