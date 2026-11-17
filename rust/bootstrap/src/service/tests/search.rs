@@ -638,43 +638,48 @@ fn search_peers_sync_on_their_own_budget() {
     }
     let client = peer("client");
     assert!((0..1_000).any(|_| search_status(&get(&client)) == Status::RateLimited));
-    let inventory = |peer: &Peer, topic| {
-        let request = InventoryRequest {
-            topic,
-            after: vec![],
-            before: vec![],
-        };
-        s.search_inventory(peer, request).unwrap()
-    };
-    let topic = crate::search::topic(&key);
-    let have = inventory(&sync, topic).have;
-    assert_eq!(have[0].key, key.to_vec());
-    assert_eq!(status_of(inventory(&sync, 16).status), Status::Invalid);
-    let bounded = |before: Vec<u8>| {
+    check_search_inventory(&s, &sync, &key);
+    check_search_digest(&s, &sync, &key);
+    check_sync_rate_limits(&s, &sync, &get);
+}
+
+fn check_search_inventory(s: &Service, sync: &Peer, key: &[u8; 32]) {
+    let inventory = |topic, before| {
         let request = InventoryRequest {
             topic,
             after: vec![],
             before,
         };
-        s.search_inventory(&sync, request).unwrap()
+        s.search_inventory(sync, request).unwrap()
     };
-    assert_eq!(bounded(key.to_vec()).have.len(), 0);
-    let mut above = key;
+    let topic = crate::search::topic(key);
+    let have = inventory(topic, vec![]).have;
+    assert_eq!(have[0].key, key.to_vec());
+    assert_eq!(status_of(inventory(16, vec![]).status), Status::Invalid);
+    assert_eq!(inventory(topic, key.to_vec()).have.len(), 0);
+    let mut above = *key;
     above[31] = above[31].wrapping_add(1);
     assert_eq!(
-        bounded(above.to_vec()).have.len(),
+        inventory(topic, above.to_vec()).have.len(),
         usize::from(above[31] != 0)
     );
-    assert_eq!(status_of(bounded(vec![0; 33]).status), Status::Invalid);
+    assert_eq!(
+        status_of(inventory(topic, vec![0; 33]).status),
+        Status::Invalid
+    );
+}
+
+fn check_search_digest(s: &Service, sync: &Peer, key: &[u8; 32]) {
     let digest = |topic, bucket| {
-        s.search_digest(&sync, DigestRequest { topic, bucket })
+        s.search_digest(sync, DigestRequest { topic, bucket })
             .unwrap()
     };
+    let topic = crate::search::topic(key);
     let top = digest(topic, None);
     assert_eq!(status_of(top.status), Status::Ok);
     assert_eq!(top.hashes.len(), 256);
     assert!(top.hashes.iter().all(|hash| hash.len() == 32));
-    let bucket = crate::search::slot(&key) >> 8;
+    let bucket = crate::search::slot(key) >> 8;
     assert_eq!(
         top.hashes.iter().position(|hash| *hash != [0; 32]),
         Some(bucket as usize)
@@ -687,14 +692,26 @@ fn search_peers_sync_on_their_own_budget() {
     );
     assert_eq!(status_of(digest(16, None).status), Status::Invalid);
     assert_eq!(status_of(digest(0, Some(256)).status), Status::Invalid);
-    let none = service().search_digest(&sync, DigestRequest::default());
+    let none = service().search_digest(sync, DigestRequest::default());
     assert_eq!(status_of(none.unwrap().status), Status::Unsupported);
+}
+
+fn check_sync_rate_limits(s: &Service, sync: &Peer, get: &impl Fn(&Peer) -> SearchResponse) {
     crate::rate_limit::fresh_second();
     s.search_sync
         .add(u64::from(s.config.maintenance.io_mb_per_s) << 20);
-    assert_eq!(search_status(&get(&sync)), Status::RateLimited);
-    assert_eq!(status_of(inventory(&sync, 0).status), Status::RateLimited);
-    assert_eq!(status_of(digest(0, None).status), Status::RateLimited);
+    assert_eq!(search_status(&get(sync)), Status::RateLimited);
+    let request = InventoryRequest {
+        topic: 0,
+        after: vec![],
+        before: vec![],
+    };
+    assert_eq!(
+        status_of(s.search_inventory(sync, request).unwrap().status),
+        Status::RateLimited
+    );
+    let digest = s.search_digest(sync, DigestRequest::default()).unwrap();
+    assert_eq!(status_of(digest.status), Status::RateLimited);
     s.search_peer(&sync.id, false);
     assert!(!s.search_peers.lock().unwrap().contains(&sync.id));
 }
