@@ -36,6 +36,28 @@ max_lines = 400
 "dyapp-profile" = 0
 "dyapp-video" = 0
 
+[indexing]
+# Checked slicing/indexing sites; lower each count as sites become checked or iterator-based.
+"dyapp-bootstrap" = 68
+"dyapp-client" = 103
+"dyapp-ffi" = 0
+"dyapp-identity" = 0
+"dyapp-messaging" = 0
+"dyapp-p2p-net" = 13
+"dyapp-profile" = 0
+"dyapp-video" = 0
+
+[string_slicing]
+# UTF-8 string slicing sites; use byte-safe checked boundaries or character iterators.
+"dyapp-bootstrap" = 5
+"dyapp-client" = 9
+"dyapp-ffi" = 0
+"dyapp-identity" = 0
+"dyapp-messaging" = 0
+"dyapp-p2p-net" = 0
+"dyapp-profile" = 0
+"dyapp-video" = 0
+
 [scorecard]
 # Practice C3: OpenSSF Scorecard aggregate score (tests/scripts/check-scorecard.py); the target is 7.0.
 # 7.1 measured on 2026-10-21 after the local linux-test image added an unpinned

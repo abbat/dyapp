@@ -228,12 +228,14 @@ fn header(kid: u64, ctr: u64) -> Vec<u8> {
             return value as u8;
         }
         let skip = value.leading_zeros() as usize / 8;
-        out.extend_from_slice(&value.to_be_bytes()[skip..]);
+        out.extend(value.to_be_bytes().into_iter().skip(skip));
         0b1000 | 7usize.saturating_sub(skip) as u8
     };
     let kid = field(kid, &mut out);
     let ctr = field(ctr, &mut out);
-    out[0] = (kid << 4) | ctr;
+    if let Some(config) = out.first_mut() {
+        *config = (kid << 4) | ctr;
+    }
     out
 }
 

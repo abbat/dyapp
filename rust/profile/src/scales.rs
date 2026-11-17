@@ -15,7 +15,7 @@ macro_rules! scale {
             /// Highest valid wire value.
             pub const MAX: u32 = {
                 let codes = [$($code),+];
-                codes[codes.len() - 1]
+                match codes.last() { Some(code) => *code, None => 0 }
             };
             /// Whether range queries have a meaningful order.
             pub const ORDERED: bool = $ordered;

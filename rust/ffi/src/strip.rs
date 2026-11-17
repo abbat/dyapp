@@ -19,6 +19,20 @@ fn failed(reason: &str) -> CoreError {
     CoreError::Failed(reason.to_string())
 }
 
+fn slice<'a>(
+    bytes: &'a [u8],
+    range: std::ops::Range<usize>,
+    reason: &str,
+) -> Result<&'a [u8], CoreError> {
+    bytes.get(range).ok_or_else(|| failed(reason))
+}
+
+fn jpeg_len(bytes: &[u8]) -> Option<usize> {
+    let bytes: [u8; 2] = bytes.try_into().ok()?;
+    let len = usize::from(u16::from_be_bytes(bytes));
+    (len >= 2).then_some(len)
+}
+
 /// `bytes` of a JPEG or PNG without metadata: only image data, JFIF, Adobe colour transform and
 /// ICC colour profile segments are kept, and anything after the end marker is cut (motion-photo
 /// videos). A JPEG with an EXIF orientation is decoded, turned upright and re-encoded at quality
@@ -72,7 +86,7 @@ fn upright_jpeg(bytes: &[u8]) -> Result<Vec<u8>, CoreError> {
 /// Copies the JPEG segment by segment, entropy-coded data verbatim, dropping APP1 (EXIF, XMP),
 /// APP13 (IPTC), COM and every other application segment but JFIF, ICC and Adobe.
 fn jpeg(bytes: &[u8]) -> Result<Vec<u8>, CoreError> {
-    let mut out = bytes[..2].to_vec();
+    let mut out = slice(bytes, 0..2, "truncated JPEG")?.to_vec();
     let mut at = 2;
     loop {
         if bytes.get(at) != Some(&0xFF) {
@@ -99,13 +113,12 @@ fn jpeg(bytes: &[u8]) -> Result<Vec<u8>, CoreError> {
         }
         let len = bytes
             .get(at.saturating_add(2)..at.saturating_add(4))
-            .map(|len| usize::from(u16::from_be_bytes([len[0], len[1]])))
-            .filter(|&len| len >= 2)
+            .and_then(jpeg_len)
             .ok_or_else(|| failed("bad JPEG segment length"))?;
         let segment = bytes
             .get(at..at.saturating_add(2).saturating_add(len))
             .ok_or_else(|| failed("truncated JPEG segment"))?;
-        let body = &segment[4..];
+        let body = slice(segment, 4..segment.len(), "bad JPEG segment length")?;
         if keep_jpeg_segment(marker, body) {
             out.extend_from_slice(segment);
         }
@@ -114,14 +127,14 @@ fn jpeg(bytes: &[u8]) -> Result<Vec<u8>, CoreError> {
             // Entropy-coded data runs to the next marker other than a stuffed 0xFF00 or RSTn.
             let start = at;
             while at < bytes.len()
-                && !(bytes[at] == 0xFF
+                && !(bytes.get(at) == Some(&0xFF)
                     && bytes
                         .get(at.saturating_add(1))
                         .is_some_and(|&next| next != 0x00 && !(0xD0..=0xD7).contains(&next)))
             {
                 at = at.saturating_add(1);
             }
-            out.extend_from_slice(&bytes[start..at]);
+            out.extend_from_slice(slice(bytes, start..at, "truncated JPEG data")?);
         }
     }
 }
@@ -141,18 +154,24 @@ fn png(bytes: &[u8]) -> Result<Vec<u8>, CoreError> {
     let mut out = PNG_SIGNATURE.to_vec();
     let mut at = PNG_SIGNATURE.len();
     loop {
-        let header = bytes
-            .get(at..at.saturating_add(8))
-            .ok_or_else(|| failed("truncated PNG"))?;
-        let len = u32::from_be_bytes([header[0], header[1], header[2], header[3]]) as usize;
-        let kind = &header[4..8];
+        let header = slice(bytes, at..at.saturating_add(8), "truncated PNG")?;
+        let len = u32::from_be_bytes(
+            *header
+                .first_chunk::<4>()
+                .ok_or_else(|| failed("truncated PNG"))?,
+        ) as usize;
+        let kind = slice(header, 4..8, "truncated PNG")?;
         let chunk = at
             .checked_add(12usize.saturating_add(len))
             .and_then(|end| bytes.get(at..end))
             .ok_or_else(|| failed("truncated PNG chunk"))?;
         if kind == b"eXIf"
-            && Orientation::from_exif_chunk(&chunk[8..8usize.saturating_add(len)])
-                .is_some_and(|o| o != Orientation::NoTransforms)
+            && Orientation::from_exif_chunk(slice(
+                chunk,
+                8..8usize.saturating_add(len),
+                "truncated PNG EXIF",
+            )?)
+            .is_some_and(|o| o != Orientation::NoTransforms)
         {
             return Err(failed("rotated PNG"));
         }

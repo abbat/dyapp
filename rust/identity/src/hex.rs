@@ -3,13 +3,12 @@
 /// Encodes every byte as two lowercase hexadecimal digits, retaining leading zeros.
 #[must_use]
 pub fn encode(bytes: &[u8]) -> String {
-    const DIGITS: &[u8; 16] = b"0123456789abcdef";
     bytes
         .iter()
         .flat_map(|&byte| {
             [
-                char::from(DIGITS[usize::from(byte >> 4)]),
-                char::from(DIGITS[usize::from(byte & 0x0f)]),
+                char::from_digit(u32::from(byte >> 4), 16).unwrap_or('0'),
+                char::from_digit(u32::from(byte & 0x0f), 16).unwrap_or('0'),
             ]
         })
         .collect()

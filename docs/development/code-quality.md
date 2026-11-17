@@ -239,14 +239,13 @@ Cargo's target directory. Clippy `unwrap_used`, `expect_used` and `panic` use
 `--force-warn`, so an `allow` attribute cannot hide a counted site.
 Repeated diagnostics for the same package/lint/source span count once.
 
-`[panics]` in `tests/scripts/baselines.toml` records each crate's budget. FFI must
-stay at zero; other crates, including p2p-net, initially ratchet their existing
-sites. Growth fails; shrinking requires lowering the budget in the same commit.
-A missing package/budget or failed/incomplete Clippy run fails rather than
-reporting zero. Details are saved in `build/panics.json` (CI artifact
-`panic-budgets` when this check ran). Platform crates outside the workspace are
-not covered. These three lints do not prove runtime panic freedom: indexing,
-assertions, allocation failure and transitive dependency panics are outside this check.
+`[panics]` in `tests/scripts/baselines.toml` records each crate's budget; all are zero
+and FFI must stay at zero. Growth fails; shrinking requires lowering the budget in the same
+commit. A missing package/budget or failed/incomplete Clippy run fails rather than reporting
+zero. Details are saved in `build/panics.json` (CI artifact `panic-budgets` when this check
+ran). Platform crates outside the workspace are not covered. These three lints do not prove
+runtime panic freedom: assertions, allocation failure and transitive dependency panics are
+outside this check; indexing and UTF-8 string slicing have separate ratchets.
 
 The same run counts Clippy `arithmetic_side_effects` against `[arithmetic]`, a separate
 budget so a removed `unwrap` cannot pay for a new `+`. Release builds keep `overflow-checks`
@@ -255,11 +254,15 @@ statically instead. Clippy has no range analysis and flags every integer `+`, `-
 which is why the existing sites (347 on 2026-11-13) ratchet rather than fail at once.
 Lowering a count means rewriting the site as `checked_`, `saturating_` or `wrapping_`, the
 last only where wrapping is the intended meaning; modules that handle peer data go first.
-The zero-for-FFI rule applies to panics only. `build/panics.json` keys counts, budgets and
-excluded diagnostics by table.
+`[indexing]` and `[string_slicing]` apply the same per-crate barrier to
+`indexing_slicing` and `string_slice`. Replace sites with checked ranges, iterators or
+character-aware parsing and lower the budget in the same commit; no string byte offset may
+split a UTF-8 character. `build/panics.json` keys counts, budgets and excluded diagnostics by
+table.
 
 The budget is the barrier, not `deny`: an `allow` cannot hide a counted site, so a new
-production `unwrap`/`expect` fails `make quality` unless one is removed in the same commit.
+production `unwrap`/`expect` or indexed slice fails `make quality` unless one is removed in the
+same commit.
 Unit tests (`#[cfg(test)]`), integration tests, fuzz targets and generated protobuf modules
 are not counted. The counted sites, inventoried on 2026-10-23, fall into these groups. None
 is reachable by peer input, which `tests/fuzz` also exercises:

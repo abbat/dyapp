@@ -19,6 +19,8 @@ ROOT = Path(__file__).resolve().parents[2]
 RATCHETS = {
     "panics": ("clippy::unwrap_used", "clippy::expect_used", "clippy::panic"),
     "arithmetic": ("clippy::arithmetic_side_effects",),
+    "indexing": ("clippy::indexing_slicing",),
+    "string_slicing": ("clippy::string_slice",),
 }
 LINTS = tuple(lint for lints in RATCHETS.values() for lint in lints)
 

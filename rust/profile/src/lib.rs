@@ -145,14 +145,14 @@ impl Profile {
         let mut encoded = Vec::new();
         for (tag, span) in fields(original)? {
             if !known.contains(&tag) || (keep_photos && tag == 21) {
-                encoded.extend_from_slice(&original[span]);
+                encoded.extend_from_slice(original.get(span).ok_or(Error::Decode)?);
             }
         }
         let edited = self.encode_to_vec();
         if keep_photos {
             for (tag, span) in fields(&edited)? {
                 if tag != 21 {
-                    encoded.extend_from_slice(&edited[span]);
+                    encoded.extend_from_slice(edited.get(span).ok_or(Error::Decode)?);
                 }
             }
         } else {
