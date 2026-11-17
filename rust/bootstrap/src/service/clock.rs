@@ -10,6 +10,30 @@ fn assert_server_clock(server_time: u64, before: u64) {
     );
 }
 
+fn signed_heartbeat(owner: &Identity, time: u64) -> SignedRecord {
+    owner.sign(
+        Domain::Heartbeat,
+        proto::Heartbeat {
+            time,
+            version: 1,
+            ..Default::default()
+        }
+        .encode_to_vec(),
+    )
+}
+
+fn profile_heartbeat(service: &Service, record: SignedRecord) -> ProfileResponse {
+    service
+        .profile(
+            &peer("clock"),
+            ProfileRequest {
+                request: Some(profile_request::Request::Heartbeat(record)),
+                age_seconds: 0,
+            },
+        )
+        .unwrap()
+}
+
 #[test]
 fn info_and_heartbeat_time_failures_report_clock_without_changing_gossip() {
     let s = service();
@@ -25,25 +49,9 @@ fn info_and_heartbeat_time_failures_report_clock_without_changing_gossip() {
     assert_eq!(info.status, i32::from(Status::Ok));
     assert_server_clock(info.info.unwrap().server_time, now);
     for time in [0, now + 3600, u64::MAX] {
-        let record = owner.sign(
-            Domain::Heartbeat,
-            proto::Heartbeat {
-                time,
-                version: 1,
-                ..Default::default()
-            }
-            .encode_to_vec(),
-        );
+        let record = signed_heartbeat(&owner, time);
         let before = chrono::Utc::now().timestamp().unsigned_abs();
-        let response = s
-            .profile(
-                &peer("clock"),
-                ProfileRequest {
-                    request: Some(profile_request::Request::Heartbeat(record.clone())),
-                    age_seconds: 0,
-                },
-            )
-            .unwrap();
+        let response = profile_heartbeat(&s, record.clone());
         assert_eq!(response.status, i32::from(Status::Invalid));
         assert_server_clock(response.server_time, before);
         let response = search_as(
@@ -61,30 +69,18 @@ fn info_and_heartbeat_time_failures_report_clock_without_changing_gossip() {
             Verdict::Ignore
         );
     }
-    let record = owner.sign(
-        Domain::Heartbeat,
-        proto::Heartbeat {
-            time: chrono::Utc::now().timestamp().unsigned_abs(),
-            version: 1,
-            ..Default::default()
-        }
-        .encode_to_vec(),
-    );
-    let response = s
-        .profile(
-            &peer("clock"),
-            ProfileRequest {
-                request: Some(profile_request::Request::Heartbeat(record.clone())),
-                age_seconds: 0,
-            },
-        )
-        .unwrap();
+    check_current_and_forged_heartbeats(&s, &search, &owner);
+}
+
+fn check_current_and_forged_heartbeats(s: &Service, search: &Service, owner: &Identity) {
+    let record = signed_heartbeat(owner, chrono::Utc::now().timestamp().unsigned_abs());
+    let response = profile_heartbeat(s, record.clone());
     assert_eq!(
         (response.status, response.server_time),
         (i32::from(Status::NotFound), 0)
     );
     let response = search_as(
-        &search,
+        search,
         &peer("clock"),
         search_request::Request::Heartbeat(record.clone()),
     );
@@ -94,21 +90,13 @@ fn info_and_heartbeat_time_failures_report_clock_without_changing_gossip() {
     );
     let mut forged = record;
     forged.payload.push(0);
-    let response = s
-        .profile(
-            &peer("clock"),
-            ProfileRequest {
-                request: Some(profile_request::Request::Heartbeat(forged.clone())),
-                age_seconds: 0,
-            },
-        )
-        .unwrap();
+    let response = profile_heartbeat(s, forged.clone());
     assert_eq!(
         (response.status, response.server_time),
         (i32::from(Status::Denied), 0)
     );
     let response = search_as(
-        &search,
+        search,
         &peer("clock"),
         search_request::Request::Heartbeat(forged),
     );
