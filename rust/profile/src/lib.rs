@@ -454,15 +454,17 @@ pub fn solve_heartbeat(
 
 /// Leading zero bits of Argon2id(password) with `salt`: 8 MiB, one pass, one lane.
 fn argon_bits(salt: &[u8], password: &[u8]) -> u32 {
-    let params = Params::new(8192, 1, 1, Some(32)).expect("valid Argon2 parameters");
+    let Ok(params) = Params::new(8192, 1, 1, Some(32)) else {
+        return 0;
+    };
     let argon = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
     let mut out = [0u8; 32];
-    argon
-        .hash_password_into(password, salt, &mut out)
-        .expect("fixed-size Argon2 input");
-    let mut bits = 0;
+    if argon.hash_password_into(password, salt, &mut out).is_err() {
+        return 0;
+    }
+    let mut bits = 0u32;
     for byte in out {
-        bits += byte.leading_zeros();
+        bits = bits.saturating_add(byte.leading_zeros());
         if byte != 0 {
             break;
         }
@@ -497,13 +499,13 @@ pub fn stored_version(record: &SignedRecord) -> Result<u64, Error> {
 fn fields(bytes: &[u8]) -> Result<Vec<(u32, std::ops::Range<usize>)>, Error> {
     fn varint(bytes: &[u8], cursor: &mut usize) -> Result<u64, Error> {
         let mut value = 0_u64;
-        for index in 0..10 {
+        for index in 0u32..10 {
             let byte = *bytes.get(*cursor).ok_or(Error::Decode)?;
-            *cursor += 1;
+            *cursor = cursor.checked_add(1).ok_or(Error::Decode)?;
             if index == 9 && byte > 1 {
                 return Err(Error::Decode);
             }
-            value |= u64::from(byte & 0x7f) << (index * 7);
+            value |= u64::from(byte & 0x7f) << index.saturating_mul(7);
             if byte & 0x80 == 0 {
                 return Ok(value);
             }

@@ -21,7 +21,7 @@ max_lines = 400
 "dyapp-identity" = 1
 "dyapp-messaging" = 0
 "dyapp-p2p-net" = 4
-"dyapp-profile" = 2
+"dyapp-profile" = 0
 "dyapp-video" = 0
 
 [arithmetic]
@@ -33,7 +33,7 @@ max_lines = 400
 "dyapp-identity" = 0
 "dyapp-messaging" = 0
 "dyapp-p2p-net" = 0
-"dyapp-profile" = 12
+"dyapp-profile" = 0
 "dyapp-video" = 0
 
 [scorecard]

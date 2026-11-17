@@ -27,12 +27,30 @@ impl CivilDate {
         // Howard Hinnant's civil_from_days over 400-year eras of 146 097 days.
         let z = days.checked_add(719_468)?;
         let (era, doe) = (z / 146_097, z % 146_097);
-        let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-        let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-        let mp = (5 * doy + 2) / 153;
-        let day = doy - (153 * mp + 2) / 5 + 1;
-        let month = if mp < 10 { mp + 3 } else { mp - 9 };
-        let year = era * 400 + yoe + u64::from(month <= 2);
+        let yoe = (doe
+            .saturating_sub(doe / 1460)
+            .saturating_add(doe / 36_524)
+            .saturating_sub(doe / 146_096))
+            / 365;
+        let doy = doe.saturating_sub(
+            365u64
+                .saturating_mul(yoe)
+                .saturating_add(yoe / 4)
+                .saturating_sub(yoe / 100),
+        );
+        let mp = 5u64.saturating_mul(doy).saturating_add(2) / 153;
+        let day = doy
+            .saturating_sub(153u64.saturating_mul(mp).saturating_add(2) / 5)
+            .saturating_add(1);
+        let month = if mp < 10 {
+            mp.saturating_add(3)
+        } else {
+            mp.saturating_sub(9)
+        };
+        let year = era
+            .saturating_mul(400)
+            .saturating_add(yoe)
+            .saturating_add(u64::from(month <= 2));
         Self::new(
             u32::try_from(year).ok()?,
             u8::try_from(month).ok()?,
@@ -43,7 +61,10 @@ impl CivilDate {
     /// Numeric `YYYYMMDD` form for a search index or bound.
     #[must_use]
     pub fn yyyymmdd(self) -> u32 {
-        self.year * 10_000 + u32::from(self.month) * 100 + u32::from(self.day)
+        self.year
+            .saturating_mul(10_000)
+            .saturating_add(u32::from(self.month).saturating_mul(100))
+            .saturating_add(u32::from(self.day))
     }
 
     /// Latest birth date whose age is at least `years` on this date; zero if out of range.
@@ -67,7 +88,10 @@ impl CivilDate {
         } else {
             (self.month, self.day)
         };
-        Some(today.year - self.year - u32::from((today.month, today.day) < anniversary))
+        today
+            .year
+            .checked_sub(self.year)?
+            .checked_sub(u32::from((today.month, today.day) < anniversary))
     }
 }
 
