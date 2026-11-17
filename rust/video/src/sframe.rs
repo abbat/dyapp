@@ -128,7 +128,8 @@ impl Window {
     fn fresh(&self, ctr: u64) -> bool {
         match self.top {
             Some(top) if ctr <= top => {
-                top - ctr < REPLAY_WINDOW && self.seen & (1 << (top - ctr)) == 0
+                let distance = top.saturating_sub(ctr);
+                distance < REPLAY_WINDOW && self.seen & (1 << distance) == 0
             }
             _ => true,
         }
@@ -136,9 +137,11 @@ impl Window {
 
     fn accept(&mut self, ctr: u64) {
         match self.top {
-            Some(top) if ctr <= top => self.seen |= 1 << (top - ctr),
+            Some(top) if ctr <= top => self.seen |= 1 << top.saturating_sub(ctr),
             _ => {
-                let shift = self.top.map_or(REPLAY_WINDOW, |top| ctr - top);
+                let shift = self
+                    .top
+                    .map_or(REPLAY_WINDOW, |top| ctr.saturating_sub(top));
                 self.seen = u32::try_from(shift)
                     .ok()
                     .and_then(|shift| self.seen.checked_shl(shift))
@@ -218,7 +221,7 @@ fn header(kid: u64, ctr: u64) -> Vec<u8> {
     let mut out = vec![0];
     #[expect(
         clippy::cast_possible_truncation,
-        reason = "The inline value is below 8; leading-zero byte count makes 7 - skip range from 0 to 7"
+        reason = "Inline values and their leading-zero encoded lengths are both below 8"
     )]
     let field = |value: u64, out: &mut Vec<u8>| -> u8 {
         if value < 8 {
@@ -226,7 +229,7 @@ fn header(kid: u64, ctr: u64) -> Vec<u8> {
         }
         let skip = value.leading_zeros() as usize / 8;
         out.extend_from_slice(&value.to_be_bytes()[skip..]);
-        0b1000 | (7 - skip) as u8
+        0b1000 | 7usize.saturating_sub(skip) as u8
     };
     let kid = field(kid, &mut out);
     let ctr = field(ctr, &mut out);
@@ -237,13 +240,14 @@ fn header(kid: u64, ctr: u64) -> Vec<u8> {
 // KID, CTR and header length, or `None` if the data ends inside the header.
 fn parse(data: &[u8]) -> Option<(u64, u64, usize)> {
     let config = *data.first()?;
-    let mut at = 1;
+    let mut at = 1usize;
     let mut field = |bits: u8| -> Option<u64> {
         if bits & 0b1000 == 0 {
             return Some(bits.into());
         }
-        let bytes = data.get(at..at + usize::from(bits & 0b111) + 1)?;
-        at += bytes.len();
+        let end = at.checked_add(usize::from(bits & 0b111))?.checked_add(1)?;
+        let bytes = data.get(at..end)?;
+        at = end;
         Some(
             bytes
                 .iter()

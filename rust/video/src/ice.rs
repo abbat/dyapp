@@ -28,9 +28,6 @@ pub struct ICECandidate {
 
 impl ICECandidate {
     /// Stores the fields without parsing and records the wall-clock time.
-    ///
-    /// # Panics
-    /// Panics if the system clock precedes the Unix epoch.
     #[must_use]
     pub fn new(candidate: String, sdp_mid: Option<String>, sdp_mline_index: Option<u16>) -> Self {
         Self {
@@ -40,8 +37,7 @@ impl ICECandidate {
             timestamp: i64::try_from(
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis(),
+                    .map_or(0, |duration| duration.as_millis()),
             )
             .unwrap_or(i64::MAX),
         }

@@ -22,7 +22,7 @@ max_lines = 400
 "dyapp-messaging" = 0
 "dyapp-p2p-net" = 4
 "dyapp-profile" = 2
-"dyapp-video" = 3
+"dyapp-video" = 0
 
 [arithmetic]
 # B8: Clippy arithmetic_side_effects sites, same scope as [panics]; release builds keep
@@ -34,7 +34,7 @@ max_lines = 400
 "dyapp-messaging" = 0
 "dyapp-p2p-net" = 0
 "dyapp-profile" = 12
-"dyapp-video" = 8
+"dyapp-video" = 0
 
 [scorecard]
 # Practice C3: OpenSSF Scorecard aggregate score (tests/scripts/check-scorecard.py); the target is 7.0.

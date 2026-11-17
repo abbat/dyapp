@@ -121,9 +121,6 @@ impl VideoSession {
     /// # Errors
     /// Returns [`VideoError::InvalidState`] if peer connection or video transceiver
     /// creation fails.
-    ///
-    /// # Panics
-    /// Panics if the system clock precedes the Unix epoch.
     pub async fn new() -> Result<Self> {
         let state = Arc::new(RwLock::new(SessionState::Idle));
         let local_candidates = Arc::new(RwLock::new(Vec::new()));
@@ -151,8 +148,7 @@ impl VideoSession {
             created_at: i64::try_from(
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis(),
+                    .map_or(0, |duration| duration.as_millis()),
             )
             .unwrap_or(i64::MAX),
         })
@@ -381,9 +377,6 @@ impl VideoSession {
     }
 
     /// Returns elapsed wall-clock milliseconds; clock adjustments can make it negative.
-    ///
-    /// # Panics
-    /// Panics if the system clock precedes the Unix epoch.
     #[expect(
         clippy::unused_async,
         clippy::unused_async_trait_impl,
@@ -393,11 +386,10 @@ impl VideoSession {
         let now = i64::try_from(
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis(),
+                .map_or(0, |duration| duration.as_millis()),
         )
         .unwrap_or(i64::MAX);
-        now - self.created_at
+        now.checked_sub(self.created_at).unwrap_or(i64::MIN)
     }
 }
 
