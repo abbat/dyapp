@@ -71,9 +71,28 @@ pub async fn open(config: NodeConfig) -> anyhow::Result<Opened> {
         dial_filter.clone(),
         config.relay_hop(),
     )?;
-    // A host without IPv6 cannot open [::]; the node runs on whatever does open.
+    listen(&mut swarm, &config.listen)?;
+    connect(&mut swarm, &config)?;
+    let peer_id = *swarm.local_peer_id();
+    tracing::info!(%peer_id, roles = ?config.roles, "node started");
+    let service = build_service(config, store, wire, protocols, dial_filter, deny_signer)?;
+    let service = Arc::new(service);
+    if let Some(scrapes) = scrapes {
+        metrics::spawn_snapshots(&service);
+        tokio::spawn(listener::serve(scrapes, service.clone()));
+    }
+    Ok(Opened {
+        peer_id,
+        service,
+        swarm,
+        _lock: lock,
+    })
+}
+
+// A host without IPv6 cannot open [::]; the node runs on whatever does open.
+fn listen(swarm: &mut Swarm<Behaviour>, addresses: &[String]) -> anyhow::Result<()> {
     let mut listening = 0;
-    for address in &config.listen {
+    for address in addresses {
         for address in transports(address)? {
             match swarm.listen_on(address.clone()) {
                 Ok(_) => listening += 1,
@@ -82,6 +101,10 @@ pub async fn open(config: NodeConfig) -> anyhow::Result<Opened> {
         }
     }
     anyhow::ensure!(listening > 0, "listen: no address could be opened");
+    Ok(())
+}
+
+fn connect(swarm: &mut Swarm<Behaviour>, config: &NodeConfig) -> anyhow::Result<()> {
     for address in &config.external {
         for address in transports(address)? {
             swarm.add_external_address(address);
@@ -94,11 +117,21 @@ pub async fn open(config: NodeConfig) -> anyhow::Result<Opened> {
         }
     }
     let cached = cached_peers(&config.storage.peers_path());
-    dyapp_p2p_net::join(&mut swarm, &[], &cached);
-    let peer_id = *swarm.local_peer_id();
-    tracing::info!(%peer_id, roles = ?config.roles, "node started");
-    let media = config.roles.contains(&Role::Media);
-    let media = media
+    dyapp_p2p_net::join(swarm, &[], &cached);
+    Ok(())
+}
+
+fn build_service(
+    config: NodeConfig,
+    store: BootstrapStore,
+    wire: Arc<dyapp_p2p_net::WireBytes>,
+    protocols: Arc<dyapp_p2p_net::Protocols>,
+    dial_filter: dyapp_p2p_net::DialFilter,
+    deny_signer: Option<dyapp_identity::Identity>,
+) -> anyhow::Result<Service> {
+    let media = config
+        .roles
+        .contains(&Role::Media)
         .then(|| MediaStore::open(&config.storage.dir))
         .transpose()?;
     let mut service = Service::new(store, config);
@@ -106,21 +139,15 @@ pub async fn open(config: NodeConfig) -> anyhow::Result<Opened> {
     service.dial_filter = dial_filter;
     service.protocols = protocols;
     service.media = media;
-    if service.config.roles.contains(&Role::Search) {
-        let search = &service.config;
-        let index = SearchIndex::open(&search.storage.search_path(), &search.search)?;
-        service.search = Some(Arc::new(index));
-    }
+    service.search = open_search(&service.config)?;
     service.deny_signer = deny_signer;
-    let service = Arc::new(service);
-    if let Some(scrapes) = scrapes {
-        metrics::spawn_snapshots(&service);
-        tokio::spawn(listener::serve(scrapes, service.clone()));
+    Ok(service)
+}
+
+fn open_search(config: &NodeConfig) -> anyhow::Result<Option<Arc<SearchIndex>>> {
+    if !config.roles.contains(&Role::Search) {
+        return Ok(None);
     }
-    Ok(Opened {
-        peer_id,
-        service,
-        swarm,
-        _lock: lock,
-    })
+    let index = SearchIndex::open(&config.storage.search_path(), &config.search)?;
+    Ok(Some(Arc::new(index)))
 }
