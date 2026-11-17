@@ -340,40 +340,13 @@ mod tests {
         let peer = Identity::generate().peer_id();
         let other = Identity::generate().peer_id();
         let (first, second, unrelated, device) = ([3], [4], [5], [6; 32]);
-        let from = |group, author| VerifiedChatSender {
-            group,
-            author,
-            device: &device,
-        };
         let mut store = Store::open(&path, &owner).unwrap();
-        for (group, author) in [
-            (&first[..], &peer),
-            (&second[..], &peer),
-            (&unrelated[..], &other),
-        ] {
-            crate::store::tests::catalog_group(&mut store, group, author);
-        }
-        store
-            .stage_chat_inbound(b"mls", &inbox(1), from(&first, &peer), &text(1), 1_000)
-            .unwrap();
-        store
-            .stage_chat_inbound(b"mls", &inbox(2), from(&first, &own), &text(2), 1_000)
-            .unwrap();
-        store
-            .stage_chat_inbound(b"mls", &inbox(3), from(&second, &peer), &text(3), 1_000)
-            .unwrap();
-        store
-            .stage_chat_inbound(b"mls", &inbox(4), from(&unrelated, &other), &text(4), 1_000)
-            .unwrap();
-        let pending = Body::Edit {
-            target: [9; 16],
-            operation: [10; 16],
-            hlc: Timestamp::new(100, 0).into(),
-            text: b"pending".to_vec(),
-        };
-        store
-            .stage_chat_inbound(b"mls", &inbox(5), from(&second, &peer), &pending, 1_000)
-            .unwrap();
+        stage_pair_history(
+            &mut store,
+            (&own, &peer, &other),
+            (&first, &second, &unrelated),
+            &device,
+        );
         assert_eq!(store.clear_chat_pair(&peer).unwrap(), 3);
         assert_eq!(store.clear_chat_pair(&peer).unwrap(), 0);
         assert_eq!(
@@ -391,21 +364,7 @@ mod tests {
         drop(store);
 
         let mut store = Store::open(&path, &owner).unwrap();
-        for (envelope, group, message) in [(6, &first[..], 1), (7, &second[..], 3)] {
-            assert!(!store
-                .stage_chat_inbound(
-                    b"mls",
-                    &inbox(envelope),
-                    from(group, &peer),
-                    &text(message),
-                    1_000
-                )
-                .unwrap());
-        }
-        assert!(!store
-            .stage_chat_inbound(b"mls", &inbox(8), from(&second, &peer), &text(9), 1_000)
-            .unwrap());
-        assert_eq!(store.mark_chat_read(&peer).unwrap(), 0);
+        assert_pair_replays(&mut store, &peer, (&first, &second), &device);
         assert!(store
             .chat_message(&MessageKey {
                 group: unrelated.to_vec(),
@@ -414,5 +373,71 @@ mod tests {
             })
             .unwrap()
             .is_some());
+    }
+
+    fn assert_pair_replays(
+        store: &mut Store,
+        peer: &str,
+        groups: (&[u8], &[u8]),
+        device: &[u8; 32],
+    ) {
+        let (first, second) = groups;
+        let from = |group| VerifiedChatSender {
+            group,
+            author: peer,
+            device,
+        };
+        for (envelope, group, message) in [(6, first, 1), (7, second, 3)] {
+            assert!(!store
+                .stage_chat_inbound(b"mls", &inbox(envelope), from(group), &text(message), 1_000)
+                .unwrap());
+        }
+        assert!(!store
+            .stage_chat_inbound(b"mls", &inbox(8), from(second), &text(9), 1_000)
+            .unwrap());
+        assert_eq!(store.mark_chat_read(peer).unwrap(), 0);
+    }
+
+    fn stage_pair_history(
+        store: &mut Store,
+        peers: (&str, &str, &str),
+        groups: (&[u8], &[u8], &[u8]),
+        device: &[u8; 32],
+    ) {
+        let (own, peer, other) = peers;
+        let (first, second, unrelated) = groups;
+        let from = |group, author| VerifiedChatSender {
+            group,
+            author,
+            device,
+        };
+        for (group, author) in [(first, peer), (second, peer), (unrelated, other)] {
+            crate::store::tests::catalog_group(store, group, author);
+        }
+        for (envelope, group, author, message) in [
+            (1, first, peer, 1),
+            (2, first, own, 2),
+            (3, second, peer, 3),
+            (4, unrelated, other, 4),
+        ] {
+            store
+                .stage_chat_inbound(
+                    b"mls",
+                    &inbox(envelope),
+                    from(group, author),
+                    &text(message),
+                    1_000,
+                )
+                .unwrap();
+        }
+        let pending = Body::Edit {
+            target: [9; 16],
+            operation: [10; 16],
+            hlc: Timestamp::new(100, 0).into(),
+            text: b"pending".to_vec(),
+        };
+        store
+            .stage_chat_inbound(b"mls", &inbox(5), from(second, peer), &pending, 1_000)
+            .unwrap();
     }
 }
