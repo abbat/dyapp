@@ -60,7 +60,7 @@ pub(super) fn handle(mut context: Context<'_>, event: SwarmEvent<BehaviourEvent>
         SwarmEvent::IncomingConnectionError {
             error: ListenError::Denied { .. },
             ..
-        } => *context.refused += 1,
+        } => *context.refused = (*context.refused).saturating_add(1),
         _ => {}
     }
 }
@@ -119,7 +119,7 @@ fn node(context: &mut Context<'_>, event: Event<proto::NodeRequest, proto::NodeR
             // Node requests touch no store, so they stay on the loop.
             let from = peer(context.swarm, context.service, id, connection_id);
             let response = context.service.node(&from, request);
-            *context.answered += 1;
+            *context.answered = (*context.answered).saturating_add(1);
             context.service.traffic.add(response.encoded_len() as u64);
             let _ = context
                 .swarm
@@ -245,7 +245,7 @@ fn media(context: &mut Context<'_>, event: Event<proto::MediaRequest, proto::Med
                 request, channel, ..
             },
         } => {
-            *context.answered += u64::from(requests::media(
+            *context.answered = (*context.answered).saturating_add(u64::from(requests::media(
                 context.swarm,
                 context.service,
                 context.store_queue,
@@ -253,7 +253,7 @@ fn media(context: &mut Context<'_>, event: Event<proto::MediaRequest, proto::Med
                 (id, connection_id),
                 request,
                 channel,
-            ));
+            )));
         }
         Event::Message {
             peer: id,
@@ -353,8 +353,8 @@ fn search_request(
         request,
         channel,
     );
-    *context.answered += outcome.answered;
-    *context.failed += outcome.failed;
+    *context.answered = (*context.answered).saturating_add(outcome.answered);
+    *context.failed = (*context.failed).saturating_add(outcome.failed);
 }
 
 fn search(context: &mut Context<'_>, event: Event<proto::SearchRequest, proto::SearchResponse>) {
@@ -606,7 +606,7 @@ fn identified(context: &mut Context<'_>, event: identify::Event) {
             peer_id,
             info,
         } if info.protocol_version != context.service.protocols.version => {
-            *context.foreign_peers += 1;
+            *context.foreign_peers = (*context.foreign_peers).saturating_add(1);
             identified::drop_foreign(
                 context.swarm,
                 context.admission.dialed(connection_id),
