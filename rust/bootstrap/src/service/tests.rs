@@ -775,40 +775,51 @@ fn admission_stores_nothing_and_replicas_verify_and_cost_one_unit() {
     assert_eq!(service.held(&envelope.mailbox).unwrap().len(), 1);
 }
 
+fn profile_heartbeat_request(identity: &Identity, time: u64) -> ProfileRequest {
+    let beat = proto::Heartbeat {
+        time,
+        version: 0,
+        ..Default::default()
+    };
+    ProfileRequest {
+        request: Some(profile_request::Request::Heartbeat(
+            identity.sign(Domain::Heartbeat, beat.encode_to_vec()),
+        )),
+        age_seconds: 0,
+    }
+}
+
+fn send_profile_status(service: &Service, request: ProfileRequest) -> Status {
+    status(&service.profile(&peer("p"), request).unwrap())
+}
+
+fn stored_profile_seen(db: &rusqlite::Connection, identity: &Identity) -> i64 {
+    db.query_row(
+        "SELECT `last_seen` FROM `profiles` WHERE `peer_id` = ?",
+        [identity.peer_id()],
+        |row| row.get::<_, i64>(0),
+    )
+    .unwrap()
+}
+
 #[test]
 fn heartbeat_keeps_the_profile_seen() {
     let service = service();
     let identity = Identity::generate();
     let now = chrono::Utc::now().timestamp().unsigned_abs();
-    let beat = |time, identity: &Identity| {
-        let beat = proto::Heartbeat {
-            time,
-            version: 0,
-            ..Default::default()
-        };
-        ProfileRequest {
-            request: Some(profile_request::Request::Heartbeat(
-                identity.sign(Domain::Heartbeat, beat.encode_to_vec()),
-            )),
-            age_seconds: 0,
-        }
-    };
-    let send = |request| status(&service.profile(&peer("p"), request).unwrap());
-    assert_eq!(send(beat(now, &identity)), Status::NotFound);
+    assert_eq!(
+        send_profile_status(&service, profile_heartbeat_request(&identity, now)),
+        Status::NotFound
+    );
     let profile = Profile {
         version: 1,
         ..Profile::default()
     };
-    assert_eq!(send(publish(profile.sign(&identity))), Status::Ok);
+    assert_eq!(
+        send_profile_status(&service, publish(profile.sign(&identity))),
+        Status::Ok
+    );
     let db = rusqlite::Connection::open(service.config.storage.dir.join("profiles.db")).unwrap();
-    let seen = || {
-        db.query_row(
-            "SELECT `last_seen` FROM `profiles` WHERE `peer_id` = ?",
-            [identity.peer_id()],
-            |row| row.get::<_, i64>(0),
-        )
-        .unwrap()
-    };
     let old = i64::try_from(now).unwrap() - 120;
     db.execute(
         "UPDATE `profiles` SET `last_seen` = ? WHERE `peer_id` = ?",
@@ -816,32 +827,53 @@ fn heartbeat_keeps_the_profile_seen() {
     )
     .unwrap();
     // Neither the same version nor an older version can refresh retention.
-    assert_eq!(send(publish(profile.sign(&identity))), Status::Stale);
+    assert_eq!(
+        send_profile_status(&service, publish(profile.sign(&identity))),
+        Status::Stale
+    );
     let newer = Profile {
         version: 2,
         ..profile.clone()
     };
-    assert_eq!(send(publish(newer.sign(&identity))), Status::Ok);
-    assert!(seen() >= i64::try_from(now).unwrap());
+    assert_eq!(
+        send_profile_status(&service, publish(newer.sign(&identity))),
+        Status::Ok
+    );
+    assert!(stored_profile_seen(&db, &identity) >= i64::try_from(now).unwrap());
     db.execute(
         "UPDATE `profiles` SET `last_seen` = ? WHERE `peer_id` = ?",
         rusqlite::params![old, identity.peer_id()],
     )
     .unwrap();
-    assert_eq!(send(publish(profile.sign(&identity))), Status::Stale);
-    assert_eq!(seen(), old);
+    assert_eq!(
+        send_profile_status(&service, publish(profile.sign(&identity))),
+        Status::Stale
+    );
+    assert_eq!(stored_profile_seen(&db, &identity), old);
+    check_heartbeat_replay_and_expiry(&service, &db, &identity, now);
+}
+
+fn check_heartbeat_replay_and_expiry(
+    service: &Service,
+    db: &rusqlite::Connection,
+    identity: &Identity,
+    now: u64,
+) {
+    let send = |request| send_profile_status(service, request);
+    let beat = |time| profile_heartbeat_request(identity, time);
+    let seen = || stored_profile_seen(db, identity);
     // Store signed time, not receipt time, and never move it back on replay.
-    assert_eq!(send(beat(now - 60, &identity)), Status::Ok);
+    assert_eq!(send(beat(now - 60)), Status::Ok);
     assert_eq!(seen(), i64::try_from(now).unwrap() - 60);
-    assert_eq!(send(beat(now - 60, &identity)), Status::Ok);
+    assert_eq!(send(beat(now - 60)), Status::Ok);
     assert_eq!(seen(), i64::try_from(now).unwrap() - 60);
-    assert_eq!(send(beat(now - 90, &identity)), Status::Ok);
+    assert_eq!(send(beat(now - 90)), Status::Ok);
     assert_eq!(seen(), i64::try_from(now).unwrap() - 60);
-    assert_eq!(send(beat(now - 3600, &identity)), Status::Invalid);
-    assert_eq!(send(beat(now + 3600, &identity)), Status::Invalid);
-    assert_eq!(send(beat(u64::MAX, &identity)), Status::Invalid);
+    assert_eq!(send(beat(now - 3600)), Status::Invalid);
+    assert_eq!(send(beat(now + 3600)), Status::Invalid);
+    assert_eq!(send(beat(u64::MAX)), Status::Invalid);
     assert_eq!(seen(), i64::try_from(now).unwrap() - 60);
-    let mut forged = beat(now, &identity);
+    let mut forged = beat(now);
     if let Some(profile_request::Request::Heartbeat(record)) = &mut forged.request {
         record.payload.push(0);
     }
