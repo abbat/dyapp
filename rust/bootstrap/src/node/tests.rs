@@ -148,6 +148,31 @@ async fn media_queue_drops_capped_writes_without_tracking_or_trust_penalties() {
         ..Default::default()
     };
     let to = PeerId::random();
+    check_capped_media_writes(&mut swarm, &service, &mut replicas, to, record);
+
+    let me = *swarm.local_peer_id();
+    assert!(replicas.cap.allow(&me, 1));
+    replicas.put_holder(&mut swarm, &service, &Watchers::default(), 1, me);
+    assert!(replicas.puts[&1].stored.contains(&me));
+    assert_eq!(replicas.cap.take_dropped(), 0);
+    assert_eq!(
+        service
+            .media
+            .as_ref()
+            .unwrap()
+            .get(&keep.hashes[0])
+            .unwrap(),
+        Some(vec![1])
+    );
+}
+
+fn check_capped_media_writes(
+    swarm: &mut Swarm<Behaviour>,
+    service: &Service,
+    replicas: &mut Replicas,
+    to: PeerId,
+    record: proto::MediaReplicaPut,
+) {
     replicas.trust.add(to, 3);
     assert!(replicas.cap.allow(&to, 1));
     replicas
@@ -156,11 +181,15 @@ async fn media_queue_drops_capped_writes_without_tracking_or_trust_penalties() {
     replicas
         .puts
         .insert(2, pending(PutRecord::Sharded(record, vec![vec![1]].into())));
-    replicas.put_holder(&mut swarm, &service, &Watchers::default(), 1, to);
-    replicas.shard_holder(&mut swarm, &service, 2, 0, to);
+    replicas.put_holder(swarm, service, &Watchers::default(), 1, to);
+    replicas.shard_holder(swarm, service, 2, 0, to);
     assert_eq!(replicas.media_queue.len(), 2);
-    replicas.drain_media(&mut swarm, &service);
+    replicas.drain_media(swarm, service);
     assert!(replicas.media_queue.is_empty());
+    check_dropped_media_state(replicas, to);
+}
+
+fn check_dropped_media_state(replicas: &mut Replicas, to: PeerId) {
     assert!(replicas.media_outgoing.is_empty());
     assert!(replicas.media_puts.is_empty());
     assert!(replicas.shard_puts.is_empty());
@@ -181,20 +210,6 @@ async fn media_queue_drops_capped_writes_without_tracking_or_trust_penalties() {
         assert!(replicas.cap.allow_media(&to, &read));
     }
     assert_eq!(replicas.cap.take_dropped(), 0);
-    let me = *swarm.local_peer_id();
-    assert!(replicas.cap.allow(&me, 1));
-    replicas.put_holder(&mut swarm, &service, &Watchers::default(), 1, me);
-    assert!(replicas.puts[&1].stored.contains(&me));
-    assert_eq!(replicas.cap.take_dropped(), 0);
-    assert_eq!(
-        service
-            .media
-            .as_ref()
-            .unwrap()
-            .get(&keep.hashes[0])
-            .unwrap(),
-        Some(vec![1])
-    );
 }
 
 async fn receive_repair_batch(
