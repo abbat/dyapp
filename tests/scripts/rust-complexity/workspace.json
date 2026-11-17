@@ -12,6 +12,5 @@
   {"path":"rust/bootstrap/tests/protocol/keypackages.rs","function":"fn keypackage_publish_and_consume_over_tcp ","metrics":{"lines":157}},
   {"path":"rust/bootstrap/tests/protocol/namespaces.rs","function":"fn different_namespaces_refuse_rpc_and_gossip_negotiation_over_tcp ","metrics":{"nesting":6,"lines":150,"nested_regions":1}},
   {"path":"rust/bootstrap/tests/protocol/namespaces.rs","function":"fn named_node_serves_profile_search_and_configured_gossip_topics ","metrics":{"nesting":6,"lines":91,"nested_regions":3}},
-  {"path":"rust/bootstrap/tests/protocol/profile_pow.rs","function":"fn store_and_mixed_nodes_verify_profile_proofs_before_holding_copies ","metrics":{"lines":114}},
   {"path":"rust/bootstrap/tests/protocol/replicas.rs","function":"fn replica_peer_and_group_refusals_keep_the_connection_open ","metrics":{"nesting":5,"nested_regions":2}},
 ]
