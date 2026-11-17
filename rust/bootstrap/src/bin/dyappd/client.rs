@@ -826,7 +826,8 @@ fn unhex(text: &str) -> anyhow::Result<Vec<u8>> {
     (0usize..text.len())
         .step_by(2)
         .map(|i| {
-            u8::from_str_radix(&text[i..i.saturating_add(2)], 16)
+            text.get(i..i.saturating_add(2))
+                .and_then(|pair| u8::from_str_radix(pair, 16).ok())
                 .context(message("bad hex", "неверная шестнадцатеричная строка"))
         })
         .collect()
@@ -834,8 +835,14 @@ fn unhex(text: &str) -> anyhow::Result<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{address, set_field};
+    use super::{address, set_field, unhex};
     use serde_json::{json, Value};
+
+    #[test]
+    fn hex_rejects_partial_characters() {
+        assert_eq!(unhex("00ff").ok(), Some(vec![0, 255]));
+        assert!(unhex("aéa").is_err());
+    }
 
     #[test]
     fn json_fields_require_an_object() {

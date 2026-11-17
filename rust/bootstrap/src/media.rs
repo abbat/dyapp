@@ -261,7 +261,9 @@ impl MediaStore {
 
     pub(crate) fn path(&self, hash: &[u8]) -> PathBuf {
         let name = hex(hash);
-        self.dir.join(&name[..2]).join(&name[2..4]).join(name)
+        let first = name.get(..2).unwrap_or(name.as_str());
+        let second = name.get(2..4).unwrap_or_default();
+        self.dir.join(first).join(second).join(name)
     }
 
     /// Replaces the list for a newer version, or refreshes an identical list for a newer signed

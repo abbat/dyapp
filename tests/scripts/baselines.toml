@@ -49,7 +49,7 @@ max_lines = 400
 
 [string_slicing]
 # UTF-8 string slicing sites; use byte-safe checked boundaries or character iterators.
-"dyapp-bootstrap" = 5
+"dyapp-bootstrap" = 0
 "dyapp-client" = 0
 "dyapp-ffi" = 0
 "dyapp-identity" = 0

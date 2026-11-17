@@ -27,9 +27,12 @@ fn hash(entry: &str) -> Option<Vec<u8>> {
     }
     (0usize..64)
         .step_by(2)
-        .map(|i| u8::from_str_radix(&entry[i..i.saturating_add(2)], 16))
-        .collect::<Result<Vec<_>, _>>()
-        .ok()
+        .map(|i| {
+            entry
+                .get(i..i.saturating_add(2))
+                .and_then(|pair| u8::from_str_radix(pair, 16).ok())
+        })
+        .collect()
 }
 
 fn purge(service: &Service, entries: &HashSet<String>) -> bool {

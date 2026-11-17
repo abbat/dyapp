@@ -241,7 +241,7 @@ fn cut(s: &str, max: usize) -> &str {
     while !s.is_char_boundary(end) {
         end = end.saturating_sub(1);
     }
-    &s[..end]
+    s.get(..end).unwrap_or(s)
 }
 
 #[cfg(test)]
