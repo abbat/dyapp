@@ -292,57 +292,81 @@ pub enum FilterError {
     TooManyConditions,
 }
 
+fn int_condition(field: u32, op: Op, ints: Vec<i64>) -> Condition {
+    Condition {
+        field,
+        op: op.into(),
+        ints,
+        strings: Vec::new(),
+    }
+}
+
+fn string_condition(field: u32, op: Op, strings: Vec<String>) -> Condition {
+    Condition {
+        field,
+        op: op.into(),
+        ints: Vec::new(),
+        strings,
+    }
+}
+
+fn wide(value: u64) -> i64 {
+    i64::try_from(value).unwrap_or(i64::MAX)
+}
+
+fn age_condition(
+    age: Option<(u32, u32)>,
+    today: CivilDate,
+) -> Result<Option<Condition>, FilterError> {
+    let Some((min, max)) = age else {
+        return Ok(None);
+    };
+    let min = min.max(18);
+    if min > max {
+        return Err(FilterError::EmptyRange);
+    }
+    let lower = max.checked_add(1).map_or(0, |age| today.age_cutoff(age));
+    let upper = today.age_cutoff(min);
+    if lower >= upper {
+        return Err(FilterError::EmptyRange);
+    }
+    Ok(Some(int_condition(
+        BIRTH_AGE,
+        Op::Range,
+        vec![lower.into(), upper.into()],
+    )))
+}
+
 impl Filter {
-    /// The conditions for a query and for [`check`] at an explicit UTC date:
-    /// at most 32, one per field.
-    ///
-    /// # Errors
-    /// Returns a [`FilterError`] for missing required country context, empty or
-    /// reversed ranges, invalid categorical values, or exceeded query limits.
-    pub fn conditions(&self, today: CivilDate) -> Result<Vec<Condition>, FilterError> {
+    fn validate_country(&self) -> Result<(), FilterError> {
         if self.country.is_empty() && (!self.places.is_empty() || self.income.is_some()) {
             return Err(FilterError::NeedsCountry);
         }
-        let ints = |field, op: Op, ints: Vec<i64>| Condition {
-            field,
-            op: op.into(),
-            ints,
-            strings: Vec::new(),
-        };
-        let wide = |v: u64| i64::try_from(v).unwrap_or(i64::MAX);
+        Ok(())
+    }
+
+    fn location_conditions(&self) -> Result<Vec<Condition>, FilterError> {
         let mut out = Vec::new();
-        if let Some((min, max)) = self.age {
-            let min = min.max(18);
-            if min > max {
-                return Err(FilterError::EmptyRange);
-            }
-            let lower = max.checked_add(1).map_or(0, |age| today.age_cutoff(age));
-            let upper = today.age_cutoff(min);
-            if lower >= upper {
-                return Err(FilterError::EmptyRange);
-            }
-            out.push(ints(BIRTH_AGE, Op::Range, vec![lower.into(), upper.into()]));
-        }
         if !self.country.is_empty() {
-            out.push(Condition {
-                field: 4,
-                op: Op::Eq.into(),
-                ints: Vec::new(),
-                strings: vec![self.country.clone()],
-            });
+            out.push(string_condition(4, Op::Eq, vec![self.country.clone()]));
         }
         if let Some((min, max)) = self.income {
             if min > max {
                 return Err(FilterError::EmptyRange);
             }
-            out.push(ints(6, Op::Range, vec![0, wide(max)]));
-            out.push(ints(7, Op::Range, vec![wide(min), i64::MAX]));
+            out.push(int_condition(6, Op::Range, vec![0, wide(max)]));
+            out.push(int_condition(7, Op::Range, vec![wide(min), i64::MAX]));
         }
+        Ok(out)
+    }
+
+    fn attribute_conditions(&self) -> Result<Vec<Condition>, FilterError> {
+        let mut out = Vec::new();
         if let Some(min) = self.min_education {
             if EducationLevel::from_code(min).is_none() {
                 return Err(FilterError::EmptyRange);
             }
-            out.push(ints(
+            out.push(int_condition(
                 EducationLevel::FIELD,
                 Op::Range,
                 vec![min.into(), EducationLevel::MAX.into()],
@@ -354,34 +378,39 @@ impl Filter {
             if min > max {
                 return Err(FilterError::EmptyRange);
             }
-            out.push(ints(HEIGHT_FIELD, Op::Range, vec![min.into(), max.into()]));
+            out.push(int_condition(
+                HEIGHT_FIELD,
+                Op::Range,
+                vec![min.into(), max.into()],
+            ));
         }
         if self.with_photo {
-            out.push(ints(21, Op::Range, vec![1, i64::MAX]));
+            out.push(int_condition(21, Op::Range, vec![1, i64::MAX]));
         }
         if let Some(since) = self.active_since {
-            out.push(ints(
+            out.push(int_condition(
                 ACTIVE_DAY,
                 Op::Range,
                 vec![wide(since / 86_400), i64::MAX],
             ));
         }
-        for (field, v) in [(8, self.has_kids), (9, self.wants_more_kids)] {
-            if let Some(v) = v {
-                out.push(ints(field, Op::Eq, vec![v.into()]));
+        for (field, value) in [(8, self.has_kids), (9, self.wants_more_kids)] {
+            if let Some(value) = value {
+                out.push(int_condition(field, Op::Eq, vec![value.into()]));
             }
         }
+        Ok(out)
+    }
+
+    fn places_condition(&self) -> Result<Option<Condition>, FilterError> {
         if self.places.len() > MAX_IN_VALUES {
             return Err(FilterError::TooManyValues);
         }
-        if !self.places.is_empty() {
-            out.push(Condition {
-                field: 20,
-                op: Op::In.into(),
-                ints: Vec::new(),
-                strings: self.places.clone(),
-            });
-        }
+        Ok((!self.places.is_empty()).then(|| string_condition(20, Op::In, self.places.clone())))
+    }
+
+    fn category_conditions(&self) -> Result<Vec<Condition>, FilterError> {
+        let mut out = Vec::new();
         for (field, values) in [
             (Gender::FIELD, &self.genders),
             (Orientation::FIELD, &self.orientations),
@@ -400,13 +429,18 @@ impl Filter {
                 return Err(FilterError::InvalidScale);
             }
             if !values.is_empty() {
-                out.push(ints(
+                out.push(int_condition(
                     field,
                     Op::In,
                     values.iter().copied().map(i64::from).collect(),
                 ));
             }
         }
+        Ok(out)
+    }
+
+    fn scale_conditions(&self) -> Result<Vec<Condition>, FilterError> {
+        let mut out = Vec::new();
         for (field, selection) in [
             (CareerAmbition::FIELD, &self.career_ambitions),
             (FinancialPhilosophy::FIELD, &self.financial_philosophies),
@@ -434,8 +468,17 @@ impl Filter {
             if values.iter().any(|&v| v == 0 || !known.knows(v)) {
                 return Err(FilterError::InvalidScale);
             }
-            out.push(ints(field, op, values.into_iter().map(i64::from).collect()));
+            out.push(int_condition(
+                field,
+                op,
+                values.into_iter().map(i64::from).collect(),
+            ));
         }
+        Ok(out)
+    }
+
+    fn mutual_conditions(&self) -> Result<Vec<Condition>, FilterError> {
+        let mut out = Vec::new();
         if let Some((gender, age)) = self.seeks {
             let known = scale(Gender::FIELD).ok_or(FilterError::InvalidScale)?;
             if gender == 0
@@ -444,9 +487,30 @@ impl Filter {
             {
                 return Err(FilterError::InvalidScale);
             }
-            out.push(ints(SEEKING_GENDERS, Op::Eq, vec![gender.into()]));
-            out.push(ints(SEEKING_AGE, Op::Eq, vec![age.into()]));
+            out.push(int_condition(SEEKING_GENDERS, Op::Eq, vec![gender.into()]));
+            out.push(int_condition(SEEKING_AGE, Op::Eq, vec![age.into()]));
         }
+        Ok(out)
+    }
+}
+
+impl Filter {
+    /// The conditions for a query and for [`check`] at an explicit UTC date:
+    /// at most 32, one per field.
+    ///
+    /// # Errors
+    /// Returns a [`FilterError`] for missing required country context, empty or
+    /// reversed ranges, invalid categorical values, or exceeded query limits.
+    pub fn conditions(&self, today: CivilDate) -> Result<Vec<Condition>, FilterError> {
+        self.validate_country()?;
+        let mut out = Vec::new();
+        out.extend(age_condition(self.age, today)?);
+        out.extend(self.location_conditions()?);
+        out.extend(self.attribute_conditions()?);
+        out.extend(self.places_condition()?);
+        out.extend(self.category_conditions()?);
+        out.extend(self.scale_conditions()?);
+        out.extend(self.mutual_conditions()?);
         if out.len() > 32 {
             return Err(FilterError::TooManyConditions);
         }
