@@ -1,9 +1,7 @@
 [
   {"path":"tests/integration_tests.rs","function":"fn test_nated_peers_exchange_a_message_through_a_dyappd_relay ","metrics":{"lines":110}},
   {"path":"rust/bootstrap/src/bin/dyappd/client.rs","function":"fn run ","metrics":{"cognitive":23,"lines":110}},
-  {"path":"rust/bootstrap/src/bin/dyappd/main.rs","function":"fn deny ","metrics":{"lines":56}},
   {"path":"rust/bootstrap/src/bin/dyappd/main.rs","function":"fn main ","metrics":{"lines":115}},
-  {"path":"rust/bootstrap/src/bin/dyappd/main.rs","function":"fn status ","metrics":{"lines":79}},
   {"path":"rust/bootstrap/src/config.rs","function":"impl NodeConfig ::fn load ","metrics":{"nesting":6,"lines":86,"nested_regions":1}},
   {"path":"rust/bootstrap/src/config/key.rs","function":"impl NodeConfig ::fn load_key ","metrics":{"lines":74}},
   {"path":"rust/bootstrap/src/config/validation.rs","function":"fn invalid_config_fails ","metrics":{"cognitive":43,"lines":100}},

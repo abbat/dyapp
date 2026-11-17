@@ -187,63 +187,81 @@ fn default_file() -> Option<PathBuf> {
 }
 
 /// `dyappd deny ...`, with `deny` stripped from `args`.
-fn deny(config: &NodeConfig, args: &[&str]) -> anyhow::Result<()> {
-    let deny = DenyStore::open(&config.storage.deny_path())?;
-    let entry = |entry: &str| {
-        normalize(entry, &config.limits).ok_or_else(|| {
-            anyhow::anyhow!(
-                "{entry}: {}",
-                message(
-                    "not a peer ID, a SHA-256 or an IP group of the node's prefix",
-                    "не peer ID, SHA-256 или группа IP с настроенным префиксом"
-                )
+fn deny_entry(config: &NodeConfig, entry: &str) -> anyhow::Result<String> {
+    normalize(entry, &config.limits).ok_or_else(|| {
+        anyhow::anyhow!(
+            "{entry}: {}",
+            message(
+                "not a peer ID, a SHA-256 or an IP group of the node's prefix",
+                "не peer ID, SHA-256 или группа IP с настроенным префиксом"
             )
-        })
-    };
-    match args {
-        ["add", e, note @ ..] => {
-            let e = entry(e)?;
-            let added = deny.add(&e, &note.join(" "))?;
-            println!(
-                "{e} {}",
-                if added {
-                    message("added", "добавлено")
-                } else {
-                    message("already listed", "уже в списке")
-                }
-            );
+        )
+    })
+}
+
+fn deny_add(
+    config: &NodeConfig,
+    deny: &DenyStore,
+    entry: &str,
+    note: &[&str],
+) -> anyhow::Result<()> {
+    let entry = deny_entry(config, entry)?;
+    let added = deny.add(&entry, &note.join(" "))?;
+    println!(
+        "{entry} {}",
+        if added {
+            message("added", "добавлено")
+        } else {
+            message("already listed", "уже в списке")
         }
-        ["remove", e] => {
-            let e = entry(e)?;
-            let removed = deny.remove(&e)?;
-            println!(
-                "{e} {}",
-                if removed {
-                    message("removed", "удалено")
-                } else {
-                    message("not listed", "нет в списке")
-                }
-            );
+    );
+    Ok(())
+}
+
+fn deny_remove(config: &NodeConfig, deny: &DenyStore, entry: &str) -> anyhow::Result<()> {
+    let entry = deny_entry(config, entry)?;
+    let removed = deny.remove(&entry)?;
+    println!(
+        "{entry} {}",
+        if removed {
+            message("removed", "удалено")
+        } else {
+            message("not listed", "нет в списке")
         }
-        ["list"] => {
-            for (e, note, added) in deny.list()? {
-                let added = chrono::DateTime::from_timestamp(added, 0).unwrap_or_default();
-                println!("{e}\t{}\t{note}", added.format("%Y-%m-%d %H:%M"));
-            }
-        }
-        ["received"] => {
-            for (peer, time, record) in deny.received()? {
-                let time = chrono::DateTime::from_timestamp(time, 0).unwrap_or_default();
-                let list = proto::DenyList::decode(record.payload.as_slice())?;
-                println!("{peer}\t{}", time.format("%Y-%m-%d %H:%M"));
-                for e in list.entries {
-                    println!("\t{e}");
-                }
-            }
-        }
-        _ => anyhow::bail!(usage().0),
+    );
+    Ok(())
+}
+
+fn deny_list(deny: &DenyStore) -> anyhow::Result<()> {
+    for (entry, note, added) in deny.list()? {
+        let added = chrono::DateTime::from_timestamp(added, 0).unwrap_or_default();
+        println!("{entry}\t{}\t{note}", added.format("%Y-%m-%d %H:%M"));
     }
     Ok(())
+}
+
+fn deny_received(deny: &DenyStore) -> anyhow::Result<()> {
+    for (peer, time, record) in deny.received()? {
+        let time = chrono::DateTime::from_timestamp(time, 0).unwrap_or_default();
+        let list = proto::DenyList::decode(record.payload.as_slice())?;
+        println!("{peer}\t{}", time.format("%Y-%m-%d %H:%M"));
+        for entry in list.entries {
+            println!("\t{entry}");
+        }
+    }
+    Ok(())
+}
+
+/// `dyappd deny ...`, with `deny` stripped from `args`.
+fn deny(config: &NodeConfig, args: &[&str]) -> anyhow::Result<()> {
+    let deny = DenyStore::open(&config.storage.deny_path())?;
+    match args {
+        ["add", entry, note @ ..] => deny_add(config, &deny, entry, note),
+        ["remove", entry] => deny_remove(config, &deny, entry),
+        ["list"] => deny_list(&deny),
+        ["received"] => deny_received(&deny),
+        _ => anyhow::bail!(usage().0),
+    }
 }
 
 /// The peer ID, then one `seeds` entry per `external` address for other nodes to pin this one.
@@ -311,40 +329,31 @@ fn total(metrics: &str, family: &str, label: &str) -> u64 {
 
 /// One `name value` line each: health, then store counts (a store not created yet shows
 /// `none`), then traffic since the node started (`unavailable` when stopped or metrics are off).
-fn status(config: &NodeConfig, running: bool) -> String {
-    let s = &config.storage;
-    let count = |path: &Path, sql: &str| {
-        if !path.exists() {
-            return "none".to_string();
-        }
-        Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
-            .and_then(|db| db.query_row(sql, [], |row| row.get::<_, i64>(0)))
-            .map_or_else(|e| format!("error: {e}"), |n| n.to_string())
-    };
-    let media = s.media_path();
-    let peer_id = std::fs::read_to_string(s.dir.join("node.id")).unwrap_or_default();
-    let metrics = running.then(|| scrape(config)).flatten();
-    let traffic = |value: &dyn Fn(&str) -> u64| {
-        metrics
-            .as_deref()
-            .map_or_else(|| "unavailable".to_string(), |m| value(m).to_string())
-    };
-    let now = Clock::system().unix_secs();
+fn count(path: &Path, sql: &str) -> String {
+    if !path.exists() {
+        return "none".to_string();
+    }
+    Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .and_then(|db| db.query_row(sql, [], |row| row.get::<_, i64>(0)))
+        .map_or_else(|e| format!("error: {e}"), |n| n.to_string())
+}
+
+fn storage_counts(config: &NodeConfig) -> [(&'static str, String); 8] {
+    let storage = &config.storage;
+    let media = storage.media_path();
     [
-        ("node", if running { "running" } else { "stopped" }.to_string()),
-        ("peer_id", peer_id.trim().to_string()),
         (
             "profiles",
-            count(&s.profiles_path(), "SELECT count(*) FROM `profiles`"),
+            count(&storage.profiles_path(), "SELECT count(*) FROM `profiles`"),
         ),
         (
             "envelopes",
-            count(&s.messages_path(), "SELECT count(*) FROM `envelopes`"),
+            count(&storage.messages_path(), "SELECT count(*) FROM `envelopes`"),
         ),
         (
             "envelope_bytes",
             count(
-                &s.messages_path(),
+                &storage.messages_path(),
                 "SELECT coalesce(sum(`size`), 0) FROM `envelopes`",
             ),
         ),
@@ -368,12 +377,35 @@ fn status(config: &NodeConfig, running: bool) -> String {
         ),
         (
             "deny_entries",
-            count(&s.deny_path(), "SELECT count(*) FROM `deny`"),
+            count(&storage.deny_path(), "SELECT count(*) FROM `deny`"),
         ),
         (
             "cached_peers",
-            node::cached_peers(&s.peers_path()).len().to_string(),
+            node::cached_peers(&storage.peers_path()).len().to_string(),
         ),
+    ]
+}
+
+/// One `name value` line each: health, then store counts (a store not created yet shows
+/// `none`), then traffic since the node started (`unavailable` when stopped or metrics are off).
+fn status(config: &NodeConfig, running: bool) -> String {
+    let peer_id = std::fs::read_to_string(config.storage.dir.join("node.id")).unwrap_or_default();
+    let metrics = running.then(|| scrape(config)).flatten();
+    let traffic = |value: &dyn Fn(&str) -> u64| {
+        metrics
+            .as_deref()
+            .map_or_else(|| "unavailable".to_string(), |m| value(m).to_string())
+    };
+    let now = Clock::system().unix_secs();
+    let mut rows = vec![
+        (
+            "node",
+            if running { "running" } else { "stopped" }.to_string(),
+        ),
+        ("peer_id", peer_id.trim().to_string()),
+    ];
+    rows.extend(storage_counts(config));
+    rows.extend([
         (
             "uptime_seconds",
             traffic(&|m| now.saturating_sub(total(m, "process_start_time_seconds", ""))),
@@ -387,8 +419,8 @@ fn status(config: &NodeConfig, running: bool) -> String {
             "wire_out_bytes",
             traffic(&|m| total(m, "wire_bytes_total", "direction=\"out\"")),
         ),
-    ]
-    .iter()
-    .flat_map(|(name, value)| [*name, " ", value.as_str(), "\n"])
-    .collect()
+    ]);
+    rows.iter()
+        .flat_map(|(name, value)| [*name, " ", value.as_str(), "\n"])
+        .collect()
 }
