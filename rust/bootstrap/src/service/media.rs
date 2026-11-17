@@ -369,7 +369,10 @@ fn media_piece(get: &proto::GetMedia, mut data: Vec<u8>) -> MediaResponse {
         let (Ok(start), Ok(end)) = (usize::try_from(get.offset), usize::try_from(end)) else {
             return media_status(Status::Invalid);
         };
-        data = data[start..end].to_vec();
+        let Some(piece) = data.get(start..end) else {
+            return media_status(Status::Invalid);
+        };
+        data = piece.to_vec();
     }
     MediaResponse {
         data,

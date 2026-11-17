@@ -13,18 +13,22 @@ fn decode_fetch_cursor(bytes: &[u8]) -> Result<Option<(i64, i64)>, ()> {
     if bytes.is_empty() {
         return Ok(None);
     }
-    if bytes.len() != 10 || bytes[0] != 1 || bytes[1] > 1 {
+    let [1, class, seq @ ..] = bytes else {
+        return Err(());
+    };
+    if *class > 1 {
         return Err(());
     }
-    let seq = i64::from_be_bytes(bytes[2..].try_into().map_err(|_| ())?);
+    let seq = i64::from_be_bytes(seq.try_into().map_err(|_| ())?);
     if seq <= 0 {
         return Err(());
     }
-    Ok(Some((i64::from(bytes[1]), seq)))
+    Ok(Some((i64::from(*class), seq)))
 }
 
 fn encode_fetch_cursor((class, seq): (i64, i64)) -> Vec<u8> {
-    let mut bytes = vec![1, class.to_le_bytes()[0]];
+    let [class, ..] = class.to_le_bytes();
+    let mut bytes = vec![1, class];
     bytes.extend_from_slice(&seq.to_be_bytes());
     bytes
 }
@@ -272,7 +276,7 @@ impl Service {
         let carried = batch.remaining_seconds.len() == batch.envelopes.len();
         let now = self.clock.timestamp();
         for (i, record) in batch.envelopes.iter().enumerate() {
-            let expires_at = match carried.then(|| batch.remaining_seconds[i]) {
+            let expires_at = match batch.remaining_seconds.get(i).filter(|_| carried).copied() {
                 Some(0) => continue,
                 Some(left) => Some(now.saturating_add(i64::from(left).min(self.retention()))),
                 None => None,

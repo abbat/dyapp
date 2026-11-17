@@ -234,11 +234,12 @@ impl Service {
 
     /// Logs when a guard starts or stops refusing; returns `tripped`.
     fn guard(&self, index: usize, tripped: bool) -> bool {
-        let name = GUARDS[index];
-        if tripped {
-            self.refused[index].fetch_add(1, Ordering::Relaxed);
+        let name = GUARDS.get(index).copied().unwrap_or("unknown");
+        if let (true, Some(refused)) = (tripped, self.refused.get(index)) {
+            refused.fetch_add(1, Ordering::Relaxed);
         }
-        if self.tripped[index].swap(tripped, Ordering::Relaxed) != tripped {
+        let previous = self.tripped.get(index).map_or(tripped, |current| current.swap(tripped, Ordering::Relaxed));
+        if previous != tripped {
             if tripped {
                 Self::log_tripped(name);
             } else {
@@ -261,8 +262,8 @@ impl Service {
             return true;
         }
         let busy = self.traffic.second() >= share;
-        if busy {
-            self.refused[5].fetch_add(1, Ordering::Relaxed);
+        if let (true, Some(refused)) = (busy, self.refused.get(5)) {
+            refused.fetch_add(1, Ordering::Relaxed);
         }
         busy
     }
@@ -275,7 +276,7 @@ impl Service {
 
     /// Requests each guard refused since start, in `GUARDS` order.
     pub fn refusals(&self) -> [u64; 7] {
-        std::array::from_fn(|i| self.refused[i].load(Ordering::Relaxed))
+        std::array::from_fn(|i| self.refused.get(i).map_or(0, |refused| refused.load(Ordering::Relaxed)))
     }
 
     fn log_store_pages(profiles: i64, messages: i64) {
@@ -350,7 +351,8 @@ impl Service {
         if used >= max {
             let evicted = evict(&self.store, max.saturating_sub(max / 20))?;
             if evicted > 0 {
-                tracing::info!(guard = GUARDS[index], evicted, "evicted the oldest records");
+                let name = GUARDS.get(index).copied().unwrap_or("unknown");
+                tracing::info!(guard = name, evicted, "evicted the oldest records");
                 used = usage(&self.store)?.0;
             }
         }
