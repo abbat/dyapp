@@ -316,7 +316,7 @@ fn blocked_owner_is_refused(seal_key: &[u8; 32]) {
         session.stage_envelope(&key(1), &invite.welcome, &invite.profiles, seal_key),
         Ok(Some(Event::Refused(_)))
     ));
-    assert!(session.store.known_groups().unwrap().is_empty());
+    assert_eq!(session.store.known_groups().unwrap().len(), 0);
 }
 
 #[test]

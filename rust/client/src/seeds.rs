@@ -150,8 +150,8 @@ impl CheckState {
         }
     }
 
-    fn decide(&mut self, id: &ConnectionId, row: Row) {
-        if let Some(&index) = self.dials.get(id) {
+    fn decide(&mut self, id: ConnectionId, row: Row) {
+        if let Some(&index) = self.dials.get(&id) {
             self.rows[index].get_or_insert(row);
         }
     }
@@ -169,30 +169,30 @@ impl CheckState {
                 } else {
                     Row::WrongNetwork
                 };
-                self.decide(&connection_id, row);
+                self.decide(connection_id, row);
             }
             SwarmEvent::OutgoingConnectionError {
                 connection_id,
                 error,
                 ..
-            } => self.dial_error(connection_id, error),
+            } => self.dial_error(connection_id, &error),
             _ => {}
         }
     }
 
-    fn dial_error(&mut self, connection_id: ConnectionId, error: DialError) {
+    fn dial_error(&mut self, connection_id: ConnectionId, error: &DialError) {
         let Some(&index) = self.dials.get(&connection_id) else {
             return;
         };
         if matches!(error, DialError::WrongPeerId { .. }) {
-            self.decide(&connection_id, Row::WrongPin);
+            self.decide(connection_id, Row::WrongPin);
             return;
         }
         self.errors.insert(index, error.to_string());
         self.pending[index] -= 1;
         if self.pending[index] == 0 {
             let error = self.errors.remove(&index).unwrap_or_default();
-            self.decide(&connection_id, Row::Unreachable(error));
+            self.decide(connection_id, Row::Unreachable(error));
         }
     }
 
