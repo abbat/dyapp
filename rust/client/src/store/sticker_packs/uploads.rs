@@ -122,7 +122,7 @@ fn stored_plan(
     if expires <= now {
         return Ok(None);
     }
-    if ready && expires - now >= REFRESH {
+    if ready && expires.saturating_sub(now) >= REFRESH {
         return Ok(Some(UploadPlan::Reuse(attachment)));
     }
     let pending = if ready {
@@ -133,7 +133,7 @@ fn stored_plan(
             params![
                 candidate.plaintext_sha256.as_slice(),
                 now,
-                now + PENDING,
+                now.checked_add(PENDING).ok_or(Error::ClockRange)?,
                 pending.reservation.as_slice(),
                 kind as i64
             ],
@@ -143,7 +143,12 @@ fn stored_plan(
         // A retry may upload again: keep its possible node charge for eight more days.
         tx.execute(
             "UPDATE `sticker_uploads` SET `created` = ?2, `expires` = ?3 WHERE `hash` = ?1 AND `kind` = ?4",
-            params![candidate.plaintext_sha256.as_slice(), now, now + PENDING, kind as i64],
+            params![
+                candidate.plaintext_sha256.as_slice(),
+                now,
+                now.checked_add(PENDING).ok_or(Error::ClockRange)?,
+                kind as i64
+            ],
         )?;
         PendingUpload {
             attachment,
@@ -230,7 +235,7 @@ impl Store {
         let pending = pending(candidate.clone())?;
         tx.execute("INSERT INTO `sticker_uploads` (`hash`, `descriptor`, `charge`, `created`, `expires`, `ready`, `reservation`, `kind`)
             VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6, ?7)",
-            params![candidate.plaintext_sha256.as_slice(), bytes, charge, now, now + PENDING, pending.reservation.as_slice(), kind as i64])?;
+            params![candidate.plaintext_sha256.as_slice(), bytes, charge, now, now.checked_add(PENDING).ok_or(Error::ClockRange)?, pending.reservation.as_slice(), kind as i64])?;
         tx.commit()?;
         Ok(UploadPlan::Upload(pending))
     }
@@ -279,7 +284,7 @@ impl Store {
                 attachment.plaintext_sha256.as_slice(),
                 bytes,
                 now,
-                now + RETENTION,
+                now.checked_add(RETENTION).ok_or(Error::ClockRange)?,
                 pending.reservation.as_slice(), kind as i64
             ],
         )?;

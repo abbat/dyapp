@@ -30,8 +30,10 @@ impl Session {
         if identity.peer_id() != self.store.owner_peer_id() {
             return Err(crate::Error::Reply("sticker owner mismatch").into());
         }
-        let jobs = self.store.due_sticker_pack_responses(crate::now() * 1000)?;
-        let mut staged = 0;
+        let jobs = self
+            .store
+            .due_sticker_pack_responses(crate::now().saturating_mul(1000))?;
+        let mut staged = 0usize;
         for job in jobs.into_iter().take(RESPONSE_BATCH) {
             if stop() {
                 break;
@@ -56,7 +58,7 @@ impl Session {
             let Some(writes) = self.stage_response(&job, &answer, seal_key)? else {
                 continue;
             };
-            staged += 1;
+            staged = staged.saturating_add(1);
             match self.send_staged(nodes, writes, seal_key).await {
                 Ok(()) | Err(Error::Client(_)) => {}
                 Err(error) => return Err(error),
@@ -86,7 +88,7 @@ impl Session {
             }
             Err(_) => {
                 self.store
-                    .defer_sticker_pack_response(job, crate::now() * 1000)?;
+                    .defer_sticker_pack_response(job, crate::now().saturating_mul(1000))?;
                 Ok(None)
             }
         }
@@ -119,7 +121,7 @@ impl Session {
                     Ok(()) => {}
                     Err(Error::Client(_)) => {
                         self.store
-                            .defer_sticker_pack_response(job, crate::now() * 1000)?;
+                            .defer_sticker_pack_response(job, crate::now().saturating_mul(1000))?;
                         return Ok(None);
                     }
                     Err(error) => return Err(error),
@@ -155,7 +157,7 @@ impl Session {
                     }
                     Error::Store(StoreError::InboxConflict) => {
                         self.store
-                            .defer_sticker_pack_response(job, crate::now() * 1000)?;
+                            .defer_sticker_pack_response(job, crate::now().saturating_mul(1000))?;
                     }
                     error => return Err(error),
                 }
