@@ -109,11 +109,11 @@ fn malformed_original_profile_cannot_be_preserved() {
 
 #[test]
 fn device_directory_checks_owner_keys_order_and_signature() {
-    let owner = Identity::generate();
-    let first = Identity::generate();
-    let second = Identity::generate();
-    let mls_first = Identity::generate();
-    let mls_second = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
+    let first = Identity::try_generate().unwrap();
+    let second = Identity::try_generate().unwrap();
+    let mls_first = Identity::try_generate().unwrap();
+    let mls_second = Identity::try_generate().unwrap();
     let certificate = |device: &Identity, mls: &Identity| {
         owner.sign(
             Domain::DeviceCertificate,
@@ -143,8 +143,8 @@ fn device_directory_checks_owner_keys_order_and_signature() {
     profile.device_owners = vec![binding(&first, &owner), binding(&second, &owner)];
     assert!(verify(&profile.sign(&owner)).is_ok());
     for bad in [
-        vec![binding(&Identity::generate(), &owner)],
-        vec![binding(&first, &Identity::generate())],
+        vec![binding(&Identity::try_generate().unwrap(), &owner)],
+        vec![binding(&first, &Identity::try_generate().unwrap())],
         vec![first.sign(Domain::DeviceCertificate, owner.public_key().to_vec())],
         vec![binding(&first, &owner); 3],
     ] {
@@ -161,7 +161,7 @@ fn device_directory_checks_owner_keys_order_and_signature() {
 
 #[test]
 fn content_rules_hold_at_their_boundaries() {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let invalid = |profile: &Profile, reason| {
         assert_eq!(
             verify(&profile.sign(&owner)),
@@ -184,8 +184,8 @@ fn content_rules_hold_at_their_boundaries() {
     let mut keys: Vec<_> = (0..=MAX_DEVICES)
         .map(|_| {
             (
-                Identity::generate().public_key(),
-                Identity::generate().public_key(),
+                Identity::try_generate().unwrap().public_key(),
+                Identity::try_generate().unwrap().public_key(),
             )
         })
         .collect();
@@ -216,7 +216,7 @@ fn content_rules_hold_at_their_boundaries() {
 
 #[test]
 fn highest_valid_version_wins() {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let v1 = sample(1).sign(&owner);
     let v2 = sample(2).sign(&owner);
 
@@ -231,7 +231,7 @@ fn highest_valid_version_wins() {
 
 #[test]
 fn tombstone_supersedes_and_must_be_empty() {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let source = sample(2).sign(&owner);
     let tombstone = Profile {
         previous: Some(ProfileCondition::observed(Some(&source)).unwrap()),
@@ -283,7 +283,7 @@ fn pow_is_pinned_and_solvable() {
 
 #[test]
 fn tombstone_keeps_pow() {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let tombstone = Profile::tombstone(3, 77, 11).sign(&owner);
     let verified = verify_historical(&tombstone).unwrap().profile;
     assert_eq!((verified.pow_nonce, verified.pow_bits), (77, 11));
@@ -305,7 +305,7 @@ fn pow_timing() {
 
 #[test]
 fn optional_career_fields_are_signed_and_validated() {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let mut profile = sample(1);
     assert_eq!(profile.profession, "");
     assert!(verify(&profile.sign(&owner)).is_ok());
@@ -340,7 +340,7 @@ fn optional_career_fields_are_signed_and_validated() {
 
 #[test]
 fn interests_require_canonical_tag() {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let mut profile = sample(1);
     assert_eq!(normalize_interest("  Музыка  "), "музыка");
     assert_eq!(normalize_interest("  E\u{301}COLE  "), "école");
@@ -357,7 +357,7 @@ fn interests_require_canonical_tag() {
 #[test]
 fn profile_strings_are_nfc_without_hidden_characters_and_bounded() {
     check_clean_text_examples();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let mut profile = sample(1);
     profile.place = "Mit\u{202E}te".into();
     assert!(verify(&profile.sign(&owner)).is_err());
@@ -389,7 +389,7 @@ fn profile_strings_are_nfc_without_hidden_characters_and_bounded() {
 
 #[test]
 fn verify_takes_height_only_inside_its_range() {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let with = |height| Profile {
         height,
         ..sample(1)
@@ -404,7 +404,7 @@ fn verify_takes_height_only_inside_its_range() {
 
 #[test]
 fn about_is_limited_to_500_code_points_and_may_hold_line_feeds() {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let mut profile = sample(1);
     for fits in ["я".repeat(MAX_ABOUT_CHARS), "Line\n\nline".into()] {
         profile.about = fits;
@@ -422,7 +422,7 @@ fn about_is_limited_to_500_code_points_and_may_hold_line_feeds() {
 
 #[test]
 fn seeking_fields_are_optional_bounded_and_exclude_not_looking() {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let check = |change: &dyn Fn(&mut Profile)| {
         let mut profile = sample(1);
         change(&mut profile);
@@ -494,7 +494,7 @@ fn verify_takes_scale_codes_from_a_newer_client() {
             _ => unreachable!(),
         }
     }
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let mut profile = sample(1);
     for scale in SCALES {
         *field(&mut profile, scale.field) = scale.max;
@@ -511,9 +511,9 @@ fn verify_takes_scale_codes_from_a_newer_client() {
 
 #[test]
 fn rejects_bad_signature_and_content() {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let mut forged = sample(1).sign(&owner);
-    forged.public_key = Identity::generate().public_key().to_vec();
+    forged.public_key = Identity::try_generate().unwrap().public_key().to_vec();
     assert!(matches!(verify(&forged), Err(Error::Signature(_))));
 
     let mut reversed = sample(1);
@@ -566,7 +566,7 @@ fn reject_invalid_device_directory(
         verify(&profile.sign(owner)),
         Err(Error::Invalid("invalid device certificate signature"))
     );
-    profile.devices[0] = Identity::generate().sign(
+    profile.devices[0] = Identity::try_generate().unwrap().sign(
         Domain::DeviceCertificate,
         DeviceCertificate {
             device_key: first.public_key().to_vec(),

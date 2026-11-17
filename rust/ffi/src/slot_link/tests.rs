@@ -88,7 +88,7 @@ fn native_poll_without_active_network_preserves_source_and_can_be_retried() {
 #[test]
 fn native_writer_returns_an_opaque_verified_identity_and_cloneable_receipt() {
     let fixture = Fixture::new();
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().unwrap();
     let expected = identity.peer_id();
     let mut received = ReceivedLink::new(
         &Registry::new(fixture.root, Layout::Android),
@@ -99,7 +99,7 @@ fn native_writer_returns_an_opaque_verified_identity_and_cloneable_receipt() {
             identity,
             state: b"private state".to_vec(),
         },
-        Identity::generate(),
+        Identity::try_generate().unwrap(),
     );
     let selection = install(&mut received, fixture.registry.link_keys()).unwrap();
     assert_eq!(selection.key.peer_id(), expected);

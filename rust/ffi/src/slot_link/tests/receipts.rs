@@ -25,7 +25,7 @@ fn installed(receiver: &MobileLinkReceiver) -> MobileSlotSelection {
 fn native_receipt_retains_actual_wire_installation_after_selection_changes_and_server_shutdown() {
     let fixture = Fixture::new();
     let receiver = fixture.receiver();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let mut server = deliver(&fixture, &receiver, &owner);
     assert_eq!(receiver.poll().unwrap(), MobileLinkPhase::Completed);
     let first = installed(&receiver);
@@ -89,7 +89,7 @@ fn failure(receiver: &MobileLinkReceiver) -> MobileLinkFailure {
 fn native_receipt_retains_the_exact_failed_destination_without_retrying_the_platform_write() {
     let fixture = Fixture::with_keys(Arc::new(DeniedDevice(Credentials::default())));
     let receiver = fixture.receiver();
-    let mut server = deliver(&fixture, &receiver, &Identity::generate());
+    let mut server = deliver(&fixture, &receiver, &Identity::try_generate().unwrap());
     assert_eq!(receiver.poll().unwrap(), MobileLinkPhase::Failed);
     let original = failure(&receiver);
     let MobileLinkFailure::Destination { slot_id, detail } = &original else {

@@ -60,10 +60,10 @@ fn opaque_slot_callbacks_feed_the_core_link_writer_and_chat_bootstrap() {
     let registry = Registry::new(root(), Layout::Android);
     let (source, owner, _) = registry.create(Storage::Wrapped, &keys).unwrap();
     let linked = Linked {
-        identity: Identity::generate(),
+        identity: Identity::try_generate().unwrap(),
         state: b"pending".to_vec(),
     };
-    let device = Identity::generate();
+    let device = Identity::try_generate().unwrap();
     let (slot, installed, _) = registry
         .link_selected_wrapped(&source.id, &owner.peer_id(), &linked, false, &keys, &device)
         .unwrap();

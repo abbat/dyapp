@@ -2,8 +2,8 @@ use super::favorites::Fixture;
 use super::*;
 
 pub(super) fn establish(f: &Fixture) -> String {
-    let peer = Identity::generate();
-    let key = Identity::generate();
+    let peer = Identity::try_generate().unwrap();
+    let key = Identity::try_generate().unwrap();
     let device = dyapp_messaging::mls::Device::new(&peer, key.public_key(), 1).unwrap();
     let profile = dyapp_profile::Profile {
         version: 1,
@@ -102,7 +102,7 @@ fn first_contact_without_a_network_does_not_stage_or_advance_mls() {
     let f = Fixture::new();
     establish(&f);
     let before = snapshot(&f);
-    let peer = Identity::generate().peer_id();
+    let peer = Identity::try_generate().unwrap().peer_id();
     let result = f.chats.submit_text(peer.clone(), "not committed".into());
     assert!(
         matches!(result, Err(crate::CoreError::Failed(reason)) if reason.contains("notConnected"))

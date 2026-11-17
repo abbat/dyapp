@@ -102,7 +102,7 @@ fn native_directory_preserves_core_current_first_order_and_saved_draft() {
     use prost::Message as _;
 
     let f = Fixture::new();
-    let other = Identity::generate();
+    let other = Identity::try_generate().unwrap();
     let mut cached = f.cached.clone();
     cached.devices.insert(
         0,
@@ -110,7 +110,7 @@ fn native_directory_preserves_core_current_first_order_and_saved_draft() {
             Domain::DeviceCertificate,
             DeviceCertificate {
                 device_key: other.public_key().to_vec(),
-                mls_signature_key: Identity::generate().public_key().to_vec(),
+                mls_signature_key: Identity::try_generate().unwrap().public_key().to_vec(),
                 generation: 1,
             }
             .encode_to_vec(),
@@ -140,7 +140,7 @@ fn native_directory_preserves_core_current_first_order_and_saved_draft() {
 fn consistent_replacement_device_cannot_reuse_the_original_directory_handle() {
     let f = Fixture::new();
     let admitted = f.worker.open().unwrap();
-    let device = Identity::generate();
+    let device = Identity::try_generate().unwrap();
     let sealed =
         dyapp_messaging::mls::Device::new(admitted.operation.identity(), device.public_key(), 1)
             .unwrap()

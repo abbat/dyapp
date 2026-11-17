@@ -160,7 +160,7 @@ fn literal_legacy_and_uuid_layouts_reopen_without_rewriting_the_key() {
 #[test]
 fn committed_selection_retains_the_key_and_unconfirmed_durability() {
     use dyapp_client::identity_slots::{SelectionDurability, Slot, State, Storage};
-    let identity = dyapp_identity::Identity::generate();
+    let identity = dyapp_identity::Identity::try_generate().unwrap();
     let peer = identity.peer_id();
     let selected = crate::slot_registry::selected(
         Slot {

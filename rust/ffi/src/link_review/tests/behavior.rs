@@ -77,7 +77,7 @@ fn replacing_a_device_with_another_consistent_sealed_session_cannot_reuse_the_re
     let review = f.worker.prepare().unwrap();
     let admitted = f.worker.owner.open().unwrap();
     let operation = &admitted.operation;
-    let device = dyapp_identity::Identity::generate();
+    let device = dyapp_identity::Identity::try_generate().unwrap();
     let sealed = dyapp_messaging::mls::Device::new(operation.identity(), device.public_key(), 1)
         .unwrap()
         .seal(operation.state_key())

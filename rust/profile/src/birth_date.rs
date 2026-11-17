@@ -239,7 +239,7 @@ mod tests {
 
     #[test]
     fn all_presence_combinations_round_trip() {
-        let owner = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
         for mask in 0..8 {
             let p = profile(
                 (mask & 1 != 0).then_some(2000),
@@ -253,7 +253,7 @@ mod tests {
 
     #[test]
     fn impossible_and_conflicting_parts_are_rejected() {
-        let owner = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
         for (year, month, day) in [
             (Some(0), None, None),
             (Some(10000), None, None),

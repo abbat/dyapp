@@ -245,7 +245,7 @@ mod tests {
 
     #[test]
     fn signatures_verify_only_in_their_own_domain() {
-        let identity = Identity::generate();
+        let identity = Identity::try_generate().unwrap();
         for domain in Domain::ALL {
             let record = identity.sign(*domain, b"same payload".to_vec());
             for other in Domain::ALL {
@@ -265,7 +265,7 @@ mod tests {
 
     #[test]
     fn sign_verify_and_tamper() {
-        let identity = Identity::generate();
+        let identity = Identity::try_generate().unwrap();
         let record = identity.sign(Domain::Profile, b"hello".to_vec());
         assert_eq!(record.verify(Domain::Profile), Ok(identity.peer_id()));
         assert_eq!(identity.peer_id().len(), 64);
@@ -278,7 +278,7 @@ mod tests {
         );
 
         let mut other_key = record.clone();
-        other_key.public_key = Identity::generate().public_key().to_vec();
+        other_key.public_key = Identity::try_generate().unwrap().public_key().to_vec();
         assert_eq!(
             other_key.verify(Domain::Profile),
             Err(Error::InvalidSignature)
@@ -308,7 +308,7 @@ mod tests {
 
     #[test]
     fn secret_round_trip_keeps_peer_id() {
-        let identity = Identity::generate();
+        let identity = Identity::try_generate().unwrap();
         let secret: Zeroizing<[u8; 32]> = identity.secret();
         assert_eq!(Identity::from_secret(&secret).peer_id(), identity.peer_id());
     }

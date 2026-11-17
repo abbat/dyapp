@@ -3,7 +3,7 @@ use dyapp_profile::Profile;
 use super::*;
 
 fn device() -> (Identity, Device) {
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().unwrap();
     let device = Device::new(&identity, [7; 32], 1).unwrap();
     (identity, device)
 }
@@ -379,7 +379,7 @@ fn certified_commit_advances_the_epoch() {
 #[test]
 fn revoked_device_is_refused_and_removed() {
     let (alice, alice_device) = device();
-    let bob = Identity::generate();
+    let bob = Identity::try_generate().unwrap();
     let bob_phone = Device::new(&bob, [6; 32], 1).unwrap();
     let bob_laptop = Device::new(&bob, [8; 32], 1).unwrap();
     let both = [

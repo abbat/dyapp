@@ -187,7 +187,7 @@ mod tests {
             .join("../../build/native-contact-name-tests")
             .join(key.peer_id());
         std::fs::create_dir_all(&dir).unwrap();
-        let bob = Identity::generate();
+        let bob = Identity::try_generate().unwrap();
         let peer = bob.peer_id();
         let searcher = ProfileSearcher::new(dir.to_str().unwrap().to_owned()).unwrap();
         let store = Store::open(&dir.join("client.db"), &key.identity).unwrap();

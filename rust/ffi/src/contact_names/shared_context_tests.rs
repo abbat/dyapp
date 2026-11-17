@@ -7,7 +7,7 @@ use std::path::PathBuf;
 fn directory() -> PathBuf {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../build/native-contact-context-tests")
-        .join(Identity::generate().peer_id());
+        .join(Identity::try_generate().unwrap().peer_id());
     std::fs::create_dir_all(&path).unwrap();
     path
 }

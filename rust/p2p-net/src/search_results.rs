@@ -583,7 +583,7 @@ mod tests {
 
     #[test]
     fn habit_filters_keep_the_chosen_values_and_leave_out_an_empty_field() {
-        let owner = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
         let filter = Filter {
             smoking: Some(ScaleSelection::Range(
                 Smoking::No.code(),
@@ -649,7 +649,7 @@ mod tests {
 
     #[test]
     fn drops_mismatches_and_forgeries_and_merges_two_nodes() {
-        let [a, b, c] = [(); 3].map(|()| Identity::generate());
+        let [a, b, c] = [(); 3].map(|()| Identity::try_generate().unwrap());
         let mut forged = record(&c, 1, 30, &["chess"]);
         forged.payload = record(&c, 1, 31, &["chess"]).payload;
         let honest = vec![record(&a, 1, 30, &["chess"]), record(&b, 1, 30, &["go"])];
@@ -681,7 +681,7 @@ mod tests {
 
     #[test]
     fn malformed_conditions_match_nothing_and_pow_is_checked() {
-        let a = Identity::generate();
+        let a = Identity::try_generate().unwrap();
         let replies = [vec![record(&a, 1, 30, &[])]];
         let bad = condition(BIRTH_AGE, Op::Range, &[], &["30"]);
         assert_eq!(check(&[bad], 0, &replies), [] as [VerifiedProfile; 0]);
@@ -879,7 +879,7 @@ mod tests {
 
     #[test]
     fn a_filter_keeps_the_matching_profile_and_drops_each_mismatch() {
-        let a = Identity::generate();
+        let a = Identity::try_generate().unwrap();
         let today = CivilDate::new(2026, 10, 25).unwrap();
         let fit = matching_filter_profile();
         let filter = matching_filter();
@@ -942,7 +942,7 @@ mod tests {
 
     #[test]
     fn current_age_uses_birth_bounds_and_leap_anniversary() {
-        let owner = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
         let filter = Filter {
             age: Some((21, 21)),
             ..Filter::default()

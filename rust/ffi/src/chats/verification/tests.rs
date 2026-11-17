@@ -19,7 +19,7 @@ impl Fixture {
     fn new(secret: u8) -> Self {
         let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../build/native-verification")
-            .join(Identity::generate().peer_id());
+            .join(Identity::try_generate().unwrap().peer_id());
         std::fs::create_dir_all(&dir).unwrap();
         let key = |secret| {
             Arc::new(IdentityKey {

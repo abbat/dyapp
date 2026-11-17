@@ -37,7 +37,7 @@ fn native_share_refuses_invalid_same_own_and_missing_targets_before_network_or_m
         (target.clone(), "AB".repeat(32)),
         (target.clone(), target.clone()),
         (shared.clone(), target.clone()),
-        (Identity::generate().peer_id(), shared),
+        (Identity::try_generate().unwrap().peer_id(), shared),
     ] {
         assert_eq!(
             f.chats
