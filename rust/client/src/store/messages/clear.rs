@@ -232,54 +232,13 @@ mod tests {
         let owner = Identity::generate();
         let (own, peer) = (owner.peer_id(), Identity::generate().peer_id());
         let (cleared, other, device) = ([3], [4], [5; 32]);
-        let from = |group, author| VerifiedChatSender {
-            group,
-            author,
-            device: &device,
-        };
         let key = |group: &[u8], author: &str, id| MessageKey {
             group: group.to_vec(),
             author: author.to_owned(),
             id: [id; 16],
         };
         let mut store = Store::open(&path, &owner).unwrap();
-        crate::store::tests::catalog_group(&mut store, &cleared, &peer);
-        crate::store::tests::catalog_group(&mut store, &other, &peer);
-        store
-            .stage_chat_inbound(b"mls", &inbox(1), from(&cleared, &peer), &text(1), 1_000)
-            .unwrap();
-        let unsent = prepare_put(&[7; 32], vec![1]).unwrap();
-        let (sent, plain) = (
-            prepare_put(&[7; 32], vec![2]).unwrap(),
-            prepare_put(&[7; 32], vec![3]).unwrap(),
-        );
-        store
-            .stage_chat_outbound(b"mls", &[unsent], from(&cleared, &own), &text(2), 1_000)
-            .unwrap();
-        store
-            .stage_chat_outbound(
-                b"mls",
-                std::slice::from_ref(&sent),
-                from(&cleared, &own),
-                &text(3),
-                1_000,
-            )
-            .unwrap();
-        store.accepted(&sent, 1_000, "node").unwrap();
-        store.stage_outbound(b"mls", &[plain]).unwrap();
-        // An edit whose original has not arrived yet.
-        let early = Body::Edit {
-            target: [8; 16],
-            operation: [9; 16],
-            hlc: Timestamp::new(100, 0).into(),
-            text: b"early".to_vec(),
-        };
-        store
-            .stage_chat_inbound(b"mls", &inbox(2), from(&cleared, &peer), &early, 1_000)
-            .unwrap();
-        store
-            .stage_chat_inbound(b"mls", &inbox(3), from(&other, &peer), &text(1), 1_000)
-            .unwrap();
+        stage_clear_history(&mut store, &own, &peer, &cleared, &other, &device);
 
         assert_eq!(store.clear_chat(&cleared).unwrap(), 3);
         for (author, id) in [(&peer, 1), (&own, 2), (&own, 3)] {
@@ -297,6 +256,77 @@ mod tests {
         drop(store);
 
         let mut store = Store::open(&path, &owner).unwrap();
+        assert_late_clear_messages(&mut store, &peer, &cleared, &device);
+    }
+
+    fn stage_clear_history(
+        store: &mut Store,
+        own: &str,
+        peer: &str,
+        cleared: &[u8],
+        other: &[u8],
+        device: &[u8; 32],
+    ) {
+        let from = |group, author| VerifiedChatSender {
+            group,
+            author,
+            device,
+        };
+        crate::store::tests::catalog_group(store, cleared, peer);
+        crate::store::tests::catalog_group(store, other, peer);
+        store
+            .stage_chat_inbound(b"mls", &inbox(1), from(cleared, peer), &text(1), 1_000)
+            .unwrap();
+        let unsent = prepare_put(&[7; 32], vec![1]).unwrap();
+        let (sent, plain) = (
+            prepare_put(&[7; 32], vec![2]).unwrap(),
+            prepare_put(&[7; 32], vec![3]).unwrap(),
+        );
+        store
+            .stage_chat_outbound(b"mls", &[unsent], from(cleared, own), &text(2), 1_000)
+            .unwrap();
+        store
+            .stage_chat_outbound(
+                b"mls",
+                std::slice::from_ref(&sent),
+                from(cleared, own),
+                &text(3),
+                1_000,
+            )
+            .unwrap();
+        store.accepted(&sent, 1_000, "node").unwrap();
+        store.stage_outbound(b"mls", &[plain]).unwrap();
+        // An edit whose original has not arrived yet.
+        let early = Body::Edit {
+            target: [8; 16],
+            operation: [9; 16],
+            hlc: Timestamp::new(100, 0).into(),
+            text: b"early".to_vec(),
+        };
+        store
+            .stage_chat_inbound(b"mls", &inbox(2), from(cleared, peer), &early, 1_000)
+            .unwrap();
+        store
+            .stage_chat_inbound(b"mls", &inbox(3), from(other, peer), &text(1), 1_000)
+            .unwrap();
+    }
+
+    fn assert_late_clear_messages(
+        store: &mut Store,
+        peer: &str,
+        cleared: &[u8],
+        device: &[u8; 32],
+    ) {
+        let from = || VerifiedChatSender {
+            group: cleared,
+            author: peer,
+            device,
+        };
+        let key = |id| MessageKey {
+            group: cleared.to_vec(),
+            author: peer.to_owned(),
+            id: [id; 16],
+        };
         let edit = Body::Edit {
             target: [1; 16],
             operation: [10; 16],
@@ -310,26 +340,17 @@ mod tests {
         };
         for (n, body) in [(4, text(1)), (5, edit), (6, delete), (7, text(8))] {
             assert!(!store
-                .stage_chat_inbound(b"mls", &inbox(n), from(&cleared, &peer), &body, 1_000)
+                .stage_chat_inbound(b"mls", &inbox(n), from(), &body, 1_000)
                 .unwrap());
         }
-        assert!(store
-            .chat_message(&key(&cleared, &peer, 1))
-            .unwrap()
-            .is_none());
-        assert!(store
-            .chat_message(&key(&cleared, &peer, 8))
-            .unwrap()
-            .is_none());
+        assert!(store.chat_message(&key(1)).unwrap().is_none());
+        assert!(store.chat_message(&key(8)).unwrap().is_none());
         let acks = store.pending_acks().unwrap();
         assert!((4..=7).all(|n| acks.contains(&inbox(n))));
         store
-            .stage_chat_inbound(b"mls", &inbox(9), from(&cleared, &peer), &text(12), 1_000)
+            .stage_chat_inbound(b"mls", &inbox(9), from(), &text(12), 1_000)
             .unwrap();
-        assert!(store
-            .chat_message(&key(&cleared, &peer, 12))
-            .unwrap()
-            .is_some());
+        assert!(store.chat_message(&key(12)).unwrap().is_some());
     }
 
     #[test]
