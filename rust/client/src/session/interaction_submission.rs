@@ -69,7 +69,7 @@ impl Session {
         seal_key: &[u8; 32],
     ) -> Result<Option<InteractionSubmission>, Error> {
         let target = self.partner(group_id).ok_or(Error::UnknownGroup)?;
-        let wall_ms = crate::now() * 1000;
+        let wall_ms = crate::now_ms();
         let Some(event) = self.store.draft_interaction(&target, kind, wall_ms)? else {
             return Ok(None);
         };

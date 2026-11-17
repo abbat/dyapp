@@ -29,7 +29,7 @@ impl Session {
             .map_err(|_| Error::Client(crate::Error::Reply("no message randomness")))?;
         let body = Body::Forwarded(Box::new(Body::Text {
             id,
-            hlc: Some(self.store.draft_chat_text(crate::now() * 1000)?),
+            hlc: Some(self.store.draft_chat_text(crate::now_ms())?),
             text: text.to_vec(),
         }));
         let writes = self.stage_message(group_id, &body, seal_key)?;

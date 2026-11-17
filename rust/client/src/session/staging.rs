@@ -85,7 +85,7 @@ pub(super) fn persist(
             author: &author,
             device: &source_device,
         };
-        store.stage_chat_outbound(sealed, writes, sender, body, crate::now() * 1000)?;
+        store.stage_chat_outbound(sealed, writes, sender, body, crate::now_ms())?;
     } else {
         store.stage_outbound(sealed, writes)?;
     }

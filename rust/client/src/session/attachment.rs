@@ -88,7 +88,7 @@ impl Session {
         let mut id = [0; 16];
         getrandom::fill(&mut id)
             .map_err(|_| Error::Client(crate::Error::Reply("no message randomness")))?;
-        let hlc = self.store.draft_chat_text(crate::now() * 1000)?;
+        let hlc = self.store.draft_chat_text(crate::now_ms())?;
         let body = Body::Attachment(AttachmentMessage {
             id,
             hlc,

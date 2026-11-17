@@ -20,7 +20,7 @@ impl Session {
             None if replacement.is_none() && self.store.has_chat_sticker(&key)? => {}
             _ => return Err(Error::UnknownMessage),
         }
-        let (operation, hlc) = self.store.draft_chat_operation(crate::now() * 1000)?;
+        let (operation, hlc) = self.store.draft_chat_operation(crate::now_ms())?;
         let body = match replacement {
             Some(text) => Body::Edit {
                 target,

@@ -33,7 +33,7 @@ impl Session {
         let mut sticker = template.clone();
         getrandom::fill(&mut sticker.id)
             .map_err(|_| Error::Client(crate::Error::Reply("no message randomness")))?;
-        sticker.hlc = self.store.draft_chat_text(crate::now() * 1000)?;
+        sticker.hlc = self.store.draft_chat_text(crate::now_ms())?;
         sticker.encode()?;
         let id = sticker.id;
         let writes = self.stage_message(group_id, &Body::Sticker(Box::new(sticker)), seal_key)?;
