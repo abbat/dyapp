@@ -228,36 +228,15 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     peer: id,
                     connection_id,
                     message: Message::Request { request, channel, .. },
-                })) => {
-                    let from = peer(&swarm, &service, id, connection_id);
-                    let permits = pow_permits.clone();
-                    enqueue(&mut store_queue, id, connection_id, Box::new(move |service, _| {
-                        let check_pow = |check: &crate::pow::PowCheck| {
-                            let _permit = permits.clone().try_acquire_owned().ok()?;
-                            Some(service.pow.check(check))
-                        };
-                        if let Some(proto::profile_request::Request::Publish(record) | proto::profile_request::Request::ConditionalPublish(record)) = &request.request {
-                            let result = service.prepare_profile_request_with_pow(&from, request.clone(), &check_pow);
-                            return StoreDone::ProfilePublish(channel, record.clone(), result);
-                        }
-                        let heartbeat = match &request.request {
-                            Some(proto::profile_request::Request::Heartbeat(record)) => Some(record.public_key.clone()),
-                            _ => None,
-                        };
-                        let result = service.profile_with_pow(&from, request, &check_pow);
-                        let ok = matches!(&result, Ok(response) if response.status == i32::from(Status::Ok));
-                        // An accepted heartbeat repairs the stored profile's replicas.
-                        let stored = heartbeat.filter(|_| ok).and_then(|key| {
-                            let owner = dyapp_identity::key_hash(&key.as_slice().try_into().ok()?);
-                            let owner = dyapp_identity::hex(&owner);
-                            service.store.get_profile(&owner).unwrap_or_else(|error| {
-                                tracing::error!(%error, "heartbeat repair failed");
-                                None
-                            })
-                        });
-                        StoreDone::Profile(channel, result, stored)
-                    }));
-                }
+                })) => requests::profile(
+                    &mut swarm,
+                    &service,
+                    &mut store_queue,
+                    &pow_permits,
+                    (id, connection_id),
+                    request,
+                    channel,
+                ),
                 SwarmEvent::Behaviour(BehaviourEvent::KeyPackage(Event::Message {
                     peer: id,
                     connection_id,
@@ -276,41 +255,15 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     connection_id,
                     message: Message::Request { request, channel, .. },
                 })) => {
-                    let put = matches!(request.request, Some(proto::media_request::Request::Put(_)));
-                    if put && replicas.at_capacity() {
-                        answered += 1;
-                        let response = crate::service::media_upload_status(Status::Full);
-                        service.traffic.add(response.encoded_len() as u64);
-                        let _ = swarm.behaviour_mut().media.send_response(channel, response);
-                        continue;
-                    }
-                    let from = peer(&swarm, &service, id, connection_id);
-                    enqueue(&mut store_queue, id, connection_id, Box::new(move |service, _| {
-                        if let Some(proto::media_request::Request::Put(put)) = &request.request {
-                            return StoreDone::MediaPut(channel, service.prepare_media(&from, put));
-                        }
-                        let keep = match &request.request {
-                            Some(proto::media_request::Request::Keep(record)) => Some(record.clone()),
-                            _ => None,
-                        };
-                        let have = match &request.request {
-                            Some(proto::media_request::Request::Have(have)) => Some(have.items.clone()),
-                            _ => None,
-                        };
-                        let get = match &request.request {
-                            Some(proto::media_request::Request::Get(get)) => Some(get.clone()),
-                            _ => None,
-                        };
-                        let result = service.media(&from, request);
-                        let missing = matches!(&result, Ok(response) if response.status == i32::from(Status::NotFound));
-                        let manifest = match (get, &service.media) {
-                            (Some(get), Some(media)) if missing => {
-                                media.manifest(&get.hash).ok().flatten().map(|manifest| (manifest, get))
-                            }
-                            _ => None,
-                        };
-                        StoreDone::Media { channel, result, keep, have, manifest }
-                    }));
+                    answered += u64::from(requests::media(
+                        &mut swarm,
+                        &service,
+                        &mut store_queue,
+                        &replicas,
+                        (id, connection_id),
+                        request,
+                        channel,
+                    ));
                 }
                 SwarmEvent::Behaviour(BehaviourEvent::Mailbox(Event::Message {
                     peer: id,
