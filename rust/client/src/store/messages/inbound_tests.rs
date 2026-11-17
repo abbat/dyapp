@@ -349,6 +349,39 @@ fn forwarded_text_keeps_its_marker_and_mls_author_after_restart() {
     assert!(store.current_chat_messages(&key.author).unwrap()[0].forwarded);
 }
 
+fn assert_late_original_survives_restart(
+    path: &std::path::Path,
+    owner: &Identity,
+    key: &MessageKey,
+    original: &Body,
+) {
+    let store = Store::open(path, owner).unwrap();
+    let current = store.chat_message(key).unwrap().unwrap();
+    assert!(current.deleted && current.text.is_none());
+    let original_hlc: i64 = store
+        .db
+        .query_row(
+            "SELECT `original_hlc` FROM `chat_messages` WHERE `message_id` = ?1",
+            [&key.id[..]],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        original_hlc,
+        i64::try_from(u64::from(Timestamp::new(150, 0))).unwrap()
+    );
+    assert_eq!(store.pending_acks().unwrap(), vec![inbox(1), inbox(2)]);
+    let saved: Vec<u8> = store
+        .db
+        .query_row(
+            "SELECT `payload` FROM `inbox` WHERE `mailbox` = ?1 AND `envelope_id` = ?2",
+            [inbox(2).mailbox.as_slice(), inbox(2).id.as_slice()],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(saved, sha256(&original.encode()));
+}
+
 #[test]
 fn late_original_after_delete_keeps_placeholder_and_ack_intent() {
     let mut random = [0; 16];
@@ -400,31 +433,7 @@ fn late_original_after_delete_keeps_placeholder_and_ack_intent() {
         .unwrap());
     drop(store);
 
-    let store = Store::open(&path, &owner).unwrap();
-    let current = store.chat_message(&key).unwrap().unwrap();
-    assert!(current.deleted && current.text.is_none());
-    let original_hlc: i64 = store
-        .db
-        .query_row(
-            "SELECT `original_hlc` FROM `chat_messages` WHERE `message_id` = ?1",
-            [&key.id[..]],
-            |row| row.get(0),
-        )
-        .unwrap();
-    assert_eq!(
-        original_hlc,
-        i64::try_from(u64::from(Timestamp::new(150, 0))).unwrap()
-    );
-    assert_eq!(store.pending_acks().unwrap(), vec![inbox(1), inbox(2)]);
-    let saved: Vec<u8> = store
-        .db
-        .query_row(
-            "SELECT `payload` FROM `inbox` WHERE `mailbox` = ?1 AND `envelope_id` = ?2",
-            [inbox(2).mailbox.as_slice(), inbox(2).id.as_slice()],
-            |row| row.get(0),
-        )
-        .unwrap();
-    assert_eq!(saved, sha256(&original.encode()));
+    assert_late_original_survives_restart(&path, &owner, &key, &original);
 }
 
 #[test]
