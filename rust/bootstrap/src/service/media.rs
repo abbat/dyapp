@@ -66,12 +66,10 @@ impl Service {
     ///
     /// Returns an error if stored blobs, manifests or shards cannot be read or decoded,
     /// or a fallback shard cannot be encoded.
-    ///
-    /// # Panics
-    ///
-    /// Panics if this service has no media store; callers must first check that media is enabled.
     pub fn media_inventory(&self, items: &[proto::MediaPart]) -> crate::Result<MediaResponse> {
-        let media = self.media.as_ref().unwrap();
+        let Some(media) = self.media.as_ref() else {
+            return Ok(media_status(Status::Unsupported));
+        };
         let mut inventory = proto::MediaInventory::default();
         let mut hashes = HashSet::new();
         for part in items {
@@ -136,12 +134,11 @@ impl Service {
         if response.status != i32::from(Status::Ok) {
             return Ok(response);
         }
+        let Some(media) = self.media.as_ref() else {
+            return Ok(media_status(Status::Unsupported));
+        };
         Ok(media_status(
-            match self
-                .media
-                .as_ref()
-                .unwrap()
-                .put_shard(manifest, put.index as usize, &put.data)?
+            match media.put_shard(manifest, put.index as usize, &put.data)?
             {
                 Put::Stored => Status::Ok,
                 Put::Invalid => Status::Invalid,
@@ -158,11 +155,6 @@ impl Service {
     ///
     /// Returns an error if reading the whole blob or discarding undecodable sharded content fails.
     /// A cache-write failure is logged without discarding a successfully reconstructed blob.
-    ///
-    /// # Panics
-    ///
-    /// Panics if assembly reaches storage access without a media store; callers must first
-    /// check that media is enabled.
     pub fn assemble_media(
         &self,
         manifest: &proto::MediaManifest,
@@ -172,7 +164,9 @@ impl Service {
         if self.listed(&manifest.hash) {
             return Ok(media_status(Status::Refused));
         }
-        let media = self.media.as_ref().unwrap();
+        let Some(media) = self.media.as_ref() else {
+            return Ok(media_status(Status::Unsupported));
+        };
         if let Some(data) = media.get(&manifest.hash)? {
             if dyapp_identity::sha256(&data).as_slice() == manifest.hash {
                 return Ok(media_piece(get, data));
@@ -196,8 +190,6 @@ impl Service {
     ///
     /// # Panics
     ///
-    /// Panics if a manifest accepted by `data_shards` has no shard size, which would violate
-    /// the shared manifest-shape invariant.
     pub fn prepare_media_read(
         &self,
         peer: &Peer,
@@ -210,7 +202,10 @@ impl Service {
         let Some(k) = manifest.data_shards() else {
             return false;
         };
-        let assembly = (manifest.shard_size().unwrap() as u64)
+        let Some(shard_size) = manifest.shard_size() else {
+            return false;
+        };
+        let assembly = (shard_size as u64)
             .saturating_mul(k.saturating_add(crate::replication::MEDIA_PARITY) as u64);
         let piece = match get.len {
             0 => manifest.length,

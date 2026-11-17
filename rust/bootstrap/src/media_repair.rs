@@ -156,7 +156,9 @@ impl Repair {
         hashes: Vec<Vec<u8>>,
         now: Instant,
     ) -> crate::Result<Self> {
-        let media = service.media.as_ref().unwrap();
+        let media = service.media.as_ref().ok_or_else(|| {
+            crate::BootstrapError::ServerError("media repair requires a media store".to_owned())
+        })?;
         let mut blobs = Vec::new();
         for hash in hashes {
             let whole = media

@@ -110,10 +110,14 @@ impl Replicas {
             );
             return;
         }
+        let Some(payload) = request.request.as_ref() else {
+            self.repair_reply(id, job, None, service.clock.instant());
+            return;
+        };
         if !service
             .traffic
             .try_add((request.encoded_len() as u64).saturating_add(reserve), SHED_MEDIA)
-            || !self.allow_repair(to, request.request.as_ref().unwrap())
+            || !self.allow_repair(to, payload)
         {
             self.repair_reply(id, job, None, service.clock.instant());
             return;

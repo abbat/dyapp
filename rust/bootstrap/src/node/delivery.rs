@@ -84,8 +84,11 @@ fn send_batches(
 ) -> (bool, Vec<OutboundRequestId>) {
     let mut complete = true;
     let mut sent = Vec::new();
-    for batch in envelopes.chunks(usize::try_from(REPLICA_UNITS_PER_SECOND).unwrap()) {
-        if !cap.allow(&to, u32::try_from(batch.len()).unwrap()) {
+    let batch_size = usize::try_from(REPLICA_UNITS_PER_SECOND)
+        .unwrap_or(1)
+        .max(1);
+    for batch in envelopes.chunks(batch_size) {
+        if !cap.allow(&to, u32::try_from(batch.len()).unwrap_or(u32::MAX)) {
             complete = false;
             continue;
         }
