@@ -432,10 +432,9 @@ impl SearchIndex {
                 .try_into()
                 .map_err(|_| storage_error("invalid search key length"))?;
             scanned = scanned.saturating_add(1);
-            xor(
-                &mut out[(slot(&key) & 255) as usize],
-                &row_hash(&key, version.unsigned_abs()),
-            );
+            if let Some(digest) = out.get_mut((slot(&key) & 255) as usize) {
+                xor(digest, &row_hash(&key, version.unsigned_abs()));
+            }
         }
         Ok((out, scanned))
     }

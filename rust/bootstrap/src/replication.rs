@@ -79,8 +79,10 @@ impl Replication {
         let mut shards: Vec<Vec<u8>> =
             vec![vec![0; shard_size]; self.data_shards.saturating_add(self.parity_shards)];
 
-        for (i, chunk) in data.chunks(shard_size).enumerate() {
-            shards[i][..chunk.len()].copy_from_slice(chunk);
+        for (shard, chunk) in shards.iter_mut().zip(data.chunks(shard_size)) {
+            for (target, source) in shard.iter_mut().zip(chunk) {
+                *target = *source;
+            }
         }
 
         if self.parity_shards > 0 {
@@ -123,8 +125,8 @@ impl Replication {
             vec![None; self.data_shards.saturating_add(self.parity_shards)];
 
         for fragment in fragments {
-            if fragment.shard_id < shards.len() {
-                shards[fragment.shard_id] = Some(fragment.data.clone());
+            if let Some(shard) = shards.get_mut(fragment.shard_id) {
+                *shard = Some(fragment.data.clone());
             }
         }
 

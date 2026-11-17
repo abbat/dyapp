@@ -79,7 +79,9 @@ impl Scanner {
     /// The key the next batch is read after; empty at the start of a cycle.
     #[must_use]
     pub fn cursor(&self, store: Store) -> &[u8] {
-        &self.lanes[store as usize].cursor
+        self.lanes
+            .get(store as usize)
+            .map_or(&[], |lane| lane.cursor.as_slice())
     }
 
     /// Takes a batch read after the cursor, `(queue key, its replica keys)` in key order;
@@ -94,7 +96,9 @@ impl Scanner {
         mut closest: impl FnMut(&[u8]) -> Vec<PeerId>,
         wrapped: bool,
     ) {
-        let lane = &mut self.lanes[store as usize];
+        let Some(lane) = self.lanes.get_mut(store as usize) else {
+            return;
+        };
         for (key, replicas) in batch {
             let fingerprint = fingerprint(&mut closest, &replicas);
             let hash = key_hash(&key);
@@ -120,13 +124,19 @@ impl Scanner {
 
     /// The next key to hand over and the fingerprint it was queued at.
     pub fn pop(&mut self, store: Store) -> Option<(Vec<u8>, u64)> {
-        self.lanes[store as usize].queue.pop_front()
+        self.lanes
+            .get_mut(store as usize)
+            .and_then(|lane| lane.queue.pop_front())
     }
 
     /// Records a full hand-over of `key` at `fingerprint`; call it only when every replica was
     /// sent. A key not committed is queued again when the scan next reaches it.
     pub fn commit(&mut self, store: Store, key: &[u8], fingerprint: u64) {
-        if let Some(seen) = self.lanes[store as usize].seen.get_mut(&key_hash(key)) {
+        if let Some(seen) = self
+            .lanes
+            .get_mut(store as usize)
+            .and_then(|lane| lane.seen.get_mut(&key_hash(key)))
+        {
             seen.0 = Some(fingerprint);
         }
     }

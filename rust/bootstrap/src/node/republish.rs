@@ -257,7 +257,10 @@ impl Replicas {
             && empty < STORES.len()
             && service.traffic.second() < REPUBLISH_SHARE
         {
-            let store = STORES[self.republish.next_store];
+            let Some(&store) = STORES.get(self.republish.next_store) else {
+                self.republish.next_store = 0;
+                continue;
+            };
             self.republish.next_store = self
                 .republish
                 .next_store

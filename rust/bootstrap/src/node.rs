@@ -721,12 +721,9 @@ fn dispatch(
 fn catch_up_peers(peers: &[PeerId], pick: u32) -> Vec<PeerId> {
     let start = (pick as usize).checked_rem(peers.len().max(1)).unwrap_or(0);
     (0..peers.len().min(2))
-        .map(|i| {
-            let index = start
-                .wrapping_add(i)
-                .checked_rem(peers.len())
-                .unwrap_or(0);
-            peers[index]
+        .filter_map(|i| {
+            let index = start.wrapping_add(i).checked_rem(peers.len()).unwrap_or(0);
+            peers.get(index).copied()
         })
         .collect()
 }

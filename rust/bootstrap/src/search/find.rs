@@ -97,7 +97,10 @@ fn birth_age_filter(c: &Condition, op: Op) -> std::result::Result<Option<Filter>
     if op == Op::Unspecified {
         return Ok(None);
     }
-    if op != Op::Range || c.ints.len() != 2 || !c.strings.is_empty() || c.ints[0] >= c.ints[1] {
+    let ([from, to], true) = (&c.ints[..], op == Op::Range && c.strings.is_empty()) else {
+        return Err(());
+    };
+    if from >= to {
         return Err(());
     }
     Ok(Some(Filter {
@@ -206,7 +209,10 @@ fn filter(c: &Condition) -> std::result::Result<Option<Filter>, ()> {
         Op::In if (1..=MAX_IN_VALUES).contains(&n) => {
             format!("{target} IN ({}){close}", vec!["?"; n].join(", "))
         }
-        Op::Range if n == 2 && c.ints[0] <= c.ints[1] => format!("{target} BETWEEN ? AND ?{close}"),
+        Op::Range if n == 2 => match c.ints.as_slice() {
+            [from, to] if from <= to => format!("{target} BETWEEN ? AND ?{close}"),
+            _ => return Err(()),
+        },
         _ => return Err(()),
     };
     Ok(Some(Filter {
@@ -333,10 +339,7 @@ impl Scan<'_> {
         }
         // Merge the scopes by `r`.
         while hits.len() < self.limit && scanned < budget {
-            let Some(i) = (0..heads.len())
-                .filter(|i| heads[*i].is_some())
-                .min_by_key(|i| heads[*i].as_ref().map(|h| h.2))
-            else {
+            let Some(i) = lowest_head(&heads) else {
                 break;
             };
             let Some((key, version, _, ok)) = heads.get_mut(i).and_then(Option::take) else {
@@ -346,7 +349,10 @@ impl Scan<'_> {
             if ok {
                 hits.push((key, version));
             }
-            heads[i] = next(&mut cursors[i])?;
+            let (Some(head), Some(rows)) = (heads.get_mut(i), cursors.get_mut(i)) else {
+                break;
+            };
+            *head = next(rows)?;
         }
         Ok((hits, scanned))
     }
@@ -407,6 +413,15 @@ impl SearchIndex {
 
 /// A scanned row: key, version, `r` and whether the other filters matched.
 type Head = ([u8; 32], u64, i64, bool);
+
+fn lowest_head(heads: &[Option<Head>]) -> Option<usize> {
+    heads
+        .iter()
+        .enumerate()
+        .filter_map(|(i, head)| head.as_ref().map(|head| (i, head.2)))
+        .min_by_key(|(_, r)| *r)
+        .map(|(i, _)| i)
+}
 
 fn next(rows: &mut rusqlite::Rows<'_>) -> Result<Option<Head>> {
     let Some(row) = rows.next().map_err(storage_error)? else {

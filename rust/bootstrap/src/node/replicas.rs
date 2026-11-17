@@ -530,10 +530,13 @@ impl Replicas {
             return;
         }
         if to == *swarm.local_peer_id() {
+            let Some(data) = shards.get(index).cloned() else {
+                return;
+            };
             let request = proto::MediaShardPut {
                 replica: Some(replica.clone()),
                 index: index as u32,
-                data: shards[index].clone(),
+                data,
             };
             match service.store_shard(&request) {
                 Ok(response) if response.status == i32::from(Status::Ok) => {
