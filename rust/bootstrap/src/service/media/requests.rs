@@ -119,10 +119,9 @@ impl Service {
         if attach.created > now.saturating_add(CLOCK_SKEW) {
             return Ok(media_clock_invalid(now));
         }
-        let expires =
-            attach.created.saturating_add(
-                u64::from(self.config.limits.attachment_retention_hours).saturating_mul(3600),
-            );
+        let expires = attach.created.saturating_add(
+            u64::from(self.config.limits.attachment_retention_hours).saturating_mul(3600),
+        );
         Ok(
             match media.attach_signed(&hex(&owner), &attach, expires, MAX_ATTACHMENTS, record)? {
                 Attached::Missing(missing) => MediaResponse {

@@ -55,8 +55,7 @@ fn revocation_fits(
         )
         .map_err(storage_error)?;
     Ok(
-        count("SELECT COUNT(*) FROM `revoked` WHERE `mailbox` = ?")?
-            .saturating_add(new)
+        count("SELECT COUNT(*) FROM `revoked` WHERE `mailbox` = ?")?.saturating_add(new)
             <= MAX_REVOKED
             && (stored
                 || count("SELECT COUNT(*) FROM `revokes` WHERE `mailbox` = ?")? < MAX_REVOKED),

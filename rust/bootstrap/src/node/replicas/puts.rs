@@ -27,10 +27,8 @@ pub(super) fn key(record: &PutRecord) -> Result<Vec<u8>, ()> {
                 .mailbox
         }
         PutRecord::Profile(record) => {
-            dyapp_identity::key_hash(
-                &record.public_key.as_slice().try_into().map_err(|_| ())?,
-            )
-            .to_vec()
+            dyapp_identity::key_hash(&record.public_key.as_slice().try_into().map_err(|_| ())?)
+                .to_vec()
         }
         PutRecord::KeyPackage(record) => {
             proto::KeyPackageRecord::decode(record.payload.as_slice())
@@ -38,9 +36,7 @@ pub(super) fn key(record: &PutRecord) -> Result<Vec<u8>, ()> {
                 .owner
         }
         PutRecord::Media(replica) => dyapp_identity::sha256(&replica.data).to_vec(),
-        PutRecord::Sharded(replica, _) => {
-            replica.manifest.as_ref().ok_or(())?.hash.clone()
-        }
+        PutRecord::Sharded(replica, _) => replica.manifest.as_ref().ok_or(())?.hash.clone(),
     })
 }
 

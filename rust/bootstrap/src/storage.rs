@@ -315,9 +315,10 @@ impl BootstrapStore {
             .map_err(storage_error)?;
         let (class, seq) = after.unwrap_or((-1, 0));
         let rows: Vec<(Vec<u8>, i64, i64)> = query
-            .query_map(params![mailbox, class, seq, limit.saturating_add(1)], |row| {
-                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
-            })
+            .query_map(
+                params![mailbox, class, seq, limit.saturating_add(1)],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
             .and_then(Iterator::collect)
             .map_err(storage_error)?;
         let total = rows.len();

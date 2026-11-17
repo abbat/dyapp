@@ -53,11 +53,10 @@ pub(super) fn node_status(status: Status) -> NodeResponse {
 
 /// A stable pseudonym of an IP group: the username leaks no address, and rotating `turn.secret`
 /// renews every pseudonym.
-pub(super) fn turn_user(
-    turn: &Turn,
-    group: &str,
-) -> Result<String, hmac::digest::InvalidLength> {
-    Ok(hex(&turn.secret.hmac_sha1(format!("ip-group:{group}").as_bytes())?[..8]))
+pub(super) fn turn_user(turn: &Turn, group: &str) -> Result<String, hmac::digest::InvalidLength> {
+    Ok(hex(&turn
+        .secret
+        .hmac_sha1(format!("ip-group:{group}").as_bytes())?[..8]))
 }
 
 /// TURN REST credentials as coturn's `use-auth-secret` checks them: username

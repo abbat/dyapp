@@ -130,7 +130,10 @@ fn put_group_binds_the_mailbox_and_source_group() {
 #[test]
 fn deny_list_refuses_without_strikes() {
     let mut service = service_with(|l| l.strikes_to_ban = 1);
-    let (listed, device) = (Identity::try_generate().unwrap(), Identity::try_generate().unwrap());
+    let (listed, device) = (
+        Identity::try_generate().unwrap(),
+        Identity::try_generate().unwrap(),
+    );
     let address = dyapp_identity::key_hash(&device.public_key()).to_vec();
     let listed_id = dyapp_identity::key_hash(&listed.public_key()).to_vec();
     *service.deny.get_mut().unwrap() =
@@ -153,7 +156,9 @@ fn deny_list_refuses_without_strikes() {
         ciphertext: vec![1],
         ..Default::default()
     };
-    let to_listed = Identity::try_generate().unwrap().sign(Domain::Envelope, envelope.encode_to_vec());
+    let to_listed = Identity::try_generate()
+        .unwrap()
+        .sign(Domain::Envelope, envelope.encode_to_vec());
     let put = mailbox_request::Request::Put(to_listed);
     assert_eq!(
         mailbox_status(&mailbox(&service, &mut None, put)),
@@ -774,7 +779,10 @@ fn signals_are_small_counted_apart_and_evict_the_oldest() {
         l.signal_max_kb = 2;
         l.sender_puts_per_second = 1000;
     });
-    let (device, sender) = (Identity::try_generate().unwrap(), Identity::try_generate().unwrap());
+    let (device, sender) = (
+        Identity::try_generate().unwrap(),
+        Identity::try_generate().unwrap(),
+    );
     let address = dyapp_identity::key_hash(&device.public_key()).to_vec();
     let record = |id: u8, class: proto::EnvelopeClass, len| {
         let envelope = proto::Envelope {

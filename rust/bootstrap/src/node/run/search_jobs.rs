@@ -105,14 +105,23 @@ pub(super) fn request(
                 .send_response(channel, response);
         }
         Ok(Search::Pow(check, request)) => {
-            outcome.answered = outcome
-                .answered
-                .saturating_add(check_pow(&mut context, id, from, channel, check, request));
+            outcome.answered = outcome.answered.saturating_add(check_pow(
+                &mut context,
+                id,
+                from,
+                channel,
+                check,
+                request,
+            ));
         }
         Ok(work) => {
-            outcome.answered = outcome
-                .answered
-                .saturating_add(queue_work(&mut context, from, channel, work, solution.as_ref()));
+            outcome.answered = outcome.answered.saturating_add(queue_work(
+                &mut context,
+                from,
+                channel,
+                work,
+                solution.as_ref(),
+            ));
         }
         Err(error) => {
             outcome.failed = outcome.failed.saturating_add(1);

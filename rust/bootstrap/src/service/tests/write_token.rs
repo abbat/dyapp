@@ -176,7 +176,10 @@ fn replica_put_drops_bad_tokens_without_a_strike() {
 
 #[test]
 fn token_windows_follow_the_skew_and_the_ttl() {
-    let (owner, contact) = (Identity::try_generate().unwrap(), Identity::try_generate().unwrap());
+    let (owner, contact) = (
+        Identity::try_generate().unwrap(),
+        Identity::try_generate().unwrap(),
+    );
     let mailbox = mailbox_of(&owner);
     let epoch = 20_000;
     let record = contact.sign(
@@ -198,7 +201,9 @@ fn token_windows_follow_the_skew_and_the_ttl() {
     let late = 73 * 3600;
     assert_eq!(check(end + 48 * 3600, late), key);
     assert_eq!(check(end + 74 * 3600, late), Err(TokenError::Expired));
-    let plain = Identity::try_generate().unwrap().sign(Domain::Envelope, vec![]);
+    let plain = Identity::try_generate()
+        .unwrap()
+        .sign(Domain::Envelope, vec![]);
     assert_eq!(
         check_token(&plain, &proto::Envelope::default(), 0, 0),
         Ok(None)
@@ -285,7 +290,10 @@ fn a_tokenless_flood_stays_in_the_pool_and_spares_other_groups_and_tokens() {
 fn sprayed_replica_labels_evict_only_that_replicas_envelopes() {
     use mailbox_role::{Group, Source};
     use proto::EnvelopeClass::Message;
-    let (owner, sender) = (Identity::try_generate().unwrap(), Identity::try_generate().unwrap());
+    let (owner, sender) = (
+        Identity::try_generate().unwrap(),
+        Identity::try_generate().unwrap(),
+    );
     let mailbox = mailbox_of(&owner);
     let service = pooled_service(|_| {});
     let sign = |envelope: &proto::Envelope| sender.sign(Domain::Envelope, envelope.encode_to_vec());
@@ -391,7 +399,9 @@ fn the_store_wide_share_evicts_tokenless_signals_and_with_tokens_messages() {
         });
         let share = (1 << 20) / 100;
         let sender = Identity::try_generate().unwrap();
-        let mailboxes: Vec<_> = (0..3).map(|_| mailbox_of(&Identity::try_generate().unwrap())).collect();
+        let mailboxes: Vec<_> = (0..3)
+            .map(|_| mailbox_of(&Identity::try_generate().unwrap()))
+            .collect();
         let mut id = 0;
         for (mailbox, class, len) in [
             (&mailboxes[0], Signal, 600),
@@ -427,7 +437,10 @@ fn the_store_wide_share_evicts_tokenless_signals_and_with_tokens_messages() {
 
 #[test]
 fn a_tokened_envelope_fits_the_same_100_kib() {
-    let (owner, contact) = (Identity::try_generate().unwrap(), Identity::try_generate().unwrap());
+    let (owner, contact) = (
+        Identity::try_generate().unwrap(),
+        Identity::try_generate().unwrap(),
+    );
     let mailbox = mailbox_of(&owner);
     let mut tokened = envelope(1, &mailbox, token(&owner, &mailbox, &contact, today()));
     tokened.ciphertext = vec![0; MAX_ENVELOPE_BYTES];

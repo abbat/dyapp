@@ -138,8 +138,7 @@ impl Service {
             return Ok(media_status(Status::Unsupported));
         };
         Ok(media_status(
-            match media.put_shard(manifest, put.index as usize, &put.data)?
-            {
+            match media.put_shard(manifest, put.index as usize, &put.data)? {
                 Put::Stored => Status::Ok,
                 Put::Invalid => Status::Invalid,
                 Put::NotListed => Status::NotFound,

@@ -4,7 +4,10 @@ use super::*;
 
 /// A replica put of envelopes `ids` with `remaining` seconds each, and the stored expiries.
 fn replicate(ids: &[u8], remaining: Vec<u32>) -> (Service, Vec<Option<i64>>) {
-    let (owner, contact) = (Identity::try_generate().unwrap(), Identity::try_generate().unwrap());
+    let (owner, contact) = (
+        Identity::try_generate().unwrap(),
+        Identity::try_generate().unwrap(),
+    );
     let mailbox = mailbox_of(&owner);
     let service = service();
     let records = ids.iter().map(|&id| {
@@ -64,7 +67,10 @@ fn a_mismatched_or_missing_list_gives_a_fresh_retention() {
 
 #[test]
 fn a_carried_expiry_leaves_a_stored_envelope_alone() {
-    let (owner, contact) = (Identity::try_generate().unwrap(), Identity::try_generate().unwrap());
+    let (owner, contact) = (
+        Identity::try_generate().unwrap(),
+        Identity::try_generate().unwrap(),
+    );
     let mailbox = mailbox_of(&owner);
     let service = service();
     let token = token(&owner, &mailbox, &contact, today());
@@ -102,7 +108,10 @@ fn a_profile_replica_carries_the_owner_age_and_an_expired_one_is_not_stored() {
         };
         status(&service.profile(&replica_peer("r"), request).unwrap())
     };
-    let (aged, expired) = (Identity::try_generate().unwrap(), Identity::try_generate().unwrap());
+    let (aged, expired) = (
+        Identity::try_generate().unwrap(),
+        Identity::try_generate().unwrap(),
+    );
     assert_eq!(send(&aged, 3600), Status::Ok);
     let seen = service.store.profile_last_seen(&aged.peer_id()).unwrap();
     near(seen, crate::clock::Clock::system().timestamp() - 3600);

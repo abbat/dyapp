@@ -63,7 +63,12 @@ async fn a_held_token_is_used_and_a_refused_one_falls_back() {
     assert_eq!(sent(&store, today).await, (Some(today), key.to_vec()));
 
     // A token signed by someone else is DENIED and the write goes tokenless.
-    let forged = hold(&mut store, &Identity::try_generate().unwrap(), &mailbox, today + 3);
+    let forged = hold(
+        &mut store,
+        &Identity::try_generate().unwrap(),
+        &mailbox,
+        today + 3,
+    );
     let (epoch, sender) = sent(&store, today + 3).await;
     assert_eq!(epoch, None);
     assert_ne!(sender, forged.to_vec());

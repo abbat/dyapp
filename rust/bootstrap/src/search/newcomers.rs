@@ -7,7 +7,9 @@ const DAY: i64 = 86_400;
 
 /// The share of a 1 TiB file that holds `n` records.
 fn records(n: u64) -> f64 {
-    let one = signed(&Identity::try_generate().unwrap(), profile(1)).2.encoded_len() as u64;
+    let one = signed(&Identity::try_generate().unwrap(), profile(1))
+        .2
+        .encoded_len() as u64;
     f64::from(u32::try_from(n * one).unwrap()) / 2f64.powi(40)
 }
 

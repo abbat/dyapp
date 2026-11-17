@@ -27,8 +27,7 @@ fn bounded(segment: &proto::MediaKeepCatchup) -> bool {
             .iter()
             .all(|record| record.encoded_len() <= record_limit)
         && segment.encoded_len()
-            <= MediaStore::keep_history_page_bytes()
-                .saturating_add(framed(target.encoded_len()))
+            <= MediaStore::keep_history_page_bytes().saturating_add(framed(target.encoded_len()))
 }
 
 fn matches_target(

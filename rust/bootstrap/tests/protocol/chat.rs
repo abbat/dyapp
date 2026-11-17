@@ -20,7 +20,8 @@ pub(super) struct Person {
 
 impl Person {
     pub(super) async fn new(address: &Multiaddr) -> Self {
-        let mut person = Box::new(Self::device(address, Identity::try_generate().unwrap(), 1).await);
+        let mut person =
+            Box::new(Self::device(address, Identity::try_generate().unwrap(), 1).await);
         let profile = Profile {
             version: 1,
             devices: vec![person.device.certificate().clone()],
@@ -288,7 +289,11 @@ async fn the_client_takes_the_newest_replica_profile_and_refuses_a_rollback() {
             config.limits.min_free_mb = 0;
         })
         .await;
-        nodes.push(Person::device(&address, Identity::try_generate().unwrap(), 1).await.node);
+        nodes.push(
+            Person::device(&address, Identity::try_generate().unwrap(), 1)
+                .await
+                .node,
+        );
     }
     let owner = Identity::try_generate().unwrap();
     for (node, version) in nodes.iter_mut().zip([3, 5]) {

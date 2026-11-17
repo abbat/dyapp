@@ -187,9 +187,10 @@ impl Replicas {
             .as_ref()
             .is_none_or(|request| super::replicas::listed_media_request(service, request));
         if refused
-            || !service
-                .traffic
-                .try_add((request.encoded_len() as u64).saturating_add(REPLY_BYTES), SHED_MEDIA)
+            || !service.traffic.try_add(
+                (request.encoded_len() as u64).saturating_add(REPLY_BYTES),
+                SHED_MEDIA,
+            )
             || !self.cap.allow(&to, 1)
         {
             self.uploads.fail(id, to);

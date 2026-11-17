@@ -501,9 +501,8 @@ impl Service {
         )? {
             return Ok(status(Status::Full));
         }
-        let expires_at = expires_at.unwrap_or_else(|| {
-            self.clock.timestamp().saturating_add(self.retention())
-        });
+        let expires_at =
+            expires_at.unwrap_or_else(|| self.clock.timestamp().saturating_add(self.retention()));
         let group = match group {
             Group::Ip(ip_group) => self.source_group(&envelope.mailbox, ip_group),
             Group::Label(label) if label.len() <= 8 => label.to_vec(),
@@ -621,8 +620,7 @@ pub(super) fn check_token(
         return Err(TokenError::Forged);
     }
     let start = i64::from(payload.epoch).saturating_mul(86_400);
-    if now < start.saturating_sub(3600)
-        || now >= start.saturating_add(86_400).saturating_add(late)
+    if now < start.saturating_sub(3600) || now >= start.saturating_add(86_400).saturating_add(late)
     {
         return Err(TokenError::Expired);
     }

@@ -58,7 +58,9 @@ impl Service {
             media.put(
                 &hex(&owner),
                 &replica.data,
-                quota.checked_div(u64::from(dyapp_p2p_net::REPLICAS)).unwrap_or(0),
+                quota
+                    .checked_div(u64::from(dyapp_p2p_net::REPLICAS))
+                    .unwrap_or(0),
             )?
         };
         Ok(media_status(match stored {

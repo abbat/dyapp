@@ -26,10 +26,7 @@ impl Secret {
     /// # Errors
     ///
     /// Returns an error if the HMAC backend rejects the secret's length.
-    pub fn hmac_sha1(
-        &self,
-        message: &[u8],
-    ) -> Result<[u8; 20], hmac::digest::InvalidLength> {
+    pub fn hmac_sha1(&self, message: &[u8]) -> Result<[u8; 20], hmac::digest::InvalidLength> {
         use hmac::Mac;
         let mut mac = hmac::Hmac::<sha1::Sha1>::new_from_slice(self.0.as_bytes())?;
         mac.update(message);

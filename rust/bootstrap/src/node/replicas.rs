@@ -131,10 +131,8 @@ impl Replicas {
             return None;
         }
         let keep = proto::MediaKeep::decode(record.payload.as_slice()).ok()?;
-        let owner = dyapp_identity::key_hash(
-            &record.public_key.as_slice().try_into().ok()?,
-        )
-        .to_vec();
+        let owner =
+            dyapp_identity::key_hash(&record.public_key.as_slice().try_into().ok()?).to_vec();
         let allowed: Vec<_> = keep
             .hashes
             .iter()

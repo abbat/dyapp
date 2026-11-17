@@ -140,11 +140,9 @@ impl Reputation {
     pub fn banned(&self, peer: &str) -> bool {
         let now = self.clock.instant();
         let peers = self.peers.lock().unwrap_or_else(PoisonError::into_inner);
-        peers
-            .get(peer)
-            .is_some_and(|(count, last)| {
-                *count >= self.strikes && now.saturating_duration_since(*last) < self.ban
-            })
+        peers.get(peer).is_some_and(|(count, last)| {
+            *count >= self.strikes && now.saturating_duration_since(*last) < self.ban
+        })
     }
 }
 

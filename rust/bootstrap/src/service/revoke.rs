@@ -44,14 +44,12 @@ impl Service {
         if self.listed(&revoke.mailbox) {
             return Ok((status(Status::Refused), false));
         }
-        let expires_at = revoke
-            .created_at
-            .saturating_add(
-                REVOKE_DAYS
-                    .saturating_mul(86_400)
-                    .saturating_add(self.retention())
-                    .saturating_add(3600),
-            );
+        let expires_at = revoke.created_at.saturating_add(
+            REVOKE_DAYS
+                .saturating_mul(86_400)
+                .saturating_add(self.retention())
+                .saturating_add(3600),
+        );
         if expires_at <= now {
             return Ok((status(Status::Stale), false));
         }

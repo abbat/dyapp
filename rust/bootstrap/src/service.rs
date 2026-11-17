@@ -238,7 +238,10 @@ impl Service {
         if let (true, Some(refused)) = (tripped, self.refused.get(index)) {
             refused.fetch_add(1, Ordering::Relaxed);
         }
-        let previous = self.tripped.get(index).map_or(tripped, |current| current.swap(tripped, Ordering::Relaxed));
+        let previous = self
+            .tripped
+            .get(index)
+            .map_or(tripped, |current| current.swap(tripped, Ordering::Relaxed));
         if previous != tripped {
             if tripped {
                 Self::log_tripped(name);
@@ -276,7 +279,11 @@ impl Service {
 
     /// Requests each guard refused since start, in `GUARDS` order.
     pub fn refusals(&self) -> [u64; 7] {
-        std::array::from_fn(|i| self.refused.get(i).map_or(0, |refused| refused.load(Ordering::Relaxed)))
+        std::array::from_fn(|i| {
+            self.refused
+                .get(i)
+                .map_or(0, |refused| refused.load(Ordering::Relaxed))
+        })
     }
 
     fn log_store_pages(profiles: i64, messages: i64) {
@@ -543,7 +550,10 @@ impl Service {
             signal_quota_bytes: if store { self.signal_quota() } else { 0 },
             mailbox_pool_bytes: if store { self.mailbox_pool() } else { 0 },
             require_write_tokens: store && self.config.limits.require_write_tokens,
-            retention_seconds: self.retention().unsigned_abs().saturating_mul(u64::from(store)),
+            retention_seconds: self
+                .retention()
+                .unsigned_abs()
+                .saturating_mul(u64::from(store)),
             search_fields: if self.search.is_some() {
                 SEARCH_FIELDS.to_vec()
             } else {

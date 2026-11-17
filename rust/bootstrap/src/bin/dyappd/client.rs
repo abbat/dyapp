@@ -332,7 +332,11 @@ async fn media(addr: &str, data: &str, include_details: bool) -> anyhow::Result<
         .await?;
         let changed =
             name == "get" && response.status == i32::from(Status::Ok) && response.data != data;
-        let value = if changed { "CHANGED" } else { status(response.status) };
+        let value = if changed {
+            "CHANGED"
+        } else {
+            status(response.status)
+        };
         set_field(&mut output, name, value)?;
     }
     if include_details {
@@ -807,7 +811,9 @@ fn status(value: i32) -> &'static str {
 }
 
 fn set_field(output: &mut Value, key: &str, value: impl Into<Value>) -> anyhow::Result<()> {
-    let fields = output.as_object_mut().context("response is not a JSON object")?;
+    let fields = output
+        .as_object_mut()
+        .context("response is not a JSON object")?;
     fields.insert(key.to_string(), value.into());
     Ok(())
 }

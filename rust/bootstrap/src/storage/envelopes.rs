@@ -377,9 +377,7 @@ fn pick(rows: &[Row]) -> usize {
             .find(|label| bytes.get(*label).copied() == Some(most))
             .unwrap_or_default()
             .to_vec();
-        candidates.retain(|&i| {
-            rows.get(i).and_then(|row| row.labels.get(level)) == Some(&label)
-        });
+        candidates.retain(|&i| rows.get(i).and_then(|row| row.labels.get(level)) == Some(&label));
     }
     candidates.first().copied().unwrap_or_default()
 }

@@ -893,7 +893,9 @@ async fn check_mailbox_requests(client: &mut Client) {
         ciphertext: b"hello".to_vec(),
         ..Default::default()
     };
-    let put: SignedRecord = Identity::try_generate().unwrap().sign(Domain::Envelope, envelope.encode_to_vec());
+    let put: SignedRecord = Identity::try_generate()
+        .unwrap()
+        .sign(Domain::Envelope, envelope.encode_to_vec());
     let reply = client
         .mailbox(mailbox_request::Request::Put(put.clone()))
         .await;

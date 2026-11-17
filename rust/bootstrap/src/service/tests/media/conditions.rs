@@ -32,7 +32,9 @@ fn check_keep_conditions(s: &Service, owner: &Identity) {
             data: data.to_vec(),
             manifest: None,
             authorization: Some(Authorization::Keep(
-                Identity::try_generate().unwrap().sign(Domain::MediaKeep, keep.encode_to_vec()),
+                Identity::try_generate()
+                    .unwrap()
+                    .sign(Domain::MediaKeep, keep.encode_to_vec()),
             )),
         }
     };

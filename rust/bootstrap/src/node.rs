@@ -429,13 +429,13 @@ impl PendingPut {
             Some(Status::Full)
         } else if self.stored.len() >= self.required
             && match &self.record {
-                PutRecord::Sharded(replica, _) => replica.manifest.as_ref().is_some_and(
-                    |manifest| {
-                        manifest.data_shards().is_some_and(|required| {
-                            self.shard_stored.len() >= required
-                        })
-                    },
-                ),
+                PutRecord::Sharded(replica, _) => {
+                    replica.manifest.as_ref().is_some_and(|manifest| {
+                        manifest
+                            .data_shards()
+                            .is_some_and(|required| self.shard_stored.len() >= required)
+                    })
+                }
                 _ => true,
             }
         {

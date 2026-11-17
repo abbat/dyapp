@@ -291,12 +291,11 @@ impl Replicas {
         let prepaid = self.shard_gets.contains_key(&request_id);
         service
             .traffic
-            .add(
-                response
-                    .encoded_len()
-                    .saturating_sub(if prepaid { response.data.len() } else { 0 })
-                    as u64,
-            );
+            .add(response.encoded_len().saturating_sub(if prepaid {
+                response.data.len()
+            } else {
+                0
+            }) as u64);
         self.trust.add(id, 1);
         self.media_write_response(id, request_id, &response);
         self.media_read_response(request_id, &response);

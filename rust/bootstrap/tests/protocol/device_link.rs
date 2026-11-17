@@ -796,7 +796,9 @@ async fn a_link_record_crosses_a_node_and_restores_the_owner() {
     let code = Code::parse(&invite.code().text(), NOW).unwrap();
     let mut stranger = Person::device(&address, Identity::try_generate().unwrap(), 1).await;
     stranger.node.put(&code.mailbox, vec![7; 64]).await.unwrap();
-    let mut inbox = Person::device(&address, Identity::try_generate().unwrap(), 1).await.node;
+    let mut inbox = Person::device(&address, Identity::try_generate().unwrap(), 1)
+        .await
+        .node;
     assert!(invite
         .receive(&mut inbox, &laptop_key, NOW)
         .await

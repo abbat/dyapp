@@ -81,7 +81,10 @@ fn idle_review_retains_no_key_or_lease_and_refuses_a_new_identity_generation() {
     let f = Fixture::new();
     let token = f.prepare();
     assert_eq!(Arc::strong_count(&f.key), 2);
-    switch_selection(&f.gate, (Arc::new(Identity::try_generate().unwrap()), f.dir.clone()));
+    switch_selection(
+        &f.gate,
+        (Arc::new(Identity::try_generate().unwrap()), f.dir.clone()),
+    );
     let lease = f.lease();
     let (key, dir) = lease.active();
     assert!(f
