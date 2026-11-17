@@ -360,14 +360,18 @@ fn token_bodies_are_strict() {
     assert!(Body::decode(&[3, 0xff]).is_err());
 }
 
+fn peer_change_body(peer: &str, change: PeerChange) -> Body {
+    Body::PeerChange {
+        peer: peer.to_owned(),
+        hlc: 7,
+        change,
+    }
+}
+
 #[test]
 fn peer_changes_are_strict() {
     let peer = "ab".repeat(32);
-    let body = |change| Body::PeerChange {
-        peer: peer.clone(),
-        hlc: 7,
-        change,
-    };
+    let body = |change| peer_change_body(&peer, change);
     let longest = "n".repeat(64);
     for change in [
         PeerChange::Blocked(true),
