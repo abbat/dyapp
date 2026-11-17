@@ -27,6 +27,10 @@ async fn rejected_gossip_bans_and_drops_its_source() {
         .unwrap()
         .publish(topic, b"junk".to_vec())
         .unwrap();
+    wait_for_server_disconnect(&mut client).await;
+}
+
+async fn wait_for_server_disconnect(client: &mut Client) {
     let server = client.server;
     tokio::time::timeout(Duration::from_secs(10), async {
         loop {
