@@ -3,6 +3,7 @@
 use super::*;
 mod catch_up;
 mod events;
+mod finished;
 mod hangup;
 mod overload;
 mod pow;
@@ -10,8 +11,6 @@ mod requests;
 mod search_jobs;
 mod state;
 mod stored;
-use pow::PowDone;
-use search_jobs::start_search;
 
 fn clock_instant(service: &Service) -> tokio::time::Instant {
     tokio::time::Instant::from_std(service.clock.instant())
@@ -97,56 +96,16 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                 state.replicas.repaired.clear();
                 stored::expire(&service);
             }
-            Some(Finished { peer: id, connection, nonce, done }) = state.channels.store_done.recv() => {
-                state.store_queue.done(id);
-                if let Some(nonce) = nonce.filter(|_| swarm.behaviour().endpoints.ip(connection).is_some()) {
-                    state.nonces.insert(connection, nonce);
-                }
-                let Some(done) = done else {
-                    state.failed += 1;
-                    tracing::error!(peer = %id, "store request panicked");
-                    continue;
-                };
-                if stored::reply(&mut swarm, &service, &mut state.replicas, &mut state.watchers, (id, connection), done) {
-                    state.answered += 1;
-                } else {
-                    state.failed += 1;
-                }
+            Some(done) = state.channels.store_done.recv() => {
+                finished::store(&mut state, &mut swarm, &service, done);
             }
             _ = state.timers.puzzle_tick.tick() => service.puzzle.tick(service.clock.instant()),
             Some(done) = state.channels.search_done.recv() => {
-                state.searching -= 1;
-                start_search(&mut state.search_queue, &mut state.searching, &service, &state.channels.search_done_tx);
-                let response = match done.reply {
-                    Ok(reply) if done.get && !service.charge_get(&done.from, reply.encoded_len()) => SearchResponse {
-                        status: Status::RateLimited.into(),
-                        retry_after: 1,
-                        ..SearchResponse::default()
-                    },
-                    Ok(reply) => reply,
-                    Err(error) => {
-                        state.failed += 1;
-                        tracing::error!(%error, "search failed");
-                        continue;
-                    }
-                };
-                state.answered += 1;
-                service.traffic.add(response.encoded_len() as u64);
-                let _ = swarm.behaviour_mut().search.send_response(done.channel, response);
+                finished::search(&mut state, &mut swarm, &service, done);
             }
-            Some(done) = state.channels.pow_done.recv() => match done {
-                PowDone::Publish { peer, from, channel, request, ok } => {
-                    state.answered += 1;
-                    state.failed += u64::from(!pow::publish(
-                        &mut swarm, &service, peer, &from, channel, &request, ok,
-                    ));
-                }
-                PowDone::Gossip { source, id, data, ok } => {
-                    state.pow_gossip -= 1;
-                    pow::gossip(&mut swarm, &service, source, &id, &data, ok);
-                }
-                PowDone::CatchUp { records } => pow::catch_up(&service, &records),
-            },
+            Some(done) = state.channels.pow_done.recv() => {
+                finished::pow_done(&mut state, &mut swarm, &service, done);
+            }
             () = tokio::time::sleep_until(state.timers.catch_up_at), if !state.catch_up_queue.is_empty() => {
                 state.timers.catch_up_at = send_catch_up(&mut swarm, &service.rebuild_budget, &mut state.catch_up_queue, &mut state.catch_up_asked, clock_instant(&service))
                     .unwrap_or_else(|| clock_instant(&service) + Duration::from_secs(1));
