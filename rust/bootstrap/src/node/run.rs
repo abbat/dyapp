@@ -1,6 +1,7 @@
 //! The swarm event loop of a node.
 
 use super::*;
+mod catch_up;
 mod hangup;
 mod overload;
 mod pow;
@@ -407,96 +408,57 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
                     peer: id,
                     message: Message::Response { request_id, response },
                     ..
-                })) => {
-                    let (Some(range), Some(index)) = (asks.range(&request_id), &service.search) else {
-                        continue;
-                    };
-                    refill_round.answered();
-                    let page = response.have.iter().filter_map(|h| Some((h.key.as_slice().try_into().ok()?, h.version)));
-                    let (have, next) = crate::catch_up::on_inventory(&range, page.collect());
-                    let keys: Vec<[u8; 32]> = have.iter().map(|h| h.0).collect();
-                    match index.versions(&keys) {
-                        Ok(local) => {
-                            let queue = catch_up_queue.entry(id).or_default();
-                            // ponytail: O(n) contains per key; a page holds at most 10 000 keys.
-                            for ((key, version), local) in have.iter().zip(local) {
-                                if local.is_none_or(|l| l < *version) && !queue.contains(key) {
-                                    queue.push_back(*key);
-                                }
-                            }
-                            catch_up_at = catch_up_at.min(clock_instant(&service));
-                        }
-                        Err(error) => tracing::error!(%error, "search catch-up failed"),
-                    }
-                    if let Some(next) = next {
-                        asks.next_page(id, next);
-                    }
-                    asks.send(&mut swarm);
-                }
+                })) => catch_up::inventory_response(
+                    &mut swarm,
+                    &service,
+                    catch_up::InventoryState {
+                        asks: &mut asks,
+                        queue: &mut catch_up_queue,
+                        at: &mut catch_up_at,
+                        refill: &mut refill_round,
+                    },
+                    id,
+                    request_id,
+                    &response,
+                ),
                 // A catch-up get: apply what came, queue again what a reply cut at 1 MiB left out.
                 // A reply with no records ends the chunk, so keys the peer no longer has drop out.
                 SwarmEvent::Behaviour(BehaviourEvent::Search(Event::Message {
                     message: Message::Response { request_id, response },
                     ..
-                })) => {
-                    let Some((id, keys)) = catch_up_asked.remove(&request_id) else { continue };
-                    let mut got = HashSet::new();
-                    let mut stored = 0;
-                    let mut pending = Vec::new();
-                    for record in &response.records {
-                        if let Ok(key) = <[u8; 32]>::try_from(record.public_key.as_slice()) {
-                            got.insert(dyapp_identity::key_hash(&key));
-                        }
-                        match service.search_apply(record) {
-                            Ok(Caught::Stored) => stored += 1,
-                            Ok(Caught::Dropped) => {}
-                            Ok(Caught::Pow(check)) => pending.push((check, record.clone())),
-                            Err(error) => tracing::error!(%error, "search catch-up record not stored"),
-                        }
-                    }
-                    // One job per reply checks the unproven records, then applies those that pass.
-                    if !pending.is_empty() {
-                        let (permits, cache, done) = (pow_permits.clone(), service.pow.clone(), pow_tx.clone());
-                        tokio::spawn(async move {
-                            let Ok(permit) = permits.acquire_owned().await else { return };
-                            let _ = tokio::task::spawn_blocking(move || {
-                                let _permit = permit;
-                                let records = pending.into_iter().filter(|(c, _)| cache.check(c)).map(|(_, r)| r).collect();
-                                let _ = done.send(PowDone::CatchUp { records });
-                            })
-                            .await;
-                        });
-                    }
-                    tracing::debug!(stored, "search catch-up records applied");
-                    if !got.is_empty() {
-                        catch_up_queue.entry(id).or_default().extend(keys.into_iter().filter(|k| !got.contains(k)));
-                    }
-                    if let Some(next) = send_catch_up(&mut swarm, &service.rebuild_budget, &mut catch_up_queue, &mut catch_up_asked, clock_instant(&service)) {
-                        catch_up_at = next;
-                    }
-                }
+                })) => catch_up::search_response(
+                    &mut swarm,
+                    &service,
+                    catch_up::SearchState {
+                        queue: &mut catch_up_queue,
+                        asked: &mut catch_up_asked,
+                        at: &mut catch_up_at,
+                    },
+                    &pow_permits,
+                    &pow_tx,
+                    request_id,
+                    &response,
+                ),
                 SwarmEvent::Behaviour(BehaviourEvent::Search(Event::OutboundFailure {
                     peer: id, request_id, ..
-                })) => {
-                    if let Some((_, keys)) = catch_up_asked.remove(&request_id) {
-                        if swarm.is_connected(&id) {
-                            catch_up_queue.entry(id).or_default().extend(keys);
-                        }
-                    }
-                }
+                })) => catch_up::search_failure(
+                    &mut swarm,
+                    &mut catch_up_queue,
+                    &mut catch_up_asked,
+                    id,
+                    request_id,
+                ),
                 SwarmEvent::Behaviour(BehaviourEvent::Inventory(Event::OutboundFailure {
                     request_id, ..
-                })) => {
-                    asks.range(&request_id);
-                    asks.send(&mut swarm);
-                }
+                })) => catch_up::inventory_failure(&mut swarm, &mut asks, request_id),
                 // Catch-up digests: ask what differs, or on failure the range the digest covered.
-                SwarmEvent::Behaviour(BehaviourEvent::Digest(event)) => {
-                    let Some(index) = &service.search else { continue };
-                    if asks.digest(&mut swarm, index, event) {
-                        refill_round.answered();
-                    }
-                }
+                SwarmEvent::Behaviour(BehaviourEvent::Digest(event)) => catch_up::digest(
+                    &mut swarm,
+                    &service,
+                    &mut asks,
+                    &mut refill_round,
+                    event,
+                ),
                 SwarmEvent::ConnectionEstablished { peer_id, connection_id, endpoint, .. } => {
                     replicas.trust.seen.entry(peer_id).or_insert_with(|| service.clock.instant());
                     admission.established(&mut swarm, connection_id, peer_id, &endpoint, service.clock.instant());
