@@ -568,11 +568,11 @@ impl Group {
     /// Returns [`Error::Credential`] if this device or a group member has an invalid certificate.
     pub fn add_turn(&self, device: &Device, owner: &VerifiedProfile) -> Result<u64, Error> {
         let own = device.device_key()?;
-        let mut turn = 0;
+        let mut turn = 0u64;
         for member in self.group.members() {
             let (peer_id, certificate) = certified(&member.credential, &member.signature_key)?;
             if peer_id == owner.peer_id && device_key(&certificate)? < own {
-                turn += 1;
+                turn = turn.saturating_add(1);
             }
         }
         Ok(turn)
@@ -592,7 +592,7 @@ impl Group {
     ) -> Result<Option<u64>, Error> {
         let own = device.device_key()?;
         let own_leaf = self.group.own_leaf_index();
-        let (mut turn, mut revoked) = (0, false);
+        let (mut turn, mut revoked) = (0u64, false);
         for member in self.group.members() {
             if member.index == own_leaf {
                 continue;
@@ -600,7 +600,7 @@ impl Group {
             if dropped(&member.credential, &member.signature_key, profiles) {
                 revoked = true;
             } else if device_key(&certified(&member.credential, &member.signature_key)?.1)? < own {
-                turn += 1;
+                turn = turn.saturating_add(1);
             }
         }
         Ok(revoked.then_some(turn))

@@ -39,12 +39,12 @@ impl Timestamp {
     }
 
     /// Next timestamp after `self` at wall time `wall_ms`. A full counter carries into
-    /// the wall part, which keeps the clock monotonic.
+    /// the wall part; an exhausted packed timestamp stays at its maximum.
     fn next(self, wall_ms: u64) -> Self {
         if wall_ms > self.wall_ms() {
             Self::new(wall_ms, 0)
         } else {
-            Self(self.0 + 1)
+            Self(self.0.saturating_add(1))
         }
     }
 }
@@ -75,7 +75,7 @@ impl std::fmt::Display for ClockSkew {
         write!(
             f,
             "remote clock {} ms ahead",
-            self.remote_ms - self.local_ms
+            self.remote_ms.saturating_sub(self.local_ms)
         )
     }
 }
@@ -118,13 +118,12 @@ impl HybridClock {
     }
 
     /// [`Self::now`] at an explicit wall-clock time.
-    ///
-    /// # Panics
-    /// Panics if the shared clock mutex is poisoned, or if advancing an exhausted
-    /// packed timestamp overflows while overflow checks are enabled.
     #[must_use]
     pub fn now_at(&self, wall_ms: u64) -> Timestamp {
-        let mut last = self.last.lock().unwrap();
+        let mut last = self
+            .last
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         *last = last.next(wall_ms);
         *last
     }
@@ -133,10 +132,6 @@ impl HybridClock {
     ///
     /// # Errors
     /// Returns [`ClockSkew`] if the remote wall time exceeds the allowed future skew.
-    ///
-    /// # Panics
-    /// Panics if the shared clock mutex is poisoned, or if advancing an exhausted
-    /// packed timestamp overflows while overflow checks are enabled.
     pub fn observe_at(&self, remote: Timestamp, wall_ms: u64) -> Result<Timestamp, ClockSkew> {
         if remote.wall_ms() > wall_ms.saturating_add(MAX_CLOCK_SKEW_MS) {
             return Err(ClockSkew {
@@ -144,7 +139,10 @@ impl HybridClock {
                 local_ms: wall_ms,
             });
         }
-        let mut last = self.last.lock().unwrap();
+        let mut last = self
+            .last
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         *last = (*last).max(remote).next(wall_ms);
         Ok(*last)
     }
@@ -223,6 +221,12 @@ mod tests {
             .unwrap();
         assert_eq!(ts, Timestamp::new(101, 0));
         assert_eq!(clock.now_at(100), Timestamp::new(101, 1));
+    }
+
+    #[test]
+    fn test_exhausted_timestamp_saturates() {
+        let clock = HybridClock::resume(Timestamp(u64::MAX));
+        assert_eq!(clock.now_at(0), Timestamp(u64::MAX));
     }
 
     #[test]

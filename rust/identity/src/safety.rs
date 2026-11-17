@@ -48,8 +48,8 @@ pub(crate) fn parse_peer_id(value: &str) -> Option<[u8; 32]> {
     }
     let mut peer = [0u8; 32];
     for (index, pair) in bytes.as_chunks::<2>().0.iter().enumerate() {
-        peer[index] = u8::try_from(char::from(pair[0]).to_digit(16)?).ok()? * 16
-            + u8::try_from(char::from(pair[1]).to_digit(16)?).ok()?;
+        peer[index] = (u8::try_from(char::from(pair[0]).to_digit(16)?).ok()? << 4)
+            | u8::try_from(char::from(pair[1]).to_digit(16)?).ok()?;
     }
     Some(peer)
 }

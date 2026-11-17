@@ -58,9 +58,6 @@ impl std::fmt::Debug for Message {
 
 impl Message {
     /// Creates a pending plaintext record using the current wall clock.
-    ///
-    /// # Panics
-    /// Panics if the system clock is before the Unix epoch.
     #[must_use]
     pub fn new(
         id: String,
@@ -72,8 +69,7 @@ impl Message {
         let created_at = i64::try_from(
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_millis(),
+                .map_or(0, |duration| duration.as_millis()),
         )
         .unwrap_or(i64::MAX);
 
