@@ -150,15 +150,6 @@ impl std::fmt::Debug for Identity {
 impl Identity {
     /// A new key from the OS random number generator.
     ///
-    /// # Panics
-    /// Panics if the OS random number generator cannot fill the secret key bytes.
-    #[must_use]
-    pub fn generate() -> Self {
-        Self::try_generate().expect("OS random number generator")
-    }
-
-    /// A new key from the OS random number generator.
-    ///
     /// # Errors
     ///
     /// Returns an error if the OS random number generator cannot fill the secret key bytes.
