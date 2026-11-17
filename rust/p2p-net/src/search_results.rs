@@ -739,9 +739,8 @@ mod tests {
         assert!(!hits(Op::Range, &[1, code]));
     }
 
-    #[test]
-    fn every_field_and_op_is_checked() {
-        let p = Profile {
+    fn every_field_profile() -> Profile {
+        Profile {
             birth_year: Some(1996),
             country: "DE".into(),
             income_from: Some(10),
@@ -762,7 +761,45 @@ mod tests {
             education_level: EducationLevel::Specialist.code(),
             photos: vec![dyapp_profile::Photo::default()],
             ..Profile::default()
+        }
+    }
+
+    fn assert_integer_membership_ops(p: &Profile) {
+        let hits = |field, op, ints: &[i64], strings: &[&str]| {
+            matches(&condition(field, op, ints, strings), p)
         };
+        let sixteen: Vec<i64> = (0..16).map(|i| i * 10).collect();
+        let seventeen: Vec<i64> = (0..17).map(|i| i * 10).collect();
+        assert!(hits(27, Op::Unspecified, &[], &[]));
+        assert!(!hits(27, Op::Eq, &[40, 50], &[]));
+        assert!(hits(27, Op::In, &[30, 40], &[]));
+        assert!(!hits(27, Op::In, &[], &[]));
+        assert!(hits(27, Op::In, &sixteen, &[]));
+        assert!(!hits(27, Op::In, &seventeen, &[]));
+        assert!(hits(27, Op::Range, &[30, 50], &[]));
+        assert!(!hits(27, Op::Range, &[30, 40, 50], &[]));
+    }
+
+    fn assert_string_membership_ops(p: &Profile) {
+        let hits = |field, op, ints: &[i64], strings: &[&str]| {
+            matches(&condition(field, op, ints, strings), p)
+        };
+        let mut sixteen = vec!["other"; 15];
+        sixteen.push("DE");
+        let mut seventeen = sixteen.clone();
+        seventeen.push("other");
+        assert!(hits(4, Op::Unspecified, &[], &[]));
+        assert!(hits(4, Op::Range, &[], &[]));
+        assert!(!hits(4, Op::Eq, &[], &["DE", "FR"]));
+        assert!(hits(4, Op::In, &[], &["FR", "DE"]));
+        assert!(!hits(4, Op::In, &[], &["FR"]));
+        assert!(hits(4, Op::In, &[], &sixteen));
+        assert!(!hits(4, Op::In, &[], &seventeen));
+    }
+
+    #[test]
+    fn every_field_and_op_is_checked() {
+        let p = every_field_profile();
         let hits = |field, op, ints: &[i64], strings: &[&str]| {
             matches(&condition(field, op, ints, strings), &p)
         };
@@ -790,27 +827,8 @@ mod tests {
             assert!(hits(field, Op::Eq, &[], &[v]), "{field}");
             assert!(!hits(field, Op::Eq, &[], &["x"]), "{field}");
         }
-        let sixteen: Vec<i64> = (0..16).map(|i| i * 10).collect();
-        let seventeen: Vec<i64> = (0..17).map(|i| i * 10).collect();
-        assert!(hits(27, Op::Unspecified, &[], &[]));
-        assert!(!hits(27, Op::Eq, &[40, 50], &[]));
-        assert!(hits(27, Op::In, &[30, 40], &[]));
-        assert!(!hits(27, Op::In, &[], &[]));
-        assert!(hits(27, Op::In, &sixteen, &[]));
-        assert!(!hits(27, Op::In, &seventeen, &[]));
-        assert!(hits(27, Op::Range, &[30, 50], &[]));
-        assert!(!hits(27, Op::Range, &[30, 40, 50], &[]));
-        let mut sixteen = vec!["other"; 15];
-        sixteen.push("DE");
-        let mut seventeen = sixteen.clone();
-        seventeen.push("other");
-        assert!(hits(4, Op::Unspecified, &[], &[]));
-        assert!(hits(4, Op::Range, &[], &[]));
-        assert!(!hits(4, Op::Eq, &[], &["DE", "FR"]));
-        assert!(hits(4, Op::In, &[], &["FR", "DE"]));
-        assert!(!hits(4, Op::In, &[], &["FR"]));
-        assert!(hits(4, Op::In, &[], &sixteen));
-        assert!(!hits(4, Op::In, &[], &seventeen));
+        assert_integer_membership_ops(&p);
+        assert_string_membership_ops(&p);
     }
 
     #[test]
