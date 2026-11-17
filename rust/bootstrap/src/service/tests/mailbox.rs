@@ -37,6 +37,25 @@ pub(super) fn mailbox_status(response: &MailboxResponse) -> Status {
     Status::try_from(response.status).unwrap()
 }
 
+fn fetch_from(
+    service: &Service,
+    device: &Identity,
+    nonce: &mut Option<[u8; 32]>,
+    cursor: Vec<u8>,
+) -> MailboxResponse {
+    let request = proto::Fetch {
+        nonce: challenge(service, nonce),
+        limit: 1,
+        cursor,
+        ..Default::default()
+    };
+    mailbox(
+        service,
+        nonce,
+        mailbox_request::Request::Fetch(device.sign(Domain::MailboxFetch, request.encode_to_vec())),
+    )
+}
+
 #[test]
 fn fetch_cursor_advances_and_rejects_malformed_position() {
     let service = service_with(|_| {});
@@ -56,19 +75,7 @@ fn fetch_cursor_advances_and_rejects_malformed_position() {
     }
     let mut nonce = None;
     let read = |service: &Service, nonce: &mut Option<[u8; 32]>, cursor| {
-        let request = proto::Fetch {
-            nonce: challenge(service, nonce),
-            limit: 1,
-            cursor,
-            ..Default::default()
-        };
-        mailbox(
-            service,
-            nonce,
-            mailbox_request::Request::Fetch(
-                device.sign(Domain::MailboxFetch, request.encode_to_vec()),
-            ),
-        )
+        fetch_from(service, &device, nonce, cursor)
     };
     let first = read(&service, &mut nonce, Vec::new());
     assert_eq!(mailbox_status(&first), Status::Ok);
@@ -174,6 +181,14 @@ fn client_inventory_is_denied(service: &Service, address: &[u8]) {
     assert!(service.reputation.banned("p"));
 }
 
+fn replica_inventory(service: &Service, address: &[u8], ids: Vec<Vec<u8>>) -> MailboxResponse {
+    let request = mailbox_request::Request::Inventory(proto::Inventory {
+        mailbox: address.to_vec(),
+        ids,
+    });
+    mailbox(service, &mut None, request)
+}
+
 #[test]
 fn inventory_names_gaps_and_replica_put_fills_them() {
     let service = service_with(|l| l.strikes_to_ban = 1);
@@ -193,13 +208,7 @@ fn inventory_names_gaps_and_replica_put_fills_them() {
         mailbox_status(&mailbox(&service, &mut None, put)),
         Status::Ok
     );
-    let inventory = |ids: Vec<Vec<u8>>| {
-        let request = mailbox_request::Request::Inventory(proto::Inventory {
-            mailbox: address.clone(),
-            ids,
-        });
-        mailbox(&service, &mut None, request)
-    };
+    let inventory = |ids| replica_inventory(&service, &address, ids);
     let response = inventory(vec![vec![1; 16], vec![2; 16]]);
     assert_eq!(response.missing, [vec![2; 16]]);
     assert_eq!(
@@ -516,6 +525,10 @@ fn full_stores_and_byte_rate_refuse_requests() {
         Status::Full
     );
 
+    check_byte_rate_and_memory_refusals(put);
+}
+
+fn check_byte_rate_and_memory_refusals(put: mailbox_request::Request) {
     // The byte rate sheds profiles before the mailbox within a second.
     let service = service_with(|l| l.bytes_per_second = 1 << 30);
     service.traffic.add((1 << 30) / 100 * 92);
@@ -575,6 +588,10 @@ fn group_and_sender_quotas_and_bans() {
         Status::NotFound
     );
 
+    check_sender_quotas_and_bans();
+}
+
+fn check_sender_quotas_and_bans() {
     let sender = Identity::generate();
     let put = |id: u8| {
         let envelope = proto::Envelope {
@@ -615,7 +632,7 @@ fn group_and_sender_quotas_and_bans() {
         assert_eq!(status(&response.unwrap()), Status::Denied);
     }
     assert!(service.reputation.banned("f"));
-    let refused = service.profile(&bad("l"), id()).unwrap();
+    let refused = service.profile(&bad("l"), get(vec![0; 32])).unwrap();
     assert_eq!(status(&refused), Status::RateLimited);
 }
 
