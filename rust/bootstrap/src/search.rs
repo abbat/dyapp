@@ -142,6 +142,24 @@ fn flip(tx: &Connection, key: &[u8; 32], version: u64) -> Result<()> {
     Ok(())
 }
 
+fn insert_profile_tags(tx: &Connection, key: &[u8; 32], p: &Profile) -> Result<()> {
+    for interest in &p.interests {
+        tx.execute(
+            "INSERT OR IGNORE INTO `interest` VALUES (?, ?)",
+            params![&key[..], interest],
+        )
+        .map_err(storage_error)?;
+    }
+    for gender in &p.seeking_genders {
+        tx.execute(
+            "INSERT OR IGNORE INTO `seeking_gender` VALUES (?, ?)",
+            params![&key[..], gender],
+        )
+        .map_err(storage_error)?;
+    }
+    Ok(())
+}
+
 /// Inserts the typed rows of a live profile with random rank `r` and counts its place.
 fn insert_profile(tx: &Connection, key: &[u8; 32], p: &Profile, r: i64) -> Result<()> {
     let place = crate::places::canonical(&p.country, &p.place);
@@ -193,21 +211,7 @@ fn insert_profile(tx: &Connection, key: &[u8; 32], p: &Profile, r: i64) -> Resul
         ],
     )
     .map_err(storage_error)?;
-    for interest in &p.interests {
-        tx.execute(
-            "INSERT OR IGNORE INTO `interest` VALUES (?, ?)",
-            params![&key[..], interest],
-        )
-        .map_err(storage_error)?;
-    }
-    for gender in &p.seeking_genders {
-        tx.execute(
-            "INSERT OR IGNORE INTO `seeking_gender` VALUES (?, ?)",
-            params![&key[..], gender],
-        )
-        .map_err(storage_error)?;
-    }
-    Ok(())
+    insert_profile_tags(tx, key, p)
 }
 
 /// What became of an indexed publish.
@@ -273,6 +277,30 @@ pub struct SearchIndex {
     newcomer_evictions: AtomicU64,
     /// `newcomer_evictions` at the last status line.
     newcomer_evictions_taken: AtomicU64,
+}
+
+fn clear_profile(tx: &Connection, key: &[u8; 32], stored: Option<i64>, version: i64) -> Result<()> {
+    if let Some(stored) = stored {
+        flip(tx, key, stored.unsigned_abs())?;
+    }
+    flip(tx, key, version.unsigned_abs())?;
+    uncount(tx, &key[..])?;
+    for table in ["profile", "interest", "seeking_gender", "record"] {
+        tx.execute(
+            &format!("DELETE FROM `{table}` WHERE `key` = ?"),
+            [&key[..]],
+        )
+        .map_err(storage_error)?;
+    }
+    Ok(())
+}
+
+fn record_bytes(p: &Profile, record: &SignedRecord) -> Result<i64> {
+    if p.deleted && !p.search_only {
+        Ok(0)
+    } else {
+        i64::try_from(record.encoded_len()).map_err(storage_error)
+    }
 }
 
 fn insert_record(db: &Connection, key: &[u8; 32], record: &[u8]) -> Result<()> {
@@ -491,24 +519,9 @@ impl SearchIndex {
             _ => {}
         }
         tx.mark(*key);
-        if let Some((stored, ..)) = known {
-            flip(&tx, key, stored.unsigned_abs())?;
-        }
-        flip(&tx, key, version.unsigned_abs())?;
-        uncount(&tx, &key[..])?;
-        for table in ["profile", "interest", "seeking_gender", "record"] {
-            tx.execute(
-                &format!("DELETE FROM `{table}` WHERE `key` = ?"),
-                [&key[..]],
-            )
-            .map_err(storage_error)?;
-        }
+        clear_profile(&tx, key, known.map(|k| k.0), version)?;
         let topic = topic(key);
-        let bytes = if p.deleted && !p.search_only {
-            0
-        } else {
-            i64::try_from(record.encoded_len()).map_err(storage_error)?
-        };
+        let bytes = record_bytes(p, record)?;
         // Replicas while the file is young are the existing network's keys, not newcomers.
         let grace = !limit && now < self.created() + self.newcomer_seconds;
         let (first_seen, old_bytes) =
