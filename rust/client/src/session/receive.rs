@@ -395,6 +395,104 @@ impl Session {
         Ok((peer, blocked))
     }
 
+    fn apply_chat(
+        &mut self,
+        bytes: &[u8],
+        profiles: &[VerifiedProfile],
+        seal_key: &[u8; 32],
+    ) -> Result<Option<Event>, Error> {
+        let device = self.device.as_ref().ok_or(Error::Invalidated)?;
+        let event = match chat::apply(device, &mut self.groups, bytes, profiles) {
+            Ok(None) => return Ok(None),
+            Ok(Some(event)) => event,
+            Err(error) => Event::Refused(error.to_string()),
+        };
+        if matches!(event, Event::UnknownOwner(_)) {
+            // Decrypting spent the message's secret in memory; the retry with the profile needs it.
+            self.recover(seal_key)?;
+        }
+        Ok(Some(event))
+    }
+
+    fn stage_refused(&mut self, key: &InboxKey, seal_key: &[u8; 32]) -> Result<bool, Error> {
+        // Keep the saved MLS state and reopen it: a refused envelope must change nothing.
+        let sealed = self.store.sealed_device()?.ok_or(Error::MissingSnapshot)?;
+        self.store
+            .stage_inbound(&sealed, key, InboxKind::Refused, b"", None)?;
+        self.recover(seal_key).map(|()| true)
+    }
+
+    fn stage_accepted(
+        &mut self,
+        key: &InboxKey,
+        event: &Event,
+        peer: Option<&str>,
+        blocked: bool,
+        seal_key: &[u8; 32],
+    ) -> Result<bool, Error> {
+        let device = self.device.as_ref().ok_or(Error::Invalidated)?;
+        let sealed = device.seal(seal_key)?;
+        if !blocked {
+            if let Some(shown) = self.stage_chat_message(&sealed, key, event)? {
+                return Ok(shown);
+            }
+        }
+        let (kind, payload) = inbox_payload(event, blocked);
+        let joined = match (event, peer) {
+            (Event::Joined(id), Some(peer)) => Some((id.as_slice(), peer)),
+            _ => None,
+        };
+        self.store
+            .stage_inbound(&sealed, key, kind, &payload, joined)?;
+        Ok(true)
+    }
+
+    fn stage_chat_message(
+        &mut self,
+        sealed: &[u8],
+        key: &InboxKey,
+        event: &Event,
+    ) -> Result<Option<bool>, Error> {
+        let Event::Message {
+            group,
+            sender,
+            device,
+            body,
+        } = event
+        else {
+            return Ok(None);
+        };
+        if !history_body(body) {
+            return Ok(None);
+        }
+        let verified = VerifiedChatSender {
+            group,
+            author: sender,
+            device,
+        };
+        if let Body::PackRequest(request) = body {
+            self.store.stage_sticker_pack_request_inbound(
+                sealed,
+                key,
+                verified,
+                request,
+                crate::now() * 1000,
+            )?;
+            // Uniform receipts; control consumes this event.
+            return Ok(Some(true));
+        }
+        if let Body::PackAnswer(answer) = body {
+            self.store
+                .stage_sticker_pack_answer(sealed, key, verified, answer)?;
+            return Ok(Some(true));
+        }
+        // A text the request rules drop is acked but not shown.
+        self.store
+            .stage_chat_inbound(sealed, key, verified, body, crate::now() * 1000)
+            .map(Some)
+            .map_err(Error::from)
+    }
+
     /// Apply one new envelope and commit the result with its pending ACK. A Gap, an unknown
     /// owner or group is neither recorded nor acknowledged, so it is fetched again. A blocked
     /// owner's Welcome is refused; its message advances MLS state, is acknowledged and returns
@@ -406,125 +504,21 @@ impl Session {
         profiles: &[VerifiedProfile],
         seal_key: &[u8; 32],
     ) -> Result<Option<Event>, Error> {
-        let device = self.device.as_ref().ok_or(Error::Invalidated)?;
-        let mut event = match chat::apply(device, &mut self.groups, bytes, profiles) {
-            Ok(None) => return Ok(None),
-            Ok(Some(event @ Event::Gap(_))) => return Ok(Some(event)),
-            // Decrypting spent the message's secret in memory; the retry with the profile needs it.
-            Ok(Some(event @ Event::UnknownOwner(_))) => {
-                self.recover(seal_key)?;
-                return Ok(Some(event));
-            }
-            Ok(Some(event)) => event,
-            Err(error) => Event::Refused(error.to_string()),
+        let Some(mut event) = self.apply_chat(bytes, profiles, seal_key)? else {
+            return Ok(None);
         };
+        if matches!(event, Event::Gap(_) | Event::UnknownOwner(_)) {
+            return Ok(Some(event));
+        }
         let (peer, blocked) = self.event_admission(&mut event)?;
         self.apply_interaction_event(&mut event, blocked)?;
         self.apply_presence_event(&mut event, blocked)?;
         self.apply_peer_change_event(&mut event, blocked)?;
         self.apply_read_event(&event, blocked)?;
         let staged = if matches!(event, Event::Refused(_)) {
-            // Keep the saved MLS state and reopen it: a refused envelope must change nothing.
-            (|| {
-                let sealed = self.store.sealed_device()?.ok_or(Error::MissingSnapshot)?;
-                self.store
-                    .stage_inbound(&sealed, key, InboxKind::Refused, b"", None)?;
-                self.recover(seal_key).map(|()| true)
-            })()
+            self.stage_refused(key, seal_key)
         } else {
-            (|| {
-                let sealed = device.seal(seal_key)?;
-                if !blocked {
-                    if let Event::Message {
-                        group,
-                        sender,
-                        device,
-                        body,
-                    } = &event
-                    {
-                        if body.attachment_message().is_some()
-                            || matches!(
-                                body,
-                                Body::Text { .. }
-                                    | Body::Sticker(_)
-                                    | Body::PackRequest(_)
-                                    | Body::PackAnswer(_)
-                                    | Body::Edit { .. }
-                                    | Body::Delete { .. }
-                            )
-                            || matches!(body, Body::Forwarded(inner) if matches!(inner.as_ref(), Body::Text { .. }))
-                        {
-                            let verified = VerifiedChatSender {
-                                group,
-                                author: sender,
-                                device,
-                            };
-                            if let Body::PackRequest(request) = body {
-                                self.store.stage_sticker_pack_request_inbound(
-                                    &sealed,
-                                    key,
-                                    verified,
-                                    request,
-                                    crate::now() * 1000,
-                                )?;
-                                return Ok(true); // Uniform receipts; control consumes this event.
-                            }
-                            if let Body::PackAnswer(answer) = body {
-                                self.store
-                                    .stage_sticker_pack_answer(&sealed, key, verified, answer)?;
-                                return Ok(true);
-                            }
-                            // A text the request rules drop is acked but not shown.
-                            return self
-                                .store
-                                .stage_chat_inbound(
-                                    &sealed,
-                                    key,
-                                    verified,
-                                    body,
-                                    crate::now() * 1000,
-                                )
-                                .map_err(Error::from);
-                        }
-                    }
-                }
-                let (kind, payload) = match &event {
-                    _ if blocked => (InboxKind::StateChange, Vec::new()),
-                    // Token, presence, read and own change bodies are acted on, not shown in
-                    // history.
-                    Event::Message {
-                        body:
-                            Body::TokenRequest(_)
-                            | Body::TokenAnswer(_)
-                            | Body::Receipt(_)
-                            | Body::Presence { .. }
-                            | Body::Read { .. }
-                            | Body::PeerChange { .. },
-                        ..
-                    } => (InboxKind::StateChange, Vec::new()),
-                    Event::Message {
-                        group,
-                        sender,
-                        body,
-                        ..
-                    } => (
-                        InboxKind::Message,
-                        prost::Message::encode_to_vec(&StoredMessage {
-                            group: group.clone(),
-                            sender: sender.clone(),
-                            body: body.encode(),
-                        }),
-                    ),
-                    _ => (InboxKind::StateChange, Vec::new()),
-                };
-                let joined = match (&event, &peer) {
-                    (Event::Joined(id), Some(peer)) => Some((id.as_slice(), peer.as_str())),
-                    _ => None,
-                };
-                self.store
-                    .stage_inbound(&sealed, key, kind, &payload, joined)?;
-                Ok(true)
-            })()
+            self.stage_accepted(key, &event, peer.as_deref(), blocked, seal_key)
         };
         if staged.is_err() {
             self.device = None;
@@ -554,6 +548,51 @@ mod pack_tests;
 #[cfg(test)]
 #[path = "receive/sticker_tests.rs"]
 mod sticker_tests;
+
+fn history_body(body: &Body) -> bool {
+    body.attachment_message().is_some()
+        || matches!(
+            body,
+            Body::Text { .. }
+                | Body::Sticker(_)
+                | Body::PackRequest(_)
+                | Body::PackAnswer(_)
+                | Body::Edit { .. }
+                | Body::Delete { .. }
+        )
+        || matches!(body, Body::Forwarded(inner) if matches!(inner.as_ref(), Body::Text { .. }))
+}
+
+fn inbox_payload(event: &Event, blocked: bool) -> (InboxKind, Vec<u8>) {
+    match event {
+        _ if blocked => (InboxKind::StateChange, Vec::new()),
+        // Token, presence, read and own change bodies are acted on, not shown in history.
+        Event::Message {
+            body:
+                Body::TokenRequest(_)
+                | Body::TokenAnswer(_)
+                | Body::Receipt(_)
+                | Body::Presence { .. }
+                | Body::Read { .. }
+                | Body::PeerChange { .. },
+            ..
+        } => (InboxKind::StateChange, Vec::new()),
+        Event::Message {
+            group,
+            sender,
+            body,
+            ..
+        } => (
+            InboxKind::Message,
+            prost::Message::encode_to_vec(&StoredMessage {
+                group: group.clone(),
+                sender: sender.clone(),
+                body: body.encode(),
+            }),
+        ),
+        _ => (InboxKind::StateChange, Vec::new()),
+    }
+}
 
 /// The group whose sender waits for a receipt of this committed event: any but a receipt, a
 /// presence or a read receipt, which leave the outbox once a node accepts them.
