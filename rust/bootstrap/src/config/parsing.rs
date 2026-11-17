@@ -21,7 +21,7 @@ pub(super) fn safe_toml_error(path: &Path, source: &str, error: &toml::de::Error
                 .rev()
                 .take_while(|&&byte| byte != b'\n')
                 .count()
-                + 1;
+                .saturating_add(1);
             if russian_locale() {
                 format!(" в строке {line}, столбце {column}")
             } else {

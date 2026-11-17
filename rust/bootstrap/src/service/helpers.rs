@@ -63,7 +63,7 @@ pub(super) fn turn_user(turn: &Turn, group: &str) -> String {
 /// `<expiry>:<user>`, password base64(HMAC-SHA1(secret, username)).
 pub(super) fn turn_credentials(turn: &Turn, user: &str, now: u64) -> TurnCredentials {
     use base64::Engine;
-    let expires = now + u64::from(turn.credential_minutes) * 60;
+    let expires = now.saturating_add(u64::from(turn.credential_minutes).saturating_mul(60));
     let username = format!("{expires}:{user}");
     let mac = turn.secret.hmac_sha1(username.as_bytes());
     TurnCredentials {

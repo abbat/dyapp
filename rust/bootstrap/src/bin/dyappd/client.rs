@@ -117,7 +117,10 @@ async fn media_sized(addr: &str, size: &str, seed: &str) -> anyhow::Result<Value
 async fn media_refresh(addr: &str, record: &str, secret: &str) -> anyhow::Result<Value> {
     let record = SignedRecord::decode(unhex(record)?.as_slice())?;
     let mut keep = proto::MediaKeep::decode(record.payload.as_slice())?;
-    keep.version += 1;
+    keep.version = keep
+        .version
+        .checked_add(1)
+        .context("media keep version overflow")?;
     keep.time = Clock::system().unix_secs();
     let secret = decode_secret(secret)?;
     let record = Identity::from_secret(&secret).sign(Domain::MediaKeep, keep.encode_to_vec());
