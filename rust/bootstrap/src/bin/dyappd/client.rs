@@ -86,44 +86,109 @@ pub const USAGE_RU: &str = "клиент: dyappd info <адрес> | turn <ад�
 /// The network every connection speaks, set once by `run`.
 static NETWORK: OnceLock<Arc<Protocols>> = OnceLock::new();
 
+fn decode_secret(secret: &str) -> anyhow::Result<[u8; 32]> {
+    unhex(secret)?.try_into().map_err(|_| {
+        anyhow!(message(
+            "secret must be 32 bytes",
+            "секрет должен быть длиной 32 байта"
+        ))
+    })
+}
+
+async fn media_sized(addr: &str, size: &str, seed: &str) -> anyhow::Result<Value> {
+    let size: usize = size.parse()?;
+    if size > dyapp_bootstrap::service::MAX_MEDIA_BYTES {
+        bail!(message(
+            "blob exceeds 6 MiB",
+            "размер файла превышает 6 МиБ"
+        ));
+    }
+    let seed = unhex(seed)?;
+    if seed.len() != 32 {
+        bail!(message(
+            "seed must be 32 bytes",
+            "начальное значение должно быть длиной 32 байта"
+        ));
+    }
+    let data: Vec<_> = seed.into_iter().cycle().take(size).collect();
+    timeout(media(addr, &hex(&data), true)).await
+}
+
+async fn media_refresh(addr: &str, record: &str, secret: &str) -> anyhow::Result<Value> {
+    let record = SignedRecord::decode(unhex(record)?.as_slice())?;
+    let mut keep = proto::MediaKeep::decode(record.payload.as_slice())?;
+    keep.version += 1;
+    keep.time = Clock::system().unix_secs();
+    let secret = decode_secret(secret)?;
+    let record = Identity::from_secret(&secret).sign(Domain::MediaKeep, keep.encode_to_vec());
+    let mut response = timeout(media_call(
+        addr,
+        media_request::Request::Keep(record.clone()),
+    ))
+    .await?;
+    response["keep_record"] = hex(&record.encode_to_vec()).into();
+    Ok(response)
+}
+
+async fn media_command(args: &[&str]) -> anyhow::Result<Option<Value>> {
+    let output = match args {
+        ["media", addr, data] => timeout(media(addr, data, false)).await?,
+        ["media-owned", addr, data] => timeout(media(addr, data, true)).await?,
+        ["media-sized", addr, size, seed] => media_sized(addr, size, seed).await?,
+        ["media-keep", addr, record] => {
+            let record = SignedRecord::decode(unhex(record)?.as_slice())?;
+            timeout(media_call(addr, media_request::Request::Keep(record))).await?
+        }
+        ["media-refresh", addr, record, secret] => media_refresh(addr, record, secret).await?,
+        ["media-get", addr, hash] => timeout(media_get(addr, unhex(hash)?)).await?,
+        _ => return Ok(None),
+    };
+    Ok(Some(output))
+}
+
+async fn heartbeat_command(addr: &str, secret: &str) -> anyhow::Result<Value> {
+    let secret = decode_secret(secret)?;
+    let record = Identity::from_secret(&secret).sign(
+        Domain::Heartbeat,
+        proto::Heartbeat {
+            time: Clock::system().unix_secs(),
+            version: 0,
+            ..Default::default()
+        }
+        .encode_to_vec(),
+    );
+    timeout(profile(addr, profile_request::Request::Heartbeat(record))).await
+}
+
+async fn profile_command(args: &[&str]) -> anyhow::Result<Option<Value>> {
+    let output = match args {
+        ["sign-profile"] => sign_profile(&Identity::generate(), 1),
+        ["sign-profile", secret, version] => {
+            let secret = decode_secret(secret)?;
+            sign_profile(&Identity::from_secret(&secret), version.parse()?)
+        }
+        ["heartbeat", addr, secret] => heartbeat_command(addr, secret).await?,
+        ["info", addr] => timeout(info(addr)).await?,
+        ["publish", addr, record] => timeout(publish(addr, record)).await?,
+        ["get", addr, peer_id] => timeout(get(addr, peer_id)).await?,
+        ["device-key"] => device_key(),
+        _ => return Ok(None),
+    };
+    Ok(Some(output))
+}
+
 /// Runs a client command and returns its JSON output, or `None` when `args` is not one.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn run(network: &str, args: &[&str]) -> anyhow::Result<Option<Value>> {
     let protocols = Protocols::new(network).context("network.name")?;
     NETWORK.get_or_init(|| Arc::new(protocols));
+    if let Some(output) = media_command(args).await? {
+        return Ok(Some(output));
+    }
+    if let Some(output) = profile_command(args).await? {
+        return Ok(Some(output));
+    }
     let output = match args {
-        ["sign-profile"] => sign_profile(&Identity::generate(), 1),
-        ["sign-profile", secret, version] => {
-            let secret: [u8; 32] = unhex(secret)?.try_into().map_err(|_| {
-                anyhow!(message(
-                    "secret must be 32 bytes",
-                    "секрет должен быть длиной 32 байта"
-                ))
-            })?;
-            sign_profile(&Identity::from_secret(&secret), version.parse()?)
-        }
-        ["heartbeat", addr, secret] => {
-            let secret: [u8; 32] = unhex(secret)?.try_into().map_err(|_| {
-                anyhow!(message(
-                    "secret must be 32 bytes",
-                    "секрет должен быть длиной 32 байта"
-                ))
-            })?;
-            let record = Identity::from_secret(&secret).sign(
-                Domain::Heartbeat,
-                proto::Heartbeat {
-                    time: Clock::system().unix_secs(),
-                    version: 0,
-                    ..Default::default()
-                }
-                .encode_to_vec(),
-            );
-            timeout(profile(addr, profile_request::Request::Heartbeat(record))).await?
-        }
-        ["info", addr] => timeout(info(addr)).await?,
-        ["publish", addr, record] => timeout(publish(addr, record)).await?,
-        ["get", addr, peer_id] => timeout(get(addr, peer_id)).await?,
-        ["device-key"] => device_key(),
         ["put", addr, mailbox, ciphertext] => put(addr, mailbox, ciphertext, None).await?,
         ["put-local", addr, mailbox, ciphertext] => {
             put(addr, mailbox, ciphertext, Some(dyapp_p2p_net::ID_POW_BITS)).await?
@@ -147,52 +212,6 @@ pub async fn run(network: &str, args: &[&str]) -> anyhow::Result<Option<Value>> 
                 .await
                 .context(message("no reply in 60 s", "нет ответа за 60 с"))??
         }
-        ["media", addr, data] => timeout(media(addr, data, false)).await?,
-        ["media-owned", addr, data] => timeout(media(addr, data, true)).await?,
-        ["media-sized", addr, size, seed] => {
-            let size: usize = size.parse()?;
-            if size > dyapp_bootstrap::service::MAX_MEDIA_BYTES {
-                bail!(message(
-                    "blob exceeds 6 MiB",
-                    "размер файла превышает 6 МиБ"
-                ));
-            }
-            let seed = unhex(seed)?;
-            if seed.len() != 32 {
-                bail!(message(
-                    "seed must be 32 bytes",
-                    "начальное значение должно быть длиной 32 байта"
-                ));
-            }
-            let data: Vec<_> = seed.into_iter().cycle().take(size).collect();
-            timeout(media(addr, &hex(&data), true)).await?
-        }
-        ["media-keep", addr, record] => {
-            let record = SignedRecord::decode(unhex(record)?.as_slice())?;
-            timeout(media_call(addr, media_request::Request::Keep(record))).await?
-        }
-        ["media-refresh", addr, record, secret] => {
-            let record = SignedRecord::decode(unhex(record)?.as_slice())?;
-            let mut keep = proto::MediaKeep::decode(record.payload.as_slice())?;
-            keep.version += 1;
-            keep.time = Clock::system().unix_secs();
-            let secret: [u8; 32] = unhex(secret)?.try_into().map_err(|_| {
-                anyhow!(message(
-                    "secret must be 32 bytes",
-                    "секрет должен быть длиной 32 байта"
-                ))
-            })?;
-            let record =
-                Identity::from_secret(&secret).sign(Domain::MediaKeep, keep.encode_to_vec());
-            let mut response = timeout(media_call(
-                addr,
-                media_request::Request::Keep(record.clone()),
-            ))
-            .await?;
-            response["keep_record"] = hex(&record.encode_to_vec()).into();
-            response
-        }
-        ["media-get", addr, hash] => timeout(media_get(addr, unhex(hash)?)).await?,
         ["turn", addr] => timeout(turn(addr)).await?,
         ["relays", addr] => timeout(relays(addr)).await?,
         _ => return Ok(None),
