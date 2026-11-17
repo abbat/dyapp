@@ -309,6 +309,44 @@ mod tests {
         })
     }
 
+    fn assert_attachment_body_conflicts(
+        store: &mut Store,
+        sender: VerifiedChatSender,
+        group: &[u8],
+        peer: &str,
+        first: &Body,
+    ) {
+        assert!(!store.record_chat_attachment(sender, first, false).unwrap());
+        assert!(matches!(
+            store.record_chat_attachment(sender, &body(1, 101), true),
+            Err(Error::InboxConflict)
+        ));
+        assert!(matches!(
+            store.record_chat_text(
+                &MessageKey {
+                    group: group.to_vec(),
+                    author: peer.to_owned(),
+                    id: [1; 16]
+                },
+                b"text"
+            ),
+            Err(Error::InboxConflict)
+        ));
+        let second_key = MessageKey {
+            group: group.to_vec(),
+            author: peer.to_owned(),
+            id: [2; 16],
+        };
+        assert!(store.record_chat_text(&second_key, b"text").unwrap());
+        assert!(matches!(
+            store.record_chat_attachment(sender, &body(2, 102), true),
+            Err(Error::InboxConflict)
+        ));
+        assert!(store
+            .record_chat_attachment(sender, &Body::Forwarded(Box::new(body(3, 99))), true)
+            .unwrap());
+    }
+
     #[test]
     fn descriptor_survives_restart_and_conflicts_across_body_kinds() {
         let path = temp_db_path();
@@ -325,35 +363,7 @@ mod tests {
         };
         let first = body(1, 100);
         assert!(store.record_chat_attachment(sender, &first, true).unwrap());
-        assert!(!store.record_chat_attachment(sender, &first, false).unwrap());
-        assert!(matches!(
-            store.record_chat_attachment(sender, &body(1, 101), true),
-            Err(Error::InboxConflict)
-        ));
-        assert!(matches!(
-            store.record_chat_text(
-                &MessageKey {
-                    group: group.to_vec(),
-                    author: peer.clone(),
-                    id: [1; 16]
-                },
-                b"text"
-            ),
-            Err(Error::InboxConflict)
-        ));
-        let second_key = MessageKey {
-            group: group.to_vec(),
-            author: peer.clone(),
-            id: [2; 16],
-        };
-        assert!(store.record_chat_text(&second_key, b"text").unwrap());
-        assert!(matches!(
-            store.record_chat_attachment(sender, &body(2, 102), true),
-            Err(Error::InboxConflict)
-        ));
-        assert!(store
-            .record_chat_attachment(sender, &Body::Forwarded(Box::new(body(3, 99))), true)
-            .unwrap());
+        assert_attachment_body_conflicts(&mut store, sender, &group, &peer, &first);
         drop(store);
 
         let store = Store::open(&path, &owner).unwrap();

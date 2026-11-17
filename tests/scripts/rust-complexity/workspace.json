@@ -48,7 +48,6 @@
   {"path":"rust/client/src/store/likes.rs","function":"mod tests # [cfg (test)]::fn staged_interaction_rolls_back_with_outbox_and_survives_restart ","metrics":{"cognitive":18,"lines":73}},
   {"path":"rust/client/src/store/messages.rs","function":"impl Store ::fn current_chat_messages ","metrics":{"lines":72}},
   {"path":"rust/client/src/store/messages.rs","function":"impl Store ::fn stage_chat_inbound ","metrics":{"lines":105}},
-  {"path":"rust/client/src/store/messages/attachments.rs","function":"mod tests # [cfg (test)]::fn descriptor_survives_restart_and_conflicts_across_body_kinds ","metrics":{"cognitive":18,"lines":59}},
   {"path":"rust/client/src/store/messages/clear.rs","function":"mod tests # [cfg (test)]::fn cleared_messages_stay_gone_while_new_ones_and_other_groups_show ","metrics":{"lines":98}},
   {"path":"rust/client/src/store/messages/clear.rs","function":"mod tests # [cfg (test)]::fn clearing_pair_removes_every_group_but_keeps_other_peer_and_replay_marks ","metrics":{"lines":79}},
   {"path":"rust/client/src/store/messages/clear.rs","function":"mod tests # [cfg (test)]::fn read_and_clear_apply_to_attachments_across_groups_and_restart ","metrics":{"cognitive":18,"lines":82}},
