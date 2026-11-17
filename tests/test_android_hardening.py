@@ -85,7 +85,11 @@ class AndroidHardening(unittest.TestCase):
             "rpath": ({"dynamic": {30: 8, 15: 1}}, "RPATH or RUNPATH"),
             "textrel": ({"dynamic": {30: 8, 22: 0}}, "text relocations"),
             "flags-textrel": ({"dynamic": {30: 12}}, "text relocations"),
-            "canary": ({"names": [b"__stack_chk_fail_local"]}, "protector"),
+            "canary": (
+                {"names": [b"__stack_chk_fail_local", b"__memcpy_chk"]},
+                "protector",
+            ),
+            "fortify": ({"names": [b"__stack_chk_fail"]}, "fortified libc"),
         }
         for name, (change, message) in changes.items():
             with self.subTest(name=name):

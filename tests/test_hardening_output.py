@@ -29,7 +29,7 @@ GOOD: ElfOptions = {
     "stack": 6,
     "relro": True,
     "dynamic": {30: 0x8},
-    "names": [b"__stack_chk_fail"],
+    "names": [b"__stack_chk_fail", b"__memcpy_chk"],
 }
 
 
@@ -269,8 +269,12 @@ class Hardening(unittest.TestCase):
                 "rpath": ({"dynamic": {30: 0x8, 15: 1}}, "RPATH or RUNPATH"),
                 "runpath": ({"dynamic": {30: 0x8, 29: 1}}, "RPATH or RUNPATH"),
                 "no-canary": (
-                    {"names": [b"__stack_chk_fail_local"]},
+                    {"names": [b"__stack_chk_fail_local", b"__memcpy_chk"]},
                     "no stack protector",
+                ),
+                "no-fortify": (
+                    {"names": [b"__stack_chk_fail"]},
+                    "no fortified libc call",
                 ),
             }
             for name, (change, cause) in bad.items():

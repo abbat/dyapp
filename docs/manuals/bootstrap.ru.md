@@ -103,8 +103,8 @@ make image    # → образ контейнера dyappd:latest
 `dpkg-buildflags` (`-fstack-protector-strong`, `-D_FORTIFY_SOURCE=2` и другие), так как gcc в
 Debian 12 сам их не добавляет. `tools/scripts/check-hardening.py` проверяет `dyappd` и
 настольный клиент `dyapp`: PIE, неисполняемый стек, полный RELRO (немедленное связывание), нет
-RPATH и RUNPATH, импортирован `__stack_chk_fail`. Запустите его с `--raw` на установленном
-бинарнике, чтобы увидеть профиль.
+RPATH и RUNPATH, импортированы `__stack_chk_fail` и хотя бы один fortified-вызов libc `__*_chk`.
+Запустите его с `--raw` на установленном бинарнике, чтобы увидеть профиль.
 
 ## Установка
 

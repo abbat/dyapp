@@ -5,10 +5,13 @@ Usage: check-hardening.py [--android-apk] <binary>. A desktop ELF must be
 64-bit little-endian and a position-independent executable (ET_DYN with an
 interpreter), its stack is not executable, it has a RELRO segment and binds
 all symbols at start (full
-RELRO), carries no RPATH or RUNPATH, and imports __stack_chk_fail. Rust code
-gets the first four from its toolchain; the canary import shows that the
-bundled C code (AWS-LC, SQLite) was built with Debian's dpkg-buildflags, as
-Debian 12's gcc does not add -fstack-protector-strong by default.
+RELRO), carries no RPATH or RUNPATH, imports __stack_chk_fail and imports at
+least one fortified __*_chk libc call. Rust code gets the first four from its
+toolchain; the canary and fortify imports show that the bundled C code
+(AWS-LC, SQLite) was built with Debian's dpkg-buildflags, as Debian 12's gcc
+does not add -fstack-protector-strong or -D_FORTIFY_SOURCE=2 by default.
+The fortify import check applies to ELF/glibc/bionic; PE and Mach-O retain
+their platform-specific checks.
 
 A PE must be a 64-bit (PE32+) image that keeps its relocations and asks for
 ASLR (DYNAMIC_BASE), 64-bit ASLR (HIGH_ENTROPY_VA) and DEP (NX_COMPAT); the
@@ -23,8 +26,9 @@ and the hardened runtime is a code-signing flag the unsigned ZIP cannot carry.
 
 The Android APK profile requires both core ABIs and checks every packaged JNI
 library as ET_DYN without an interpreter, NX stack, full RELRO, no RPATH or
-text relocations, a canary import, no writable executable load, and 16 KiB
-PT_LOAD alignment. APK ZIP alignment is checked separately with SDK zipalign.
+text relocations, canary and fortified libc imports, no writable executable
+load, and 16 KiB PT_LOAD alignment. APK ZIP alignment is checked separately
+with SDK zipalign.
 """
 
 from collections.abc import Iterable
@@ -199,11 +203,15 @@ def elf_dynamic_problems(
         data[strtab : strtab + tags.get(DT_STRSZ, 0)]
         if strtab is not None
         else b""
-    )
-    if b"__stack_chk_fail" not in names.split(b"\x00"):
+    ).split(b"\x00")
+    if b"__stack_chk_fail" not in names:
         found.append(
             "no stack protector in the C code (__stack_chk_fail not imported)"
         )
+    if not any(
+        name.startswith(b"__") and name.endswith(b"_chk") for name in names
+    ):
+        found.append("no fortified libc call (__*_chk not imported)")
     return found
 
 
@@ -275,14 +283,14 @@ def main(raw: bool = False) -> None:
     if android_apk:
         profile = (
             "Android shared ELF, NX, full RELRO, no RPATH/textrel, "
-            "canary, 16 KiB"
+            "canary, fortify, 16 KiB"
         )
     elif magic[:2] == b"MZ":
         profile = "PE32+, ASLR, high-entropy ASLR, DEP, relocations kept"
     elif magic == b"\xca\xfe\xba\xbe":
         profile = "arm64+x86_64, PIE, NX stack, no RPATH, stack protector"
     else:
-        profile = "PIE, NX, full RELRO, no RPATH, stack protector"
+        profile = "PIE, NX, full RELRO, no RPATH, stack protector, fortify"
     print(f"{binary}: {profile}" if raw else "OK hardening")
 
 

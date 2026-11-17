@@ -102,7 +102,8 @@ it is not an SPDX SBOM and says nothing about whether an advisory's code is reac
 `dpkg-buildflags` (`-fstack-protector-strong`, `-D_FORTIFY_SOURCE=2` and the rest), since Debian
 12's gcc adds neither by itself. `tools/scripts/check-hardening.py` checks `dyappd` and the desktop
 client `dyapp`: a PIE, no executable stack, full RELRO (immediate binding), no RPATH or RUNPATH,
-and an imported `__stack_chk_fail`. Run it with `--raw` on an installed binary to see the profile.
+an imported `__stack_chk_fail` and at least one fortified `__*_chk` libc import. Run it with
+`--raw` on an installed binary to see the profile.
 
 ## Installing
 

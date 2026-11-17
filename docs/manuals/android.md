@@ -18,9 +18,10 @@ After signing, the release job runs
 Both `arm64-v8a` and `x86_64` must contain the core. Every packaged JNI library,
 including dependencies, must be a 64-bit shared ELF of the matching architecture,
 with a non-executable stack, full RELRO, no RPATH/RUNPATH or text relocations,
-a `__stack_chk_fail` canary import from C code, and no writable executable load.
-Every load segment must have at least 16 KiB alignment and matching file/virtual
-page offsets. A canary import does not prove that all Rust functions use canaries.
+a `__stack_chk_fail` canary import and at least one fortified `__*_chk` libc
+import from C code, and no writable executable load. Every load segment must
+have at least 16 KiB alignment and matching file/virtual page offsets. These
+imports do not prove that every Rust or C function is protected.
 
 The same job runs `zipalign -c -P 16 4 SIGNED.apk` from the selected signing
 Build-Tools directory, checking packaging alignment independently of ELF alignment.
