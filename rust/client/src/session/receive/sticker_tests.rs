@@ -151,8 +151,7 @@ fn sticker_receive_is_atomic_matched_replay_safe_and_deletable() {
     matched_and_replay(&mut pair, &body, &seal_key);
     let hlc = conflicts(&mut pair, &seal_key);
     let target = deleted(&mut pair, &body, hlc, &seal_key);
-    let bob_id = pair.bob_id.clone();
-    drop(pair);
+    let Invite { bob_id, .. } = pair;
     let reopened = Session::open(Store::open(&path, &bob_id).unwrap(), &seal_key).unwrap();
     assert!(reopened
         .store

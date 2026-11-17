@@ -235,7 +235,7 @@ fn cache_keys(
             continue;
         }
         match cache.get(&peer_id) {
-            Some(held) if held.profile.version >= hit.version => cached.push(held),
+            Some(held) if held.profile.version >= hit.version => cached.push(held.clone()),
             _ => keys.push(hit.key),
         }
     }

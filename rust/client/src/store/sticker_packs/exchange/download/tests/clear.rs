@@ -7,7 +7,7 @@ fn pending(store: &Store, peer: &str, pack_id: &[u8; 32]) -> Option<PendingPack>
 #[test]
 fn full_clear_releases_pending_quota_and_late_answers_cannot_restart_intent() {
     let (mut store, owner, path, peer) = database();
-    let (pending, answer) = request(&mut store, &peer, 1);
+    let (pending_pack, answer) = request(&mut store, &peer, 1);
     for id in 2..=63 {
         request(&mut store, &peer, id);
     }
@@ -25,8 +25,8 @@ fn full_clear_releases_pending_quota_and_late_answers_cannot_restart_intent() {
     let job = PackDownloadJob {
         peer: peer.clone(),
         pack_id: answer.pack_id,
-        sticker_hash: pending.sticker_hash,
-        token: pending.token,
+        sticker_hash: pending_pack.sticker_hash,
+        token: pending_pack.token,
     };
     store.clear_chat_pair(&peer).unwrap();
     assert!(pending(&store, &peer, &answer.pack_id).is_none());

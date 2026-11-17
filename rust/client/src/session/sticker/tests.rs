@@ -211,10 +211,9 @@ fn sticker_sends_have_fresh_ids_and_durable_media_delivery() {
     before_open(&mut pair, &template, &seal);
     let (first, second, second_writes) = fresh_ids(&mut pair, &template, &seal);
     let target = delete(&mut pair, first, &seal);
-    let bob_id = pair.bob_id.clone();
     let group_id = pair.group.id().to_vec();
     let alice_device = pair.alice.device_key().unwrap();
-    drop(pair);
+    let Invite { bob_id, .. } = pair;
     let mut session = Session::open(Store::open(&path, &bob_id).unwrap(), &seal).unwrap();
     after_reopen(&mut session, &peer, second, &second_writes, &target);
     closed(

@@ -281,7 +281,9 @@ impl Session {
                     Err(crate::store::Error::ClockSkew(_)) => {
                         *event = Event::Refused("interaction from the future".into());
                     }
-                    applied => applied?,
+                    applied => {
+                        applied?;
+                    }
                 }
             }
         }
@@ -301,7 +303,9 @@ impl Session {
                     Err(crate::store::Error::ClockSkew(_)) => {
                         *event = Event::Refused("presence from the future".into());
                     }
-                    applied => applied?,
+                    applied => {
+                        applied?;
+                    }
                 }
             }
         }
@@ -325,7 +329,9 @@ impl Session {
                     Err(crate::store::Error::ClockSkew(_)) => {
                         *event = Event::Refused("change from the future".into());
                     }
-                    applied => applied?,
+                    applied => {
+                        applied?;
+                    }
                 }
             }
         }
@@ -333,7 +339,7 @@ impl Session {
     }
 
     // Only the other owner of a one-to-one chat marks own texts read; a replay changes nothing.
-    fn apply_read_event(&self, event: &Event, blocked: bool) -> Result<(), Error> {
+    fn apply_read_event(&mut self, event: &Event, blocked: bool) -> Result<(), Error> {
         if let Event::Message {
             group,
             sender,

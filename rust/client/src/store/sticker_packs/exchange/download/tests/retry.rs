@@ -5,7 +5,7 @@ fn fresh(
     sealed: &[u8],
     writes: &[crate::PreparedEnvelope],
     job: &PackDownloadJob,
-) -> Result<PackDownloadJob, Error> {
+) -> Result<PendingPack, Error> {
     store.stage_fresh_sticker_pack_request(sealed, writes, &[9], job)
 }
 

@@ -125,11 +125,11 @@ impl CheckState {
                 self.rows.push(Some(Row::Invalid(error)));
                 return;
             }
-            Ok(addresses) if seen.contains(&addresses) => {
+            Ok(addresses) if seen.contains(&addresses.to_vec()) => {
                 self.rows.push(Some(Row::Duplicate));
                 return;
             }
-            Ok(addresses) => addresses,
+            Ok(addresses) => addresses.to_vec(),
         };
         seen.push(addresses.clone());
         self.rows.push(None);
