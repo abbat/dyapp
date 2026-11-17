@@ -118,6 +118,47 @@ struct Row {
     labels: Vec<Vec<u8>>,
 }
 
+fn evict_for(
+    tx: &rusqlite::Transaction<'_>,
+    envelope: &NewEnvelope<'_>,
+    class: i64,
+    size: i64,
+    over: i64,
+    message: bool,
+    pooled: bool,
+) -> Result<Option<Put>> {
+    if message && !pooled {
+        return Ok(Some(Put::Full));
+    }
+    let incoming = Row {
+        seq: INCOMING,
+        size,
+        labels: Vec::new(),
+    };
+    let mut tokenless = rows(tx, TOKENLESS_ROWS, envelope.mailbox, class)?;
+    let mut tokened = Vec::new();
+    if envelope.signal {
+        tokened = rows(tx, TOKENED_ROWS, envelope.mailbox, class)?;
+    }
+    match envelope.token_key {
+        None => tokenless.push(Row {
+            labels: vec![envelope.via.to_vec(), envelope.source_group.to_vec()],
+            ..incoming
+        }),
+        Some(key) => tokened.push(Row {
+            labels: vec![key.to_vec()],
+            ..incoming
+        }),
+    }
+    let Some(victims) = plan(vec![tokenless, tokened], over) else {
+        return Ok(Some(Put::Dropped));
+    };
+    for seq in victims {
+        tx.execute(DELETE, [seq]).map_err(storage_error)?;
+    }
+    Ok(None)
+}
+
 impl BootstrapStore {
     /// Stores a signed envelope once per (mailbox, id): a repeated put is a no-op and returns
     /// `Stored`, whatever its class.
@@ -166,34 +207,8 @@ impl BootstrapStore {
         let size = i64::try_from(record.len()).map_err(storage_error)?;
         let over = used + size - i64::try_from(limit).unwrap_or(i64::MAX);
         if over > 0 {
-            if message && !pooled {
-                return Ok(Put::Full);
-            }
-            let incoming = Row {
-                seq: INCOMING,
-                size,
-                labels: Vec::new(),
-            };
-            let mut tokenless = rows(&tx, TOKENLESS_ROWS, envelope.mailbox, class)?;
-            let mut tokened = Vec::new();
-            if envelope.signal {
-                tokened = rows(&tx, TOKENED_ROWS, envelope.mailbox, class)?;
-            }
-            match envelope.token_key {
-                None => tokenless.push(Row {
-                    labels: vec![envelope.via.to_vec(), envelope.source_group.to_vec()],
-                    ..incoming
-                }),
-                Some(key) => tokened.push(Row {
-                    labels: vec![key.to_vec()],
-                    ..incoming
-                }),
-            }
-            let Some(victims) = plan(vec![tokenless, tokened], over) else {
-                return Ok(Put::Dropped);
-            };
-            for seq in victims {
-                tx.execute(DELETE, [seq]).map_err(storage_error)?;
+            if let Some(put) = evict_for(&tx, envelope, class, size, over, message, pooled)? {
+                return Ok(put);
             }
         }
         tx.execute(

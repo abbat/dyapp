@@ -139,6 +139,18 @@ impl Service {
         Search::Get(keys.into_iter().filter(|k| !self.listed(k)).collect())
     }
 
+    fn search_units(&self, peer: &Peer, request: Option<&search_request::Request>) -> u32 {
+        match request {
+            Some(
+                search_request::Request::Publish(_)
+                | search_request::Request::Withdraw(_)
+                | search_request::Request::Heartbeat(_),
+            ) => 5,
+            Some(search_request::Request::Get(_)) if self.is_search_peer(peer) => 0,
+            _ => 1,
+        }
+    }
+
     /// Errors as in [`Service::profile`].
     ///
     /// # Errors
@@ -151,15 +163,7 @@ impl Service {
             return reply(Status::Unsupported);
         }
         // A get is also charged by its reply size in `charge_get`; search nodes only there.
-        let units = match &request.request {
-            Some(
-                search_request::Request::Publish(_)
-                | search_request::Request::Withdraw(_)
-                | search_request::Request::Heartbeat(_),
-            ) => 5,
-            Some(search_request::Request::Get(_)) if self.is_search_peer(peer) => 0,
-            _ => 1,
-        };
+        let units = self.search_units(peer, request.request.as_ref());
         if self.shed(request.encoded_len(), SHED_MEDIA)
             || (units > 0 && !self.admit_units(peer, units))
         {
