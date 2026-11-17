@@ -70,6 +70,38 @@ fn fallback_survives_restart_read_and_clear_without_resurrection() {
     assert!(store.current_chat_stickers(&peer).unwrap().is_empty());
 }
 
+fn assert_verified_context_cannot_be_reused(store: &mut Store, owner: &Identity, peer: &str) {
+    for context in [
+        VerifiedChatSender {
+            group: &[9],
+            author: "stranger",
+            device: &[8; 32],
+        },
+        VerifiedChatSender {
+            group: &[10],
+            author: peer,
+            device: &[8; 32],
+        },
+        VerifiedChatSender {
+            group: &[9],
+            author: peer,
+            device: &[8; 31],
+        },
+        VerifiedChatSender {
+            group: &[],
+            author: peer,
+            device: &[8; 32],
+        },
+    ] {
+        assert!(store
+            .record_chat_sticker(context, &sticker(2, false), true)
+            .is_err());
+    }
+    assert!(store
+        .record_chat_sticker(sender(&owner.peer_id()), &sticker(2, false), true)
+        .is_err());
+}
+
 #[test]
 fn media_ids_and_verified_context_cannot_be_reused() {
     let owner = Identity::generate();
@@ -98,35 +130,7 @@ fn media_ids_and_verified_context_cannot_be_reused() {
             b"text"
         )
         .is_err());
-    for context in [
-        VerifiedChatSender {
-            group: &[9],
-            author: "stranger",
-            device: &[8; 32],
-        },
-        VerifiedChatSender {
-            group: &[10],
-            author: &peer,
-            device: &[8; 32],
-        },
-        VerifiedChatSender {
-            group: &[9],
-            author: &peer,
-            device: &[8; 31],
-        },
-        VerifiedChatSender {
-            group: &[],
-            author: &peer,
-            device: &[8; 32],
-        },
-    ] {
-        assert!(store
-            .record_chat_sticker(context, &sticker(2, false), true)
-            .is_err());
-    }
-    assert!(store
-        .record_chat_sticker(sender(&owner.peer_id()), &sticker(2, false), true)
-        .is_err());
+    assert_verified_context_cannot_be_reused(&mut store, &owner, &peer);
     let mut changed = message.clone();
     changed.pack_name = "Other".into();
     assert!(store
