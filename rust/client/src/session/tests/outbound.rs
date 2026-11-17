@@ -1,6 +1,18 @@
 use super::*;
 use crate::store::tests::temp_db_path;
 
+async fn apply_peer_change(
+    session: &mut Session,
+    peer: &str,
+    change: crate::chat::PeerChange,
+    seal: &[u8; 32],
+) {
+    session
+        .change_peer(&mut [], peer, change, seal)
+        .await
+        .unwrap();
+}
+
 #[tokio::test]
 async fn private_changes_without_own_devices_create_no_peer_message() {
     let (owner, device, own_profile) = person();
@@ -19,38 +31,32 @@ async fn private_changes_without_own_devices_create_no_peer_message() {
         .unwrap();
     let before = store.conversation(&peer).unwrap();
     let mut session = Session::open(store, &seal).unwrap();
-    session
-        .change_peer(
-            &mut [],
-            &peer,
-            crate::chat::PeerChange::Favorite(true),
-            &seal,
-        )
-        .await
-        .unwrap();
+    apply_peer_change(
+        &mut session,
+        &peer,
+        crate::chat::PeerChange::Favorite(true),
+        &seal,
+    )
+    .await;
     assert!(session.store().favorite(&peer).unwrap());
     assert!(session.store().due_outbound(0).unwrap().is_empty());
     assert_eq!(session.store().conversation(&peer).unwrap(), before);
-    session
-        .change_peer(
-            &mut [],
-            &peer,
-            crate::chat::PeerChange::Favorite(false),
-            &seal,
-        )
-        .await
-        .unwrap();
+    apply_peer_change(
+        &mut session,
+        &peer,
+        crate::chat::PeerChange::Favorite(false),
+        &seal,
+    )
+    .await;
     assert!(!session.store().favorite(&peer).unwrap());
     for note in ["Private\nNote", ""] {
-        session
-            .change_peer(
-                &mut [],
-                &peer,
-                crate::chat::PeerChange::Note(note.into()),
-                &seal,
-            )
-            .await
-            .unwrap();
+        apply_peer_change(
+            &mut session,
+            &peer,
+            crate::chat::PeerChange::Note(note.into()),
+            &seal,
+        )
+        .await;
         assert_eq!(session.store().contact_note(&peer).unwrap(), note);
         assert!(session.store().due_outbound(0).unwrap().is_empty());
         assert_eq!(session.store().conversation(&peer).unwrap(), before);
