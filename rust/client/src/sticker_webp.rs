@@ -16,7 +16,7 @@ const MAX_DURATION_MS: u32 = 3_000;
 
 fn little(bytes: &[u8]) -> u32 {
     bytes.iter().enumerate().fold(0, |value, (at, byte)| {
-        value | (u32::from(*byte) << (at * 8))
+        value | (u32::from(*byte) << at.saturating_mul(8))
     })
 }
 
@@ -28,7 +28,7 @@ fn dimensions(width: u32, height: u32) -> Result<(), &'static str> {
 }
 
 fn frame_chunks(mut bytes: &[u8], expected: (u32, u32)) -> Result<(), &'static str> {
-    let mut images = 0;
+    let mut images = 0u32;
     let mut alpha = false;
     while !bytes.is_empty() {
         let header = bytes.get(..8).ok_or("truncated frame chunk")?;
@@ -41,12 +41,15 @@ fn frame_chunks(mut bytes: &[u8], expected: (u32, u32)) -> Result<(), &'static s
                     return Err("invalid frame VP8L");
                 }
                 let bits = little(&data[1..5]);
-                let size = ((bits & 0x3fff) + 1, ((bits >> 14) & 0x3fff) + 1);
+                let size = (
+                    (bits & 0x3fff).saturating_add(1),
+                    ((bits >> 14) & 0x3fff).saturating_add(1),
+                );
                 dimensions(size.0, size.1)?;
                 if size != expected || bits >> 29 != 0 || alpha {
                     return Err("frame VP8L header mismatch");
                 }
-                images += 1;
+                images = images.saturating_add(1);
             }
             b"VP8 " => {
                 if data.len() < 10 || &data[3..6] != b"\x9d\x01\x2a" {
@@ -57,7 +60,7 @@ fn frame_chunks(mut bytes: &[u8], expected: (u32, u32)) -> Result<(), &'static s
                 if size != expected {
                     return Err("frame VP8 header mismatch");
                 }
-                images += 1;
+                images = images.saturating_add(1);
             }
             b"ALPH" if images == 0 && !alpha => alpha = true,
             _ => return Err("unsupported animation frame chunk"),
@@ -95,7 +98,10 @@ impl HeaderState {
         if data[0] & 0xc1 != 0 || data[1..4] != [0, 0, 0] {
             return Err("invalid VP8X reserved bits");
         }
-        let size = (little(&data[4..7]) + 1, little(&data[7..10]) + 1);
+        let size = (
+            little(&data[4..7]).saturating_add(1),
+            little(&data[7..10]).saturating_add(1),
+        );
         dimensions(size.0, size.1)?;
         self.canvas = Some(size);
         self.animated_header = data[0] & 2 != 0;
@@ -120,7 +126,10 @@ impl HeaderState {
             return Err("invalid VP8L header");
         }
         let bits = little(&data[1..5]);
-        let size = ((bits & 0x3fff) + 1, ((bits >> 14) & 0x3fff) + 1);
+        let size = (
+            (bits & 0x3fff).saturating_add(1),
+            ((bits >> 14) & 0x3fff).saturating_add(1),
+        );
         dimensions(size.0, size.1)?;
         if bits >> 29 != 0 || self.canvas.is_some_and(|canvas| canvas != size) {
             return Err("static VP8L header mismatch");
@@ -141,16 +150,19 @@ impl HeaderState {
         if data.len() < 16 || !self.animation {
             return Err("invalid animation frame");
         }
-        let size = (little(&data[6..9]) + 1, little(&data[9..12]) + 1);
+        let size = (
+            little(&data[6..9]).saturating_add(1),
+            little(&data[9..12]).saturating_add(1),
+        );
         dimensions(size.0, size.1)?;
         let (width, height) = self.canvas.ok_or("frame has no canvas")?;
-        let right = little(&data[..3]) * 2 + size.0;
-        let bottom = little(&data[3..6]) * 2 + size.1;
+        let right = little(&data[..3]).saturating_mul(2).saturating_add(size.0);
+        let bottom = little(&data[3..6]).saturating_mul(2).saturating_add(size.1);
         if right > width || bottom > height || data[15] & 0xfc != 0 {
             return Err("frame exceeds canvas or has reserved flags");
         }
         frame_chunks(&data[16..], size)?;
-        self.frames += 1;
+        self.frames = self.frames.saturating_add(1);
         self.duration = self
             .duration
             .checked_add(little(&data[12..15]))
@@ -178,17 +190,17 @@ pub fn check_header(bytes: &[u8]) -> Result<(), &'static str> {
     {
         return Err("invalid or oversized WebP container");
     }
-    if u64::from(little(&bytes[4..8])) + 8 != bytes.len() as u64 {
+    if u64::from(little(&bytes[4..8])).saturating_add(8) != bytes.len() as u64 {
         return Err("WebP RIFF size mismatch");
     }
     let mut offset = 12;
     let mut state = HeaderState::default();
     while offset < bytes.len() {
         let header = bytes
-            .get(offset..offset + 8)
+            .get(offset..offset.saturating_add(8))
             .ok_or("truncated WebP chunk")?;
         let size = little(&header[4..8]) as usize;
-        let start = offset + 8;
+        let start = offset.saturating_add(8);
         let end = start.checked_add(size).ok_or("WebP chunk overflow")?;
         let data = bytes.get(start..end).ok_or("truncated WebP payload")?;
         let kind = &header[..4];

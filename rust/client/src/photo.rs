@@ -70,14 +70,21 @@ fn flatten(rgba: &[u8], width: u32, height: u32) -> Result<RgbImage, PhotoError>
         return Err(failed("pixels do not match width and height"));
     }
     Ok(RgbImage::from_fn(width, height, |x, y| {
-        let at = (y as usize * width as usize + x as usize) * 4;
-        let alpha = u32::from(rgba[at + 3]);
+        let at = (y as usize)
+            .saturating_mul(width as usize)
+            .saturating_add(x as usize)
+            .saturating_mul(4);
+        let alpha = u32::from(rgba[at.saturating_add(3)]);
         #[expect(
             clippy::cast_possible_truncation,
             reason = "Rounded blending of u8 colors stays within 0..=255"
         )]
         Rgb(std::array::from_fn(|i| {
-            ((u32::from(rgba[at + i]) * alpha + 255 * (255 - alpha) + 127) / 255) as u8
+            (u32::from(rgba[at.saturating_add(i)])
+                .saturating_mul(alpha)
+                .saturating_add(255u32.saturating_mul(255u32.saturating_sub(alpha)))
+                .saturating_add(127)
+                / 255) as u8
         }))
     }))
 }
@@ -113,7 +120,12 @@ fn fit(width: u32, height: u32, side: u32) -> (u32, u32) {
         reason = "v <= long and side < long, so dimensions stay in 1..=side"
     )]
     let scale = |v: u32| {
-        ((u64::from(v) * u64::from(side) + u64::from(long) / 2) / u64::from(long)).max(1) as u32
+        u64::from(v)
+            .saturating_mul(u64::from(side))
+            .saturating_add(u64::from(long) / 2)
+            .checked_div(u64::from(long))
+            .unwrap_or(0)
+            .max(1) as u32
     };
     (scale(width), scale(height))
 }
@@ -144,11 +156,11 @@ pub fn frame_size(bytes: &[u8]) -> Result<(u32, u32), PhotoError> {
     if !bytes.starts_with(&[0xFF, 0xD8]) || !bytes.ends_with(&[0xFF, 0xD9]) {
         return Err(failed("not a whole JPEG"));
     }
-    let mut at = 2;
+    let mut at = 2usize;
     let mut size = None;
     loop {
         let segment = bytes
-            .get(at..at + 4)
+            .get(at..at.saturating_add(4))
             .ok_or_else(|| failed("truncated JPEG header"))?;
         let [0xFF, marker, len_hi, len_lo] = *segment else {
             return Err(failed("bad JPEG marker"));
@@ -157,7 +169,7 @@ pub fn frame_size(bytes: &[u8]) -> Result<(u32, u32), PhotoError> {
             0xDA => break,
             0xC0..=0xCF if !matches!(marker, 0xC4 | 0xC8 | 0xCC) => {
                 let sof = bytes
-                    .get(at + 5..at + 9)
+                    .get(at.saturating_add(5)..at.saturating_add(9))
                     .ok_or_else(|| failed("truncated SOF"))?;
                 let height = u32::from(u16::from_be_bytes([sof[0], sof[1]]));
                 let width = u32::from(u16::from_be_bytes([sof[2], sof[3]]));
@@ -167,7 +179,9 @@ pub fn frame_size(bytes: &[u8]) -> Result<(u32, u32), PhotoError> {
             }
             _ => {}
         }
-        at += 2 + usize::from(u16::from_be_bytes([len_hi, len_lo]));
+        at = at
+            .saturating_add(2)
+            .saturating_add(usize::from(u16::from_be_bytes([len_hi, len_lo])));
     }
     size.ok_or_else(|| failed("no SOF before the scan"))
 }
@@ -182,7 +196,9 @@ fn decode(bytes: &[u8], width: u32, height: u32) -> Result<Rgba, PhotoError> {
     if u32::from(info.width) != width || u32::from(info.height) != height {
         return Err(failed("JPEG frame changed during decoding"));
     }
-    let pixels = usize::from(info.width) * usize::from(info.height);
+    let pixels = usize::from(info.width)
+        .checked_mul(usize::from(info.height))
+        .ok_or_else(|| failed("preview dimensions overflow"))?;
     Ok(Rgba {
         width: u32::from(info.width),
         height: u32::from(info.height),
@@ -191,9 +207,17 @@ fn decode(bytes: &[u8], width: u32, height: u32) -> Result<Rgba, PhotoError> {
 }
 
 fn rgba_pixels(decoded: &[u8], format: PixelFormat, pixels: usize) -> Result<Vec<u8>, PhotoError> {
-    let mut rgba = Vec::with_capacity(pixels * 4);
+    let capacity = pixels
+        .checked_mul(4)
+        .ok_or_else(|| failed("preview buffer size overflow"))?;
+    let mut rgba = Vec::with_capacity(capacity);
     match format {
-        PixelFormat::RGB24 if decoded.len() == pixels * 3 => {
+        PixelFormat::RGB24
+            if decoded.len()
+                == pixels
+                    .checked_mul(3)
+                    .ok_or_else(|| failed("preview buffer size overflow"))? =>
+        {
             for rgb in decoded.as_chunks::<3>().0 {
                 rgba.extend_from_slice(&[rgb[0], rgb[1], rgb[2], 255]);
             }
