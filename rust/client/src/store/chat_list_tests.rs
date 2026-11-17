@@ -135,60 +135,9 @@ fn chats_rows_keep_state_latest_time_and_unread_across_clear_and_restart() {
     deliver(&mut store, 2, &a1, &own, &text(2, None));
     deliver(&mut store, 3, &b1, &b, &text(3, Some(300)));
     deliver(&mut store, 4, &a2, &a, &text(4, Some(200)));
-    let rows = store.chat_rows().unwrap();
-    assert_eq!(rows.len(), 2);
-    assert_eq!(rows[0].peer_id, b);
-    assert_eq!(rows[0].state, Conversation::RequestReceived([3; 16]));
-    assert_eq!(rows[0].unread_count, 1);
-    assert_eq!(
-        rows[0].last_message.as_ref().unwrap().original_hlc,
-        Some(Timestamp::new(300, 0))
-    );
-    assert_eq!(rows[1].peer_id, a);
-    assert_eq!(rows[1].state, Conversation::Open);
-    assert_eq!(rows[1].unread_count, 2);
-    assert_eq!(rows[1].last_message.as_ref().unwrap().key.id, [4; 16]);
-
-    let edit = Body::Edit {
-        target: [4; 16],
-        operation: [7; 16],
-        hlc: Timestamp::new(500, 0).into(),
-        text: b"edited".to_vec(),
-    };
-    let delete = Body::Delete {
-        target: [3; 16],
-        operation: [8; 16],
-        hlc: Timestamp::new(600, 0).into(),
-    };
-    deliver(&mut store, 5, &a2, &a, &edit);
-    deliver(&mut store, 6, &b1, &b, &delete);
-    let rows = store.chat_rows().unwrap();
-    assert!(rows[0].last_message.as_ref().unwrap().current.deleted);
-    assert_eq!(
-        rows[0].last_message.as_ref().unwrap().original_hlc,
-        Some(Timestamp::new(300, 0))
-    );
-    assert_eq!(
-        rows[1]
-            .last_message
-            .as_ref()
-            .unwrap()
-            .current
-            .text
-            .as_deref(),
-        Some(&b"edited"[..])
-    );
-    assert_eq!(
-        rows[1].last_message.as_ref().unwrap().original_hlc,
-        Some(Timestamp::new(200, 0))
-    );
-
-    assert_eq!(store.mark_chat_read(&a).unwrap(), 2);
-    deliver(&mut store, 7, &a2, &a, &text(9, Some(100)));
-    let rows = store.chat_rows().unwrap();
-    assert_eq!(rows[1].unread_count, 1);
-    assert_eq!(rows[1].last_message.as_ref().unwrap().key.id, [4; 16]);
-    assert_eq!(store.clear_chat_pair(&b).unwrap(), 1);
+    assert_initial_chat_rows(&store, &a, &b);
+    apply_chat_row_operations(&mut store, &a, &b, &a2, &b1);
+    assert_chat_row_read_and_clear(&mut store, &a, &b, &a2);
     drop(store);
 
     let store = Store::open(&path, &owner).unwrap();
@@ -210,4 +159,65 @@ fn chats_rows_keep_state_latest_time_and_unread_across_clear_and_restart() {
     ));
     let separate = Store::open(&super::tests::temp_db_path(), &Identity::generate()).unwrap();
     assert!(separate.chat_rows().unwrap().is_empty());
+}
+
+fn assert_initial_chat_rows(store: &Store, a: &str, b: &str) {
+    let rows = store.chat_rows().unwrap();
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[0].peer_id, b);
+    assert_eq!(rows[0].state, Conversation::RequestReceived([3; 16]));
+    assert_eq!(rows[0].unread_count, 1);
+    assert_eq!(
+        rows[0].last_message.as_ref().unwrap().original_hlc,
+        Some(Timestamp::new(300, 0))
+    );
+    assert_eq!(rows[1].peer_id, a);
+    assert_eq!(rows[1].state, Conversation::Open);
+    assert_eq!(rows[1].unread_count, 2);
+    assert_eq!(rows[1].last_message.as_ref().unwrap().key.id, [4; 16]);
+}
+
+fn apply_chat_row_operations(store: &mut Store, a: &str, b: &str, a2: &[u8], b1: &[u8]) {
+    let edit = Body::Edit {
+        target: [4; 16],
+        operation: [7; 16],
+        hlc: Timestamp::new(500, 0).into(),
+        text: b"edited".to_vec(),
+    };
+    let delete = Body::Delete {
+        target: [3; 16],
+        operation: [8; 16],
+        hlc: Timestamp::new(600, 0).into(),
+    };
+    deliver(store, 5, a2, a, &edit);
+    deliver(store, 6, b1, b, &delete);
+    let rows = store.chat_rows().unwrap();
+    assert!(rows[0].last_message.as_ref().unwrap().current.deleted);
+    assert_eq!(
+        rows[0].last_message.as_ref().unwrap().original_hlc,
+        Some(Timestamp::new(300, 0))
+    );
+    assert_eq!(
+        rows[1]
+            .last_message
+            .as_ref()
+            .unwrap()
+            .current
+            .text
+            .as_deref(),
+        Some(&b"edited"[..])
+    );
+    assert_eq!(
+        rows[1].last_message.as_ref().unwrap().original_hlc,
+        Some(Timestamp::new(200, 0))
+    );
+}
+
+fn assert_chat_row_read_and_clear(store: &mut Store, a: &str, b: &str, a2: &[u8]) {
+    assert_eq!(store.mark_chat_read(a).unwrap(), 2);
+    deliver(store, 7, a2, a, &text(9, Some(100)));
+    let rows = store.chat_rows().unwrap();
+    assert_eq!(rows[1].unread_count, 1);
+    assert_eq!(rows[1].last_message.as_ref().unwrap().key.id, [4; 16]);
+    assert_eq!(store.clear_chat_pair(b).unwrap(), 1);
 }
