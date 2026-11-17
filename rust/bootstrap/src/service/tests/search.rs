@@ -245,6 +245,12 @@ fn search_puzzle_under_load() {
     ));
 }
 
+fn publish_request(record: SignedRecord) -> SearchRequest {
+    SearchRequest {
+        request: Some(search_request::Request::Publish(record)),
+    }
+}
+
 #[test]
 fn search_network_accepts_records_above_local_send_limit_and_bounds_the_network() {
     let mut s = search_service();
@@ -256,30 +262,7 @@ fn search_network_accepts_records_above_local_send_limit_and_bounds_the_network(
         ..Default::default()
     };
     let record = padded_profile(&owner, &profile, 8192);
-    let response = search(&s, search_request::Request::Publish(record.clone()));
-    assert_eq!(
-        (
-            response.status,
-            response.max_bytes,
-            response.required_pow_bits
-        ),
-        (i32::from(Status::TooLarge), 4096, 0)
-    );
-    let request = SearchRequest {
-        request: Some(search_request::Request::Publish(record.clone())),
-    };
-    let response = s.search_pow_done(&peer("key"), &request, true).unwrap();
-    assert_eq!(
-        (response.status, response.max_bytes),
-        (i32::from(Status::TooLarge), 4096)
-    );
-    let wrap = |record| {
-        SearchRequest {
-            request: Some(search_request::Request::Publish(record)),
-        }
-        .encode_to_vec()
-    };
-    assert_eq!(gossip(&s, &wrap(record)), Verdict::Accept);
+    check_large_profile_publish(&s, &record);
     let newer = padded_profile(
         &owner,
         &Profile {
@@ -295,12 +278,38 @@ fn search_network_accepts_records_above_local_send_limit_and_bounds_the_network(
     };
     let over = padded_profile(&owner, &profile, SEARCH_ACCEPT_BYTES);
     assert!(over.encoded_len() > SEARCH_ACCEPT_BYTES);
-    assert_eq!(gossip(&s, &wrap(over.clone())), Verdict::Ignore);
+    assert_eq!(
+        gossip(&s, &publish_request(over.clone()).encode_to_vec()),
+        Verdict::Ignore
+    );
     assert_eq!(s.search_apply(&over).unwrap(), Caught::Dropped);
     let overhead = over.encoded_len() - over.payload.len();
     let exact = padded_profile(&owner, &profile, SEARCH_ACCEPT_BYTES - overhead);
     assert_eq!(exact.encoded_len(), SEARCH_ACCEPT_BYTES);
     assert_eq!(s.search_apply(&exact).unwrap(), Caught::Stored);
+}
+
+fn check_large_profile_publish(s: &Service, record: &SignedRecord) {
+    let response = search(s, search_request::Request::Publish(record.clone()));
+    assert_eq!(
+        (
+            response.status,
+            response.max_bytes,
+            response.required_pow_bits
+        ),
+        (i32::from(Status::TooLarge), 4096, 0)
+    );
+    let response = s
+        .search_pow_done(&peer("key"), &publish_request(record.clone()), true)
+        .unwrap();
+    assert_eq!(
+        (response.status, response.max_bytes),
+        (i32::from(Status::TooLarge), 4096)
+    );
+    assert_eq!(
+        gossip(s, &publish_request(record.clone()).encode_to_vec()),
+        Verdict::Accept
+    );
 }
 
 #[test]
