@@ -111,6 +111,73 @@ fn check_current_and_forged_heartbeats(s: &Service, search: &Service, owner: &Id
     );
 }
 
+fn send_media(service: &Service, from: &Peer, request: media_request::Request) -> MediaResponse {
+    service
+        .media(
+            from,
+            MediaRequest {
+                request: Some(request),
+            },
+        )
+        .unwrap()
+}
+
+fn media_authorization(
+    owner: &Identity,
+    hash: &[u8],
+    keep: bool,
+    time: u64,
+) -> proto::media_replica_put::Authorization {
+    use proto::media_replica_put::Authorization;
+    if keep {
+        Authorization::Keep(
+            owner.sign(
+                Domain::MediaKeep,
+                proto::MediaKeep {
+                    version: 1,
+                    hashes: vec![hash.to_vec()],
+                    time,
+                }
+                .encode_to_vec(),
+            ),
+        )
+    } else {
+        Authorization::Attach(
+            owner.sign(
+                Domain::MediaAttach,
+                proto::MediaAttach {
+                    release: dyapp_identity::sha256(b"clock-release").to_vec(),
+                    hashes: vec![hash.to_vec()],
+                    created: time,
+                }
+                .encode_to_vec(),
+            ),
+        )
+    }
+}
+
+fn assert_media_time_response(
+    service: &Service,
+    from: &Peer,
+    request: media_request::Request,
+    keep: bool,
+    time: u64,
+    path: usize,
+) {
+    let before = chrono::Utc::now().timestamp().unsigned_abs();
+    let response = send_media(service, from, request);
+    if !keep && time == 0 && path == 0 {
+        // Direct attach has no past-freshness gate; expiry is cleaned up later.
+        assert_eq!(
+            (response.status, response.server_time),
+            (i32::from(Status::Ok), 0)
+        );
+    } else {
+        assert_eq!(response.status, i32::from(Status::Invalid));
+        assert_server_clock(response.server_time, before);
+    }
+}
+
 #[test]
 fn media_time_hints_cover_direct_replica_and_shard_authorizations() {
     use proto::media_replica_put::Authorization;
@@ -129,31 +196,7 @@ fn media_time_hints_cover_direct_replica_and_shard_authorizations() {
         (false, now + 3600),
         (false, u64::MAX),
     ] {
-        let authorization = if keep {
-            Authorization::Keep(
-                owner.sign(
-                    Domain::MediaKeep,
-                    proto::MediaKeep {
-                        version: 1,
-                        hashes: vec![hash.clone()],
-                        time,
-                    }
-                    .encode_to_vec(),
-                ),
-            )
-        } else {
-            Authorization::Attach(
-                owner.sign(
-                    Domain::MediaAttach,
-                    proto::MediaAttach {
-                        release: dyapp_identity::sha256(b"clock-release").to_vec(),
-                        hashes: vec![hash.clone()],
-                        created: time,
-                    }
-                    .encode_to_vec(),
-                ),
-            )
-        };
+        let authorization = media_authorization(&owner, &hash, keep, time);
         let direct = match &authorization {
             Authorization::Keep(record) => media_request::Request::Keep(record.clone()),
             Authorization::Attach(record) => media_request::Request::Attach(record.clone()),
@@ -180,25 +223,7 @@ fn media_time_hints_cover_direct_replica_and_shard_authorizations() {
         .into_iter()
         .enumerate()
         {
-            let before = chrono::Utc::now().timestamp().unsigned_abs();
-            let response = s
-                .media(
-                    &from,
-                    MediaRequest {
-                        request: Some(request),
-                    },
-                )
-                .unwrap();
-            if !keep && time == 0 && path == 0 {
-                // Direct attach has no past-freshness gate; expiry is cleaned up later.
-                assert_eq!(
-                    (response.status, response.server_time),
-                    (i32::from(Status::Ok), 0)
-                );
-            } else {
-                assert_eq!(response.status, i32::from(Status::Invalid));
-                assert_server_clock(response.server_time, before);
-            }
+            assert_media_time_response(&s, &from, request, keep, time, path);
         }
     }
 }
@@ -228,52 +253,40 @@ fn media_non_clock_errors_and_old_replica_keeps_preserve_existing_rules() {
         (response.status, response.server_time),
         (i32::from(Status::Ok), 0)
     );
-    let response = s
-        .media(
-            &from,
-            MediaRequest {
-                request: Some(media_request::Request::Keep(record)),
-            },
-        )
-        .unwrap();
+    let response = send_media(&s, &from, media_request::Request::Keep(record));
     assert_eq!(response.status, i32::from(Status::Invalid));
     assert_server_clock(response.server_time, now);
     keep.version = 0;
     keep.time = u64::MAX;
     let record = owner.sign(Domain::MediaKeep, keep.encode_to_vec());
-    let response = s
-        .media(
-            &from,
-            MediaRequest {
-                request: Some(media_request::Request::Keep(record.clone())),
-            },
-        )
-        .unwrap();
+    let response = send_media(&s, &from, media_request::Request::Keep(record.clone()));
     assert_eq!(
         (response.status, response.server_time),
         (i32::from(Status::Invalid), 0)
     );
+    check_malformed_and_forged_keep(&s, &from, replica, record);
+}
+
+fn check_malformed_and_forged_keep(
+    service: &Service,
+    from: &Peer,
+    replica: proto::MediaReplicaPut,
+    record: SignedRecord,
+) {
     let malformed = proto::MediaReplicaPut {
         authorization: Some(proto::media_replica_put::Authorization::Keep(
             record.clone(),
         )),
         ..replica
     };
-    let response = s.store_media(&malformed).unwrap();
+    let response = service.store_media(&malformed).unwrap();
     assert_eq!(
         (response.status, response.server_time),
         (i32::from(Status::Invalid), 0)
     );
     let mut forged = record;
     forged.payload.push(0);
-    let response = s
-        .media(
-            &from,
-            MediaRequest {
-                request: Some(media_request::Request::Keep(forged)),
-            },
-        )
-        .unwrap();
+    let response = send_media(service, from, media_request::Request::Keep(forged));
     assert_eq!(
         (response.status, response.server_time),
         (i32::from(Status::Denied), 0)
