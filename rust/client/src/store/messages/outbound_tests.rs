@@ -70,25 +70,77 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
     let write3 = prepare_put(&[7; 32], vec![3]).unwrap();
     let mut store = Store::open(&path, &owner).unwrap();
     let peer = Identity::generate().peer_id();
-    crate::store::tests::catalog_group(&mut store, &group, &peer);
+    let (edit, text_hlc, delete_id, delete_hlc) =
+        stage_outbound_history(&mut store, sender, &key, &peer, (&write1, &write2, &write3));
+    drop(store);
+
+    let mut store = Store::open(&path, &owner).unwrap();
+    assert_restart_projection(
+        &store,
+        &key,
+        &peer,
+        (&write1, &write2, &write3),
+        delete_id,
+        text_hlc,
+        delete_hlc,
+    );
+    assert_generation_delivery(&mut store, &key, &peer, &write1, &write3);
+    drop(store);
+    assert_final_restart(&path, &owner, sender, &key, &edit);
+}
+
+fn stage_outbound_history(
+    store: &mut Store,
+    sender: VerifiedChatSender,
+    key: &MessageKey,
+    peer: &str,
+    writes: (&PreparedEnvelope, &PreparedEnvelope, &PreparedEnvelope),
+) -> (Body, u64, [u8; 16], u64) {
+    let (original_write, edit_write, delete_write) = writes;
+    crate::store::tests::catalog_group(store, sender.group, peer);
     let text_hlc = store.draft_chat_text(1_000).unwrap();
     let text = Body::Text {
         id: key.id,
         hlc: Some(text_hlc),
         text: b"private original".to_vec(),
     };
+    stage_original_text(
+        store,
+        sender,
+        key,
+        peer,
+        (original_write, edit_write),
+        &text,
+        text_hlc,
+    );
+    assert_invalid_forward(store, sender, key, edit_write, text_hlc);
+    assert_later_conflict(store, sender, key, edit_write, text_hlc);
+    let (edit, delete_id, delete_hlc) =
+        stage_edit_and_delete(store, sender, key, edit_write, delete_write);
+    (edit, text_hlc, delete_id, delete_hlc)
+}
 
+fn stage_original_text(
+    store: &mut Store,
+    sender: VerifiedChatSender,
+    key: &MessageKey,
+    peer: &str,
+    writes: (&PreparedEnvelope, &PreparedEnvelope),
+    text: &Body,
+    text_hlc: u64,
+) {
+    let (original_write, conflicting_write) = writes;
     store
         .stage_chat_outbound(
             b"mls-1",
-            std::slice::from_ref(&write1),
+            std::slice::from_ref(original_write),
             sender,
-            &text,
+            text,
             1_000,
         )
         .unwrap();
-    assert_staged(&store, &key, &write1, key.id);
-    let original = store.current_chat_messages(&peer).unwrap();
+    assert_staged(store, key, original_write, key.id);
+    let original = store.current_chat_messages(peer).unwrap();
     assert_eq!(
         original[0].current.text.as_deref(),
         Some(&b"private original"[..])
@@ -103,7 +155,7 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
     assert!(matches!(
         store.stage_chat_outbound(
             b"mls-bad",
-            std::slice::from_ref(&write2),
+            std::slice::from_ref(conflicting_write),
             sender,
             &conflicting,
             1_000
@@ -115,6 +167,15 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
         Some(&b"mls-1"[..])
     );
     assert_eq!(store.due_outbound(0).unwrap().len(), 1);
+}
+
+fn assert_invalid_forward(
+    store: &mut Store,
+    sender: VerifiedChatSender,
+    key: &MessageKey,
+    write: &PreparedEnvelope,
+    text_hlc: u64,
+) {
     let invalid_forward = Body::Forwarded(Box::new(Body::Delete {
         target: key.id,
         operation: [8; 16],
@@ -123,7 +184,7 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
     assert!(matches!(
         store.stage_chat_outbound(
             b"mls-invalid-forward",
-            std::slice::from_ref(&write2),
+            std::slice::from_ref(write),
             sender,
             &invalid_forward,
             1_000
@@ -131,7 +192,17 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
         Err(Error::InboxConflict)
     ));
     assert_eq!(store.due_outbound(0).unwrap().len(), 1);
+}
+
+fn assert_later_conflict(
+    store: &mut Store,
+    sender: VerifiedChatSender,
+    key: &MessageKey,
+    write: &PreparedEnvelope,
+    text_hlc: u64,
+) {
     let next_hlc = store.draft_chat_text(1_000).unwrap();
+    assert!(next_hlc > text_hlc);
     let conflicting_later = Body::Text {
         id: key.id,
         hlc: Some(next_hlc),
@@ -140,7 +211,7 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
     assert!(matches!(
         store.stage_chat_outbound(
             b"mls-bad",
-            std::slice::from_ref(&write2),
+            std::slice::from_ref(write),
             sender,
             &conflicting_later,
             1_000,
@@ -149,7 +220,15 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
     ));
     assert_eq!(store.draft_chat_text(1_000).unwrap(), next_hlc);
     assert_eq!(store.due_outbound(0).unwrap().len(), 1);
+}
 
+fn stage_edit_and_delete(
+    store: &mut Store,
+    sender: VerifiedChatSender,
+    key: &MessageKey,
+    write2: &PreparedEnvelope,
+    write3: &PreparedEnvelope,
+) -> (Body, [u8; 16], u64) {
     let (edit_id, edit_hlc) = store.draft_chat_operation(1_000).unwrap();
     let edit = Body::Edit {
         target: key.id,
@@ -158,17 +237,11 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
         text: b"private replacement".to_vec(),
     };
     store
-        .stage_chat_outbound(
-            b"mls-2",
-            std::slice::from_ref(&write2),
-            sender,
-            &edit,
-            1_000,
-        )
+        .stage_chat_outbound(b"mls-2", std::slice::from_ref(write2), sender, &edit, 1_000)
         .unwrap();
-    assert_staged(&store, &key, &write2, edit_id);
+    assert_staged(store, key, write2, edit_id);
     assert_eq!(
-        store.chat_message(&key).unwrap().unwrap().text.as_deref(),
+        store.chat_message(key).unwrap().unwrap().text.as_deref(),
         Some(&b"private replacement"[..])
     );
     let (delete_id, delete_hlc) = store.draft_chat_operation(1_000).unwrap();
@@ -181,20 +254,30 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
     store
         .stage_chat_outbound(
             b"mls-3",
-            std::slice::from_ref(&write3),
+            std::slice::from_ref(write3),
             sender,
             &delete,
             1_000,
         )
         .unwrap();
-    assert_staged(&store, &key, &write3, delete_id);
-    drop(store);
+    assert_staged(store, key, write3, delete_id);
+    (edit, delete_id, delete_hlc)
+}
 
-    let mut store = Store::open(&path, &owner).unwrap();
-    assert_staged(&store, &key, &write3, delete_id);
-    let current = store.chat_message(&key).unwrap().unwrap();
+fn assert_restart_projection(
+    store: &Store,
+    key: &MessageKey,
+    peer: &str,
+    writes: (&PreparedEnvelope, &PreparedEnvelope, &PreparedEnvelope),
+    delete_id: [u8; 16],
+    text_hlc: u64,
+    delete_hlc: u64,
+) {
+    let (original_write, edit_write, delete_write) = writes;
+    assert_staged(store, key, delete_write, delete_id);
+    let current = store.chat_message(key).unwrap().unwrap();
     assert!(current.edited && current.deleted && current.text.is_none());
-    let ordered = store.current_chat_messages(&peer).unwrap();
+    let ordered = store.current_chat_messages(peer).unwrap();
     assert_eq!(ordered[0].original_hlc.map(u64::from), Some(text_hlc));
     assert!(store.draft_chat_text(1_000).unwrap() > delete_hlc);
     assert_eq!(
@@ -203,31 +286,42 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
     );
     let due = store.due_outbound(0).unwrap();
     assert_eq!(due.len(), 3);
-    assert!(due
-        .iter()
-        .any(|write| write.as_bytes() == write1.as_bytes()));
-    assert!(due
-        .iter()
-        .any(|write| write.as_bytes() == write2.as_bytes()));
-    assert!(due
-        .iter()
-        .any(|write| write.as_bytes() == write3.as_bytes()));
+    for write in [original_write, edit_write, delete_write] {
+        assert!(due.iter().any(|due| due.as_bytes() == write.as_bytes()));
+    }
+}
+
+fn assert_generation_delivery(
+    store: &mut Store,
+    key: &MessageKey,
+    peer: &str,
+    write1: &PreparedEnvelope,
+    write3: &PreparedEnvelope,
+) {
     // A node taking the superseded original cannot mark the deleted generation accepted.
-    store.accepted(&write1, 2_000, "node").unwrap();
-    assert_eq!(delivery_state(&store, &key), 0);
-    store.accepted(&write3, 2_000, "node").unwrap();
-    assert_eq!(delivery_state(&store, &key), 1);
+    store.accepted(write1, 2_000, "node").unwrap();
+    assert_eq!(delivery_state(store, key), 0);
+    store.accepted(write3, 2_000, "node").unwrap();
+    assert_eq!(delivery_state(store, key), 1);
     assert_eq!(
-        store.current_chat_messages(&peer).unwrap()[0].delivery,
+        store.current_chat_messages(peer).unwrap()[0].delivery,
         Some(DeliveryState::NodeAccepted)
     );
     store.receipted(write1.mailbox(), &[*write1.id()]).unwrap();
-    assert_eq!(delivery_state(&store, &key), 1);
+    assert_eq!(delivery_state(store, key), 1);
     store.receipted(write3.mailbox(), &[*write3.id()]).unwrap();
-    assert_eq!(delivery_state(&store, &key), 2);
-    drop(store);
-    let mut store = Store::open(&path, &owner).unwrap();
-    assert_eq!(delivery_state(&store, &key), 2);
+    assert_eq!(delivery_state(store, key), 2);
+}
+
+fn assert_final_restart(
+    path: &std::path::Path,
+    owner: &Identity,
+    sender: VerifiedChatSender,
+    key: &MessageKey,
+    edit: &Body,
+) {
+    let mut store = Store::open(path, owner).unwrap();
+    assert_eq!(delivery_state(&store, key), 2);
     assert_eq!(
         store.chat_rows().unwrap()[0]
             .last_message
@@ -236,9 +330,13 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
             .delivery,
         Some(DeliveryState::DeviceReceived)
     );
+    assert_failed_edit_rollback(&mut store, sender, edit);
+}
+
+fn assert_failed_edit_rollback(store: &mut Store, sender: VerifiedChatSender, edit: &Body) {
     let before_failure = store.draft_chat_operation(1_000).unwrap().1;
     assert!(matches!(
-        store.stage_chat_outbound(b"mls-bad", &[], sender, &edit, 1_000),
+        store.stage_chat_outbound(b"mls-bad", &[], sender, edit, 1_000),
         Err(Error::InboxConflict)
     ));
     assert_eq!(store.draft_chat_operation(1_000).unwrap().1, before_failure);
