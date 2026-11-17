@@ -831,11 +831,8 @@ mod tests {
         assert_string_membership_ops(&p);
     }
 
-    #[test]
-    fn a_filter_keeps_the_matching_profile_and_drops_each_mismatch() {
-        let a = Identity::generate();
-        let today = CivilDate::new(2026, 10, 25).unwrap();
-        let fit = Profile {
+    fn matching_filter_profile() -> Profile {
+        Profile {
             version: 1,
             birth_year: Some(1996),
             birth_month: Some(5),
@@ -855,9 +852,12 @@ mod tests {
                 thumbnail: vec![2; 32],
             }],
             ..Profile::default()
-        };
+        }
+    }
+
+    fn matching_filter() -> Filter {
         let strings = |v: &[&str]| v.iter().map(|s| (*s).to_string()).collect::<Vec<_>>();
-        let filter = Filter {
+        Filter {
             age: Some((0, 35)),
             genders: vec![Gender::Woman.code(), Gender::NonBinary.code()],
             orientations: vec![Orientation::Heterosexual.code()],
@@ -874,7 +874,15 @@ mod tests {
             with_photo: true,
             active_since: Some(86_400 * 3 - 1),
             ..Filter::default()
-        };
+        }
+    }
+
+    #[test]
+    fn a_filter_keeps_the_matching_profile_and_drops_each_mismatch() {
+        let a = Identity::generate();
+        let today = CivilDate::new(2026, 10, 25).unwrap();
+        let fit = matching_filter_profile();
+        let filter = matching_filter();
         let conditions = filter.conditions(today).unwrap();
         assert_eq!(conditions.len(), 13);
         assert_eq!(conditions[6].ints, [2, i64::MAX]);
