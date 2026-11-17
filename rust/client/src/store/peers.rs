@@ -404,22 +404,23 @@ mod tests {
     use dyapp_messaging::mls::Device;
     use dyapp_profile::{Profile, VerifiedProfile};
 
+    fn state(store: &Store) -> (bool, bool, bool, String, Vec<String>, String) {
+        (
+            store.blocked("bob").unwrap(),
+            store.muted("bob").unwrap(),
+            store.favorite("bob").unwrap(),
+            store.local_name("bob").unwrap(),
+            store.passed_peers().unwrap(),
+            store.contact_note("bob").unwrap(),
+        )
+    }
+
     #[test]
     fn equal_clock_changes_converge_by_device_and_survive_linking() {
         let owner = Identity::generate();
         let mut left = Store::open(&temp_db_path(), &owner).unwrap();
         let mut right = Store::open(&temp_db_path(), &owner).unwrap();
         let at = u64::from(Timestamp::new(1_000, 0));
-        let state = |store: &Store| {
-            (
-                store.blocked("bob").unwrap(),
-                store.muted("bob").unwrap(),
-                store.favorite("bob").unwrap(),
-                store.local_name("bob").unwrap(),
-                store.passed_peers().unwrap(),
-                store.contact_note("bob").unwrap(),
-            )
-        };
         for (a, b) in [
             (PeerChange::Blocked(true), PeerChange::Blocked(false)),
             (PeerChange::Muted(true), PeerChange::Muted(false)),
