@@ -33,6 +33,13 @@ fn pack() -> Pack {
     .unwrap()
 }
 
+fn inbox(id: u8) -> InboxKey {
+    InboxKey {
+        mailbox: [9; 32],
+        id: [id; 16],
+    }
+}
+
 #[test]
 fn reconstruction_binds_both_hashes_and_metadata_comes_from_validated_pack() {
     let pack = pack();
@@ -59,6 +66,93 @@ fn reconstruction_binds_both_hashes_and_metadata_comes_from_validated_pack() {
     assert!(prepare(&pack, 1).is_err());
 }
 
+async fn failures(pair: &mut Invite, pack: &Pack, peer: &str, seal: &[u8; 32]) -> usize {
+    assert!(matches!(
+        pair.session
+            .send_pack_sticker_to(&mut [], &pair.bob_id, peer, pack, 0, seal)
+            .await,
+        Err(Error::ConversationNotOpen)
+    ));
+    let request = crate::chat::message(
+        &mut pair.group,
+        &pair.alice,
+        &crate::chat::Body::text_with_id([1; 16], b"hello".to_vec()),
+    )
+    .unwrap();
+    pair.session
+        .stage_envelope(&inbox(2), &request[0].mls, &pair.profiles, seal)
+        .unwrap();
+    pair.session
+        .stage_text(pair.group.id(), b"reply", seal)
+        .unwrap();
+    let before = pair.session.store.due_outbound(i64::MAX).unwrap().len();
+    assert!(pair
+        .session
+        .send_pack_sticker_to(&mut [], &pair.alice_id, peer, pack, 0, seal)
+        .await
+        .is_err());
+    pair.session.store.set_blocked(peer, true).unwrap();
+    assert!(matches!(
+        pair.session
+            .send_pack_sticker_to(&mut [], &pair.bob_id, peer, pack, 0, seal)
+            .await,
+        Err(Error::Store(crate::store::Error::BlockedPeer))
+    ));
+    pair.session.store.set_blocked(peer, false).unwrap();
+    assert!(pair
+        .session
+        .send_pack_sticker_to(&mut [], &pair.bob_id, peer, pack, 0, seal)
+        .await
+        .is_err());
+    assert!(pair
+        .session
+        .store
+        .current_chat_stickers(peer)
+        .unwrap()
+        .is_empty());
+    assert_eq!(
+        pair.session.store.due_outbound(i64::MAX).unwrap().len(),
+        before
+    );
+    before
+}
+
+async fn confirmed_reuse(
+    pair: &mut Invite,
+    pack: &Pack,
+    peer: &str,
+    seal: &[u8; 32],
+    before: usize,
+) {
+    let (_, candidate) = prepare(pack, 0).unwrap();
+    let UploadPlan::Upload(pending) = pair
+        .session
+        .store
+        .plan_sticker_upload(&candidate, crate::now())
+        .unwrap()
+    else {
+        panic!("failed upload must remain pending")
+    };
+    pair.session
+        .store
+        .finish_sticker_upload(&pending, crate::now())
+        .unwrap();
+    // No node is needed to reuse metadata; mailbox delivery may remain pending.
+    let id = pair
+        .session
+        .send_pack_sticker_to(&mut [], &pair.bob_id, peer, pack, 0, seal)
+        .await
+        .unwrap();
+    let rows = pair.session.store.current_chat_stickers(peer).unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].key.id, id);
+    let descriptor = rows[0].sticker.attachment.as_ref().unwrap();
+    assert_eq!(descriptor.release_secret, [0; 32]);
+    assert_eq!(descriptor.blob_sha256, pending.attachment.blob_sha256);
+    assert_eq!(descriptor.key, pending.attachment.key);
+    assert!(pair.session.store.due_outbound(i64::MAX).unwrap().len() > before);
+}
+
 #[tokio::test]
 async fn failed_upload_does_not_stage_but_confirmed_reuse_strips_owner_capability() {
     let root =
@@ -68,86 +162,12 @@ async fn failed_upload_does_not_stage_but_confirmed_reuse_strips_owner_capabilit
     getrandom::fill(&mut random).unwrap();
     let path = root.join(format!("{:032x}.db", u128::from_be_bytes(random)));
     let seal = [5; 32];
-    let Invite {
-        mut session,
-        bob_id,
-        alice_id,
-        alice,
-        mut group,
-        welcome,
-        profiles,
-    } = bob_invited(&path, &seal);
-    let key = |id| InboxKey {
-        mailbox: [9; 32],
-        id: [id; 16],
-    };
-    session
-        .stage_envelope(&key(1), &welcome, &profiles, &seal)
+    let mut pair = bob_invited(&path, &seal);
+    pair.session
+        .stage_envelope(&inbox(1), &pair.welcome, &pair.profiles, &seal)
         .unwrap();
-    let peer = alice_id.peer_id();
+    let peer = pair.alice_id.peer_id();
     let pack = pack();
-    assert!(matches!(
-        session
-            .send_pack_sticker_to(&mut [], &bob_id, &peer, &pack, 0, &seal)
-            .await,
-        Err(Error::ConversationNotOpen)
-    ));
-    let request = crate::chat::message(
-        &mut group,
-        &alice,
-        &crate::chat::Body::text_with_id([1; 16], b"hello".to_vec()),
-    )
-    .unwrap();
-    session
-        .stage_envelope(&key(2), &request[0].mls, &profiles, &seal)
-        .unwrap();
-    session.stage_text(group.id(), b"reply", &seal).unwrap();
-    let before = session.store.due_outbound(i64::MAX).unwrap().len();
-    assert!(session
-        .send_pack_sticker_to(&mut [], &alice_id, &peer, &pack, 0, &seal)
-        .await
-        .is_err());
-    session.store.set_blocked(&peer, true).unwrap();
-    assert!(matches!(
-        session
-            .send_pack_sticker_to(&mut [], &bob_id, &peer, &pack, 0, &seal)
-            .await,
-        Err(Error::Store(crate::store::Error::BlockedPeer))
-    ));
-    session.store.set_blocked(&peer, false).unwrap();
-    assert!(session
-        .send_pack_sticker_to(&mut [], &bob_id, &peer, &pack, 0, &seal)
-        .await
-        .is_err());
-    assert!(session
-        .store
-        .current_chat_stickers(&peer)
-        .unwrap()
-        .is_empty());
-    assert_eq!(session.store.due_outbound(i64::MAX).unwrap().len(), before);
-    let (_, candidate) = prepare(&pack, 0).unwrap();
-    let UploadPlan::Upload(pending) = session
-        .store
-        .plan_sticker_upload(&candidate, crate::now())
-        .unwrap()
-    else {
-        panic!("failed upload must remain pending")
-    };
-    session
-        .store
-        .finish_sticker_upload(&pending, crate::now())
-        .unwrap();
-    // No node is needed to reuse metadata; mailbox delivery may remain pending.
-    let id = session
-        .send_pack_sticker_to(&mut [], &bob_id, &peer, &pack, 0, &seal)
-        .await
-        .unwrap();
-    let rows = session.store.current_chat_stickers(&peer).unwrap();
-    assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].key.id, id);
-    let descriptor = rows[0].sticker.attachment.as_ref().unwrap();
-    assert_eq!(descriptor.release_secret, [0; 32]);
-    assert_eq!(descriptor.blob_sha256, pending.attachment.blob_sha256);
-    assert_eq!(descriptor.key, pending.attachment.key);
-    assert!(session.store.due_outbound(i64::MAX).unwrap().len() > before);
+    let before = failures(&mut pair, &pack, &peer, &seal).await;
+    confirmed_reuse(&mut pair, &pack, &peer, &seal, before).await;
 }
