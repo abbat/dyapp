@@ -307,7 +307,13 @@ fn deny_list_refuses_replica_and_shard_restoration() {
 fn media_bills_whole_copy_puts_five_times_and_gets_by_reply_bytes() {
     let mut s = media_service(|l| l.bytes_per_second = 10_000);
     let owner = Identity::generate();
-    let one = media_replica(&owner, vec![1; 1000], 1);
+    let put = check_whole_copy_billing(&mut s, &owner);
+    check_get_reply_billing(&mut s, &put);
+    check_replica_billing(&mut s, &owner, &put);
+}
+
+fn check_whole_copy_billing(s: &mut Service, owner: &Identity) -> proto::MediaPut {
+    let one = media_replica(owner, vec![1; 1000], 1);
     assert_eq!(s.store_media(&one).unwrap().status, i32::from(Status::Ok));
     let put = proto::MediaPut {
         owner: dyapp_identity::key_hash(&owner.public_key()).to_vec(),
@@ -324,6 +330,10 @@ fn media_bills_whole_copy_puts_five_times_and_gets_by_reply_bytes() {
         5_000 + put_framing,
         "intake reserves five copies plus framing"
     );
+    put
+}
+
+fn check_get_reply_billing(s: &mut Service, put: &proto::MediaPut) {
     // Test reply billing in its own window, independent of the host's second boundary.
     s.traffic = Traffic::new(10_000);
     let get = MediaRequest {
@@ -339,14 +349,17 @@ fn media_bills_whole_copy_puts_five_times_and_gets_by_reply_bytes() {
         1_000 + get_framing,
         "get reserves reply bytes plus framing"
     );
+}
+
+fn check_replica_billing(s: &mut Service, owner: &Identity, put: &proto::MediaPut) {
     // Isolate peer billing from the shared traffic guard.
     s.traffic = Traffic::new(0);
     s.media_bytes = crate::rate_limit::PeerRateLimiter::frozen(10_000);
-    let big = media_replica(&owner, vec![2; 1600], 2);
+    let big = media_replica(owner, vec![2; 1600], 2);
     assert_eq!(s.store_media(&big).unwrap().status, i32::from(Status::Ok));
     let put = proto::MediaPut {
         data: big.data.clone(),
-        ..put
+        ..put.clone()
     };
     assert!(s
         .prepare_media(&replica_peer("gallery"), &put)
