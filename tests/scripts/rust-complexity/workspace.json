@@ -27,7 +27,6 @@
   {"path":"rust/bootstrap/tests/protocol/tokens.rs","function":"fn a_session_sends_with_a_held_token_and_swaps_a_revoked_one_in_its_outbox ","metrics":{"lines":87}},
   {"path":"rust/bootstrap/tests/protocol/tokens.rs","function":"fn two_sessions_trade_tokens_after_a_match_and_a_message_passes_a_full_pool ","metrics":{"lines":98}},
   {"path":"rust/bootstrap/tests/protocol/wire.rs","function":"fn node_gossip_counts_delivered_and_successfully_published_payloads ","metrics":{"lines":86}},
-  {"path":"rust/client/src/chat/tests.rs","function":"fn applies_a_welcome_then_a_message_and_acks_both ","metrics":{"lines":94}},
   {"path":"rust/client/src/seeds.rs","function":"mod tests # [cfg (test)]::fn rows_are_classified_and_a_foreign_network_is_named ","metrics":{"nesting":5,"lines":82,"nested_regions":1}},
   {"path":"rust/client/src/store/chat_list_tests.rs","function":"fn chats_rows_keep_state_latest_time_and_unread_across_clear_and_restart ","metrics":{"cognitive":30,"lines":86}},
   {"path":"rust/client/src/store/messages/clear.rs","function":"mod tests # [cfg (test)]::fn cleared_messages_stay_gone_while_new_ones_and_other_groups_show ","metrics":{"lines":98}},

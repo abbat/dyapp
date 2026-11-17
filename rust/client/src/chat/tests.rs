@@ -7,7 +7,7 @@ use crate::attachment::{MAX_MIME_BYTES, MAX_PREVIEW_BYTES};
 use crate::interactions::{Interaction, Kind};
 use crate::Envelope;
 use dyapp_identity::{Domain, Identity};
-use dyapp_messaging::mls::Device;
+use dyapp_messaging::mls::{Device, Group};
 use dyapp_p2p_net::proto;
 use dyapp_profile::{Profile, VerifiedProfile};
 use prost::Message as _;
@@ -90,69 +90,16 @@ fn applies_a_welcome_then_a_message_and_acks_both() {
     assert_eq!(events, expected);
     assert_eq!(acked, [vec![2]]);
 
-    // A forward arrives marked as forwarded, from the forwarder.
-    let forward = Body::Forwarded(Box::new(Body::text_with_id(
-        [1; 16],
-        b"carol's words".to_vec(),
-    )));
-    let sent = message(&mut group, &alice, &forward).unwrap();
-    let (events, _) = apply_all(
+    assert_forward(
+        &mut group,
+        &alice_identity,
+        &alice,
         &bob,
         &mut groups,
-        vec![envelope(9, sent[0].mls.clone())],
         &profiles,
     );
-    let expected = [Event::Message {
-        group: group.id().to_vec(),
-        sender: alice_identity.peer_id(),
-        device: alice.device_key().unwrap(),
-        body: forward,
-    }];
-    assert_eq!(events, expected);
-
-    let like = Interaction {
-        kind: Kind::Like,
-        event_id: [7; 16],
-        hlc: 42,
-    };
-    let sent = message(&mut group, &alice, &Body::Interaction(like)).unwrap();
-    // Padded from 256 bytes, not 1 KiB.
-    assert!(
-        sent[0].mls.len() < MIN_PADDED_BYTES,
-        "{}",
-        sent[0].mls.len()
-    );
-    let (events, acked) = apply_all(
-        &bob,
-        &mut groups,
-        vec![envelope(3, sent[0].mls.clone())],
-        &profiles,
-    );
-    let [Event::Interaction { device, event, .. }] = events.as_slice() else {
-        panic!("expected decrypted interaction");
-    };
-    assert_eq!(*event, like);
-    assert_eq!(*device, alice.device_key().unwrap());
-    assert_eq!(acked, [vec![3]]);
-
-    // Presence and read receipts are signals too: short padding, delivered as message bodies.
-    for (id, signal) in [
-        (5, Body::Presence { hlc: 43 }),
-        (6, Body::Read { up_to: [9; 16] }),
-    ] {
-        let sent = message(&mut group, &alice, &signal).unwrap();
-        assert!(sent[0].mls.len() < MIN_PADDED_BYTES);
-        let (events, _) = apply_all(
-            &bob,
-            &mut groups,
-            vec![envelope(id, sent[0].mls.clone())],
-            &profiles,
-        );
-        let [Event::Message { body, .. }] = events.as_slice() else {
-            panic!("expected a decrypted signal");
-        };
-        assert!(*body == signal);
-    }
+    assert_interaction(&mut group, &alice, &bob, &mut groups, &profiles);
+    assert_signals(&mut group, &alice, &bob, &mut groups, &profiles);
 
     // An untagged plaintext, as before the frame, is refused and still acked.
     let raw = group.encrypt(&alice, &pad(b"hi")).unwrap();
@@ -162,6 +109,95 @@ fn applies_a_welcome_then_a_message_and_acks_both() {
         [Event::Refused("bad reply: unknown message kind".into())]
     );
     assert_eq!(acked, [vec![4]]);
+}
+
+fn assert_forward(
+    group: &mut Group,
+    alice_identity: &Identity,
+    alice: &Device,
+    bob: &Device,
+    groups: &mut Vec<Group>,
+    profiles: &[VerifiedProfile],
+) {
+    // A forward arrives marked as forwarded, from the forwarder.
+    let forward = Body::Forwarded(Box::new(Body::text_with_id(
+        [1; 16],
+        b"carol's words".to_vec(),
+    )));
+    let sent = message(group, alice, &forward).unwrap();
+    let (events, _) = apply_all(
+        bob,
+        groups,
+        vec![envelope(9, sent[0].mls.clone())],
+        profiles,
+    );
+    let expected = [Event::Message {
+        group: group.id().to_vec(),
+        sender: alice_identity.peer_id(),
+        device: alice.device_key().unwrap(),
+        body: forward,
+    }];
+    assert_eq!(events, expected);
+}
+
+fn assert_interaction(
+    group: &mut Group,
+    alice: &Device,
+    bob: &Device,
+    groups: &mut Vec<Group>,
+    profiles: &[VerifiedProfile],
+) {
+    let like = Interaction {
+        kind: Kind::Like,
+        event_id: [7; 16],
+        hlc: 42,
+    };
+    let sent = message(group, alice, &Body::Interaction(like)).unwrap();
+    // Padded from 256 bytes, not 1 KiB.
+    assert!(
+        sent[0].mls.len() < MIN_PADDED_BYTES,
+        "{}",
+        sent[0].mls.len()
+    );
+    let (events, acked) = apply_all(
+        bob,
+        groups,
+        vec![envelope(3, sent[0].mls.clone())],
+        profiles,
+    );
+    let [Event::Interaction { device, event, .. }] = events.as_slice() else {
+        panic!("expected decrypted interaction");
+    };
+    assert_eq!(*event, like);
+    assert_eq!(*device, alice.device_key().unwrap());
+    assert_eq!(acked, [vec![3]]);
+}
+
+fn assert_signals(
+    group: &mut Group,
+    alice: &Device,
+    bob: &Device,
+    groups: &mut Vec<Group>,
+    profiles: &[VerifiedProfile],
+) {
+    // Presence and read receipts are signals too: short padding, delivered as message bodies.
+    for (id, signal) in [
+        (5, Body::Presence { hlc: 43 }),
+        (6, Body::Read { up_to: [9; 16] }),
+    ] {
+        let sent = message(group, alice, &signal).unwrap();
+        assert!(sent[0].mls.len() < MIN_PADDED_BYTES);
+        let (events, _) = apply_all(
+            bob,
+            groups,
+            vec![envelope(id, sent[0].mls.clone())],
+            profiles,
+        );
+        let [Event::Message { body, .. }] = events.as_slice() else {
+            panic!("expected a decrypted signal");
+        };
+        assert!(*body == signal);
+    }
 }
 
 #[test]
