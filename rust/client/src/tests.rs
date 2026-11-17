@@ -82,6 +82,42 @@ fn prepared_mailbox_write_rejects_wrong_address_and_tampering() {
     ));
 }
 
+fn spawn_mailbox_put_server(
+    mut server: libp2p::Swarm<dyapp_p2p_net::Behaviour>,
+    received: Arc<Mutex<Vec<dyapp_identity::SignedRecord>>>,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        loop {
+            let event = server.select_next_some().await;
+            let SwarmEvent::Behaviour(BehaviourEvent::Mailbox(RequestEvent::Message {
+                message:
+                    RequestMessage::Request {
+                        request, channel, ..
+                    },
+                ..
+            })) = event
+            else {
+                continue;
+            };
+            let Some(proto::mailbox_request::Request::Put(record)) = request.request else {
+                panic!("expected mailbox put");
+            };
+            received.lock().unwrap().push(record);
+            server
+                .behaviour_mut()
+                .mailbox
+                .send_response(
+                    channel,
+                    proto::MailboxResponse {
+                        status: proto::Status::Ok.into(),
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+        }
+    })
+}
+
 #[tokio::test]
 async fn node_put_and_prepared_retry_reach_the_mailbox() {
     let mut server =
@@ -95,35 +131,7 @@ async fn node_put_and_prepared_retry_reach_the_mailbox() {
         }
     };
     let received = Arc::new(Mutex::new(Vec::new()));
-    let copy = Arc::clone(&received);
-    let task = tokio::spawn(async move {
-        loop {
-            if let SwarmEvent::Behaviour(BehaviourEvent::Mailbox(RequestEvent::Message {
-                message:
-                    RequestMessage::Request {
-                        request, channel, ..
-                    },
-                ..
-            })) = server.select_next_some().await
-            {
-                let Some(proto::mailbox_request::Request::Put(record)) = request.request else {
-                    panic!("expected mailbox put");
-                };
-                copy.lock().unwrap().push(record);
-                server
-                    .behaviour_mut()
-                    .mailbox
-                    .send_response(
-                        channel,
-                        proto::MailboxResponse {
-                            status: proto::Status::Ok.into(),
-                            ..Default::default()
-                        },
-                    )
-                    .unwrap();
-            }
-        }
-    });
+    let task = spawn_mailbox_put_server(server, Arc::clone(&received));
     let mut node = Node::connect(address, Arc::new(Protocols::public()))
         .await
         .unwrap();
