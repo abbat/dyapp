@@ -1,4 +1,3 @@
 [
-  {"path":"tests/integration_tests.rs","function":"fn test_nated_peers_exchange_a_message_through_a_dyappd_relay ","metrics":{"lines":110}},
   {"path":"rust/bootstrap/src/node/run.rs","function":"fn run ","metrics":{"cognitive":248,"lines":767}},
 ]
