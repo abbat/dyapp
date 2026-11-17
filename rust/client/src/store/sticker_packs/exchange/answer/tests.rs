@@ -42,6 +42,19 @@ fn stage(
     store.stage_sticker_pack_answer(sealed, &inbox(id), sender(peer), answer)
 }
 
+fn cross_peer(store: &mut Store) -> String {
+    let stranger = dyapp_identity::Identity::generate().peer_id();
+    crate::store::tests::catalog_group(store, &[10], &stranger);
+    store
+        .db
+        .execute(
+            "INSERT INTO `conversations` (`peer_id`, `state`, `request_id`) VALUES (?, 3, NULL)",
+            [&stranger],
+        )
+        .unwrap();
+    stranger
+}
+
 #[test]
 fn unsolicited_cross_peer_blocked_and_closed_answers_only_commit_ack() {
     let (mut store, _, _, peer) = database();
@@ -57,15 +70,7 @@ fn unsolicited_cross_peer_blocked_and_closed_answers_only_commit_ack() {
     let pending = store
         .stage_sticker_pack_request(b"request", &[], &[9], &selected, &request)
         .unwrap();
-    let stranger = dyapp_identity::Identity::generate().peer_id();
-    crate::store::tests::catalog_group(&mut store, &[10], &stranger);
-    store
-        .db
-        .execute(
-            "INSERT INTO `conversations` (`peer_id`, `state`, `request_id`) VALUES (?, 3, NULL)",
-            [&stranger],
-        )
-        .unwrap();
+    let stranger = cross_peer(&mut store);
     assert!(!store
         .stage_sticker_pack_answer(
             b"cross",
