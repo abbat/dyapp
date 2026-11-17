@@ -343,7 +343,7 @@ impl SearchIndex {
                 let key: [u8; 32] = key
                     .try_into()
                     .map_err(|_| storage_error("invalid search key length"))?;
-                rows_seen += 1;
+                rows_seen = rows_seen.saturating_add(1);
                 xor(
                     sums.entry((topic(&key), slot(&key) >> 8)).or_default(),
                     &row_hash(&key, version.unsigned_abs()),
@@ -403,10 +403,11 @@ impl SearchIndex {
         }
         let first = u32::from(bucket) << 8;
         let after = slot_start(topic, first);
-        let before = if first + 256 == SLOTS {
+        let next = first.saturating_add(256);
+        let before = if next == SLOTS {
             Vec::new()
         } else {
-            slot_start(topic, first + 256).to_vec()
+            slot_start(topic, next).to_vec()
         };
         let mut out = vec![[0; 32]; 256];
         let db = self.reader()?;
@@ -424,13 +425,13 @@ impl SearchIndex {
             statement.query_map(params![topic, &after[..], before], read)
         }
         .map_err(storage_error)?;
-        let mut scanned = 0;
+        let mut scanned = 0usize;
         for row in rows {
             let (key, version) = row.map_err(storage_error)?;
             let key: [u8; 32] = key
                 .try_into()
                 .map_err(|_| storage_error("invalid search key length"))?;
-            scanned += 1;
+            scanned = scanned.saturating_add(1);
             xor(
                 &mut out[(slot(&key) & 255) as usize],
                 &row_hash(&key, version.unsigned_abs()),
@@ -468,7 +469,13 @@ impl SearchIndex {
     /// `max_bytes` written, then one batch of established keys per put until under 95 %.
     fn bound(&self, bytes: u64, now: i64) -> Result<()> {
         let step = (self.max_bytes / 100).max(1);
-        if self.written.fetch_add(bytes, Ordering::Relaxed) + bytes >= step {
+        if self
+            .written
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |written| {
+                Some(written.saturating_add(bytes))
+            })
+            .is_ok_and(|written| written.saturating_add(bytes) >= step)
+        {
             self.written.store(0, Ordering::Relaxed);
             if self.usage()? > self.max_bytes {
                 self.over.store(true, Ordering::Relaxed);
@@ -476,7 +483,7 @@ impl SearchIndex {
         }
         if self.over.load(Ordering::Relaxed) {
             self.evict_established(now)?;
-            if self.usage()? < self.max_bytes / 100 * 95 {
+            if self.usage()? < (self.max_bytes / 100).saturating_mul(95) {
                 self.over.store(false, Ordering::Relaxed);
             }
         }
@@ -505,12 +512,13 @@ impl SearchIndex {
             )
             .optional()
             .map_err(storage_error)?;
+        let elapsed = |updated| now.saturating_sub(updated);
         match known {
             Some((stored, ..)) if stored >= version => return Ok((Put::Stale, None)),
             // A tombstone carries no data and withdraws the profile at once; the next version
             // after it waits out the window again.
-            Some((_, updated, ..)) if limit && !p.deleted && now - updated < UPDATE_SECONDS => {
-                let wait = UPDATE_SECONDS - (now - updated);
+            Some((_, updated, ..)) if limit && !p.deleted && elapsed(updated) < UPDATE_SECONDS => {
+                let wait = UPDATE_SECONDS.saturating_sub(elapsed(updated));
                 let limited = Put::Limited {
                     retry_after: wait.unsigned_abs(),
                 };
@@ -523,7 +531,7 @@ impl SearchIndex {
         let topic = topic(key);
         let bytes = record_bytes(p, record)?;
         // Replicas while the file is young are the existing network's keys, not newcomers.
-        let grace = !limit && now < self.created() + self.newcomer_seconds;
+        let grace = !limit && now < self.created().saturating_add(self.newcomer_seconds);
         let (first_seen, old_bytes) =
             known.map_or((if grace { 0 } else { now }, 0), |k| (k.2, k.3));
         tx.execute(
@@ -542,8 +550,9 @@ impl SearchIndex {
             insert_record(&tx, key, &record.encode_to_vec())?;
         }
         tx.commit()?;
-        let newcomer = first_seen > now - self.newcomer_seconds;
-        Ok((Put::Stored, newcomer.then_some(bytes - old_bytes)))
+        let newcomer = first_seen > now.saturating_sub(self.newcomer_seconds);
+        let delta = bytes.saturating_sub(old_bytes);
+        Ok((Put::Stored, newcomer.then_some(delta)))
     }
 
     /// Refreshes the heartbeat of the stored version, at most `HEARTBEATS_PER_DAY` per UTC day.
@@ -563,7 +572,7 @@ impl SearchIndex {
         };
         tx.execute(
             "UPDATE `key` SET `heartbeat` = ?2, `beat_day` = ?3, `beats` = ?4 WHERE `key` = ?1",
-            params![&key[..], now, day, beats + 1],
+            params![&key[..], now, day, beats.saturating_add(1)],
         )
         .map_err(storage_error)?;
         tx.mark(*key);
@@ -607,7 +616,11 @@ fn due(
     let beats = if day == beat_day { beats } else { 0 };
     if beats >= HEARTBEATS_PER_DAY {
         return Ok(Err(Beat::Limited {
-            retry_after: ((day + 1) * 86_400 - now).unsigned_abs(),
+            retry_after: day
+                .saturating_add(1)
+                .saturating_mul(86_400)
+                .saturating_sub(now)
+                .unsigned_abs(),
         }));
     }
     Ok(Ok((day, beats)))
@@ -649,17 +662,17 @@ impl SearchIndex {
         let mut statement = db
             .prepare_cached("SELECT `record` FROM `record` WHERE `key` = ?")
             .map_err(storage_error)?;
-        let (mut out, mut size) = (Vec::new(), 0);
+        let (mut out, mut size) = (Vec::new(), 0usize);
         for key in keys {
             let bytes: Option<Vec<u8>> = statement
                 .query_row([&key[..]], |row| row.get(0))
                 .optional()
                 .map_err(storage_error)?;
             let Some(bytes) = bytes else { continue };
-            if size + bytes.len() > max_bytes {
+            if size.saturating_add(bytes.len()) > max_bytes {
                 break;
             }
-            size += bytes.len();
+            size = size.saturating_add(bytes.len());
             out.push(SignedRecord::decode(bytes.as_slice()).map_err(storage_error)?);
         }
         Ok(out)
@@ -730,11 +743,11 @@ impl SearchIndex {
     ///
     /// Returns an error if a bounded expiration transaction, digest update or dirty-key tracking fails.
     pub fn expire(&self, before: i64) -> Result<usize> {
-        let mut removed = 0;
+        let mut removed = 0usize;
         for _ in 0..EXPIRE_BATCHES {
             match self.remove_batch(before)? {
                 0 => break,
-                n => removed += n,
+                n => removed = removed.saturating_add(n),
             }
         }
         Ok(removed)
