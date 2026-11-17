@@ -34,6 +34,15 @@ fn open(store: &Store, peer: &str) {
         .unwrap();
 }
 
+fn assert_sticker_preview(store: &Store, peer: &str, other: &str) {
+    let rows = store.chat_rows().unwrap();
+    assert_eq!(rows[0].peer_id, peer);
+    assert_eq!(rows[0].last_sticker.as_ref().unwrap().key.id, [4; 16]);
+    assert!(rows[0].last_attachment.is_none());
+    assert_eq!(rows[0].unread_count, 4);
+    assert_eq!(rows[1].peer_id, other);
+}
+
 #[test]
 fn mixed_kinds_select_one_preview_and_count_every_unread_once() {
     let owner = Identity::generate();
@@ -61,12 +70,7 @@ fn mixed_kinds_select_one_preview_and_count_every_unread_once() {
     }
     save(&mut store, &[4], &peer, 3, 500);
     save(&mut store, &[3], &peer, 4, 500);
-    let rows = store.chat_rows().unwrap();
-    assert_eq!(rows[0].peer_id, peer);
-    assert_eq!(rows[0].last_sticker.as_ref().unwrap().key.id, [4; 16]);
-    assert!(rows[0].last_attachment.is_none());
-    assert_eq!(rows[0].unread_count, 4);
-    assert_eq!(rows[1].peer_id, other);
+    assert_sticker_preview(&store, &peer, &other);
     assert_eq!(store.clear_chat(&[3]).unwrap(), 3);
     let rows = store.chat_rows().unwrap();
     assert_eq!(rows[0].last_sticker.as_ref().unwrap().key.id, [3; 16]);
