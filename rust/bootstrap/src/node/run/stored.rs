@@ -248,7 +248,7 @@ impl Replies<'_> {
         // A get's payload was reserved by the service before returning it.
         self.service
             .traffic
-            .add((response.encoded_len() - response.data.len()) as u64);
+            .add(response.encoded_len().saturating_sub(response.data.len()) as u64);
         let _ = self
             .swarm
             .behaviour_mut()
@@ -407,9 +407,9 @@ pub(super) fn expire(service: &Service) {
         service.store.expire_keypackages(now),
         "KeyPackage cleanup failed",
     );
-    let ttl = i64::from(service.config.limits.profile_ttl_days) * 86_400;
+    let ttl = i64::from(service.config.limits.profile_ttl_days).saturating_mul(86_400);
     removed(
-        service.store.expire_profiles(now - ttl),
+        service.store.expire_profiles(now.saturating_sub(ttl)),
         "profiles of inactive owners removed",
         "profile cleanup failed",
         false,
@@ -422,14 +422,14 @@ pub(super) fn expire(service: &Service) {
             false,
         );
         removed(
-            media.expire_owners(now - ttl),
+            media.expire_owners(now.saturating_sub(ttl)),
             "media keeps of inactive owners removed",
             "media owner cleanup failed",
             false,
         );
-        let idle = i64::from(service.config.limits.media_cache_minutes) * 60;
+        let idle = i64::from(service.config.limits.media_cache_minutes).saturating_mul(60);
         removed(
-            media.expire_cache(now - idle),
+            media.expire_cache(now.saturating_sub(idle)),
             "idle assembled media removed",
             "media cache cleanup failed",
             true,
@@ -437,7 +437,7 @@ pub(super) fn expire(service: &Service) {
     }
     if let Some(index) = &service.search {
         removed(
-            index.expire(now - ttl),
+            index.expire(now.saturating_sub(ttl)),
             "search entries of silent owners removed",
             "search cleanup failed",
             true,
