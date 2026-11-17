@@ -45,6 +45,45 @@ fn joined(events: &[Event]) -> Vec<u8> {
     id.unwrap()
 }
 
+async fn publish_packages(person: &mut Person, session: &mut Session) {
+    session
+        .publish_key_packages(&mut person.node, &person.device_key, 1, &SEAL)
+        .await
+        .unwrap();
+}
+
+async fn send_text(
+    session: &mut Session,
+    person: &mut Person,
+    profiles: &[dyapp_profile::VerifiedProfile],
+    text: &[u8],
+) -> [u8; 16] {
+    session
+        .send_text_to(from_mut(&mut person.node), profiles, text, &SEAL)
+        .await
+        .unwrap()
+}
+
+async fn interaction_profiles(
+    alice: &mut Person,
+    alice_owner: &str,
+    bob_owner: &str,
+    carol_owner: &str,
+) -> (
+    Vec<dyapp_profile::VerifiedProfile>,
+    [dyapp_profile::VerifiedProfile; 2],
+) {
+    let pair = vec![
+        alice.node.get_profile(alice_owner).await.unwrap(),
+        alice.node.get_profile(bob_owner).await.unwrap(),
+    ];
+    let others = [
+        pair[0].clone(),
+        alice.node.get_profile(carol_owner).await.unwrap(),
+    ];
+    (pair, others)
+}
+
 #[tokio::test]
 async fn a_first_like_and_a_first_text_invite_a_found_peer() {
     let address = start_config(|config| {
@@ -59,25 +98,13 @@ async fn a_first_like_and_a_first_text_invite_a_found_peer() {
     let mut carol = Person::new(&address).await;
     let (alice_owner, bob_owner) = (alice.identity.peer_id(), bob.identity.peer_id());
     let carol_owner = carol.identity.peer_id();
-    let mut pair = Vec::new();
-    for owner in [&alice_owner, &bob_owner] {
-        pair.push(alice.node.get_profile(owner).await.unwrap());
-    }
-    let others = [
-        pair[0].clone(),
-        alice.node.get_profile(&carol_owner).await.unwrap(),
-    ];
+    let (pair, others) =
+        interaction_profiles(&mut alice, &alice_owner, &bob_owner, &carol_owner).await;
     let mut alice_session = open(&alice, "first-alice");
     let mut bob_session = open(&bob, "first-bob");
     let mut carol_session = open(&carol, "first-carol");
-    bob_session
-        .publish_key_packages(&mut bob.node, &bob.device_key, 1, &SEAL)
-        .await
-        .unwrap();
-    carol_session
-        .publish_key_packages(&mut carol.node, &carol.device_key, 1, &SEAL)
-        .await
-        .unwrap();
+    publish_packages(&mut bob, &mut bob_session).await;
+    publish_packages(&mut carol, &mut carol_session).await;
 
     // Only a like invites: a view with no group sends nothing.
     assert!(alice_session
@@ -95,10 +122,7 @@ async fn a_first_like_and_a_first_text_invite_a_found_peer() {
         .unwrap();
     let group = joined(&receive(&mut bob_session, &mut bob, &pair).await);
     assert!(bob_session.likes(&alice_owner).unwrap().theirs);
-    let id = bob_session
-        .send_text_to(from_mut(&mut bob.node), &pair, b"hi", &SEAL)
-        .await
-        .unwrap();
+    let id = send_text(&mut bob_session, &mut bob, &pair, b"hi").await;
     receive(&mut alice_session, &mut alice, &pair).await;
     let reply = MessageKey {
         group,
@@ -108,10 +132,7 @@ async fn a_first_like_and_a_first_text_invite_a_found_peer() {
     assert!(alice_session.chat_message(&reply).unwrap().is_some());
 
     // A first text fetches the KeyPackage and carries its Welcome the same way.
-    let id = alice_session
-        .send_text_to(from_mut(&mut alice.node), &others, b"hello", &SEAL)
-        .await
-        .unwrap();
+    let id = send_text(&mut alice_session, &mut alice, &others, b"hello").await;
     let group = joined(&receive(&mut carol_session, &mut carol, &others).await);
     let text = MessageKey {
         group,
