@@ -258,7 +258,11 @@ fn profile_size_hints_cover_send_replica_and_local_boundaries() {
         (response.status, response.max_bytes),
         (i32::from(Status::Stale), 0)
     );
-    let large = padded_profile(&owner, &profile, PROFILE_SEND_BYTES + 1);
+    check_oversized_profile_limits(&s, &from, &owner, &profile);
+}
+
+fn check_oversized_profile_limits(s: &Service, from: &Peer, owner: &Identity, profile: &Profile) {
+    let large = padded_profile(owner, profile, PROFILE_SEND_BYTES + 1);
     let response = s
         .profile(&peer("profile-limit"), publish(large.clone()))
         .unwrap();
@@ -273,7 +277,7 @@ fn profile_size_hints_cover_send_replica_and_local_boundaries() {
     );
     let response = s
         .profile(
-            &from,
+            from,
             ProfileRequest {
                 request: Some(profile_request::Request::ReplicaPut(large)),
                 age_seconds: 0,
@@ -335,21 +339,26 @@ fn store_pow_admission_covers_weak_forged_busy_and_cached_proofs() {
     );
     assert_eq!(s.pow.totals(), (1, 0));
 
+    check_forged_and_zero_pow(&mut s, &from, &owner, profile);
+}
+
+fn check_forged_and_zero_pow(s: &mut Service, from: &Peer, owner: &Identity, profile: Profile) {
+    let ok = |check: &PowCheck| Some(s.pow.check(check));
     let mut forged_profile = profile;
     forged_profile.pow_nonce = (0..1_000)
         .find(|nonce| dyapp_profile::pow_leading_bits(&owner.public_key(), *nonce) < 2)
         .unwrap();
     forged_profile.version = 2;
-    let forged = forged_profile.sign(&owner);
+    let forged = forged_profile.sign(owner);
     assert_eq!(
         status(
-            &s.profile_with_pow(&from, publish(forged.clone()), &|_| None)
+            &s.profile_with_pow(from, publish(forged.clone()), &|_| None)
                 .unwrap()
         ),
         Status::RateLimited
     );
     assert_eq!(
-        status(&s.profile_with_pow(&from, publish(forged), &ok).unwrap()),
+        status(&s.profile_with_pow(from, publish(forged), &ok).unwrap()),
         Status::Denied
     );
     assert_eq!(s.pow.totals(), (2, 1));
@@ -359,7 +368,7 @@ fn store_pow_admission_covers_weak_forged_busy_and_cached_proofs() {
         version: 3,
         ..Default::default()
     }
-    .sign(&owner);
+    .sign(owner);
     assert_eq!(status(&s.store_profile(&zero).unwrap()), Status::Ok);
 }
 
@@ -420,6 +429,29 @@ fn publish_get_stale_and_errors() {
     );
 }
 
+fn media_replica_status(service: &Service, sender: &Peer, protocol: u8) -> i32 {
+    let request = if protocol == 2 {
+        media_request::Request::ReplicaPut(proto::MediaReplicaPut {
+            data: vec![0],
+            ..Default::default()
+        })
+    } else {
+        media_request::Request::ShardPut(proto::MediaShardPut {
+            data: vec![0],
+            ..Default::default()
+        })
+    };
+    service
+        .media(
+            sender,
+            MediaRequest {
+                request: Some(request),
+            },
+        )
+        .unwrap()
+        .status
+}
+
 fn replica_status(service: &Service, sender: &Peer, protocol: u8) -> Status {
     let status = match protocol {
         0 => {
@@ -451,34 +483,7 @@ fn replica_status(service: &Service, sender: &Peer, protocol: u8) -> Status {
                 .unwrap()
                 .status
         }
-        2 => {
-            service
-                .media(
-                    sender,
-                    MediaRequest {
-                        request: Some(media_request::Request::ReplicaPut(proto::MediaReplicaPut {
-                            data: vec![0],
-                            ..Default::default()
-                        })),
-                    },
-                )
-                .unwrap()
-                .status
-        }
-        3 => {
-            service
-                .media(
-                    sender,
-                    MediaRequest {
-                        request: Some(media_request::Request::ShardPut(proto::MediaShardPut {
-                            data: vec![0],
-                            ..Default::default()
-                        })),
-                    },
-                )
-                .unwrap()
-                .status
-        }
+        2 | 3 => media_replica_status(service, sender, protocol),
         _ => unreachable!(),
     };
     Status::try_from(status).unwrap()
@@ -505,6 +510,16 @@ fn replicas_reject_missing_pow_and_bad_signatures_with_strikes() {
             assert!(service.reputation.banned(&sender.id), "protocol {protocol}");
         }
     }
+}
+
+fn stored_manifest(service: &Service, hash: &[u8]) -> bool {
+    service
+        .media
+        .as_ref()
+        .unwrap()
+        .manifest(hash)
+        .unwrap()
+        .is_some()
 }
 
 #[test]
@@ -543,13 +558,7 @@ fn shard_upload_requires_node_pow_and_accepts_authorised_node() {
         service.media(&weak, request()).unwrap().status,
         i32::from(Status::Denied)
     );
-    assert!(service
-        .media
-        .as_ref()
-        .unwrap()
-        .manifest(&hash)
-        .unwrap()
-        .is_none());
+    assert!(!stored_manifest(&service, &hash));
     let node = dyapp_p2p_net::generate_pow_keypair(8).public().to_peer_id();
     assert_eq!(
         service
@@ -558,13 +567,7 @@ fn shard_upload_requires_node_pow_and_accepts_authorised_node() {
             .status,
         i32::from(Status::Ok)
     );
-    assert!(service
-        .media
-        .as_ref()
-        .unwrap()
-        .manifest(&hash)
-        .unwrap()
-        .is_some());
+    assert!(stored_manifest(&service, &hash));
 }
 
 #[test]
@@ -721,6 +724,11 @@ fn admission_stores_nothing_and_replicas_verify_and_cost_one_unit() {
         status(&service.profile(&peer("client"), get(vec![0; 32])).unwrap()),
         Status::RateLimited
     );
+    check_profile_replicas(&service, record);
+    check_mailbox_admission(&service, &identity);
+}
+
+fn check_profile_replicas(service: &Service, record: SignedRecord) {
     let replica = |record| ProfileRequest {
         request: Some(profile_request::Request::ReplicaPut(record)),
         age_seconds: 0,
@@ -751,7 +759,9 @@ fn admission_stores_nothing_and_replicas_verify_and_cost_one_unit() {
         ),
         Status::Denied
     );
+}
 
+fn check_mailbox_admission(service: &Service, identity: &Identity) {
     let envelope = proto::Envelope {
         id: vec![3; 16],
         mailbox: vec![4; 32],
