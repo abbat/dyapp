@@ -56,10 +56,7 @@ fn stale_unsolicited_and_blocked_fetch_completions_never_publish() {
         .retry_sticker_pack_download(&job)
         .unwrap()
         .unwrap();
-    assert!(!pair
-        .session
-        .complete_pack_download(pair.group.id(), &job, &pack.encode(), &SEAL)
-        .unwrap());
+    assert!(!complete(&mut pair, &job, &pack));
     let state = pair
         .session
         .store
@@ -82,20 +79,14 @@ fn stale_unsolicited_and_blocked_fetch_completions_never_publish() {
         .saved_sticker_pack(&SEAL, &job.pack_id)
         .unwrap()
         .is_none());
-    assert!(pair
-        .session
-        .complete_pack_download(pair.group.id(), &next, &pack.encode(), &SEAL)
-        .unwrap());
+    assert!(complete(&mut pair, &next, &pack));
 
     let (mut pair, _, pack, job) = admitted();
     pair.session
         .store
         .finish_sticker_pack(&job.peer, &job.pack_id, &job.token)
         .unwrap();
-    assert!(!pair
-        .session
-        .complete_pack_download(pair.group.id(), &job, &pack.encode(), &SEAL)
-        .unwrap());
+    assert!(!complete(&mut pair, &job, &pack));
     assert!(pair
         .session
         .store
@@ -105,10 +96,7 @@ fn stale_unsolicited_and_blocked_fetch_completions_never_publish() {
 
     let (mut pair, _, pack, job) = admitted();
     pair.session.store.set_blocked(&job.peer, true).unwrap();
-    assert!(!pair
-        .session
-        .complete_pack_download(pair.group.id(), &job, &pack.encode(), &SEAL)
-        .unwrap());
+    assert!(!complete(&mut pair, &job, &pack));
     assert!(pair
         .session
         .store
@@ -193,13 +181,7 @@ async fn five_due_downloads_leave_one_for_the_next_pass() {
         );
         pair.session.store.save_sticker_pack(&SEAL, &pack).unwrap();
     }
-    assert_eq!(
-        pair.session
-            .download_sticker_packs(&mut [], &SEAL, || false)
-            .await
-            .unwrap(),
-        4
-    );
+    assert_eq!(download_count(&mut pair.session, &SEAL).await, 4);
     assert_eq!(
         pair.session
             .store
@@ -208,19 +190,41 @@ async fn five_due_downloads_leave_one_for_the_next_pass() {
             .len(),
         1
     );
-    assert_eq!(
-        pair.session
-            .download_sticker_packs(&mut [], &SEAL, || false)
-            .await
-            .unwrap(),
-        1
-    );
+    assert_eq!(download_count(&mut pair.session, &SEAL).await, 1);
     assert!(pair
         .session
         .store
         .due_sticker_pack_downloads(0)
         .unwrap()
         .is_empty());
+}
+
+fn refreshed_request(pair: &mut Invite, pack: &Pack, job: &PackDownloadJob) {
+    let mut incoming = sticker(pack);
+    incoming.id = [7; 16];
+    incoming.hlc = 2000;
+    deliver(pair, &Body::Sticker(Box::new(incoming)), 7);
+    let selected = MessageKey {
+        group: pair.group.id().to_vec(),
+        author: job.peer.clone(),
+        id: [7; 16],
+    };
+    let (next, _) = pair
+        .session
+        .stage_sticker_pack_request(&job.peer, &selected, &SEAL)
+        .unwrap();
+    assert_ne!(next.token, job.token);
+    assert!(!complete(pair, job, pack));
+    assert_eq!(
+        pair.session
+            .store
+            .pending_sticker_pack(&job.peer, &job.pack_id)
+            .unwrap()
+            .unwrap()
+            .token,
+        next.token
+    );
+    not_saved(pair, pack.id());
 }
 
 #[test]
@@ -239,10 +243,7 @@ fn full_clear_cancels_old_fetch_but_preserves_saved_packs_recents_and_sharing() 
         .pending_sticker_pack(&job.peer, &job.pack_id)
         .unwrap()
         .is_none());
-    assert!(!pair
-        .session
-        .complete_pack_download(pair.group.id(), &job, &pack.encode(), &SEAL)
-        .unwrap());
+    assert!(!complete(&mut pair, &job, &pack));
     assert!(pair
         .session
         .store
@@ -267,37 +268,5 @@ fn full_clear_cancels_old_fetch_but_preserves_saved_packs_recents_and_sharing() 
         .is_err());
     assert!(pair.session.device.is_some());
 
-    let mut incoming = sticker(&pack);
-    incoming.id = [7; 16];
-    incoming.hlc = 2000;
-    deliver(&mut pair, &Body::Sticker(Box::new(incoming)), 7);
-    let selected = MessageKey {
-        group: pair.group.id().to_vec(),
-        author: job.peer.clone(),
-        id: [7; 16],
-    };
-    let (next, _) = pair
-        .session
-        .stage_sticker_pack_request(&job.peer, &selected, &SEAL)
-        .unwrap();
-    assert_ne!(next.token, job.token);
-    assert!(!pair
-        .session
-        .complete_pack_download(pair.group.id(), &job, &pack.encode(), &SEAL)
-        .unwrap());
-    assert_eq!(
-        pair.session
-            .store
-            .pending_sticker_pack(&job.peer, &job.pack_id)
-            .unwrap()
-            .unwrap()
-            .token,
-        next.token
-    );
-    assert!(pair
-        .session
-        .store
-        .saved_sticker_pack(&SEAL, pack.id())
-        .unwrap()
-        .is_none());
+    refreshed_request(&mut pair, &pack, &job);
 }

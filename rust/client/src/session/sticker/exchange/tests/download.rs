@@ -31,18 +31,34 @@ pub(super) fn admitted() -> (Invite, std::path::PathBuf, Pack, PackDownloadJob) 
     (pair, path, pack, job)
 }
 
+async fn download_count(session: &mut Session, seal_key: &[u8; 32]) -> usize {
+    session
+        .download_sticker_packs(&mut [], seal_key, || false)
+        .await
+        .unwrap()
+}
+
+fn complete(pair: &mut Invite, job: &PackDownloadJob, pack: &Pack) -> bool {
+    pair.session
+        .complete_pack_download(pair.group.id(), job, &pack.encode(), &SEAL)
+        .unwrap()
+}
+
+fn not_saved(pair: &Invite, pack_id: &[u8; 32]) {
+    assert!(pair
+        .session
+        .store
+        .saved_sticker_pack(&SEAL, pack_id)
+        .unwrap()
+        .is_none());
+}
+
 #[tokio::test]
 async fn offline_failure_survives_restart_and_explicit_retry_finishes_from_saved_file() {
     let (mut pair, path, pack, job) = admitted();
     let snapshot = pair.session.store.sealed_device().unwrap();
     let count = pair.session.due_outbound(i64::MAX).unwrap().len();
-    assert_eq!(
-        pair.session
-            .download_sticker_packs(&mut [], &SEAL, || false)
-            .await
-            .unwrap(),
-        0
-    );
+    assert_eq!(download_count(&mut pair.session, &SEAL).await, 0);
     let state = pair
         .session
         .store
@@ -74,13 +90,7 @@ async fn offline_failure_survives_restart_and_explicit_retry_finishes_from_saved
         .unwrap()
         .unwrap();
     session.store.save_sticker_pack(&SEAL, &pack).unwrap();
-    assert_eq!(
-        session
-            .download_sticker_packs(&mut [], &SEAL, || false)
-            .await
-            .unwrap(),
-        1
-    );
+    assert_eq!(download_count(&mut session, &SEAL).await, 1);
     assert!(session
         .store
         .pending_sticker_pack(&job.peer, &job.pack_id)
@@ -108,13 +118,7 @@ async fn stop_and_block_prevent_fetch_or_save_without_chat_or_mls_mutation() {
         .failure
         .is_none());
     pair.session.store.set_blocked(&job.peer, true).unwrap();
-    assert_eq!(
-        pair.session
-            .download_sticker_packs(&mut [], &SEAL, || false)
-            .await
-            .unwrap(),
-        0
-    );
+    assert_eq!(download_count(&mut pair.session, &SEAL).await, 0);
     assert!(pair
         .session
         .store
