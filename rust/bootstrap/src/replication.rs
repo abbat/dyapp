@@ -30,7 +30,10 @@ impl Replication {
     ///
     /// Returns an error if there are no data shards or the combined shard count exceeds 256.
     pub fn new(data_shards: usize, parity_shards: usize) -> Result<Self> {
-        if data_shards == 0 || data_shards > 256 || parity_shards > 256 - data_shards {
+        if data_shards == 0
+            || data_shards > 256
+            || parity_shards > 256usize.saturating_sub(data_shards)
+        {
             return Err(BootstrapError::ReplicationError(
                 "Too many shards (max 256)".to_string(),
             ));
@@ -74,7 +77,7 @@ impl Replication {
 
         let shard_size = data.len().div_ceil(self.data_shards);
         let mut shards: Vec<Vec<u8>> =
-            vec![vec![0; shard_size]; self.data_shards + self.parity_shards];
+            vec![vec![0; shard_size]; self.data_shards.saturating_add(self.parity_shards)];
 
         for (i, chunk) in data.chunks(shard_size).enumerate() {
             shards[i][..chunk.len()].copy_from_slice(chunk);
@@ -116,7 +119,8 @@ impl Replication {
             ));
         }
 
-        let mut shards: Vec<Option<Vec<u8>>> = vec![None; self.data_shards + self.parity_shards];
+        let mut shards: Vec<Option<Vec<u8>>> =
+            vec![None; self.data_shards.saturating_add(self.parity_shards)];
 
         for fragment in fragments {
             if fragment.shard_id < shards.len() {
@@ -167,7 +171,9 @@ impl Replication {
     /// Stored bytes per data byte, rounded up.
     #[must_use]
     pub fn replication_factor(&self) -> usize {
-        (self.data_shards + self.parity_shards).div_ceil(self.data_shards)
+        self.data_shards
+            .saturating_add(self.parity_shards)
+            .div_ceil(self.data_shards)
     }
 
     /// Shards that can be lost: the parity count.
@@ -203,7 +209,7 @@ impl MediaManifestExt for dyapp_p2p_net::proto::MediaManifest {
         let k = length.div_ceil(MEDIA_OBJECT_BYTES);
         (self.hash.len() == 32
             && (1..=MEDIA_MAX_BYTES).contains(&length)
-            && self.shard_hashes.len() == k + MEDIA_PARITY
+            && self.shard_hashes.len() == k.saturating_add(MEDIA_PARITY)
             && self.shard_hashes.iter().all(|h| h.len() == 32))
         .then_some(k)
     }
@@ -226,7 +232,8 @@ impl MediaManifestExt for dyapp_p2p_net::proto::MediaManifest {
 
     fn billed_bytes(&self) -> Option<u64> {
         let k = self.data_shards()? as u64;
-        Some((self.length * (k + MEDIA_PARITY as u64)).div_ceil(k))
+        let shards = k.checked_add(MEDIA_PARITY as u64)?;
+        Some(self.length.checked_mul(shards)?.div_ceil(k))
     }
 }
 
