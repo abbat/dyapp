@@ -72,9 +72,9 @@ impl PeerRateLimiter {
         let now = self.clock.instant();
         let second = Duration::from_secs(1);
         // Not only at the cap: one-off keys (fresh peer IDs) would hold the map at its high water.
-        if limiters.len() >= MAX_BUCKETS || now - *pruned >= second {
+        if limiters.len() >= MAX_BUCKETS || now.saturating_duration_since(*pruned) >= second {
             // A bucket unused for a second has refilled: dropping it changes nothing.
-            limiters.retain(|_, (_, seen)| now - *seen < second);
+            limiters.retain(|_, (_, seen)| now.saturating_duration_since(*seen) < second);
             *pruned = now;
         }
         let (limiter, seen) = limiters.entry(peer_id.to_string()).or_insert_with(|| {
@@ -129,10 +129,10 @@ impl Reputation {
         let now = self.clock.instant();
         let mut peers = self.peers.lock().unwrap();
         if peers.len() >= MAX_BUCKETS {
-            peers.retain(|_, (_, last)| now - *last < self.ban);
+            peers.retain(|_, (_, last)| now.saturating_duration_since(*last) < self.ban);
         }
         let (count, last) = peers.entry(peer.to_string()).or_insert((0, now));
-        if now - *last >= self.ban {
+        if now.saturating_duration_since(*last) >= self.ban {
             *count = 0;
         }
         (*count, *last) = (count.saturating_add(1), now);
@@ -149,7 +149,9 @@ impl Reputation {
         let peers = self.peers.lock().unwrap();
         peers
             .get(peer)
-            .is_some_and(|(count, last)| *count >= self.strikes && now - *last < self.ban)
+            .is_some_and(|(count, last)| {
+                *count >= self.strikes && now.saturating_duration_since(*last) < self.ban
+            })
     }
 }
 
@@ -266,10 +268,16 @@ impl Memory {
         let now = self.clock.instant();
         let mut sample = self.sample.lock().unwrap();
         match *sample {
-            Some((at, share)) if now < at + Duration::from_millis(100) => share,
+            Some((at, share))
+                if at
+                    .checked_add(Duration::from_millis(100))
+                    .is_none_or(|end| now < end) =>
+            {
+                share
+            }
             _ => {
                 let used = memory_stats::memory_stats().map_or(0, |m| m.physical_mem as u64);
-                let share = used.saturating_mul(100) / self.max;
+                let share = used.saturating_mul(100).checked_div(self.max).unwrap_or(0);
                 *sample = Some((now, share));
                 share
             }
