@@ -92,69 +92,42 @@ struct Filter {
     values: Vec<rusqlite::types::Value>,
 }
 
-/// `Ok(None)`: an unknown field or op, or `range` on a string field — skipped.
-/// `Err(())`: a malformed condition — the query is `INVALID`.
-fn filter(c: &Condition) -> std::result::Result<Option<Filter>, ()> {
+fn birth_age_filter(c: &Condition, op: Op) -> std::result::Result<Option<Filter>, ()> {
     use rusqlite::types::Value;
-    let op = Op::try_from(c.op).unwrap_or(Op::Unspecified);
-    if c.field == BIRTH_AGE {
-        if op == Op::Unspecified {
-            return Ok(None);
-        }
-        if op != Op::Range || c.ints.len() != 2 || !c.strings.is_empty() || c.ints[0] >= c.ints[1] {
-            return Err(());
-        }
-        return Ok(Some(Filter {
-            field: c.field,
-            sql: "COALESCE(`p`.`birth_earliest` > ? AND `p`.`birth_latest` <= ?, 0)".into(),
-            values: c.ints.iter().copied().map(Value::Integer).collect(),
-        }));
-    }
-    if c.field == SEEKING_AGE {
-        if op == Op::Unspecified {
-            return Ok(None);
-        }
-        let ([age], true) = (&c.ints[..], op == Op::Eq && c.strings.is_empty()) else {
-            return Err(());
-        };
-        return Ok(Some(Filter {
-            field: c.field,
-            sql: "COALESCE(`p`.`seeking_age_from` <= ? AND `p`.`seeking_age_to` >= ?, 0)".into(),
-            values: vec![Value::Integer(*age), Value::Integer(*age)],
-        }));
-    }
-    let interests = c.field == INTERESTS;
-    let active = c.field == ACTIVE_DAY;
-    let seeking = c.field == SEEKING_GENDERS;
-    let Some(&(_, column, int)) = COLUMNS
-        .iter()
-        .find(|(f, ..)| *f == c.field)
-        .or(interests.then_some(&(INTERESTS, "", false)))
-        .or(active.then_some(&(ACTIVE_DAY, "", true)))
-        .or(seeking.then_some(&(SEEKING_GENDERS, "", true)))
-    else {
+    if op == Op::Unspecified {
         return Ok(None);
-    };
-    let values: Vec<Value> = if int {
-        if !c.strings.is_empty() {
-            return Err(());
-        }
-        c.ints.iter().map(|v| Value::Integer(*v)).collect()
-    } else {
-        if !c.ints.is_empty() {
-            return Err(());
-        }
-        c.strings.iter().map(|v| Value::Text(v.clone())).collect()
-    };
-    let n = values.len();
-    if let Some(scale) = scale(c.field) {
-        // No upper limit: a newer client may ask for a value this node does not know yet.
-        if (op == Op::Range && !scale.ordered)
-            || (op != Op::Unspecified && c.ints.iter().any(|&value| value < 1))
-        {
-            return Err(());
-        }
     }
+    if op != Op::Range || c.ints.len() != 2 || !c.strings.is_empty() || c.ints[0] >= c.ints[1] {
+        return Err(());
+    }
+    Ok(Some(Filter {
+        field: c.field,
+        sql: "COALESCE(`p`.`birth_earliest` > ? AND `p`.`birth_latest` <= ?, 0)".into(),
+        values: c.ints.iter().copied().map(Value::Integer).collect(),
+    }))
+}
+
+fn seeking_age_filter(c: &Condition, op: Op) -> std::result::Result<Option<Filter>, ()> {
+    use rusqlite::types::Value;
+    if op == Op::Unspecified {
+        return Ok(None);
+    }
+    let ([age], true) = (&c.ints[..], op == Op::Eq && c.strings.is_empty()) else {
+        return Err(());
+    };
+    Ok(Some(Filter {
+        field: c.field,
+        sql: "COALESCE(`p`.`seeking_age_from` <= ? AND `p`.`seeking_age_to` >= ?, 0)".into(),
+        values: vec![Value::Integer(*age), Value::Integer(*age)],
+    }))
+}
+
+fn filter_target(
+    column: &str,
+    interests: bool,
+    active: bool,
+    seeking: bool,
+) -> (String, &'static str) {
     let target = if interests {
         "EXISTS (SELECT 1 FROM `interest` AS `i` WHERE `i`.`key` = `p`.`key` AND `i`.`interest`"
             .to_string()
@@ -172,6 +145,60 @@ fn filter(c: &Condition) -> std::result::Result<Option<Filter>, ()> {
     } else {
         ""
     };
+    (target, close)
+}
+
+fn condition_values(
+    c: &Condition,
+    int: bool,
+) -> std::result::Result<Vec<rusqlite::types::Value>, ()> {
+    use rusqlite::types::Value;
+    if int {
+        if !c.strings.is_empty() {
+            return Err(());
+        }
+        Ok(c.ints.iter().map(|v| Value::Integer(*v)).collect())
+    } else {
+        if !c.ints.is_empty() {
+            return Err(());
+        }
+        Ok(c.strings.iter().map(|v| Value::Text(v.clone())).collect())
+    }
+}
+
+/// `Ok(None)`: an unknown field or op, or `range` on a string field — skipped.
+/// `Err(())`: a malformed condition — the query is `INVALID`.
+fn filter(c: &Condition) -> std::result::Result<Option<Filter>, ()> {
+    let op = Op::try_from(c.op).unwrap_or(Op::Unspecified);
+    if c.field == BIRTH_AGE {
+        return birth_age_filter(c, op);
+    }
+    if c.field == SEEKING_AGE {
+        return seeking_age_filter(c, op);
+    }
+    let interests = c.field == INTERESTS;
+    let active = c.field == ACTIVE_DAY;
+    let seeking = c.field == SEEKING_GENDERS;
+    let Some(&(_, column, int)) = COLUMNS
+        .iter()
+        .find(|(f, ..)| *f == c.field)
+        .or(interests.then_some(&(INTERESTS, "", false)))
+        .or(active.then_some(&(ACTIVE_DAY, "", true)))
+        .or(seeking.then_some(&(SEEKING_GENDERS, "", true)))
+    else {
+        return Ok(None);
+    };
+    let values = condition_values(c, int)?;
+    let n = values.len();
+    if let Some(scale) = scale(c.field) {
+        // No upper limit: a newer client may ask for a value this node does not know yet.
+        if (op == Op::Range && !scale.ordered)
+            || (op != Op::Unspecified && c.ints.iter().any(|&value| value < 1))
+        {
+            return Err(());
+        }
+    }
+    let (target, close) = filter_target(column, interests, active, seeking);
     let sql = match op {
         Op::Unspecified => return Ok(None),
         Op::Range if !int => return Ok(None),
