@@ -167,6 +167,80 @@ impl Replicas {
         }
     }
 
+    fn repair_mailbox(&mut self, swarm: &mut Swarm<Behaviour>, key: &[u8]) -> Vec<kad::QueryId> {
+        let mut queries = Vec::new();
+        if self.repaired.insert(key.to_vec()) {
+            for i in 0..REPLICAS {
+                let query = swarm
+                    .behaviour_mut()
+                    .kad
+                    .get_closest_peers(replica_key(key, i));
+                self.lookups.insert(query, Lookup::Repair(key.to_vec()));
+                queries.push(query);
+            }
+        }
+        queries
+    }
+
+    fn repair_profile_key(
+        &mut self,
+        swarm: &mut Swarm<Behaviour>,
+        service: &Service,
+        key: &[u8],
+        now: Instant,
+    ) -> Vec<kad::QueryId> {
+        let peer = std::str::from_utf8(key).unwrap_or_default();
+        match service.store.get_profile(peer) {
+            Ok(Some(record)) => self.repair_profile(swarm, service, record, now),
+            Ok(None) => Vec::new(),
+            Err(error) => {
+                tracing::error!(%error, "profile republish failed");
+                Vec::new()
+            }
+        }
+    }
+
+    fn repair_media_key(
+        &mut self,
+        swarm: &mut Swarm<Behaviour>,
+        service: &Service,
+        job: u64,
+        key: &[u8],
+        now: Instant,
+    ) -> bool {
+        let owner = std::str::from_utf8(key).unwrap_or_default();
+        match service.media.as_ref().map(|media| media.keep_of(owner)) {
+            Some(Ok(Some(record))) => {
+                if let Some(repair) = self.start_media_repair(swarm, service, record, now) {
+                    self.republish.media.insert(repair, job);
+                    return true;
+                }
+            }
+            Some(Err(error)) => tracing::error!(%error, "media republish failed"),
+            _ => {}
+        }
+        false
+    }
+
+    fn start_handover(
+        &mut self,
+        swarm: &mut Swarm<Behaviour>,
+        service: &Service,
+        store: Store,
+        key: &[u8],
+        job: u64,
+        now: Instant,
+    ) -> (Vec<kad::QueryId>, bool) {
+        match store {
+            Store::Mailbox => (self.repair_mailbox(swarm, key), false),
+            Store::Profile => (self.repair_profile_key(swarm, service, key, now), false),
+            Store::Media => (
+                Vec::new(),
+                self.repair_media_key(swarm, service, job, key, now),
+            ),
+        }
+    }
+
     /// Starts handing over queued keys, round robin over the stores, while fewer than
     /// `MAX_REPUBLISH` are in flight and traffic is under `REPUBLISH_SHARE`. A key its owner
     /// repaired this hour is skipped and stays dirty.
@@ -191,47 +265,7 @@ impl Replicas {
             empty = 0;
             let job = self.republish.next_job;
             self.republish.next_job = job.wrapping_add(1);
-            let mut queries = Vec::new();
-            let mut media = false;
-            match store {
-                Store::Mailbox => {
-                    if self.repaired.insert(key.clone()) {
-                        for i in 0..REPLICAS {
-                            let query = swarm
-                                .behaviour_mut()
-                                .kad
-                                .get_closest_peers(replica_key(&key, i));
-                            self.lookups.insert(query, Lookup::Repair(key.clone()));
-                            queries.push(query);
-                        }
-                    }
-                }
-                Store::Profile => {
-                    let peer = std::str::from_utf8(&key).unwrap_or_default();
-                    match service.store.get_profile(peer) {
-                        Ok(Some(record)) => {
-                            queries = self.repair_profile(swarm, service, record, now);
-                        }
-                        Ok(None) => {}
-                        Err(error) => tracing::error!(%error, "profile republish failed"),
-                    }
-                }
-                Store::Media => {
-                    let owner = std::str::from_utf8(&key).unwrap_or_default();
-                    match service.media.as_ref().map(|media| media.keep_of(owner)) {
-                        Some(Ok(Some(record))) => {
-                            if let Some(repair) =
-                                self.start_media_repair(swarm, service, record, now)
-                            {
-                                self.republish.media.insert(repair, job);
-                                media = true;
-                            }
-                        }
-                        Some(Err(error)) => tracing::error!(%error, "media republish failed"),
-                        _ => {}
-                    }
-                }
-            }
+            let (queries, media) = self.start_handover(swarm, service, store, &key, job, now);
             if queries.is_empty() && !media {
                 continue;
             }
