@@ -112,7 +112,7 @@ impl Replicas {
         }
         if !service
             .traffic
-            .try_add(request.encoded_len() as u64 + reserve, SHED_MEDIA)
+            .try_add((request.encoded_len() as u64).saturating_add(reserve), SHED_MEDIA)
             || !self.allow_repair(to, request.request.as_ref().unwrap())
         {
             self.repair_reply(id, job, None, service.clock.instant());
@@ -188,7 +188,7 @@ impl Replicas {
         };
         service
             .traffic
-            .add((request.encoded_len() - prepaid) as u64);
+            .add(request.encoded_len().saturating_sub(prepaid) as u64);
         let request_id = swarm.behaviour_mut().media.send_request(&to, request);
         self.media_outgoing.insert(request_id, to);
         match job {

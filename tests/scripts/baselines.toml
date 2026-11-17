@@ -27,7 +27,7 @@ max_lines = 400
 [arithmetic]
 # B8: Clippy arithmetic_side_effects sites, same scope as [panics]; release builds keep
 # overflow-checks off, so each site is rewritten as checked_, saturating_ or wrapping_.
-"dyapp-bootstrap" = 24
+"dyapp-bootstrap" = 14
 "dyapp-client" = 0
 "dyapp-ffi" = 0
 "dyapp-identity" = 0

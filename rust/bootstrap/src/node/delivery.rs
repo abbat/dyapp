@@ -18,7 +18,7 @@ fn repair_batch(batch: &[crate::service::Held], now: i64) -> MailboxRequest {
             remaining_seconds: batch
                 .iter()
                 .map(|(_, _, expires_at)| {
-                    u32::try_from((expires_at - now).max(1)).unwrap_or(u32::MAX)
+                    u32::try_from(expires_at.saturating_sub(now).max(1)).unwrap_or(u32::MAX)
                 })
                 .collect(),
         })),
@@ -52,7 +52,7 @@ fn repair_envelopes(
     held: HashMap<Vec<u8>, crate::service::Held>,
     wanted: impl Fn(&Vec<u8>) -> bool,
 ) -> (Vec<crate::service::Held>, bool) {
-    let mut bytes = 0;
+    let mut bytes: usize = 0;
     let mut wanted: Vec<crate::service::Held> = held
         .into_iter()
         .filter(|(id, (record, _, _))| {
@@ -66,7 +66,7 @@ fn repair_envelopes(
     let envelopes: Vec<crate::service::Held> = wanted
         .drain(..)
         .take_while(|(record, _, _)| {
-            bytes += record.encoded_len();
+            bytes = bytes.saturating_add(record.encoded_len());
             bytes <= REPAIR_BYTES
         })
         .collect();

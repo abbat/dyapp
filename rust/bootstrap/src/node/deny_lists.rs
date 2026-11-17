@@ -25,9 +25,9 @@ fn hash(entry: &str) -> Option<Vec<u8>> {
     if entry.len() != 64 || !entry.bytes().all(|b| b.is_ascii_hexdigit()) {
         return None;
     }
-    (0..64)
+    (0usize..64)
         .step_by(2)
-        .map(|i| u8::from_str_radix(&entry[i..i + 2], 16))
+        .map(|i| u8::from_str_radix(&entry[i..i.saturating_add(2)], 16))
         .collect::<Result<Vec<_>, _>>()
         .ok()
 }

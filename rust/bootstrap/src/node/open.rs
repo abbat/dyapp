@@ -91,11 +91,11 @@ pub async fn open(config: NodeConfig) -> anyhow::Result<Opened> {
 
 // A host without IPv6 cannot open [::]; the node runs on whatever does open.
 fn listen(swarm: &mut Swarm<Behaviour>, addresses: &[String]) -> anyhow::Result<()> {
-    let mut listening = 0;
+    let mut listening: usize = 0;
     for address in addresses {
         for address in transports(address)? {
             match swarm.listen_on(address.clone()) {
-                Ok(_) => listening += 1,
+                Ok(_) => listening = listening.saturating_add(1),
                 Err(error) => tracing::warn!(%address, %error, "not listening"),
             }
         }

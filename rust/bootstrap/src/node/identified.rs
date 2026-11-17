@@ -239,7 +239,7 @@ pub(super) fn add_node(
 fn cut(s: &str, max: usize) -> &str {
     let mut end = s.len().min(max);
     while !s.is_char_boundary(end) {
-        end -= 1;
+        end = end.saturating_sub(1);
     }
     &s[..end]
 }

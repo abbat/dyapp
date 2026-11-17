@@ -121,7 +121,7 @@ impl<T> GroupQueue<T> {
                 queue.push_back(item);
             }
         }
-        self.len += 1;
+        self.len = self.len.saturating_add(1);
         Ok(())
     }
 
@@ -140,7 +140,7 @@ impl<T> GroupQueue<T> {
             }
             item
         };
-        self.len -= 1;
+        self.len = self.len.saturating_sub(1);
         Some(item)
     }
 }
