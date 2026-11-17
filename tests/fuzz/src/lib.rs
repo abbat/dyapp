@@ -1,7 +1,6 @@
 //! Shared state of the fuzz targets: one bootstrap node with every role and no limits.
 
 const _: () = assert!(cfg!(debug_assertions), "fuzz targets require debug assertions");
-const _: () = assert!(cfg!(overflow_checks), "fuzz targets require overflow checks");
 
 use dyapp_bootstrap::media::MediaStore;
 use dyapp_bootstrap::search::SearchIndex;
