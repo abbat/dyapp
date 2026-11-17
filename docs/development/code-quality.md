@@ -250,38 +250,32 @@ outside this check; indexing and UTF-8 string slicing have separate ratchets.
 The same run counts Clippy `arithmetic_side_effects` against `[arithmetic]`, a separate
 budget so a removed `unwrap` cannot pay for a new `+`. Release builds keep `overflow-checks`
 off, so an unchecked integer operation wraps silently there; this ratchet catches new ones
-statically instead. Clippy has no range analysis and flags every integer `+`, `-` and `*`,
-which is why the existing sites (347 on 2026-11-13) ratchet rather than fail at once.
-Lowering a count means rewriting the site as `checked_`, `saturating_` or `wrapping_`, the
-last only where wrapping is the intended meaning; modules that handle peer data go first.
-`[indexing]` and `[string_slicing]` apply the same per-crate barrier to
-`indexing_slicing` and `string_slice`. Replace sites with checked ranges, iterators or
-character-aware parsing and lower the budget in the same commit; no string byte offset may
-split a UTF-8 character. `build/panics.json` keys counts, budgets and excluded diagnostics by
-table.
+statically instead. Clippy has no range analysis and flags every integer `+`, `-` and `*`.
+All crates now have zero arithmetic, indexing and string-slicing budgets. Integer operations
+must be `checked_`, `saturating_` or `wrapping_`, the last only where wrapping is the intended
+meaning. `[indexing]` and `[string_slicing]` apply the same per-crate barrier to
+`indexing_slicing` and `string_slice`: use checked ranges, iterators or character-aware parsing;
+no string byte offset may split a UTF-8 character. `build/panics.json` keys counts, budgets and
+excluded diagnostics by table.
 
-The budget is the barrier, not `deny`: an `allow` cannot hide a counted site, so a new
-production `unwrap`/`expect` or indexed slice fails `make quality` unless one is removed in the
-same commit.
-Unit tests (`#[cfg(test)]`), integration tests, fuzz targets and generated protobuf modules
-are not counted. The counted sites, inventoried on 2026-10-23, fall into these groups. None
-is reachable by peer input, which `tests/fuzz` also exercises:
+The budget is the barrier, not `deny`: an `allow` cannot hide a counted site. Unit tests
+(`#[cfg(test)]`), integration tests, fuzz targets and generated protobuf modules are not
+counted. New code returns `Result` for anything a peer or user controls; a new invariant or
+third-party exception requires a concrete reason in review rather than a higher budget.
 
-- **Validated input.** A record or manifest the service has already accepted: a verified
-  signature implies a 32-byte key, an accepted mailbox put decodes, and a stored manifest has
-  `data_shards()` (bootstrap `node/replicas.rs`, `node.rs`, `media_repair.rs`,
-  `service/media.rs`).
-- **State-machine invariants.** An entry looked up right after it was inserted or checked
-  (`node/replicas.rs`, `search/find.rs`, `search/generation.rs`).
-- **Poisoned locks.** `lock().unwrap()` re-raises a panic that already happened on another
-  thread (`rate_limit.rs`, `maintenance.rs`, messaging `hlc.rs`).
-- **Constants and startup.** Nonzero or in-range constants, valid Argon2, HMAC and
-  gossipsub parameters, and a missing OS random source, where failing closed is the intended
-  behaviour (`config.rs`, `lib.rs`, `secret.rs`, identity, profile, p2p-net).
-- **Wall clock before 1970.** `SystemTime::duration_since(UNIX_EPOCH)` (messaging, video).
+UniFFI 0.32 generated exports call `rust_call`, which catches a Rust panic and reports
+`UnexpectedError` with the panic message to the foreign caller. The
+`tests::exported_panics_are_unexpected_errors` regression in `rust/ffi/src/lib.rs` invokes the
+generated C export and verifies that boundary, including ownership of the error buffer.
 
-New code returns `Result` for anything a peer or user controls. A new invariant replaces a
-removed site, or raises the budget with the reason in review.
+Desktop `COMMAND_HANDLER` catches synchronous Tauri command panics and rejects the invoke with
+`Rust command panicked`. Tauri 2.12.3 has a narrow, documented exception for generated async
+commands: `InvokeResolver::respond_async` spawns their futures without `catch_unwind`, so a
+wrapper around `COMMAND_HANDLER` has already returned when such a future panics. A complete
+fix requires a Tauri async boundary or per-command future wrappers and result-type changes.
+The exception covers only this third-party dispatcher limitation, not application command
+bodies; their panic budgets remain zero and their expected failures still return `Result`.
+Re-check the boundary on every Tauri upgrade and remove the exception when an async hook exists.
 
 ### Public API documentation
 

@@ -737,7 +737,7 @@ async fn set_tray(
     tray::set(&app, config_dir(&app).ok().as_deref(), prefs, labels)
 }
 
-const COMMAND_HANDLER: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::generate_handler![
+const GENERATED_COMMAND_HANDLER: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::generate_handler![
     identity_state,
     storage_options,
     list_identities,
@@ -877,6 +877,19 @@ const COMMAND_HANDLER: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::gener
     set_tray,
     tray::quit
 ];
+
+fn command_handler(invoke: tauri::ipc::Invoke<tauri::Wry>) -> bool {
+    let resolver = invoke.resolver.clone();
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        GENERATED_COMMAND_HANDLER(invoke)
+    }))
+    .unwrap_or_else(|_| {
+        resolver.reject("Rust command panicked");
+        true
+    })
+}
+
+const COMMAND_HANDLER: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = command_handler;
 
 fn main() {
     // A second launch shows the running window and exits.
