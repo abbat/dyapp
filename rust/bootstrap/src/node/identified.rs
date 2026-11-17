@@ -17,6 +17,19 @@ const MAX_LOGGED_VERSION: usize = 80;
 /// Disconnects a peer of another network (ADR 0017): identify and `AutoNAT` are the only protocols
 /// networks share. `dialed` is the address when this node dialled it, a seed or anchor of the
 /// wrong network.
+fn log_dialed_foreign(peer_id: PeerId, address: &Multiaddr, version: &str) {
+    tracing::warn!(
+        %peer_id,
+        %address,
+        ?version,
+        "dialled a node of another network: check seeds and anchors"
+    );
+}
+
+fn log_incoming_foreign(peer_id: PeerId, version: &str) {
+    tracing::debug!(%peer_id, ?version, "peer of another network dropped");
+}
+
 pub(super) fn drop_foreign(
     swarm: &mut Swarm<Behaviour>,
     dialed: Option<&Multiaddr>,
@@ -25,14 +38,9 @@ pub(super) fn drop_foreign(
 ) {
     let version = cut(version, MAX_LOGGED_VERSION);
     if let Some(address) = dialed {
-        tracing::warn!(
-            %peer_id,
-            %address,
-            ?version,
-            "dialled a node of another network: check seeds and anchors"
-        );
+        log_dialed_foreign(peer_id, address, version);
     } else {
-        tracing::debug!(%peer_id, ?version, "peer of another network dropped");
+        log_incoming_foreign(peer_id, version);
     }
     let _ = swarm.disconnect_peer_id(peer_id);
 }
@@ -156,6 +164,28 @@ impl Admission {
     }
 }
 
+fn prove_addresses(
+    admission: &mut Admission,
+    peer_id: PeerId,
+    remote: &Multiaddr,
+    addresses: Vec<Multiaddr>,
+    now: Instant,
+) -> Vec<Multiaddr> {
+    let mut proved = Vec::new();
+    // A circuit never enters the DHTs, so it is not probed.
+    for address in addresses {
+        if dyapp_p2p_net::is_circuit(&address) {
+            continue;
+        }
+        if dyapp_p2p_net::same_ip(remote, &address) {
+            proved.push(address);
+        } else if !admission.claims.claim(now, peer_id, address) {
+            tracing::debug!(%peer_id, "claimed address not queued for a probe");
+        }
+    }
+    proved
+}
+
 /// Adds a node of this network to the search DHT when it serves search and to the node DHT, and
 /// remembers it as an anchor when this node dialled it. Listen addresses go through
 /// [`Admission`]. Whether it serves the node DHT.
@@ -180,17 +210,7 @@ pub(super) fn add_node(
     if search || (kad && pow) {
         admission.roles.insert(peer_id, (kad, search));
         let now = service.clock.instant();
-        // A circuit never enters the DHTs, so it is not probed.
-        for address in info.listen_addrs {
-            if dyapp_p2p_net::is_circuit(&address) {
-                continue;
-            }
-            if dyapp_p2p_net::same_ip(&remote, &address) {
-                proved.push(address);
-            } else if !admission.claims.claim(now, peer_id, address) {
-                tracing::debug!(%peer_id, "claimed address not queued for a probe");
-            }
-        }
+        proved = prove_addresses(admission, peer_id, &remote, info.listen_addrs, now);
         admission.start(swarm, now);
     }
     if search {
