@@ -787,7 +787,11 @@ async fn repeated_keep_uses_network_recoverability_without_a_local_copy() {
 async fn every_request_type() {
     let addr = start(100).await;
     let mut client = Client::connect(&addr).await;
+    check_info_and_profile(&mut client).await;
+    check_mailbox_requests(&mut client).await;
+}
 
+async fn check_info_and_profile(client: &mut Client) {
     let info = client.info().await;
     assert_eq!(status(info.status), Status::Ok);
     let info = info.info.unwrap();
@@ -821,7 +825,9 @@ async fn every_request_type() {
         .profile(profile_request::Request::Get(proto::GetProfile { peer_id }))
         .await;
     assert_eq!((status(got.status), got.record), (Status::Ok, Some(record)));
+}
 
+async fn check_mailbox_requests(client: &mut Client) {
     let device = Identity::generate();
     let envelope = proto::Envelope {
         id: vec![7; 16],
