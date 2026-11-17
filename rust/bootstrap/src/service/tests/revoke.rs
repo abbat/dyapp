@@ -138,21 +138,42 @@ fn the_owner_closes_a_revoked_device_mailbox() {
     let request = mailbox_request::Request::Put(signed(1));
     assert_eq!(put(&service, &client, request), Status::Ok);
 
-    // Only the identity the device accepted closes its mailbox, and only that device's.
-    let mut other = close(&stranger, &stranger, &contact);
-    let mut payload = proto::Revoke::decode(other.payload.as_slice()).unwrap();
-    payload.mailbox.clone_from(&mailbox);
-    other = stranger.sign(Domain::MailboxRevoke, payload.encode_to_vec());
-    for (from, record) in [("a", close(&stranger, &identity, &device)), ("b", other)] {
-        let request = mailbox_request::Request::Revoke(record);
-        assert_eq!(put(&service, &peer(from), request), Status::Denied);
-        assert!(service.reputation.banned(from));
-    }
+    reject_unauthorized_closes(&service, &identity, &device, &contact, &stranger, &mailbox);
     let record = close(&identity, &identity, &device);
     let request = mailbox_request::Request::Revoke(record.clone());
     assert_eq!(put(&service, &client, request), Status::Ok);
     assert_eq!(service.held_ids(&mailbox).unwrap().len(), 0);
+    check_closed_device(&service, &device, &client, &mailbox, signed(2));
+    check_revoke_repair(&service, &mailbox, record);
+}
 
+fn reject_unauthorized_closes(
+    service: &Service,
+    identity: &Identity,
+    device: &Identity,
+    contact: &Identity,
+    stranger: &Identity,
+    mailbox: &[u8],
+) {
+    // Only the identity the device accepted closes its mailbox, and only that device's.
+    let mut other = close(stranger, stranger, contact);
+    let mut payload = proto::Revoke::decode(other.payload.as_slice()).unwrap();
+    payload.mailbox = mailbox.to_vec();
+    other = stranger.sign(Domain::MailboxRevoke, payload.encode_to_vec());
+    for (from, record) in [("a", close(stranger, identity, device)), ("b", other)] {
+        let request = mailbox_request::Request::Revoke(record);
+        assert_eq!(put(service, &peer(from), request), Status::Denied);
+        assert!(service.reputation.banned(from));
+    }
+}
+
+fn check_closed_device(
+    service: &Service,
+    device: &Identity,
+    client: &Peer,
+    mailbox: &[u8],
+    signed: SignedRecord,
+) {
     // The lost device's fetch, new puts and repair inventory are refused.
     let nonce = [5; 32];
     let fetch = device.sign(
@@ -166,25 +187,27 @@ fn the_owner_closes_a_revoked_device_mailbox() {
     let request = MailboxRequest {
         request: Some(mailbox_request::Request::Fetch(fetch)),
     };
-    let answer = service.mailbox(&client, &mut Some(nonce), request).unwrap();
+    let answer = service.mailbox(client, &mut Some(nonce), request).unwrap();
     assert_eq!(mailbox_status(&answer), Status::Refused);
-    let request = mailbox_request::Request::Put(signed(2));
-    assert_eq!(put(&service, &client, request), Status::Refused);
+    let request = mailbox_request::Request::Put(signed);
+    assert_eq!(put(service, client, request), Status::Refused);
     let inventory = proto::Inventory {
-        mailbox: mailbox.clone(),
+        mailbox: mailbox.to_vec(),
         ids: vec![vec![2; 16]],
     };
     let request = mailbox_request::Request::Inventory(inventory);
-    assert_eq!(put(&service, &replica_peer("r"), request), Status::Refused);
+    assert_eq!(put(service, &replica_peer("r"), request), Status::Refused);
     assert!(!service.reputation.banned(&client.id));
+}
 
+fn check_revoke_repair(service: &Service, mailbox: &[u8], record: SignedRecord) {
     // Repair carries the close to another replica.
     assert_eq!(
-        service.revokes(&mailbox).unwrap(),
+        service.revokes(mailbox).unwrap(),
         std::slice::from_ref(&record)
     );
     let next = service_with(|_| {});
     let request = mailbox_request::Request::ReplicaRevoke(record);
     assert_eq!(put(&next, &replica_peer("r"), request), Status::Ok);
-    assert!(next.closed(&mailbox).unwrap());
+    assert!(next.closed(mailbox).unwrap());
 }
