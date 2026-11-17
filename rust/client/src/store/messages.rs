@@ -27,6 +27,18 @@ mod outbound_tests;
 mod read_tests;
 
 type SavedChatText = (Option<Vec<u8>>, Option<i64>, i64);
+type StoredChatMessage = (
+    Vec<u8>,
+    String,
+    Vec<u8>,
+    Option<Vec<u8>>,
+    i64,
+    i64,
+    Option<i64>,
+    i64,
+    Option<i64>,
+    i64,
+);
 
 pub(super) const SCHEMA: &str = r"
 CREATE TABLE `chat_messages` (
@@ -727,6 +739,44 @@ impl Store {
         Ok(texts + attachments)
     }
 
+    fn decode_current_chat_message(
+        &self,
+        peer_id: &str,
+        stored: StoredChatMessage,
+    ) -> Result<ChatMessage, Error> {
+        let (group, author, id, text, edited, deleted, original_hlc, unread, delivery, forwarded) =
+            stored;
+        if author != self.owner_peer_id && author != peer_id {
+            return Err(Error::InboxConflict);
+        }
+        let delivery = DeliveryState::from_stored(delivery)?;
+        if author != self.owner_peer_id && delivery.is_some() {
+            return Err(Error::InboxConflict);
+        }
+        let id = id.try_into().map_err(|_| Error::InboxConflict)?;
+        let current = CurrentMessage::from_stored(text, edited, deleted)?;
+        let original_hlc = original_hlc
+            .map(|value| {
+                u64::try_from(value)
+                    .map(Timestamp::from)
+                    .map_err(|_| Error::InboxConflict)
+            })
+            .transpose()?;
+        let unread = match unread {
+            0 => false,
+            1 => true,
+            _ => return Err(Error::InboxConflict),
+        };
+        Ok(ChatMessage {
+            key: MessageKey { group, author, id },
+            current,
+            original_hlc,
+            unread,
+            forwarded: forwarded == 1,
+            delivery,
+        })
+    }
+
     /// Read a pair's current texts and deletion placeholders across all cataloged MLS groups.
     /// Legacy bodies have no sent time and appear first in local arrival order; timed bodies
     /// follow original HLC, author, logical ID and group ID order.
@@ -764,50 +814,8 @@ impl Store {
                 row.get::<_, i64>(9)?,
             ))
         })?;
-        rows.map(|row| {
-            let (
-                group,
-                author,
-                id,
-                text,
-                edited,
-                deleted,
-                original_hlc,
-                unread,
-                delivery,
-                forwarded,
-            ) = row?;
-            if author != self.owner_peer_id && author != peer_id {
-                return Err(Error::InboxConflict);
-            }
-            let delivery = DeliveryState::from_stored(delivery)?;
-            if author != self.owner_peer_id && delivery.is_some() {
-                return Err(Error::InboxConflict);
-            }
-            let id = id.try_into().map_err(|_| Error::InboxConflict)?;
-            let current = CurrentMessage::from_stored(text, edited, deleted)?;
-            let original_hlc = original_hlc
-                .map(|value| {
-                    u64::try_from(value)
-                        .map(Timestamp::from)
-                        .map_err(|_| Error::InboxConflict)
-                })
-                .transpose()?;
-            let unread = match unread {
-                0 => false,
-                1 => true,
-                _ => return Err(Error::InboxConflict),
-            };
-            Ok(ChatMessage {
-                key: MessageKey { group, author, id },
-                current,
-                original_hlc,
-                unread,
-                forwarded: forwarded == 1,
-                delivery,
-            })
-        })
-        .collect()
+        rows.map(|row| self.decode_current_chat_message(peer_id, row?))
+            .collect()
     }
 
     /// Read one logical message from this profile's current projection.
