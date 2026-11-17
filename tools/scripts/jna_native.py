@@ -111,7 +111,7 @@ def compile_target(
         SOURCE_DATE_EPOCH="0",
     )
     flags = (
-        "-O2 -fno-omit-frame-pointer -fno-strict-aliasing "
+        "-O2 -D_FORTIFY_SOURCE=2 -fno-omit-frame-pointer -fno-strict-aliasing "
         "-fstack-protector-strong -fpic -ffunction-sections "
         "-funwind-tables -fno-short-enums -Wno-implicit-function-declaration "
         f"-ffile-prefix-map={ffi}=/usr/src/jna/native/libffi "
