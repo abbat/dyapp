@@ -139,9 +139,71 @@ async fn unresolved_head_does_not_hide_later_mail_after_restart_and_holder_switc
     };
     let first_address = start_config(configure).await;
     let second_address = start_config(configure).await;
-    let mut unknown = Person::new(&first_address).await;
-    let mut known = Person::new(&first_address).await;
-    let mut bob = Person::new(&first_address).await;
+    Box::pin(run_paged_mail_scenario(first_address, second_address)).await;
+}
+
+async fn run_paged_mail_scenario(first_address: Multiaddr, second_address: Multiaddr) {
+    let (mut unknown, mut known, mut bob, unknown_profile, known_profile, bob_profile) =
+        Box::pin(paged_people(&first_address)).await;
+    let bob_owner = bob.identity.peer_id();
+    let bob_path = protocol_build_path("bob-paged").with_extension("sqlite3");
+    let seal_key = [7; 32];
+    Store::open(&bob_path, &bob.identity)
+        .unwrap()
+        .stage_outbound(&bob.device.seal(&seal_key).unwrap(), &[])
+        .unwrap();
+    let (prepared, unknown_ciphertext) = send_paged_mail(
+        &mut unknown,
+        &mut known,
+        &mut bob,
+        unknown_profile,
+        &known_profile,
+        bob_profile,
+    )
+    .await;
+    let mut second_reader = Box::pin(copy_to_second_holder(
+        second_address,
+        &bob,
+        &known,
+        &prepared,
+    ))
+    .await;
+    let profiles = [
+        known_profile,
+        bob.node.get_profile(&bob_owner).await.unwrap(),
+    ];
+    assert_unresolved_head(&mut bob, &bob_path, &seal_key, &profiles).await;
+    assert_second_holder(
+        &mut bob,
+        &mut second_reader,
+        &bob_path,
+        &seal_key,
+        &profiles,
+    )
+    .await;
+    assert_late_text_after_restart(
+        &mut bob,
+        &bob_path,
+        &seal_key,
+        &profiles,
+        unknown_ciphertext,
+    )
+    .await;
+}
+
+async fn paged_people(
+    address: &Multiaddr,
+) -> (
+    Person,
+    Person,
+    Person,
+    dyapp_profile::VerifiedProfile,
+    dyapp_profile::VerifiedProfile,
+    dyapp_profile::VerifiedProfile,
+) {
+    let mut unknown = Person::new(address).await;
+    let mut known = Person::new(address).await;
+    let mut bob = Person::new(address).await;
     let bob_owner = bob.identity.peer_id();
     chat::publish_key_packages(&mut bob.node, &bob.device_key, &bob.device, &bob_owner, 2)
         .await
@@ -157,13 +219,24 @@ async fn unresolved_head_does_not_hide_later_mail_after_restart_and_holder_switc
         .get_profile(&known.identity.peer_id())
         .await
         .unwrap();
-    let bob_path = protocol_build_path("bob-paged").with_extension("sqlite3");
-    let seal_key = [7; 32];
-    Store::open(&bob_path, &bob.identity)
-        .unwrap()
-        .stage_outbound(&bob.device.seal(&seal_key).unwrap(), &[])
-        .unwrap();
+    (
+        unknown,
+        known,
+        bob,
+        unknown_profile,
+        known_profile,
+        bob_profile,
+    )
+}
 
+async fn send_paged_mail(
+    unknown: &mut Person,
+    known: &mut Person,
+    bob: &mut Person,
+    unknown_profile: dyapp_profile::VerifiedProfile,
+    known_profile: &dyapp_profile::VerifiedProfile,
+    bob_profile: dyapp_profile::VerifiedProfile,
+) -> (dyapp_client::PreparedEnvelope, Vec<u8>) {
     let unknown_mailbox = unknown.mailbox();
     let (_, unknown_welcome) = chat::invite(
         &mut unknown.node,
@@ -179,7 +252,6 @@ async fn unresolved_head_does_not_hide_later_mail_after_restart_and_holder_switc
     for _ in 0..101 {
         unknown.node.put(&bob.mailbox(), vec![0xff]).await.unwrap();
     }
-
     let known_mailbox = known.mailbox();
     let (mut known_group, known_welcome) = chat::invite(
         &mut known.node,
@@ -199,12 +271,20 @@ async fn unresolved_head_does_not_hide_later_mail_after_restart_and_holder_switc
     )
     .unwrap();
     chat::send(&mut known.node, &late).await.unwrap();
+    (prepared, unknown_welcome[0].mls.clone())
+}
 
+async fn copy_to_second_holder(
+    address: Multiaddr,
+    bob: &Person,
+    known: &Person,
+    prepared: &dyapp_client::PreparedEnvelope,
+) -> Node {
     let protocols = Arc::new(dyapp_p2p_net::Protocols::public());
-    let mut second_writer = Node::connect(second_address.clone(), protocols.clone())
+    let mut writer = Node::connect(address.clone(), protocols.clone())
         .await
         .unwrap();
-    second_writer
+    writer
         .publish_profile(
             Profile {
                 version: 1,
@@ -215,7 +295,7 @@ async fn unresolved_head_does_not_hide_later_mail_after_restart_and_holder_switc
         )
         .await
         .unwrap();
-    second_writer
+    writer
         .publish_profile(
             Profile {
                 version: 1,
@@ -226,26 +306,28 @@ async fn unresolved_head_does_not_hide_later_mail_after_restart_and_holder_switc
         )
         .await
         .unwrap();
-    second_writer.put_prepared(&prepared).await.unwrap();
-    let mut second_reader = Node::connect(second_address, protocols).await.unwrap();
+    writer.put_prepared(prepared).await.unwrap();
+    Node::connect(address, protocols).await.unwrap()
+}
 
-    let profiles = [
-        known_profile,
-        bob.node.get_profile(&bob_owner).await.unwrap(),
-    ];
-    let mut session =
-        Session::open(Store::open(&bob_path, &bob.identity).unwrap(), &seal_key).unwrap();
-    let (first_events, more) = session
+async fn assert_unresolved_head(
+    bob: &mut Person,
+    path: &std::path::Path,
+    seal_key: &[u8; 32],
+    profiles: &[dyapp_profile::VerifiedProfile],
+) {
+    let mut session = Session::open(Store::open(path, &bob.identity).unwrap(), seal_key).unwrap();
+    let (events, more) = session
         .receive_page(
             std::slice::from_mut(&mut bob.node),
             &bob.device_key,
-            &profiles,
-            &seal_key,
+            profiles,
+            seal_key,
         )
         .await
         .unwrap();
     assert!(more);
-    assert!(first_events
+    assert!(events
         .iter()
         .any(|event| matches!(event, Event::UnknownOwner(_))));
     assert!(session
@@ -253,10 +335,16 @@ async fn unresolved_head_does_not_hide_later_mail_after_restart_and_holder_switc
         .mailbox_cursor_for(bob.node.peer())
         .unwrap()
         .is_some());
-    drop(session);
+}
 
-    let mut session =
-        Session::open(Store::open(&bob_path, &bob.identity).unwrap(), &seal_key).unwrap();
+async fn assert_second_holder(
+    bob: &mut Person,
+    reader: &mut Node,
+    path: &std::path::Path,
+    seal_key: &[u8; 32],
+    profiles: &[dyapp_profile::VerifiedProfile],
+) {
+    let mut session = Session::open(Store::open(path, &bob.identity).unwrap(), seal_key).unwrap();
     assert!(session
         .store()
         .mailbox_cursor_for(bob.node.peer())
@@ -264,10 +352,10 @@ async fn unresolved_head_does_not_hide_later_mail_after_restart_and_holder_switc
         .is_some());
     let (joined, more) = session
         .receive_page(
-            std::slice::from_mut(&mut second_reader),
+            std::slice::from_mut(reader),
             &bob.device_key,
-            &profiles,
-            &seal_key,
+            profiles,
+            seal_key,
         )
         .await
         .unwrap();
@@ -277,10 +365,16 @@ async fn unresolved_head_does_not_hide_later_mail_after_restart_and_holder_switc
         session.store().mailbox_cursor_for(bob.node.peer()).unwrap(),
         None
     );
-    drop(session);
+}
 
-    let mut session =
-        Session::open(Store::open(&bob_path, &bob.identity).unwrap(), &seal_key).unwrap();
+async fn assert_late_text_after_restart(
+    bob: &mut Person,
+    path: &std::path::Path,
+    seal_key: &[u8; 32],
+    profiles: &[dyapp_profile::VerifiedProfile],
+    unknown_ciphertext: Vec<u8>,
+) {
+    let mut session = Session::open(Store::open(path, &bob.identity).unwrap(), seal_key).unwrap();
     let mut text_count = 0;
     let mut reached_end = false;
     for _ in 0..10 {
@@ -288,8 +382,8 @@ async fn unresolved_head_does_not_hide_later_mail_after_restart_and_holder_switc
             .receive_page(
                 std::slice::from_mut(&mut bob.node),
                 &bob.device_key,
-                &profiles,
-                &seal_key,
+                profiles,
+                seal_key,
             )
             .await
             .unwrap();
@@ -318,5 +412,5 @@ async fn unresolved_head_does_not_hide_later_mail_after_restart_and_holder_switc
     );
     let (remaining, _) = bob.node.fetch(&bob.device_key).await.unwrap();
     assert_eq!(remaining.len(), 1);
-    assert_eq!(remaining[0].ciphertext, unknown_welcome[0].mls);
+    assert_eq!(remaining[0].ciphertext, unknown_ciphertext);
 }

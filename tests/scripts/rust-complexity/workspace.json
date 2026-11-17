@@ -8,7 +8,6 @@
   {"path":"rust/bootstrap/tests/protocol/chat_ack_failure.rs","function":"fn ack_marker_failure_keeps_projection_and_retries_without_duplicate_event ","metrics":{"lines":140}},
   {"path":"rust/bootstrap/tests/protocol/chat_edits.rs","function":"fn offline_recipient_acknowledges_original_and_delete_after_reconnect ","metrics":{"lines":90}},
   {"path":"rust/bootstrap/tests/protocol/chat_edits.rs","function":"fn two_sessions_converge_on_edit_and_terminal_delete ","metrics":{"lines":202}},
-  {"path":"rust/bootstrap/tests/protocol/chat_pagination.rs","function":"fn unresolved_head_does_not_hide_later_mail_after_restart_and_holder_switch ","metrics":{"lines":182}},
   {"path":"rust/bootstrap/tests/protocol/clock.rs","function":"fn future_clock_boundary_preserves_valid_request_statuses_over_tcp ","metrics":{"lines":118}},
   {"path":"rust/bootstrap/tests/protocol/clock.rs","function":"fn signed_time_failures_keep_clock_hints_over_real_tcp ","metrics":{"lines":115}},
   {"path":"rust/bootstrap/tests/protocol/delivery.rs","function":"fn a_receipt_through_another_node_resends_what_the_first_one_dropped ","metrics":{"lines":110}},
