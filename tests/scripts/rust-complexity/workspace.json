@@ -26,7 +26,6 @@
   {"path":"rust/bootstrap/tests/protocol/namespaces.rs","function":"fn named_node_serves_profile_search_and_configured_gossip_topics ","metrics":{"nesting":6,"lines":91,"nested_regions":3}},
   {"path":"rust/bootstrap/tests/protocol/profile_pow.rs","function":"fn store_and_mixed_nodes_verify_profile_proofs_before_holding_copies ","metrics":{"lines":114}},
   {"path":"rust/bootstrap/tests/protocol/replicas.rs","function":"fn replica_peer_and_group_refusals_keep_the_connection_open ","metrics":{"nesting":5,"nested_regions":2}},
-  {"path":"rust/bootstrap/tests/protocol/search.rs","function":"fn a_client_finds_and_queries_search_nodes ","metrics":{"lines":57}},
   {"path":"rust/bootstrap/tests/protocol/search.rs","function":"fn search_worker_saturation_retries_without_stalling_info ","metrics":{"lines":64}},
   {"path":"rust/bootstrap/tests/protocol/tokens.rs","function":"fn a_session_sends_with_a_held_token_and_swaps_a_revoked_one_in_its_outbox ","metrics":{"lines":87}},
   {"path":"rust/bootstrap/tests/protocol/tokens.rs","function":"fn two_sessions_trade_tokens_after_a_match_and_a_message_passes_a_full_pool ","metrics":{"lines":98}},

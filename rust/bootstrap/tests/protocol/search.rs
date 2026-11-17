@@ -224,6 +224,15 @@ async fn a_client_finds_a_lone_search_node() {
     assert_eq!(node.providers(dyapp_p2p_net::SEARCH_KEY, 3).await.len(), 1);
 }
 
+fn nobody_condition() -> proto::Condition {
+    proto::Condition {
+        field: dyapp_p2p_net::search_results::BIRTH_AGE,
+        op: proto::Op::Range.into(),
+        ints: vec![990_000, 991_231],
+        strings: vec![],
+    }
+}
+
 #[tokio::test]
 async fn a_client_finds_and_queries_search_nodes() {
     dyapp_p2p_net::set_id_pow_bits(0);
@@ -251,12 +260,7 @@ async fn a_client_finds_and_queries_search_nodes() {
             .await
             .unwrap();
         peers.insert(search.peer());
-        let nobody = proto::Condition {
-            field: dyapp_p2p_net::search_results::BIRTH_AGE,
-            op: proto::Op::Range.into(),
-            ints: vec![990_000, 991_231],
-            strings: vec![],
-        };
+        let nobody = nobody_condition();
         let response = search.search_query(vec![nobody], 0).await.unwrap();
         assert_eq!(response.hits, [] as [dyapp_p2p_net::proto::SearchHit; 0]);
     }
@@ -269,12 +273,7 @@ async fn a_client_finds_and_queries_search_nodes() {
     let mut fields = dyapp_bootstrap::search::SEARCH_FIELDS.to_vec();
     fields.sort_unstable();
     assert_eq!(reached.offered, fields);
-    let nobody = proto::Condition {
-        field: dyapp_p2p_net::search_results::BIRTH_AGE,
-        op: proto::Op::Range.into(),
-        ints: vec![990_000, 991_231],
-        strings: vec![],
-    };
+    let nobody = nobody_condition();
     let results = dyapp_client::search::search(
         &mut reached.nodes,
         &[nobody],
