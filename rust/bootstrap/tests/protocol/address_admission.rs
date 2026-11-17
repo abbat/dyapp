@@ -276,6 +276,62 @@ async fn start_dht_node() -> (Multiaddr, PeerId) {
     (address, peer)
 }
 
+async fn announce_provider(attacker: &mut Swarm<Behaviour>, key: kad::RecordKey) {
+    let announce = attacker.behaviour_mut().kad.start_providing(key).unwrap();
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let event = attacker.select_next_some().await;
+            let SwarmEvent::Behaviour(BehaviourEvent::Kad(kad::Event::OutboundQueryProgressed {
+                id,
+                result: kad::QueryResult::StartProviding(result),
+                step,
+                ..
+            })) = event
+            else {
+                continue;
+            };
+            if id != announce || !step.last {
+                continue;
+            }
+            result.expect("provider announcement failed");
+            break;
+        }
+    })
+    .await
+    .expect("provider announcement timed out");
+}
+
+async fn announce_search_provider(attacker: &mut Swarm<Behaviour>, key: kad::RecordKey) {
+    let announce = attacker
+        .behaviour_mut()
+        .search_kad
+        .start_providing(key)
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let event = attacker.select_next_some().await;
+            let SwarmEvent::Behaviour(BehaviourEvent::SearchKad(
+                kad::Event::OutboundQueryProgressed {
+                    id,
+                    result: kad::QueryResult::StartProviding(result),
+                    step,
+                    ..
+                },
+            )) = event
+            else {
+                continue;
+            };
+            if id != announce || !step.last {
+                continue;
+            }
+            result.expect("search provider announcement failed");
+            break;
+        }
+    })
+    .await
+    .expect("search provider announcement timed out");
+}
+
 #[tokio::test]
 async fn foreign_provider_address_is_not_returned_to_a_third_peer() {
     let (address, node_peer) = Box::pin(start_dht_node()).await;
@@ -285,19 +341,13 @@ async fn foreign_provider_address_is_not_returned_to_a_third_peer() {
     let attacker_peer = attacker_key.public().to_peer_id();
     let mut attacker = dyapp_p2p_net::build_swarm(attacker_key, Mode::Client).unwrap();
     attacker.add_external_address(fake);
-    attacker.dial(address.clone()).unwrap();
-    tokio::time::timeout(Duration::from_secs(10), async {
-        loop {
-            if let SwarmEvent::ConnectionEstablished { peer_id, .. } =
-                attacker.select_next_some().await
-            {
-                assert_eq!(peer_id, node_peer);
-                break;
-            }
-        }
-    })
-    .await
-    .expect("attacker did not connect");
+    connect_to_dht_node(
+        &mut attacker,
+        &address,
+        node_peer,
+        "attacker did not connect",
+    )
+    .await;
     attacker
         .behaviour_mut()
         .kad
@@ -306,80 +356,10 @@ async fn foreign_provider_address_is_not_returned_to_a_third_peer() {
         .behaviour_mut()
         .search_kad
         .add_address(&node_peer, address.clone());
-    let announce = attacker
-        .behaviour_mut()
-        .kad
-        .start_providing(key.clone())
-        .unwrap();
-    tokio::time::timeout(Duration::from_secs(10), async {
-        loop {
-            if let SwarmEvent::Behaviour(BehaviourEvent::Kad(
-                kad::Event::OutboundQueryProgressed {
-                    id,
-                    result: kad::QueryResult::StartProviding(result),
-                    step,
-                    ..
-                },
-            )) = attacker.select_next_some().await
-            {
-                if id == announce && step.last {
-                    result.expect("provider announcement failed");
-                    break;
-                }
-            }
-        }
-    })
-    .await
-    .expect("provider announcement timed out");
-    let search_announce = attacker
-        .behaviour_mut()
-        .search_kad
-        .start_providing(key.clone())
-        .unwrap();
-    tokio::time::timeout(Duration::from_secs(10), async {
-        loop {
-            if let SwarmEvent::Behaviour(BehaviourEvent::SearchKad(
-                kad::Event::OutboundQueryProgressed {
-                    id,
-                    result: kad::QueryResult::StartProviding(result),
-                    step,
-                    ..
-                },
-            )) = attacker.select_next_some().await
-            {
-                if id == search_announce && step.last {
-                    result.expect("search provider announcement failed");
-                    break;
-                }
-            }
-        }
-    })
-    .await
-    .expect("search provider announcement timed out");
+    announce_provider(&mut attacker, key.clone()).await;
+    announce_search_provider(&mut attacker, key.clone()).await;
 
-    let mut observer =
-        dyapp_p2p_net::build_swarm(Keypair::generate_ed25519(), Mode::Client).unwrap();
-    observer.dial(address.clone()).unwrap();
-    tokio::time::timeout(Duration::from_secs(10), async {
-        loop {
-            if let SwarmEvent::ConnectionEstablished { peer_id, .. } =
-                observer.select_next_some().await
-            {
-                assert_eq!(peer_id, node_peer);
-                break;
-            }
-        }
-    })
-    .await
-    .expect("observer did not connect");
-    observer
-        .behaviour_mut()
-        .kad
-        .add_address(&node_peer, address.clone());
-    observer
-        .behaviour_mut()
-        .search_kad
-        .add_address(&node_peer, address);
+    let mut observer = dht_observer(&address, node_peer).await;
     for search in [false, true] {
         let found = providers(&mut observer, key.clone(), search).await;
         assert!(
