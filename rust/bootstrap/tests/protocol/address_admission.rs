@@ -94,13 +94,34 @@ async fn closest(
     .expect("closest-peer query timed out")
 }
 
-#[tokio::test]
-async fn foreign_identify_address_stays_out_of_both_dhts() {
-    let (address, node_peer) = Box::pin(start_dht_node()).await;
-    let fake: Multiaddr = "/ip4/203.0.113.7/tcp/9".parse().unwrap();
+async fn connect_to_dht_node(
+    swarm: &mut Swarm<Behaviour>,
+    address: &Multiaddr,
+    node_peer: PeerId,
+    timeout_message: &str,
+) {
+    swarm.dial(address.clone()).unwrap();
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            if let SwarmEvent::ConnectionEstablished { peer_id, .. } =
+                swarm.select_next_some().await
+            {
+                assert_eq!(peer_id, node_peer);
+                break;
+            }
+        }
+    })
+    .await
+    .expect(timeout_message);
+}
+
+async fn start_foreign_advertiser(
+    address: &Multiaddr,
+    node_peer: PeerId,
+    fake: Multiaddr,
+) -> (tokio::task::JoinHandle<()>, PeerId, Multiaddr) {
     let advertiser_key = Keypair::generate_ed25519();
     let advertiser_peer = advertiser_key.public().to_peer_id();
-    let fake_routed = fake.clone().with(Protocol::P2p(advertiser_peer));
     let mut advertiser = dyapp_p2p_net::build_configured_swarm(
         advertiser_key,
         dyapp_p2p_net::SwarmOptions {
@@ -130,41 +151,32 @@ async fn foreign_identify_address_stays_out_of_both_dhts() {
         }
     };
     let alternative = alternative.with(Protocol::P2p(advertiser_peer));
-    advertiser.add_external_address(fake.clone());
-    advertiser.dial(address.clone()).unwrap();
-    tokio::time::timeout(Duration::from_secs(10), async {
-        loop {
-            if let SwarmEvent::ConnectionEstablished { peer_id, .. } =
-                advertiser.select_next_some().await
-            {
-                assert_eq!(peer_id, node_peer);
-                break;
-            }
-        }
-    })
-    .await
-    .expect("advertiser did not connect");
+    advertiser.add_external_address(fake);
+    connect_to_dht_node(
+        &mut advertiser,
+        address,
+        node_peer,
+        "advertiser did not connect",
+    )
+    .await;
     let advertiser_task = tokio::spawn(async move {
         loop {
             advertiser.select_next_some().await;
         }
     });
+    (advertiser_task, advertiser_peer, alternative)
+}
 
+async fn dht_observer(address: &Multiaddr, node_peer: PeerId) -> Swarm<Behaviour> {
     let mut observer =
         dyapp_p2p_net::build_swarm(Keypair::generate_ed25519(), Mode::Client).unwrap();
-    observer.dial(address.clone()).unwrap();
-    tokio::time::timeout(Duration::from_secs(10), async {
-        loop {
-            if let SwarmEvent::ConnectionEstablished { peer_id, .. } =
-                observer.select_next_some().await
-            {
-                assert_eq!(peer_id, node_peer);
-                break;
-            }
-        }
-    })
-    .await
-    .expect("observer did not connect");
+    connect_to_dht_node(
+        &mut observer,
+        address,
+        node_peer,
+        "observer did not connect",
+    )
+    .await;
     observer
         .behaviour_mut()
         .kad
@@ -172,21 +184,30 @@ async fn foreign_identify_address_stays_out_of_both_dhts() {
     observer
         .behaviour_mut()
         .search_kad
-        .add_address(&node_peer, address);
+        .add_address(&node_peer, address.clone());
+    observer
+}
+
+async fn assert_foreign_identify_address(
+    observer: &mut Swarm<Behaviour>,
+    advertiser_peer: PeerId,
+    fake_routed: &Multiaddr,
+    alternative: &Multiaddr,
+) {
     for search in [false, true] {
         let mut last = Vec::new();
         let result = tokio::time::timeout(Duration::from_secs(20), async {
             loop {
-                let peers = closest(&mut observer, advertiser_peer, search).await;
+                let peers = closest(observer, advertiser_peer, search).await;
                 let Some(entry) = peers.iter().find(|peer| peer.peer_id == advertiser_peer) else {
                     continue;
                 };
                 assert!(
-                    !entry.addrs.contains(&fake_routed),
+                    !entry.addrs.contains(fake_routed),
                     "foreign identify address entered a DHT"
                 );
-                last = entry.addrs.clone();
-                if last.contains(&alternative) {
+                last.clone_from(&entry.addrs);
+                if last.contains(alternative) {
                     break;
                 }
             }
@@ -197,6 +218,18 @@ async fn foreign_identify_address_stays_out_of_both_dhts() {
             "alternative {alternative} missing from {last:?} (search={search})"
         );
     }
+}
+
+#[tokio::test]
+async fn foreign_identify_address_stays_out_of_both_dhts() {
+    let (address, node_peer) = Box::pin(start_dht_node()).await;
+    let fake: Multiaddr = "/ip4/203.0.113.7/tcp/9".parse().unwrap();
+    let (advertiser_task, advertiser_peer, alternative) =
+        Box::pin(start_foreign_advertiser(&address, node_peer, fake.clone())).await;
+    let fake_routed = fake.with(Protocol::P2p(advertiser_peer));
+    let mut observer = dht_observer(&address, node_peer).await;
+    assert_foreign_identify_address(&mut observer, advertiser_peer, &fake_routed, &alternative)
+        .await;
     let found = providers(
         &mut observer,
         kad::RecordKey::new(&dyapp_p2p_net::SEARCH_KEY),
