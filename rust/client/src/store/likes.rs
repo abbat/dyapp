@@ -461,6 +461,18 @@ mod tests {
             .unwrap()
     }
 
+    fn assert_equal_hlc_ordering(store: &mut Store, a: &str, b: &str) {
+        // Equal HLC values tie by device ID, then by event ID.
+        assert!(put(store, b, a, b"b2", event(Kind::Like, 5, 30)));
+        assert!(!put(store, b, a, b"b0", event(Kind::Unlike, 9, 30)));
+        assert!(put(store, b, a, b"b2", event(Kind::Unlike, 6, 30)));
+        assert!(!store.likes(b).unwrap().theirs);
+        assert!(put(store, b, a, b"b1", event(Kind::Like, 7, 31)));
+        assert!(store.likes(b).unwrap().matched());
+        assert!(!put(store, b, a, b"b1", event(Kind::View, 8, 99)));
+        assert!(store.likes(b).unwrap().matched());
+    }
+
     #[test]
     fn interactions_order_likes_and_derive_matches_across_restart() {
         let path = temp_db_path();
@@ -490,15 +502,7 @@ mod tests {
 
         let mut store = Store::open(&path, &alice).unwrap();
         assert!(!store.likes(&b).unwrap().matched());
-        // Equal HLC values tie by device ID, then by event ID.
-        assert!(put(&mut store, &b, &a, b"b2", event(Kind::Like, 5, 30)));
-        assert!(!put(&mut store, &b, &a, b"b0", event(Kind::Unlike, 9, 30)));
-        assert!(put(&mut store, &b, &a, b"b2", event(Kind::Unlike, 6, 30)));
-        assert!(!store.likes(&b).unwrap().theirs);
-        assert!(put(&mut store, &b, &a, b"b1", event(Kind::Like, 7, 31)));
-        assert!(store.likes(&b).unwrap().matched());
-        assert!(!put(&mut store, &b, &a, b"b1", event(Kind::View, 8, 99)));
-        assert!(store.likes(&b).unwrap().matched());
+        assert_equal_hlc_ordering(&mut store, &a, &b);
     }
 
     #[test]
