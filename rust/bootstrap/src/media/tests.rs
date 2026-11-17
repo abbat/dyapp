@@ -28,9 +28,13 @@ fn keep_put_get_and_drop() {
     assert_eq!(media.get(&ha).unwrap(), Some(a.clone()));
     assert_eq!(media.get(&hb).unwrap(), None);
 
+    check_shared_blob_lifecycle(&media, a, &ha, hb);
+}
+
+fn check_shared_blob_lifecycle(media: &MediaStore, a: Vec<u8>, ha: &[u8], hb: Vec<u8>) {
     // Bob lists the same blob: stored once, kept while either lists it.
     assert_eq!(
-        media.keep("bob", 5, std::slice::from_ref(&ha), 10).unwrap(),
+        media.keep("bob", 5, &[ha.to_vec()], 10).unwrap(),
         Some(vec![])
     );
     assert_eq!(media.put("bob", &a, 1000).unwrap(), Put::Stored);
@@ -41,9 +45,9 @@ fn keep_put_get_and_drop() {
             .unwrap(),
         Some(vec![hb])
     );
-    assert_eq!(media.get(&ha).unwrap(), Some(a));
+    assert_eq!(media.get(ha).unwrap(), Some(a));
     assert_eq!(media.keep("bob", 6, &[], 20).unwrap(), Some(vec![]));
-    assert_eq!(media.get(&ha).unwrap(), None);
+    assert_eq!(media.get(ha).unwrap(), None);
     assert_eq!(media.usage().unwrap().0, 0);
 }
 
@@ -224,16 +228,20 @@ fn attach_put_release_and_expire() {
     assert_eq!(media.get(&ha).unwrap(), None);
     assert_eq!(media.get(&hb).unwrap(), Some(b.clone()));
 
+    check_attached_blob_expiry(&media, b, &hb, r2, s2);
+}
+
+fn check_attached_blob_expiry(media: &MediaStore, b: Vec<u8>, hb: &[u8], r2: [u8; 32], s2: &[u8]) {
     // An attached blob that is also kept survives its expiry.
-    let hb1 = std::slice::from_ref(&hb);
+    let hb1 = [hb.to_vec()];
     assert_eq!(
-        media.attach("alice", &r2, hb1, 50, 2, 1).unwrap(),
+        media.attach("alice", &r2, &hb1, 50, 2, 1).unwrap(),
         Attached::Missing(vec![])
     );
     assert_eq!(media.put("alice", &b, 1000).unwrap(), Put::Stored);
     assert_eq!(media.expire(49).unwrap(), 0);
     assert_eq!(media.expire(50).unwrap(), 1);
-    assert_eq!(media.get(&hb).unwrap(), Some(b));
+    assert_eq!(media.get(hb).unwrap(), Some(b));
     assert!(!media.release(s2).unwrap());
 }
 
