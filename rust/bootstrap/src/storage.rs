@@ -119,7 +119,9 @@ pub(crate) fn used(db: &Connection) -> Result<u64> {
             .map(i64::unsigned_abs)
             .map_err(storage_error)
     };
-    Ok((pragma("page_count")? - pragma("freelist_count")?) * pragma("page_size")?)
+    Ok(pragma("page_count")?
+        .saturating_sub(pragma("freelist_count")?)
+        .saturating_mul(pragma("page_size")?))
 }
 
 /// Rows deleted per eviction step and steps per call, so one call holds the lock briefly.
@@ -130,7 +132,7 @@ const EVICT_STEPS: u32 = 64;
 /// than `target` bytes or the step budget runs out. Returns the rows deleted.
 fn evict(db: &Mutex<Connection>, table: &'static str, target: u64) -> Result<usize> {
     let db = lock(db)?;
-    let mut evicted = 0;
+    let mut evicted = 0usize;
     for _ in 0..EVICT_STEPS {
         if used(&db)? < target {
             break;
@@ -147,7 +149,7 @@ fn evict(db: &Mutex<Connection>, table: &'static str, target: u64) -> Result<usi
         if deleted == 0 {
             break;
         }
-        evicted += deleted;
+        evicted = evicted.saturating_add(deleted);
     }
     Ok(evicted)
 }
@@ -182,7 +184,7 @@ fn free_platform(path: &str) -> Result<u64> {
         clippy::useless_conversion,
         reason = "statvfs field types differ between targets"
     )]
-    Ok(u64::from(fs.f_bavail) * u64::from(fs.f_frsize))
+    Ok(u64::from(fs.f_bavail).saturating_mul(u64::from(fs.f_frsize)))
 }
 
 #[cfg(windows)]
@@ -313,17 +315,17 @@ impl BootstrapStore {
             .map_err(storage_error)?;
         let (class, seq) = after.unwrap_or((-1, 0));
         let rows: Vec<(Vec<u8>, i64, i64)> = query
-            .query_map(params![mailbox, class, seq, limit + 1], |row| {
+            .query_map(params![mailbox, class, seq, limit.saturating_add(1)], |row| {
                 Ok((row.get(0)?, row.get(1)?, row.get(2)?))
             })
             .and_then(Iterator::collect)
             .map_err(storage_error)?;
         let total = rows.len();
-        let mut bytes = 0;
+        let mut bytes = 0u64;
         let mut records = Vec::new();
         let mut next = None;
         for (row, class, seq) in rows.into_iter().take(limit as usize) {
-            bytes += row.len() as u64;
+            bytes = bytes.saturating_add(row.len() as u64);
             if bytes > max_bytes && !records.is_empty() {
                 break;
             }
