@@ -503,6 +503,30 @@ fn failed_receive_commit_neither_acks_nor_loses_the_envelope() {
     assert_chat_text(&session.store, &message, b"hi");
 }
 
+fn assert_operation_payload(path: &std::path::Path, i: u8, body: &Body) {
+    let payload: Vec<u8> = rusqlite::Connection::open(path)
+        .unwrap()
+        .query_row(
+            "SELECT `payload` FROM `inbox` WHERE `envelope_id` = ?1",
+            [key(i + 2).id.as_slice()],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(payload, dyapp_identity::sha256(&body.encode()));
+}
+
+fn assert_current_operation(store: &Store, message: &MessageKey, i: u8) {
+    let current = store.chat_message(message).unwrap().unwrap();
+    match i {
+        0 => assert_eq!(current.text.as_deref(), Some(&b"original private text"[..])),
+        1 => assert_eq!(
+            current.text.as_deref(),
+            Some(&b"replacement private text"[..])
+        ),
+        _ => assert!(current.deleted && current.text.is_none()),
+    }
+}
+
 #[test]
 fn received_edit_and_delete_keep_only_current_projection() {
     let path = temp_path();
@@ -544,24 +568,8 @@ fn received_edit_and_delete_keep_only_current_projection() {
             session.stage_envelope(&key(i + 2), &sent[0].mls, &profiles, &seal_key),
             Ok(Some(Event::Message { .. }))
         ));
-        let payload: Vec<u8> = rusqlite::Connection::open(&path)
-            .unwrap()
-            .query_row(
-                "SELECT `payload` FROM `inbox` WHERE `envelope_id` = ?1",
-                [key(i + 2).id.as_slice()],
-                |row| row.get(0),
-            )
-            .unwrap();
-        assert_eq!(payload, dyapp_identity::sha256(&body.encode()));
-        let current = session.store.chat_message(&message).unwrap().unwrap();
-        match i {
-            0 => assert_eq!(current.text.as_deref(), Some(&b"original private text"[..])),
-            1 => assert_eq!(
-                current.text.as_deref(),
-                Some(&b"replacement private text"[..])
-            ),
-            _ => assert!(current.deleted && current.text.is_none()),
-        }
+        assert_operation_payload(&path, i, body);
+        assert_current_operation(&session.store, &message, i);
     }
     drop(session);
     let session = Session::open(Store::open(&path, &bob_id).unwrap(), &seal_key).unwrap();
