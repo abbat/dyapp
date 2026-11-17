@@ -17,7 +17,7 @@ fn unjoined(f: &Fixture) -> Session {
     Session::open_or_create(
         Store::open(&crate::store::tests::temp_db_path(), &f.owner).unwrap(),
         &f.owner,
-        &Identity::generate(),
+        &Identity::try_generate().unwrap(),
         &f.seal,
     )
     .unwrap()

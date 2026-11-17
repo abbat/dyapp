@@ -200,7 +200,7 @@ async fn saved_pack_legacy_send_keeps_its_committed_client_failure_contract() {
 async fn saved_pack_owner_and_index_errors_never_report_commitment() {
     let mut f = open_chat(fixture());
     let pack = pack();
-    let stranger = Identity::generate();
+    let stranger = Identity::try_generate().unwrap();
     assert!(matches!(
         f.session
             .submit_pack_sticker_to(&mut [], &stranger, &f.peer, &pack, 0, &f.seal)

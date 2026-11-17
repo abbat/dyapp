@@ -28,7 +28,7 @@ async fn last_resort_rotation_overflow_cannot_advance_snapshot_or_publish_a_reco
     };
     assert!(matches!(
         f.session
-            .keep_last_resort(&mut node, &Identity::generate(), u64::MAX, &seal)
+            .keep_last_resort(&mut node, &Identity::try_generate().unwrap(), u64::MAX, &seal)
             .await,
         Err(Error::Store(crate::store::Error::ClockRange))
     ));

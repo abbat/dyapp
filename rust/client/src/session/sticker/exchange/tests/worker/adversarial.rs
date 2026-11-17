@@ -36,7 +36,7 @@ async fn respond_count(pair: &mut Invite) -> usize {
 async fn wrong_owner_stop_block_and_removed_pack_never_send_a_response() {
     let (mut pair, _, _, job) = pending();
     let count = pair.session.due_outbound(i64::MAX).unwrap().len();
-    let other = dyapp_identity::Identity::generate();
+    let other = dyapp_identity::Identity::try_generate().unwrap();
     assert!(pair
         .session
         .respond_sticker_pack_requests(&mut [], &other, &SEAL, || false)

@@ -73,7 +73,7 @@ fn only_a_newer_profile_without_this_device_revokes_it() {
         .unwrap();
     let session = Session::open(store, &seal_key).unwrap();
     let certificate = device.certificate().clone();
-    let binding = crate::owner_binding(&Identity::generate(), &identity.public_key());
+    let binding = crate::owner_binding(&Identity::try_generate().unwrap(), &identity.public_key());
     let without = |version| Profile {
         version,
         ..Profile::default()
@@ -397,7 +397,7 @@ fn message_is_staged_before_network_and_reopens_exact_bytes() {
 
 #[test]
 fn only_a_resolved_profile_sends_the_next_page_to_the_head() {
-    let (identity, device_key) = (Identity::generate(), Identity::generate());
+    let (identity, device_key) = (Identity::try_generate().unwrap(), Identity::try_generate().unwrap());
     let store = Store::open(&crate::store::tests::temp_db_path(), &identity).unwrap();
     let session = Session::open_or_create(store, &identity, &device_key, &[5; 32]).unwrap();
     let node = libp2p::PeerId::random();

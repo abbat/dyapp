@@ -10,8 +10,8 @@ use dyapp_profile::Profile;
 use prost::Message as _;
 
 fn person() -> (Identity, Device, dyapp_profile::VerifiedProfile) {
-    let identity = Identity::generate();
-    let device = Device::new(&identity, Identity::generate().public_key(), 1).unwrap();
+    let identity = Identity::try_generate().unwrap();
+    let device = Device::new(&identity, Identity::try_generate().unwrap().public_key(), 1).unwrap();
     let profile = Profile {
         version: 1,
         devices: vec![device.certificate().clone()],
@@ -319,8 +319,8 @@ fn received_envelopes_commit_before_ack_and_survive_restart() {
 
 #[tokio::test]
 async fn blocked_peer_is_refused_before_outbound_interaction_uses_network() {
-    let owner = Identity::generate();
-    let device_key = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
+    let device_key = Identity::try_generate().unwrap();
     let peer = person().2;
     let seal_key = [7; 32];
     let store = Store::open(&temp_path(), &owner).unwrap();
@@ -349,9 +349,9 @@ async fn blocked_peer_is_refused_before_outbound_interaction_uses_network() {
 
 #[tokio::test]
 async fn block_with_no_issued_tokens_is_local_even_without_nodes() {
-    let owner = Identity::generate();
-    let device_key = Identity::generate();
-    let peer = Identity::generate().peer_id();
+    let owner = Identity::try_generate().unwrap();
+    let device_key = Identity::try_generate().unwrap();
+    let peer = Identity::try_generate().unwrap().peer_id();
     let seal_key = [7; 32];
     let store = Store::open(&temp_path(), &owner).unwrap();
     let mut session = Session::open_or_create(store, &owner, &device_key, &seal_key).unwrap();
@@ -911,7 +911,7 @@ fn a_write_carries_the_token_of_today() {
     let seal_key = [5; 32];
     let mailbox = [7; 32];
     let today = u32::try_from(crate::now() / 86_400).unwrap();
-    let mut store = Store::open(&temp_path(), &Identity::generate()).unwrap();
+    let mut store = Store::open(&temp_path(), &Identity::try_generate().unwrap()).unwrap();
     let token = proto::WriteToken {
         mailbox: mailbox.to_vec(),
         token_key: store
@@ -920,7 +920,7 @@ fn a_write_carries_the_token_of_today() {
             .to_vec(),
         epoch: today,
     };
-    let signed = Identity::generate().sign(Domain::WriteToken, token.encode_to_vec());
+    let signed = Identity::try_generate().unwrap().sign(Domain::WriteToken, token.encode_to_vec());
     store
         .set_write_token(&mailbox, today, &signed.encode_to_vec())
         .unwrap();
@@ -934,7 +934,7 @@ fn a_write_carries_the_token_of_today() {
 
 #[test]
 fn the_first_open_creates_the_device_and_later_opens_keep_it() {
-    let (identity, device_key) = (Identity::generate(), Identity::generate());
+    let (identity, device_key) = (Identity::try_generate().unwrap(), Identity::try_generate().unwrap());
     let path = crate::store::tests::temp_db_path();
     let seal_key = [5; 32];
     let first = Session::open_or_create(
@@ -949,7 +949,7 @@ fn the_first_open_creates_the_device_and_later_opens_keep_it() {
     let again = Session::open_or_create(
         Store::open(&path, &identity).unwrap(),
         &identity,
-        &Identity::generate(),
+        &Identity::try_generate().unwrap(),
         &seal_key,
     )
     .unwrap();

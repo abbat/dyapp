@@ -25,8 +25,8 @@ struct Fixture {
 }
 
 fn person() -> (Identity, Device, VerifiedProfile) {
-    let owner = Identity::generate();
-    let device = Device::new(&owner, Identity::generate().public_key(), 1).unwrap();
+    let owner = Identity::try_generate().unwrap();
+    let device = Device::new(&owner, Identity::try_generate().unwrap().public_key(), 1).unwrap();
     let profile = Profile {
         version: 1,
         devices: vec![device.certificate().clone()],

@@ -19,7 +19,7 @@ impl Default for Mailbox {
             fetches: AtomicUsize::new(0),
             acknowledgements: AtomicUsize::new(0),
             pending: AtomicBool::new(true),
-            sender: Identity::generate(),
+            sender: Identity::try_generate().unwrap(),
         }
     }
 }

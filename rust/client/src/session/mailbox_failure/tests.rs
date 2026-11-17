@@ -9,7 +9,7 @@ fn make_session(owner: &Identity) -> (Session, Identity) {
         .join("../../build/mailbox-failure-tests")
         .join(format!("{:016x}", getrandom::u64().unwrap()));
     std::fs::create_dir_all(&root).unwrap();
-    let device = Identity::generate();
+    let device = Identity::try_generate().unwrap();
     let session = Session::open_or_create(
         Store::open(&root.join("client.db"), owner).unwrap(),
         owner,
@@ -31,7 +31,7 @@ async fn connect(server: &super::server::Server) -> Node {
 
 #[tokio::test]
 async fn probe_reads_one_envelope_without_acknowledging_or_applying_it() {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let (session, device) = make_session(&owner);
     let original_state = (
         session.store().sealed_device().unwrap(),
@@ -69,7 +69,7 @@ async fn probe_reads_one_envelope_without_acknowledging_or_applying_it() {
 
 #[tokio::test]
 async fn probe_requires_actual_refusal_and_verified_removal() {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let (session, device) = make_session(&owner);
     session.store().note_device_listed(1).unwrap();
     let server = super::server::Server::new(
@@ -109,13 +109,13 @@ async fn probe_requires_actual_refusal_and_verified_removal() {
 
 #[tokio::test]
 async fn probe_rejects_replaced_device_before_network_io() {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let (session, _) = make_session(&owner);
     let server = super::server::Server::new(Profile::default().sign(&owner));
     let mut node = connect(&server).await;
     assert!(matches!(
         session
-            .probe_mailbox_revocation(&mut node, &Identity::generate())
+            .probe_mailbox_revocation(&mut node, &Identity::try_generate().unwrap())
             .await,
         Err(Error::Store(crate::store::Error::WrongIdentity))
     ));
@@ -136,7 +136,7 @@ async fn original(session: &Session, node: &mut Node) {
 
 #[tokio::test]
 async fn actual_readback_requires_both_refusal_and_newer_verified_removal() {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let (session, _) = make_session(&owner);
     session.store().note_device_listed(1).unwrap();
     let listed = Profile {
@@ -201,7 +201,7 @@ async fn original_errors_do_not_read(
 
 #[tokio::test]
 async fn missing_foreign_tampered_and_withdrawn_profiles_never_confirm_cleanup() {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let (session, _) = make_session(&owner);
     session.store().note_device_listed(1).unwrap();
     let removed = Profile {
@@ -220,7 +220,7 @@ async fn missing_foreign_tampered_and_withdrawn_profiles_never_confirm_cleanup()
     .unwrap();
     let replies: [Option<SignedRecord>; 4] = [
         None,
-        Some(removed.sign(&Identity::generate())),
+        Some(removed.sign(&Identity::try_generate().unwrap())),
         Some(tampered),
         Some(Profile::tombstone(2, 0, 0).sign(&owner)),
     ];
