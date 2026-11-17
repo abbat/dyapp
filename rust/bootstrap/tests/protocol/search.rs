@@ -144,6 +144,32 @@ async fn search_queries_do_not_hold_up_the_node() {
     assert!(info_after.unwrap() < Duration::from_secs(1));
 }
 
+async fn assert_saturation_replies(client: &mut Client) {
+    let sent = tokio::time::Instant::now();
+    let (mut busy, mut info) = (false, false);
+    while !busy || !info {
+        match client
+            .wait(|event| match event {
+                BehaviourEvent::Search(event) => response(event).map(Ok),
+                BehaviourEvent::Node(event) => response(event).map(Err),
+                _ => None,
+            })
+            .await
+        {
+            Ok(reply) => {
+                assert_eq!(status(reply.status), Status::RateLimited);
+                assert_eq!(reply.retry_after, 1);
+                busy = true;
+            }
+            Err(reply) => {
+                assert_eq!(status(reply.status), Status::Ok);
+                info = true;
+            }
+        }
+    }
+    assert!(sent.elapsed() < Duration::from_secs(1));
+}
+
 #[test]
 fn search_worker_saturation_retries_without_stalling_info() {
     let runtime = tokio::runtime::Builder::new_current_thread()
@@ -177,29 +203,7 @@ fn search_worker_saturation_retries_without_stalling_info() {
                 request: Some(node_request::Request::Info(proto::InfoRequest {})),
             },
         );
-        let sent = tokio::time::Instant::now();
-        let (mut busy, mut info) = (false, false);
-        while !busy || !info {
-            match client
-                .wait(|event| match event {
-                    BehaviourEvent::Search(event) => response(event).map(Ok),
-                    BehaviourEvent::Node(event) => response(event).map(Err),
-                    _ => None,
-                })
-                .await
-            {
-                Ok(reply) => {
-                    assert_eq!(status(reply.status), Status::RateLimited);
-                    assert_eq!(reply.retry_after, 1);
-                    busy = true;
-                }
-                Err(reply) => {
-                    assert_eq!(status(reply.status), Status::Ok);
-                    info = true;
-                }
-            }
-        }
-        assert!(sent.elapsed() < Duration::from_secs(1));
+        assert_saturation_replies(&mut client).await;
         drop(release);
         blocker.await.unwrap();
         // Each finished query starts the next queued one.
