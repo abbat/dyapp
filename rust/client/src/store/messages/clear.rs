@@ -143,9 +143,9 @@ mod tests {
     #[test]
     fn read_and_clear_apply_to_attachments_across_groups_and_restart() {
         let path = crate::store::tests::temp_db_path();
-        let owner = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
         let own = owner.peer_id();
-        let peer = Identity::generate().peer_id();
+        let peer = Identity::try_generate().unwrap().peer_id();
         let (first, second, device) = ([3], [4], [5; 32]);
         let from = |group, author| VerifiedChatSender {
             group,
@@ -230,8 +230,8 @@ mod tests {
     #[test]
     fn cleared_messages_stay_gone_while_new_ones_and_other_groups_show() {
         let path = crate::store::tests::temp_db_path();
-        let owner = Identity::generate();
-        let (own, peer) = (owner.peer_id(), Identity::generate().peer_id());
+        let owner = Identity::try_generate().unwrap();
+        let (own, peer) = (owner.peer_id(), Identity::try_generate().unwrap().peer_id());
         let (cleared, other, device) = ([3], [4], [5; 32]);
         let key = |group: &[u8], author: &str, id| MessageKey {
             group: group.to_vec(),
@@ -357,10 +357,10 @@ mod tests {
     #[test]
     fn clearing_pair_removes_every_group_but_keeps_other_peer_and_replay_marks() {
         let path = crate::store::tests::temp_db_path();
-        let owner = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
         let own = owner.peer_id();
-        let peer = Identity::generate().peer_id();
-        let other = Identity::generate().peer_id();
+        let peer = Identity::try_generate().unwrap().peer_id();
+        let other = Identity::try_generate().unwrap().peer_id();
         let (first, second, unrelated, device) = ([3], [4], [5], [6; 32]);
         let mut store = Store::open(&path, &owner).unwrap();
         stage_pair_history(

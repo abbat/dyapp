@@ -26,8 +26,8 @@ fn ordered_operations_replay_and_terminal_delete_survive_restart() {
         "dyapp-chat-ops-{:032x}.db",
         u128::from_be_bytes(random)
     ));
-    let alice = Identity::generate();
-    let bob = Identity::generate();
+    let alice = Identity::try_generate().unwrap();
+    let bob = Identity::try_generate().unwrap();
     let key = MessageKey {
         group: vec![3],
         author: alice.peer_id(),
@@ -150,7 +150,7 @@ fn early_edits_resolve_once_and_discard_pending_text() {
         "dyapp-chat-early-{:032x}.db",
         u128::from_be_bytes(random)
     ));
-    let author = Identity::generate();
+    let author = Identity::try_generate().unwrap();
     let key = MessageKey {
         group: vec![8],
         author: author.peer_id(),
@@ -191,8 +191,8 @@ fn early_delete_is_terminal_and_pending_budget_is_global() {
         "dyapp-chat-bound-{:032x}.db",
         u128::from_be_bytes(random)
     ));
-    let author = Identity::generate();
-    let other = Identity::generate();
+    let author = Identity::try_generate().unwrap();
+    let other = Identity::try_generate().unwrap();
     let key = MessageKey {
         group: vec![8],
         author: author.peer_id(),

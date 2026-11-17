@@ -10,8 +10,8 @@ fn text_projection_survives_restart_and_refuses_conflicts() {
         "dyapp-chat-{:032x}.db",
         u128::from_be_bytes(random)
     ));
-    let alice = Identity::generate();
-    let bob = Identity::generate();
+    let alice = Identity::try_generate().unwrap();
+    let bob = Identity::try_generate().unwrap();
     let key = MessageKey {
         group: vec![3],
         author: alice.peer_id(),
@@ -39,7 +39,7 @@ fn text_projection_survives_restart_and_refuses_conflicts() {
 #[test]
 fn legacy_arrival_order_is_not_reused_after_clear_and_restart() {
     let path = crate::store::tests::temp_db_path();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let key = |id| MessageKey {
         group: vec![3],
         author: owner.peer_id(),

@@ -87,10 +87,10 @@ fn assert_restarted_pair_history(store: &mut Store, own: &str, peer: &str, other
 #[test]
 fn pair_history_orders_legacy_and_timed_current_messages_across_groups() {
     let path = crate::store::tests::temp_db_path();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let own = owner.peer_id();
-    let peer = Identity::generate().peer_id();
-    let other = Identity::generate().peer_id();
+    let peer = Identity::try_generate().unwrap().peer_id();
+    let other = Identity::try_generate().unwrap().peer_id();
     let (a, b, c, device) = ([3], [4], [5], [6; 32]);
     let mut store = Store::open(&path, &owner).unwrap();
     for (group, author) in [(&a[..], &peer), (&b[..], &peer), (&c[..], &other)] {

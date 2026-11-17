@@ -3,10 +3,10 @@ use super::*;
 #[test]
 fn only_own_verified_send_grants_exact_peer_pack_and_survives_clear_restart() {
     let path = temp_db_path();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let own = owner.peer_id();
-    let peer = Identity::generate().peer_id();
-    let stranger = Identity::generate().peer_id();
+    let peer = Identity::try_generate().unwrap().peer_id();
+    let stranger = Identity::try_generate().unwrap().peer_id();
     let mut store = Store::open(&path, &owner).unwrap();
     catalog_group(&mut store, &[9], &peer);
     let received = sticker(1, false);
@@ -55,7 +55,7 @@ fn only_own_verified_send_grants_exact_peer_pack_and_survives_clear_restart() {
 
 #[test]
 fn own_device_group_does_not_grant_pack_sharing() {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let own = owner.peer_id();
     let mut store = Store::open(&temp_db_path(), &owner).unwrap();
     catalog_group(&mut store, &[9], &own);
@@ -73,9 +73,9 @@ fn own_device_group_does_not_grant_pack_sharing() {
 
 #[test]
 fn failed_sharing_commit_rolls_back_sticker_projection() {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let own = owner.peer_id();
-    let peer = Identity::generate().peer_id();
+    let peer = Identity::try_generate().unwrap().peer_id();
     let mut store = Store::open(&temp_db_path(), &owner).unwrap();
     catalog_group(&mut store, &[9], &peer);
     store

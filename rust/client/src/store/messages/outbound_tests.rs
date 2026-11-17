@@ -51,7 +51,7 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
         "dyapp-chat-outbound-{:032x}.db",
         u128::from_be_bytes(random)
     ));
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let author = owner.peer_id();
     let group = [3];
     let device = [4; 32];
@@ -69,7 +69,7 @@ fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
     let write2 = prepare_put(&[7; 32], vec![2]).unwrap();
     let write3 = prepare_put(&[7; 32], vec![3]).unwrap();
     let mut store = Store::open(&path, &owner).unwrap();
-    let peer = Identity::generate().peer_id();
+    let peer = Identity::try_generate().unwrap().peer_id();
     let (edit, text_hlc, delete_id, delete_hlc) =
         stage_outbound_history(&mut store, sender, &key, &peer, (&write1, &write2, &write3));
     drop(store);
@@ -349,9 +349,9 @@ fn assert_failed_edit_rollback(store: &mut Store, sender: VerifiedChatSender, ed
 #[test]
 fn attachment_descriptor_clock_and_delivery_survive_restart() {
     let path = crate::store::tests::temp_db_path();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let author = owner.peer_id();
-    let peer = Identity::generate().peer_id();
+    let peer = Identity::try_generate().unwrap().peer_id();
     let group = [3];
     let device = [4; 32];
     let sender = VerifiedChatSender {
@@ -478,8 +478,8 @@ fn assert_attachment_outbox(store: &Store, peer: &str, write: &PreparedEnvelope)
 #[test]
 fn received_operations_and_interactions_advance_chat_drafts_but_failure_does_not() {
     let path = super::super::tests::temp_db_path();
-    let owner = Identity::generate();
-    let peer = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
+    let peer = Identity::try_generate().unwrap();
     let mut store = Store::open(&path, &owner).unwrap();
     let key = MessageKey {
         group: vec![1],

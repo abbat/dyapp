@@ -350,8 +350,8 @@ mod tests {
     #[test]
     fn descriptor_survives_restart_and_conflicts_across_body_kinds() {
         let path = temp_db_path();
-        let owner = Identity::generate();
-        let peer = Identity::generate().peer_id();
+        let owner = Identity::try_generate().unwrap();
+        let peer = Identity::try_generate().unwrap().peer_id();
         let group = [9];
         let device = [8; 32];
         let mut store = Store::open(&path, &owner).unwrap();
@@ -376,7 +376,7 @@ mod tests {
         assert!(history[1].unread);
         assert_eq!(
             store
-                .current_chat_attachments(&Identity::generate().peer_id())
+                .current_chat_attachments(&Identity::try_generate().unwrap().peer_id())
                 .unwrap()
                 .len(),
             0
@@ -385,8 +385,8 @@ mod tests {
 
     #[test]
     fn photo_queries_filter_other_media_before_ranking_and_unread_count() {
-        let owner = Identity::generate();
-        let peer = Identity::generate().peer_id();
+        let owner = Identity::try_generate().unwrap();
+        let peer = Identity::try_generate().unwrap().peer_id();
         let mut store = Store::open(&temp_db_path(), &owner).unwrap();
         catalog_group(&mut store, &[9], &peer);
         let sender = VerifiedChatSender {
@@ -426,8 +426,8 @@ mod tests {
 
     #[test]
     fn corrupt_descriptor_or_metadata_fails_closed() {
-        let owner = Identity::generate();
-        let peer = Identity::generate().peer_id();
+        let owner = Identity::try_generate().unwrap();
+        let peer = Identity::try_generate().unwrap().peer_id();
         let group = [9];
         let device = [8; 32];
         let mut store = Store::open(&temp_db_path(), &owner).unwrap();

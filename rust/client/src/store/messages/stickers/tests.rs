@@ -37,8 +37,8 @@ fn sticker(id: u8, attached: bool) -> Sticker {
 #[test]
 fn fallback_survives_restart_read_and_clear_without_resurrection() {
     let path = temp_db_path();
-    let owner = Identity::generate();
-    let peer = Identity::generate().peer_id();
+    let owner = Identity::try_generate().unwrap();
+    let peer = Identity::try_generate().unwrap().peer_id();
     let mut store = Store::open(&path, &owner).unwrap();
     catalog_group(&mut store, &[9], &peer);
     let mut message = sticker(1, false);
@@ -104,8 +104,8 @@ fn assert_verified_context_cannot_be_reused(store: &mut Store, owner: &Identity,
 
 #[test]
 fn media_ids_and_verified_context_cannot_be_reused() {
-    let owner = Identity::generate();
-    let peer = Identity::generate().peer_id();
+    let owner = Identity::try_generate().unwrap();
+    let peer = Identity::try_generate().unwrap().peer_id();
     let mut store = Store::open(&temp_db_path(), &owner).unwrap();
     catalog_group(&mut store, &[9], &peer);
     let message = sticker(1, true);
@@ -148,8 +148,8 @@ fn media_ids_and_verified_context_cannot_be_reused() {
 
 #[test]
 fn shared_media_references_follow_history_and_hash_binding() {
-    let owner = Identity::generate();
-    let peer = Identity::generate().peer_id();
+    let owner = Identity::try_generate().unwrap();
+    let peer = Identity::try_generate().unwrap().peer_id();
     let mut store = Store::open(&temp_db_path(), &owner).unwrap();
     catalog_group(&mut store, &[9], &peer);
     catalog_group(&mut store, &[10], &peer);
@@ -178,8 +178,8 @@ fn shared_media_references_follow_history_and_hash_binding() {
 #[test]
 fn merged_history_keeps_fallback_between_legacy_text_and_later_photo() {
     use super::super::ChatItem;
-    let owner = Identity::generate();
-    let peer = Identity::generate().peer_id();
+    let owner = Identity::try_generate().unwrap();
+    let peer = Identity::try_generate().unwrap().peer_id();
     let mut store = Store::open(&temp_db_path(), &owner).unwrap();
     catalog_group(&mut store, &[9], &peer);
     store
@@ -224,8 +224,8 @@ fn corrupt_persisted_context_and_payload_fail_closed() {
         "UPDATE `chat_attachments` SET `delivery_state` = 0, `delivery_generation` = `message_id`",
         "UPDATE `chat_attachments` SET `author` = 'stranger'",
     ] {
-        let owner = Identity::generate();
-        let peer = Identity::generate().peer_id();
+        let owner = Identity::try_generate().unwrap();
+        let peer = Identity::try_generate().unwrap().peer_id();
         let mut store = Store::open(&temp_db_path(), &owner).unwrap();
         catalog_group(&mut store, &[9], &peer);
         store

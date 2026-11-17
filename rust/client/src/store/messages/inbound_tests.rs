@@ -57,8 +57,8 @@ fn assert_future_photo_rejected(store: &mut Store, sender: VerifiedChatSender) {
 #[test]
 fn inbound_photo_projects_once_with_snapshot_and_digest() {
     let path = crate::store::tests::temp_db_path();
-    let owner = Identity::generate();
-    let peer = Identity::generate().peer_id();
+    let owner = Identity::try_generate().unwrap();
+    let peer = Identity::try_generate().unwrap().peer_id();
     let group = [9];
     let device = [8; 32];
     let sender = VerifiedChatSender {
@@ -127,10 +127,10 @@ fn unread(store: &Store, peer_id: &str) -> i64 {
 #[test]
 fn timed_text_rejects_future_clock_before_ack_and_observes_valid_clock() {
     let path = crate::store::tests::temp_db_path();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let key = MessageKey {
         group: vec![3],
-        author: Identity::generate().peer_id(),
+        author: Identity::try_generate().unwrap().peer_id(),
         id: [4; 16],
     };
     let device = [5; 32];
@@ -217,8 +217,8 @@ fn chat_projection_and_delivery_commit_atomically() {
         "dyapp-chat-inbound-{:032x}.db",
         u128::from_be_bytes(random)
     ));
-    let owner = Identity::generate();
-    let author = Identity::generate().peer_id();
+    let owner = Identity::try_generate().unwrap();
+    let author = Identity::try_generate().unwrap().peer_id();
     let key = MessageKey {
         group: vec![3],
         author,
@@ -323,8 +323,8 @@ fn apply_edit_and_delete(store: &mut Store, sender: VerifiedChatSender, key: &Me
 #[test]
 fn forwarded_text_keeps_its_marker_and_mls_author_after_restart() {
     let path = crate::store::tests::temp_db_path();
-    let owner = Identity::generate();
-    let author = Identity::generate().peer_id();
+    let owner = Identity::try_generate().unwrap();
+    let author = Identity::try_generate().unwrap().peer_id();
     let key = MessageKey {
         group: vec![8],
         author,
@@ -405,10 +405,10 @@ fn late_original_after_delete_keeps_placeholder_and_ack_intent() {
         "dyapp-chat-late-original-{:032x}.db",
         u128::from_be_bytes(random)
     ));
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let key = MessageKey {
         group: vec![3],
-        author: Identity::generate().peer_id(),
+        author: Identity::try_generate().unwrap().peer_id(),
         id: [4; 16],
     };
     let device = [5; 32];
@@ -454,10 +454,10 @@ fn late_original_after_delete_keeps_placeholder_and_ack_intent() {
 #[test]
 fn unread_is_local_to_a_pair_and_survives_late_delivery_and_restart() {
     let path = crate::store::tests::temp_db_path();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let own = owner.peer_id();
-    let peer = Identity::generate().peer_id();
-    let other = Identity::generate().peer_id();
+    let peer = Identity::try_generate().unwrap().peer_id();
+    let other = Identity::try_generate().unwrap().peer_id();
     let (group_a, group_b, group_other, device) = ([3], [4], [5], [6; 32]);
     let mut store = Store::open(&path, &owner).unwrap();
     stage_unread_history(
@@ -476,7 +476,7 @@ fn unread_is_local_to_a_pair_and_survives_late_delivery_and_restart() {
     assert_eq!((unread(&store, &peer), unread(&store, &other)), (0, 1));
     assert_eq!(store.mark_chat_read(&other).unwrap(), 1);
     assert!(matches!(
-        Store::open(&path, &Identity::generate()),
+        Store::open(&path, &Identity::try_generate().unwrap()),
         Err(Error::WrongIdentity)
     ));
 }
