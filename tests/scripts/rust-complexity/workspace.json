@@ -2,8 +2,6 @@
   {"path":"tests/integration_tests.rs","function":"fn test_nated_peers_exchange_a_message_through_a_dyappd_relay ","metrics":{"lines":110}},
   {"path":"rust/bootstrap/src/bin/dyappd/client.rs","function":"fn run ","metrics":{"cognitive":23,"lines":110}},
   {"path":"rust/bootstrap/src/bin/dyappd/main.rs","function":"fn main ","metrics":{"lines":115}},
-  {"path":"rust/bootstrap/src/config/validation.rs","function":"fn invalid_config_fails ","metrics":{"cognitive":43,"lines":100}},
-  {"path":"rust/bootstrap/src/config/validation.rs","function":"fn search_limits_are_checked ","metrics":{"cognitive":23}},
   {"path":"rust/bootstrap/src/media/tests.rs","function":"fn attach_put_release_and_expire ","metrics":{"cognitive":19}},
   {"path":"rust/bootstrap/src/media/tests.rs","function":"fn keep_put_get_and_drop ","metrics":{"cognitive":18}},
   {"path":"rust/bootstrap/src/metrics.rs","function":"fn render ","metrics":{"lines":132}},

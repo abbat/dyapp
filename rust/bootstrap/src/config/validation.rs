@@ -1,27 +1,53 @@
 use super::tests::temp_dir;
 use super::*;
 
+fn search(change: fn(&mut Search)) -> anyhow::Result<()> {
+    let mut config = NodeConfig::default();
+    change(&mut config.search);
+    config.search.validate()
+}
+
+fn invalid(edit: impl FnOnce(&mut NodeConfig)) -> bool {
+    let mut config = NodeConfig::default();
+    config.storage.dir = temp_dir();
+    edit(&mut config);
+    config.validate().is_err()
+}
+
 #[test]
 fn search_limits_are_checked() {
-    let search = |change: fn(&mut Search)| {
-        let mut config = NodeConfig::default();
-        change(&mut config.search);
-        config.search.validate()
-    };
+    check_search_profile_limits();
+    check_search_pow_limits();
+    check_search_newcomer_limits();
     assert!(search(|_| {}).is_ok());
-    assert!(search(|s| s.max_profile_bytes = 0).is_err());
-    assert!(search(|s| s.max_profile_bytes = crate::service::SEARCH_ACCEPT_BYTES + 1).is_err());
-    assert!(search(|s| s.max_profile_bytes = crate::service::SEARCH_ACCEPT_BYTES).is_ok());
     assert!(search(|s| s.max_scan_rows = 0).is_err());
     assert!(search(|s| s.topics = vec![16]).is_err());
     assert!(search(|s| s.max_bytes = 0).is_err());
+    assert!(Search::default().keeps(15));
+    let one = Search {
+        topics: vec![3],
+        ..Search::default()
+    };
+    assert!(one.keeps(3) && !one.keeps(4));
+}
+
+fn check_search_profile_limits() {
     assert_eq!(Search::default().max_profile_bytes, 64 << 10);
+    assert!(search(|s| s.max_profile_bytes = 0).is_err());
+    assert!(search(|s| s.max_profile_bytes = crate::service::SEARCH_ACCEPT_BYTES + 1).is_err());
+    assert!(search(|s| s.max_profile_bytes = crate::service::SEARCH_ACCEPT_BYTES).is_ok());
+}
+
+fn check_search_pow_limits() {
     assert_eq!(Search::default().min_profile_pow_bits, 11);
     assert!(search(|s| s.min_profile_pow_bits = 20).is_ok());
     assert!(search(|s| s.min_profile_pow_bits = 21).is_err());
     assert_eq!(Search::default().min_heartbeat_pow_bits, 8);
     assert!(search(|s| s.min_heartbeat_pow_bits = 16).is_ok());
     assert!(search(|s| s.min_heartbeat_pow_bits = 17).is_err());
+}
+
+fn check_search_newcomer_limits() {
     let s = Search::default();
     assert_eq!((s.newcomer_days, s.newcomer_share), (30, 0.10));
     assert!(search(|s| s.newcomer_share = 0.0).is_err());
@@ -29,12 +55,6 @@ fn search_limits_are_checked() {
     assert!(search(|s| s.newcomer_share = f64::NAN).is_err());
     assert!(search(|s| s.newcomer_days = 0).is_err());
     assert!(search(|s| s.newcomer_days = 366).is_err());
-    assert!(Search::default().keeps(15));
-    let one = Search {
-        topics: vec![3],
-        ..Search::default()
-    };
-    assert!(one.keeps(3) && !one.keeps(4));
 }
 
 #[test]
@@ -112,16 +132,17 @@ fn incoming_group_and_coarse_settings_validate_boundaries() {
 
 #[test]
 fn invalid_config_fails() {
-    fn invalid(edit: impl FnOnce(&mut NodeConfig)) -> bool {
-        let mut config = NodeConfig::default();
-        config.storage.dir = temp_dir();
-        edit(&mut config);
-        config.validate().is_err()
-    }
     assert!(!invalid(|_| {}));
     assert!(invalid(|c| c.media.shard_threshold = (1 << 20) + 1));
     assert!(invalid(|c| c.media.shard_threshold = 0));
     assert!(!invalid(|c| c.media.shard_threshold = 1));
+    check_invalid_addresses_and_seeds();
+    check_invalid_turn_config();
+    check_invalid_roles();
+    check_invalid_limits();
+}
+
+fn check_invalid_addresses_and_seeds() {
     assert!(invalid(|c| c.listen = vec!["not an address".into()]));
     assert!(invalid(|c| c.listen = vec!["/ip4/0.0.0.0/tcp/7070".into()]));
     assert!(invalid(|c| c.external = vec!["[2001:db8::1]".into()]));
@@ -153,6 +174,9 @@ fn invalid_config_fails() {
         seed("[2001:db8::7]:7070").unwrap(),
         transports("[2001:db8::7]:7070").unwrap()
     );
+}
+
+fn check_invalid_turn_config() {
     let turn = |c: &mut NodeConfig| {
         c.roles = vec![Role::Store, Role::Turn];
         c.turn.secret = "s".into();
@@ -179,6 +203,9 @@ fn invalid_config_fails() {
         turn(c);
         c.turn.urls = vec!["relay.example:3478".into()];
     }));
+}
+
+fn check_invalid_roles() {
     assert!(invalid(|c| c.roles = vec![Role::Relay]));
     assert!(!invalid(|c| c.roles = vec![Role::Store, Role::Relay]));
     assert!(invalid(|c| {
@@ -198,6 +225,9 @@ fn invalid_config_fails() {
         subset(c);
         c.network.name = "test".into();
     }));
+}
+
+fn check_invalid_limits() {
     assert!(invalid(|c| c.limits.message_ttl_hours = 0));
     assert!(invalid(|c| c.limits.attachment_retention_hours = 0));
     assert!(invalid(|c| c.limits.media_cache_minutes = 0));
