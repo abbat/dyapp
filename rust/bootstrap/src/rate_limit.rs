@@ -7,7 +7,7 @@ use governor::state::{InMemoryState, NotKeyed};
 use governor::{Quota, RateLimiter};
 use std::collections::HashMap;
 use std::num::NonZeroU32;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex, PoisonError, RwLock};
 use std::time::{Duration, Instant};
 
 /// Buckets kept before idle ones are dropped: bounds the map against rotating peer IDs.
@@ -27,7 +27,7 @@ pub struct PeerRateLimiter {
 }
 
 impl PeerRateLimiter {
-    /// Allows `messages_per_second` units per key; zero panics on first use.
+    /// Allows `messages_per_second` units per key; zero refuses every nonzero charge.
     #[must_use]
     pub fn new(messages_per_second: u32) -> Self {
         Self::with_clock(messages_per_second, Clock::system())
@@ -57,16 +57,17 @@ impl PeerRateLimiter {
 
     /// Charges the complete operation atomically; an insufficient bucket spends no units.
     #[must_use]
-    ///
-    /// # Panics
-    ///
-    /// Panics if the bucket lock is poisoned or a nonzero charge creates a bucket with a
-    /// configured rate of zero.
     pub fn check_units(&self, peer_id: &str, units: u32) -> bool {
         let Some(units) = NonZeroU32::new(units) else {
             return false;
         };
-        let mut guard = self.limiters.write().unwrap();
+        let Some(rate) = NonZeroU32::new(self.messages_per_second) else {
+            return false;
+        };
+        let mut guard = self
+            .limiters
+            .write()
+            .unwrap_or_else(PoisonError::into_inner);
         let (limiters, pruned) = &mut *guard;
 
         let now = self.clock.instant();
@@ -78,7 +79,7 @@ impl PeerRateLimiter {
             *pruned = now;
         }
         let (limiter, seen) = limiters.entry(peer_id.to_string()).or_insert_with(|| {
-            let quota = Quota::per_second(NonZeroU32::new(self.messages_per_second).unwrap());
+            let quota = Quota::per_second(rate);
             let limiter = RateLimiter::direct_with_clock(quota, self.clock.clone());
             (limiter, now)
         });
@@ -88,12 +89,12 @@ impl PeerRateLimiter {
 
     /// Keys with a bucket.
     #[must_use]
-    ///
-    /// # Panics
-    ///
-    /// Panics if the bucket lock is poisoned.
     pub fn get_active_peers(&self) -> usize {
-        self.limiters.read().unwrap().0.len()
+        self.limiters
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .0
+            .len()
     }
 }
 
@@ -121,13 +122,9 @@ impl Reputation {
     }
 
     /// Counts a strike; returns true when it bans the peer.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the reputation-state lock is poisoned.
     pub fn strike(&self, peer: &str) -> bool {
         let now = self.clock.instant();
-        let mut peers = self.peers.lock().unwrap();
+        let mut peers = self.peers.lock().unwrap_or_else(PoisonError::into_inner);
         if peers.len() >= MAX_BUCKETS {
             peers.retain(|_, (_, last)| now.saturating_duration_since(*last) < self.ban);
         }
@@ -140,13 +137,9 @@ impl Reputation {
     }
 
     /// Whether `peer` is banned now.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the reputation-state lock is poisoned.
     pub fn banned(&self, peer: &str) -> bool {
         let now = self.clock.instant();
-        let peers = self.peers.lock().unwrap();
+        let peers = self.peers.lock().unwrap_or_else(PoisonError::into_inner);
         peers
             .get(peer)
             .is_some_and(|(count, last)| {
@@ -207,12 +200,12 @@ impl Traffic {
 
     /// Adds `bytes` to this second's count and returns it.
     fn count(&self, bytes: u64) -> u64 {
-        self.update(bytes, None).unwrap()
+        self.update(bytes, None).unwrap_or(0)
     }
 
     fn update(&self, bytes: u64, share: Option<u64>) -> Option<u64> {
         let now = self.clock.unix_secs();
-        let mut second = self.second.lock().unwrap();
+        let mut second = self.second.lock().unwrap_or_else(PoisonError::into_inner);
         if second.0 != now {
             *second = (now, 0);
         }
@@ -257,16 +250,12 @@ impl Memory {
     }
 
     /// The share of `max` in percent, 0 without a limit or a measurement.
-    ///
-    /// # Panics
-    ///
-    /// Panics if memory limiting is enabled and the sample-state lock is poisoned.
     pub fn share(&self) -> u64 {
         if self.max == 0 {
             return 0;
         }
         let now = self.clock.instant();
-        let mut sample = self.sample.lock().unwrap();
+        let mut sample = self.sample.lock().unwrap_or_else(PoisonError::into_inner);
         match *sample {
             Some((at, share))
                 if at
@@ -446,6 +435,7 @@ mod tests {
         assert!(!limiter.check_units("get", 6));
         assert!(limiter.check_units("get", 5), "failed charge spent units");
         assert!(!PeerRateLimiter::new(4).check_units("put", 5));
+        assert!(!PeerRateLimiter::new(0).check_limit("put"));
     }
 
     #[test]
