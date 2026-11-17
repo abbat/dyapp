@@ -5,15 +5,41 @@ use libp2p::futures::StreamExt;
 
 #[tokio::test]
 async fn third_media_stream_on_a_connection_is_reset() {
-    media_stream_limit(1, 3, 2).await;
+    Box::pin(media_stream_limit(1, 3, 2)).await;
 }
 
 #[tokio::test]
 async fn seventeenth_media_stream_across_connections_is_reset() {
-    media_stream_limit(9, 17, 16).await;
+    Box::pin(media_stream_limit(9, 17, 16)).await;
 }
 
 async fn media_stream_limit(peers: usize, requests: usize, accepted: usize) {
+    let (mut server, mut clients) = media_peers(peers).await;
+    let server_id = *server.local_peer_id();
+    for i in 0..requests {
+        clients[i % peers]
+            .behaviour_mut()
+            .media
+            .send_request(&server_id, proto::MediaRequest::default());
+    }
+    let held = hold_accepted_media_requests(&mut server, &mut clients, accepted).await;
+    for channel in held {
+        server
+            .behaviour_mut()
+            .media
+            .send_response(
+                channel,
+                proto::MediaResponse {
+                    status: proto::Status::Ok.into(),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+    }
+    assert_media_replies(&mut server, &mut clients, accepted).await;
+}
+
+async fn media_peers(peers: usize) -> (Swarm<Behaviour>, Vec<Swarm<Behaviour>>) {
     let mut server = build_swarm(Keypair::generate_ed25519(), Mode::Auto).unwrap();
     server
         .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
@@ -24,7 +50,7 @@ async fn media_stream_limit(peers: usize, requests: usize, accepted: usize) {
         }
     };
     let server_id = *server.local_peer_id();
-    let mut clients: Vec<_> = (0..peers)
+    let clients = (0..peers)
         .map(|_| {
             let mut client = build_swarm(Keypair::generate_ed25519(), Mode::Client).unwrap();
             // Senders allow all requests; the receiver enforces its own limits.
@@ -36,12 +62,14 @@ async fn media_stream_limit(peers: usize, requests: usize, accepted: usize) {
             client
         })
         .collect();
-    for i in 0..requests {
-        clients[i % peers]
-            .behaviour_mut()
-            .media
-            .send_request(&server_id, proto::MediaRequest::default());
-    }
+    (server, clients)
+}
+
+async fn hold_accepted_media_requests(
+    server: &mut Swarm<Behaviour>,
+    clients: &mut [Swarm<Behaviour>],
+    accepted: usize,
+) -> Vec<request_response::ResponseChannel<proto::MediaResponse>> {
     let mut held = Vec::new();
     let mut rejected = false;
     tokio::time::timeout(Duration::from_secs(10), async {
@@ -70,19 +98,14 @@ async fn media_stream_limit(peers: usize, requests: usize, accepted: usize) {
         }
     }).await.expect("excess media stream was queued instead of reset");
     assert_eq!(held.len(), accepted);
-    for channel in held {
-        server
-            .behaviour_mut()
-            .media
-            .send_response(
-                channel,
-                proto::MediaResponse {
-                    status: proto::Status::Ok.into(),
-                    ..Default::default()
-                },
-            )
-            .unwrap();
-    }
+    held
+}
+
+async fn assert_media_replies(
+    server: &mut Swarm<Behaviour>,
+    clients: &mut [Swarm<Behaviour>],
+    accepted: usize,
+) {
     let mut replies = 0;
     tokio::time::timeout(Duration::from_secs(10), async {
         while replies < accepted {

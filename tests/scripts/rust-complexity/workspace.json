@@ -42,7 +42,6 @@
   {"path":"rust/client/src/store/messages/outbound_tests.rs","function":"fn own_chat_projection_mls_and_exact_writes_share_one_commit ","metrics":{"cognitive":36,"lines":197}},
   {"path":"rust/client/src/tests.rs","function":"fn mailbox_pages_sign_fresh_challenges_and_reject_stalled_cursors ","metrics":{"nesting":5,"lines":108,"nested_regions":2}},
   {"path":"rust/client/src/tests.rs","function":"fn search_calls_solve_the_puzzle_and_surface_busy_nodes ","metrics":{"lines":132}},
-  {"path":"rust/p2p-net/src/lib/media_streams.rs","function":"fn media_stream_limit ","metrics":{"lines":86}},
   {"path":"rust/p2p-net/src/lib/tests.rs","function":"fn named_builder_announces_only_its_network_and_exchanges_large_media_over_tcp ","metrics":{"lines":121}},
   {"path":"rust/p2p-net/src/pow_gate.rs","function":"mod tests # [cfg (test)]::fn weak_peer_is_not_dialed_but_served_on_its_inbound_connection ","metrics":{"nesting":5,"lines":104,"nested_regions":2}},
 ]
