@@ -216,6 +216,140 @@ fn filter(c: &Condition) -> std::result::Result<Option<Filter>, ()> {
     }))
 }
 
+fn prepare_filters(conditions: &[Condition]) -> std::result::Result<Vec<Filter>, ()> {
+    if conditions.len() > 32 {
+        return Err(());
+    }
+    let mut seen = std::collections::HashSet::new();
+    if !conditions.iter().all(|c| seen.insert(c.field)) {
+        return Err(());
+    }
+    let mut filters = Vec::new();
+    for condition in conditions {
+        match filter(condition) {
+            Ok(Some(filter)) => filters.push(filter),
+            Ok(None) => {}
+            Err(()) => return Err(()),
+        }
+    }
+    Ok(filters)
+}
+
+type Hits = Vec<([u8; 32], u64)>;
+type Scope = (&'static str, Vec<rusqlite::types::Value>);
+
+fn query_scopes(filters: &mut Vec<Filter>) -> (Vec<Scope>, String, Vec<rusqlite::types::Value>) {
+    use rusqlite::types::Value;
+    // Scopes: (country, place) pairs on the index prefix; the rest filters inside the scan.
+    // Two `in` filters on country and place make at most 256 scoped statements;
+    // the scan-row budget caps rows, while preparation remains bounded separately.
+    let take = |field: u32, filters: &mut Vec<Filter>| {
+        filters
+            .iter()
+            .position(|f| f.field == field)
+            .map(|i| filters.remove(i).values)
+    };
+    let countries = take(4, filters);
+    let places = if countries.is_some() {
+        take(20, filters)
+    } else {
+        None
+    };
+    let mut scopes: Vec<Scope> = Vec::new();
+    match (&countries, &places) {
+        (Some(cs), Some(ps)) => {
+            for c in cs {
+                for p in ps {
+                    scopes.push((
+                        "`p`.`country` = ? AND `p`.`place` = ?",
+                        vec![c.clone(), p.clone()],
+                    ));
+                }
+            }
+        }
+        (Some(cs), None) => {
+            for c in cs {
+                scopes.push(("`p`.`country` = ?", vec![c.clone()]));
+            }
+        }
+        _ => scopes.push(("1", vec![])),
+    }
+    let rest = if filters.is_empty() {
+        "1".to_string()
+    } else {
+        filters
+            .iter()
+            .map(|f| f.sql.as_str())
+            .collect::<Vec<_>>()
+            .join(" AND ")
+    };
+    let rest_values: Vec<Value> = filters.drain(..).flat_map(|f| f.values).collect();
+    (scopes, rest, rest_values)
+}
+
+struct Scan<'a> {
+    db: &'a rusqlite::Connection,
+    scopes: &'a [Scope],
+    rest: &'a str,
+    rest_values: &'a [rusqlite::types::Value],
+    limit: usize,
+}
+
+impl Scan<'_> {
+    fn range(&self, lo: i64, hi: i64, budget: u32) -> Result<(Hits, u32)> {
+        use rusqlite::types::Value;
+        let (mut hits, mut scanned) = (Vec::new(), 0u32);
+        let mut statements = Vec::new();
+        for (scope, _) in self.scopes {
+            statements.push(
+                self.db
+                    .prepare(&format!(
+                        "SELECT `p`.`key`, `p`.`version`, `p`.`r`, COALESCE(({}), 0) FROM `profile` AS `p`
+                     WHERE {scope} AND `p`.`r` BETWEEN ? AND ? ORDER BY `p`.`r` LIMIT ?",
+                        self.rest
+                    ))
+                    .map_err(storage_error)?,
+            );
+        }
+        // The `rest` placeholders come first, then the scope, the range and LIMIT.
+        let mut cursors = Vec::new();
+        for (statement, (_, scope_values)) in statements.iter_mut().zip(self.scopes) {
+            let mut values = self.rest_values.to_vec();
+            values.extend(scope_values.iter().cloned());
+            values.extend([
+                Value::Integer(lo),
+                Value::Integer(hi),
+                Value::Integer(i64::from(budget)),
+            ]);
+            cursors.push(
+                statement
+                    .query(rusqlite::params_from_iter(values))
+                    .map_err(storage_error)?,
+            );
+        }
+        let mut heads = Vec::new();
+        for rows in &mut cursors {
+            heads.push(next(rows)?);
+        }
+        // Merge the scopes by `r`.
+        while hits.len() < self.limit && scanned < budget {
+            let Some(i) = (0..heads.len())
+                .filter(|i| heads[*i].is_some())
+                .min_by_key(|i| heads[*i].as_ref().map(|h| h.2))
+            else {
+                break;
+            };
+            let (key, version, _, ok) = heads[i].take().expect("picked a live head");
+            scanned += 1;
+            if ok {
+                hits.push((key, version));
+            }
+            heads[i] = next(&mut cursors[i])?;
+        }
+        Ok((hits, scanned))
+    }
+}
+
 impl SearchIndex {
     /// A random sample of up to `limit` matching keys, reading at most `max_scan_rows` rows.
     /// The inner `Err(())` means the conditions are `INVALID`.
@@ -235,125 +369,33 @@ impl SearchIndex {
         limit: u32,
         max_scan_rows: u32,
     ) -> Result<std::result::Result<Found, ()>> {
-        use rusqlite::types::Value;
-        if conditions.len() > 32 {
+        let Ok(mut filters) = prepare_filters(conditions) else {
             return Ok(Err(()));
-        }
-        let mut seen = std::collections::HashSet::new();
-        if !conditions.iter().all(|c| seen.insert(c.field)) {
-            return Ok(Err(()));
-        }
-        let mut filters = Vec::new();
-        for c in conditions {
-            match filter(c) {
-                Ok(Some(f)) => filters.push(f),
-                Ok(None) => {}
-                Err(()) => return Ok(Err(())),
-            }
-        }
+        };
         let applied = filters.iter().map(|f| f.field).collect();
         let limit = match limit {
             0 => 50,
             n => n.min(200),
         } as usize;
-        // Scopes: (country, place) pairs on the index prefix; the rest filters inside the scan.
-        // Two `in` filters on country and place make at most 256 scoped statements;
-        // the scan-row budget caps rows, while preparation remains bounded separately.
-        let take = |field: u32, filters: &mut Vec<Filter>| {
-            filters
-                .iter()
-                .position(|f| f.field == field)
-                .map(|i| filters.remove(i).values)
-        };
-        let countries = take(4, &mut filters);
-        let places = if countries.is_some() {
-            take(20, &mut filters)
-        } else {
-            None
-        };
-        let mut scopes: Vec<(&str, Vec<Value>)> = Vec::new();
-        match (&countries, &places) {
-            (Some(cs), Some(ps)) => {
-                for c in cs {
-                    for p in ps {
-                        scopes.push((
-                            "`p`.`country` = ? AND `p`.`place` = ?",
-                            vec![c.clone(), p.clone()],
-                        ));
-                    }
-                }
-            }
-            (Some(cs), None) => {
-                for c in cs {
-                    scopes.push(("`p`.`country` = ?", vec![c.clone()]));
-                }
-            }
-            _ => scopes.push(("1", vec![])),
-        }
-        let rest = if filters.is_empty() {
-            "1".to_string()
-        } else {
-            filters
-                .iter()
-                .map(|f| f.sql.as_str())
-                .collect::<Vec<_>>()
-                .join(" AND ")
-        };
-        let rest_values: Vec<Value> = filters.into_iter().flat_map(|f| f.values).collect();
+        let (scopes, rest, rest_values) = query_scopes(&mut filters);
         let db = self.reader()?;
-        let s = i64::from_ne_bytes(rand_bytes());
+        let scan = Scan {
+            db: &db,
+            scopes: &scopes,
+            rest: &rest,
+            rest_values: &rest_values,
+            limit,
+        };
+        let start = i64::from_ne_bytes(rand_bytes());
         let (mut hits, mut scanned) = (Vec::new(), 0u32);
-        // From `s` up, then wrap to below `s`.
-        for (lo, hi) in [(s, i64::MAX), (i64::MIN, s.saturating_sub(1))] {
+        // From `start` up, then wrap to below `start`.
+        for (lo, hi) in [(start, i64::MAX), (i64::MIN, start.saturating_sub(1))] {
             if hits.len() >= limit || scanned >= max_scan_rows || lo > hi {
                 break;
             }
-            let budget = max_scan_rows - scanned;
-            let mut statements = Vec::new();
-            for (scope, _) in &scopes {
-                statements.push(
-                    db.prepare(&format!(
-                        "SELECT `p`.`key`, `p`.`version`, `p`.`r`, COALESCE(({rest}), 0) FROM `profile` AS `p`
-                     WHERE {scope} AND `p`.`r` BETWEEN ? AND ? ORDER BY `p`.`r` LIMIT ?"
-                    ))
-                    .map_err(storage_error)?,
-                );
-            }
-            // The `({rest})` placeholders come first, then the scope, the range and LIMIT.
-            let mut cursors = Vec::new();
-            for (statement, (_, scope_values)) in statements.iter_mut().zip(&scopes) {
-                let mut values = rest_values.clone();
-                values.extend(scope_values.iter().cloned());
-                values.extend([
-                    Value::Integer(lo),
-                    Value::Integer(hi),
-                    Value::Integer(i64::from(budget)),
-                ]);
-                cursors.push(
-                    statement
-                        .query(rusqlite::params_from_iter(values))
-                        .map_err(storage_error)?,
-                );
-            }
-            let mut heads = Vec::new();
-            for rows in &mut cursors {
-                heads.push(next(rows)?);
-            }
-            // Merge the scopes by `r`.
-            while hits.len() < limit && scanned < max_scan_rows {
-                let Some(i) = (0..heads.len())
-                    .filter(|i| heads[*i].is_some())
-                    .min_by_key(|i| heads[*i].as_ref().map(|h| h.2))
-                else {
-                    break;
-                };
-                let (key, version, _, ok) = heads[i].take().expect("picked a live head");
-                scanned += 1;
-                if ok {
-                    hits.push((key, version));
-                }
-                heads[i] = next(&mut cursors[i])?;
-            }
+            let (mut range_hits, range_scanned) = scan.range(lo, hi, max_scan_rows - scanned)?;
+            hits.append(&mut range_hits);
+            scanned += range_scanned;
         }
         // A refilling index misses keys: clients complete the results from other nodes.
         let partial = hits.len() < limit && scanned >= max_scan_rows || self.refilling();
