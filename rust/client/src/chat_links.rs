@@ -48,7 +48,7 @@ pub fn hosts(text: &str) -> Vec<LinkHost> {
     let mut seen = HashSet::new();
     let mut hosts = Vec::new();
     while let Some(start) = remaining.find(['h', 'H']) {
-        remaining = &remaining[start..];
+        remaining = remaining.get(start..).unwrap_or_default();
         let web = remaining
             .get(..7)
             .is_some_and(|prefix| prefix.eq_ignore_ascii_case("http://"))
@@ -56,12 +56,15 @@ pub fn hosts(text: &str) -> Vec<LinkHost> {
                 .get(..8)
                 .is_some_and(|prefix| prefix.eq_ignore_ascii_case("https://"));
         if !web {
-            remaining = &remaining[1..];
+            remaining = remaining.get(1..).unwrap_or_default();
             continue;
         }
         let end = remaining.find(delimiter).unwrap_or(remaining.len());
-        let candidate = remaining[..end].trim_end_matches([')', ',', '.', '!', '?']);
-        remaining = &remaining[end..];
+        let candidate = remaining
+            .get(..end)
+            .unwrap_or_default()
+            .trim_end_matches([')', ',', '.', '!', '?']);
+        remaining = remaining.get(end..).unwrap_or_default();
         if let Some(host) = destination(candidate) {
             if seen.insert(host.ascii.clone()) {
                 hosts.push(host);

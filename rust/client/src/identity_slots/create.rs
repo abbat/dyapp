@@ -123,14 +123,14 @@ fn new_id() -> Result<String, String> {
     getrandom::fill(&mut bytes).map_err(|error| error.to_string())?;
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    let hex = format!("{:032x}", u128::from_be_bytes(bytes));
+    let value = u128::from_be_bytes(bytes);
     let id = format!(
-        "{}-{}-{}-{}-{}",
-        &hex[..8],
-        &hex[8..12],
-        &hex[12..16],
-        &hex[16..20],
-        &hex[20..]
+        "{:08x}-{:04x}-{:04x}-{:04x}-{:012x}",
+        value >> 96,
+        (value >> 80) & 0xffff,
+        (value >> 64) & 0xffff,
+        (value >> 48) & 0xffff,
+        value & 0xffff_ffff_ffff
     );
     debug_assert!(is_uuid(&id));
     Ok(id)
