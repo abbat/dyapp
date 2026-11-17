@@ -63,7 +63,6 @@
   {"path":"rust/p2p-net/src/lib/media_streams.rs","function":"fn media_stream_limit ","metrics":{"lines":86}},
   {"path":"rust/p2p-net/src/lib/tests.rs","function":"fn configured_media_ids_keep_large_frames_and_stable_counter_slots ","metrics":{"lines":69}},
   {"path":"rust/p2p-net/src/lib/tests.rs","function":"fn named_builder_announces_only_its_network_and_exchanges_large_media_over_tcp ","metrics":{"lines":121}},
-  {"path":"rust/p2p-net/src/lib/tests.rs","function":"fn peers_without_direct_listeners_exchange_a_request_through_a_relay ","metrics":{"lines":68}},
   {"path":"rust/p2p-net/src/pow_gate.rs","function":"mod tests # [cfg (test)]::fn weak_peer_is_not_dialed_but_served_on_its_inbound_connection ","metrics":{"nesting":5,"lines":104,"nested_regions":2}},
   {"path":"rust/p2p-net/src/search_results.rs","function":"mod tests # [cfg (test)]::fn a_filter_keeps_the_matching_profile_and_drops_each_mismatch ","metrics":{"lines":72}},
   {"path":"rust/p2p-net/src/search_results.rs","function":"mod tests # [cfg (test)]::fn a_filter_refuses_what_a_node_would_not_take ","metrics":{"lines":77}},

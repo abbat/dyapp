@@ -921,35 +921,13 @@ async fn dial_filter_refuses_denied_and_resolved_addresses_below_dns() {
     }
 }
 
-#[tokio::test]
-async fn peers_without_direct_listeners_exchange_a_request_through_a_relay() {
-    let make = |mode, relay| {
-        build_configured_swarm(
-            Keypair::generate_ed25519(),
-            SwarmOptions {
-                mode,
-                relay,
-                ..Default::default()
-            },
-        )
-        .unwrap()
-    };
-    let mut relay = make(Mode::Auto, Some(relay::Config::default()));
-    let mut a = make(Mode::Auto, None);
-    let mut b = make(Mode::Client, None);
-    relay
-        .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
-        .unwrap();
-    let address = loop {
-        if let SwarmEvent::NewListenAddr { address, .. } = relay.select_next_some().await {
-            break address.with(Protocol::P2p(*relay.local_peer_id()));
-        }
-    };
-    // The relay announces this address in reservations.
-    relay.add_external_address(address.clone());
-    let circuit = address.with(Protocol::P2pCircuit);
-    a.listen_on(circuit.clone()).unwrap();
-    let a_id = *a.local_peer_id();
+async fn exchange_relayed_request(
+    relay: &mut Swarm<Behaviour>,
+    a: &mut Swarm<Behaviour>,
+    b: &mut Swarm<Behaviour>,
+    circuit: Multiaddr,
+    a_id: PeerId,
+) -> bool {
     let (mut dialled, mut relayed, mut answered) = (false, false, false);
     tokio::time::timeout(Duration::from_secs(20), async {
         while !answered {
@@ -989,8 +967,40 @@ async fn peers_without_direct_listeners_exchange_a_request_through_a_relay() {
     })
     .await
     .unwrap();
+    relayed
+}
+
+#[tokio::test]
+async fn peers_without_direct_listeners_exchange_a_request_through_a_relay() {
+    let make = |mode, relay| {
+        build_configured_swarm(
+            Keypair::generate_ed25519(),
+            SwarmOptions {
+                mode,
+                relay,
+                ..Default::default()
+            },
+        )
+        .unwrap()
+    };
+    let mut relay = make(Mode::Auto, Some(relay::Config::default()));
+    let mut a = make(Mode::Auto, None);
+    let mut b = make(Mode::Client, None);
+    relay
+        .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+        .unwrap();
+    let address = loop {
+        if let SwarmEvent::NewListenAddr { address, .. } = relay.select_next_some().await {
+            break address.with(Protocol::P2p(*relay.local_peer_id()));
+        }
+    };
+    // The relay announces this address in reservations.
+    relay.add_external_address(address.clone());
+    let circuit = address.with(Protocol::P2pCircuit);
+    a.listen_on(circuit.clone()).unwrap();
+    let a_id = *a.local_peer_id();
     assert!(
-        relayed,
+        exchange_relayed_request(&mut relay, &mut a, &mut b, circuit, a_id).await,
         "the first connection to a peer without listeners runs through the circuit"
     );
 }
