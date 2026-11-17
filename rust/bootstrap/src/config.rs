@@ -869,42 +869,32 @@ impl NodeConfig {
         Ok(())
     }
 
-    /// Reads the file (if given), the environment and the `--` options as (`section.key`,
-    /// value); an option is named as its key with `-` for `_`, and a list option is given once
-    /// per item. Returns the config and the ignored keys; an unknown option is refused.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the configuration file cannot be read or parsed, an override has an
-    /// invalid path or type, an option is unknown, or the merged configuration cannot be decoded.
-    pub fn load(
-        file: Option<&Path>,
-        env: impl IntoIterator<Item = (String, String)>,
-        options: &[(String, String)],
-    ) -> anyhow::Result<(Self, Vec<String>)> {
-        let mut table = match file {
-            Some(path) => {
-                let source = fs::read_to_string(path).map_err(|e| {
-                    if russian_locale() {
-                        let guidance = match e.kind() {
-                            std::io::ErrorKind::NotFound => "файл не найден; проверьте путь",
-                            std::io::ErrorKind::PermissionDenied => {
-                                "нет доступа к файлу; проверьте права"
-                            }
-                            _ => "не удалось прочитать файл конфигурации",
-                        };
-                        anyhow::anyhow!("config {}: {guidance}: {e}", path.display())
-                    } else {
-                        anyhow::anyhow!("config {}: {e}", path.display())
-                    }
-                })?;
-                source
-                    .parse::<toml::Table>()
-                    .map_err(|e| safe_toml_error(path, &source, &e))?
-            }
-            None => toml::Table::new(),
+    fn read_table(file: Option<&Path>) -> anyhow::Result<toml::Table> {
+        let Some(path) = file else {
+            return Ok(toml::Table::new());
         };
-        let defaults = toml::Value::try_from(Self::default())?;
+        let source = fs::read_to_string(path).map_err(|e| {
+            if russian_locale() {
+                let guidance = match e.kind() {
+                    std::io::ErrorKind::NotFound => "файл не найден; проверьте путь",
+                    std::io::ErrorKind::PermissionDenied => "нет доступа к файлу; проверьте права",
+                    _ => "не удалось прочитать файл конфигурации",
+                };
+                anyhow::anyhow!("config {}: {guidance}: {e}", path.display())
+            } else {
+                anyhow::anyhow!("config {}: {e}", path.display())
+            }
+        })?;
+        source
+            .parse::<toml::Table>()
+            .map_err(|e| safe_toml_error(path, &source, &e))
+    }
+
+    fn apply_env(
+        table: &mut toml::Table,
+        defaults: &toml::Value,
+        env: impl IntoIterator<Item = (String, String)>,
+    ) -> anyhow::Result<()> {
         for (name, value) in env {
             let Some(key) = name.strip_prefix(ENV_PREFIX) else {
                 continue;
@@ -918,14 +908,22 @@ impl NodeConfig {
                 }
                 _ => vec![key],
             };
-            set(&mut table, &path, toml_value(&value), &name)?;
+            set(table, &path, toml_value(&value), &name)?;
         }
+        Ok(())
+    }
+
+    fn apply_options(
+        table: &mut toml::Table,
+        defaults: &toml::Value,
+        options: &[(String, String)],
+    ) -> anyhow::Result<()> {
         let mut lists: Vec<(Vec<String>, Vec<toml::Value>)> = Vec::new();
         for (option, text) in options {
             let path: Vec<String> = option.split('.').map(|k| k.replace('-', "_")).collect();
             let default = path
                 .iter()
-                .try_fold(&defaults, |node, key| node.get(key.as_str()))
+                .try_fold(defaults, |node, key| node.get(key.as_str()))
                 .filter(|node| !node.is_table())
                 .ok_or_else(|| {
                     anyhow::anyhow!(
@@ -940,7 +938,7 @@ impl NodeConfig {
                 _ => toml_value(text),
             };
             if !default.is_array() {
-                set(&mut table, &path, value, option)?;
+                set(table, &path, value, option)?;
             } else if let Some((_, items)) = lists.iter_mut().find(|(p, _)| *p == path) {
                 items.push(value);
             } else {
@@ -948,9 +946,13 @@ impl NodeConfig {
             }
         }
         for (path, items) in lists {
-            set(&mut table, &path, toml::Value::Array(items), "option")?;
+            set(table, &path, toml::Value::Array(items), "option")?;
         }
-        let mismatch = first_type_mismatch(&defaults, &table);
+        Ok(())
+    }
+
+    fn decode(table: toml::Table, defaults: &toml::Value) -> anyhow::Result<(Self, Vec<String>)> {
+        let mismatch = first_type_mismatch(defaults, &table);
         let mut ignored = Vec::new();
         let config = serde_ignored::deserialize(table, |path| ignored.push(path.to_string()))
             .map_err(|_| match mismatch {
@@ -969,6 +971,26 @@ impl NodeConfig {
                 ),
             })?;
         Ok((config, ignored))
+    }
+
+    /// Reads the file (if given), the environment and the `--` options as (`section.key`,
+    /// value); an option is named as its key with `-` for `_`, and a list option is given once
+    /// per item. Returns the config and the ignored keys; an unknown option is refused.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the configuration file cannot be read or parsed, an override has an
+    /// invalid path or type, an option is unknown, or the merged configuration cannot be decoded.
+    pub fn load(
+        file: Option<&Path>,
+        env: impl IntoIterator<Item = (String, String)>,
+        options: &[(String, String)],
+    ) -> anyhow::Result<(Self, Vec<String>)> {
+        let mut table = Self::read_table(file)?;
+        let defaults = toml::Value::try_from(Self::default())?;
+        Self::apply_env(&mut table, &defaults, env)?;
+        Self::apply_options(&mut table, &defaults, options)?;
+        Self::decode(table, &defaults)
     }
 }
 
