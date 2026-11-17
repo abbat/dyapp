@@ -117,7 +117,6 @@
   {"path":"rust/client/src/chat/tests.rs","function":"fn peer_changes_are_strict ","metrics":{"lines":53}},
   {"path":"rust/client/src/search.rs","function":"mod tests # [cfg (test)]::fn merges_nodes_skips_cached_hits_and_resends_cut_gets ","metrics":{"lines":71}},
   {"path":"rust/client/src/seeds.rs","function":"mod tests # [cfg (test)]::fn rows_are_classified_and_a_foreign_network_is_named ","metrics":{"nesting":5,"lines":82,"nested_regions":1}},
-  {"path":"rust/client/src/session/sticker/tests.rs","function":"fn sticker_sends_have_fresh_ids_and_durable_media_delivery ","metrics":{"cognitive":33,"lines":144}},
   {"path":"rust/client/src/session/sticker/transfer.rs","function":"impl Session ::fn respond_sticker_pack_requests ","metrics":{"lines":105}},
   {"path":"rust/client/src/session/sticker/upload/tests.rs","function":"fn failed_upload_does_not_stage_but_confirmed_reuse_strips_owner_capability ","metrics":{"lines":88}},
   {"path":"rust/client/src/session/tests.rs","function":"fn a_blocked_owner_is_not_joined_and_its_messages_are_acked_unseen ","metrics":{"lines":53}},
