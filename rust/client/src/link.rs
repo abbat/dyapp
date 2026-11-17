@@ -159,12 +159,8 @@ impl Invite {
     ///
     /// # Errors
     ///
-    /// Returns an error if key generation fails or the generated public key has an
-    /// unexpected length.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `now + TTL_SECONDS` overflows when overflow checks are enabled.
+    /// Returns an error if key generation fails, the generated public key has an
+    /// unexpected length, or the expiration time is outside the supported range.
     pub fn new(mailbox: [u8; 32], now: u64) -> Result<Self, Error> {
         let key = LinkKey::generate()?;
         let public = key
@@ -176,7 +172,9 @@ impl Invite {
             code: Code {
                 public,
                 mailbox,
-                expires_at: now + TTL_SECONDS,
+                expires_at: now
+                    .checked_add(TTL_SECONDS)
+                    .ok_or(Error::Input("link clock out of range"))?,
             },
         })
     }

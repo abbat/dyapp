@@ -104,9 +104,9 @@ fn prune(dir: &Path, known: &HashSet<String>, limit: u64) -> io::Result<()> {
         }
     }
     held.sort_by_key(|file| Reverse(file.0));
-    let mut total = 0;
+    let mut total = 0u64;
     for (_, size, path) in held {
-        total += size;
+        total = total.saturating_add(size);
         if total > limit {
             fs::remove_file(path)?;
         }

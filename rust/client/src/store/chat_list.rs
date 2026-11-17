@@ -240,7 +240,9 @@ fn with_media(
         last_message,
         last_attachment,
         last_sticker,
-        unread_count: unread_texts + unread_attachments + unread_stickers,
+        unread_count: unread_texts
+            .saturating_add(unread_attachments)
+            .saturating_add(unread_stickers),
     }
 }
 

@@ -115,15 +115,13 @@ impl Store {
     ///
     /// Returns an error if generating randomness or writing the heartbeat setting
     /// to the database fails.
-    ///
-    /// # Panics
-    ///
-    /// Panics if calculating the next UTC day's scheduled second overflows `u64`
-    /// when overflow checks are enabled.
     pub fn search_heartbeat_sent(&self, now: u64) -> Result<(), Error> {
         let mut random = [0; 8];
         getrandom::fill(&mut random).map_err(|_| Error::Random)?;
-        let next = (now / 86_400 + 1) * 86_400 + u64::from_be_bytes(random) % 86_400;
+        let next = (now / 86_400)
+            .saturating_add(1)
+            .saturating_mul(86_400)
+            .saturating_add(u64::from_be_bytes(random).checked_rem(86_400).unwrap_or(0));
         self.db.execute(
             "INSERT INTO `settings` (`key`, `format_version`, `value`) VALUES (?1, 1, ?2)
              ON CONFLICT (`key`) DO UPDATE SET `format_version` = 1, `value` = excluded.`value`",

@@ -753,7 +753,7 @@ impl Store {
             [peer_id],
         )?;
         tx.commit()?;
-        Ok(texts + attachments)
+        Ok(texts.saturating_add(attachments))
     }
 
     fn decode_current_chat_message(

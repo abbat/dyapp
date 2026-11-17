@@ -60,7 +60,7 @@ impl Store {
     ///
     /// Returns an error if writing the saved publication to the database fails.
     pub fn save_last_resort(&self, state: &LastResort) -> Result<(), Error> {
-        let mut value = Vec::with_capacity(HEADER_BYTES + state.record.encoded_len());
+        let mut value = Vec::with_capacity(HEADER_BYTES.saturating_add(state.record.encoded_len()));
         value.extend_from_slice(&state.revision.to_be_bytes());
         value.extend_from_slice(&state.rotate_at.to_be_bytes());
         value.push(u8::from(state.published));
