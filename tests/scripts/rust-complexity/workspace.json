@@ -43,7 +43,6 @@
   {"path":"rust/client/src/session/tests.rs","function":"fn attachment_request_is_dropped_then_forwarded_photo_survives_restart ","metrics":{"lines":75}},
   {"path":"rust/client/src/session/tests.rs","function":"fn failed_receive_commit_neither_acks_nor_loses_the_envelope ","metrics":{"lines":61}},
   {"path":"rust/client/src/session/tests.rs","function":"fn presence_goes_to_a_match_hourly_and_is_seen_only_from_a_match ","metrics":{"cognitive":19,"lines":68}},
-  {"path":"rust/client/src/session/tests.rs","function":"fn read_receipts_are_opt_in_and_marked_only_by_the_unblocked_partner ","metrics":{"lines":52}},
   {"path":"rust/client/src/session/tests.rs","function":"fn received_edit_and_delete_keep_only_current_projection ","metrics":{"lines":66}},
   {"path":"rust/client/src/session/tests.rs","function":"fn received_envelopes_commit_before_ack_and_survive_restart ","metrics":{"cognitive":16,"lines":100}},
   {"path":"rust/client/src/sticker_manifest/tests.rs","function":"fn membership_digests_and_unsafe_names_fail_by_name ","metrics":{"lines":57}},

@@ -736,16 +736,14 @@ fn read_receipts_are_opt_in_and_marked_only_by_the_unblocked_partner() {
         welcome,
         profiles,
     } = bob_invited(&temp_path(), &seal_key);
-    session
-        .stage_envelope(&key(1), &welcome, &profiles, &seal_key)
-        .unwrap();
+    let stage =
+        |s: &mut Session, n, bytes: &[u8]| s.stage_envelope(&key(n), bytes, &profiles, &seal_key);
+    stage(&mut session, 1, &welcome).unwrap();
     let (a, b) = (alice_id.peer_id(), bob_id.peer_id());
     let id = group.id().to_vec();
     let text = Body::text_with_id([1; 16], b"hi".to_vec());
     let sent = chat::message(&mut group, &alice, &text);
-    session
-        .stage_envelope(&key(2), &sent.unwrap()[0].mls, &profiles, &seal_key)
-        .unwrap();
+    stage(&mut session, 2, &sent.unwrap()[0].mls).unwrap();
     session.stage_text(&id, b"yes", &seal_key).unwrap();
 
     // Off by default; once on, one receipt per newly seen text.
@@ -771,15 +769,13 @@ fn read_receipts_are_opt_in_and_marked_only_by_the_unblocked_partner() {
     };
     let first = read(&mut group, [2; 16]);
     assert!(matches!(
-        session.stage_envelope(&key(3), &first, &profiles, &seal_key),
+        stage(&mut session, 3, &first),
         Ok(Some(Event::Message { .. }))
     ));
     assert_eq!(session.store.read_up_to(&id, &a).unwrap(), Some([2; 16]));
     session.store.set_blocked(&a, true).unwrap();
     let blocked = read(&mut group, [3; 16]);
-    session
-        .stage_envelope(&key(4), &blocked, &profiles, &seal_key)
-        .unwrap();
+    stage(&mut session, 4, &blocked).unwrap();
     assert_eq!(session.store.read_up_to(&id, &a).unwrap(), Some([2; 16]));
     assert_eq!(session.acks([9; 32], vec![]).unwrap().len(), 4);
 }
