@@ -417,7 +417,7 @@ mod tests {
 
     #[test]
     fn equal_clock_changes_converge_by_device_and_survive_linking() {
-        let owner = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
         let mut left = Store::open(&temp_db_path(), &owner).unwrap();
         let mut right = Store::open(&temp_db_path(), &owner).unwrap();
         let at = u64::from(Timestamp::new(1_000, 0));
@@ -502,7 +502,7 @@ mod tests {
     fn the_newest_change_from_any_own_device_wins() {
         let at = |ms| u64::from(Timestamp::new(ms, 0));
         let wall = 1_000_000;
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let mut store = Store::open(&temp_db_path(), &alice).unwrap();
         assert_newest_own_device_changes(&mut store, wall);
 
@@ -541,7 +541,7 @@ mod tests {
 
     #[test]
     fn favorites_survive_reopen_hide_blocks_and_stay_identity_local() {
-        let owner = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
         let path = temp_db_path();
         let store = Store::open(&path, &owner).unwrap();
         assert!(!store.favorite("bob").unwrap());
@@ -577,18 +577,18 @@ mod tests {
             )
             .unwrap();
         assert_eq!(store.favorite_peers().unwrap(), ["carol"]);
-        let other = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        let other = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
         assert_eq!(
             other.favorite_peers().unwrap(),
             [] as [std::string::String; 0]
         );
-        assert!(Store::open(&path, &Identity::generate()).is_err());
+        assert!(Store::open(&path, &Identity::try_generate().unwrap()).is_err());
     }
 
     #[test]
     fn notes_survive_reopen_and_clear_without_replaying_old_text() {
         let path = temp_db_path();
-        let owner = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
         let store = Store::open(&path, &owner).unwrap();
         assert_eq!(store.contact_note("bob").unwrap(), "");
         store
@@ -623,14 +623,14 @@ mod tests {
             .receive_peer_change("bob", &PeerChange::Note("old".into()), 10, 0, &[2; 32])
             .unwrap());
         assert_eq!(store.contact_note("bob").unwrap(), "");
-        let other = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        let other = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
         assert_eq!(other.contact_note("bob").unwrap(), "");
-        assert!(Store::open(&path, &Identity::generate()).is_err());
+        assert!(Store::open(&path, &Identity::try_generate().unwrap()).is_err());
     }
 
     #[test]
     fn an_own_change_applies_and_stages_in_one_commit() {
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let mut store = Store::open(&temp_db_path(), &alice).unwrap();
         let at = store.tick(1_000).unwrap();
         store
@@ -659,7 +659,7 @@ mod tests {
     #[test]
     fn block_and_mute_are_independent_and_survive_reopen() {
         let path = temp_db_path();
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let store = Store::open(&path, &alice).unwrap();
         assert!(!store.blocked("bob").unwrap());
         store.set_blocked("bob", true).unwrap();
@@ -684,7 +684,7 @@ mod tests {
         let mut devices: Vec<_> = generations
             .iter()
             .map(|generation| {
-                let key = Identity::generate().public_key();
+                let key = Identity::try_generate().unwrap().public_key();
                 let device = Device::new(identity, key, *generation).unwrap();
                 (key_hash(&key), device.certificate().clone())
             })
@@ -702,9 +702,9 @@ mod tests {
     #[test]
     fn a_local_name_replaces_the_public_name_and_survives_reopen() {
         let path = temp_db_path();
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let store = Store::open(&path, &alice).unwrap();
-        let bob_id = Identity::generate();
+        let bob_id = Identity::try_generate().unwrap();
         let mut bob = bob(&bob_id, &[1]);
         let id = bob.peer_id.clone();
         assert_eq!(
@@ -740,8 +740,8 @@ mod tests {
     #[test]
     fn a_device_added_to_a_verified_contact_clears_the_mark() {
         let path = temp_db_path();
-        let store = Store::open(&path, &Identity::generate()).unwrap();
-        let bob_id = Identity::generate();
+        let store = Store::open(&path, &Identity::try_generate().unwrap()).unwrap();
+        let bob_id = Identity::try_generate().unwrap();
         let two = bob(&bob_id, &[1, 2]);
         assert!(!store.verified(&two).unwrap());
         store.set_verified(&two).unwrap();
@@ -770,9 +770,9 @@ mod tests {
     #[test]
     fn only_a_current_profile_with_an_unseen_device_raises_a_durable_notice() {
         let path = temp_db_path();
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let store = Store::open(&path, &alice).unwrap();
-        let bob_id = Identity::generate();
+        let bob_id = Identity::try_generate().unwrap();
         let verified = bob_at(&bob_id, &[1], 5);
         let peer = verified.peer_id.clone();
 
@@ -819,9 +819,9 @@ mod tests {
     #[test]
     fn a_contact_never_verified_gets_the_notice_once_per_change() {
         let path = temp_db_path();
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let store = Store::open(&path, &alice).unwrap();
-        let bob_id = Identity::generate();
+        let bob_id = Identity::try_generate().unwrap();
         let first = bob_at(&bob_id, &[1], 5);
         let peer = first.peer_id.clone();
 

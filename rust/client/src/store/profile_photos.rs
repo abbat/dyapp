@@ -263,7 +263,7 @@ mod tests {
 
     #[test]
     fn photo_changes_cannot_bypass_an_independent_draft_writer() {
-        let (path, owner) = (temp_db_path(), Identity::generate());
+        let (path, owner) = (temp_db_path(), Identity::try_generate().unwrap());
         let mut writer = Store::open(&path, &owner).unwrap();
         let mut photos = Store::open(&path, &owner).unwrap();
         let original = photos.add_profile_photo(&jpeg(1, 8), &jpeg(2, 8)).unwrap();
@@ -297,7 +297,7 @@ mod tests {
 
     #[test]
     fn a_failed_draft_write_rolls_back_both_photo_blobs() {
-        let (path, owner) = (temp_db_path(), Identity::generate());
+        let (path, owner) = (temp_db_path(), Identity::try_generate().unwrap());
         let mut store = Store::open(&path, &owner).unwrap();
         let mut observer = Store::open(&path, &owner).unwrap();
         let original = Profile {
@@ -330,7 +330,7 @@ mod tests {
 
     #[test]
     fn photo_changes_preserve_the_latest_fields_from_an_independent_editor() {
-        let (path, owner) = (temp_db_path(), Identity::generate());
+        let (path, owner) = (temp_db_path(), Identity::try_generate().unwrap());
         let mut photos = Store::open(&path, &owner).unwrap();
         let mut editor = Store::open(&path, &owner).unwrap();
         photos.add_profile_photo(&jpeg(1, 8), &jpeg(2, 8)).unwrap();
@@ -364,7 +364,7 @@ mod tests {
 
     #[test]
     fn the_keep_refresh_is_due_once_a_day() {
-        let owner = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
         let store = Store::open(&temp_db_path(), &owner).unwrap();
         assert!(store.profile_keep_due(1_000_000).unwrap());
         store.profile_keep_refreshed(1_000_000).unwrap();
@@ -378,7 +378,7 @@ mod tests {
 
     #[test]
     fn invalid_photo_bytes_do_not_create_blobs() {
-        let mut store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        let mut store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
         for (full, thumbnail) in [
             (b"not a jpeg".to_vec(), jpeg(1, 8)),
             (jpeg(1, 8), b"not a jpeg".to_vec()),
@@ -395,7 +395,7 @@ mod tests {
 
     #[test]
     fn maximum_photo_blobs_round_trip() {
-        let mut store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        let mut store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
         let full = jpeg(1, 1_048_576);
         let thumbnail = jpeg(2, 24_576);
         let draft = store.add_profile_photo(&full, &thumbnail).unwrap();
@@ -409,7 +409,7 @@ mod tests {
 
     #[test]
     fn photo_count_and_order_limits_are_enforced() {
-        let mut store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        let mut store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
         for seed in 0..6 {
             store
                 .add_profile_photo(&jpeg(seed, 8), &jpeg(9, 8))

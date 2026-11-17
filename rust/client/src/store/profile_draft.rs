@@ -95,7 +95,7 @@ mod tests {
 
     #[test]
     fn concurrent_first_opens_share_one_new_database() {
-        let (path, alice) = (temp_db_path(), Identity::generate());
+        let (path, alice) = (temp_db_path(), Identity::try_generate().unwrap());
         std::thread::scope(|scope| {
             let opens: Vec<_> = (0..8)
                 .map(|_| {
@@ -114,7 +114,7 @@ mod tests {
 
     #[test]
     fn a_saved_draft_survives_reopening_and_the_newest_wins() {
-        let (path, alice) = (temp_db_path(), Identity::generate());
+        let (path, alice) = (temp_db_path(), Identity::try_generate().unwrap());
         let store = Store::open(&path, &alice).unwrap();
         assert_eq!(store.profile_draft().unwrap(), None);
         for gender in [
@@ -142,7 +142,7 @@ mod tests {
 
     #[test]
     fn transformations_own_the_writer_before_reading_and_preserve_prior_progress() {
-        let (path, alice) = (temp_db_path(), Identity::generate());
+        let (path, alice) = (temp_db_path(), Identity::try_generate().unwrap());
         let mut first = Store::open(&path, &alice).unwrap();
         let mut second = Store::open(&path, &alice).unwrap();
         // Refusal is immediate and deterministic, not an observation of elapsed time.
@@ -179,7 +179,7 @@ mod tests {
 
     #[test]
     fn a_refused_transformation_rolls_back_and_releases_writer_ownership() {
-        let (path, alice) = (temp_db_path(), Identity::generate());
+        let (path, alice) = (temp_db_path(), Identity::try_generate().unwrap());
         let mut first = Store::open(&path, &alice).unwrap();
         let mut second = Store::open(&path, &alice).unwrap();
         let original = Profile {
@@ -206,7 +206,7 @@ mod tests {
 
     #[test]
     fn rejects_a_corrupt_draft() {
-        let store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        let store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
         store
             .db
             .execute(

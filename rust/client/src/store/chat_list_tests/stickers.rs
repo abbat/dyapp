@@ -45,9 +45,9 @@ fn assert_sticker_preview(store: &Store, peer: &str, other: &str) {
 
 #[test]
 fn mixed_kinds_select_one_preview_and_count_every_unread_once() {
-    let owner = Identity::generate();
-    let peer = Identity::generate().peer_id();
-    let other = Identity::generate().peer_id();
+    let owner = Identity::try_generate().unwrap();
+    let peer = Identity::try_generate().unwrap().peer_id();
+    let other = Identity::try_generate().unwrap().peer_id();
     let mut store = Store::open(&super::super::tests::temp_db_path(), &owner).unwrap();
     for (group, name) in [(&[3][..], &peer), (&[4], &peer), (&[5], &other)] {
         super::super::tests::catalog_group(&mut store, group, name);
@@ -87,8 +87,8 @@ fn mixed_kinds_select_one_preview_and_count_every_unread_once() {
 #[test]
 fn closed_sticker_only_history_survives_restart_delete_then_clear() {
     let path = super::super::tests::temp_db_path();
-    let owner = Identity::generate();
-    let peer = Identity::generate().peer_id();
+    let owner = Identity::try_generate().unwrap();
+    let peer = Identity::try_generate().unwrap().peer_id();
     let mut store = Store::open(&path, &owner).unwrap();
     super::super::tests::catalog_group(&mut store, &[3], &peer);
     open(&store, &peer);

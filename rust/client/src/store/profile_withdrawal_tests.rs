@@ -62,7 +62,7 @@ fn completion_preserves_latest_fields_photos_devices_and_stronger_proof() {
     let prepared = store
         .prepare_profile_withdrawal(&identity, &request, 0)
         .unwrap();
-    let key = Identity::generate();
+    let key = Identity::try_generate().unwrap();
     let device = dyapp_messaging::mls::Device::new(&identity, key.public_key(), 1).unwrap();
     let mut latest = Profile {
         name: "new".into(),
@@ -267,7 +267,7 @@ fn owner_and_canonical_tombstone_checks_precede_writes() {
     let store = Store::open(&temp_db_path(), &identity).unwrap();
     let request = Profile::default();
     let prepared = Profile::tombstone(1, 0, 0);
-    let stranger = Identity::generate();
+    let stranger = Identity::try_generate().unwrap();
     assert!(matches!(
         store.prepare_profile_withdrawal(&stranger, &request, 0),
         Err(Error::WrongIdentity)

@@ -21,7 +21,7 @@ fn assert_projection_rollback(store: &mut Store, key: &InboxKey) {
 #[test]
 fn projection_hook_shares_inbox_mls_and_ack_transaction() {
     let path = crate::store::tests::temp_db_path();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let key = InboxKey {
         mailbox: [1; 32],
         id: [2; 16],

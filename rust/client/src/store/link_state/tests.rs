@@ -30,7 +30,7 @@ use prost::Message as _;
 
 #[test]
 fn a_pending_link_stays_until_cleared_and_reads_only_its_format() {
-    let store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+    let store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
     assert_eq!(store.link_pending().unwrap(), None);
     assert!(!store.is_linked_device().unwrap());
     store.set_link_pending(b"first").unwrap();
@@ -52,7 +52,7 @@ fn a_pending_link_stays_until_cleared_and_reads_only_its_format() {
 #[test]
 fn linked_notes_keep_text_clock_actor_and_reject_invalid_snapshots() {
     use crate::chat::PeerChange;
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let old = Store::open(&temp_db_path(), &owner).unwrap();
     let high = 1u64 << 40;
     old.apply_peer_change(
@@ -87,7 +87,7 @@ fn linked_notes_keep_text_clock_actor_and_reject_invalid_snapshots() {
 
 #[test]
 fn linked_favorites_keep_their_clock_and_hide_blocked_peers() {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let old = Store::open(&temp_db_path(), &owner).unwrap();
     old.apply_peer_change(
         "bob",
@@ -117,7 +117,7 @@ fn linked_favorites_keep_their_clock_and_hide_blocked_peers() {
 
 #[test]
 fn a_fresh_store_takes_the_owners_state_and_later_events_win() {
-    let alice = Identity::generate();
+    let alice = Identity::try_generate().unwrap();
     let mut old = Store::open(&temp_db_path(), &alice).unwrap();
     old.set_blocked("bob", true).unwrap();
     old.set_muted("carol", true).unwrap();
@@ -179,7 +179,7 @@ fn check_exported_snapshot(state: &[u8], new: &Store) {
 
 #[test]
 fn bytes_that_are_no_state_change_nothing() {
-    let alice = Identity::generate();
+    let alice = Identity::try_generate().unwrap();
     let mut store = Store::open(&temp_db_path(), &alice).unwrap();
     assert!(matches!(
         store.import_link_state(&[0xFF]),

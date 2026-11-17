@@ -219,8 +219,8 @@ mod tests {
     #[test]
     fn read_receipts_are_opt_in_skip_duplicates_and_blocked_peers() {
         let path = temp_db_path();
-        let alice = Identity::generate();
-        let b = Identity::generate().peer_id();
+        let alice = Identity::try_generate().unwrap();
+        let b = Identity::try_generate().unwrap().peer_id();
         let mut store = Store::open(&path, &alice).unwrap();
         text(&mut store, &b, 1);
         text(&mut store, &b, 2);
@@ -254,8 +254,8 @@ mod tests {
     #[test]
     fn received_read_mark_moves_forward_over_own_texts_only() {
         let path = temp_db_path();
-        let alice = Identity::generate();
-        let (a, b) = (alice.peer_id(), Identity::generate().peer_id());
+        let alice = Identity::try_generate().unwrap();
+        let (a, b) = (alice.peer_id(), Identity::try_generate().unwrap().peer_id());
         let mut store = Store::open(&path, &alice).unwrap();
         text(&mut store, &a, 1);
         text(&mut store, &b, 2);

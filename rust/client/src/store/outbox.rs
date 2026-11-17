@@ -236,7 +236,7 @@ mod tests {
 
     #[test]
     fn failed_writes_back_off_up_to_an_hour() {
-        let mut store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        let mut store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
         let write = prepare_put(&[1; 32], vec![9]).unwrap();
         store
             .stage_outbound(b"mls", std::slice::from_ref(&write))
@@ -262,7 +262,7 @@ mod tests {
     }
     #[test]
     fn accepted_writes_wait_for_a_receipt_and_receipts_do_not() {
-        let mut store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        let mut store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
         let (mailbox, other) = ([1; 32], [2; 32]);
         let message = prepare_put(&mailbox, vec![9]).unwrap();
         let receipt = prepare_put(&other, vec![8]).unwrap();
@@ -295,7 +295,7 @@ mod tests {
 
     #[test]
     fn accepted_writes_without_a_receipt_expire_after_30_days() {
-        let mut store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        let mut store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
         let (sent, fresh) = (
             prepare_put(&[1; 32], vec![9]).unwrap(),
             prepare_put(&[1; 32], vec![7]).unwrap(),
@@ -315,7 +315,7 @@ mod tests {
         fn blamed(store: &mut Store, ids: &[[u8; 16]]) -> (usize, Vec<String>) {
             store.receipted(&[1; 32], ids).unwrap()
         }
-        let mut store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        let mut store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
         let mailbox = [1; 32];
         let [early, close, recent, fresh, later] =
             [9, 8, 7, 6, 5].map(|byte| prepare_put(&mailbox, vec![byte]).unwrap());

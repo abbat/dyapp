@@ -63,7 +63,7 @@ impl Store {
     ///
     /// # Errors
     ///
-    /// Returns an error if database access or nonce generation fails, or if sealing or
+    /// Returns an error if database access or random generation fails, or if sealing or
     /// opening the stored key fails, including when `seal_key` does not match.
     pub fn token_key(
         &mut self,
@@ -74,7 +74,7 @@ impl Store {
         if let Some(key) = self.held_key(mailbox, epoch, seal_key)? {
             return Ok(key.public_key());
         }
-        let key = Identity::generate();
+        let key = Identity::try_generate().map_err(|_| Error::Random)?;
         let mut nonce = [0; NONCE_BYTES];
         getrandom::fill(&mut nonce).map_err(|_| Error::Random)?;
         let sealed = Aes256Gcm::new(seal_key.into())
@@ -327,7 +327,7 @@ mod tests {
     #[test]
     fn refill_due_survives_restart_and_stays_due_after_failure() {
         let path = temp_db_path();
-        let owner = Identity::generate();
+        let owner = Identity::try_generate().unwrap();
         let store = Store::open(&path, &owner).unwrap();
         assert!(store.token_refill_due(100).unwrap());
         // A failed request leaves the due time untouched for the next poll.
@@ -343,7 +343,7 @@ mod tests {
     #[test]
     fn held_key_is_sealed_stable_and_bound_to_its_row() {
         let path = temp_db_path();
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let (seal, mailbox) = ([7; 32], [1; 32]);
         let mut store = Store::open(&path, &alice).unwrap();
         let key = store.token_key(&mailbox, 100, &seal).unwrap();
@@ -390,7 +390,7 @@ mod tests {
 
     #[test]
     fn epochs_list_only_answered_days_and_prune_drops_expired_ones() {
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let (seal, mailbox) = ([7; 32], [1; 32]);
         let mut store = Store::open(&temp_db_path(), &alice).unwrap();
         for epoch in [9, 10, 11, 12] {
@@ -413,7 +413,7 @@ mod tests {
 
     #[test]
     fn revoking_a_contact_returns_its_live_keys_only() {
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let store = Store::open(&temp_db_path(), &alice).unwrap();
         let (bob, carol) = ("bob", "carol");
         let mailbox = [1; 32];
@@ -442,7 +442,7 @@ mod tests {
 
     #[test]
     fn a_refused_write_is_swapped_for_its_replacement_once() {
-        let mut store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        let mut store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
         let refused = prepare_put(&[1; 32], vec![9]).unwrap();
         store
             .stage_outbound(b"mls", std::slice::from_ref(&refused))

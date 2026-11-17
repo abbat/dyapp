@@ -21,7 +21,7 @@ fn record(identity: &Identity, version: u64) -> SignedRecord {
 #[test]
 fn acknowledged_head_survives_restart_and_prevents_requeue() {
     let path = temp_db_path();
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().unwrap();
     let store = Store::open(&path, &identity).unwrap();
     let newest = record(&identity, 8);
     store.hold_search_profile(&newest).unwrap();
@@ -41,7 +41,7 @@ fn acknowledged_head_survives_restart_and_prevents_requeue() {
 
 #[test]
 fn conflicting_or_unauthenticated_records_cannot_mutate_queue() {
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().unwrap();
     let store = Store::open(&temp_db_path(), &identity).unwrap();
     let original = record(&identity, 3);
     store.hold_search_profile(&original).unwrap();
@@ -55,7 +55,7 @@ fn conflicting_or_unauthenticated_records_cannot_mutate_queue() {
         Err(Error::SearchProfileConflict)
     ));
     assert!(matches!(
-        store.hold_search_profile(&record(&Identity::generate(), 4)),
+        store.hold_search_profile(&record(&Identity::try_generate().unwrap(), 4)),
         Err(Error::WrongIdentity)
     ));
     let mut tampered = record(&identity, 4);
@@ -73,7 +73,7 @@ fn conflicting_or_unauthenticated_records_cannot_mutate_queue() {
 
 #[test]
 fn late_completions_preserve_newer_pending_and_monotonic_deadlines() {
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().unwrap();
     let store = Store::open(&temp_db_path(), &identity).unwrap();
     let old = record(&identity, 1);
     let new = record(&identity, 2);
@@ -98,7 +98,7 @@ fn late_completions_preserve_newer_pending_and_monotonic_deadlines() {
 
 #[test]
 fn legacy_pending_backfills_head_before_ack_clears_it() {
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().unwrap();
     let store = Store::open(&temp_db_path(), &identity).unwrap();
     let legacy = record(&identity, 5);
     store
@@ -117,7 +117,7 @@ fn legacy_pending_backfills_head_before_ack_clears_it() {
 #[test]
 fn independent_writers_are_refused_before_read_modify_write() {
     let path = temp_db_path();
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().unwrap();
     let store = Store::open(&path, &identity).unwrap();
     let other = Store::open(&path, &identity).unwrap();
     other.db.busy_timeout(Duration::ZERO).unwrap();
@@ -136,7 +136,7 @@ fn independent_writers_are_refused_before_read_modify_write() {
 
 #[test]
 fn failed_head_write_rolls_back_pending_and_ack_together() {
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().unwrap();
     let store = Store::open(&temp_db_path(), &identity).unwrap();
     let first = record(&identity, 1);
     store.hold_search_profile(&first).unwrap();
@@ -156,7 +156,7 @@ fn failed_head_write_rolls_back_pending_and_ack_together() {
 
 #[test]
 fn malformed_head_fails_closed_and_saved_draft_is_a_version_floor() {
-    let identity = Identity::generate();
+    let identity = Identity::try_generate().unwrap();
     let store = Store::open(&temp_db_path(), &identity).unwrap();
     store
         .save_profile_draft(&Profile {

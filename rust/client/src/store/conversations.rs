@@ -230,8 +230,8 @@ mod tests {
     }
 
     fn pair() -> Pair {
-        let owner = Identity::generate();
-        let peer = Identity::generate().peer_id();
+        let owner = Identity::try_generate().unwrap();
+        let peer = Identity::try_generate().unwrap().peer_id();
         let mut store = Store::open(&temp_db_path(), &owner).unwrap();
         catalog_group(&mut store, GROUP, &peer);
         Pair {

@@ -10,10 +10,10 @@ use dyapp_identity::Identity;
 fn fixture() -> (Store, Identity, PathBuf, String, Pack, Sticker, Vec<u8>) {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../build/sticker-originals-tests");
     fs::create_dir_all(&root).unwrap();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let dir = root.join(owner.peer_id());
     fs::create_dir(&dir).unwrap();
-    let peer = Identity::generate().peer_id();
+    let peer = Identity::try_generate().unwrap().peer_id();
     let mut store = Store::open(&dir.join("client.db"), &owner).unwrap();
     catalog_group(&mut store, &[9], &peer);
     catalog_group(&mut store, &[10], &peer);

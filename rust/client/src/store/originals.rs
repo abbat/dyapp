@@ -180,7 +180,7 @@ mod tests {
 
     fn folder() -> PathBuf {
         let dir =
-            std::env::temp_dir().join(format!("originals-{}", Identity::generate().peer_id()));
+            std::env::temp_dir().join(format!("originals-{}", Identity::try_generate().unwrap().peer_id()));
         fs::create_dir_all(&dir).unwrap();
         dir
     }

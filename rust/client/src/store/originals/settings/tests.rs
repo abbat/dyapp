@@ -2,7 +2,7 @@ use super::*;
 use dyapp_identity::Identity;
 
 fn store() -> (Store, std::path::PathBuf, Identity) {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../build/test-media-cache")
         .join(owner.peer_id());

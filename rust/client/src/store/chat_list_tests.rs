@@ -67,11 +67,11 @@ fn chat_item_ids(items: &[ChatItem]) -> Vec<u8> {
 #[test]
 fn mixed_history_and_rows_follow_original_time_and_count_each_item_once() {
     let path = super::tests::temp_db_path();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let (a, b, c) = (
-        Identity::generate().peer_id(),
-        Identity::generate().peer_id(),
-        Identity::generate().peer_id(),
+        Identity::try_generate().unwrap().peer_id(),
+        Identity::try_generate().unwrap().peer_id(),
+        Identity::try_generate().unwrap().peer_id(),
     );
     let (group_a, group_b, group_c) = ([3], [4], [5]);
     let mut store = Store::open(&path, &owner).unwrap();
@@ -122,10 +122,10 @@ fn mixed_history_and_rows_follow_original_time_and_count_each_item_once() {
 #[test]
 fn chats_rows_keep_state_latest_time_and_unread_across_clear_and_restart() {
     let path = super::tests::temp_db_path();
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let own = owner.peer_id();
-    let a = Identity::generate().peer_id();
-    let b = Identity::generate().peer_id();
+    let a = Identity::try_generate().unwrap().peer_id();
+    let b = Identity::try_generate().unwrap().peer_id();
     let (a1, a2, b1) = ([3], [4], [5]);
     let mut store = Store::open(&path, &owner).unwrap();
     for (group, peer) in [(&a1[..], &a), (&a2[..], &a), (&b1[..], &b)] {
@@ -154,10 +154,10 @@ fn chats_rows_keep_state_latest_time_and_unread_across_clear_and_restart() {
     assert_eq!(rows[1].unread_count, 0);
     assert!(rows[1].last_message.is_none());
     assert!(matches!(
-        Store::open(&path, &Identity::generate()),
+        Store::open(&path, &Identity::try_generate().unwrap()),
         Err(Error::WrongIdentity)
     ));
-    let separate = Store::open(&super::tests::temp_db_path(), &Identity::generate()).unwrap();
+    let separate = Store::open(&super::tests::temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
     assert!(separate.chat_rows().unwrap().is_empty());
 }
 

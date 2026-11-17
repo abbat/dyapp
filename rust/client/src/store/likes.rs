@@ -476,8 +476,8 @@ mod tests {
     #[test]
     fn interactions_order_likes_and_derive_matches_across_restart() {
         let path = temp_db_path();
-        let alice = Identity::generate();
-        let (a, b) = (alice.peer_id(), Identity::generate().peer_id());
+        let alice = Identity::try_generate().unwrap();
+        let (a, b) = (alice.peer_id(), Identity::try_generate().unwrap().peer_id());
         let mut store = Store::open(&path, &alice).unwrap();
         assert!(put(&mut store, &a, &b, b"a1", event(Kind::Like, 1, 10)));
         assert!(!store.likes(&b).unwrap().matched());
@@ -507,9 +507,9 @@ mod tests {
 
     #[test]
     fn liked_you_lists_unanswered_likes_of_unblocked_peers() {
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let a = alice.peer_id();
-        let mut peers: Vec<_> = (0..3).map(|_| Identity::generate().peer_id()).collect();
+        let mut peers: Vec<_> = (0..3).map(|_| Identity::try_generate().unwrap().peer_id()).collect();
         peers.sort();
         let [b, c, d] = &peers[..] else {
             unreachable!()
@@ -529,9 +529,9 @@ mod tests {
 
     #[test]
     fn a_pass_leaves_liked_you_until_it_is_undone() {
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let a = alice.peer_id();
-        let b = Identity::generate().peer_id();
+        let b = Identity::try_generate().unwrap().peer_id();
         let mut store = Store::open(&temp_db_path(), &alice).unwrap();
         put(&mut store, &b, &a, b"p", event(Kind::Like, 1, 10));
         assert!(store.pass(&b, true, 1_000).unwrap());
@@ -583,7 +583,7 @@ mod tests {
         let record = SignedRecord::decode(write.as_bytes()).unwrap();
         let mut envelope = proto::Envelope::decode(record.payload.as_slice()).unwrap();
         envelope.ciphertext = vec![9];
-        let conflicting = Identity::generate().sign(Domain::Envelope, envelope.encode_to_vec());
+        let conflicting = Identity::try_generate().unwrap().sign(Domain::Envelope, envelope.encode_to_vec());
         let conflicting = PreparedEnvelope::from_bytes(conflicting.encode_to_vec()).unwrap();
         assert!(matches!(
             store.stage_interaction(bob, b"device", unlike, b"changed", &[conflicting]),
@@ -605,8 +605,8 @@ mod tests {
     #[test]
     fn staged_interaction_rolls_back_with_outbox_and_survives_restart() {
         let path = temp_db_path();
-        let alice = Identity::generate();
-        let bob = Identity::generate().peer_id();
+        let alice = Identity::try_generate().unwrap();
+        let bob = Identity::try_generate().unwrap().peer_id();
         let mut store = Store::open(&path, &alice).unwrap();
         let write = prepare_put(&[7; 32], vec![5]).unwrap();
         let retry = stage_and_check_interaction_conflicts(&mut store, &bob, &write);
@@ -635,11 +635,11 @@ mod tests {
 
     #[test]
     fn conflicting_or_foreign_interactions_change_nothing() {
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let (a, b, c) = (
             alice.peer_id(),
-            Identity::generate().peer_id(),
-            Identity::generate().peer_id(),
+            Identity::try_generate().unwrap().peer_id(),
+            Identity::try_generate().unwrap().peer_id(),
         );
         let mut store = Store::open(&temp_db_path(), &alice).unwrap();
         assert!(put(&mut store, &b, &a, b"b1", event(Kind::Like, 1, 10)));
@@ -669,8 +669,8 @@ mod tests {
 
     #[test]
     fn devices_converge_on_the_same_events_in_any_order() {
-        let alice = Identity::generate();
-        let (a, b) = (alice.peer_id(), Identity::generate().peer_id());
+        let alice = Identity::try_generate().unwrap();
+        let (a, b) = (alice.peer_id(), Identity::try_generate().unwrap().peer_id());
         let events = [
             (&b, &a, b"b1", event(Kind::Like, 1, 10)),
             (&b, &a, b"b2", event(Kind::Unlike, 2, 10)),
@@ -705,8 +705,8 @@ mod tests {
     #[test]
     fn own_clock_survives_restart_and_skewed_events_change_nothing() {
         let path = temp_db_path();
-        let alice = Identity::generate();
-        let b = Identity::generate().peer_id();
+        let alice = Identity::try_generate().unwrap();
+        let b = Identity::try_generate().unwrap().peer_id();
         let mut store = Store::open(&path, &alice).unwrap();
         let like = own(&mut store, &b, Kind::Like, 1_000).unwrap();
         assert_eq!(like.hlc, hlc(1_000, 0));
@@ -740,8 +740,8 @@ mod tests {
 
     #[test]
     fn blocked_peer_cannot_receive_new_interactions_or_outbox_writes() {
-        let alice = Identity::generate();
-        let bob = Identity::generate().peer_id();
+        let alice = Identity::try_generate().unwrap();
+        let bob = Identity::try_generate().unwrap().peer_id();
         let mut store = Store::open(&temp_db_path(), &alice).unwrap();
         let draft = store
             .draft_interaction(&bob, Kind::Like, 1_000)
@@ -771,8 +771,8 @@ mod tests {
 
     #[test]
     fn a_blocked_sender_changes_nothing() {
-        let alice = Identity::generate();
-        let (a, b) = (alice.peer_id(), Identity::generate().peer_id());
+        let alice = Identity::try_generate().unwrap();
+        let (a, b) = (alice.peer_id(), Identity::try_generate().unwrap().peer_id());
         let mut store = Store::open(&temp_db_path(), &alice).unwrap();
         store.set_blocked(&b, true).unwrap();
         let like = event(Kind::Like, 1, hlc(5_000, 0));
@@ -792,11 +792,11 @@ mod tests {
     #[test]
     fn views_are_sent_once_per_peer_per_utc_day_and_always_received() {
         const DAY: u64 = 86_400_000;
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let (a, b, c) = (
             alice.peer_id(),
-            Identity::generate().peer_id(),
-            Identity::generate().peer_id(),
+            Identity::try_generate().unwrap().peer_id(),
+            Identity::try_generate().unwrap().peer_id(),
         );
         let mut store = Store::open(&temp_db_path(), &alice).unwrap();
         assert_eq!(own(&mut store, &b, Kind::View, DAY), None);

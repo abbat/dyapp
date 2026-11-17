@@ -10,7 +10,7 @@ fn at(unix_seconds: u64) -> SearchOutboxSchedule {
 
 #[test]
 fn ordinary_queue_exposes_the_exact_window_and_backoff_across_reopen() {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let path = temp_db_path();
     let store = Store::open(&path, &owner).unwrap();
     assert_eq!(
@@ -48,7 +48,7 @@ fn ordinary_queue_exposes_the_exact_window_and_backoff_across_reopen() {
 
 #[test]
 fn legacy_queue_requires_review_even_before_a_deferred_deadline_and_never_migrates() {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let store = Store::open(&temp_db_path(), &owner).unwrap();
     let legacy = Profile::tombstone(2, 0, 0).sign(&owner);
     store.hold_search_profile(&legacy).unwrap();
@@ -70,7 +70,7 @@ fn legacy_queue_requires_review_even_before_a_deferred_deadline_and_never_migrat
 
 #[test]
 fn authorized_withdrawal_bypasses_only_the_window_and_ack_becomes_idle() {
-    let owner = Identity::generate();
+    let owner = Identity::try_generate().unwrap();
     let path = temp_db_path();
     let store = Store::open(&path, &owner).unwrap();
     let first = Profile {

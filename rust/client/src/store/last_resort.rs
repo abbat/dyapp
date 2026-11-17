@@ -81,7 +81,7 @@ mod tests {
 
     #[test]
     fn a_publication_survives_a_restart_byte_for_byte() {
-        let identity = Identity::generate();
+        let identity = Identity::try_generate().unwrap();
         let path =
             std::env::temp_dir().join(format!("dyapp-last-resort-{}.db", identity.peer_id()));
         let store = Store::open(&path, &identity).unwrap();

@@ -195,7 +195,7 @@ mod tests {
 
     #[test]
     fn holds_edits_within_the_window_and_merges_them_across_restart() {
-        let (path, alice) = (temp_db_path(), Identity::generate());
+        let (path, alice) = (temp_db_path(), Identity::try_generate().unwrap());
         let store = Store::open(&path, &alice).unwrap();
         assert_eq!(store.search_profile_minutes_left(1000).unwrap(), None);
         let first = profile(&alice, 1);
@@ -228,7 +228,7 @@ mod tests {
 
     #[test]
     fn rate_limited_keeps_the_profile_held_for_retry_after() {
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let store = Store::open(&temp_db_path(), &alice).unwrap();
         let first = profile(&alice, 1);
         store.hold_search_profile(&first).unwrap();
@@ -252,7 +252,7 @@ mod tests {
 
     #[test]
     fn heartbeat_is_due_once_a_day_at_a_random_time() {
-        let store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        let store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
         assert!(store.search_heartbeat_due(86_400).unwrap());
         for day in 1..4 {
             // Ten app opens a day, the last one at the day's final second, send exactly one.
@@ -282,7 +282,7 @@ mod tests {
 
     #[test]
     fn rejects_a_corrupt_setting() {
-        let alice = Identity::generate();
+        let alice = Identity::try_generate().unwrap();
         let store = Store::open(&temp_db_path(), &alice).unwrap();
         store
             .db

@@ -237,8 +237,8 @@ mod tests {
     #[test]
     fn presence_goes_only_to_unblocked_matches_hourly_and_survives_restart() {
         let path = temp_db_path();
-        let alice = Identity::generate();
-        let (a, b) = (alice.peer_id(), Identity::generate().peer_id());
+        let alice = Identity::try_generate().unwrap();
+        let (a, b) = (alice.peer_id(), Identity::try_generate().unwrap().peer_id());
         let mut store = Store::open(&path, &alice).unwrap();
         assert!(store.send_presence().unwrap());
         assert_eq!(store.draft_presence(&b, T).unwrap(), None);
@@ -276,8 +276,8 @@ mod tests {
     #[test]
     fn received_presence_is_latest_from_unblocked_matches_and_expires() {
         let path = temp_db_path();
-        let alice = Identity::generate();
-        let (a, b) = (alice.peer_id(), Identity::generate().peer_id());
+        let alice = Identity::try_generate().unwrap();
+        let (a, b) = (alice.peer_id(), Identity::try_generate().unwrap().peer_id());
         let mut store = Store::open(&path, &alice).unwrap();
         // A non-match is dropped before its clock is observed.
         assert!(!store.receive_presence(&b, hlc(T + 3_600_000), T).unwrap());

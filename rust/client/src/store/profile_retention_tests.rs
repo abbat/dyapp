@@ -8,7 +8,7 @@ fn bytes(seed: u8) -> Vec<u8> {
 
 #[test]
 fn cleanup_keeps_remote_and_current_draft_references_but_prunes_unused_blobs() {
-    let (path, owner) = (temp_db_path(), Identity::generate());
+    let (path, owner) = (temp_db_path(), Identity::try_generate().unwrap());
     let store = Store::open(&path, &owner).unwrap();
     let remote = store.save_profile_blob(&bytes(1)).unwrap();
     let unused = store.save_profile_blob(&bytes(2)).unwrap();
@@ -34,7 +34,7 @@ fn cleanup_keeps_remote_and_current_draft_references_but_prunes_unused_blobs() {
 
 #[test]
 fn even_noop_cleanup_admits_a_writer_before_observing_current_references() {
-    let (path, owner) = (temp_db_path(), Identity::generate());
+    let (path, owner) = (temp_db_path(), Identity::try_generate().unwrap());
     let mut editor = Store::open(&path, &owner).unwrap();
     let pruner = Store::open(&path, &owner).unwrap();
     pruner.db.busy_timeout(std::time::Duration::ZERO).unwrap();
@@ -63,7 +63,7 @@ fn even_noop_cleanup_admits_a_writer_before_observing_current_references() {
 
 #[test]
 fn invalid_published_or_draft_hashes_refuse_cleanup_without_deleting_bytes() {
-    let store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+    let store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
     let hash = store.save_profile_blob(&bytes(1)).unwrap();
     assert!(matches!(
         store.retain_profile_photos(&[vec![0; 31]]),
@@ -87,7 +87,7 @@ fn invalid_published_or_draft_hashes_refuse_cleanup_without_deleting_bytes() {
 
 #[test]
 fn a_failure_on_the_second_delete_rolls_back_the_entire_cleanup() {
-    let (path, owner) = (temp_db_path(), Identity::generate());
+    let (path, owner) = (temp_db_path(), Identity::try_generate().unwrap());
     let store = Store::open(&path, &owner).unwrap();
     let mut other = Store::open(&path, &owner).unwrap();
     other.db.busy_timeout(std::time::Duration::ZERO).unwrap();
@@ -128,7 +128,7 @@ fn a_failure_on_the_second_delete_rolls_back_the_entire_cleanup() {
 
 #[test]
 fn lookalike_settings_are_outside_the_photo_namespace() {
-    let store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+    let store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
     store.save_profile_blob(&bytes(1)).unwrap();
     for prefix in ["profileXphoto:", "PROFILE_PHOTO:"] {
         let name = format!("{prefix}{}", "0".repeat(64));
@@ -159,7 +159,7 @@ fn lookalike_settings_are_outside_the_photo_namespace() {
 #[test]
 fn unknown_blob_keys_or_formats_refuse_cleanup_before_any_deletion() {
     for (suffix, version) in [("0".repeat(64), 2), ("unsupported".to_owned(), 1)] {
-        let store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+        let store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
         let known = store.save_profile_blob(&bytes(1)).unwrap();
         store
             .db
@@ -178,7 +178,7 @@ fn unknown_blob_keys_or_formats_refuse_cleanup_before_any_deletion() {
 
 #[test]
 fn internal_retention_obeys_the_callers_transaction_boundary() {
-    let store = Store::open(&temp_db_path(), &Identity::generate()).unwrap();
+    let store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
     let hash = store.save_profile_blob(&bytes(1)).unwrap();
     let transaction =
         Transaction::new_unchecked(&store.db, TransactionBehavior::Immediate).unwrap();
