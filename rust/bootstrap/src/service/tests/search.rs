@@ -93,6 +93,12 @@ fn search_publish_query_get() {
     let r = search(&s, search_request::Request::Publish(newer));
     assert_eq!(search_status(&r), Status::RateLimited);
     assert!(r.retry_after > 0 && r.retry_after <= 600);
+    check_search_queries(&s);
+    check_search_get_and_heartbeat(&s, &id, record);
+    check_search_info(&s);
+}
+
+fn check_search_queries(s: &Service) {
     let q = proto::SearchQuery {
         conditions: vec![proto::Condition {
             field: crate::search::BIRTH_AGE,
@@ -103,7 +109,7 @@ fn search_publish_query_get() {
         limit: 0,
         puzzle: None,
     };
-    let r = search(&s, search_request::Request::Query(q));
+    let r = search(s, search_request::Request::Query(q));
     assert_eq!(r.hits.len(), 1);
     assert_eq!(r.applied, vec![crate::search::BIRTH_AGE]);
     assert_eq!(r.index_version, crate::search::INDEX_VERSION);
@@ -120,38 +126,44 @@ fn search_publish_query_get() {
             ..Default::default()
         })
     };
-    let r = search(&s, in_query(countries.clone()));
+    let r = search(s, in_query(countries.clone()));
     assert_eq!(r.hits.len(), 1);
     countries.push("extra".into());
-    let r = search(&s, in_query(countries));
+    let r = search(s, in_query(countries));
     assert_eq!(search_status(&r), Status::Invalid);
     let bad = proto::SearchQuery {
         conditions: vec![proto::Condition::default(); 33],
         limit: 0,
         puzzle: None,
     };
-    let r = search(&s, search_request::Request::Query(bad));
+    let r = search(s, search_request::Request::Query(bad));
     assert_eq!(search_status(&r), Status::Invalid);
+}
+
+fn check_search_get_and_heartbeat(s: &Service, id: &Identity, record: SignedRecord) {
     let get = |keys| search_request::Request::Get(proto::SearchGet { keys, puzzle: None });
-    let key = r_key(&s);
-    let r = search(&s, get(vec![key.clone()]));
+    let key = r_key(s);
+    let r = search(s, get(vec![key.clone()]));
     assert_eq!(r.records, vec![record]);
     assert_eq!(
-        search_status(&search(&s, get(vec![vec![0; 31]]))),
+        search_status(&search(s, get(vec![vec![0; 31]]))),
         Status::Invalid
     );
     assert_eq!(
-        search_status(&search(&s, get(vec![key; 51]))),
+        search_status(&search(s, get(vec![key; 51]))),
         Status::Invalid
     );
     let now = chrono::Utc::now().timestamp().unsigned_abs();
-    let r = search(&s, search_request::Request::Heartbeat(beat(&id, 1, now)));
+    let r = search(s, search_request::Request::Heartbeat(beat(id, 1, now)));
     assert_eq!(search_status(&r), Status::Ok);
     let r = search(
-        &s,
-        search_request::Request::Heartbeat(beat(&id, 1, now - 3_600)),
+        s,
+        search_request::Request::Heartbeat(beat(id, 1, now - 3_600)),
     );
     assert_eq!(search_status(&r), Status::Invalid);
+}
+
+fn check_search_info(s: &Service) {
     let info = s.info();
     assert!(info.roles.contains(&proto::Role::Search.into()));
     assert_eq!(info.search_fields, SEARCH_FIELDS);
