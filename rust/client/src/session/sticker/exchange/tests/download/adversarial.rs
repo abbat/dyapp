@@ -47,8 +47,7 @@ fn downloaded_bytes_require_pack_identity_and_clicked_hash() {
     }
 }
 
-#[test]
-fn stale_unsolicited_and_blocked_fetch_completions_never_publish() {
+fn stale_retry_completion() {
     let (mut pair, _, pack, job) = admitted();
     let next = pair
         .session
@@ -80,6 +79,11 @@ fn stale_unsolicited_and_blocked_fetch_completions_never_publish() {
         .unwrap()
         .is_none());
     assert!(complete(&mut pair, &next, &pack));
+}
+
+#[test]
+fn stale_unsolicited_and_blocked_fetch_completions_never_publish() {
+    stale_retry_completion();
 
     let (mut pair, _, pack, job) = admitted();
     pair.session
