@@ -1,4 +1,4 @@
-use crate::chat::{self, sticker::Sticker, Body};
+use crate::chat::{self, sticker::Sticker, Body, Event};
 use crate::session::tests::{bob_invited, Invite};
 use crate::session::Session;
 use crate::store::messages::MessageKey;
@@ -24,6 +24,114 @@ fn sticker() -> Sticker {
     }
 }
 
+fn deliver(pair: &mut Invite, body: &Body, id: u8, seal_key: &[u8; 32]) -> Option<Event> {
+    let writes = chat::message(&mut pair.group, &pair.alice, body).unwrap();
+    pair.session
+        .stage_envelope(&key(id), &writes[0].mls, &pair.profiles, seal_key)
+        .unwrap()
+}
+
+fn before_match(pair: &mut Invite, body: &Body, seal_key: &[u8; 32]) {
+    let peer = pair.alice_id.peer_id();
+    assert!(deliver(pair, body, 2, seal_key).is_none());
+    assert!(pair
+        .session
+        .store
+        .current_chat_stickers(&peer)
+        .unwrap()
+        .is_empty());
+    assert!(pair.session.store.has_inbox(&key(2)).unwrap());
+    let _ = deliver(
+        pair,
+        &Body::text_with_id([1; 16], b"hello".to_vec()),
+        3,
+        seal_key,
+    );
+    pair.session
+        .stage_text(pair.group.id(), b"reply", seal_key)
+        .unwrap();
+}
+
+fn matched_and_replay(pair: &mut Invite, body: &Body, seal_key: &[u8; 32]) {
+    let peer = pair.alice_id.peer_id();
+    assert!(deliver(pair, body, 4, seal_key).is_some());
+    let rows = pair.session.store.current_chat_stickers(&peer).unwrap();
+    assert_eq!(rows.len(), 1);
+    assert!(rows[0].sticker == sticker() && rows[0].unread);
+    assert!(pair.session.store.has_inbox(&key(4)).unwrap());
+    pair.session.mark_chat_read(&peer).unwrap();
+    assert!(deliver(pair, body, 5, seal_key).is_none());
+    assert!(!pair.session.store.current_chat_stickers(&peer).unwrap()[0].unread);
+}
+
+fn conflicts(pair: &mut Invite, seal_key: &[u8; 32]) -> Timestamp {
+    let peer = pair.alice_id.peer_id();
+    // Projection conflict must roll back both inbox/ACK and the sealed MLS state.
+    let sealed = pair.session.store.sealed_device().unwrap();
+    let mut conflict = sticker();
+    conflict.sha256 = [8; 32];
+    let bad = chat::message(
+        &mut pair.group,
+        &pair.alice,
+        &Body::Sticker(Box::new(conflict)),
+    )
+    .unwrap();
+    assert!(pair
+        .session
+        .stage_envelope(&key(6), &bad[0].mls, &pair.profiles, seal_key)
+        .is_err());
+    assert!(!pair.session.store.has_inbox(&key(6)).unwrap());
+    assert_eq!(pair.session.store.sealed_device().unwrap(), sealed);
+    pair.session.recover(seal_key).unwrap();
+    assert!(pair.session.store.current_chat_stickers(&peer).unwrap()[0].sticker == sticker());
+
+    let hlc = Timestamp::new(crate::now() * 1000, 1);
+    let edit = Body::Edit {
+        target: [3; 16],
+        operation: [7; 16],
+        hlc: hlc.into(),
+        text: b"replacement".to_vec(),
+    };
+    let edit = chat::message(&mut pair.group, &pair.alice, &edit).unwrap();
+    assert!(pair
+        .session
+        .stage_envelope(&key(7), &edit[0].mls, &pair.profiles, seal_key)
+        .is_err());
+    assert!(!pair.session.store.has_inbox(&key(7)).unwrap());
+    pair.session.recover(seal_key).unwrap();
+    hlc
+}
+
+fn deleted(pair: &mut Invite, body: &Body, hlc: Timestamp, seal_key: &[u8; 32]) -> MessageKey {
+    let peer = pair.alice_id.peer_id();
+    let delete = Body::Delete {
+        target: [3; 16],
+        operation: [8; 16],
+        hlc: hlc.into(),
+    };
+    let _ = deliver(pair, &delete, 8, seal_key);
+    assert!(pair
+        .session
+        .store
+        .current_chat_stickers(&peer)
+        .unwrap()
+        .is_empty());
+    let _ = deliver(pair, body, 9, seal_key);
+    assert!(pair
+        .session
+        .store
+        .current_chat_stickers(&peer)
+        .unwrap()
+        .is_empty());
+    let target = MessageKey {
+        group: pair.group.id().to_vec(),
+        author: peer,
+        id: [3; 16],
+    };
+    assert!(pair.session.chat_message(&target).unwrap().unwrap().deleted);
+    target
+}
+
 #[test]
 fn sticker_receive_is_atomic_matched_replay_safe_and_deletable() {
     let root =
@@ -33,115 +141,18 @@ fn sticker_receive_is_atomic_matched_replay_safe_and_deletable() {
     getrandom::fill(&mut random).unwrap();
     let path = root.join(format!("{:032x}.db", u128::from_be_bytes(random)));
     let seal_key = [5; 32];
-    let Invite {
-        mut session,
-        bob_id,
-        alice_id,
-        alice,
-        mut group,
-        welcome,
-        profiles,
-    } = bob_invited(&path, &seal_key);
-    session
-        .stage_envelope(&key(1), &welcome, &profiles, &seal_key)
+    let mut pair = bob_invited(&path, &seal_key);
+    pair.session
+        .stage_envelope(&key(1), &pair.welcome, &pair.profiles, &seal_key)
         .unwrap();
-    let peer = alice_id.peer_id();
+    let peer = pair.alice_id.peer_id();
     let body = Body::Sticker(Box::new(sticker()));
-    let before = chat::message(&mut group, &alice, &body).unwrap();
-    assert!(session
-        .stage_envelope(&key(2), &before[0].mls, &profiles, &seal_key)
-        .unwrap()
-        .is_none());
-    assert!(session
-        .store
-        .current_chat_stickers(&peer)
-        .unwrap()
-        .is_empty());
-    assert!(session.store.has_inbox(&key(2)).unwrap());
-
-    let request = chat::message(
-        &mut group,
-        &alice,
-        &Body::text_with_id([1; 16], b"hello".to_vec()),
-    )
-    .unwrap();
-    session
-        .stage_envelope(&key(3), &request[0].mls, &profiles, &seal_key)
-        .unwrap();
-    session.stage_text(group.id(), b"reply", &seal_key).unwrap();
-    let received = chat::message(&mut group, &alice, &body).unwrap();
-    assert!(session
-        .stage_envelope(&key(4), &received[0].mls, &profiles, &seal_key)
-        .unwrap()
-        .is_some());
-    let rows = session.store.current_chat_stickers(&peer).unwrap();
-    assert_eq!(rows.len(), 1);
-    assert!(rows[0].sticker == sticker() && rows[0].unread);
-    assert!(session.store.has_inbox(&key(4)).unwrap());
-    session.mark_chat_read(&peer).unwrap();
-    let replay = chat::message(&mut group, &alice, &body).unwrap();
-    assert!(session
-        .stage_envelope(&key(5), &replay[0].mls, &profiles, &seal_key)
-        .unwrap()
-        .is_none());
-    assert!(!session.store.current_chat_stickers(&peer).unwrap()[0].unread);
-
-    // Projection conflict must roll back both inbox/ACK and the sealed MLS state.
-    let sealed = session.store.sealed_device().unwrap();
-    let mut conflict = sticker();
-    conflict.sha256 = [8; 32];
-    let bad = chat::message(&mut group, &alice, &Body::Sticker(Box::new(conflict))).unwrap();
-    assert!(session
-        .stage_envelope(&key(6), &bad[0].mls, &profiles, &seal_key)
-        .is_err());
-    assert!(!session.store.has_inbox(&key(6)).unwrap());
-    assert_eq!(session.store.sealed_device().unwrap(), sealed);
-    session.recover(&seal_key).unwrap();
-    assert!(session.store.current_chat_stickers(&peer).unwrap()[0].sticker == sticker());
-
-    let hlc = Timestamp::new(crate::now() * 1000, 1).into();
-    let edit = Body::Edit {
-        target: [3; 16],
-        operation: [7; 16],
-        hlc,
-        text: b"replacement".to_vec(),
-    };
-    let edit = chat::message(&mut group, &alice, &edit).unwrap();
-    assert!(session
-        .stage_envelope(&key(7), &edit[0].mls, &profiles, &seal_key)
-        .is_err());
-    assert!(!session.store.has_inbox(&key(7)).unwrap());
-    session.recover(&seal_key).unwrap();
-    let delete = Body::Delete {
-        target: [3; 16],
-        operation: [8; 16],
-        hlc,
-    };
-    let delete = chat::message(&mut group, &alice, &delete).unwrap();
-    session
-        .stage_envelope(&key(8), &delete[0].mls, &profiles, &seal_key)
-        .unwrap();
-    assert!(session
-        .store
-        .current_chat_stickers(&peer)
-        .unwrap()
-        .is_empty());
-    let replay = chat::message(&mut group, &alice, &body).unwrap();
-    session
-        .stage_envelope(&key(9), &replay[0].mls, &profiles, &seal_key)
-        .unwrap();
-    assert!(session
-        .store
-        .current_chat_stickers(&peer)
-        .unwrap()
-        .is_empty());
-    let target = MessageKey {
-        group: group.id().to_vec(),
-        author: peer.clone(),
-        id: [3; 16],
-    };
-    assert!(session.chat_message(&target).unwrap().unwrap().deleted);
-    drop(session);
+    before_match(&mut pair, &body, &seal_key);
+    matched_and_replay(&mut pair, &body, &seal_key);
+    let hlc = conflicts(&mut pair, &seal_key);
+    let target = deleted(&mut pair, &body, hlc, &seal_key);
+    let bob_id = pair.bob_id.clone();
+    drop(pair);
     let reopened = Session::open(Store::open(&path, &bob_id).unwrap(), &seal_key).unwrap();
     assert!(reopened
         .store
