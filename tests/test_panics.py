@@ -77,7 +77,8 @@ class PanicBudgets(unittest.TestCase):
         rows = [message(), overflow, done]
         for section, lints in CHECK.RATCHETS.items():
             counts = CHECK.count(metadata, rows, lints)[0]
-            self.assertEqual(counts, {"dyapp-ffi": 1}, section)
+            expected = 1 if section in {"panics", "arithmetic"} else 0
+            self.assertEqual(counts, {"dyapp-ffi": expected}, section)
         budget = {"dyapp-ffi": 1}
         self.assertEqual(CHECK.errors(budget, budget, "arithmetic"), [])
         self.assertIn("must stay zero", CHECK.errors(budget, budget)[0])
