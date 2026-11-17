@@ -50,6 +50,102 @@ fn answer(pack: u8) -> Body {
     }))
 }
 
+fn no_due(pair: &Invite) {
+    assert!(pair
+        .session
+        .store
+        .due_sticker_pack_responses(crate::now() * 1000)
+        .unwrap()
+        .is_empty());
+}
+
+fn history_len(pair: &Invite, peer: &str) -> usize {
+    pair.session.store.current_chat_items(peer).unwrap().len()
+}
+
+async fn guard_requests(pair: &mut Invite, request: &Body, peer: &str) {
+    assert!(deliver(pair, request, 2).is_none());
+    assert!(deliver(pair, &answer(3), 3).is_none());
+    no_due(pair);
+    deliver(pair, &Body::text_with_id([1; 16], b"hello".to_vec()), 4).unwrap();
+    pair.session
+        .stage_text(pair.group.id(), b"reply", &SEAL)
+        .unwrap();
+    let before = pair.session.store.sealed_device().unwrap();
+    assert!(pair
+        .session
+        .send_body(&mut [], pair.group.id(), request, &SEAL)
+        .await
+        .is_err());
+    assert!(pair.session.device.is_some());
+    assert_eq!(pair.session.store.sealed_device().unwrap(), before);
+    // A new envelope receives a receipt uniformly, even without pack/pending permission.
+    consumed(pair, request, 5).await;
+    no_due(pair);
+    pair.session
+        .stage_sticker(pair.group.id(), &sticker(2), &SEAL)
+        .unwrap();
+    let history = history_len(pair, peer);
+    consumed(pair, request, 6).await;
+    let jobs = pair
+        .session
+        .store
+        .due_sticker_pack_responses(crate::now() * 1000)
+        .unwrap();
+    assert_eq!(jobs.len(), 1);
+    consumed(pair, request, 7).await;
+    assert!(
+        pair.session
+            .store
+            .due_sticker_pack_responses(crate::now() * 1000)
+            .unwrap()
+            == jobs
+    );
+    assert_eq!(history_len(pair, peer), history);
+}
+
+async fn pack_answers(pair: &mut Invite, peer: &str) {
+    deliver(pair, &Body::Sticker(Box::new(sticker(3))), 8).unwrap();
+    let selected = MessageKey {
+        group: pair.group.id().to_vec(),
+        author: peer.to_owned(),
+        id: [3; 16],
+    };
+    let pending_request = pair
+        .session
+        .store
+        .sticker_pack_request(pair.group.id(), &selected)
+        .unwrap();
+    let sealed = pair.session.store.sealed_device().unwrap().unwrap();
+    let pending = pair
+        .session
+        .store
+        .stage_sticker_pack_request(&sealed, &[], pair.group.id(), &selected, &pending_request)
+        .unwrap();
+    let history = history_len(pair, peer);
+    consumed(pair, &answer(4), 9).await;
+    assert!(pair
+        .session
+        .store
+        .sticker_pack_answer(pair.group.id(), peer, &[3; 32], &pending.token)
+        .unwrap()
+        .is_none());
+    let first = answer(3);
+    consumed(pair, &first, 10).await;
+    consumed(pair, &answer(3), 11).await;
+    let Body::PackAnswer(expected) = first else {
+        panic!("fixture answer")
+    };
+    assert!(
+        pair.session
+            .store
+            .sticker_pack_answer(pair.group.id(), peer, &[3; 32], &pending.token)
+            .unwrap()
+            == Some(*expected)
+    );
+    assert_eq!(history_len(pair, peer), history);
+}
+
 #[tokio::test]
 async fn authenticated_pack_controls_are_guarded_durable_receipted_and_hidden() {
     let root =
@@ -65,104 +161,8 @@ async fn authenticated_pack_controls_are_guarded_durable_receipted_and_hidden() 
         .unwrap();
     let peer = pair.alice_id.peer_id();
     let request = Body::PackRequest(PackRequest { pack_id: [2; 32] });
-    assert!(deliver(&mut pair, &request, 2).is_none());
-    assert!(deliver(&mut pair, &answer(3), 3).is_none());
-    assert!(pair
-        .session
-        .store
-        .due_sticker_pack_responses(crate::now() * 1000)
-        .unwrap()
-        .is_empty());
-    deliver(
-        &mut pair,
-        &Body::text_with_id([1; 16], b"hello".to_vec()),
-        4,
-    )
-    .unwrap();
-    pair.session
-        .stage_text(pair.group.id(), b"reply", &SEAL)
-        .unwrap();
-    let before = pair.session.store.sealed_device().unwrap();
-    assert!(pair
-        .session
-        .send_body(&mut [], pair.group.id(), &request, &SEAL)
-        .await
-        .is_err());
-    assert!(pair.session.device.is_some());
-    assert_eq!(pair.session.store.sealed_device().unwrap(), before);
-    // A new envelope receives a receipt uniformly, even without pack/pending permission.
-    consumed(&mut pair, &request, 5).await;
-    assert!(pair
-        .session
-        .store
-        .due_sticker_pack_responses(crate::now() * 1000)
-        .unwrap()
-        .is_empty());
-    pair.session
-        .stage_sticker(pair.group.id(), &sticker(2), &SEAL)
-        .unwrap();
-    let history = pair.session.store.current_chat_items(&peer).unwrap().len();
-    consumed(&mut pair, &request, 6).await;
-    let jobs = pair
-        .session
-        .store
-        .due_sticker_pack_responses(crate::now() * 1000)
-        .unwrap();
-    assert_eq!(jobs.len(), 1);
-    consumed(&mut pair, &request, 7).await;
-    assert!(
-        pair.session
-            .store
-            .due_sticker_pack_responses(crate::now() * 1000)
-            .unwrap()
-            == jobs
-    );
-    assert_eq!(
-        pair.session.store.current_chat_items(&peer).unwrap().len(),
-        history
-    );
-    deliver(&mut pair, &Body::Sticker(Box::new(sticker(3))), 8).unwrap();
-    let selected = MessageKey {
-        group: pair.group.id().to_vec(),
-        author: peer.clone(),
-        id: [3; 16],
-    };
-    let pending_request = pair
-        .session
-        .store
-        .sticker_pack_request(pair.group.id(), &selected)
-        .unwrap();
-    let sealed = pair.session.store.sealed_device().unwrap().unwrap();
-    let pending = pair
-        .session
-        .store
-        .stage_sticker_pack_request(&sealed, &[], pair.group.id(), &selected, &pending_request)
-        .unwrap();
-    let history = pair.session.store.current_chat_items(&peer).unwrap().len();
-    consumed(&mut pair, &answer(4), 9).await;
-    assert!(pair
-        .session
-        .store
-        .sticker_pack_answer(pair.group.id(), &peer, &[3; 32], &pending.token)
-        .unwrap()
-        .is_none());
-    let first = answer(3);
-    consumed(&mut pair, &first, 10).await;
-    consumed(&mut pair, &answer(3), 11).await;
-    let Body::PackAnswer(expected) = first else {
-        panic!("fixture answer")
-    };
-    assert!(
-        pair.session
-            .store
-            .sticker_pack_answer(pair.group.id(), &peer, &[3; 32], &pending.token)
-            .unwrap()
-            == Some(*expected)
-    );
-    assert_eq!(
-        pair.session.store.current_chat_items(&peer).unwrap().len(),
-        history
-    );
+    guard_requests(&mut pair, &request, &peer).await;
+    pack_answers(&mut pair, &peer).await;
     pair.session.store.set_blocked(&peer, true).unwrap();
     assert!(deliver(&mut pair, &request, 12).is_none());
     assert!(deliver(&mut pair, &answer(3), 13).is_none());
