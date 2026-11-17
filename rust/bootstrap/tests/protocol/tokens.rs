@@ -269,8 +269,6 @@ async fn receive(
 
 #[tokio::test]
 async fn two_sessions_trade_tokens_after_a_match_and_a_message_passes_a_full_pool() {
-    use dyapp_client::{chat, session::Session};
-
     // Default limits: require_write_tokens is on.
     let address = start_config(|config| {
         config.roles = vec![Role::Store];
@@ -280,62 +278,94 @@ async fn two_sessions_trade_tokens_after_a_match_and_a_message_passes_a_full_poo
     .await;
     let mut alice = Person::new(&address).await;
     let mut bob = Person::new(&address).await;
-    let bob_owner = bob.identity.peer_id();
-    chat::publish_key_packages(&mut bob.node, &bob.device_key, &bob.device, &bob_owner, 1)
-        .await
-        .unwrap();
-    let mut profiles = Vec::new();
-    for owner in [alice.identity.peer_id(), bob_owner] {
-        profiles.push(alice.node.get_profile(&owner).await.unwrap());
-    }
+    let alice_mailbox = alice.mailbox();
+    let (alice_path, bob_path) = (store_path("trade-alice"), store_path("trade-bob"));
+    let (mut alice_session, mut bob_session, profiles, group_id) =
+        open_trade_sessions(&mut alice, &mut bob, &alice_path, &bob_path).await;
+    trade_tokens(
+        &mut alice,
+        &mut bob,
+        &mut alice_session,
+        &mut bob_session,
+        &profiles,
+        &group_id,
+    )
+    .await;
+    Box::pin(fill_tokenless_pool(&address, &mut bob)).await;
+    send_session_text(&mut alice_session, &mut alice, &group_id, b"hi").await;
+    assert_receives_text(&mut bob, &mut bob_session, &profiles, b"hi").await;
+    drop((alice_session, bob_session));
+    assert_trade_token_months(&alice, &bob, &alice_path, &bob_path, &alice_mailbox);
+}
+
+async fn open_trade_sessions(
+    alice: &mut Person,
+    bob: &mut Person,
+    alice_path: &std::path::Path,
+    bob_path: &std::path::Path,
+) -> (
+    Session,
+    Session,
+    Vec<dyapp_profile::VerifiedProfile>,
+    Vec<u8>,
+) {
+    let profiles = token_profiles(alice, bob).await;
     let alice_mailbox = alice.mailbox();
     let (group, welcome) = chat::invite(&mut alice.node, &alice.device, &alice_mailbox, &profiles)
         .await
         .unwrap();
     chat::send(&mut alice.node, &welcome).await.unwrap();
-    let (alice_path, bob_path) = (store_path("trade-alice"), store_path("trade-bob"));
-    let mut store = Store::open(&alice_path, &alice.identity).unwrap();
+    let group_id = group.id().to_vec();
+    let mut store = Store::open(alice_path, &alice.identity).unwrap();
     let sealed = alice.device.seal(&SEAL).unwrap();
     store
         .stage_group(&group, &profiles[1], &sealed, &[])
         .unwrap();
-    let mut alice_session = Session::open(store, &SEAL).unwrap();
-    let mut store = Store::open(&bob_path, &bob.identity).unwrap();
+    let alice_session = Session::open(store, &SEAL).unwrap();
+    let mut store = Store::open(bob_path, &bob.identity).unwrap();
     store
         .stage_outbound(&bob.device.seal(&SEAL).unwrap(), &[])
         .unwrap();
-    let mut bob_session = Session::open(store, &SEAL).unwrap();
+    let bob_session = Session::open(store, &SEAL).unwrap();
+    (alice_session, bob_session, profiles, group_id)
+}
 
+async fn trade_tokens(
+    alice: &mut Person,
+    bob: &mut Person,
+    alice_session: &mut Session,
+    bob_session: &mut Session,
+    profiles: &[dyapp_profile::VerifiedProfile],
+    group_id: &[u8],
+) {
     // Bob's ask on join is dropped with the chat unopened; opening the match asks again.
-    let joined = receive(&mut bob_session, &mut bob, &profiles).await;
-    assert_eq!(joined, [chat::Event::Joined(group.id().to_vec())]);
-    alice_session
-        .interact(
-            std::slice::from_mut(&mut alice.node),
-            group.id(),
-            Kind::Like,
-            &SEAL,
-        )
-        .await
-        .unwrap();
-    bob_session
-        .interact(
-            std::slice::from_mut(&mut bob.node),
-            group.id(),
-            Kind::Like,
-            &SEAL,
-        )
-        .await
-        .unwrap();
-    receive(&mut alice_session, &mut alice, &profiles).await;
-    receive(&mut bob_session, &mut bob, &profiles).await;
+    let joined = receive(bob_session, bob, profiles).await;
+    assert_eq!(joined, [chat::Event::Joined(group_id.to_vec())]);
+    like(alice_session, alice, group_id).await;
+    like(bob_session, bob, group_id).await;
+    receive(alice_session, alice, profiles).await;
+    receive(bob_session, bob, profiles).await;
     for _ in 0..3 {
-        receive(&mut bob_session, &mut bob, &profiles).await;
-        receive(&mut alice_session, &mut alice, &profiles).await;
+        receive(bob_session, bob, profiles).await;
+        receive(alice_session, alice, profiles).await;
     }
+}
 
+async fn like(session: &mut Session, person: &mut Person, group_id: &[u8]) {
+    session
+        .interact(
+            std::slice::from_mut(&mut person.node),
+            group_id,
+            Kind::Like,
+            &SEAL,
+        )
+        .await
+        .unwrap();
+}
+
+async fn fill_tokenless_pool(address: &Multiaddr, bob: &mut Person) {
     // A stranger fills Bob's tokenless pool; Alice's tokened message still reaches him.
-    let mut stranger = Person::new(&address).await;
+    let mut stranger = Person::new(address).await;
     for _ in 0..12 {
         stranger
             .node
@@ -343,27 +373,33 @@ async fn two_sessions_trade_tokens_after_a_match_and_a_message_passes_a_full_poo
             .await
             .unwrap();
     }
-    alice_session
-        .send_message(
-            std::slice::from_mut(&mut alice.node),
-            group.id(),
-            b"hi",
-            &SEAL,
-        )
-        .await
-        .unwrap();
+}
+
+async fn assert_receives_text(
+    bob: &mut Person,
+    session: &mut Session,
+    profiles: &[dyapp_profile::VerifiedProfile],
+    expected: &[u8],
+) {
     let mut events = Vec::new();
     for _ in 0..5 {
-        events.extend(receive(&mut bob_session, &mut bob, &profiles).await);
+        events.extend(receive(session, bob, profiles).await);
     }
     assert!(events.iter().any(|event| matches!(event,
-        chat::Event::Message { body: chat::Body::Text { text, .. }, .. } if text == b"hi")));
-    drop((alice_session, bob_session));
+        chat::Event::Message { body: chat::Body::Text { text, .. }, .. } if text == expected)));
+}
 
+fn assert_trade_token_months(
+    alice: &Person,
+    bob: &Person,
+    alice_path: &std::path::Path,
+    bob_path: &std::path::Path,
+    alice_mailbox: &[u8; 32],
+) {
     let today = u32::try_from(dyapp_client::now() / 86_400).unwrap();
     let month = (today..today + 30).collect::<Vec<_>>();
-    let alice_store = Store::open(&alice_path, &alice.identity).unwrap();
-    let bob_store = Store::open(&bob_path, &bob.identity).unwrap();
+    let alice_store = Store::open(alice_path, &alice.identity).unwrap();
+    let bob_store = Store::open(bob_path, &bob.identity).unwrap();
     assert_eq!(
         alice_store
             .write_token_epochs(&bob.mailbox(), today)
@@ -371,7 +407,7 @@ async fn two_sessions_trade_tokens_after_a_match_and_a_message_passes_a_full_poo
         month
     );
     assert_eq!(
-        bob_store.write_token_epochs(&alice_mailbox, today).unwrap(),
+        bob_store.write_token_epochs(alice_mailbox, today).unwrap(),
         month
     );
 }
