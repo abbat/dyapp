@@ -20,6 +20,12 @@ fn little(bytes: &[u8]) -> u32 {
     })
 }
 
+fn little_at(bytes: &[u8], start: usize, end: usize) -> Result<u32, &'static str> {
+    Ok(little(
+        bytes.get(start..end).ok_or("truncated WebP integer")?,
+    ))
+}
+
 fn dimensions(width: u32, height: u32) -> Result<(), &'static str> {
     if width == 0 || height == 0 || width > MAX_SIDE || height > MAX_SIDE {
         return Err("sticker dimensions exceed limit");
@@ -32,15 +38,15 @@ fn frame_chunks(mut bytes: &[u8], expected: (u32, u32)) -> Result<(), &'static s
     let mut alpha = false;
     while !bytes.is_empty() {
         let header = bytes.get(..8).ok_or("truncated frame chunk")?;
-        let size = little(&header[4..8]) as usize;
+        let size = little_at(header, 4, 8)? as usize;
         let end = 8usize.checked_add(size).ok_or("frame size overflow")?;
         let data = bytes.get(8..end).ok_or("truncated frame payload")?;
-        match &header[..4] {
+        match header.get(..4).ok_or("truncated frame chunk")? {
             b"VP8L" => {
-                if data.len() < 5 || data[0] != 0x2f {
+                if data.len() < 5 || data.first() != Some(&0x2f) {
                     return Err("invalid frame VP8L");
                 }
-                let bits = little(&data[1..5]);
+                let bits = little_at(data, 1, 5)?;
                 let size = (
                     (bits & 0x3fff).saturating_add(1),
                     ((bits >> 14) & 0x3fff).saturating_add(1),
@@ -52,10 +58,13 @@ fn frame_chunks(mut bytes: &[u8], expected: (u32, u32)) -> Result<(), &'static s
                 images = images.saturating_add(1);
             }
             b"VP8 " => {
-                if data.len() < 10 || &data[3..6] != b"\x9d\x01\x2a" {
+                if data.len() < 10 || data.get(3..6) != Some(b"\x9d\x01\x2a".as_slice()) {
                     return Err("invalid frame VP8");
                 }
-                let size = (little(&data[6..8]) & 0x3fff, little(&data[8..10]) & 0x3fff);
+                let size = (
+                    little_at(data, 6, 8)? & 0x3fff,
+                    little_at(data, 8, 10)? & 0x3fff,
+                );
                 dimensions(size.0, size.1)?;
                 if size != expected {
                     return Err("frame VP8 header mismatch");
@@ -66,10 +75,10 @@ fn frame_chunks(mut bytes: &[u8], expected: (u32, u32)) -> Result<(), &'static s
             _ => return Err("unsupported animation frame chunk"),
         }
         let padded = end.checked_add(size % 2).ok_or("frame padding overflow")?;
-        if padded > bytes.len() || (!size.is_multiple_of(2) && bytes[end] != 0) {
+        if padded > bytes.len() || (!size.is_multiple_of(2) && bytes.get(end) != Some(&0)) {
             return Err("invalid frame padding");
         }
-        bytes = &bytes[padded..];
+        bytes = bytes.get(padded..).ok_or("invalid frame padding")?;
     }
     if images != 1 {
         return Err("frame needs exactly one image");
@@ -92,27 +101,31 @@ impl HeaderState {
         if data.len() != 10 || offset != 12 {
             return Err("invalid VP8X header");
         }
-        if data[0] & 0x0c != 0 {
+        let flags = data.first().copied().ok_or("invalid VP8X header")?;
+        if flags & 0x0c != 0 {
             return Err("WebP metadata flags are forbidden");
         }
-        if data[0] & 0xc1 != 0 || data[1..4] != [0, 0, 0] {
+        if flags & 0xc1 != 0 || data.get(1..4) != Some([0, 0, 0].as_slice()) {
             return Err("invalid VP8X reserved bits");
         }
         let size = (
-            little(&data[4..7]).saturating_add(1),
-            little(&data[7..10]).saturating_add(1),
+            little_at(data, 4, 7)?.saturating_add(1),
+            little_at(data, 7, 10)?.saturating_add(1),
         );
         dimensions(size.0, size.1)?;
         self.canvas = Some(size);
-        self.animated_header = data[0] & 2 != 0;
+        self.animated_header = flags & 2 != 0;
         Ok(())
     }
 
     fn check_vp8(&mut self, data: &[u8]) -> Result<(), &'static str> {
-        if data.len() < 10 || &data[3..6] != b"\x9d\x01\x2a" {
+        if data.len() < 10 || data.get(3..6) != Some(b"\x9d\x01\x2a".as_slice()) {
             return Err("invalid VP8 header");
         }
-        let size = (little(&data[6..8]) & 0x3fff, little(&data[8..10]) & 0x3fff);
+        let size = (
+            little_at(data, 6, 8)? & 0x3fff,
+            little_at(data, 8, 10)? & 0x3fff,
+        );
         dimensions(size.0, size.1)?;
         if self.canvas.is_some_and(|canvas| canvas != size) {
             return Err("static VP8 header mismatch");
@@ -122,10 +135,10 @@ impl HeaderState {
     }
 
     fn check_vp8l(&mut self, data: &[u8]) -> Result<(), &'static str> {
-        if data.len() < 5 || data[0] != 0x2f {
+        if data.len() < 5 || data.first() != Some(&0x2f) {
             return Err("invalid VP8L header");
         }
-        let bits = little(&data[1..5]);
+        let bits = little_at(data, 1, 5)?;
         let size = (
             (bits & 0x3fff).saturating_add(1),
             ((bits >> 14) & 0x3fff).saturating_add(1),
@@ -151,21 +164,25 @@ impl HeaderState {
             return Err("invalid animation frame");
         }
         let size = (
-            little(&data[6..9]).saturating_add(1),
-            little(&data[9..12]).saturating_add(1),
+            little_at(data, 6, 9)?.saturating_add(1),
+            little_at(data, 9, 12)?.saturating_add(1),
         );
         dimensions(size.0, size.1)?;
         let (width, height) = self.canvas.ok_or("frame has no canvas")?;
-        let right = little(&data[..3]).saturating_mul(2).saturating_add(size.0);
-        let bottom = little(&data[3..6]).saturating_mul(2).saturating_add(size.1);
-        if right > width || bottom > height || data[15] & 0xfc != 0 {
+        let right = little_at(data, 0, 3)?
+            .saturating_mul(2)
+            .saturating_add(size.0);
+        let bottom = little_at(data, 3, 6)?
+            .saturating_mul(2)
+            .saturating_add(size.1);
+        if right > width || bottom > height || data.get(15).is_none_or(|flags| flags & 0xfc != 0) {
             return Err("frame exceeds canvas or has reserved flags");
         }
-        frame_chunks(&data[16..], size)?;
+        frame_chunks(data.get(16..).ok_or("invalid animation frame")?, size)?;
         self.frames = self.frames.saturating_add(1);
         self.duration = self
             .duration
-            .checked_add(little(&data[12..15]))
+            .checked_add(little_at(data, 12, 15)?)
             .ok_or("animation duration overflow")?;
         if self.frames > MAX_FRAMES || self.duration > MAX_DURATION_MS {
             return Err("animation exceeds limit");
@@ -185,12 +202,12 @@ impl HeaderState {
 pub fn check_header(bytes: &[u8]) -> Result<(), &'static str> {
     if bytes.len() > MAX_BYTES
         || bytes.len() < 12
-        || &bytes[..4] != b"RIFF"
-        || &bytes[8..12] != b"WEBP"
+        || bytes.get(..4) != Some(b"RIFF".as_slice())
+        || bytes.get(8..12) != Some(b"WEBP".as_slice())
     {
         return Err("invalid or oversized WebP container");
     }
-    if u64::from(little(&bytes[4..8])).saturating_add(8) != bytes.len() as u64 {
+    if u64::from(little_at(bytes, 4, 8)?).saturating_add(8) != bytes.len() as u64 {
         return Err("WebP RIFF size mismatch");
     }
     let mut offset = 12;
@@ -199,11 +216,11 @@ pub fn check_header(bytes: &[u8]) -> Result<(), &'static str> {
         let header = bytes
             .get(offset..offset.saturating_add(8))
             .ok_or("truncated WebP chunk")?;
-        let size = little(&header[4..8]) as usize;
+        let size = little_at(header, 4, 8)? as usize;
         let start = offset.saturating_add(8);
         let end = start.checked_add(size).ok_or("WebP chunk overflow")?;
         let data = bytes.get(start..end).ok_or("truncated WebP payload")?;
-        let kind = &header[..4];
+        let kind = header.get(..4).ok_or("truncated WebP chunk")?;
         if matches!(kind, b"VP8 " | b"VP8L") && (state.image || state.animated_header) {
             return Err("unexpected static WebP image");
         }
@@ -217,7 +234,7 @@ pub fn check_header(bytes: &[u8]) -> Result<(), &'static str> {
             _ => {}
         }
         offset = end.checked_add(size % 2).ok_or("WebP padding overflow")?;
-        if offset > bytes.len() || (!size.is_multiple_of(2) && bytes[end] != 0) {
+        if offset > bytes.len() || (!size.is_multiple_of(2) && bytes.get(end) != Some(&0)) {
             return Err("invalid WebP padding");
         }
     }

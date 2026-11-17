@@ -22,15 +22,21 @@ fn octal(field: &[u8]) -> Result<usize, String> {
 }
 
 fn name(header: &[u8]) -> Result<&str, String> {
-    let end = header[..100].iter().position(|b| *b == 0).unwrap_or(100);
-    let name = std::str::from_utf8(&header[..end]).map_err(|_| "non-UTF8 TAR filename")?;
+    let head = header.get(..100).ok_or("truncated TAR filename")?;
+    let end = head.iter().position(|b| *b == 0).unwrap_or(100);
+    let name = std::str::from_utf8(head.get(..end).ok_or("truncated TAR filename")?)
+        .map_err(|_| "non-UTF8 TAR filename")?;
     if name.is_empty()
         || name == "."
         || name == ".."
         || name.starts_with("._")
         || name.contains(['/', '\\'])
         || name.chars().any(char::is_control)
-        || header[345..500].iter().any(|b| *b != 0)
+        || header
+            .get(345..500)
+            .ok_or("truncated TAR prefix")?
+            .iter()
+            .any(|b| *b != 0)
     {
         return Err(format!("{name:?}: only root regular files are allowed"));
     }
@@ -38,7 +44,7 @@ fn name(header: &[u8]) -> Result<&str, String> {
 }
 
 fn checked_header(header: &[u8]) -> Result<(), String> {
-    let expected = octal(&header[148..156])?;
+    let expected = octal(header.get(148..156).ok_or("truncated TAR checksum")?)?;
     let actual: usize = header
         .iter()
         .enumerate()
@@ -53,7 +59,7 @@ fn checked_header(header: &[u8]) -> Result<(), String> {
     if expected != actual {
         return Err("TAR checksum mismatch".into());
     }
-    if &header[257..262] != b"ustar" {
+    if header.get(257..262) != Some(b"ustar".as_slice()) {
         return Err("unsupported TAR header".into());
     }
     Ok(())
@@ -101,9 +107,9 @@ pub fn read(bytes: &[u8]) -> Result<BTreeMap<&str, &[u8]>, String> {
             return Ok(files);
         }
         checked_header(header)?;
-        let size = octal(&header[124..136])?;
+        let size = octal(header.get(124..136).ok_or("truncated TAR size")?)?;
         let (data, next) = entry_data(bytes, offset, size)?;
-        let kind = header[156];
+        let kind = header.get(156).copied().ok_or("truncated TAR entry type")?;
         if kind == b'x' || kind == b'g' {
             if size > MAX_MANIFEST {
                 return Err("PAX metadata too large".into());
