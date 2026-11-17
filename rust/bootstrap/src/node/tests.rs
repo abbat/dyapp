@@ -431,46 +431,28 @@ async fn mailbox_profile_and_profile_repair_share_the_sender_cap() {
     replicas
         .puts
         .insert(1, pending(PutRecord::Profile(record.clone())));
-    replicas.put_holder(&mut swarm, &service, &watchers, 0, remote);
-    assert_eq!(replicas.mailbox_puts.len(), 1);
-    let missing = proto::ProfileResponse {
-        status: Status::NotFound.into(),
-        ..Default::default()
-    };
-    assert!(matches!(
-        replicas.profile_gap(&mut swarm, &service, remote, &record, &missing),
-        Ok(Some(_))
-    ));
-    replicas.put_holder(&mut swarm, &service, &watchers, 1, remote);
-    assert!(replicas.profile_puts.is_empty());
-    assert!(replicas.puts[&1].sent.contains(&remote));
-    assert!(replicas.puts[&1].stored.is_empty());
-    assert_eq!(replicas.puts[&1].result(Instant::now()), None);
-    assert_eq!(
-        replicas.puts[&1].result(replicas.puts[&1].deadline),
-        Some(Status::Full)
+    check_remote_profile_cap(
+        &mut swarm,
+        &service,
+        &mut replicas,
+        &watchers,
+        remote,
+        &record,
     );
-    assert_eq!(replicas.cap.take_dropped(), 1);
-    replicas.put_holder(&mut swarm, &service, &watchers, 1, remote);
-    assert_eq!(
-        replicas.cap.take_dropped(),
-        0,
-        "duplicate holder is not retried"
-    );
-    assert_eq!(replicas.trust.score[&remote], 5);
-    assert!(replicas.media_queue.is_empty());
-    let other = PeerId::random();
-    replicas.put_holder(&mut swarm, &service, &watchers, 1, other);
-    assert_eq!(replicas.profile_puts.len(), 1);
-    // A negative trust score prevents sends before the cap is charged.
-    let untrusted = PeerId::random();
-    replicas.trust.add(untrusted, -1);
-    replicas.put_holder(&mut swarm, &service, &watchers, 1, untrusted);
-    assert!(replicas.cap.allow(&untrusted, 2));
+    check_other_profile_receivers(&mut swarm, &service, &mut replicas, &watchers);
+    check_local_profile_store(&mut swarm, &service, &mut replicas, &watchers, &owner);
+}
 
+fn check_local_profile_store(
+    swarm: &mut Swarm<Behaviour>,
+    service: &Service,
+    replicas: &mut Replicas,
+    watchers: &Watchers,
+    owner: &dyapp_identity::Identity,
+) {
     let me = *swarm.local_peer_id();
     assert!(replicas.cap.allow(&me, 2));
-    replicas.put_holder(&mut swarm, &service, &watchers, 1, me);
+    replicas.put_holder(swarm, service, watchers, 1, me);
     assert!(replicas.puts[&1].stored.contains(&me));
     assert_eq!(
         replicas.cap.take_dropped(),
@@ -482,6 +464,60 @@ async fn mailbox_profile_and_profile_repair_share_the_sender_cap() {
         .get_profile(&owner.peer_id())
         .unwrap()
         .is_some());
+}
+
+fn check_remote_profile_cap(
+    swarm: &mut Swarm<Behaviour>,
+    service: &Service,
+    replicas: &mut Replicas,
+    watchers: &Watchers,
+    remote: PeerId,
+    record: &SignedRecord,
+) {
+    replicas.put_holder(swarm, service, watchers, 0, remote);
+    assert_eq!(replicas.mailbox_puts.len(), 1);
+    let missing = proto::ProfileResponse {
+        status: Status::NotFound.into(),
+        ..Default::default()
+    };
+    assert!(matches!(
+        replicas.profile_gap(swarm, service, remote, record, &missing),
+        Ok(Some(_))
+    ));
+    replicas.put_holder(swarm, service, watchers, 1, remote);
+    assert!(replicas.profile_puts.is_empty());
+    assert!(replicas.puts[&1].sent.contains(&remote));
+    assert!(replicas.puts[&1].stored.is_empty());
+    assert_eq!(replicas.puts[&1].result(Instant::now()), None);
+    assert_eq!(
+        replicas.puts[&1].result(replicas.puts[&1].deadline),
+        Some(Status::Full)
+    );
+    assert_eq!(replicas.cap.take_dropped(), 1);
+    replicas.put_holder(swarm, service, watchers, 1, remote);
+    assert_eq!(
+        replicas.cap.take_dropped(),
+        0,
+        "duplicate holder is not retried"
+    );
+    assert_eq!(replicas.trust.score[&remote], 5);
+    assert!(replicas.media_queue.is_empty());
+}
+
+fn check_other_profile_receivers(
+    swarm: &mut Swarm<Behaviour>,
+    service: &Service,
+    replicas: &mut Replicas,
+    watchers: &Watchers,
+) {
+    let other = PeerId::random();
+    replicas.put_holder(swarm, service, watchers, 1, other);
+    assert_eq!(replicas.profile_puts.len(), 1);
+    // A negative trust score prevents sends before the cap is charged.
+    let untrusted = PeerId::random();
+    replicas.trust.add(untrusted, -1);
+    replicas.put_holder(swarm, service, watchers, 1, untrusted);
+    assert!(replicas.cap.allow(&untrusted, 2));
 }
 
 #[tokio::test]
