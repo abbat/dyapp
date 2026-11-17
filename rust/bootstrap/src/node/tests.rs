@@ -345,7 +345,8 @@ async fn check_repair_refill(
     remote: PeerId,
     mailbox: &[u8],
 ) {
-    let mut cap = ReplicaCap::default();
+    let clock = crate::clock::Manual::new();
+    let mut cap = ReplicaCap::with_clock(50, clock.clock());
     assert!(!send_envelopes(sender, source, &mut cap, remote, mailbox, |_| true).0);
     assert_eq!(cap.take_dropped(), 1, "only the second batch is refused");
     assert_eq!(
@@ -354,7 +355,7 @@ async fn check_repair_refill(
     );
     let held = destination.held(mailbox).unwrap();
     assert_eq!(held.len(), 50);
-    wait_for_next_second().await;
+    clock.advance(Duration::from_secs(1));
     assert!(
         send_envelopes(sender, source, &mut cap, remote, mailbox, |id| {
             !held.contains_key(id)
@@ -370,21 +371,6 @@ async fn check_repair_refill(
     // Inventory of the complete mailbox sends nothing and consumes no units.
     assert!(send_envelopes(sender, source, &mut cap, remote, mailbox, |_| false).0);
     assert!(cap.allow(&remote, 25));
-}
-
-async fn wait_for_next_second() {
-    let now = || crate::clock::Clock::system().unix().as_secs();
-    let second = now();
-    tokio::time::timeout(Duration::from_secs(2), async {
-        loop {
-            if now() != second {
-                break;
-            }
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .unwrap();
 }
 
 #[tokio::test]

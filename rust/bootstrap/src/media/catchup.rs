@@ -86,7 +86,7 @@ fn validate(
             return Err(invalid("invalid history ancestor version or clock"));
         }
         if index > 0 {
-            history::follows(record, &ancestors[index - 1])
+            history::follows(record, &ancestors[index.saturating_sub(1)])
                 .map_err(|_| invalid("unlinked history page"))?;
         }
         parsed.push(intent);

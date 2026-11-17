@@ -542,9 +542,17 @@ impl ReplicaCap {
         }
     }
 
+    #[cfg(test)]
+    fn with_clock(units_per_second: u32, clock: crate::clock::Clock) -> Self {
+        Self {
+            limiter: PeerRateLimiter::with_clock(units_per_second, clock),
+            dropped: 0,
+        }
+    }
+
     fn allow(&mut self, to: &PeerId, units: u32) -> bool {
         let allowed = self.limiter.check_units(&to.to_string(), units);
-        self.dropped += u64::from(!allowed);
+        self.dropped = self.dropped.saturating_add(u64::from(!allowed));
         allowed
     }
 

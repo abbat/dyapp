@@ -605,7 +605,7 @@ impl MediaStore {
     pub fn evict(&self, target: u64) -> Result<usize> {
         let mut db = lock(&self.db)?;
         let mut removed = catchup::evict(&mut db, target)?;
-        removed += self.evict_cache(&db, target)?;
+        removed = removed.saturating_add(self.evict_cache(&db, target)?);
         for (attachments, query) in [
             (
                 true,
@@ -630,7 +630,7 @@ impl MediaStore {
                 let orphans = Self::drop_lists(&tx, &[owner], attachments)?;
                 tx.commit().map_err(storage_error)?;
                 self.remove(orphans)?;
-                removed += 1;
+                removed = removed.saturating_add(1);
             }
             if attachments {
                 let remain: bool = db
@@ -647,7 +647,7 @@ impl MediaStore {
     }
 
     fn evict_cache(&self, db: &Connection, target: u64) -> Result<usize> {
-        let mut removed = 0;
+        let mut removed = 0usize;
         while Self::used(db)? > target {
             let hash: Option<Vec<u8>> = db
                 .query_row(
@@ -660,7 +660,7 @@ impl MediaStore {
                 .map_err(storage_error)?;
             let Some(hash) = hash else { break };
             remove_file(&self.cache.join(hex(&hash)))?;
-            removed += 1;
+            removed = removed.saturating_add(1);
         }
         Ok(removed)
     }

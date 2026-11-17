@@ -38,7 +38,7 @@ impl RebuildBudget {
         assert!(mb_per_second > 0);
         let next = Instant::from_std(clock.instant());
         Self {
-            bytes_per_second: u64::from(mb_per_second) * (1 << 20),
+            bytes_per_second: u64::from(mb_per_second).saturating_mul(1 << 20),
             clock,
             state: Mutex::new(State {
                 next,
@@ -50,14 +50,20 @@ impl RebuildBudget {
     pub(crate) fn reserve(&self, now: Instant, bytes: u64, file: &str, percent: u8) -> Instant {
         let rate = self.bytes_per_second;
         // Round up to avoid granting extra bandwidth to small batches.
-        let nanos = (u128::from(bytes % rate) * 1_000_000_000).div_ceil(u128::from(rate));
+        let remainder = bytes.checked_rem(rate).unwrap_or(0);
+        let nanos = u128::from(remainder)
+            .saturating_mul(1_000_000_000)
+            .div_ceil(u128::from(rate));
         #[expect(
             clippy::cast_possible_truncation,
             reason = "The remainder is below rate, so rounded fractional nanoseconds are at most one billion"
         )]
-        let duration = Duration::from_secs(bytes / rate) + Duration::from_nanos(nanos as u64);
+        let duration = Duration::from_secs(bytes.checked_div(rate).unwrap_or(0))
+            .checked_add(Duration::from_nanos(nanos as u64))
+            .unwrap_or(Duration::MAX);
         let mut state = self.state.lock().unwrap();
-        state.next = state.next.max(now) + duration;
+        let base = state.next.max(now);
+        state.next = base.checked_add(duration).unwrap_or(base);
         state.progress.insert(file.into(), percent.min(100));
         state.next
     }

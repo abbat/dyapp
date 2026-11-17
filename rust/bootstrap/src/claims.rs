@@ -41,7 +41,7 @@ impl Claims {
         }
         let active = self.active.values().filter(|(p, _)| *p == peer).count();
         let queue = self.queued.entry(peer).or_default();
-        if queue.len() + active >= PER_PEER {
+        if queue.len().saturating_add(active) >= PER_PEER {
             return false;
         }
         queue.push_back(address.clone());
