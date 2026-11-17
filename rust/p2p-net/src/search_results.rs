@@ -51,7 +51,7 @@ pub fn check(
                 if (v.profile.version, v.profile.deleted)
                     >= (verified.profile.version, verified.profile.deleted) =>
             {
-                continue
+                continue;
             }
             Some(_) => {}
         }
@@ -147,14 +147,16 @@ fn birth_age_matches(c: &Condition, profile: &Profile, op: Op) -> bool {
     if op == Op::Unspecified {
         return true;
     }
-    if op != Op::Range || c.ints.len() != 2 || !c.strings.is_empty() || c.ints[0] >= c.ints[1] {
+    let ([lower, upper], true) = (&c.ints[..], op == Op::Range && c.strings.is_empty()) else {
+        return false;
+    };
+    if lower >= upper {
         return false;
     }
     let Some(bounds) = profile.birth_bounds() else {
         return false;
     };
-    i64::from(bounds.earliest.yyyymmdd()) > c.ints[0]
-        && i64::from(bounds.latest.yyyymmdd()) <= c.ints[1]
+    i64::from(bounds.earliest.yyyymmdd()) > *lower && i64::from(bounds.latest.yyyymmdd()) <= *upper
 }
 
 fn matches(c: &Condition, profile: &Profile) -> bool {
@@ -181,14 +183,14 @@ fn matches(c: &Condition, profile: &Profile) -> bool {
                     return false;
                 }
             }
-            match op {
-                Op::Unspecified => true,
-                Op::Eq if wants.len() == 1 => have.contains(&wants[0]),
-                Op::In if (1..=MAX_IN_VALUES).contains(&wants.len()) => {
+            match (op, wants.as_slice()) {
+                (Op::Unspecified, _) => true,
+                (Op::Eq, [want]) => have.contains(want),
+                (Op::In, _) if (1..=MAX_IN_VALUES).contains(&wants.len()) => {
                     have.iter().any(|v| wants.contains(v))
                 }
-                Op::Range if wants.len() == 2 && wants[0] <= wants[1] => {
-                    have.iter().any(|v| (wants[0]..=wants[1]).contains(v))
+                (Op::Range, [lower, upper]) if lower <= upper => {
+                    have.iter().any(|v| (*lower..=*upper).contains(v))
                 }
                 _ => false,
             }
@@ -198,10 +200,10 @@ fn matches(c: &Condition, profile: &Profile) -> bool {
                 return false;
             }
             let wants = &c.strings;
-            match op {
-                Op::Unspecified | Op::Range => true,
-                Op::Eq if wants.len() == 1 => have.contains(&wants[0].as_str()),
-                Op::In if (1..=MAX_IN_VALUES).contains(&wants.len()) => {
+            match (op, wants.as_slice()) {
+                (Op::Unspecified | Op::Range, _) => true,
+                (Op::Eq, [want]) => have.contains(&want.as_str()),
+                (Op::In, _) if (1..=MAX_IN_VALUES).contains(&wants.len()) => {
                     have.iter().any(|v| wants.iter().any(|w| w == v))
                 }
                 _ => false,

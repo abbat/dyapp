@@ -498,11 +498,9 @@ fn gossip_behaviour(
             gossipsub::MessageId::from(dyapp_identity::sha256(&m.data).to_vec())
         })
         .build()?;
-    let behaviour = gossipsub::Behaviour::new(
-        gossipsub::MessageAuthenticity::Signed(key.clone()),
-        config,
-    )
-    .map_err(|error| anyhow::anyhow!(error))?;
+    let behaviour =
+        gossipsub::Behaviour::new(gossipsub::MessageAuthenticity::Signed(key.clone()), config)
+            .map_err(|error| anyhow::anyhow!(error))?;
     Ok(Some(behaviour))
 }
 

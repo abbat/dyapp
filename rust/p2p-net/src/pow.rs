@@ -66,10 +66,7 @@ pub fn generate_pow_keypair(bits: u32) -> anyhow::Result<Keypair> {
     let found = AtomicBool::new(false);
     std::thread::scope(|s| {
         let workers: Vec<_> = (0..threads)
-            .map(|_| {
-                std::thread::Builder::new()
-                    .spawn_scoped(s, || pow_worker(&found, bits))
-            })
+            .map(|_| std::thread::Builder::new().spawn_scoped(s, || pow_worker(&found, bits)))
             .collect::<std::io::Result<_>>()?;
         for worker in workers {
             let candidate = worker

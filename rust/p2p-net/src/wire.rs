@@ -95,11 +95,15 @@ impl WireBytes {
     }
 
     /// Adds payload bytes to a slot returned by `protocol_slot`, `GOSSIP` or `OTHER`.
-    ///
-    /// # Panics
-    /// Panics if `slot` is outside the fixed slot table.
+    /// Unknown slots are ignored.
     pub fn add(&self, slot: usize, dir: Dir, n: usize) {
-        self.totals[slot][dir as usize].fetch_add(n as u64, Ordering::Relaxed);
+        if let Some(counter) = self
+            .totals
+            .get(slot)
+            .and_then(|directions| directions.get(dir as usize))
+        {
+            counter.fetch_add(n as u64, Ordering::Relaxed);
+        }
     }
 
     /// Bytes since start; not globally atomic across slots and directions.
@@ -115,12 +119,13 @@ impl WireBytes {
     /// interval, and concurrent takes never count a byte twice.
     pub fn take(&self) -> WireCounts {
         let totals = self.totals();
-        WireCounts(std::array::from_fn(|slot| {
-            std::array::from_fn(|dir| {
-                let total = totals.0[slot][dir];
-                total.saturating_sub(self.taken[slot][dir].fetch_max(total, Ordering::Relaxed))
-            })
-        }))
+        let mut deltas = [[0; 2]; SLOTS.len()];
+        for ((delta, total), taken) in deltas.iter_mut().zip(totals.0).zip(&self.taken) {
+            for ((delta, total), taken) in delta.iter_mut().zip(total).zip(taken) {
+                *delta = total.saturating_sub(taken.fetch_max(total, Ordering::Relaxed));
+            }
+        }
+        WireCounts(deltas)
     }
 }
 
@@ -181,6 +186,8 @@ mod tests {
     #[test]
     fn protocols_directions_display_and_reset() {
         let bytes = WireBytes::default();
+        bytes.add(SLOTS.len(), Dir::In, 1);
+        assert!(bytes.totals().0.iter().all(|slot| *slot == [0, 0]));
         for (slot, protocol) in [
             NODE_PROTOCOL,
             PROFILE_PROTOCOL,
