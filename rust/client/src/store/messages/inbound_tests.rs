@@ -238,11 +238,30 @@ fn chat_projection_and_delivery_commit_atomically() {
     let mut store = Store::open(&path, &owner).unwrap();
     crate::store::tests::catalog_group(&mut store, &key.group, &key.author);
 
+    assert_original_delivery(&mut store, sender, &original);
+    assert_conflicting_original(&mut store, sender, &key);
+    apply_edit_and_delete(&mut store, sender, &key);
+    drop(store);
+
+    let store = Store::open(&path, &owner).unwrap();
+    assert!(store.chat_message(&key).unwrap().unwrap().deleted);
+    assert!(store.chat_message(&key).unwrap().unwrap().text.is_none());
+    assert_eq!(
+        store.pending_acks().unwrap(),
+        vec![inbox(1), inbox(3), inbox(4)]
+    );
+    assert_eq!(
+        store.sealed_device().unwrap().as_deref(),
+        Some(&b"mls-3"[..])
+    );
+}
+
+fn assert_original_delivery(store: &mut Store, sender: VerifiedChatSender, original: &Body) {
     assert!(store
-        .stage_chat_inbound(b"mls-1", &inbox(1), sender, &original, 1_000)
+        .stage_chat_inbound(b"mls-1", &inbox(1), sender, original, 1_000)
         .unwrap());
     assert!(!store
-        .stage_chat_inbound(b"unused", &inbox(1), sender, &original, 1_000)
+        .stage_chat_inbound(b"unused", &inbox(1), sender, original, 1_000)
         .unwrap());
     let saved: Vec<u8> = store
         .db
@@ -257,7 +276,9 @@ fn chat_projection_and_delivery_commit_atomically() {
         store.sealed_device().unwrap().as_deref(),
         Some(&b"mls-1"[..])
     );
+}
 
+fn assert_conflicting_original(store: &mut Store, sender: VerifiedChatSender, key: &MessageKey) {
     let conflicting = Body::Text {
         id: key.id,
         hlc: None,
@@ -273,7 +294,9 @@ fn chat_projection_and_delivery_commit_atomically() {
         store.sealed_device().unwrap().as_deref(),
         Some(&b"mls-1"[..])
     );
+}
 
+fn apply_edit_and_delete(store: &mut Store, sender: VerifiedChatSender, key: &MessageKey) {
     let edit = Body::Edit {
         target: key.id,
         operation: [6; 16],
@@ -284,7 +307,7 @@ fn chat_projection_and_delivery_commit_atomically() {
         .stage_chat_inbound(b"mls-2", &inbox(3), sender, &edit, 1_000)
         .unwrap());
     assert_eq!(
-        store.chat_message(&key).unwrap().unwrap().text.as_deref(),
+        store.chat_message(key).unwrap().unwrap().text.as_deref(),
         Some(&b"private replacement"[..])
     );
     let delete = Body::Delete {
@@ -295,19 +318,6 @@ fn chat_projection_and_delivery_commit_atomically() {
     assert!(store
         .stage_chat_inbound(b"mls-3", &inbox(4), sender, &delete, 1_000)
         .unwrap());
-    drop(store);
-
-    let store = Store::open(&path, &owner).unwrap();
-    assert!(store.chat_message(&key).unwrap().unwrap().deleted);
-    assert!(store.chat_message(&key).unwrap().unwrap().text.is_none());
-    assert_eq!(
-        store.pending_acks().unwrap(),
-        vec![inbox(1), inbox(3), inbox(4)]
-    );
-    assert_eq!(
-        store.sealed_device().unwrap().as_deref(),
-        Some(&b"mls-3"[..])
-    );
 }
 
 #[test]
