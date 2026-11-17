@@ -26,8 +26,6 @@
   {"path":"rust/bootstrap/src/service/clock.rs","function":"fn info_and_heartbeat_time_failures_report_clock_without_changing_gossip ","metrics":{"lines":109}},
   {"path":"rust/bootstrap/src/service/clock.rs","function":"fn media_non_clock_errors_and_old_replica_keeps_preserve_existing_rules ","metrics":{"lines":73}},
   {"path":"rust/bootstrap/src/service/clock.rs","function":"fn media_time_hints_cover_direct_replica_and_shard_authorizations ","metrics":{"lines":87}},
-  {"path":"rust/bootstrap/src/service/mailbox.rs","function":"impl Service ::fn mailbox_request ","metrics":{"lines":71}},
-  {"path":"rust/bootstrap/src/service/mailbox.rs","function":"impl Service ::fn store_put ","metrics":{"lines":60}},
   {"path":"rust/bootstrap/src/service/search.rs","function":"impl Service ::fn search ","metrics":{"lines":52}},
   {"path":"rust/bootstrap/src/service/tests.rs","function":"fn admission_stores_nothing_and_replicas_verify_and_cost_one_unit ","metrics":{"lines":76}},
   {"path":"rust/bootstrap/src/service/tests.rs","function":"fn heartbeat_keeps_the_profile_seen ","metrics":{"cognitive":22,"lines":70}},

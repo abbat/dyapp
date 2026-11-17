@@ -117,6 +117,72 @@ impl Service {
         Ok(response)
     }
 
+    fn challenge(nonce: &mut Option<[u8; 32]>) -> crate::Result<MailboxResponse> {
+        let mut fresh = [0; 32];
+        getrandom::fill(&mut fresh).map_err(|e| BootstrapError::ServerError(e.to_string()))?;
+        *nonce = Some(fresh);
+        Ok(MailboxResponse {
+            nonce: fresh.to_vec(),
+            ..status(Status::Ok)
+        })
+    }
+
+    fn client_put(
+        &self,
+        peer: &Peer,
+        record: &SignedRecord,
+        store: bool,
+        strike: &mut bool,
+    ) -> crate::Result<MailboxResponse> {
+        let group = Group::Ip(&peer.group);
+        let (response, strikes) = self.put_inner(
+            record,
+            store,
+            Source::Client,
+            MAX_ENVELOPE_BYTES,
+            &peer.id,
+            group,
+            None,
+        )?;
+        *strike = strikes;
+        Ok(response)
+    }
+
+    fn fetch(
+        &self,
+        nonce: &mut Option<[u8; 32]>,
+        record: &SignedRecord,
+    ) -> crate::Result<MailboxResponse> {
+        let expected = nonce.take();
+        let Ok((mailbox, fetch)) =
+            owner_request::<proto::Fetch>(record, Domain::MailboxFetch, |f| {
+                fresh(expected, &f.nonce)
+            })
+        else {
+            return Ok(status(Status::Denied));
+        };
+        if self.listed(&mailbox) || self.closed(&mailbox)? {
+            return Ok(status(Status::Refused));
+        }
+        let Ok(after) = decode_fetch_cursor(&fetch.cursor) else {
+            return Ok(status(Status::Invalid));
+        };
+        let limit = match fetch.limit {
+            0 => MAX_FETCH,
+            limit => limit.min(MAX_FETCH),
+        };
+        // `watch` is kept by the node loop, which owns the connections.
+        let (envelopes, more, next) =
+            self.store
+                .fetch_envelopes_after(&mailbox, after, limit, FETCH_BYTES)?;
+        Ok(MailboxResponse {
+            envelopes,
+            more,
+            next_cursor: next.map(encode_fetch_cursor).unwrap_or_default(),
+            ..status(Status::Ok)
+        })
+    }
+
     /// `strike` is cleared when a DENIED answer is no sign of abuse.
     fn mailbox_request(
         &self,
@@ -127,60 +193,11 @@ impl Service {
         strike: &mut bool,
     ) -> crate::Result<MailboxResponse> {
         match request.request {
-            Some(mailbox_request::Request::Challenge(_)) => {
-                let mut fresh = [0; 32];
-                getrandom::fill(&mut fresh)
-                    .map_err(|e| BootstrapError::ServerError(e.to_string()))?;
-                *nonce = Some(fresh);
-                Ok(MailboxResponse {
-                    nonce: fresh.to_vec(),
-                    ..status(Status::Ok)
-                })
-            }
+            Some(mailbox_request::Request::Challenge(_)) => Self::challenge(nonce),
             Some(mailbox_request::Request::Put(record)) => {
-                let group = Group::Ip(&peer.group);
-                let (response, strikes) = self.put_inner(
-                    &record,
-                    store,
-                    Source::Client,
-                    MAX_ENVELOPE_BYTES,
-                    &peer.id,
-                    group,
-                    None,
-                )?;
-                *strike = strikes;
-                Ok(response)
+                self.client_put(peer, &record, store, strike)
             }
-            Some(mailbox_request::Request::Fetch(record)) => {
-                let expected = nonce.take();
-                let Ok((mailbox, fetch)) =
-                    owner_request::<proto::Fetch>(&record, Domain::MailboxFetch, |f| {
-                        fresh(expected, &f.nonce)
-                    })
-                else {
-                    return Ok(status(Status::Denied));
-                };
-                if self.listed(&mailbox) || self.closed(&mailbox)? {
-                    return Ok(status(Status::Refused));
-                }
-                let Ok(after) = decode_fetch_cursor(&fetch.cursor) else {
-                    return Ok(status(Status::Invalid));
-                };
-                let limit = match fetch.limit {
-                    0 => MAX_FETCH,
-                    limit => limit.min(MAX_FETCH),
-                };
-                // `watch` is kept by the node loop, which owns the connections.
-                let (envelopes, more, next) =
-                    self.store
-                        .fetch_envelopes_after(&mailbox, after, limit, FETCH_BYTES)?;
-                Ok(MailboxResponse {
-                    envelopes,
-                    more,
-                    next_cursor: next.map(encode_fetch_cursor).unwrap_or_default(),
-                    ..status(Status::Ok)
-                })
-            }
+            Some(mailbox_request::Request::Fetch(record)) => self.fetch(nonce, &record),
             Some(mailbox_request::Request::Ack(record)) => {
                 let expected = nonce.take();
                 self.ack(&record, |ack| fresh(expected, &ack.nonce))
@@ -409,6 +426,32 @@ impl Service {
         .map(|response| (response, true))
     }
 
+    fn persist_envelope(
+        &self,
+        new: &crate::storage::NewEnvelope<'_>,
+        signal: bool,
+        token_key: Option<&[u8]>,
+        max_mb: u64,
+    ) -> crate::Result<MailboxResponse> {
+        let quota = if signal {
+            self.signal_quota()
+        } else {
+            MAX_MAILBOX_BYTES
+        };
+        let tokens = self.config.limits.require_write_tokens;
+        let pool = tokens.then(|| self.mailbox_pool());
+        let stored = self.store.put_envelope(new, quota, pool)?;
+        if stored == Put::Stored && token_key.is_none() {
+            // Pools join the store-wide share only once they are in use.
+            let share = (max_mb << 20) / 100 * u64::from(self.config.limits.tokenless_share_pct);
+            self.store.evict_tokenless(share, tokens)?;
+        }
+        Ok(status(match stored {
+            Put::Full => Status::Full,
+            Put::Stored | Put::Dropped => Status::Ok,
+        }))
+    }
+
     /// The rest of [`Service::put`] once the token is admitted.
     #[expect(
         clippy::too_many_arguments,
@@ -469,23 +512,7 @@ impl Service {
                 expires_at,
             )
         };
-        let quota = if signal {
-            self.signal_quota()
-        } else {
-            MAX_MAILBOX_BYTES
-        };
-        let tokens = self.config.limits.require_write_tokens;
-        let pool = tokens.then(|| self.mailbox_pool());
-        let stored = self.store.put_envelope(&new, quota, pool)?;
-        if stored == Put::Stored && token_key.is_none() {
-            // Pools join the store-wide share only once they are in use.
-            let share = (max_mb << 20) / 100 * u64::from(self.config.limits.tokenless_share_pct);
-            self.store.evict_tokenless(share, tokens)?;
-        }
-        Ok(status(match stored {
-            Put::Full => Status::Full,
-            Put::Stored | Put::Dropped => Status::Ok,
-        }))
+        self.persist_envelope(&new, signal, token_key, max_mb)
     }
 
     /// The envelope's write token key, `None` without a token, or the answer that refuses it and
