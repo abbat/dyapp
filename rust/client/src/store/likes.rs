@@ -548,6 +548,16 @@ mod tests {
         );
     }
 
+    fn conflicting_envelope(write: &PreparedEnvelope) -> PreparedEnvelope {
+        let record = SignedRecord::decode(write.as_bytes()).unwrap();
+        let mut envelope = proto::Envelope::decode(record.payload.as_slice()).unwrap();
+        envelope.ciphertext = vec![9];
+        let conflicting = Identity::try_generate()
+            .unwrap()
+            .sign(Domain::Envelope, envelope.encode_to_vec());
+        PreparedEnvelope::from_bytes(conflicting.encode_to_vec()).unwrap()
+    }
+
     fn stage_and_check_interaction_conflicts(
         store: &mut Store,
         bob: &str,
@@ -582,13 +592,7 @@ mod tests {
             .draft_interaction(bob, Kind::Unlike, 1_000)
             .unwrap()
             .unwrap();
-        let record = SignedRecord::decode(write.as_bytes()).unwrap();
-        let mut envelope = proto::Envelope::decode(record.payload.as_slice()).unwrap();
-        envelope.ciphertext = vec![9];
-        let conflicting = Identity::try_generate()
-            .unwrap()
-            .sign(Domain::Envelope, envelope.encode_to_vec());
-        let conflicting = PreparedEnvelope::from_bytes(conflicting.encode_to_vec()).unwrap();
+        let conflicting = conflicting_envelope(write);
         assert!(matches!(
             store.stage_interaction(bob, b"device", unlike, b"changed", &[conflicting]),
             Err(Error::OutboxConflict)

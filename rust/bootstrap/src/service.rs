@@ -502,16 +502,20 @@ impl Service {
         .collect()
     }
 
+    fn search_puzzle(&self) -> ([u8; 16], u32) {
+        if self.search.is_some() {
+            self.puzzle.current()
+        } else {
+            ([0; 16], 0)
+        }
+    }
+
     fn info(&self) -> NodeInfo {
         let store = self.config.roles.contains(&Role::Store);
         let media = self.media.is_some();
         let turn = self.config.roles.contains(&Role::Turn);
         let search = self.search.is_some();
-        let puzzle = if search {
-            self.puzzle.current()
-        } else {
-            ([0; 16], 0)
-        };
+        let puzzle = self.search_puzzle();
         NodeInfo {
             roles: Self::enabled_roles([
                 (store, proto::Role::Store),

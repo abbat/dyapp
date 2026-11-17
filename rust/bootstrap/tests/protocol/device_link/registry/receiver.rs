@@ -56,6 +56,26 @@ fn install_id(received: &mut ReceivedLink) -> Result<String, String> {
         .map_err(ToString::to_string)
 }
 
+async fn assert_terminal_poll(
+    receiver: &LinkReceiver<String, String>,
+    view: &ProfileView,
+    now: u64,
+) {
+    assert_eq!(
+        receiver
+            .poll_with(
+                &Files,
+                view,
+                now,
+                |_| async { panic!("terminal receiver dialed again") },
+                |_| panic!("terminal receiver wrote again")
+            )
+            .await
+            .unwrap(),
+        LinkPhase::Completed
+    );
+}
+
 #[tokio::test]
 async fn empty_poll_restores_the_invitation_and_success_never_repeats_network_or_writes() {
     let address = link_node().await;
@@ -97,19 +117,7 @@ async fn empty_poll_restores_the_invitation_and_success_never_repeats_network_or
     );
     let result = receiver.result().unwrap().unwrap().unwrap();
     assert_eq!(fixture.registry.list().unwrap().len(), 2);
-    assert_eq!(
-        receiver
-            .poll_with(
-                &Files,
-                &fixture.view,
-                now,
-                |_| async { panic!("terminal receiver dialed again") },
-                |_| panic!("terminal receiver wrote again")
-            )
-            .await
-            .unwrap(),
-        LinkPhase::Completed
-    );
+    assert_terminal_poll(receiver, &fixture.view, now).await;
     assert_eq!(receiver.result().unwrap(), Some(Ok(result)));
 }
 

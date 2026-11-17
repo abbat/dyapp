@@ -23,6 +23,14 @@ fn hold(contact: &mut Store, signer: &Identity, mailbox: &[u8; 32], epoch: u32) 
     key
 }
 
+fn current_day() -> (u32, u64) {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    (u32::try_from(now / 86_400).unwrap(), now)
+}
+
 #[tokio::test]
 async fn a_held_token_is_used_and_a_refused_one_falls_back() {
     let address = start_config(|config| {
@@ -35,11 +43,7 @@ async fn a_held_token_is_used_and_a_refused_one_falls_back() {
     let mut contact = Person::new(&address).await;
     let mut store = Store::open(&store_path("contact"), &contact.identity).unwrap();
     let mailbox = owner.mailbox();
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-    let today = u32::try_from(now / 86_400).unwrap();
+    let (today, now) = current_day();
     // A put's sender key: the token key, or a one-off key for a tokenless write.
     let mut sent = async |store: &Store, day: u32| {
         let epoch = tokens::send(&mut contact.node, store, &mailbox, &[1], day, &SEAL)
