@@ -305,20 +305,24 @@ async fn block_with_no_issued_tokens_is_local_even_without_nodes() {
     assert!(session.store.blocked(&peer).unwrap());
 }
 
-#[test]
-fn a_blocked_owner_is_not_joined_and_its_messages_are_acked_unseen() {
-    let seal_key = [7; 32];
-    let invite = bob_invited(&temp_path(), &seal_key);
+fn blocked_owner_is_refused(seal_key: &[u8; 32]) {
+    let invite = bob_invited(&temp_path(), seal_key);
     let mut session = invite.session;
     session
         .store
         .set_blocked(&invite.alice_id.peer_id(), true)
         .unwrap();
     assert!(matches!(
-        session.stage_envelope(&key(1), &invite.welcome, &invite.profiles, &seal_key),
+        session.stage_envelope(&key(1), &invite.welcome, &invite.profiles, seal_key),
         Ok(Some(Event::Refused(_)))
     ));
-    assert_eq!(session.store.known_groups().unwrap().len(), 0);
+    assert!(session.store.known_groups().unwrap().is_empty());
+}
+
+#[test]
+fn a_blocked_owner_is_not_joined_and_its_messages_are_acked_unseen() {
+    let seal_key = [7; 32];
+    blocked_owner_is_refused(&seal_key);
 
     let Invite {
         mut session,
