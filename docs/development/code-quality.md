@@ -248,9 +248,9 @@ runtime panic freedom: assertions, allocation failure and transitive dependency 
 outside this check; indexing and UTF-8 string slicing have separate ratchets.
 
 The same run counts Clippy `arithmetic_side_effects` against `[arithmetic]`, a separate
-budget so a removed `unwrap` cannot pay for a new `+`. Release builds keep `overflow-checks`
-off, so an unchecked integer operation wraps silently there; this ratchet catches new ones
-statically instead. Clippy has no range analysis and flags every integer `+`, `-` and `*`.
+budget so a removed `unwrap` cannot pay for a new `+`. Shipped release profiles keep
+`overflow-checks` off, so an unchecked integer operation wraps silently there; this ratchet catches
+new ones statically instead. The separate fuzz workspace explicitly enables overflow checks. Clippy has no range analysis and flags every integer `+`, `-` and `*`.
 All crates now have zero arithmetic, indexing and string-slicing budgets. Integer operations
 must be `checked_`, `saturating_` or `wrapping_`, the last only where wrapping is the intended
 meaning. `[indexing]` and `[string_slicing]` apply the same per-crate barrier to

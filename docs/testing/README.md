@@ -336,8 +336,9 @@ and representative measurements remain release checks.
 Practice B4, with cargo-fuzz 0.13.2 and libfuzzer-sys (pinned in `tools/docker/Dockerfile.dev`,
 `ci-base.yml` and `fuzz.yml`). `tests/fuzz/` is its own Cargo workspace with its own `Cargo.lock`; it
 builds on the pinned stable toolchain because the targets run without a sanitizer (`-s none`):
-safe Rust needs no AddressSanitizer, and panics, overflows (debug assertions are on), hangs and
-memory blow-ups still fail.
+safe Rust needs no AddressSanitizer, and panics, overflows (debug assertions and overflow checks are
+explicitly on in `tests/fuzz/Cargo.toml` and compile-time asserted by the shared target module),
+hangs and memory blow-ups still fail.
 
 Most targets feed one request handler of a bootstrap node, the code that parses what any peer
 sends. `tests/fuzz/src/lib.rs` opens one node with the media and search roles in a temporary directory,

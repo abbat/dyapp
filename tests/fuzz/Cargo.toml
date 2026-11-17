@@ -34,6 +34,8 @@ allow_attributes_without_reason = "deny"
 
 [profile.release]
 debug = 1
+debug-assertions = true
+overflow-checks = true
 
 [[bin]]
 name = "node"
