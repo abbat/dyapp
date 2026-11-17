@@ -63,7 +63,7 @@ pub(super) fn wrapped_bytes(path: &std::path::Path) -> Result<Option<Zeroizing<V
     let mut bytes = Zeroizing::new(Vec::new());
     fs::File::open(path)
         .and_then(|file| {
-            file.take(MAX_WRAPPED_BYTES as u64 + 1)
+            file.take((MAX_WRAPPED_BYTES as u64).saturating_add(1))
                 .read_to_end(&mut bytes)
         })
         .map_err(|error| error.to_string())?;

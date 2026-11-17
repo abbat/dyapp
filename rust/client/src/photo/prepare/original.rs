@@ -22,7 +22,10 @@ pub fn validate_original(
     if width == 0 || height == 0 || dimensions != (width, height) {
         return Err(PrepareError::Unsupported);
     }
-    if u64::from(width) * u64::from(height) > MAX_SOURCE_PIXELS {
+    if u64::from(width)
+        .checked_mul(u64::from(height))
+        .is_none_or(|pixels| pixels > MAX_SOURCE_PIXELS)
+    {
         return Err(PrepareError::TooLarge);
     }
     Ok(())

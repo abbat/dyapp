@@ -864,7 +864,8 @@ pub fn pad(plaintext: &[u8]) -> Vec<u8> {
 }
 
 fn pad_from(plaintext: &[u8], floor: usize) -> Vec<u8> {
-    let size = (LENGTH_BYTES + plaintext.len())
+    let size = LENGTH_BYTES
+        .saturating_add(plaintext.len())
         .max(floor)
         .next_power_of_two();
     let length = u32::try_from(plaintext.len()).unwrap_or(u32::MAX);

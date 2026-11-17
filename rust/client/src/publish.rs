@@ -447,7 +447,7 @@ async fn patiently<T>(mut request: impl AsyncFnMut() -> Result<T, Error>) -> Res
     loop {
         match request().await {
             Err(Error::Status(Status::RateLimited)) if waits < PUT_WAITS => {
-                waits += 1;
+                waits = waits.saturating_add(1);
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             }
             done => return done,

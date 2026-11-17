@@ -33,7 +33,7 @@ impl Profiles {
             .position(|held| held.peer_id == profile.peer_id)
         else {
             self.0.push(profile);
-            return Ok(&self.0[self.0.len() - 1]);
+            return Ok(&self.0[self.0.len().saturating_sub(1)]);
         };
         let held = &mut self.0[index];
         // An authorized final account deletion cannot be hidden by an earlier live fork.

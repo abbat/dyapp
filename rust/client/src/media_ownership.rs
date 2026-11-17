@@ -268,7 +268,7 @@ impl Node {
         // States are identity-bound even when a caller retains one across an identity switch.
         expected.ensure_owner(owner)?;
         let keep = proto::MediaKeepIntent {
-            version: expected.revision() + 1,
+            version: expected.revision().saturating_add(1),
             hashes,
             time: now(),
             expected: Some(expected.condition()),

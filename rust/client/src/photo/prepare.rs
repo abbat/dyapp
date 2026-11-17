@@ -66,7 +66,11 @@ pub fn decode_plan(
     if !matches!(mime, "image/jpeg" | "image/png") || width == 0 || height == 0 {
         return Err(PrepareError::Unsupported);
     }
-    if bytes > MAX_PICKED_BYTES || u64::from(width) * u64::from(height) > MAX_SOURCE_PIXELS {
+    if bytes > MAX_PICKED_BYTES
+        || u64::from(width)
+            .checked_mul(u64::from(height))
+            .is_none_or(|pixels| pixels > MAX_SOURCE_PIXELS)
+    {
         return Err(PrepareError::TooLarge);
     }
     let (width, height) = fit(width, height, purpose.policy().0[0]);
