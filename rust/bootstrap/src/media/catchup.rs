@@ -80,15 +80,16 @@ fn validate(
         return Err(invalid("history target clock invalid"));
     }
     let mut parsed = Vec::new();
-    for (index, record) in ancestors.iter().enumerate() {
+    let mut previous = None;
+    for record in ancestors {
         let intent = inspect(owner, record)?;
         if intent.version >= head.version || intent.time > *fresh.end() {
             return Err(invalid("invalid history ancestor version or clock"));
         }
-        if index > 0 {
-            history::follows(record, &ancestors[index.saturating_sub(1)])
-                .map_err(|_| invalid("unlinked history page"))?;
+        if let Some(previous) = previous {
+            history::follows(record, previous).map_err(|_| invalid("unlinked history page"))?;
         }
+        previous = Some(record);
         parsed.push(intent);
     }
     Ok((head, parsed))

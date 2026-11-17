@@ -14,7 +14,10 @@ pub(super) fn safe_toml_error(path: &Path, source: &str, error: &toml::de::Error
     let location = error
         .span()
         .map(|span| {
-            let prefix = &source.as_bytes()[..span.start.min(source.len())];
+            let prefix = source
+                .as_bytes()
+                .get(..span.start.min(source.len()))
+                .unwrap_or_default();
             let line = prefix.split(|byte| *byte == b'\n').count();
             let column = prefix
                 .iter()

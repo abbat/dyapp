@@ -136,10 +136,15 @@ impl Metrics {
     /// Counts a received request (`None`) or an outcome index.
     fn count(&self, protocol: usize, outcome: Option<usize>) {
         let counter = match outcome {
-            None => &self.requests[protocol],
-            Some(outcome) => &self.outcomes[protocol][outcome],
+            None => self.requests.get(protocol),
+            Some(outcome) => self
+                .outcomes
+                .get(protocol)
+                .and_then(|outcomes| outcomes.get(outcome)),
         };
-        counter.fetch_add(1, Ordering::Relaxed);
+        if let Some(counter) = counter {
+            counter.fetch_add(1, Ordering::Relaxed);
+        }
     }
 }
 
@@ -328,18 +333,18 @@ fn render_storage(out: &mut Text, metrics: &Metrics) {
             out.sample("storage_read_ok", &format!("{{store=\"{store}\"}}"), ok);
         }
     }
-    for (name, help, pick) in [
-        ("storage_used_bytes", "Bytes a store uses.", 0),
+    for (name, help, select_free) in [
+        ("storage_used_bytes", "Bytes a store uses.", false),
         (
             "storage_free_bytes",
             "Bytes free on a store's file system.",
-            1,
+            true,
         ),
     ] {
         out.family(name, "gauge", help);
         for (store, usage) in STORES.iter().zip(snapshot.stores) {
             if let Usage::Read(used, free) = usage {
-                let value = [used, free][pick];
+                let value = if select_free { free } else { used };
                 out.sample(name, &format!("{{store=\"{store}\"}}"), value);
             }
         }

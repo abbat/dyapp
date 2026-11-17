@@ -82,13 +82,17 @@ async fn answer(mut stream: TcpStream, service: &Service) -> std::io::Result<()>
         if len == HEAD_BYTES {
             break "431 Request Header Fields Too Large";
         }
-        let read = stream.read(&mut head[len..]).await?;
+        let Some(remaining) = head.get_mut(len..) else {
+            break "431 Request Header Fields Too Large";
+        };
+        let read = stream.read(remaining).await?;
         if read == 0 {
             return Ok(());
         }
         len = len.saturating_add(read);
-        if head[..len].windows(4).any(|w| w == b"\r\n\r\n") {
-            break route(&head[..len]);
+        let received = head.get(..len).unwrap_or_default();
+        if received.windows(4).any(|w| w == b"\r\n\r\n") {
+            break route(received);
         }
     };
     let (body, extra) = match status {

@@ -72,6 +72,16 @@ fn range(topic: u32, from: u32, to: u32) -> Range {
     }
 }
 
+fn digest_differs(local: &[[u8; 32]], remote: &DigestResponse, i: usize) -> bool {
+    let Some(local) = local.get(i) else {
+        return true;
+    };
+    remote
+        .hashes
+        .get(i)
+        .is_none_or(|remote| remote.as_slice() != local.as_slice())
+}
+
 /// What to ask next after a digest answer (`None`: the request failed). `bucket` is the bucket
 /// the request named; `local` is this node's answer to the same request.
 #[must_use]
@@ -91,7 +101,7 @@ pub fn on_digest(
         let last = bucket.map_or(SLOTS, |_| first.saturating_add(256));
         return vec![Ask::Range(range(topic, first, last))];
     };
-    let differs = |i: usize| local.get(i).is_none_or(|l| remote.hashes[i] != l[..]);
+    let differs = |i| digest_differs(local, remote, i);
     let Some(_) = bucket else {
         let buckets: Vec<u8> = (0..=255u8).filter(|b| differs(usize::from(*b))).collect();
         // Too many to compare one by one (e.g. a partial sample): fetch the whole topic.
@@ -125,11 +135,7 @@ pub fn on_digest(
     }
     // Too many separate ranges: one request for the whole bucket is cheaper.
     if asks.len() > MAX_RUNS {
-        return vec![Ask::Range(range(
-            topic,
-            first,
-            first.saturating_add(256),
-        ))];
+        return vec![Ask::Range(range(topic, first, first.saturating_add(256)))];
     }
     asks
 }
