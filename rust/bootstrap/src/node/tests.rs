@@ -494,8 +494,19 @@ async fn media_inventory_requires_near_trusted_peers_and_budget() {
         index: None,
     }];
     let mut replicas = Replicas::default();
+    check_media_inventory(&mut swarm, &service, &mut replicas, near, far, &items);
+}
+
+fn check_media_inventory(
+    swarm: &mut Swarm<Behaviour>,
+    service: &Service,
+    replicas: &mut Replicas,
+    near: PeerId,
+    far: PeerId,
+    items: &[proto::MediaPart],
+) {
     let reply = replicas
-        .media_inventory(&mut swarm, &service, far, &items)
+        .media_inventory(swarm, service, far, items)
         .unwrap()
         .inventory
         .unwrap();
@@ -507,7 +518,7 @@ async fn media_inventory_requires_near_trusted_peers_and_budget() {
     );
     replicas.trust.score.insert(near, -1);
     let checked_items = replicas
-        .media_inventory(&mut swarm, &service, near, &items)
+        .media_inventory(swarm, service, near, items)
         .unwrap()
         .inventory
         .unwrap()
@@ -516,7 +527,7 @@ async fn media_inventory_requires_near_trusted_peers_and_budget() {
     replicas.trust.score.insert(near, 0);
     assert_eq!(
         replicas
-            .media_inventory(&mut swarm, &service, near, &items)
+            .media_inventory(swarm, service, near, items)
             .unwrap()
             .inventory
             .unwrap()
@@ -527,7 +538,7 @@ async fn media_inventory_requires_near_trusted_peers_and_budget() {
     service.traffic.add(10_000);
     assert_eq!(
         replicas
-            .media_inventory(&mut swarm, &service, near, &items)
+            .media_inventory(swarm, service, near, items)
             .unwrap()
             .status,
         i32::from(Status::RateLimited)
