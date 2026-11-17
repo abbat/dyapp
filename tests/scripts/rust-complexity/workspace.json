@@ -18,7 +18,6 @@
   {"path":"rust/bootstrap/src/node/tests.rs","function":"fn media_queue_drops_capped_writes_without_tracking_or_trust_penalties ","metrics":{"lines":77}},
   {"path":"rust/bootstrap/src/node/tests/groups.rs","function":"fn incoming_group_caps_established_tcp_but_exempts_outgoing_and_releases_close ","metrics":{"lines":75}},
   {"path":"rust/bootstrap/src/node/tests/groups.rs","function":"fn incoming_group_caps_pending_tcp_and_releases_failed_handshakes ","metrics":{"lines":82}},
-  {"path":"rust/bootstrap/src/search/worker.rs","function":"impl SearchIndex ::fn rebuild_with ","metrics":{"cognitive":39,"lines":59}},
   {"path":"rust/bootstrap/src/service.rs","function":"impl Service ::fn profile_inner ","metrics":{"lines":107}},
   {"path":"rust/bootstrap/src/service/clock.rs","function":"fn info_and_heartbeat_time_failures_report_clock_without_changing_gossip ","metrics":{"lines":109}},
   {"path":"rust/bootstrap/src/service/clock.rs","function":"fn media_non_clock_errors_and_old_replica_keeps_preserve_existing_rules ","metrics":{"lines":73}},

@@ -77,6 +77,97 @@ impl SearchIndex {
             .await;
     }
 
+    fn forced_refill(&self) -> std::result::Result<(), Abort> {
+        tracing::warn!(step = "drop_refill", "search index rebuild forced");
+        self.rebuild.drop_refills.fetch_add(1, Ordering::Relaxed);
+        self.refill()
+    }
+
+    async fn forced_all(
+        &self,
+        pending: &mut Option<Candidate>,
+        budget: &RebuildBudget,
+        min_free: u64,
+    ) -> std::result::Result<(), Abort> {
+        tracing::warn!(step = "stop_the_world", "search index rebuild forced");
+        self.rebuild.stop_the_worlds.fetch_add(1, Ordering::Relaxed);
+        let built = match pending.take() {
+            Some(candidate) => Ok(candidate),
+            None => self.build(self.target, budget, min_free).await,
+        };
+        match built {
+            Ok(candidate) | Err(Abort::Postpone(candidate)) => {
+                self.activate(candidate, Replay::All)
+            }
+            Err(abort) => Err(abort),
+        }
+    }
+
+    async fn settled(
+        &self,
+        pending: &mut Option<Candidate>,
+        budget: &RebuildBudget,
+        min_free: u64,
+    ) -> std::result::Result<(), Abort> {
+        let built = match pending.take() {
+            Some(candidate) => self.replay(candidate, budget, min_free).await,
+            None => self.build(self.target, budget, min_free).await,
+        };
+        built.and_then(|candidate| self.activate(candidate, Replay::Settled))
+    }
+
+    async fn attempt(
+        &self,
+        forced: Option<Kind>,
+        pending: &mut Option<Candidate>,
+        budget: &RebuildBudget,
+        min_free: u64,
+    ) -> std::result::Result<(), Abort> {
+        match forced {
+            Some(Kind::Disk) => self.forced_refill(),
+            Some(_) => self.forced_all(pending, budget, min_free).await,
+            None => self.settled(pending, budget, min_free).await,
+        }
+    }
+
+    fn log_delay(kind: Kind, streak: &Streak, delay: Duration) {
+        tracing::info!(
+            abort = ?kind,
+            in_a_row = streak.count,
+            retry_s = delay.as_secs(),
+            "search index rebuild stopped"
+        );
+    }
+
+    fn rebuild_delay(
+        &self,
+        result: std::result::Result<(), Abort>,
+        delays: [Duration; 2],
+        pending: &mut Option<Candidate>,
+        streak: &mut Streak,
+    ) -> Option<Duration> {
+        let (kind, delay) = match result {
+            Ok(()) => return None,
+            Err(Abort::Postpone(candidate)) => {
+                *pending = Some(candidate);
+                self.rebuild.postpones.fetch_add(1, Ordering::Relaxed);
+                (Kind::Postpone, delays[0])
+            }
+            Err(Abort::Overflow) => {
+                self.rebuild.overflows.fetch_add(1, Ordering::Relaxed);
+                (Kind::Overflow, delays[1])
+            }
+            Err(Abort::Disk) => (Kind::Disk, delays[1]),
+            Err(Abort::Io(error)) => {
+                tracing::error!(%error, "search index rebuild failed");
+                (Kind::Io, delays[1])
+            }
+        };
+        streak.record(kind);
+        Self::log_delay(kind, streak, delay);
+        Some(delay)
+    }
+
     /// `rebuild` with the delays after a postpone and after other aborts.
     pub(super) async fn rebuild_with(
         &self,
@@ -87,59 +178,12 @@ impl SearchIndex {
         let mut streak = Streak::default();
         let mut pending: Option<Candidate> = None;
         while self.index_version() < self.target {
-            let result = match streak.forced() {
-                Some(Kind::Disk) => {
-                    tracing::warn!(step = "drop_refill", "search index rebuild forced");
-                    self.rebuild.drop_refills.fetch_add(1, Ordering::Relaxed);
-                    self.refill()
-                }
-                Some(_) => {
-                    tracing::warn!(step = "stop_the_world", "search index rebuild forced");
-                    self.rebuild.stop_the_worlds.fetch_add(1, Ordering::Relaxed);
-                    let built = match pending.take() {
-                        Some(candidate) => Ok(candidate),
-                        None => self.build(self.target, budget, min_free).await,
-                    };
-                    match built {
-                        Ok(candidate) | Err(Abort::Postpone(candidate)) => {
-                            self.activate(candidate, Replay::All)
-                        }
-                        Err(abort) => Err(abort),
-                    }
-                }
-                None => {
-                    let built = match pending.take() {
-                        Some(candidate) => self.replay(candidate, budget, min_free).await,
-                        None => self.build(self.target, budget, min_free).await,
-                    };
-                    built.and_then(|candidate| self.activate(candidate, Replay::Settled))
-                }
-            };
-            let (kind, delay) = match result {
-                Ok(()) => continue,
-                Err(Abort::Postpone(candidate)) => {
-                    pending = Some(candidate);
-                    self.rebuild.postpones.fetch_add(1, Ordering::Relaxed);
-                    (Kind::Postpone, delays[0])
-                }
-                Err(Abort::Overflow) => {
-                    self.rebuild.overflows.fetch_add(1, Ordering::Relaxed);
-                    (Kind::Overflow, delays[1])
-                }
-                Err(Abort::Disk) => (Kind::Disk, delays[1]),
-                Err(Abort::Io(error)) => {
-                    tracing::error!(%error, "search index rebuild failed");
-                    (Kind::Io, delays[1])
-                }
-            };
-            streak.record(kind);
-            tracing::info!(
-                abort = ?kind,
-                in_a_row = streak.count,
-                retry_s = delay.as_secs(),
-                "search index rebuild stopped"
-            );
-            tokio::time::sleep(delay).await;
+            let result = self
+                .attempt(streak.forced(), &mut pending, budget, min_free)
+                .await;
+            if let Some(delay) = self.rebuild_delay(result, delays, &mut pending, &mut streak) {
+                tokio::time::sleep(delay).await;
+            }
         }
     }
 
