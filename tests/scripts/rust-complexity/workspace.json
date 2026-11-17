@@ -165,7 +165,6 @@
   {"path":"rust/p2p-net/src/incoming_groups.rs","function":"mod tests # [cfg (test)]::fn group_masks_bound_unknown_endpoints_and_keep_address_families_separate ","metrics":{"lines":65}},
   {"path":"rust/p2p-net/src/incoming_groups.rs","function":"mod tests # [cfg (test)]::fn pending_and_established_share_slots_and_failure_or_close_releases_once ","metrics":{"lines":72}},
   {"path":"rust/p2p-net/src/lib.rs","function":"fn admit ","metrics":{"cognitive":28}},
-  {"path":"rust/p2p-net/src/lib.rs","function":"fn build_configured_swarm ","metrics":{"lines":195}},
   {"path":"rust/p2p-net/src/lib/media_streams.rs","function":"fn media_stream_limit ","metrics":{"lines":86}},
   {"path":"rust/p2p-net/src/lib/tests.rs","function":"fn configured_media_ids_keep_large_frames_and_stable_counter_slots ","metrics":{"lines":69}},
   {"path":"rust/p2p-net/src/lib/tests.rs","function":"fn failed_codec_io_does_not_count_and_releases_media_permits ","metrics":{"lines":67}},

@@ -430,6 +430,271 @@ pub fn build_limited_swarm(
     )
 }
 
+type StoreKad = (
+    kad::Behaviour<kad::store::MemoryStore>,
+    ProtocolSupport,
+    ProtocolSupport,
+);
+
+fn store_kad(peer_id: PeerId, protocol: StreamProtocol, mode: &Mode) -> StoreKad {
+    let mut config = kad::Config::new(protocol);
+    // Every insert goes through `add_peer`, so the diversity limits hold (ADR 0008).
+    config
+        .disjoint_query_paths(true)
+        .set_kbucket_inserts(kad::BucketInserts::Manual)
+        .set_record_filtering(kad::StoreInserts::FilterBoth);
+    let mut behaviour =
+        kad::Behaviour::with_config(peer_id, kad::store::MemoryStore::new(peer_id), config);
+    let (kad_mode, support, push) = match mode {
+        Mode::Auto => (None, ProtocolSupport::Full, ProtocolSupport::Outbound),
+        Mode::Client => (
+            Some(kad::Mode::Client),
+            ProtocolSupport::Outbound,
+            ProtocolSupport::Inbound,
+        ),
+    };
+    behaviour.set_mode(kad_mode);
+    (behaviour, support, push)
+}
+
+fn search_kad(
+    peer_id: PeerId,
+    protocols: &Protocols,
+    search: bool,
+) -> kad::Behaviour<kad::store::MemoryStore> {
+    let mut config = kad::Config::new(protocols.search_kad.clone());
+    config
+        .set_kbucket_inserts(kad::BucketInserts::Manual)
+        .set_record_filtering(kad::StoreInserts::FilterBoth);
+    let mut behaviour =
+        kad::Behaviour::with_config(peer_id, kad::store::MemoryStore::new(peer_id), config);
+    behaviour.set_mode(Some(if search {
+        kad::Mode::Server
+    } else {
+        kad::Mode::Client
+    }));
+    behaviour
+}
+
+fn gossip_behaviour(
+    key: &Keypair,
+    protocols: &Protocols,
+    enabled: bool,
+) -> Option<gossipsub::Behaviour> {
+    enabled.then(|| {
+        let mut config = gossipsub::ConfigBuilder::default();
+        if let Some(prefix) = &protocols.gossip_prefix {
+            config.protocol_id_prefix(prefix.clone());
+        }
+        let config = config
+            .validation_mode(gossipsub::ValidationMode::Strict)
+            .validate_messages()
+            .max_transmit_size(MAX_GOSSIP_BYTES)
+            .message_id_fn(|m: &gossipsub::Message| {
+                gossipsub::MessageId::from(dyapp_identity::sha256(&m.data).to_vec())
+            })
+            .build()
+            .expect("valid gossipsub config");
+        gossipsub::Behaviour::new(gossipsub::MessageAuthenticity::Signed(key.clone()), config)
+            .expect("valid gossipsub behaviour")
+    })
+}
+
+fn proto_codec<Req, Resp>(
+    wire: &Arc<WireBytes>,
+    protocols: &Arc<Protocols>,
+) -> ProtoCodec<Req, Resp> {
+    ProtoCodec::default()
+        .with_wire(wire.clone())
+        .with_protocols(protocols.clone())
+}
+
+struct NodeBehaviours {
+    node: NodeBehaviour,
+    profile: ProfileBehaviour,
+    key_package: KeyPackageBehaviour,
+    mailbox: MailboxBehaviour,
+    push: PushBehaviour,
+}
+
+impl NodeBehaviours {
+    fn new(
+        wire: &Arc<WireBytes>,
+        protocols: &Arc<Protocols>,
+        support: &ProtocolSupport,
+        push: ProtocolSupport,
+        config: request_response::Config,
+    ) -> Self {
+        Self {
+            node: request_response::Behaviour::with_codec(
+                proto_codec(wire, protocols),
+                [(protocols.node.clone(), support.clone())],
+                config.clone(),
+            ),
+            profile: request_response::Behaviour::with_codec(
+                proto_codec(wire, protocols),
+                [(protocols.profile.clone(), support.clone())],
+                config.clone(),
+            ),
+            key_package: request_response::Behaviour::with_codec(
+                proto_codec(wire, protocols),
+                [(protocols.key_package.clone(), support.clone())],
+                config.clone(),
+            ),
+            mailbox: request_response::Behaviour::with_codec(
+                proto_codec(wire, protocols),
+                [(protocols.mailbox.clone(), support.clone())],
+                config.clone(),
+            ),
+            push: request_response::Behaviour::with_codec(
+                proto_codec(wire, protocols),
+                [(protocols.mailbox_push.clone(), push)],
+                config,
+            ),
+        }
+    }
+}
+
+struct SearchBehaviours {
+    search: SearchBehaviour,
+    inventory: InventoryBehaviour,
+    digest: DigestBehaviour,
+}
+
+impl SearchBehaviours {
+    fn new(
+        wire: &Arc<WireBytes>,
+        protocols: &Arc<Protocols>,
+        support: ProtocolSupport,
+        config: request_response::Config,
+    ) -> Self {
+        Self {
+            search: request_response::Behaviour::with_codec(
+                proto_codec(wire, protocols),
+                [(protocols.search.clone(), support.clone())],
+                config.clone(),
+            ),
+            inventory: request_response::Behaviour::with_codec(
+                proto_codec(wire, protocols),
+                [(protocols.inventory.clone(), support.clone())],
+                config.clone(),
+            ),
+            digest: request_response::Behaviour::with_codec(
+                proto_codec(wire, protocols),
+                [(protocols.digest.clone(), support)],
+                config,
+            ),
+        }
+    }
+}
+
+fn request_config(max_streams: usize) -> request_response::Config {
+    request_response::Config::default()
+        .with_request_timeout(Duration::from_secs(20))
+        .with_max_concurrent_streams(max_streams)
+}
+
+fn media_behaviour(
+    wire: &Arc<WireBytes>,
+    protocols: &Arc<Protocols>,
+    support: ProtocolSupport,
+    config: request_response::Config,
+    max_streams: usize,
+) -> MediaBehaviour {
+    request_response::Behaviour::with_codec(
+        ProtoCodec::media()
+            .with_wire(wire.clone())
+            .with_protocols(protocols.clone()),
+        [(protocols.media.clone(), support)],
+        config.with_max_concurrent_streams(max_streams.min(2)),
+    )
+}
+
+fn search_support(search: bool) -> ProtocolSupport {
+    if search {
+        ProtocolSupport::Full
+    } else {
+        ProtocolSupport::Outbound
+    }
+}
+
+fn identify_behaviour(key: &Keypair, protocols: &Protocols) -> Announce {
+    Announce::new(identify::Behaviour::new(
+        identify::Config::new(protocols.version.clone(), key.public())
+            .with_agent_version(AGENT_VERSION.into()),
+    ))
+}
+
+fn relay_behaviour(peer_id: PeerId, config: Option<relay::Config>) -> Option<relay::Behaviour> {
+    config.map(|config| relay::Behaviour::new(peer_id, config))
+}
+
+fn configured_behaviour(
+    key: &Keypair,
+    relay_client: relay::client::Behaviour,
+    options: SwarmOptions,
+) -> Behaviour {
+    let peer_id = key.public().to_peer_id();
+    let (kad, support, push) = store_kad(peer_id, options.protocols.kad.clone(), &options.mode);
+    let search_kad = search_kad(peer_id, &options.protocols, options.search);
+    let gossip = gossip_behaviour(key, &options.protocols, options.search);
+    let search_support = search_support(options.search);
+    let config = request_config(options.max_streams);
+    let node = NodeBehaviours::new(
+        &options.wire,
+        &options.protocols,
+        &support,
+        push,
+        config.clone(),
+    );
+    let search_protocols = SearchBehaviours::new(
+        &options.wire,
+        &options.protocols,
+        search_support,
+        config.clone(),
+    );
+    Behaviour {
+        limits: connection_limits::Behaviour::new(options.connection_limits),
+        memory: memory_connection_limits::Behaviour::with_max_bytes(options.max_memory_bytes),
+        incoming_groups: options.incoming_groups.map(IncomingGroupGuard::new).into(),
+        pow_gate: options.dial_guard.map(PowGate::new).into(),
+        endpoints: Endpoints::default(),
+        kad,
+        identify: identify_behaviour(key, &options.protocols),
+        autonat: AutoRelay::new(autonat::Behaviour::new(peer_id, options.autonat)),
+        relay_client,
+        relay: relay_behaviour(peer_id, options.relay).into(),
+        dcutr: dcutr::Behaviour::new(peer_id),
+        node: node.node,
+        profile: node.profile,
+        key_package: node.key_package,
+        mailbox: node.mailbox,
+        push: node.push,
+        search_kad,
+        gossip: gossip.into(),
+        search: search_protocols.search,
+        inventory: search_protocols.inventory,
+        digest: search_protocols.digest,
+        media: media_behaviour(
+            &options.wire,
+            &options.protocols,
+            support,
+            config,
+            options.max_streams,
+        ),
+    }
+}
+
+fn system_dns() -> (libp2p::dns::ResolverConfig, libp2p::dns::ResolverOpts) {
+    // Android without an active network, or a host without /etc/resolv.conf: no name servers, so
+    // IP addresses still dial and host names fail in this swarm.
+    hickory_resolver::system_conf::read_system_conf().unwrap_or_else(|error| {
+        tracing::warn!(%error, "no system DNS configuration: host names will not resolve");
+        let none = libp2p::dns::ResolverConfig::from_parts(None, vec![], vec![]);
+        (none, libp2p::dns::ResolverOpts::default())
+    })
+}
+
 /// Builds a swarm with explicit settings; legacy constructors delegate here.
 ///
 /// # Errors
@@ -442,29 +707,9 @@ pub fn build_configured_swarm(
     keypair: Keypair,
     options: SwarmOptions,
 ) -> anyhow::Result<Swarm<Behaviour>> {
-    let SwarmOptions {
-        mode,
-        connection_limits: limits,
-        max_streams,
-        max_memory_bytes,
-        search,
-        incoming_groups,
-        wire,
-        protocols,
-        dial_guard,
-        dial_filter,
-        relay,
-        autonat,
-    } = options;
-    let pow_gate = dial_guard.clone().map(PowGate::new);
-    // Android without an active network, or a host without /etc/resolv.conf: no name servers, so
-    // IP addresses still dial and host names fail in this swarm.
-    let (dns_config, dns_options) = hickory_resolver::system_conf::read_system_conf()
-        .unwrap_or_else(|error| {
-            tracing::warn!(%error, "no system DNS configuration: host names will not resolve");
-            let none = libp2p::dns::ResolverConfig::from_parts(None, vec![], vec![]);
-            (none, libp2p::dns::ResolverOpts::default())
-        });
+    let dial_guard = options.dial_guard.clone();
+    let dial_filter = options.dial_filter.clone();
+    let (dns_config, dns_options) = system_dns();
     Ok(SwarmBuilder::with_existing_identity(keypair)
         .with_tokio()
         .with_other_transport(|key| -> Result<_, Box<dyn Error + Send + Sync>> {
@@ -490,154 +735,7 @@ pub fn build_configured_swarm(
         // Circuits ride connections of the transport above: the filter, the guard and
         // `Endpoints` see the relay's IP, never the far peer's.
         .with_relay_client(noise::Config::new, yamux::Config::default)?
-        .with_behaviour(|key, relay_client| {
-            let peer_id = key.public().to_peer_id();
-            let mut kad_config = kad::Config::new(protocols.kad.clone());
-            // Every insert goes through `add_peer`, so the diversity limits hold (ADR 0008).
-            kad_config
-                .disjoint_query_paths(true)
-                .set_kbucket_inserts(kad::BucketInserts::Manual)
-                .set_record_filtering(kad::StoreInserts::FilterBoth);
-            let mut kad = kad::Behaviour::with_config(
-                peer_id,
-                kad::store::MemoryStore::new(peer_id),
-                kad_config,
-            );
-            let (kad_mode, support, push) = match mode {
-                Mode::Auto => (None, ProtocolSupport::Full, ProtocolSupport::Outbound),
-                Mode::Client => (
-                    Some(kad::Mode::Client),
-                    ProtocolSupport::Outbound,
-                    ProtocolSupport::Inbound,
-                ),
-            };
-            kad.set_mode(kad_mode);
-            let mut search_config = kad::Config::new(protocols.search_kad.clone());
-            search_config
-                .set_kbucket_inserts(kad::BucketInserts::Manual)
-                .set_record_filtering(kad::StoreInserts::FilterBoth);
-            let mut search_kad = kad::Behaviour::with_config(
-                peer_id,
-                kad::store::MemoryStore::new(peer_id),
-                search_config,
-            );
-            search_kad.set_mode(Some(if search {
-                kad::Mode::Server
-            } else {
-                kad::Mode::Client
-            }));
-            let gossip = search.then(|| {
-                let mut config = gossipsub::ConfigBuilder::default();
-                if let Some(prefix) = &protocols.gossip_prefix {
-                    config.protocol_id_prefix(prefix.clone());
-                }
-                let config = config
-                    .validation_mode(gossipsub::ValidationMode::Strict)
-                    .validate_messages()
-                    .max_transmit_size(MAX_GOSSIP_BYTES)
-                    .message_id_fn(|m: &gossipsub::Message| {
-                        gossipsub::MessageId::from(dyapp_identity::sha256(&m.data).to_vec())
-                    })
-                    .build()
-                    .expect("valid gossipsub config");
-                gossipsub::Behaviour::new(
-                    gossipsub::MessageAuthenticity::Signed(key.clone()),
-                    config,
-                )
-                .expect("valid gossipsub behaviour")
-            });
-            let search_support = if search {
-                ProtocolSupport::Full
-            } else {
-                ProtocolSupport::Outbound
-            };
-            let config = request_response::Config::default()
-                .with_request_timeout(Duration::from_secs(20))
-                .with_max_concurrent_streams(max_streams);
-            Behaviour {
-                limits: connection_limits::Behaviour::new(limits),
-                memory: memory_connection_limits::Behaviour::with_max_bytes(max_memory_bytes),
-                incoming_groups: incoming_groups.map(IncomingGroupGuard::new).into(),
-                pow_gate: pow_gate.into(),
-                endpoints: Endpoints::default(),
-                kad,
-                identify: Announce::new(identify::Behaviour::new(
-                    identify::Config::new(protocols.version.clone(), key.public())
-                        .with_agent_version(AGENT_VERSION.into()),
-                )),
-                autonat: AutoRelay::new(autonat::Behaviour::new(peer_id, autonat)),
-                relay_client,
-                relay: relay
-                    .map(|config| relay::Behaviour::new(peer_id, config))
-                    .into(),
-                dcutr: dcutr::Behaviour::new(peer_id),
-                node: request_response::Behaviour::with_codec(
-                    ProtoCodec::default()
-                        .with_wire(wire.clone())
-                        .with_protocols(protocols.clone()),
-                    [(protocols.node.clone(), support.clone())],
-                    config.clone(),
-                ),
-                profile: request_response::Behaviour::with_codec(
-                    ProtoCodec::default()
-                        .with_wire(wire.clone())
-                        .with_protocols(protocols.clone()),
-                    [(protocols.profile.clone(), support.clone())],
-                    config.clone(),
-                ),
-                key_package: request_response::Behaviour::with_codec(
-                    ProtoCodec::default()
-                        .with_wire(wire.clone())
-                        .with_protocols(protocols.clone()),
-                    [(protocols.key_package.clone(), support.clone())],
-                    config.clone(),
-                ),
-                mailbox: request_response::Behaviour::with_codec(
-                    ProtoCodec::default()
-                        .with_wire(wire.clone())
-                        .with_protocols(protocols.clone()),
-                    [(protocols.mailbox.clone(), support.clone())],
-                    config.clone(),
-                ),
-                push: request_response::Behaviour::with_codec(
-                    ProtoCodec::default()
-                        .with_wire(wire.clone())
-                        .with_protocols(protocols.clone()),
-                    [(protocols.mailbox_push.clone(), push)],
-                    config.clone(),
-                ),
-                search_kad,
-                gossip: gossip.into(),
-                search: request_response::Behaviour::with_codec(
-                    ProtoCodec::default()
-                        .with_wire(wire.clone())
-                        .with_protocols(protocols.clone()),
-                    [(protocols.search.clone(), search_support.clone())],
-                    config.clone(),
-                ),
-                inventory: request_response::Behaviour::with_codec(
-                    ProtoCodec::default()
-                        .with_wire(wire.clone())
-                        .with_protocols(protocols.clone()),
-                    [(protocols.inventory.clone(), search_support.clone())],
-                    config.clone(),
-                ),
-                digest: request_response::Behaviour::with_codec(
-                    ProtoCodec::default()
-                        .with_wire(wire.clone())
-                        .with_protocols(protocols.clone()),
-                    [(protocols.digest.clone(), search_support)],
-                    config.clone(),
-                ),
-                media: request_response::Behaviour::with_codec(
-                    ProtoCodec::media()
-                        .with_wire(wire.clone())
-                        .with_protocols(protocols.clone()),
-                    [(protocols.media.clone(), support)],
-                    config.with_max_concurrent_streams(max_streams.min(2)),
-                ),
-            }
-        })?
+        .with_behaviour(|key, relay_client| configured_behaviour(key, relay_client, options))?
         // Happy Eyeballs (RFC 8305): QUIC before TCP, IPv6 before IPv4, which starts 250 ms
         // later on public addresses and 30 ms later on private ones.
         .with_swarm_config(|c| {
