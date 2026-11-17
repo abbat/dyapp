@@ -44,8 +44,8 @@ fn parse_id(name: &std::ffi::OsStr) -> Option<[u8; 32]> {
         return None;
     }
     let mut id = [0; 32];
-    for (index, pair) in name.as_chunks::<2>().0.iter().enumerate() {
-        id[index] = nibble(pair[0])?
+    for (slot, pair) in id.iter_mut().zip(name.as_chunks::<2>().0.iter()) {
+        *slot = nibble(pair[0])?
             .checked_mul(16)?
             .checked_add(nibble(pair[1])?)?;
     }

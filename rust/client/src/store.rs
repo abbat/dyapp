@@ -299,7 +299,10 @@ impl Store {
             .optional()?;
         match value {
             None => Ok(None),
-            Some((1, value)) if value.len() == 1 => Ok(Some(value[0])),
+            Some((1, value)) => match value.as_slice() {
+                [value] => Ok(Some(*value)),
+                _ => Err(Error::InvalidSetting),
+            },
             _ => Err(Error::InvalidSetting),
         }
     }
@@ -823,7 +826,8 @@ pub(crate) mod tests {
 
     pub(super) fn person() -> (Identity, Device, VerifiedProfile) {
         let identity = Identity::try_generate().unwrap();
-        let device = Device::new(&identity, Identity::try_generate().unwrap().public_key(), 1).unwrap();
+        let device =
+            Device::new(&identity, Identity::try_generate().unwrap().public_key(), 1).unwrap();
         let profile = Profile {
             version: 1,
             devices: vec![device.certificate().clone()],
@@ -863,7 +867,8 @@ pub(crate) mod tests {
     fn outbound_and_mls_snapshot_survive_restart_and_roll_back_together() {
         let path = temp_db_path();
         let owner = Identity::try_generate().unwrap();
-        let device = Device::new(&owner, Identity::try_generate().unwrap().public_key(), 1).unwrap();
+        let device =
+            Device::new(&owner, Identity::try_generate().unwrap().public_key(), 1).unwrap();
         device.key_package(false).unwrap();
         let seal_key = [3; 32];
         let sealed = device.seal(&seal_key).unwrap();
@@ -894,7 +899,9 @@ pub(crate) mod tests {
         let record = SignedRecord::decode(write.as_bytes()).unwrap();
         let mut envelope = proto::Envelope::decode(record.payload.as_slice()).unwrap();
         envelope.ciphertext = vec![9];
-        let conflicting = Identity::try_generate().unwrap().sign(Domain::Envelope, envelope.encode_to_vec());
+        let conflicting = Identity::try_generate()
+            .unwrap()
+            .sign(Domain::Envelope, envelope.encode_to_vec());
         let conflicting = PreparedEnvelope::from_bytes(conflicting.encode_to_vec()).unwrap();
         assert!(matches!(
             store.stage_outbound(b"different state", &[conflicting]),

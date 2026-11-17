@@ -55,12 +55,15 @@ impl Store {
         let Some((version, value)) = row else {
             return Ok(MediaCacheConfig::default());
         };
-        if version != 1 || value.len() != 9 || value[0] > 1 {
+        let [enabled, limit @ ..] = value.as_slice() else {
+            return Err(Error::InvalidSetting);
+        };
+        if version != 1 || limit.len() != 8 || *enabled > 1 {
             return Err(Error::InvalidSetting);
         }
-        let bytes = value[1..].try_into().map_err(|_| Error::InvalidSetting)?;
+        let bytes = limit.try_into().map_err(|_| Error::InvalidSetting)?;
         MediaCacheConfig {
-            enabled: value[0] == 1,
+            enabled: *enabled == 1,
             limit_bytes: u64::from_be_bytes(bytes),
         }
         .validate()

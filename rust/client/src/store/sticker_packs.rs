@@ -118,11 +118,16 @@ fn read(path: &Path, secret: &[u8; 32], owner: &str, id: &[u8; 32]) -> Result<Op
     if bytes.len() < HEADER || bytes.len() > MAX_FILE || !bytes.starts_with(MAGIC) {
         return Err(Error::Invalid);
     }
-    let digest: [u8; 32] = bytes[MAGIC.len()..HEADER]
+    let digest: [u8; 32] = bytes
+        .get(MAGIC.len()..HEADER)
+        .ok_or(Error::Invalid)?
         .try_into()
         .map_err(|_| Error::Invalid)?;
-    let plain = attachment::decrypt(&key(secret, owner, id, &digest), &bytes[HEADER..])
-        .map_err(|_| Error::Invalid)?;
+    let plain = attachment::decrypt(
+        &key(secret, owner, id, &digest),
+        bytes.get(HEADER..).ok_or(Error::Invalid)?,
+    )
+    .map_err(|_| Error::Invalid)?;
     if sha256(&plain) != digest {
         return Err(Error::Invalid);
     }

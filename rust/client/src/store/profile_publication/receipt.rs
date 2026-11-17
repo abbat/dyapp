@@ -79,13 +79,16 @@ impl Store {
         let Some((format, bytes)) = row else {
             return Ok(None);
         };
-        if format != 1 || bytes.len() <= 33 || bytes[0] > 1 {
+        let [hidden, body @ ..] = bytes.as_slice() else {
+            return Err(Error::InvalidSetting);
+        };
+        if format != 1 || body.len() <= 32 || *hidden > 1 {
             return Err(Error::InvalidSetting);
         }
-        if self.profile_hidden()? != (bytes[0] != 0) {
+        if self.profile_hidden()? != (*hidden != 0) {
             return Ok(None);
         }
-        let (digest, record) = bytes[1..].split_at(32);
+        let (digest, record) = body.split_at_checked(32).ok_or(Error::InvalidSetting)?;
         if digest != sha256(&published.sign(identity).encode_to_vec()) {
             return Ok(None);
         }

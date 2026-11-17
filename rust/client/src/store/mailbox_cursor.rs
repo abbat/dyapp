@@ -30,24 +30,23 @@ impl Store {
         if format != 1 {
             return Err(Error::InvalidSetting);
         }
-        if value.is_empty() {
+        let Some((&peer_len, rest)) = value.split_first() else {
             return Ok(None);
-        }
-        let peer_len = usize::from(value[0]);
-        let cursor_start = 1usize.saturating_add(peer_len);
-        if peer_len == 0
-            || peer_len > MAX_PEER_ID
-            || value.len() <= cursor_start
-            || value.len() > cursor_start.saturating_add(MAX_CURSOR)
+        };
+        let peer_len = usize::from(peer_len);
+        let (saved, cursor) = rest
+            .split_at_checked(peer_len)
+            .ok_or(Error::InvalidSetting)?;
+        if peer_len == 0 || peer_len > MAX_PEER_ID || cursor.is_empty() || cursor.len() > MAX_CURSOR
         {
             return Err(Error::InvalidSetting);
         }
-        let saved = PeerId::from_bytes(&value[1..=peer_len]).map_err(|_| Error::InvalidSetting)?;
+        let saved = PeerId::from_bytes(saved).map_err(|_| Error::InvalidSetting)?;
         if saved != node {
             self.clear_mailbox_cursor()?;
             return Ok(None);
         }
-        Ok(Some(value[cursor_start..].to_vec()))
+        Ok(Some(cursor.to_vec()))
     }
 
     /// Save a cursor only after the page's durable processing and ACK attempt.

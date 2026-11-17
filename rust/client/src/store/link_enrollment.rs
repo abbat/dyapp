@@ -52,7 +52,10 @@ impl Store {
         let Some((format, saved)) = row else {
             return Err(Error::LinkEnrollmentReviewRequired);
         };
-        if format != 1 || !matches!(saved.len(), 32 | 96) || saved[..32] != sha256(state) {
+        if format != 1
+            || !matches!(saved.len(), 32 | 96)
+            || saved.get(..32) != Some(sha256(state).as_slice())
+        {
             return Err(Error::InvalidSetting);
         }
         let mut intent = sha256(state).to_vec();

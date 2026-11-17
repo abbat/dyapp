@@ -16,10 +16,13 @@ pub(super) fn read(db: &Connection, state: &[u8]) -> Result<Option<bool>, Error>
     let Some((format, bytes)) = row else {
         return Ok(None);
     };
-    if format != 1 || bytes.len() != 33 || bytes[0] > 1 || bytes[1..] != sha256(state) {
+    let [applied, digest @ ..] = bytes.as_slice() else {
+        return Err(Error::InvalidSetting);
+    };
+    if format != 1 || digest.len() != 32 || *applied > 1 || digest != sha256(state) {
         return Err(Error::InvalidSetting);
     }
-    Ok(Some(bytes[0] != 0))
+    Ok(Some(*applied != 0))
 }
 
 // Caller holds the pending/import writer; never records progress independently of owned writes.
