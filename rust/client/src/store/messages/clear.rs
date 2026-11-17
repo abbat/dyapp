@@ -153,47 +153,7 @@ mod tests {
             device: &device,
         };
         let mut store = Store::open(&path, &owner).unwrap();
-        crate::store::tests::catalog_group(&mut store, &first, &peer);
-        crate::store::tests::catalog_group(&mut store, &second, &peer);
-        assert!(store
-            .stage_chat_inbound(b"mls", &inbox(1), from(&first, &peer), &text(1), 1_000)
-            .unwrap());
-        assert!(store
-            .stage_chat_inbound(b"mls", &inbox(2), from(&first, &own), &text(2), 1_000)
-            .unwrap());
-        assert!(store
-            .stage_chat_inbound(
-                b"mls",
-                &inbox(3),
-                from(&first, &peer),
-                &photo(3, 100),
-                1_000
-            )
-            .unwrap());
-        assert!(store
-            .stage_chat_inbound(
-                b"mls",
-                &inbox(4),
-                from(&second, &peer),
-                &photo(4, 101),
-                1_000
-            )
-            .unwrap());
-        let write = prepare_put(&[7; 32], vec![8]).unwrap();
-        let own_photo = photo(5, 0);
-        let Body::Attachment(mut own_message) = own_photo else {
-            unreachable!()
-        };
-        own_message.hlc = store.draft_chat_text(1_000).unwrap();
-        store
-            .stage_chat_outbound(
-                b"mls",
-                std::slice::from_ref(&write),
-                from(&first, &own),
-                &Body::Attachment(own_message),
-                1_000,
-            )
-            .unwrap();
+        stage_attachment_history(&mut store, &own, &peer, &first, &second, &device);
         assert_eq!(store.current_chat_attachments(&peer).unwrap().len(), 3);
         assert_eq!(store.mark_chat_read(&peer).unwrap(), 3);
         assert_eq!(store.mark_chat_read(&peer).unwrap(), 0);
@@ -224,6 +184,47 @@ mod tests {
             store.conversation(&peer).unwrap(),
             crate::store::Conversation::Open
         );
+    }
+
+    fn stage_attachment_history(
+        store: &mut Store,
+        own: &str,
+        peer: &str,
+        first: &[u8],
+        second: &[u8],
+        device: &[u8; 32],
+    ) {
+        let from = |group, author| VerifiedChatSender {
+            group,
+            author,
+            device,
+        };
+        crate::store::tests::catalog_group(store, first, peer);
+        crate::store::tests::catalog_group(store, second, peer);
+        for (id, group, author, body) in [
+            (1, first, peer, text(1)),
+            (2, first, own, text(2)),
+            (3, first, peer, photo(3, 100)),
+            (4, second, peer, photo(4, 101)),
+        ] {
+            assert!(store
+                .stage_chat_inbound(b"mls", &inbox(id), from(group, author), &body, 1_000)
+                .unwrap());
+        }
+        let write = prepare_put(&[7; 32], vec![8]).unwrap();
+        let Body::Attachment(mut own_message) = photo(5, 0) else {
+            unreachable!()
+        };
+        own_message.hlc = store.draft_chat_text(1_000).unwrap();
+        store
+            .stage_chat_outbound(
+                b"mls",
+                std::slice::from_ref(&write),
+                from(first, own),
+                &Body::Attachment(own_message),
+                1_000,
+            )
+            .unwrap();
     }
 
     #[test]
