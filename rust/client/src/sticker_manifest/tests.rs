@@ -37,6 +37,15 @@ fn exact_files_keep_manifest_order_and_original_identity() {
     rejected(manifest, &entries, &changed, "manifest.json");
 }
 
+fn reject_unsafe_name(manifest: &[u8], files: &BTreeMap<&str, &[u8]>, name: &str) {
+    rejected(
+        manifest,
+        &[entry(name, b"image")],
+        files,
+        "unsafe root filename",
+    );
+}
+
 #[test]
 fn membership_digests_and_unsafe_names_fail_by_name() {
     let manifest = b"m".as_slice();
@@ -73,20 +82,10 @@ fn membership_digests_and_unsafe_names_fail_by_name() {
         "cat\u{202e}.webp",
         "e\u{301}.webp",
     ] {
-        rejected(
-            manifest,
-            &[entry(name, b"image")],
-            &files,
-            "unsafe root filename",
-        );
+        reject_unsafe_name(manifest, &files, name);
     }
     let long = "x".repeat(101);
-    rejected(
-        manifest,
-        &[entry(&long, b"image")],
-        &files,
-        "unsafe root filename",
-    );
+    reject_unsafe_name(manifest, &files, &long);
     // A format check, not a compressed image check: these bytes deliberately are not WebP.
     assert!(check_files(
         manifest,
