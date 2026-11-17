@@ -35,6 +35,35 @@ async fn a_backlog_longer_than_a_page_survives_a_cold_profile_cache() {
         .unwrap()
         .stage_outbound(&bob.device.seal(&seal_key).unwrap(), &[])
         .unwrap();
+    let mut session = establish_backlog(
+        &mut alice,
+        &mut bob,
+        &alice_profile,
+        &bob_profile,
+        &bob_path,
+        &seal_key,
+    )
+    .await;
+    drain_backlog(
+        &mut bob,
+        &mut session,
+        alice_profile,
+        bob_profile,
+        &seal_key,
+    )
+    .await;
+    let (remaining, more) = bob.node.fetch(&bob.device_key).await.unwrap();
+    assert!(remaining.is_empty() && !more);
+}
+
+async fn establish_backlog(
+    alice: &mut Person,
+    bob: &mut Person,
+    alice_profile: &dyapp_profile::VerifiedProfile,
+    bob_profile: &dyapp_profile::VerifiedProfile,
+    bob_path: &std::path::Path,
+    seal_key: &[u8; 32],
+) -> Session {
     let mailbox = alice.mailbox();
     let (mut group, welcome) = chat::invite(
         &mut alice.node,
@@ -46,24 +75,32 @@ async fn a_backlog_longer_than_a_page_survives_a_cold_profile_cache() {
     .unwrap();
     chat::send(&mut alice.node, &welcome).await.unwrap();
     let mut session =
-        Session::open(Store::open(&bob_path, &bob.identity).unwrap(), &seal_key).unwrap();
+        Session::open(Store::open(bob_path, &bob.identity).unwrap(), seal_key).unwrap();
     let (joined, _) = session
         .receive_page(
             std::slice::from_mut(&mut bob.node),
             &bob.device_key,
             &[alice_profile.clone(), bob_profile.clone()],
-            &seal_key,
+            seal_key,
         )
         .await
         .unwrap();
     assert!(joined.iter().any(|event| matches!(event, Event::Joined(_))));
-
     for i in 0..45u8 {
         let body = Body::text_with_id([i + 1; 16], vec![i]);
         let text = chat::message(&mut group, &alice.device, &body).unwrap();
         chat::send(&mut alice.node, &text).await.unwrap();
     }
+    session
+}
 
+async fn drain_backlog(
+    bob: &mut Person,
+    session: &mut Session,
+    alice_profile: dyapp_profile::VerifiedProfile,
+    bob_profile: dyapp_profile::VerifiedProfile,
+    seal_key: &[u8; 32],
+) {
     let mut profiles = vec![bob_profile];
     for _ in 0..8 {
         let (events, more) = session
@@ -71,7 +108,7 @@ async fn a_backlog_longer_than_a_page_survives_a_cold_profile_cache() {
                 std::slice::from_mut(&mut bob.node),
                 &bob.device_key,
                 &profiles,
-                &seal_key,
+                seal_key,
             )
             .await
             .unwrap();
@@ -90,8 +127,6 @@ async fn a_backlog_longer_than_a_page_survives_a_cold_profile_cache() {
             break;
         }
     }
-    let (remaining, more) = bob.node.fetch(&bob.device_key).await.unwrap();
-    assert!(remaining.is_empty() && !more);
 }
 
 #[tokio::test]
