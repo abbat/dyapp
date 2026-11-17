@@ -126,32 +126,41 @@ async fn replica_peer_and_group_refusals_keep_the_connection_open() {
     let requests = replica_requests();
     for group_bucket in [false, true] {
         for (i, request) in requests.iter().enumerate() {
-            let addr = start_config(|config| {
-                config.network.id_pow_bits = 8;
-                config.roles = vec![Role::Store, Role::Media];
-                config.limits.strikes_to_ban = 1;
-                if group_bucket {
-                    config.limits.ip_group_requests_per_second = 1;
-                } else {
-                    config.limits.requests_per_second = 1;
-                }
-            })
-            .await;
-            let mut client = Client::connect_with_key(&addr, key.clone()).await;
-            assert_eq!(request.send(&mut client).await, Status::Ok, "replica {i}");
-            assert_eq!(
-                request.send(&mut client).await,
-                Status::RateLimited,
-                "replica {i}, group {group_bucket}"
-            );
-            // One strike would ban this connection; info must still answer on the same one,
-            // from the IP-group bucket it shares.
-            let info = if group_bucket {
-                Status::RateLimited
-            } else {
-                Status::Ok
-            };
-            assert_eq!(status(client.info().await.status), info);
+            Box::pin(assert_replica_refusal(request, &key, group_bucket, i)).await;
         }
     }
+}
+
+async fn assert_replica_refusal(
+    request: &ReplicaRequest,
+    key: &Keypair,
+    group_bucket: bool,
+    i: usize,
+) {
+    let addr = start_config(|config| {
+        config.network.id_pow_bits = 8;
+        config.roles = vec![Role::Store, Role::Media];
+        config.limits.strikes_to_ban = 1;
+        if group_bucket {
+            config.limits.ip_group_requests_per_second = 1;
+        } else {
+            config.limits.requests_per_second = 1;
+        }
+    })
+    .await;
+    let mut client = Client::connect_with_key(&addr, key.clone()).await;
+    assert_eq!(request.send(&mut client).await, Status::Ok, "replica {i}");
+    assert_eq!(
+        request.send(&mut client).await,
+        Status::RateLimited,
+        "replica {i}, group {group_bucket}"
+    );
+    // One strike would ban this connection; info must still answer on the same one,
+    // from the IP-group bucket it shares.
+    let info = if group_bucket {
+        Status::RateLimited
+    } else {
+        Status::Ok
+    };
+    assert_eq!(status(client.info().await.status), info);
 }
