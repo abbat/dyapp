@@ -274,7 +274,7 @@ impl Service {
         for (i, record) in batch.envelopes.iter().enumerate() {
             let expires_at = match carried.then(|| batch.remaining_seconds[i]) {
                 Some(0) => continue,
-                Some(left) => Some(now + i64::from(left).min(self.retention())),
+                Some(left) => Some(now.saturating_add(i64::from(left).min(self.retention()))),
                 None => None,
             };
             let group = Group::Label(batch.source_groups.get(i).map_or(&[], Vec::as_slice));
@@ -443,7 +443,11 @@ impl Service {
         let stored = self.store.put_envelope(new, quota, pool)?;
         if stored == Put::Stored && token_key.is_none() {
             // Pools join the store-wide share only once they are in use.
-            let share = (max_mb << 20) / 100 * u64::from(self.config.limits.tokenless_share_pct);
+            let share = max_mb
+                .saturating_mul(1 << 20)
+                .checked_div(100)
+                .unwrap_or(0)
+                .saturating_mul(u64::from(self.config.limits.tokenless_share_pct));
             self.store.evict_tokenless(share, tokens)?;
         }
         Ok(status(match stored {
@@ -493,7 +497,9 @@ impl Service {
         )? {
             return Ok(status(Status::Full));
         }
-        let expires_at = expires_at.unwrap_or_else(|| self.clock.timestamp() + self.retention());
+        let expires_at = expires_at.unwrap_or_else(|| {
+            self.clock.timestamp().saturating_add(self.retention())
+        });
         let group = match group {
             Group::Ip(ip_group) => self.source_group(&envelope.mailbox, ip_group),
             Group::Label(label) if label.len() <= 8 => label.to_vec(),
@@ -529,7 +535,7 @@ impl Service {
     ) -> crate::Result<Result<Option<Vec<u8>>, (Status, bool)>> {
         let late = match source {
             Source::Client => 3600,
-            Source::Replica | Source::Local => self.retention() + 3600,
+            Source::Replica | Source::Local => self.retention().saturating_add(3600),
         };
         let now = self.clock.timestamp();
         let checked = match check_token(record, envelope, now, late) {
@@ -610,8 +616,10 @@ pub(super) fn check_token(
     {
         return Err(TokenError::Forged);
     }
-    let start = i64::from(payload.epoch) * 86_400;
-    if now < start - 3600 || now >= start + 86_400 + late {
+    let start = i64::from(payload.epoch).saturating_mul(86_400);
+    if now < start.saturating_sub(3600)
+        || now >= start.saturating_add(86_400).saturating_add(late)
+    {
         return Err(TokenError::Expired);
     }
     Ok(Some(payload.token_key))
