@@ -525,7 +525,16 @@ fn a_verified_whole_copy_wins_and_sharded_uploads_pay_their_ratio() {
     let mut s = media_service(|l| l.bytes_per_second = 4 << 20);
     let owner = Identity::generate();
     let small = media_replica(&owner, b"whole".to_vec(), 1);
-    assert_eq!(s.store_media(&small).unwrap().status, i32::from(Status::Ok));
+    let (proof, manifest) = check_verified_whole_copy(&s, &small);
+    check_whole_copy_replaces_manifest(&small, &proof, &manifest);
+    check_sharded_upload_ratio(&mut s, &owner);
+}
+
+fn check_verified_whole_copy(
+    s: &Service,
+    small: &proto::MediaReplicaPut,
+) -> (proto::MediaReplicaPut, proto::MediaManifest) {
+    assert_eq!(s.store_media(small).unwrap().status, i32::from(Status::Ok));
     let (mut manifest, _) = crate::replication::media_encode(&small.data).unwrap();
     manifest.shard_hashes[0][0] ^= 1;
     let mut proof = small.clone();
@@ -542,10 +551,18 @@ fn a_verified_whole_copy_wins_and_sharded_uploads_pay_their_ratio() {
             .data,
         small.data
     );
+    (proof, manifest)
+}
+
+fn check_whole_copy_replaces_manifest(
+    small: &proto::MediaReplicaPut,
+    proof: &proto::MediaReplicaPut,
+    manifest: &proto::MediaManifest,
+) {
     // A manifest already held must not suppress a later verified whole-copy put.
     let second = media_service(|_| {});
     assert_eq!(
-        second.store_media(&proof).unwrap().status,
+        second.store_media(proof).unwrap().status,
         i32::from(Status::Ok)
     );
     assert!(second
@@ -556,7 +573,7 @@ fn a_verified_whole_copy_wins_and_sharded_uploads_pay_their_ratio() {
         .unwrap()
         .is_some());
     assert_eq!(
-        second.store_media(&small).unwrap().status,
+        second.store_media(small).unwrap().status,
         i32::from(Status::Ok)
     );
     assert_eq!(
@@ -572,8 +589,11 @@ fn a_verified_whole_copy_wins_and_sharded_uploads_pay_their_ratio() {
             .unwrap(),
         None
     );
+}
+
+fn check_sharded_upload_ratio(s: &mut Service, owner: &Identity) {
     let data = vec![4; (1 << 20) + 1];
-    let mut replica = media_replica(&owner, data.clone(), 2);
+    let mut replica = media_replica(owner, data.clone(), 2);
     let (manifest, _) = crate::replication::media_encode(&data).unwrap();
     assert_eq!(manifest.billed_bytes(), Some(3 * data.len() as u64));
     replica.data.clear();
