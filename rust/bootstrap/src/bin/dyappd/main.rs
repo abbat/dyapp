@@ -52,8 +52,14 @@ fn usage() -> (&'static str, &'static str) {
     }
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?
+        .block_on(run())
+}
+
+async fn run() -> anyhow::Result<()> {
     let Some(arguments) = parse_args()? else {
         return Ok(());
     };
@@ -62,6 +68,30 @@ async fn main() -> anyhow::Result<()> {
         options,
         command,
     } = arguments;
+    init_tracing(&command);
+    let file = file.or_else(default_file);
+    let (config, ignored) = NodeConfig::load(file.as_deref(), std::env::vars(), &options)?;
+    for key in ignored {
+        tracing::warn!("unknown config key ignored: {key}");
+    }
+    let command: Vec<&str> = command.iter().map(String::as_str).collect();
+    execute(config, file, &command).await
+}
+
+async fn execute(
+    mut config: NodeConfig,
+    file: Option<PathBuf>,
+    command: &[&str],
+) -> anyhow::Result<()> {
+    if run_subcommand(&mut config, command).await? {
+        return Ok(());
+    }
+    tracing::info!(file = ?file, "config");
+    node::open(config).await?.run().await;
+    Ok(())
+}
+
+fn init_tracing(command: &[String]) {
     // A subcommand prints its result to stdout, so its logs go to stderr.
     if command.is_empty() {
         tracing_subscriber::fmt::init();
@@ -70,24 +100,19 @@ async fn main() -> anyhow::Result<()> {
             .with_writer(std::io::stderr)
             .init();
     }
-    let file = file.or_else(default_file);
-    let (mut config, ignored) = NodeConfig::load(file.as_deref(), std::env::vars(), &options)?;
-    for key in ignored {
-        tracing::warn!("unknown config key ignored: {key}");
-    }
-    let command: Vec<&str> = command.iter().map(String::as_str).collect();
-    if let Some(output) = client::run(&config.network.name, &command).await? {
+}
+
+async fn run_subcommand(config: &mut NodeConfig, command: &[&str]) -> anyhow::Result<bool> {
+    if let Some(output) = client::run(&config.network.name, command).await? {
         println!("{output}");
-        return Ok(());
+        return Ok(true);
     }
-    configure_node(&mut config, &command)?;
-    if !command.is_empty() {
-        run_command(&config, &command).await?;
-        return Ok(());
+    configure_node(config, command)?;
+    if command.is_empty() {
+        return Ok(false);
     }
-    tracing::info!(file = ?file, "config");
-    node::open(config).await?.run().await;
-    Ok(())
+    run_command(config, command).await?;
+    Ok(true)
 }
 
 struct Arguments {
