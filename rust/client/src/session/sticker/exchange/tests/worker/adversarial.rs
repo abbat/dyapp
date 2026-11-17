@@ -25,6 +25,13 @@ fn corrupt_key(
     raw
 }
 
+async fn respond_count(pair: &mut Invite) -> usize {
+    pair.session
+        .respond_sticker_pack_requests(&mut [], &pair.bob_id, &SEAL, || false)
+        .await
+        .unwrap()
+}
+
 #[tokio::test]
 async fn wrong_owner_stop_block_and_removed_pack_never_send_a_response() {
     let (mut pair, _, _, job) = pending();
@@ -50,13 +57,7 @@ async fn wrong_owner_stop_block_and_removed_pack_never_send_a_response() {
             == vec![job.clone()]
     );
     pair.session.store.set_blocked(&job.peer, true).unwrap();
-    assert_eq!(
-        pair.session
-            .respond_sticker_pack_requests(&mut [], &pair.bob_id, &SEAL, || false)
-            .await
-            .unwrap(),
-        0
-    );
+    assert_eq!(respond_count(&mut pair).await, 0);
     assert!(pair
         .session
         .store
@@ -70,13 +71,7 @@ async fn wrong_owner_stop_block_and_removed_pack_never_send_a_response() {
         .store
         .remove_saved_sticker_pack(&job.pack_id)
         .unwrap();
-    assert_eq!(
-        pair.session
-            .respond_sticker_pack_requests(&mut [], &pair.bob_id, &SEAL, || false)
-            .await
-            .unwrap(),
-        0
-    );
+    assert_eq!(respond_count(&mut pair).await, 0);
     assert!(pair
         .session
         .store
