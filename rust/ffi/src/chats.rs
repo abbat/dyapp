@@ -235,7 +235,7 @@ async fn apply_mailbox(
     // shortcut: every call fetches the senders' profiles again, since the app opens a session
     // per call; keep them in the Store if mailbox polls start costing too many requests.
     let mut profiles: Vec<VerifiedProfile> = own.into_iter().collect();
-    let mut changed = 0;
+    let mut changed = 0u32;
     for _ in 0..2 {
         let events = session
             .receive(std::slice::from_mut(node), device_key, &profiles, seal_key)
@@ -248,7 +248,7 @@ async fn apply_mailbox(
                     fetched |= fetch_unknown_owner(node, &mut profiles, &peer).await;
                 }
                 Event::Gap(_) | Event::Refused(_) => {}
-                _ => changed += 1,
+                _ => changed = changed.saturating_add(1),
             }
         }
         if !fetched {

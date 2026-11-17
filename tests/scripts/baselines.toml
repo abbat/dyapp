@@ -29,7 +29,7 @@ max_lines = 400
 # overflow-checks off, so each site is rewritten as checked_, saturating_ or wrapping_.
 "dyapp-bootstrap" = 182
 "dyapp-client" = 109
-"dyapp-ffi" = 14
+"dyapp-ffi" = 0
 "dyapp-identity" = 0
 "dyapp-messaging" = 0
 "dyapp-p2p-net" = 0

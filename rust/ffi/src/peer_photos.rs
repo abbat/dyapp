@@ -36,7 +36,7 @@ pub(crate) fn acceptable(bytes: &[u8], full: bool) -> bool {
         return false;
     };
     let sized = if full {
-        u64::from(width) * u64::from(height) <= MAX_PIXELS
+        u64::from(width).saturating_mul(u64::from(height)) <= MAX_PIXELS
     } else {
         width.max(height) <= MAX_SIDE
     };

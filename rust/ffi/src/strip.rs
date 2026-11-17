@@ -79,10 +79,12 @@ fn jpeg(bytes: &[u8]) -> Result<Vec<u8>, CoreError> {
             return Err(failed("bad JPEG marker"));
         }
         // Fill bytes before a marker.
-        while bytes.get(at + 1) == Some(&0xFF) {
-            at += 1;
+        while bytes.get(at.saturating_add(1)) == Some(&0xFF) {
+            at = at.saturating_add(1);
         }
-        let marker = *bytes.get(at + 1).ok_or_else(|| failed("truncated JPEG"))?;
+        let marker = *bytes
+            .get(at.saturating_add(1))
+            .ok_or_else(|| failed("truncated JPEG"))?;
         match marker {
             0xD9 => {
                 out.extend_from_slice(&[0xFF, 0xD9]);
@@ -90,34 +92,34 @@ fn jpeg(bytes: &[u8]) -> Result<Vec<u8>, CoreError> {
             }
             0x01 | 0xD0..=0xD7 => {
                 out.extend_from_slice(&[0xFF, marker]);
-                at += 2;
+                at = at.saturating_add(2);
                 continue;
             }
             _ => {}
         }
         let len = bytes
-            .get(at + 2..at + 4)
+            .get(at.saturating_add(2)..at.saturating_add(4))
             .map(|len| usize::from(u16::from_be_bytes([len[0], len[1]])))
             .filter(|&len| len >= 2)
             .ok_or_else(|| failed("bad JPEG segment length"))?;
         let segment = bytes
-            .get(at..at + 2 + len)
+            .get(at..at.saturating_add(2).saturating_add(len))
             .ok_or_else(|| failed("truncated JPEG segment"))?;
         let body = &segment[4..];
         if keep_jpeg_segment(marker, body) {
             out.extend_from_slice(segment);
         }
-        at += segment.len();
+        at = at.saturating_add(segment.len());
         if marker == 0xDA {
             // Entropy-coded data runs to the next marker other than a stuffed 0xFF00 or RSTn.
             let start = at;
             while at < bytes.len()
                 && !(bytes[at] == 0xFF
                     && bytes
-                        .get(at + 1)
+                        .get(at.saturating_add(1))
                         .is_some_and(|&next| next != 0x00 && !(0xD0..=0xD7).contains(&next)))
             {
-                at += 1;
+                at = at.saturating_add(1);
             }
             out.extend_from_slice(&bytes[start..at]);
         }
@@ -140,16 +142,16 @@ fn png(bytes: &[u8]) -> Result<Vec<u8>, CoreError> {
     let mut at = PNG_SIGNATURE.len();
     loop {
         let header = bytes
-            .get(at..at + 8)
+            .get(at..at.saturating_add(8))
             .ok_or_else(|| failed("truncated PNG"))?;
         let len = u32::from_be_bytes([header[0], header[1], header[2], header[3]]) as usize;
         let kind = &header[4..8];
         let chunk = at
-            .checked_add(12 + len)
+            .checked_add(12usize.saturating_add(len))
             .and_then(|end| bytes.get(at..end))
             .ok_or_else(|| failed("truncated PNG chunk"))?;
         if kind == b"eXIf"
-            && Orientation::from_exif_chunk(&chunk[8..8 + len])
+            && Orientation::from_exif_chunk(&chunk[8..8usize.saturating_add(len)])
                 .is_some_and(|o| o != Orientation::NoTransforms)
         {
             return Err(failed("rotated PNG"));
@@ -160,7 +162,7 @@ fn png(bytes: &[u8]) -> Result<Vec<u8>, CoreError> {
         if kind == b"IEND" {
             return Ok(out);
         }
-        at += chunk.len();
+        at = at.saturating_add(chunk.len());
     }
 }
 
