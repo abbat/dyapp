@@ -53,6 +53,17 @@ fn photo(id: u8, time: u64) -> Body {
     })
 }
 
+fn chat_item_ids(items: &[ChatItem]) -> Vec<u8> {
+    items
+        .iter()
+        .map(|item| match item {
+            ChatItem::Text(message) => message.key.id[0],
+            ChatItem::Attachment(attachment) => attachment.key.id[0],
+            ChatItem::Sticker(sticker) => sticker.key.id[0],
+        })
+        .collect()
+}
+
 #[test]
 fn mixed_history_and_rows_follow_original_time_and_count_each_item_once() {
     let path = super::tests::temp_db_path();
@@ -91,16 +102,7 @@ fn mixed_history_and_rows_follow_original_time_and_count_each_item_once() {
     drop(store);
 
     let store = Store::open(&path, &owner).unwrap();
-    let order: Vec<u8> = store
-        .current_chat_items(&a)
-        .unwrap()
-        .iter()
-        .map(|item| match item {
-            ChatItem::Text(message) => message.key.id[0],
-            ChatItem::Attachment(attachment) => attachment.key.id[0],
-            ChatItem::Sticker(sticker) => sticker.key.id[0],
-        })
-        .collect();
+    let order = chat_item_ids(&store.current_chat_items(&a).unwrap());
     assert_eq!(order, [1, 8, 5, 2, 6]);
 
     let rows = store.chat_rows().unwrap();

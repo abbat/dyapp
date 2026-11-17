@@ -42,7 +42,6 @@
   {"path":"rust/client/src/session/tests.rs","function":"fn received_envelopes_commit_before_ack_and_survive_restart ","metrics":{"cognitive":16,"lines":100}},
   {"path":"rust/client/src/sticker_webp.rs","function":"fn check_header ","metrics":{"lines":110}},
   {"path":"rust/client/src/store/chat_list_tests.rs","function":"fn chats_rows_keep_state_latest_time_and_unread_across_clear_and_restart ","metrics":{"cognitive":30,"lines":86}},
-  {"path":"rust/client/src/store/chat_list_tests.rs","function":"fn mixed_history_and_rows_follow_original_time_and_count_each_item_once ","metrics":{"lines":57}},
   {"path":"rust/client/src/store/chat_list_tests/stickers.rs","function":"fn mixed_kinds_select_one_preview_and_count_every_unread_once ","metrics":{"cognitive":16}},
   {"path":"rust/client/src/store/inbox/tests.rs","function":"fn projection_hook_shares_inbox_mls_and_ack_transaction ","metrics":{"lines":60}},
   {"path":"rust/client/src/store/likes.rs","function":"mod tests # [cfg (test)]::fn interactions_order_likes_and_derive_matches_across_restart ","metrics":{"cognitive":21}},
