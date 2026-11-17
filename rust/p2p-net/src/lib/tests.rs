@@ -455,26 +455,34 @@ async fn codec_counts_exact_frames_in_all_directions_and_shares_clones() {
     }
 }
 
+fn assert_codec_clone(codec: &ProtoCodec<Frame, Frame>, wire: &Arc<WireBytes>) {
+    let cloned = codec.clone();
+    assert!(cloned.permit.is_none());
+    assert!(Arc::ptr_eq(&cloned.wire, wire));
+}
+
+struct BrokenRead(bool);
+
+impl AsyncRead for BrokenRead {
+    fn poll_read(
+        mut self: std::pin::Pin<&mut Self>,
+        _: &mut std::task::Context<'_>,
+        buf: &mut [u8],
+    ) -> std::task::Poll<io::Result<usize>> {
+        if self.0 {
+            std::task::Poll::Ready(Err(io::Error::other("read failed")))
+        } else {
+            self.0 = true;
+            buf[0] = 0;
+            std::task::Poll::Ready(Ok(1))
+        }
+    }
+}
+
 #[tokio::test]
 async fn failed_codec_io_does_not_count_and_releases_media_permits() {
     use libp2p::futures::io::Cursor;
     use request_response::Codec;
-    struct BrokenRead(bool);
-    impl AsyncRead for BrokenRead {
-        fn poll_read(
-            mut self: std::pin::Pin<&mut Self>,
-            _: &mut std::task::Context<'_>,
-            buf: &mut [u8],
-        ) -> std::task::Poll<io::Result<usize>> {
-            if self.0 {
-                std::task::Poll::Ready(Err(io::Error::other("read failed")))
-            } else {
-                self.0 = true;
-                buf[0] = 0;
-                std::task::Poll::Ready(Ok(1))
-            }
-        }
-    }
     let wire = Arc::new(WireBytes::default());
     let mut codec = ProtoCodec::<Frame, Frame>::media().with_wire(wire.clone());
     let limit = usize::try_from(message_limit(&MEDIA_PROTOCOL, &Protocols::public())).unwrap();
@@ -504,9 +512,7 @@ async fn failed_codec_io_does_not_count_and_releases_media_permits() {
         .read_request(&MEDIA_PROTOCOL, &mut Cursor::new(Vec::new()))
         .await
         .unwrap();
-    let cloned = codec.clone();
-    assert!(cloned.permit.is_none());
-    assert!(Arc::ptr_eq(&cloned.wire, &wire));
+    assert_codec_clone(&codec, &wire);
     let frame = Frame { data: vec![1; 5] };
     let mut prefix = [0; 1];
     assert!(codec

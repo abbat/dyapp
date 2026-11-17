@@ -65,7 +65,6 @@
   {"path":"rust/p2p-net/src/lib.rs","function":"fn admit ","metrics":{"cognitive":28}},
   {"path":"rust/p2p-net/src/lib/media_streams.rs","function":"fn media_stream_limit ","metrics":{"lines":86}},
   {"path":"rust/p2p-net/src/lib/tests.rs","function":"fn configured_media_ids_keep_large_frames_and_stable_counter_slots ","metrics":{"lines":69}},
-  {"path":"rust/p2p-net/src/lib/tests.rs","function":"fn failed_codec_io_does_not_count_and_releases_media_permits ","metrics":{"lines":67}},
   {"path":"rust/p2p-net/src/lib/tests.rs","function":"fn named_builder_announces_only_its_network_and_exchanges_large_media_over_tcp ","metrics":{"lines":121}},
   {"path":"rust/p2p-net/src/lib/tests.rs","function":"fn peers_without_direct_listeners_exchange_a_request_through_a_relay ","metrics":{"lines":68}},
   {"path":"rust/p2p-net/src/pow_gate.rs","function":"mod tests # [cfg (test)]::fn weak_peer_is_not_dialed_but_served_on_its_inbound_connection ","metrics":{"nesting":5,"lines":104,"nested_regions":2}},
