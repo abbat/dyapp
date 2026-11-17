@@ -3,7 +3,7 @@ use super::{Error, Node, Session};
 use crate::attachment;
 use crate::chat::pack_control::PackAnswer;
 use crate::store::{
-    sticker_packs::{self, uploads::UploadPlan},
+    sticker_packs::{self, exchange::response::PackResponseJob, uploads::UploadPlan},
     Conversation, Error as StoreError,
 };
 use dyapp_identity::Identity;
@@ -36,62 +36,14 @@ impl Session {
             if stop() {
                 break;
             }
-            if self.partner(&job.group).as_deref() != Some(job.peer.as_str())
-                || self.store.blocked(&job.peer)?
-                || self.store.conversation(&job.peer)? != Conversation::Open
-                || !self.store.shared_sticker_pack(&job.peer, &job.pack_id)?
-            {
-                self.store.retire_sticker_pack_response(&job)?;
+            let Some(pack) = self.response_pack(&job, seal_key)? else {
                 continue;
-            }
-            let pack = match self.store.saved_sticker_pack(seal_key, &job.pack_id) {
-                Ok(Some(pack)) => pack,
-                Ok(None) | Err(sticker_packs::Error::Invalid) => {
-                    self.store.retire_sticker_pack_response(&job)?;
-                    continue;
-                }
-                Err(_) => {
-                    self.store
-                        .defer_sticker_pack_response(&job, crate::now() * 1000)?;
-                    continue;
-                }
             };
-            let bytes = pack.encode();
-            let (mut candidate, _) = attachment::seal(&bytes)?;
-            candidate.mime = "application/octet-stream".into();
-            let mut descriptor = match self
-                .store
-                .plan_sticker_pack_upload(&candidate, crate::now())?
-            {
-                UploadPlan::Reuse(descriptor) => {
-                    super::upload::ciphertext(&descriptor, &bytes)?;
-                    descriptor
-                }
-                UploadPlan::Upload(pending) => {
-                    let blob = super::upload::ciphertext(&pending.attachment, &bytes)?;
-                    let started = crate::now();
-                    match super::super::attachment::upload(
-                        nodes,
-                        identity,
-                        &pending.attachment,
-                        &blob,
-                    )
-                    .await
-                    {
-                        Ok(()) => {}
-                        Err(Error::Client(_)) => {
-                            self.store
-                                .defer_sticker_pack_response(&job, crate::now() * 1000)?;
-                            continue;
-                        }
-                        Err(error) => return Err(error),
-                    }
-                    self.store.finish_sticker_pack_upload(&pending, started)?;
-                    pending.attachment
-                }
-                UploadPlan::Fallback => {
-                    return Err(crate::Error::Reply("invalid pack upload plan").into())
-                }
+            let Some(mut descriptor) = self
+                .response_descriptor(nodes, identity, &job, &pack)
+                .await?
+            else {
+                continue;
             };
             if stop() {
                 break;
@@ -101,27 +53,8 @@ impl Session {
                 pack_id: job.pack_id,
                 attachment: descriptor,
             };
-            let writes = match self.stage_sticker_pack_response(&job, &answer, seal_key) {
-                Ok(writes) => writes,
-                Err(error) => {
-                    self.recover(seal_key)?;
-                    match error {
-                        Error::Store(
-                            StoreError::StickerPackUnavailable
-                            | StoreError::BlockedPeer
-                            | StoreError::ChatClosed
-                            | StoreError::GroupMismatch,
-                        ) => {
-                            self.store.retire_sticker_pack_response(&job)?;
-                        }
-                        Error::Store(StoreError::InboxConflict) => {
-                            self.store
-                                .defer_sticker_pack_response(&job, crate::now() * 1000)?;
-                        }
-                        error => return Err(error),
-                    }
-                    continue;
-                }
+            let Some(writes) = self.stage_response(&job, &answer, seal_key)? else {
+                continue;
             };
             staged += 1;
             match self.send_staged(nodes, writes, seal_key).await {
@@ -130,5 +63,104 @@ impl Session {
             }
         }
         Ok(staged)
+    }
+
+    fn response_pack(
+        &mut self,
+        job: &PackResponseJob,
+        seal_key: &[u8; 32],
+    ) -> Result<Option<crate::sticker_pack::Pack>, Error> {
+        if self.partner(&job.group).as_deref() != Some(job.peer.as_str())
+            || self.store.blocked(&job.peer)?
+            || self.store.conversation(&job.peer)? != Conversation::Open
+            || !self.store.shared_sticker_pack(&job.peer, &job.pack_id)?
+        {
+            self.store.retire_sticker_pack_response(job)?;
+            return Ok(None);
+        }
+        match self.store.saved_sticker_pack(seal_key, &job.pack_id) {
+            Ok(Some(pack)) => Ok(Some(pack)),
+            Ok(None) | Err(sticker_packs::Error::Invalid) => {
+                self.store.retire_sticker_pack_response(job)?;
+                Ok(None)
+            }
+            Err(_) => {
+                self.store
+                    .defer_sticker_pack_response(job, crate::now() * 1000)?;
+                Ok(None)
+            }
+        }
+    }
+
+    async fn response_descriptor(
+        &mut self,
+        nodes: &mut [Node],
+        identity: &Identity,
+        job: &PackResponseJob,
+        pack: &crate::sticker_pack::Pack,
+    ) -> Result<Option<attachment::Attachment>, Error> {
+        let bytes = pack.encode();
+        let (mut candidate, _) = attachment::seal(&bytes)?;
+        candidate.mime = "application/octet-stream".into();
+        let descriptor = match self
+            .store
+            .plan_sticker_pack_upload(&candidate, crate::now())?
+        {
+            UploadPlan::Reuse(descriptor) => {
+                super::upload::ciphertext(&descriptor, &bytes)?;
+                descriptor
+            }
+            UploadPlan::Upload(pending) => {
+                let blob = super::upload::ciphertext(&pending.attachment, &bytes)?;
+                let started = crate::now();
+                match super::super::attachment::upload(nodes, identity, &pending.attachment, &blob)
+                    .await
+                {
+                    Ok(()) => {}
+                    Err(Error::Client(_)) => {
+                        self.store
+                            .defer_sticker_pack_response(job, crate::now() * 1000)?;
+                        return Ok(None);
+                    }
+                    Err(error) => return Err(error),
+                }
+                self.store.finish_sticker_pack_upload(&pending, started)?;
+                pending.attachment
+            }
+            UploadPlan::Fallback => {
+                return Err(crate::Error::Reply("invalid pack upload plan").into())
+            }
+        };
+        Ok(Some(descriptor))
+    }
+
+    fn stage_response(
+        &mut self,
+        job: &PackResponseJob,
+        answer: &PackAnswer,
+        seal_key: &[u8; 32],
+    ) -> Result<Option<Vec<crate::PreparedEnvelope>>, Error> {
+        match self.stage_sticker_pack_response(job, answer, seal_key) {
+            Ok(writes) => Ok(Some(writes)),
+            Err(error) => {
+                self.recover(seal_key)?;
+                match error {
+                    Error::Store(
+                        StoreError::StickerPackUnavailable
+                        | StoreError::BlockedPeer
+                        | StoreError::ChatClosed
+                        | StoreError::GroupMismatch,
+                    ) => {
+                        self.store.retire_sticker_pack_response(job)?;
+                    }
+                    Error::Store(StoreError::InboxConflict) => {
+                        self.store
+                            .defer_sticker_pack_response(job, crate::now() * 1000)?;
+                    }
+                    error => return Err(error),
+                }
+                Ok(None)
+            }
+        }
     }
 }
