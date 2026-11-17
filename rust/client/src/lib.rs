@@ -49,6 +49,8 @@ pub mod sticker_tar;
 pub mod sticker_webp;
 pub mod store;
 mod text_input;
+mod traffic;
+pub use traffic::traffic;
 pub mod tokens;
 pub mod updates;
 
@@ -90,7 +92,7 @@ fn sign_key_package(
         owner: unhex(owner)?,
         mailbox: mailbox(&device.public_key()).to_vec(),
         package,
-        expires: now() + KEY_PACKAGE_RECORD_SECONDS,
+        expires: now().saturating_add(KEY_PACKAGE_RECORD_SECONDS),
         last_resort,
         revision,
     };
@@ -170,14 +172,6 @@ static WIRE: OnceLock<Arc<WireBytes>> = OnceLock::new();
 /// Payload counter shared by every client swarm of this process.
 fn wire() -> Arc<WireBytes> {
     WIRE.get_or_init(Arc::default).clone()
-}
-
-/// `[in, out]` payload bytes of every client swarm since the first one started this process;
-/// `None` before that. Excludes transport, encryption and gossip control traffic.
-#[must_use]
-pub fn traffic() -> Option<[u64; 2]> {
-    let slots = WIRE.get()?.totals().0;
-    Some(slots.iter().fold([0, 0], |[i, o], [a, b]| [i + a, o + b]))
 }
 
 /// A connection to one node.
@@ -986,7 +980,7 @@ fn unhex(text: &str) -> Result<Vec<u8>, Error> {
     (0..text.len())
         .step_by(2)
         .map(|i| {
-            text.get(i..i + 2)
+            text.get(i..i.saturating_add(2))
                 .and_then(|pair| u8::from_str_radix(pair, 16).ok())
                 .ok_or(Error::Reply("bad hex"))
         })

@@ -34,8 +34,8 @@ pub struct Page {
 fn parse_id(name: &std::ffi::OsStr) -> Option<[u8; 32]> {
     fn nibble(byte: u8) -> Option<u8> {
         match byte {
-            b'0'..=b'9' => Some(byte - b'0'),
-            b'a'..=b'f' => Some(byte - b'a' + 10),
+            b'0'..=b'9' => byte.checked_sub(b'0'),
+            b'a'..=b'f' => byte.checked_sub(b'a')?.checked_add(10),
             _ => None,
         }
     }
@@ -45,7 +45,9 @@ fn parse_id(name: &std::ffi::OsStr) -> Option<[u8; 32]> {
     }
     let mut id = [0; 32];
     for (index, pair) in name.as_chunks::<2>().0.iter().enumerate() {
-        id[index] = nibble(pair[0])? * 16 + nibble(pair[1])?;
+        id[index] = nibble(pair[0])?
+            .checked_mul(16)?
+            .checked_add(nibble(pair[1])?)?;
     }
     Some(id)
 }
@@ -87,7 +89,7 @@ impl Store {
                 .checked_add(meta.len())
                 .ok_or(Error::Quota)?;
             let Some(id) = parse_id(&file.file_name()) else {
-                page.unrecognized_files += 1;
+                page.unrecognized_files = page.unrecognized_files.saturating_add(1);
                 continue;
             };
             if after.is_some_and(|cursor| id <= *cursor) {
