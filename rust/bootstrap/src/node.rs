@@ -429,10 +429,13 @@ impl PendingPut {
             Some(Status::Full)
         } else if self.stored.len() >= self.required
             && match &self.record {
-                PutRecord::Sharded(replica, _) => {
-                    self.shard_stored.len()
-                        >= replica.manifest.as_ref().unwrap().data_shards().unwrap()
-                }
+                PutRecord::Sharded(replica, _) => replica.manifest.as_ref().is_some_and(
+                    |manifest| {
+                        manifest.data_shards().is_some_and(|required| {
+                            self.shard_stored.len() >= required
+                        })
+                    },
+                ),
                 _ => true,
             }
         {
@@ -471,7 +474,7 @@ fn holder(me: PeerId, key: &[u8], nodes: &[kad::PeerInfo]) -> PeerId {
         .map(|node| node.peer_id)
         .chain(std::iter::once(me))
         .min_by_key(|peer| kad::KBucketKey::from(*peer).distance(&target))
-        .unwrap()
+        .unwrap_or(me)
 }
 
 /// A lookup of a replica key and what follows it.

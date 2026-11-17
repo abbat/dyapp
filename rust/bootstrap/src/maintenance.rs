@@ -1,7 +1,7 @@
 //! Shared write budget and progress for background store rebuilds.
 
 use std::collections::BTreeMap;
-use std::sync::Mutex;
+use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 use tokio::time::Instant;
 
@@ -61,7 +61,7 @@ impl RebuildBudget {
         let duration = Duration::from_secs(bytes.checked_div(rate).unwrap_or(0))
             .checked_add(Duration::from_nanos(nanos as u64))
             .unwrap_or(Duration::MAX);
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
         let base = state.next.max(now);
         state.next = base.checked_add(duration).unwrap_or(base);
         state.progress.insert(file.into(), percent.min(100));
@@ -81,12 +81,8 @@ impl RebuildBudget {
     }
 
     /// Reports progress on the node's maintenance schedule, including a completed build once.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the shared maintenance-state lock is poisoned.
     pub fn report(&self) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
         for (file, percent) in &state.progress {
             tracing::info!(file, percent, "store rebuild progress");
         }

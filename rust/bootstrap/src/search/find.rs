@@ -339,7 +339,9 @@ impl Scan<'_> {
             else {
                 break;
             };
-            let (key, version, _, ok) = heads[i].take().expect("picked a live head");
+            let Some((key, version, _, ok)) = heads.get_mut(i).and_then(Option::take) else {
+                break;
+            };
             scanned = scanned.saturating_add(1);
             if ok {
                 hits.push((key, version));
@@ -358,11 +360,6 @@ impl SearchIndex {
     ///
     /// Returns an outer error if the reader, SQL preparation, scanning or stored row decoding fails.
     /// Invalid conditions are reported as the inner `Err(())`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the selected merge head is absent, which would violate the internal invariant
-    /// that only present heads enter the selection.
     pub fn query(
         &self,
         conditions: &[Condition],

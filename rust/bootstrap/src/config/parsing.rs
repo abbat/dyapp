@@ -91,7 +91,9 @@ pub(super) fn set(
     value: toml::Value,
     name: &str,
 ) -> anyhow::Result<()> {
-    let (last, sections) = path.split_last().expect("split yields at least one item");
+    let (last, sections) = path
+        .split_last()
+        .ok_or_else(|| anyhow::anyhow!("{name}: empty configuration path"))?;
     let mut node = table;
     for section in sections {
         node = node

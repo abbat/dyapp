@@ -56,19 +56,21 @@ pub(super) struct Pool {
 pub(crate) struct Reader<'a> {
     index: &'a SearchIndex,
     version: u32,
-    db: Option<Connection>,
+    db: std::mem::ManuallyDrop<Connection>,
 }
 
 impl std::ops::Deref for Reader<'_> {
     type Target = Connection;
     fn deref(&self) -> &Connection {
-        self.db.as_ref().expect("reader present until drop")
+        &self.db
     }
 }
 
 impl Drop for Reader<'_> {
     fn drop(&mut self) {
-        if let (Some(db), Ok(mut pool)) = (self.db.take(), self.index.readers.lock()) {
+        // SAFETY: `db` is taken exactly once here and is never accessed afterwards.
+        let db = unsafe { std::mem::ManuallyDrop::take(&mut self.db) };
+        if let Ok(mut pool) = self.index.readers.lock() {
             if pool.version == self.version {
                 pool.conns.push(db);
             }
@@ -346,7 +348,7 @@ impl SearchIndex {
                     return Ok(Reader {
                         index: self,
                         version,
-                        db: Some(db),
+                        db: std::mem::ManuallyDrop::new(db),
                     });
                 }
                 (pool.path.clone(), pool.version)
@@ -356,7 +358,7 @@ impl SearchIndex {
                     return Ok(Reader {
                         index: self,
                         version,
-                        db: Some(db),
+                        db: std::mem::ManuallyDrop::new(db),
                     })
                 }
                 Err(_) if !retried => retried = true,
