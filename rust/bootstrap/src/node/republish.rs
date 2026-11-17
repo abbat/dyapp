@@ -38,7 +38,8 @@ pub(super) struct Republish {
 impl Republish {
     /// A Kademlia bootstrap finished; the first one starts the warmup.
     pub(super) fn bootstrapped(&mut self, now: Instant) {
-        self.ready_at.get_or_insert(now + REPUBLISH_WARMUP);
+        self.ready_at
+            .get_or_insert(now.checked_add(REPUBLISH_WARMUP).unwrap_or(now));
     }
 
     pub(super) fn len(&self) -> usize {
@@ -47,7 +48,7 @@ impl Republish {
 
     fn settle(&mut self, job: Option<u64>, ok: bool) -> Option<u64> {
         let handover = self.jobs.get_mut(&job?)?;
-        handover.outstanding -= 1;
+        handover.outstanding = handover.outstanding.saturating_sub(1);
         handover.failed |= !ok;
         job
     }
@@ -68,7 +69,7 @@ impl Republish {
     pub(super) fn request(&mut self, job: Option<u64>, id: OutboundRequestId) {
         let Some(job) = job else { return };
         if let Some(handover) = self.jobs.get_mut(&job) {
-            handover.outstanding += 1;
+            handover.outstanding = handover.outstanding.saturating_add(1);
             self.requests.insert(id, job);
         }
     }
@@ -257,9 +258,14 @@ impl Replicas {
             && service.traffic.second() < REPUBLISH_SHARE
         {
             let store = STORES[self.republish.next_store];
-            self.republish.next_store = (self.republish.next_store + 1) % STORES.len();
+            self.republish.next_store = self
+                .republish
+                .next_store
+                .wrapping_add(1)
+                .checked_rem(STORES.len())
+                .unwrap_or(0);
             let Some((key, fingerprint)) = self.republish.scanner.pop(store) else {
-                empty += 1;
+                empty = empty.saturating_add(1);
                 continue;
             };
             empty = 0;
@@ -278,7 +284,7 @@ impl Replicas {
                     store,
                     key,
                     fingerprint,
-                    outstanding: queries.len() + usize::from(media),
+                    outstanding: queries.len().saturating_add(usize::from(media)),
                     failed: false,
                 },
             );
