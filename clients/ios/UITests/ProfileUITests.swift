@@ -178,8 +178,13 @@ final class ProfileUITests: XCTestCase {
         typeSlowly("Plain text", into: about)
         flip(app.switches["profile-seeking-gender-1"], in: app)
         let ageFrom = app.textFields["profile-seeking-age-from"]
-        reveal(ageFrom, in: app).tap()
-        ageFrom.typeText("30")
+        revealEditable(ageFrom, in: app)
+        ageFrom.tap()
+        let focused = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "hasKeyboardFocus == true"), object: ageFrom)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [focused], timeout: 10), .completed, app.debugDescription)
+        typeSlowly("30", into: ageFrom)
     }
 
     /// Relaunch, keep the saved month, and see a localized failure that clears the confirmations.
