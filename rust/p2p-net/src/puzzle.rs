@@ -25,7 +25,7 @@ pub fn solve(challenge: &[u8; 16], peer: &str, bits: u32) -> u64 {
 pub fn solve_from(challenge: &[u8; 16], peer: &str, bits: u32, start: u64) -> u64 {
     let mut nonce = start;
     while !solved(challenge, peer, nonce, bits) {
-        nonce += 1;
+        nonce = nonce.wrapping_add(1);
     }
     nonce
 }

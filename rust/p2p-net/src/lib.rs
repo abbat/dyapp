@@ -224,7 +224,9 @@ async fn read_message<M: prost::Message + Default, T: AsyncRead + Unpin + Send>(
 ) -> io::Result<(M, usize)> {
     let mut buf = Vec::new();
     // One byte over the limit tells an oversized message from one that is exactly at it.
-    io.take(limit + 1).read_to_end(&mut buf).await?;
+    io.take(limit.saturating_add(1))
+        .read_to_end(&mut buf)
+        .await?;
     if buf.len() as u64 > limit {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
@@ -828,8 +830,8 @@ fn routing_group_use(
                     .any(|a| ip_group(a, w).as_deref() == Some(g))
             };
             if has(group, false) {
-                usage.table_count += 1;
-                usage.bucket_count += usize::from(in_bucket);
+                usage.table_count = usage.table_count.saturating_add(1);
+                usage.bucket_count = usage.bucket_count.saturating_add(usize::from(in_bucket));
             }
             usage.bucket_wide |= in_bucket && has(wide, true);
         }

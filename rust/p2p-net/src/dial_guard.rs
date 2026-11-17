@@ -88,7 +88,7 @@ impl DialGuard {
             self.refuse();
             return None;
         }
-        state.active += 1;
+        state.active = state.active.saturating_add(1);
         Some(slot(Some(key)))
     }
 

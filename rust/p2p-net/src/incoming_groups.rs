@@ -102,7 +102,7 @@ impl IncomingGroupGuard {
                 "incoming IP group connection limit",
             )));
         }
-        self.groups.insert(group, count + 1);
+        self.groups.insert(group, count.saturating_add(1));
         self.connections.insert(id, group);
         Ok(())
     }
@@ -110,7 +110,7 @@ impl IncomingGroupGuard {
     fn release(&mut self, id: ConnectionId) {
         if let Some(group) = self.connections.remove(&id) {
             if let Some(count) = self.groups.get_mut(&group) {
-                *count -= 1;
+                *count = count.saturating_sub(1);
                 if *count == 0 {
                     self.groups.remove(&group);
                 }

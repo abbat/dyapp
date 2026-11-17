@@ -27,7 +27,9 @@ pub fn id_has_pow(peer: &PeerId, bits: u32) -> bool {
         .iter()
         .zip(0u32..)
         .find(|(byte, _)| **byte != 0)
-        .map_or(256, |(byte, index)| index * 8 + byte.leading_zeros());
+        .map_or(256, |(byte, index)| {
+            index.saturating_mul(8).saturating_add(byte.leading_zeros())
+        });
     zeros >= bits
 }
 
