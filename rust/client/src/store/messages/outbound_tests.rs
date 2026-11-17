@@ -262,69 +262,12 @@ fn attachment_descriptor_clock_and_delivery_survive_restart() {
         device: &device,
     };
     let mut store = Store::open(&path, &owner).unwrap();
-    crate::store::tests::catalog_group(&mut store, &group, &peer);
     let write = prepare_put(&[7; 32], vec![1]).unwrap();
     let hlc = store.draft_chat_text(1_000).unwrap();
-    let body = Body::Attachment(AttachmentMessage {
-        id: [5; 16],
-        hlc,
-        attachment: Attachment {
-            key: [1; 32],
-            plaintext_sha256: [2; 32],
-            blob_sha256: [3; 32],
-            release_secret: [4; 32],
-            size: 12,
-            preview: vec![5],
-            mime: "image/jpeg".into(),
-            width: 20,
-            height: 10,
-        },
-    });
-    assert!(matches!(
-        store.stage_chat_outbound(
-            b"no-request",
-            std::slice::from_ref(&write),
-            sender,
-            &body,
-            1_000
-        ),
-        Err(Error::RequestPending)
-    ));
-    assert!(store.due_outbound(0).unwrap().is_empty());
-    store
-        .db
-        .execute(
-            "INSERT INTO `conversations` (`peer_id`, `state`, `request_id`) VALUES (?1, 3, NULL)",
-            [&peer],
-        )
-        .unwrap();
-    store
-        .stage_chat_outbound(
-            b"mls-attachment",
-            std::slice::from_ref(&write),
-            sender,
-            &body,
-            1_000,
-        )
-        .unwrap();
+    let body = attachment_body(hlc);
+    stage_attachment(&mut store, sender, &peer, &write, &body);
     assert!(store.draft_chat_text(1_000).unwrap() > hlc);
-    let history = store.current_chat_attachments(&peer).unwrap();
-    assert_eq!(history.len(), 1);
-    assert_eq!(history[0].key.id, [5; 16]);
-    assert_eq!(history[0].delivery, Some(DeliveryState::Pending));
-    let link: (Vec<u8>, Vec<u8>) = store
-        .db
-        .query_row(
-            "SELECT `chat_message_id`, `chat_generation_id` FROM `outbox` WHERE `envelope_id` = ?1",
-            [write.id().as_slice()],
-            |row| Ok((row.get(0)?, row.get(1)?)),
-        )
-        .unwrap();
-    assert_eq!(link, (vec![5; 16], vec![5; 16]));
-    assert_eq!(
-        store.due_outbound(0).unwrap()[0].as_bytes(),
-        write.as_bytes()
-    );
+    assert_attachment_outbox(&store, &peer, &write);
     let next_hlc = store.draft_chat_text(1_000).unwrap();
     let conflict = Body::Attachment(AttachmentMessage {
         id: [5; 16],
@@ -356,6 +299,81 @@ fn attachment_descriptor_clock_and_delivery_survive_restart() {
     assert_eq!(
         store.sealed_device().unwrap().as_deref(),
         Some(&b"mls-attachment"[..])
+    );
+}
+
+fn attachment_body(hlc: u64) -> Body {
+    Body::Attachment(AttachmentMessage {
+        id: [5; 16],
+        hlc,
+        attachment: Attachment {
+            key: [1; 32],
+            plaintext_sha256: [2; 32],
+            blob_sha256: [3; 32],
+            release_secret: [4; 32],
+            size: 12,
+            preview: vec![5],
+            mime: "image/jpeg".into(),
+            width: 20,
+            height: 10,
+        },
+    })
+}
+
+fn stage_attachment(
+    store: &mut Store,
+    sender: VerifiedChatSender,
+    peer: &str,
+    write: &PreparedEnvelope,
+    body: &Body,
+) {
+    crate::store::tests::catalog_group(store, sender.group, peer);
+    assert!(matches!(
+        store.stage_chat_outbound(
+            b"no-request",
+            std::slice::from_ref(write),
+            sender,
+            body,
+            1_000
+        ),
+        Err(Error::RequestPending)
+    ));
+    assert!(store.due_outbound(0).unwrap().is_empty());
+    store
+        .db
+        .execute(
+            "INSERT INTO `conversations` (`peer_id`, `state`, `request_id`) VALUES (?1, 3, NULL)",
+            [peer],
+        )
+        .unwrap();
+    store
+        .stage_chat_outbound(
+            b"mls-attachment",
+            std::slice::from_ref(write),
+            sender,
+            body,
+            1_000,
+        )
+        .unwrap();
+}
+
+fn assert_attachment_outbox(store: &Store, peer: &str, write: &PreparedEnvelope) {
+    let history = store.current_chat_attachments(peer).unwrap();
+    assert_eq!(history.len(), 1);
+    assert_eq!(history[0].key.id, [5; 16]);
+    assert_eq!(history[0].delivery, Some(DeliveryState::Pending));
+    let link: (Vec<u8>, Vec<u8>) = store
+        .db
+        .query_row(
+            "SELECT `chat_message_id`, `chat_generation_id` FROM `outbox` WHERE `envelope_id` = ?1",
+            [write.id().as_slice()],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(link, (vec![5; 16], vec![5; 16]));
+    assert_eq!(
+        store.due_outbound(0).unwrap()[0].as_bytes(),
+        write.as_bytes()
     );
 }
 
