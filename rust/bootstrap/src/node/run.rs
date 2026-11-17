@@ -2,6 +2,7 @@
 
 use super::*;
 mod catch_up;
+mod events;
 mod hangup;
 mod overload;
 mod pow;
@@ -190,374 +191,36 @@ pub async fn run(mut swarm: Swarm<Behaviour>, service: Arc<Service>) {
             refill_round.drained(&service);
         }
         tokio::select! {
-            event = swarm.select_next_some() => {
-            dyapp_p2p_net::route(&mut swarm, &event);
-            service.metrics.observe(&swarm, &event);
-            match event {
-                SwarmEvent::NewListenAddr { address, .. } => tracing::info!(%address, "listening"),
-                SwarmEvent::ExternalAddrConfirmed { address } => {
-                    tracing::info!(%address, "external address confirmed");
-                }
-                // At max_memory_mb a request is dropped unanswered: its stream is reset and the
-                // client tries another node.
-                SwarmEvent::Behaviour(event) if service.overloaded() && overload::is_request(&event) => {}
-                SwarmEvent::Behaviour(BehaviourEvent::Node(Event::Message {
-                    peer: id,
-                    connection_id,
-                    message: Message::Request { request, channel, .. },
-                })) => {
-                    // Node requests touch no store, so they stay on the loop.
-                    let response = service.node(&peer(&swarm, &service, id, connection_id), request);
-                    answered += 1;
-                    service.traffic.add(response.encoded_len() as u64);
-                    let _ = swarm.behaviour_mut().node.send_response(channel, response);
-                    drop_banned(&mut swarm, &service, id);
-                }
-                // The node asks other nodes only for deny lists.
-                SwarmEvent::Behaviour(BehaviourEvent::Node(Event::Message {
-                    peer: id,
-                    message: Message::Response { response, .. },
-                    ..
-                })) => {
-                    if let Some(record) = response.deny_list {
-                        keep_deny_list(&deny, &id, &record, service.clock.timestamp());
-                    }
-                }
-                SwarmEvent::Behaviour(BehaviourEvent::Profile(Event::Message {
-                    peer: id,
-                    connection_id,
-                    message: Message::Request { request, channel, .. },
-                })) => requests::profile(
-                    &mut swarm,
-                    &service,
-                    &mut store_queue,
-                    &pow_permits,
-                    (id, connection_id),
-                    request,
-                    channel,
-                ),
-                SwarmEvent::Behaviour(BehaviourEvent::KeyPackage(Event::Message {
-                    peer: id,
-                    connection_id,
-                    message: Message::Request { request, channel, .. },
-                })) => requests::keypackage(
-                    &mut swarm,
-                    &service,
-                    &mut store_queue,
-                    id,
-                    connection_id,
-                    request,
-                    channel,
-                ),
-                SwarmEvent::Behaviour(BehaviourEvent::Media(Event::Message {
-                    peer: id,
-                    connection_id,
-                    message: Message::Request { request, channel, .. },
-                })) => {
-                    answered += u64::from(requests::media(
-                        &mut swarm,
-                        &service,
-                        &mut store_queue,
-                        &replicas,
-                        (id, connection_id),
-                        request,
-                        channel,
-                    ));
-                }
-                SwarmEvent::Behaviour(BehaviourEvent::Mailbox(Event::Message {
-                    peer: id,
-                    connection_id,
-                    message: Message::Request { request, channel, .. },
-                })) => requests::mailbox(
-                    &mut swarm,
-                    &service,
-                    &mut store_queue,
-                    id,
-                    connection_id,
-                    request,
-                    channel,
-                ),
-                SwarmEvent::Behaviour(BehaviourEvent::Search(Event::Message {
-                    peer: id,
-                    connection_id,
-                    message: Message::Request { request, channel, .. },
-                })) => {
-                    let outcome = search_jobs::request(
-                        search_jobs::RequestContext {
-                            swarm: &mut swarm,
-                            service: &service,
-                            queue: &mut search_queue,
-                            running: &mut searching,
-                            done: &search_done_tx,
-                            pow_permits: &pow_permits,
-                            pow_done: &pow_tx,
-                        },
-                        id,
-                        connection_id,
-                        request,
-                        channel,
-                    );
-                    answered += outcome.answered;
-                    failed += outcome.failed;
-                }
-                SwarmEvent::Behaviour(BehaviourEvent::Inventory(Event::Message {
-                    peer: id,
-                    connection_id,
-                    message: Message::Request { request, channel, .. },
-                })) => requests::inventory(
-                    &mut swarm,
-                    &service,
-                    &mut store_queue,
-                    id,
-                    connection_id,
-                    request,
-                    channel,
-                ),
-                SwarmEvent::Behaviour(BehaviourEvent::Digest(Event::Message {
-                    peer: id,
-                    connection_id,
-                    message: Message::Request { request, channel, .. },
-                })) => requests::digest(
-                    &mut swarm,
-                    &service,
-                    &mut store_queue,
-                    id,
-                    connection_id,
-                    request,
-                    channel,
-                ),
-                SwarmEvent::Behaviour(BehaviourEvent::Gossip(gossipsub::Event::Message {
-                    propagation_source,
-                    message_id,
-                    message,
-                })) => pow::receive_gossip(
-                    &mut swarm,
-                    &service,
-                    &pow_permits,
-                    &pow_tx,
-                    &mut pow_gossip,
-                    (propagation_source, message_id, message.data),
-                ),
-                // Catch-up: queue the keys this node lacks or holds older, and fetch the next page
-                // while pages are full.
-                SwarmEvent::Behaviour(BehaviourEvent::Inventory(Event::Message {
-                    peer: id,
-                    message: Message::Response { request_id, response },
-                    ..
-                })) => catch_up::inventory_response(
-                    &mut swarm,
-                    &service,
-                    catch_up::InventoryState {
-                        asks: &mut asks,
-                        queue: &mut catch_up_queue,
-                        at: &mut catch_up_at,
-                        refill: &mut refill_round,
-                    },
-                    id,
-                    request_id,
-                    &response,
-                ),
-                // A catch-up get: apply what came, queue again what a reply cut at 1 MiB left out.
-                // A reply with no records ends the chunk, so keys the peer no longer has drop out.
-                SwarmEvent::Behaviour(BehaviourEvent::Search(Event::Message {
-                    message: Message::Response { request_id, response },
-                    ..
-                })) => catch_up::search_response(
-                    &mut swarm,
-                    &service,
-                    catch_up::SearchState {
-                        queue: &mut catch_up_queue,
-                        asked: &mut catch_up_asked,
-                        at: &mut catch_up_at,
-                    },
-                    &pow_permits,
-                    &pow_tx,
-                    request_id,
-                    &response,
-                ),
-                SwarmEvent::Behaviour(BehaviourEvent::Search(Event::OutboundFailure {
-                    peer: id, request_id, ..
-                })) => catch_up::search_failure(
-                    &mut swarm,
-                    &mut catch_up_queue,
-                    &mut catch_up_asked,
-                    id,
-                    request_id,
-                ),
-                SwarmEvent::Behaviour(BehaviourEvent::Inventory(Event::OutboundFailure {
-                    request_id, ..
-                })) => catch_up::inventory_failure(&mut swarm, &mut asks, request_id),
-                // Catch-up digests: ask what differs, or on failure the range the digest covered.
-                SwarmEvent::Behaviour(BehaviourEvent::Digest(event)) => catch_up::digest(
-                    &mut swarm,
-                    &service,
-                    &mut asks,
-                    &mut refill_round,
-                    event,
-                ),
-                SwarmEvent::ConnectionEstablished { peer_id, connection_id, endpoint, .. } => {
-                    replicas.trust.seen.entry(peer_id).or_insert_with(|| service.clock.instant());
-                    admission.established(&mut swarm, connection_id, peer_id, &endpoint, service.clock.instant());
-                    drop_banned(&mut swarm, &service, peer_id);
-                }
-                SwarmEvent::ConnectionClosed { peer_id, connection_id, num_established, .. } => {
-                    if num_established == 0 {
-                        catch_up_queue.remove(&peer_id);
-                        asks.forget(&peer_id);
-                        service.search_peer(&peer_id.to_string(), false);
-                        if !dyapp_p2p_net::routed(&mut swarm, &peer_id) {
-                            replicas.trust.forget(&peer_id);
-                        }
-                    }
-                    nonces.remove(&connection_id);
-                    admission.closed(connection_id, peer_id, num_established == 0);
-                    // ponytail: a scan of all watchers per closed connection; index them by
-                    // connection if many devices watch at once.
-                    watchers.retain(|_, list| {
-                        list.retain(|(_, c)| *c != connection_id);
-                        !list.is_empty()
-                    });
-                }
-                SwarmEvent::Behaviour(BehaviourEvent::Kad(kad::Event::OutboundQueryProgressed {
-                    id,
-                    result: kad::QueryResult::StartProviding(result),
-                    ..
-                })) if turn_query == Some(id) => {
-                    turn_query = None;
-                    match result {
-                        Ok(_) => {
-                            turn_unannounced = false;
-                            tracing::info!("TURN relay announced");
-                        }
-                        Err(error) => tracing::warn!(%error, "TURN relay not announced"),
-                    }
-                }
-                SwarmEvent::Behaviour(BehaviourEvent::Kad(kad::Event::OutboundQueryProgressed {
-                    id,
-                    result: kad::QueryResult::StartProviding(result),
-                    ..
-                })) if search_query == Some(id) => {
-                    search_query = None;
-                    match result {
-                        Ok(_) => {
-                            search_unannounced = false;
-                            tracing::info!("search node announced");
-                        }
-                        Err(error) => tracing::warn!(%error, "search node not announced"),
-                    }
-                }
-                SwarmEvent::Behaviour(BehaviourEvent::Kad(kad::Event::InboundRequest {
-                    request: kad::InboundRequest::AddProvider { record: Some(record) },
-                })) => admission.add_provider(&mut swarm, record),
-                // Only a search node with too few gossip peers looks for providers: dial them.
-                SwarmEvent::Behaviour(BehaviourEvent::Kad(kad::Event::OutboundQueryProgressed {
-                    result: kad::QueryResult::GetProviders(Ok(kad::GetProvidersOk::FoundProviders { providers, .. })),
-                    ..
-                })) => {
-                    for provider in providers {
-                        if provider != *swarm.local_peer_id()
-                            && !swarm.is_connected(&provider)
-                            && dyapp_p2p_net::id_has_pow(&provider, dyapp_p2p_net::id_pow_bits())
-                        {
-                            let _ = swarm.dial(provider);
-                        }
-                    }
-                }
-                SwarmEvent::Behaviour(BehaviourEvent::Kad(kad::Event::OutboundQueryProgressed {
-                    id,
-                    result: kad::QueryResult::GetClosestPeers(result),
-                    ..
-                })) => {
-                    replicas.closest(&mut swarm, &service, &watchers, id, result);
-                }
-                SwarmEvent::Behaviour(BehaviourEvent::Kad(kad::Event::OutboundQueryProgressed {
-                    result: kad::QueryResult::Bootstrap(Ok(ok)),
-                    ..
-                })) if ok.num_remaining == 0 => replicas.republish.bootstrapped(service.clock.instant()),
-                // The peer's answer to an inventory: it gets what it lacks.
-                SwarmEvent::Behaviour(BehaviourEvent::Mailbox(Event::Message {
-                    peer: id,
-                    message: Message::Response { request_id, response },
-                    ..
-                })) => {
-                    replicas.mailbox_response(&mut swarm, &service, id, request_id, response);
-                }
-                SwarmEvent::Behaviour(BehaviourEvent::Mailbox(Event::OutboundFailure {
-                    peer,
-                    request_id,
-                    error,
-                    ..
-                })) => {
-                    replicas.mailbox_failure(peer, request_id, &error);
-                }
-                SwarmEvent::Behaviour(BehaviourEvent::Profile(Event::Message {
-                    peer: id,
-                    message: Message::Response { request_id, response },
-                    ..
-                })) => {
-                    replicas.profile_response(&mut swarm, &service, id, request_id, response);
-                }
-                SwarmEvent::Behaviour(BehaviourEvent::Profile(Event::OutboundFailure {
-                    peer, request_id, error, ..
-                })) => {
-                    replicas.profile_failure(peer, request_id, &error);
-                }
-                SwarmEvent::Behaviour(BehaviourEvent::KeyPackage(Event::Message {
-                    peer: id, message: Message::Response { request_id, response }, ..
-                })) => {
-                    replicas.keypackage_response(&mut swarm, &service, id, request_id, &response);
-                }
-                SwarmEvent::Behaviour(BehaviourEvent::KeyPackage(Event::OutboundFailure {
-                    peer, request_id, error, ..
-                })) => {
-                    replicas.keypackage_failure(peer, request_id, &error);
-                }
-                SwarmEvent::Behaviour(BehaviourEvent::Media(Event::Message {
-                    peer: id, message: Message::Response { request_id, response }, ..
-                })) => {
-                    replicas.media_response(&mut swarm, &service, id, request_id, response);
-                }
-                SwarmEvent::Behaviour(BehaviourEvent::Media(Event::OutboundFailure {
-                    peer, request_id, error, ..
-                })) => {
-                    replicas.media_failure(&mut swarm, &service, peer, request_id, &error);
-                }
-                // Before any routing: a peer of another network enters no DHT and no anchors.
-                SwarmEvent::Behaviour(BehaviourEvent::Identify(identify::Event::Received {
-                    connection_id, peer_id, info,
-                })) if info.protocol_version != service.protocols.version => {
-                    foreign_peers += 1;
-                    identified::drop_foreign(&mut swarm, admission.dialed(connection_id), peer_id, &info.protocol_version);
-                }
-                // Kademlia learns a dialer's address only from identify: without this a node
-                // never routes to peers that joined through it.
-                SwarmEvent::Behaviour(BehaviourEvent::Identify(identify::Event::Received {
-                    connection_id, peer_id, info,
-                })) if info.protocols.contains(&service.protocols.kad) || info.protocols.contains(&service.protocols.search_kad) => {
-                    if !identified::add_node(&mut swarm, &service, &mut anchors, &mut admission, connection_id, peer_id, info) {
-                        continue;
-                    }
-                    if turn_unannounced && turn_query.is_none() {
-                        let key = kad::RecordKey::new(&dyapp_p2p_net::TURN_KEY);
-                        turn_query = swarm.behaviour_mut().kad.start_providing(key).ok();
-                    }
-                    if search_unannounced && search_query.is_none() {
-                        let key = kad::RecordKey::new(&SEARCH_KEY);
-                        search_query = swarm.behaviour_mut().kad.start_providing(key).ok();
-                    }
-                }
-                SwarmEvent::OutgoingConnectionError { connection_id, peer_id, error } => {
-                    admission.failed(&mut swarm, connection_id, service.clock.instant());
-                    if matches!(error, DialError::WrongPeerId { .. }) {
-                        tracing::warn!(?peer_id, %error, "outbound peer ID mismatch; connection refused");
-                    }
-                }
-                SwarmEvent::IncomingConnectionError { error: ListenError::Denied { .. }, .. } => {
-                    refused += 1;
-                }
-                _ => {}
-            }
-            },
+            event = swarm.select_next_some() => events::handle(events::Context {
+                swarm: &mut swarm,
+                service: &service,
+                anchors: &mut anchors,
+                deny: &deny,
+                nonces: &mut nonces,
+                admission: &mut admission,
+                watchers: &mut watchers,
+                replicas: &mut replicas,
+                refused: &mut refused,
+                turn_unannounced: &mut turn_unannounced,
+                turn_query: &mut turn_query,
+                search_unannounced: &mut search_unannounced,
+                search_query: &mut search_query,
+                search_queue: &mut search_queue,
+                searching: &mut searching,
+                search_done: &search_done_tx,
+                pow_permits: &pow_permits,
+                pow_done: &pow_tx,
+                pow_gossip: &mut pow_gossip,
+                asks: &mut asks,
+                catch_up_queue: &mut catch_up_queue,
+                catch_up_asked: &mut catch_up_asked,
+                catch_up_at: &mut catch_up_at,
+                refill_round: &mut refill_round,
+                answered: &mut answered,
+                failed: &mut failed,
+                foreign_peers: &mut foreign_peers,
+                store_queue: &mut store_queue,
+            }, event),
             _ = put_check.tick() => {
                 replicas.finish_puts(&mut swarm, &service, service.clock.instant());
                 replicas.republish(&mut swarm, &service, service.clock.instant());
