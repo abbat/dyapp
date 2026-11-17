@@ -328,29 +328,48 @@ fn low_pow_heartbeat_does_not_refresh_or_remove_the_stored_record() {
     );
     let key = dyapp_identity::key_hash(&owner.public_key());
     let index = s.search.clone().unwrap();
-    let counters = || {
-        index
-            .reader()
-            .unwrap()
-            .query_row(
-                "SELECT `heartbeat`, `beat_day`, `beats` FROM `key` WHERE `key` = ?",
-                [&key[..]],
-                |row| {
-                    Ok((
-                        row.get::<_, i64>(0)?,
-                        row.get::<_, i64>(1)?,
-                        row.get::<_, i64>(2)?,
-                    ))
-                },
-            )
-            .unwrap()
-    };
-    let before = counters();
+    let before = heartbeat_counters(&index, &key);
     s.config.search.min_profile_pow_bits = 2;
     let heartbeat = beat(&owner, 1, chrono::Utc::now().timestamp().unsigned_abs());
+    check_weak_heartbeat(&s, &index, &key, record, &heartbeat, before);
+    check_other_heartbeats(&s);
+    s.config.search.min_profile_pow_bits = 0;
+    assert_eq!(
+        search(&s, search_request::Request::Heartbeat(heartbeat)).status,
+        i32::from(Status::Ok)
+    );
+    assert_eq!(heartbeat_counters(&index, &key).2, before.2 + 1);
+}
+
+fn heartbeat_counters(index: &SearchIndex, key: &[u8; 32]) -> (i64, i64, i64) {
+    index
+        .reader()
+        .unwrap()
+        .query_row(
+            "SELECT `heartbeat`, `beat_day`, `beats` FROM `key` WHERE `key` = ?",
+            [&key[..]],
+            |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, i64>(2)?,
+                ))
+            },
+        )
+        .unwrap()
+}
+
+fn check_weak_heartbeat(
+    s: &Service,
+    index: &SearchIndex,
+    key: &[u8; 32],
+    record: SignedRecord,
+    heartbeat: &SignedRecord,
+    before: (i64, i64, i64),
+) {
     let from = peer("weak-heartbeat");
     let response = search_as(
-        &s,
+        s,
         &from,
         search_request::Request::Heartbeat(heartbeat.clone()),
     );
@@ -368,11 +387,14 @@ fn low_pow_heartbeat_does_not_refresh_or_remove_the_stored_record() {
     }
     .encode_to_vec();
     assert_eq!(s.search_gossip(&data), Verdict::Ignore);
-    assert_eq!(counters(), before);
-    assert_eq!(index.records(&[key], usize::MAX).unwrap(), vec![record]);
+    assert_eq!(heartbeat_counters(index, key), before);
+    assert_eq!(index.records(&[*key], usize::MAX).unwrap(), vec![record]);
+}
+
+fn check_other_heartbeats(s: &Service) {
     let unknown = Identity::generate();
     let response = search(
-        &s,
+        s,
         search_request::Request::Heartbeat(beat(
             &unknown,
             1,
@@ -393,12 +415,12 @@ fn low_pow_heartbeat_does_not_refresh_or_remove_the_stored_record() {
         2,
     );
     assert_eq!(
-        search(&s, search_request::Request::Publish(record)).status,
+        search(s, search_request::Request::Publish(record)).status,
         i32::from(Status::Ok)
     );
     assert_eq!(
         search(
-            &s,
+            s,
             search_request::Request::Heartbeat(beat(
                 &strong,
                 1,
@@ -408,12 +430,6 @@ fn low_pow_heartbeat_does_not_refresh_or_remove_the_stored_record() {
         .status,
         i32::from(Status::Ok)
     );
-    s.config.search.min_profile_pow_bits = 0;
-    assert_eq!(
-        search(&s, search_request::Request::Heartbeat(heartbeat)).status,
-        i32::from(Status::Ok)
-    );
-    assert_eq!(counters().2, before.2 + 1);
 }
 
 #[test]
