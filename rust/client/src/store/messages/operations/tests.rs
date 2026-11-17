@@ -185,21 +185,30 @@ fn early_delete_is_terminal_and_pending_budget_is_global() {
         id: [9; 16],
     };
     let mut store = Store::open(&path, &author).unwrap();
+    assert_terminal_early_delete(&mut store, &key, &other);
+    drop(store);
+    let mut store = Store::open(&path, &author).unwrap();
+    assert!(!store.record_chat_text(&key, b"original").unwrap());
+    assert!(store.chat_message(&key).unwrap().unwrap().deleted);
+    assert_global_pending_budget(&mut store, key);
+}
+
+fn assert_terminal_early_delete(store: &mut Store, key: &MessageKey, other: &Identity) {
     assert!(store
         .apply_chat_operation(
-            &key,
+            key,
             &[1; 32],
             &edit(key.id, 1, 100, b"do not retain"),
             1_000
         )
         .unwrap());
     assert!(store
-        .apply_chat_operation(&key, &[1; 32], &delete(key.id, 2, 200), 1_000)
+        .apply_chat_operation(key, &[1; 32], &delete(key.id, 2, 200), 1_000)
         .unwrap());
-    assert!(store.chat_message(&key).unwrap().unwrap().deleted);
+    assert!(store.chat_message(key).unwrap().unwrap().deleted);
     assert!(store
         .apply_chat_operation(
-            &key,
+            key,
             &[1; 32],
             &edit(key.id, 3, 300, b"cannot revive"),
             1_000
@@ -222,11 +231,10 @@ fn early_delete_is_terminal_and_pending_budget_is_global() {
     assert!(store
         .apply_chat_operation(&wrong, &[1; 32], &edit(key.id, 4, 400, b"wrong"), 1_000)
         .unwrap());
-    assert!(store.chat_message(&key).unwrap().unwrap().deleted);
-    drop(store);
-    let mut store = Store::open(&path, &author).unwrap();
-    assert!(!store.record_chat_text(&key, b"original").unwrap());
-    assert!(store.chat_message(&key).unwrap().unwrap().deleted);
+    assert!(store.chat_message(key).unwrap().unwrap().deleted);
+}
+
+fn assert_global_pending_budget(store: &mut Store, key: MessageKey) {
     let pending: i64 = store
         .db
         .query_row(
@@ -236,8 +244,7 @@ fn early_delete_is_terminal_and_pending_budget_is_global() {
         )
         .unwrap();
     assert_eq!(pending, 1); // the other author's unresolved edit
-
-    // Distinct target IDs cannot bypass the profile-wide cap.
+                            // Distinct target IDs cannot bypass the profile-wide cap.
     for i in 0..(MAX_PENDING_OPERATIONS - pending) {
         let target = [u8::try_from(i).unwrap() + 100; 16];
         let unknown = MessageKey {
