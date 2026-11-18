@@ -903,8 +903,13 @@ impl MediaStore {
     pub fn shard(&self, hash: &[u8], index: usize) -> Result<Option<Vec<u8>>> {
         let data: Option<Vec<u8>> = lock(&self.db)?
             .query_row(
-                "SELECT `data` FROM `shards` WHERE `hash` = ? AND `idx` = ?",
-                params![hash, i64::try_from(index).map_err(storage_error)?],
+                "SELECT `data` FROM `shards`
+                 WHERE `hash` = ? AND `idx` = ? AND length(`data`) <= ?",
+                params![
+                    hash,
+                    i64::try_from(index).map_err(storage_error)?,
+                    sql_size(crate::replication::MEDIA_OBJECT_BYTES)?
+                ],
                 |r| r.get(0),
             )
             .optional()

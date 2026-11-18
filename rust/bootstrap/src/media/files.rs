@@ -1,11 +1,12 @@
 //! Blob-file reads, assembled-cache retention and disk usage.
 
 use super::{hex, lock, remove_file, storage_error, MediaStore};
+use crate::replication::MEDIA_MAX_BYTES;
 use crate::storage::free;
 use crate::Result;
 use rusqlite::params;
 use std::fs;
-use std::io::Write;
+use std::io::{self, Read, Write};
 use std::path::Path;
 
 fn existing_ancestor(mut path: &Path) -> Result<&Path> {
@@ -81,6 +82,20 @@ pub(super) fn sql_size(value: impl TryInto<i64>) -> Result<i64> {
         .map_err(|_| storage_error("size exceeds signed storage range"))
 }
 
+fn read_bounded(path: &Path) -> io::Result<Vec<u8>> {
+    let mut data = Vec::new();
+    fs::File::open(path)?
+        .take((MEDIA_MAX_BYTES as u64).saturating_add(1))
+        .read_to_end(&mut data)?;
+    if data.len() > MEDIA_MAX_BYTES {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "media file exceeds 6 MiB",
+        ));
+    }
+    Ok(data)
+}
+
 #[cfg(test)]
 #[test]
 fn sql_sizes_reject_values_above_the_signed_storage_limit() {
@@ -124,7 +139,7 @@ impl MediaStore {
         if held == 0 {
             return Ok(None);
         }
-        match fs::read(self.cache.join(hex(hash))) {
+        match read_bounded(&self.cache.join(hex(hash))) {
             Ok(data) => Ok(Some(data)),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 db.execute("DELETE FROM `cache` WHERE `hash` = ?", [hash])
@@ -196,7 +211,7 @@ impl MediaStore {
     ///
     /// Returns an error if the blob file cannot be read for a reason other than absence.
     pub fn get(&self, hash: &[u8]) -> Result<Option<Vec<u8>>> {
-        match fs::read(self.path(hash)) {
+        match read_bounded(&self.path(hash)) {
             Ok(data) => Ok(Some(data)),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
             Err(e) => Err(storage_error(e)),

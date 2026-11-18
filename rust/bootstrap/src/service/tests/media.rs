@@ -2,6 +2,7 @@
 use super::*;
 
 mod boundaries;
+mod memory;
 
 pub(in crate::service) fn media_service(
     change: impl FnOnce(&mut crate::config::Limits),

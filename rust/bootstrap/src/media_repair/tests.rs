@@ -477,8 +477,10 @@ fn local_copies_count_only_when_they_verify() {
         .unwrap();
     assert!(!missing(&origin, &record, &hash));
     let path = origin.media.as_ref().unwrap().path(&hash);
-    std::fs::write(path, b"rotten!").unwrap();
+    std::fs::write(&path, b"rotten!").unwrap();
     assert!(missing(&origin, &record, &hash));
+    std::fs::write(&path, vec![0; crate::replication::MEDIA_MAX_BYTES + 1]).unwrap();
+    assert!(Repair::new(&origin, record.clone(), vec![hash], Instant::now()).is_err());
 
     // Enough verified local shards make a sharded blob recoverable without peers.
     let origin = service();

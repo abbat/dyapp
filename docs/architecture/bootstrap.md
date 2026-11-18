@@ -179,7 +179,9 @@ same id or hash stores once), so replays need no nonce.
 Profiles, mailbox envelopes (signals included) and media blobs up to 1 MiB are replicated whole to R = 5 points,
 replica *i* on the nodes closest to H(key ‖ i); media above the node's threshold are
 erasure-coded into K = ⌈size / 1 MiB⌉ data shards + M = 4 parity shards, up to 6 MiB.
-Smaller blobs use whole copies ([Erasure coding](#erasure-coding-reed-solomon)).
+Whole and assembled-cache reads stop at 6 MiB plus one byte, and shard SQL returns only values up
+to 1 MiB, so enlarged local state fails closed before a Rust allocation. Smaller blobs use whole
+copies ([Erasure coding](#erasure-coding-reed-solomon)).
 `dyapp_p2p_net::replica_key(key, i)` is the Kademlia lookup key `key ‖ i` (Kademlia applies
 SHA-256). `Node::replicas` performs a separately bounded closest-peer lookup for every replica key
 and connects only discovered, PoW-eligible addresses through the normal client dial stack. Its
