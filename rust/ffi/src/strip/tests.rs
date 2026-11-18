@@ -81,6 +81,24 @@ fn rotated_jpeg_is_turned_upright() {
     assert_eq!(strip_metadata(stripped.clone()).unwrap(), stripped);
 }
 
+#[test]
+fn input_limit_precedes_parsing() {
+    let mut bytes = plain_jpeg();
+    bytes.resize(usize::try_from(MAX_PICKED_BYTES).unwrap() + 1, 0);
+    assert!(strip_metadata(bytes).is_err());
+}
+
+#[test]
+fn rotated_jpeg_rejects_hostile_dimensions_before_decoding() {
+    let mut bytes = plain_jpeg();
+    let frame = (0..bytes.len() - 8)
+        .find(|&at| bytes[at] == 0xFF && matches!(bytes[at + 1], 0xC0..=0xC2))
+        .unwrap();
+    bytes[frame + 5..frame + 7].copy_from_slice(&u16::MAX.to_be_bytes());
+    bytes[frame + 7..frame + 9].copy_from_slice(&u16::MAX.to_be_bytes());
+    assert!(strip_metadata(with_metadata(&bytes, 6)).is_err());
+}
+
 fn crc32(bytes: &[u8]) -> u32 {
     !bytes.iter().fold(!0u32, |crc, &byte| {
         (0..8).fold(crc ^ u32::from(byte), |crc, _| {

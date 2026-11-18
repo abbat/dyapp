@@ -60,8 +60,10 @@ picking. iOS preparation migration remains planned.
    with the prepared bytes to chat sending; Kotlin does not parse the JPEG again. Bitmaps are
    recycled after preparation. The system photo picker needs no storage permission.
    Apple clients do this with ImageIO, then pass the JPEG through the core's `strip_metadata`,
-   because ImageIO may write EXIF of its own; the sRGB profile stays, as it names no device. iOS
-   uses the system photo picker and macOS a file dialog.
+   because ImageIO may write EXIF of its own; the sRGB profile stays, as it names no device. The FFI
+   independently rejects input or re-encoded output over 64 MiB and rotated JPEGs over 64 million
+   pixels before decoding or unbounded output growth. iOS uses the system photo picker and macOS a
+   file dialog.
 2. The core refuses anything but a JPEG within the size and pixel limits. It keeps both blobs in
    the local store under their SHA-256 hashes and lists them in the profile draft. Addition commits
    both blobs and the latest draft in one SQLite immediate transaction; failure leaves them unchanged.

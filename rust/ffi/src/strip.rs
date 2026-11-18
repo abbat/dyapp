@@ -2,10 +2,11 @@
 //! and with which device a photo was taken.
 
 use crate::CoreError;
+use dyapp_client::photo::prepare::{MAX_PICKED_BYTES, MAX_SOURCE_PIXELS};
 use image::codecs::jpeg::JpegEncoder;
 use image::metadata::Orientation;
 use image::{DynamicImage, ImageDecoder, ImageEncoder, ImageFormat, ImageReader};
-use std::io::Cursor;
+use std::io::{self, Cursor, Write};
 
 const PNG_SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
 // Image data and colour; everything else (tEXt, zTXt, iTXt, eXIf, tIME, pHYs, ...) is dropped.
@@ -35,9 +36,10 @@ fn jpeg_len(bytes: &[u8]) -> Option<usize> {
 
 /// `bytes` of a JPEG or PNG without metadata: only image data, JFIF, Adobe colour transform and
 /// ICC colour profile segments are kept, and anything after the end marker is cut (motion-photo
-/// videos). A JPEG with an EXIF orientation is decoded, turned upright and re-encoded at quality
-/// 90. Errs on other formats, a malformed file, and a PNG with an eXIf orientation; the app then
-/// converts the photo to JPEG itself.
+/// videos). Input and re-encoded output are limited to 64 MiB; rotated decoding is limited to 64
+/// million pixels. A JPEG with an EXIF orientation is decoded, turned upright and re-encoded at
+/// quality 90. Errs on other formats, a malformed file, and a PNG with an eXIf orientation; the app
+/// then converts the photo to JPEG itself.
 #[uniffi::export]
 ///
 /// # Errors
@@ -49,12 +51,35 @@ fn jpeg_len(bytes: &[u8]) -> Option<usize> {
     reason = "UniFFI lifts owned arguments across the native language boundary"
 )]
 pub fn strip_metadata(bytes: Vec<u8>) -> Result<Vec<u8>, CoreError> {
+    if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > MAX_PICKED_BYTES {
+        return Err(failed("image exceeds 64 MiB"));
+    }
     if bytes.starts_with(&[0xFF, 0xD8]) {
         upright_jpeg(&bytes)
     } else if bytes.starts_with(&PNG_SIGNATURE) {
         png(&bytes)
     } else {
         Err(failed("not a JPEG or PNG"))
+    }
+}
+
+struct BoundedOutput<'a>(&'a mut Vec<u8>);
+
+impl Write for BoundedOutput<'_> {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        let len = self
+            .0
+            .len()
+            .checked_add(bytes.len())
+            .filter(|len| *len <= usize::try_from(MAX_PICKED_BYTES).unwrap_or(usize::MAX))
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "output exceeds 64 MiB"))?;
+        self.0.extend_from_slice(bytes);
+        debug_assert_eq!(self.0.len(), len);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
     }
 }
 
@@ -67,11 +92,21 @@ fn upright_jpeg(bytes: &[u8]) -> Result<Vec<u8>, CoreError> {
     if orientation == Orientation::NoTransforms {
         return jpeg(bytes);
     }
+    let (width, height) = decoder.dimensions();
+    if u64::from(width)
+        .checked_mul(u64::from(height))
+        .is_none_or(|pixels| pixels > MAX_SOURCE_PIXELS)
+    {
+        return Err(failed("image exceeds 64 million pixels"));
+    }
+    let mut limits = image::Limits::default();
+    limits.max_alloc = Some(MAX_SOURCE_PIXELS.saturating_mul(4));
+    decoder.set_limits(limits).map_err(error)?;
     let icc = decoder.icc_profile().map_err(error)?;
     let mut image = DynamicImage::from_decoder(decoder).map_err(error)?;
     image.apply_orientation(orientation);
     let mut out = Vec::new();
-    let mut encoder = JpegEncoder::new_with_quality(&mut out, ROTATED_QUALITY);
+    let mut encoder = JpegEncoder::new_with_quality(BoundedOutput(&mut out), ROTATED_QUALITY);
     if let Some(icc) = icc {
         encoder
             .set_icc_profile(icc)

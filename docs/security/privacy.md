@@ -152,8 +152,9 @@ not "safe" data. The target design therefore needs:
   (see [FFI design](../architecture/ffi-design.md)). The Linux chat composer does not call it: it
   re-encodes every photo to a bare JPEG on a canvas, which also drops colour profiles and data
   appended to the file. The Android chat composer decodes the photo to pixels and has the core
-  encode a new JPEG from them, so the original file's metadata is not sent. The app setting and
-  the call in the iOS and macOS apps are planned;
+  encode a new JPEG from them, so the original file's metadata is not sent. iOS calls
+  `strip_metadata` after ImageIO, with 64 MiB input/output and 64-million-pixel rotated-decode
+  bounds enforced by the core; the app setting and macOS call are planned;
 - a heartbeat at most once a day at a random time, so `last_seen` does not track app use
   (done in the core: `Store::search_heartbeat_due`); the
   "active since" search filter still lets any searcher learn, to about a day, when a profile last
