@@ -47,6 +47,10 @@ class AppearanceTests {
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars
     }
 
+    private fun awaitLightBars(expected: Boolean) = compose.waitUntil(RELAUNCH_MILLIS) {
+        lightBars() == expected
+    }
+
     private fun themeTitle(language: String): String {
         val config = Configuration(target.resources.configuration)
         config.setLocale(Locale.forLanguageTag(language))
@@ -64,13 +68,13 @@ class AppearanceTests {
     fun aPickedThemeAppliesAtOnceAndSurvivesARelaunch() {
         openSettings()
         click("theme-dark")
-        check(!lightBars()) { "The dark theme kept light status bars" }
+        awaitLightBars(expected = false)
         compose.activityRule.scenario.recreate()
         openSettings()
         assertPicked("theme-dark")
-        check(!lightBars()) { "The dark theme was lost on relaunch" }
+        awaitLightBars(expected = false)
         click("theme-light")
-        check(lightBars()) { "The light theme kept dark status bars" }
+        awaitLightBars(expected = true)
     }
 
     @Test
