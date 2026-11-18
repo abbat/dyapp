@@ -1814,7 +1814,9 @@ with `Content-Type: text/plain; version=0.0.4; charset=utf-8`; another method on
 405, any other path, query string included, 404, a malformed request line 400 and a request head
 over 8 KiB 431. At most 4 connections are served at once, others wait in the accept queue, and
 a connection that has not sent its request and taken the reply within 5 seconds is closed. The
-listener reads no request body and serves nothing else.
+listener reads no request body and serves nothing else. The `dyappd status` scrape shares one
+5-second deadline across connection and response reads and rejects responses above 1 MiB; failed
+or oversized scrapes leave traffic fields `unavailable`.
 
 ## Testing
 

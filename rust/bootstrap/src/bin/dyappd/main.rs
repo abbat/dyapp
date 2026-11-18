@@ -31,9 +31,14 @@ use rusqlite::{Connection, OpenFlags};
 use std::io::IsTerminal;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 mod client;
+#[cfg(test)]
+mod tests;
+
+const MAX_SCRAPE_BYTES: usize = 1024 * 1024;
+const SCRAPE_DEADLINE: Duration = Duration::from_secs(5);
 
 const USAGE: &str =
     "usage: dyappd [keygen [-] | id | probe-key | status | deny add <entry> [note] | \
@@ -360,17 +365,60 @@ async fn running(config: &NodeConfig) -> bool {
 /// `GET /metrics` from the node's loopback listener; `None` when metrics are off or it does not
 /// answer.
 fn scrape(config: &NodeConfig) -> Option<String> {
-    use std::io::{Read, Write};
-    config.metrics.addresses().iter().find_map(|address| {
-        let mut stream =
-            std::net::TcpStream::connect_timeout(address, Duration::from_secs(2)).ok()?;
-        stream.set_read_timeout(Some(Duration::from_secs(5))).ok()?;
-        stream.write_all(b"GET /metrics HTTP/1.0\r\n\r\n").ok()?;
-        let mut reply = String::new();
-        stream.read_to_string(&mut reply).ok()?;
-        let (head, body) = reply.split_once("\r\n\r\n")?;
-        head.starts_with("HTTP/1.1 200").then(|| body.to_owned())
-    })
+    let clock = Clock::system();
+    let deadline = clock.instant().checked_add(SCRAPE_DEADLINE)?;
+    config
+        .metrics
+        .addresses()
+        .iter()
+        .find_map(|address| scrape_at(address, deadline, &clock))
+}
+
+fn scrape_at(address: &std::net::SocketAddr, deadline: Instant, clock: &Clock) -> Option<String> {
+    use std::io::Write;
+    let remaining = deadline.checked_duration_since(clock.instant())?;
+    let mut stream = std::net::TcpStream::connect_timeout(address, remaining).ok()?;
+    stream.write_all(b"GET /metrics HTTP/1.0\r\n\r\n").ok()?;
+    read_scrape(&mut stream, deadline, clock)
+}
+
+fn read_scrape(
+    stream: &mut std::net::TcpStream,
+    deadline: Instant,
+    clock: &Clock,
+) -> Option<String> {
+    let mut reply = Vec::new();
+    let mut chunk = [0; 8192];
+    loop {
+        let read = read_scrape_chunk(stream, &reply, &mut chunk, deadline, clock)?;
+        if read == 0 {
+            break;
+        }
+        reply.extend_from_slice(chunk.get(..read)?);
+        if reply.len() > MAX_SCRAPE_BYTES {
+            return None;
+        }
+    }
+    let reply = String::from_utf8(reply).ok()?;
+    let (head, body) = reply.split_once("\r\n\r\n")?;
+    head.starts_with("HTTP/1.1 200").then(|| body.to_owned())
+}
+
+fn read_scrape_chunk(
+    stream: &mut std::net::TcpStream,
+    reply: &[u8],
+    chunk: &mut [u8],
+    deadline: Instant,
+    clock: &Clock,
+) -> Option<usize> {
+    use std::io::Read;
+    let remaining = deadline.checked_duration_since(clock.instant())?;
+    stream.set_read_timeout(Some(remaining)).ok()?;
+    let room = MAX_SCRAPE_BYTES
+        .saturating_add(1)
+        .saturating_sub(reply.len());
+    let width = room.min(chunk.len());
+    stream.read(chunk.get_mut(..width)?).ok()
 }
 
 /// The sum of the `dyapp_<family>` samples whose labels contain `label`.
