@@ -191,9 +191,10 @@ the caller's nodes, e.g. one per replica key: a put tries them lowest penalty fi
 ([scores](bootstrap.md#replication-and-repair)), the node that accepted the write last tried
 last, and each failure counts against its node; `receive` fetches from the first that answers. A
 receipt for a later write to the same mailbox counts against the node that accepted a
-still-waiting earlier one, which is resent at once. The Linux desktop's minute catch-up pass
-calls `Session::retry_due` before receiving mail, under the active identity lease and the shared
-Sessions lock; due writes are retried after reconnect or restart without drafting new text.
+still-waiting earlier one, which is resent at once. The Linux desktop's minute catch-up pass and
+the native mobile mail pass discover one connected holder per replica key, then call
+`Session::retry_due` before receiving mail with that full set under the active identity lease and
+shared Sessions lock; due writes are retried after reconnect or restart without drafting new text.
 For a staged own text, edit or delete, the outbox now records the logical message ID and the
 current content generation (the original ID or edit/delete operation ID) alongside its MLS group.
 The current chat projection records that generation as pending in the same transaction; incoming

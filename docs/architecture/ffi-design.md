@@ -405,8 +405,10 @@ identity lifetime. `ChatMailPass.changed` retains receive's refresh count; optio
 carries only an admitted sender selector and plain bounded text. The sticker label is trusted local
 UI text supplied by the caller. Notification snapshot/preference/projection failures stay quiet and
 never prevent mail work; network/mail failures keep receive's existing errors. Compatibility
-`receive()` uses the same mail routine without notice snapshots. Retry, mailbox/pack work and
-best-effort token/key/photo maintenance retain their existing boundaries.
+`receive()` uses the same mail routine without notice snapshots. One entry connection discovers a
+`ReplicaSet`; retry, mailbox/pack work and token refill use all of its connected holders, while
+best-effort key/photo maintenance stays on the entry node. Missing holders leave partial coverage
+explicit and do not suppress healthy replicas.
 
 Android `receiveMail` consumes this result. Kotlin only chooses the local short sender and existing
 blank-body fallback, builds/posts the OS notification and keeps foreground/permission/public

@@ -28,23 +28,19 @@ impl ChatSession {
         &self,
         session: &mut Session,
         node: &mut Node,
+        nodes: &mut [Node],
         own: Option<VerifiedProfile>,
     ) -> Result<u32, CoreError> {
         let changed = apply_mailbox(
             session,
             node,
+            nodes,
             own,
             &self.device_key.identity,
             &self.seal_key,
         )
         .await?;
-        let saved = run(
-            session,
-            std::slice::from_mut(node),
-            &self.key.identity,
-            &self.seal_key,
-        )
-        .await?;
+        let saved = run(session, nodes, &self.key.identity, &self.seal_key).await?;
         changed
             .checked_add(saved)
             .ok_or_else(|| failed("changeCountOverflow"))

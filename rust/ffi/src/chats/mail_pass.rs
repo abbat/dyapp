@@ -79,12 +79,20 @@ impl ChatSession {
         on_network_stack(|| {
             self.runtime.block_on(async {
                 let mut node = connect(&network).await?;
+                let protocols = std::sync::Arc::new(
+                    dyapp_p2p_net::Protocols::new(&network.name).map_err(failed)?,
+                );
+                let mailbox = dyapp_client::mailbox(&self.device_key.identity.public_key());
+                let mut replicas = node.replicas(&mailbox, protocols).await;
                 session
-                    .retry_due(std::slice::from_mut(&mut node), now_ms, &self.seal_key)
+                    .retry_due(replicas.nodes_mut(), now_ms, &self.seal_key)
                     .await
                     .map_err(failed)?;
-                let changed = self.receive_mailbox(session, &mut node, own).await?;
-                self.maintain_receive(session, &mut node, now).await?;
+                let changed = self
+                    .receive_mailbox(session, &mut node, replicas.nodes_mut(), own)
+                    .await?;
+                self.maintain_receive(session, &mut node, replicas.nodes_mut(), now)
+                    .await?;
                 let notice =
                     sticker_label.and_then(|label| notice_after(before, session.store(), label));
                 Ok(ChatMailPass { changed, notice })
@@ -96,9 +104,10 @@ impl ChatSession {
         &self,
         session: &mut Session,
         node: &mut Node,
+        nodes: &mut [Node],
         now: Duration,
     ) -> Result<(), CoreError> {
-        refill_if_due(session, node, now.as_secs(), &self.seal_key).await?;
+        refill_if_due(session, nodes, now.as_secs(), &self.seal_key).await?;
         // Preserve established best-effort last-resort rotation and daily photo renewal.
         if matches!(session.store().last_resort(), Ok(Some(_))) {
             let _ = session

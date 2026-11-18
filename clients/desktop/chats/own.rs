@@ -98,7 +98,7 @@ pub async fn refresh_contact(
 // outbox backoff; this path never drafts another text.
 pub(super) async fn retry_outbox(
     session: &mut Session,
-    node: &mut Node,
+    nodes: &mut [Node],
     seal_key: &[u8; 32],
 ) -> Result<(), String> {
     let now_ms = SystemTime::now()
@@ -107,7 +107,7 @@ pub(super) async fn retry_outbox(
         .as_millis();
     let now_ms = i64::try_from(now_ms).map_err(|e| e.to_string())?;
     session
-        .retry_due(std::slice::from_mut(node), now_ms, seal_key)
+        .retry_due(nodes, now_ms, seal_key)
         .await
         .map_err(|e| e.to_string())
 }

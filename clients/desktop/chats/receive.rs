@@ -50,10 +50,15 @@ pub async fn receive(
         return Err("notConnected".into());
     }
     let mut node = profile::connect(&active).await?;
+    let protocols = std::sync::Arc::new(
+        dyapp_p2p_net::Protocols::new(&active.name).map_err(|e| e.to_string())?,
+    );
+    let mailbox = dyapp_client::mailbox(&device_key.public_key());
+    let mut replicas = node.replicas(&mailbox, protocols).await;
     let seal_key = crate::sealing_key(root, dir, &store)?;
     let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
         .map_err(|e| e.to_string())?;
-    own::retry_outbox(&mut session, &mut node, &seal_key).await?;
+    own::retry_outbox(&mut session, replicas.nodes_mut(), &seal_key).await?;
     let mut pass = MailPass {
         cache,
         epoch,
@@ -61,12 +66,25 @@ pub async fn receive(
         own,
     };
     let mut changed = pass
-        .pages(&mut session, &mut node, device_key, &seal_key, &stop)
+        .pages(
+            &mut session,
+            replicas.nodes_mut(),
+            device_key,
+            &seal_key,
+            &stop,
+        )
         .await?;
     if !stop() {
-        changed += exchange_packs(&mut session, &mut node, identity, &seal_key, stop).await?;
+        changed += exchange_packs(
+            &mut session,
+            replicas.nodes_mut(),
+            identity,
+            &seal_key,
+            stop,
+        )
+        .await?;
     }
-    refill_if_due(&mut session, &mut node, &seal_key).await?;
+    refill_if_due(&mut session, replicas.nodes_mut(), &seal_key).await?;
     // Rotates or repeats the package once the first profile publish made one; a failure stays due.
     if matches!(session.store().last_resort(), Ok(Some(_))) {
         let _ = session
@@ -84,12 +102,11 @@ pub async fn receive(
 /// Answers authorized sticker pack requests, then saves downloaded packs; returns completed saves.
 async fn exchange_packs(
     session: &mut Session,
-    node: &mut dyapp_client::Node,
+    nodes: &mut [dyapp_client::Node],
     identity: &Identity,
     seal_key: &[u8; 32],
     stop: impl Fn() -> bool,
 ) -> Result<usize, String> {
-    let nodes = std::slice::from_mut(node);
     session
         .respond_sticker_pack_requests(nodes, identity, seal_key, &stop)
         .await
@@ -162,7 +179,7 @@ impl MailPass<'_> {
     async fn pages(
         &mut self,
         session: &mut Session,
-        node: &mut dyapp_client::Node,
+        nodes: &mut [dyapp_client::Node],
         device_key: &Identity,
         seal_key: &[u8; 32],
         stop: &impl Fn() -> bool,
@@ -176,8 +193,11 @@ impl MailPass<'_> {
             let mut profiles = self.cached.all().to_vec();
             profiles.extend(self.own.clone());
             let page = session
-                .receive_page(std::slice::from_mut(node), device_key, &profiles, seal_key)
+                .receive_page(nodes, device_key, &profiles, seal_key)
                 .await;
+            let Some(node) = nodes.first_mut() else {
+                return Err("notConnected".into());
+            };
             let (events, more) = match page {
                 Ok(page) => page,
                 Err(error) => return Err(own::pass_error(session, node, error).await),
@@ -239,7 +259,7 @@ impl MailPass<'_> {
 
 async fn refill_if_due(
     session: &mut Session,
-    node: &mut dyapp_client::Node,
+    nodes: &mut [dyapp_client::Node],
     seal_key: &[u8; 32],
 ) -> Result<(), String> {
     // A catch-up pass runs every minute. A failed refill stays due for the next pass.
@@ -251,10 +271,7 @@ async fn refill_if_due(
         .store()
         .token_refill_due(now)
         .map_err(|e| e.to_string())?
-        && session
-            .refill(std::slice::from_mut(node), seal_key)
-            .await
-            .is_ok()
+        && session.refill(nodes, seal_key).await.is_ok()
     {
         session
             .store()

@@ -178,16 +178,13 @@ impl ChatSession {
 
 async fn refill_if_due(
     session: &mut Session,
-    node: &mut Node,
+    nodes: &mut [Node],
     now: u64,
     seal_key: &[u8; 32],
 ) -> Result<(), CoreError> {
     // A failed refill stays due for the next call.
     if session.store().token_refill_due(now).map_err(failed)?
-        && session
-            .refill(std::slice::from_mut(node), seal_key)
-            .await
-            .is_ok()
+        && session.refill(nodes, seal_key).await.is_ok()
     {
         session.store().token_refill_sent(now).map_err(failed)?;
     }
@@ -228,6 +225,7 @@ fn listed_own(session: &Session, identity: &Identity) -> Result<VerifiedProfile,
 async fn apply_mailbox(
     session: &mut Session,
     node: &mut Node,
+    nodes: &mut [Node],
     own: Option<VerifiedProfile>,
     device_key: &Identity,
     seal_key: &[u8; 32],
@@ -238,7 +236,7 @@ async fn apply_mailbox(
     let mut changed = 0u32;
     for _ in 0..2 {
         let events = session
-            .receive(std::slice::from_mut(node), device_key, &profiles, seal_key)
+            .receive(nodes, device_key, &profiles, seal_key)
             .await
             .map_err(failed)?;
         let mut fetched = false;
