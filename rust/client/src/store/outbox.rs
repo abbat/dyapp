@@ -159,10 +159,11 @@ impl Store {
             "WHERE `mailbox` = ?1 AND `awaits_receipt` = 1 AND `accepted_by` IS NOT NULL
              AND `last_accepted_ms` < ?2";
         let row = params![mailbox.as_slice(), fetched_after.saturating_sub(GRACE_MS)];
-        let faulty = tx
-            .prepare(&format!("SELECT `accepted_by` FROM `outbox` {overtaken}"))?
-            .query_map(row, |row| row.get(0))?
-            .collect::<Result<_, _>>()?;
+        let faulty = super::collect_bounded(
+            tx.prepare(&format!("SELECT `accepted_by` FROM `outbox` {overtaken}"))?
+                .query_map(row, |row| row.get(0))?,
+            super::MAX_RESULT_ROWS,
+        )?;
         // Clearing `accepted_by` faults a node once per copy; the resend records the next node.
         tx.execute(
             &format!("UPDATE `outbox` SET `retry_at_ms` = 0, `accepted_by` = NULL {overtaken}"),

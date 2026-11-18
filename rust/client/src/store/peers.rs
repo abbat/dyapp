@@ -2,7 +2,7 @@
 //! published; only the owner's other devices hear of them, and the newest change wins there.
 
 use super::likes::{load_hlc, save_hlc};
-use super::{Error, Store};
+use super::{collect_bounded, Error, Store, MAX_RESULT_ROWS};
 use crate::chat::PeerChange;
 use crate::PreparedEnvelope;
 use dyapp_messaging::hlc::{HybridClock, Timestamp};
@@ -256,7 +256,7 @@ impl Store {
             "SELECT `peer_id` FROM `peers` WHERE `favorite` = 1 AND `blocked` = 0 ORDER BY `peer_id`",
         )?;
         let rows = query.query_map([], |row| row.get(0))?;
-        Ok(rows.collect::<Result<_, _>>()?)
+        collect_bounded(rows, MAX_RESULT_ROWS)
     }
 
     /// Private note of this identity about a peer; absent means empty.
@@ -361,10 +361,8 @@ impl Store {
         let mut query = self
             .db
             .prepare("SELECT `peer_id` FROM `peers` WHERE `blocked` = 1 ORDER BY `peer_id`")?;
-        let peers = query
-            .query_map([], |row| row.get(0))?
-            .collect::<Result<_, _>>()?;
-        Ok(peers)
+        let rows = query.query_map([], |row| row.get(0))?;
+        collect_bounded(rows, MAX_RESULT_ROWS)
     }
 
     // `column` is one of the literals above, never caller input.

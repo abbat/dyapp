@@ -1,5 +1,6 @@
 //! Stable ordered private-state snapshot for a linked device.
 use super::{load_hlc, Error, Like, LinkState, Pass, PeerSnapshot, Store};
+use crate::store::{collect_bounded, MAX_RESULT_ROWS};
 use prost::Message as _;
 use rusqlite::{Connection, Transaction, TransactionBehavior};
 
@@ -63,7 +64,7 @@ fn peers(db: &Connection) -> Result<Vec<PeerSnapshot>, Error> {
             note_device: row.get(19)?,
         })
     })?;
-    let peers = peers.collect::<Result<Vec<_>, _>>()?;
+    let peers = collect_bounded(peers, MAX_RESULT_ROWS)?;
     for peer in &peers {
         super::super::peers::verification::floor(
             peer.seen_version,
@@ -88,7 +89,7 @@ fn likes(db: &Connection) -> Result<Vec<Like>, Error> {
             event_id: row.get(5)?,
         })
     })?;
-    Ok(likes.collect::<Result<_, _>>()?)
+    collect_bounded(likes, MAX_RESULT_ROWS)
 }
 
 fn passes(db: &Connection) -> Result<Vec<Pass>, Error> {
@@ -103,5 +104,5 @@ fn passes(db: &Connection) -> Result<Vec<Pass>, Error> {
             updated_device: row.get(3)?,
         })
     })?;
-    Ok(passes.collect::<Result<_, _>>()?)
+    collect_bounded(passes, MAX_RESULT_ROWS)
 }

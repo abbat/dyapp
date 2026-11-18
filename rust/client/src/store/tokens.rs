@@ -2,7 +2,7 @@
 //! sealed under the app's 32-byte sealing key, with the `WriteToken` the owner signed for it. The
 //! owner keeps the keys it signed per contact so it can revoke them when it blocks that contact.
 
-use super::{Error, Store};
+use super::{collect_bounded, Error, Store, MAX_RESULT_ROWS};
 use crate::PreparedEnvelope;
 use aes_gcm::aead::{Aead, KeyInit, Payload};
 use aes_gcm::{Aes256Gcm, Nonce};
@@ -155,10 +155,8 @@ impl Store {
             "SELECT `epoch` FROM `held_tokens`
              WHERE `mailbox` = ?1 AND `epoch` >= ?2 AND `token` IS NOT NULL ORDER BY `epoch`",
         )?;
-        let epochs = query
-            .query_map(params![mailbox, from], |row| row.get(0))?
-            .collect::<Result<_, _>>()?;
-        Ok(epochs)
+        let rows = query.query_map(params![mailbox, from], |row| row.get(0))?;
+        collect_bounded(rows, MAX_RESULT_ROWS)
     }
 
     /// Remember that this profile signed `token_key` for `contact` to write to `mailbox`.
@@ -204,10 +202,8 @@ impl Store {
             "SELECT DISTINCT `token_key` FROM `issued_tokens`
              WHERE `contact` = ?1 AND `epoch` + ?2 >= ?3 ORDER BY `token_key`",
         )?;
-        let keys = query
-            .query_map(params![contact, KEEP_DAYS, today], |row| row.get(0))?
-            .collect::<Result<_, _>>()?;
-        Ok(keys)
+        let rows = query.query_map(params![contact, KEEP_DAYS, today], |row| row.get(0))?;
+        collect_bounded(rows, MAX_RESULT_ROWS)
     }
 
     /// Whether `token_key` was issued to a contact this profile later revoked.

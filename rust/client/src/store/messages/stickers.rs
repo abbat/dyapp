@@ -2,6 +2,7 @@
 
 use super::{clear, media, DeliveryState, Error, MessageKey, Store, VerifiedChatSender};
 use crate::chat::sticker::Sticker;
+use crate::store::collect_bounded;
 
 /// One verified sticker, including fallback metadata when no media is available.
 #[derive(Clone, PartialEq, Eq)]
@@ -152,7 +153,10 @@ impl Store {
              ORDER BY `a`.`original_hlc`, `a`.`author`, `a`.`message_id`, `a`.`group_id`",
         )?;
         let rows = query.query_map([peer_id], super::attachments::stored_media)?;
-        rows.map(|row| self.sticker_from(peer_id, row?)).collect()
+        collect_bounded(
+            rows.map(|row| self.sticker_from(peer_id, row?)),
+            super::quota::MAX_CONTACT_RESULTS,
+        )
     }
 
     fn sticker_from(

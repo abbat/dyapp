@@ -1,7 +1,7 @@
 //! The owner's photo blobs, one `settings` row per hash, so a publish or a repair needs no original
 //! file. A removed photo stays here until the next publish: the live profile still lists it.
 
-use super::{Error, Store};
+use super::{collect_bounded, Error, Store, MAX_RESULT_ROWS};
 use dyapp_identity::sha256;
 use dyapp_profile::{Photo, Profile};
 use prost::Message;
@@ -220,19 +220,21 @@ pub(super) fn keys(db: &Connection) -> Result<Vec<String>, Error> {
     let rows = query.query_map([format!("{PREFIX}*")], |row| {
         Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
     })?;
-    rows.map(|row| {
-        let (key, version) = row?;
-        let suffix = key.strip_prefix(PREFIX).ok_or(Error::InvalidSetting)?;
-        let valid = suffix.len() == 64
-            && suffix
-                .bytes()
-                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte));
-        if version != 1 || !valid {
-            return Err(Error::InvalidSetting);
-        }
-        Ok(key)
-    })
-    .collect()
+    collect_bounded(
+        rows.map(|row| {
+            let (key, version) = row?;
+            let suffix = key.strip_prefix(PREFIX).ok_or(Error::InvalidSetting)?;
+            let valid = suffix.len() == 64
+                && suffix
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte));
+            if version != 1 || !valid {
+                return Err(Error::InvalidSetting);
+            }
+            Ok(key)
+        }),
+        MAX_RESULT_ROWS,
+    )
 }
 
 fn save_blob(db: &Connection, data: &[u8]) -> Result<Vec<u8>, Error> {

@@ -100,6 +100,9 @@ pub enum Error {
     /// The system random source failed.
     #[error("client store could not read the system random source")]
     Random,
+    /// A stored result exceeds the per-query row budget.
+    #[error("client store result exceeds {0} rows")]
+    ResultTooLarge(usize),
     /// SQLite refused the database.
     #[error("client store: {0}")]
     Sql(#[from] rusqlite::Error),

@@ -2,7 +2,7 @@
 
 use super::conversations;
 use super::likes::{load_hlc, save_hlc};
-use super::{Error, InboxKey, InboxKind, Store};
+use super::{collect_bounded, Error, InboxKey, InboxKind, Store};
 use crate::chat::{Body, MAX_TEXT_BYTES};
 use crate::PreparedEnvelope;
 use dyapp_identity::sha256;
@@ -833,8 +833,10 @@ impl Store {
                 row.get::<_, i64>(9)?,
             ))
         })?;
-        rows.map(|row| self.decode_current_chat_message(peer_id, row?))
-            .collect()
+        collect_bounded(
+            rows.map(|row| self.decode_current_chat_message(peer_id, row?)),
+            quota::MAX_CONTACT_RESULTS,
+        )
     }
 
     /// Read one logical message from this profile's current projection.

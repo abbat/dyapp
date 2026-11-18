@@ -4,6 +4,7 @@ use super::{Error, MessageKey};
 use rusqlite::{params, OptionalExtension, Transaction};
 
 pub(super) const MAX_CONTACT_ITEMS: i64 = 10_000;
+pub(super) const MAX_CONTACT_RESULTS: usize = 10_000;
 const REPLAY_RETENTION_MS: i64 = 31 * 24 * 60 * 60 * 1000;
 
 pub(in crate::store) fn now_ms() -> Result<i64, Error> {

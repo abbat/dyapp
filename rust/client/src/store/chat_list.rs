@@ -4,7 +4,7 @@ use super::messages::attachments::ItemOrder;
 use super::messages::{
     ChatAttachment, ChatMessage, ChatSticker, CurrentMessage, DeliveryState, MessageKey,
 };
-use super::{Conversation, Error, Store};
+use super::{check_result_room, Conversation, Error, Store, MAX_RESULT_ROWS};
 use dyapp_messaging::hlc::Timestamp;
 use std::collections::HashMap;
 
@@ -263,6 +263,7 @@ impl Store {
         let mut stickers = self.latest_chat_stickers()?;
         let mut result = Vec::new();
         for row in rows {
+            check_result_room(result.len(), MAX_RESULT_ROWS)?;
             let decoded = row?.decode(&self.owner_peer_id)?;
             result.push(with_media(decoded, &mut attachments, &mut stickers));
         }

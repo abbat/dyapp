@@ -2,7 +2,7 @@
 //! re-delivered message never shows again.
 
 use super::MessageKey;
-use crate::store::{Error, Store};
+use crate::store::{collect_bounded, Error, Store, MAX_RESULT_ROWS};
 use rusqlite::{params, Transaction};
 
 impl Store {
@@ -48,7 +48,7 @@ pub(in crate::store) fn clear_pair_tx(tx: &Transaction<'_>, peer_id: &str) -> Re
         let mut query =
             tx.prepare("SELECT `group_id` FROM `conversation_groups` WHERE `peer_id` = ?1")?;
         let rows = query.query_map([peer_id], |row| row.get::<_, Vec<u8>>(0))?;
-        rows.collect::<Result<Vec<_>, _>>()?
+        collect_bounded(rows, MAX_RESULT_ROWS)?
     };
     let mut removed = 0usize;
     for group in groups {

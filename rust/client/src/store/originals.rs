@@ -4,7 +4,7 @@
 //! in the clear, so the node's blob would not protect it. Files follow the attachment rows, so
 //! clearing a chat erases them, and removing an identity removes the folder.
 
-use super::{Error, Store};
+use super::{check_result_room, Error, Store, MAX_RESULT_ROWS};
 use crate::attachment::{self, original::MAX_BLOB_BYTES, Attachment};
 use crate::chat::Body;
 use dyapp_identity::sha256;
@@ -253,7 +253,10 @@ impl Store {
             Ok((row.get::<_, i64>(0)?, row.get::<_, Vec<u8>>(1)?))
         })?;
         let mut blobs = HashSet::new();
+        let mut read = 0usize;
         for row in rows {
+            check_result_room(read, MAX_RESULT_ROWS)?;
+            read = read.saturating_add(1);
             let (kind, bytes) = row?;
             if let Some(hash) = attachment_blob(kind, &bytes)? {
                 blobs.insert(file_name(&hash));
@@ -276,7 +279,10 @@ impl Store {
             ))
         })?;
         let mut contacts = HashMap::<String, HashSet<String>>::new();
+        let mut read = 0usize;
         for row in rows {
+            check_result_room(read, MAX_RESULT_ROWS)?;
+            read = read.saturating_add(1);
             let (peer, kind, bytes) = row?;
             if let Some(hash) = attachment_blob(kind, &bytes)? {
                 contacts.entry(peer).or_default().insert(file_name(&hash));

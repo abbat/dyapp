@@ -1,6 +1,6 @@
 //! Like, unlike and view events: a replay ledger and the latest like state per direction.
 
-use super::{Error, Store};
+use super::{collect_bounded, Error, Store, MAX_RESULT_ROWS};
 use crate::interactions::{Interaction, Kind};
 use crate::PreparedEnvelope;
 use dyapp_messaging::hlc::{HybridClock, Timestamp};
@@ -312,10 +312,8 @@ impl Store {
                  WHERE `peer_id` = `theirs`.`sender` AND `state` = 4)
              ORDER BY `theirs`.`sender`",
         )?;
-        let peers = query
-            .query_map([&self.owner_peer_id], |row| row.get(0))?
-            .collect::<Result<_, _>>()?;
-        Ok(peers)
+        let rows = query.query_map([&self.owner_peer_id], |row| row.get(0))?;
+        collect_bounded(rows, MAX_RESULT_ROWS)
     }
 
     /// The peers this profile currently passes on, in Peer ID order.
@@ -326,10 +324,8 @@ impl Store {
         let mut query = self.db.prepare(
             "SELECT `peer_id` FROM `pass_history` WHERE `passed` = 1 ORDER BY `peer_id`",
         )?;
-        let peers = query
-            .query_map([], |row| row.get(0))?
-            .collect::<Result<_, _>>()?;
-        Ok(peers)
+        let rows = query.query_map([], |row| row.get(0))?;
+        collect_bounded(rows, MAX_RESULT_ROWS)
     }
 
     /// Set or undo a local pass at the next own clock value. Returns whether the state changed.

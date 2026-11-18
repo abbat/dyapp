@@ -1,6 +1,6 @@
 //! Durable mailbox inbox deduplication and ACK intent.
 
-use super::{catalog, Error, InboxKey, InboxKind, Store};
+use super::{catalog, collect_bounded, Error, InboxKey, InboxKind, Store, MAX_RESULT_ROWS};
 use rusqlite::{params, OptionalExtension, Transaction};
 
 impl Store {
@@ -112,14 +112,16 @@ impl Store {
         let rows = query.query_map([], |row| {
             Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, Vec<u8>>(1)?))
         })?;
-        rows.map(|row| {
-            let (mailbox, id) = row?;
-            Ok(InboxKey {
-                mailbox: mailbox.try_into().map_err(|_| Error::InboxConflict)?,
-                id: id.try_into().map_err(|_| Error::InboxConflict)?,
-            })
-        })
-        .collect()
+        collect_bounded(
+            rows.map(|row| {
+                let (mailbox, id) = row?;
+                Ok::<InboxKey, Error>(InboxKey {
+                    mailbox: mailbox.try_into().map_err(|_| Error::InboxConflict)?,
+                    id: id.try_into().map_err(|_| Error::InboxConflict)?,
+                })
+            }),
+            MAX_RESULT_ROWS,
+        )
     }
 
     /// Mark an ACK completed only after the node confirms it; repeated calls are harmless.

@@ -62,6 +62,13 @@ migration. Existing development databases must be recreated or restored from a m
 The desktop no longer rewraps MLS snapshots or held tokens from the old device-derived sealing
 key. A database with a missing sealing secret fails closed instead of silently creating a new one.
 
+Every client SQLite connection limits an individual TEXT or BLOB value to 8 MiB before mapping rows
+to Rust values. Unpaged list reads stop with `ResultTooLarge` instead of allocating beyond 100,000
+rows; per-contact history, attachment and sticker reads stop at 10,000 rows. Queries with an existing
+smaller SQL limit keep it. These budgets fail closed on a corrupt or externally modified local
+database; they do not impose a new network message size or claim that a remote peer alone can write
+arbitrary local SQLite values.
+
 `current_chat_items` merges a pair's texts, photos and typed sticker fallbacks: legacy texts first in arrival order,
 then original HLC, author, logical ID and group ID. `chat_rows` sorts and counts unread across all
 three kinds. `last_attachment` or `last_sticker` identifies the newest media preview, using the same

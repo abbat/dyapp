@@ -2,6 +2,7 @@
 
 use super::{Body, ChatMessage, DeliveryState, Error, MessageKey, Store, VerifiedChatSender};
 use crate::chat::AttachmentMessage;
+use crate::store::{collect_bounded, MAX_RESULT_ROWS};
 use dyapp_messaging::hlc::Timestamp;
 use rusqlite::{params, OptionalExtension, Row, Transaction};
 use std::collections::HashMap;
@@ -174,8 +175,10 @@ impl Store {
              ORDER BY `a`.`original_hlc`, `a`.`author`, `a`.`message_id`, `a`.`group_id`",
         )?;
         let rows = query.query_map([peer_id], stored_media)?;
-        rows.map(|row| self.attachment_from(peer_id, row?))
-            .collect()
+        collect_bounded(
+            rows.map(|row| self.attachment_from(peer_id, row?)),
+            super::quota::MAX_CONTACT_RESULTS,
+        )
     }
 
     /// Merge a pair's texts and attachments. Legacy texts come first in local arrival order;
@@ -234,13 +237,16 @@ impl Store {
                 row.get::<_, i64>(10)?,
             ))
         })?;
-        rows.map(|row| {
-            let (stored, peer_id, unread) = row?;
-            let attachment = self.attachment_from(&peer_id, stored)?;
-            let unread = usize::try_from(unread).map_err(|_| Error::InboxConflict)?;
-            Ok::<_, Error>((peer_id, (attachment, unread)))
-        })
-        .collect()
+        collect_bounded(
+            rows.map(|row| {
+                let (stored, peer_id, unread) = row?;
+                let attachment = self.attachment_from(&peer_id, stored)?;
+                let unread = usize::try_from(unread).map_err(|_| Error::InboxConflict)?;
+                Ok::<_, Error>((peer_id, (attachment, unread)))
+            }),
+            MAX_RESULT_ROWS,
+        )
+        .map(|rows| rows.into_iter().collect())
     }
 
     fn attachment_from(&self, peer_id: &str, stored: StoredMedia) -> Result<ChatAttachment, Error> {

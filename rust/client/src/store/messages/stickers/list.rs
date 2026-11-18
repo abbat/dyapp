@@ -2,6 +2,7 @@
 
 use super::{ChatSticker, Error, Store};
 use crate::store::messages::attachments::stored_media;
+use crate::store::{collect_bounded, MAX_RESULT_ROWS};
 use std::collections::HashMap;
 
 impl Store {
@@ -32,12 +33,15 @@ impl Store {
                 row.get::<_, i64>(10)?,
             ))
         })?;
-        rows.map(|row| {
-            let (stored, peer, count) = row?;
-            let sticker = self.sticker_from(&peer, stored)?;
-            let count = usize::try_from(count).map_err(|_| Error::InboxConflict)?;
-            Ok((peer, (sticker, count)))
-        })
-        .collect()
+        collect_bounded(
+            rows.map(|row| {
+                let (stored, peer, count) = row?;
+                let sticker = self.sticker_from(&peer, stored)?;
+                let count = usize::try_from(count).map_err(|_| Error::InboxConflict)?;
+                Ok::<_, Error>((peer, (sticker, count)))
+            }),
+            MAX_RESULT_ROWS,
+        )
+        .map(|rows| rows.into_iter().collect())
     }
 }

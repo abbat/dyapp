@@ -5,7 +5,7 @@ use crate::PreparedEnvelope;
 use dyapp_identity::Identity;
 use dyapp_messaging::mls::{Device, Group};
 use dyapp_profile::VerifiedProfile;
-use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
+use rusqlite::{limits::Limit, params, Connection, OpenFlags, OptionalExtension};
 use std::path::Path;
 use std::sync::{Mutex, PoisonError};
 
@@ -65,6 +65,31 @@ pub use peers::ContactName;
 const VERSION: i64 = 1;
 /// A client's first screens open a new database at once, and each would see no schema and create it.
 static OPENING: Mutex<()> = Mutex::new(());
+
+const MAX_VALUE_BYTES: i32 = 8 * 1024 * 1024;
+pub(crate) const MAX_RESULT_ROWS: usize = 100_000;
+
+pub(crate) fn check_result_room(rows: usize, limit: usize) -> Result<(), Error> {
+    if rows >= limit {
+        return Err(Error::ResultTooLarge(limit));
+    }
+    Ok(())
+}
+
+pub(crate) fn collect_bounded<T, E>(
+    rows: impl IntoIterator<Item = Result<T, E>>,
+    limit: usize,
+) -> Result<Vec<T>, Error>
+where
+    Error: From<E>,
+{
+    let mut result = Vec::new();
+    for row in rows {
+        check_result_room(result.len(), limit)?;
+        result.push(row?);
+    }
+    Ok(result)
+}
 
 /// One profile's durable state; a second profile requires a separate database path.
 pub struct Store {
@@ -150,6 +175,7 @@ impl Store {
         }
         let _opening = OPENING.lock().unwrap_or_else(PoisonError::into_inner);
         let mut db = Connection::open_with_flags(path, flags)?;
+        let _ = db.set_limit(Limit::SQLITE_LIMIT_LENGTH, MAX_VALUE_BYTES)?;
         let initialize = Self::needs_schema(&db, flags)?;
         db.execute_batch(
             "PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA foreign_keys = ON;",
@@ -397,7 +423,7 @@ impl Store {
             "SELECT `group_id`, `peer_id` FROM `conversation_groups` ORDER BY `group_id`",
         )?;
         let rows = query.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
-        rows.collect::<Result<_, _>>().map_err(Error::from)
+        collect_bounded(rows, MAX_RESULT_ROWS)
     }
 
     /// Reopen and check every cataloged group against the restored sealed Device.
@@ -509,15 +535,18 @@ impl Store {
                 row.get::<_, Vec<u8>>(2)?,
             ))
         })?;
-        rows.map(|row| {
-            let (mailbox, id, bytes) = row?;
-            let write = PreparedEnvelope::from_bytes(bytes).map_err(|_| Error::OutboxConflict)?;
-            if write.mailbox().as_slice() != mailbox || write.id().as_slice() != id {
-                return Err(Error::OutboxConflict);
-            }
-            Ok(write)
-        })
-        .collect()
+        collect_bounded(
+            rows.map(|row| {
+                let (mailbox, id, bytes) = row?;
+                let write =
+                    PreparedEnvelope::from_bytes(bytes).map_err(|_| Error::OutboxConflict)?;
+                if write.mailbox().as_slice() != mailbox || write.id().as_slice() != id {
+                    return Err(Error::OutboxConflict);
+                }
+                Ok(write)
+            }),
+            MAX_RESULT_ROWS,
+        )
     }
 
     /// The Peer ID this database is bound to.
@@ -644,7 +673,9 @@ PRAGMA user_version = 1;
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use super::{AutoDownload, Error, InboxKey, InboxKind, NoticeContent, Store, VERSION};
+    use super::{
+        AutoDownload, Error, InboxKey, InboxKind, NoticeContent, Store, MAX_VALUE_BYTES, VERSION,
+    };
     use crate::{prepare_put, PreparedEnvelope};
     use dyapp_identity::{Domain, Identity, SignedRecord};
     use dyapp_messaging::hlc::Timestamp;
@@ -653,7 +684,7 @@ pub(crate) mod tests {
     use dyapp_profile::{Profile, VerifiedProfile};
     use prost::Message as _;
     use rusqlite::Connection;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     /// Catalog a test group without MLS state, as `stage_group` or a Welcome would.
     pub(crate) fn catalog_group(store: &mut Store, group: &[u8], peer_id: &str) {
@@ -669,6 +700,97 @@ pub(crate) mod tests {
             "dyapp-client-store-{:032x}.db",
             u128::from_be_bytes(random)
         ))
+    }
+
+    fn write_limit_probe(path: &Path, value_bytes: usize) {
+        let db = Connection::open(path).unwrap();
+        db.execute_batch("CREATE TABLE `limit_probe` (`id` INTEGER PRIMARY KEY, `value` BLOB)")
+            .unwrap();
+        for (id, value) in [(1, value_bytes), (3, value_bytes + 1)] {
+            db.execute(
+                "INSERT INTO `limit_probe` (`id`, `value`) VALUES (?1, ?2)",
+                rusqlite::params![id, vec![7_u8; value]],
+            )
+            .unwrap();
+        }
+        for (id, value) in [(2, value_bytes), (4, value_bytes + 1)] {
+            db.execute(
+                "INSERT INTO `limit_probe` (`id`, `value`) VALUES (?1, ?2)",
+                rusqlite::params![id, "x".repeat(value)],
+            )
+            .unwrap();
+        }
+    }
+
+    #[test]
+    fn sqlite_values_accept_the_limit_and_reject_one_byte_more() {
+        let path = temp_db_path();
+        let identity = Identity::try_generate().unwrap();
+        drop(Store::open(&path, &identity).unwrap());
+        let value_bytes = usize::try_from(MAX_VALUE_BYTES).unwrap();
+        write_limit_probe(&path, value_bytes);
+        let store = Store::open(&path, &identity).unwrap();
+        let blob: Vec<u8> = store
+            .db
+            .query_row(
+                "SELECT `value` FROM `limit_probe` WHERE `id` = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let text: String = store
+            .db
+            .query_row(
+                "SELECT `value` FROM `limit_probe` WHERE `id` = 2",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(blob.len(), value_bytes);
+        assert_eq!(text.len(), value_bytes);
+        assert!(store
+            .db
+            .query_row(
+                "SELECT `value` FROM `limit_probe` WHERE `id` = 3",
+                [],
+                |row| row.get::<_, Vec<u8>>(0),
+            )
+            .is_err());
+        assert!(store
+            .db
+            .query_row(
+                "SELECT `value` FROM `limit_probe` WHERE `id` = 4",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn bounded_collection_accepts_the_limit_and_rejects_one_row_more() {
+        let db = Connection::open_in_memory().unwrap();
+        db.execute_batch("CREATE TABLE `entries` (`value` INTEGER)")
+            .unwrap();
+        for value in 0..3 {
+            db.execute("INSERT INTO `entries` (`value`) VALUES (?1)", [value])
+                .unwrap();
+        }
+        let mut query = db
+            .prepare("SELECT `value` FROM `entries` ORDER BY `value`")
+            .unwrap();
+        assert!(matches!(
+            super::collect_bounded(query.query_map([], |row| row.get::<_, i64>(0)).unwrap(), 2),
+            Err(Error::ResultTooLarge(2))
+        ));
+        let values = super::collect_bounded(
+            query
+                .query_map([], |row| row.get::<_, i64>(0))
+                .unwrap()
+                .take(2),
+            2,
+        )
+        .unwrap();
+        assert_eq!(values, [0, 1]);
     }
 
     #[test]
