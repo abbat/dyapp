@@ -68,15 +68,14 @@ const checkLikePending = async () => {
   const found = { peerId, draft: { attributes: {} } };
   const card = document.createElement('button');
   appBindings.searchResults.append(card);
-  for (const [ours, expected] of [
+  for (const [ours, expected, code = 'notConnected'] of [
     [true, 'view.like.pending'],
     [false, 'view.like.notConnected'],
+    [false, 'view.like.checkClock', 'checkClock'],
   ]) {
     appBindings.openFound(found, card, () => Promise.resolve({ ours: false, matched: false }));
     await appBindings.sendLike(true, (command) =>
-      command === 'like_peer'
-        ? Promise.reject('notConnected')
-        : Promise.resolve({ ours, matched: false }),
+      command === 'like_peer' ? Promise.reject(code) : Promise.resolve({ ours, matched: false }),
     );
     if (appBindings.viewStatus.textContent !== appApi.strings[expected]) {
       throw new Error(`failed like shows ${appBindings.viewStatus.textContent}`);

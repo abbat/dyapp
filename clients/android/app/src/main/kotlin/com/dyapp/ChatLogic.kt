@@ -27,6 +27,7 @@ internal fun sendStatus(
         when {
             "notConnected" in details -> ChatStatus(R.string.search_not_connected, details)
             "unpublished" in details -> ChatStatus(R.string.chat_unpublished, details)
+            "checkClock" in details -> ChatStatus(R.string.device_clock_check, details)
             else -> ChatStatus(failed, details)
         }
     },

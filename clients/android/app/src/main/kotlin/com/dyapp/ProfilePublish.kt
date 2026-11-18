@@ -33,20 +33,27 @@ import uniffi.dyapp.profileScales
 
 internal const val ELIGIBILITY_TAG = "profile-publish-eligibility"
 
+private fun blockedError(message: String): Int? = when {
+    "blocked: underage" in message -> R.string.profile_publish_error_underage
+    "blocked: notAttested" in message -> R.string.profile_publish_error_not_attested
+    "blocked: invalidBirthDate" in message -> R.string.profile_publish_error_invalid_birth_date
+    else -> null
+}
+
+internal fun publishErrorResource(message: String, exactMessage: String?): Int = blockedError(message) ?: when {
+    "notConnected" in message -> R.string.profile_publish_error_not_connected
+    "checkClock" in message -> R.string.device_clock_check
+    "unsolved" in message -> R.string.profile_publish_error_unsolved
+    "readback differs" in message -> R.string.profile_publish_error_readback
+    exactMessage == "full" -> R.string.profile_publish_error_full
+    else -> R.string.profile_publish_error_generic
+}
+
 // The localized text for a failed publication, by the stable Rust error text, which goes to the log.
 internal fun publishError(error: Throwable): Int {
     val message = error.toString()
     Log.w("dyapp", "Publication failed: $message")
-    return when {
-        "blocked: underage" in message -> R.string.profile_publish_error_underage
-        "blocked: notAttested" in message -> R.string.profile_publish_error_not_attested
-        "blocked: invalidBirthDate" in message -> R.string.profile_publish_error_invalid_birth_date
-        "notConnected" in message -> R.string.profile_publish_error_not_connected
-        "unsolved" in message -> R.string.profile_publish_error_unsolved
-        "readback differs" in message -> R.string.profile_publish_error_readback
-        error.message == "full" -> R.string.profile_publish_error_full
-        else -> R.string.profile_publish_error_generic
-    }
+    return publishErrorResource(message, error.message)
 }
 
 /** The dialog, confirmations and progress of one publication attempt over the saved draft. */

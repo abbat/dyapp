@@ -183,6 +183,8 @@ pub(crate) fn accept_peer(
 
 /// Send through the active network after refreshing the peer's signed profile. The Session
 /// stages the text and any first Welcome before network delivery; a failed send stays retryable.
+/// Errors are `ownPeer`, `invalidText`, `blocked`, `unpublished`, `notConnected`, `checkClock` or
+/// a node or storage message.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn send_text(
     cache: &Mutex<ProfileCache>,
@@ -324,8 +326,8 @@ pub async fn block(
 /// Likes `peer_id` (`liked`) or takes the like back, as a signal in the pair group on the active
 /// network; the first like invites the peer's devices. Only a peer a search or Liked you list of
 /// this run returned can be liked. A send that fails stays staged with its bytes. Errors are
-/// `unknownPeer`, `unpublished` (no published own profile lists this device), `notConnected` or
-/// a node or storage message.
+/// `unknownPeer`, `unpublished` (no published own profile lists this device), `notConnected`,
+/// `checkClock` or a node or storage message.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn like(
     cache: &Mutex<ProfileCache>,

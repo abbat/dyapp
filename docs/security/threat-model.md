@@ -555,7 +555,8 @@ Nodes report `server_time` in `info` and signed-time `INVALID` replies. Startup 
 signed-time failures refresh a process-local, lower-median offset from at least three distinct nodes;
 heartbeat, keep, media state and attach signing use it ([clock hints](../architecture/protobuf-schema.md#clock-hints)).
 Monotonic timers and retry schedules stay on local clocks, and no consensus or persisted offset is
-claimed. Guidance to check the device clock when no median is available remains planned.
+claimed. Before a median exists, a signed-time `INVALID` with a nonzero hint tells the user to check
+the device clock; legacy zero hints and other failures keep their generic error semantics.
 
 | Attack | Entry point | Impact × likelihood | Verdict |
 |--------|-------------|---------------------|---------|

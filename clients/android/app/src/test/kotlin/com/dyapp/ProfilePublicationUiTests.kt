@@ -19,6 +19,14 @@ class ProfilePublicationUiTests {
     )
 
     @Test
+    fun clockRejectionHasAnActionablePublicationMessage() {
+        assertEquals(
+            R.string.device_clock_check,
+            publishErrorResource("checkClock", "checkClock"),
+        )
+    }
+
+    @Test
     fun completionLoadsCurrentDraftWithoutSubstitutingItForTheReadback() {
         val editor = ProfileEditor(ProfileDraft(name = "before"), "en")
         val published = result()

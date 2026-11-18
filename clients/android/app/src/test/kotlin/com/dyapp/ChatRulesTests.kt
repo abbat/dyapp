@@ -10,6 +10,7 @@ class ChatRulesTests {
     fun aFailedLikeSaysWhatToDoAboutIt() {
         assertEquals(R.string.view_like_unpublished, likeStatus(RuntimeException("unpublished")).text)
         assertEquals(R.string.view_like_not_connected, likeStatus(RuntimeException("notConnected")).text)
+        assertEquals(R.string.device_clock_check, likeStatus(RuntimeException("checkClock")).text)
         assertEquals(R.string.view_like_failed, likeStatus(RuntimeException("disk")).text)
     }
 
@@ -29,6 +30,8 @@ class ChatRulesTests {
         assertEquals(R.string.search_not_connected, sendStatus(error)?.text)
         val unpublished = Result.failure<ChatSubmission>(IllegalStateException("unpublished"))
         assertEquals(R.string.chat_unpublished, sendStatus(unpublished)?.text)
+        val clock = Result.failure<ChatSubmission>(IllegalStateException("checkClock"))
+        assertEquals(R.string.device_clock_check, sendStatus(clock)?.text)
         val failure = Result.failure<ChatSubmission>(IllegalStateException("Queued"))
         assertEquals(R.string.chat_send_failed, sendStatus(failure)?.text)
         assertEquals(R.string.chat_edit_failed, sendStatus(failure, failed = R.string.chat_edit_failed)?.text)

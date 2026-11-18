@@ -123,16 +123,20 @@ async fn connect(addresses: &[Multiaddr]) -> Vec<Node> {
 }
 
 async fn collect_invalid_hints(nodes: &mut [Node], owner: &Identity, local_time: u64) {
-    for node in nodes {
+    for (index, node) in nodes.iter_mut().enumerate() {
         let rejection = node
             .keep_media(owner, 1, Vec::new(), local_time.saturating_add(7_200))
             .await;
-        assert!(matches!(
-            rejection,
-            Err(dyapp_client::Error::Status(
-                dyapp_p2p_net::proto::Status::Invalid
-            ))
-        ));
+        if index < 2 {
+            assert!(matches!(rejection, Err(dyapp_client::Error::Clock)));
+        } else {
+            assert!(matches!(
+                rejection,
+                Err(dyapp_client::Error::Status(
+                    dyapp_p2p_net::proto::Status::Invalid
+                ))
+            ));
+        }
     }
 }
 

@@ -132,8 +132,9 @@ delivery remains opportunistic; the guaranteed retry point is the next foregroun
 open or resume.
 
 Clock checks cover node replies and `clock_correction.rs` exercises the real startup and signing
-paths: two hints cannot install an offset, three can, and a one-hour-skewed client successfully signs
-heartbeat, direct/conditional keep, media state and attach requests.
+paths: two hints cannot install an offset and their signed-time failures request a device-clock
+check; the third installs a median and retains generic status semantics. A one-hour-skewed client then
+successfully signs heartbeat, direct/conditional keep, media state and attach requests.
 
 ### Replication, placement and repair
 

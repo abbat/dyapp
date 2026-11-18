@@ -242,7 +242,9 @@ fn cache_keys(
     let mut indices: HashMap<Vec<u8>, usize> = HashMap::new();
     for hit in hits {
         if let Some(&index) = indices.get(&hit.key) {
-            unique[index].version = unique[index].version.max(hit.version);
+            if let Some(existing) = unique.get_mut(index) {
+                existing.version = existing.version.max(hit.version);
+            }
         } else {
             indices.insert(hit.key.clone(), unique.len());
             unique.push(hit);

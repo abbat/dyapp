@@ -118,6 +118,9 @@ pub enum Error {
     /// The node answered with a status other than OK.
     #[error("node replied {0:?}")]
     Status(Status),
+    /// A signed-time request was rejected before three node clocks established a median.
+    #[error("checkClock")]
+    Clock,
     /// The reply or a record in it is malformed or wrongly signed.
     #[error("bad reply: {0}")]
     Reply(&'static str),
@@ -146,7 +149,6 @@ pub enum Error {
     #[error("rate limited for {0:?}")]
     RateLimited(Duration),
 }
-
 /// One fetched envelope: the id to ack and the MLS bytes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Envelope {
@@ -158,7 +160,6 @@ pub struct Envelope {
     /// MLS message bytes.
     pub ciphertext: Vec<u8>,
 }
-
 /// One bounded mailbox fetch from a single node.
 /// A cursor is only valid for that node's Peer ID; callers persist that binding separately.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -170,7 +171,6 @@ pub struct MailboxPage {
     /// Opaque position for the next fetch on the same node.
     pub next_cursor: Option<Vec<u8>>,
 }
-
 static WIRE: OnceLock<Arc<WireBytes>> = OnceLock::new();
 
 /// Payload counter shared by every client swarm of this process.
@@ -817,7 +817,7 @@ impl Node {
                 _ => None,
             })
             .await?;
-        clock::observe_invalid(self.peer, signed_time, &response);
+        clock::observe_invalid(self.peer, signed_time, &response)?;
         Ok(response)
     }
 
@@ -840,7 +840,7 @@ impl Node {
                 _ => None,
             })
             .await?;
-        clock::observe_invalid(self.peer, signed_time, &response);
+        clock::observe_invalid(self.peer, signed_time, &response)?;
         Ok(response)
     }
 
@@ -903,7 +903,7 @@ impl Node {
                 _ => None,
             })
             .await?;
-        clock::observe_invalid(self.peer, signed_time, &response);
+        clock::observe_invalid(self.peer, signed_time, &response)?;
         Ok(response)
     }
 

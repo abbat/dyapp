@@ -682,7 +682,8 @@ const profileFailure = (error) => {
   const code = String(error);
   if (code === 'cancelled') return profileMessage('profile.cancelled');
   if (code.startsWith('blocked: ')) return profileMessage(`profile.problem.${code.slice(9)}`);
-  if (['notConnected', 'full'].includes(code)) return profileMessage(`profile.${code}`);
+  if (['notConnected', 'full', 'checkClock'].includes(code))
+    return profileMessage(`profile.${code}`);
   // The saved draft is now what the other device published.
   if (code === 'changed') {
     return showProfile().then(

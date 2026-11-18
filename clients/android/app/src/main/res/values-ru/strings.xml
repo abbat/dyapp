@@ -33,6 +33,7 @@
     <string name="view_like_state_unavailable">Состояние симпатии недоступно. Откройте профиль заново, чтобы обновить его.</string>
     <string name="view_like_unpublished">Сначала опубликуйте профиль, чтобы человек видел, кому он понравился.</string>
     <string name="view_like_not_connected">Нет ответа от узла действующей сети. Проверьте подключение и повторите.</string>
+    <string name="device_clock_check">Узел отклонил время запроса. Проверьте дату и часы устройства, затем повторите.</string>
     <string name="view_like_pending">Сохранено на этом телефоне. Уйдёт, когда ответит узел.</string>
     <string name="view_pass">Пропустить</string>
     <string name="view_unpass">Отменить пропуск</string>

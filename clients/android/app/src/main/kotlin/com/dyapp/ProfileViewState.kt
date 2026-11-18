@@ -41,6 +41,7 @@ internal fun likeStatus(error: Throwable): ChatStatus {
     return when {
         "unpublished" in details -> ChatStatus(R.string.view_like_unpublished, details)
         NOT_CONNECTED in details -> ChatStatus(R.string.view_like_not_connected, details)
+        "checkClock" in details -> ChatStatus(R.string.device_clock_check, details)
         else -> ChatStatus(R.string.view_like_failed, details)
     }
 }

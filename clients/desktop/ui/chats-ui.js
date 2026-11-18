@@ -75,6 +75,9 @@ controller.chatForwarded = undefined;
 // Chats: local projection, requests, text, clearing and Liked you.
 // Liked you: peers whose like this profile has not answered, fetched again on each visit.
 
+/** @param {string} result */
+const chatResultKey = (result) =>
+  result === 'checkClock' ? 'chats.checkClock' : `chats.${result}`;
 /** @param {string} key */
 const chatsMessage = (key, detail = '') =>
   statusMessage(domById('chats-status', HTMLParagraphElement), 'chats-open-network', key, detail);
@@ -668,7 +671,7 @@ const sendInChat = async (send, sent, failure, call) => {
   updateComposer();
   await openChat(peerId, call);
   if (identityCurrent(generation) && chatState.activeChat?.peerId === peerId) {
-    chatComposeStatus.textContent = strings[`chats.${result}`];
+    chatComposeStatus.textContent = strings[chatResultKey(result)];
   }
 };
 const sendChatText = async (call = invoke) => {
@@ -742,7 +745,7 @@ const editChatText = async (call = invoke) => {
   closeEdit();
   await openChat(target.peerId, call);
   if (identityCurrent(target.generation) && chatState.activeChat?.peerId === target.peerId) {
-    chatComposeStatus.textContent = strings[`chats.${result}`];
+    chatComposeStatus.textContent = strings[chatResultKey(result)];
   }
 };
 domById('chat-edit-form', HTMLFormElement).addEventListener('submit', (event) => {
@@ -796,7 +799,7 @@ const deleteChatText = async (call = invoke) => {
   closeDelete();
   await openChat(target.peerId, call);
   if (identityCurrent(target.generation) && chatState.activeChat?.peerId === target.peerId) {
-    chatComposeStatus.textContent = strings[`chats.${result}`];
+    chatComposeStatus.textContent = strings[chatResultKey(result)];
   }
 };
 deleteConfirm.addEventListener('click', () => {
@@ -850,7 +853,7 @@ const forwardChatText = async (call = invoke) => {
   closeForward();
   await openChat(targetPeerId, call);
   if (identityCurrent(source.generation) && chatState.activeChat?.peerId === targetPeerId) {
-    chatComposeStatus.textContent = strings[`chats.${result}`];
+    chatComposeStatus.textContent = strings[chatResultKey(result)];
   }
 };
 domById('chat-forward-form', HTMLFormElement).addEventListener('submit', (event) => {

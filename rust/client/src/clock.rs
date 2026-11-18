@@ -129,9 +129,22 @@ impl ClockResponse for dyapp_p2p_net::proto::SearchResponse {
     }
 }
 
-pub(crate) fn observe_invalid(peer: PeerId, signed_time: bool, response: &impl ClockResponse) {
-    if signed_time && response.status() == i32::from(Status::Invalid) {
-        observe(peer, response.server_time(), now());
+pub(crate) fn observe_invalid(
+    peer: PeerId,
+    signed_time: bool,
+    response: &impl ClockResponse,
+) -> Result<(), crate::Error> {
+    if !signed_time
+        || response.status() != i32::from(Status::Invalid)
+        || response.server_time() == 0
+    {
+        return Ok(());
+    }
+    observe(peer, response.server_time(), now());
+    if has_median() {
+        Ok(())
+    } else {
+        Err(crate::Error::Clock)
     }
 }
 

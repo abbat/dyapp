@@ -28,7 +28,7 @@ impl ReplicaSet {
     /// The connected holder of exactly `key`, not merely another mailbox replica.
     pub fn for_key(&mut self, key: &[u8]) -> Option<&mut Node> {
         let index = self.keys.iter().position(|candidate| candidate == key)?;
-        let holder = self.holders[index]?;
+        let holder = self.holders.get(index).copied().flatten()?;
         self.nodes.get_mut(holder)
     }
 
@@ -147,8 +147,8 @@ fn reuse_holder(
     let holder = candidates
         .iter()
         .find_map(|candidate| connected.get(&candidate.peer_id));
-    if let Some(holder) = holder {
-        result.holders[index] = Some(*holder);
+    if let (Some(holder), Some(slot)) = (holder, result.holders.get_mut(index)) {
+        *slot = Some(*holder);
     }
 }
 
@@ -163,7 +163,10 @@ async fn add_holder(
         return false;
     }
     if let Some(&holder) = connected.get(&candidate.peer_id) {
-        result.holders[index] = Some(holder);
+        let Some(slot) = result.holders.get_mut(index) else {
+            return false;
+        };
+        *slot = Some(holder);
         return true;
     }
     let Some(node) = connect(candidate.peer_id, candidate.addrs, protocols).await else {
@@ -172,7 +175,10 @@ async fn add_holder(
     let holder = result.nodes.len();
     result.nodes.push(node);
     connected.insert(candidate.peer_id, holder);
-    result.holders[index] = Some(holder);
+    let Some(slot) = result.holders.get_mut(index) else {
+        return false;
+    };
+    *slot = Some(holder);
     true
 }
 
