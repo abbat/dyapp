@@ -18,6 +18,41 @@ fn service() -> Service {
     service
 }
 
+#[tokio::test]
+async fn a_lock_panic_does_not_disable_the_next_request() {
+    let service = Arc::new(service());
+    let mut queue = jobs::FairQueue::default();
+    let mut nonces = HashMap::new();
+    let (finished, mut done) = tokio::sync::mpsc::unbounded_channel();
+    enqueue(
+        &mut queue,
+        PeerId::random(),
+        ConnectionId::new_unchecked(1),
+        Box::new(|service, _| {
+            let _deny = service.deny.write().unwrap();
+            panic!("injected panic while holding the deny lock");
+        }),
+    );
+    dispatch(&mut queue, &mut nonces, &service, &finished);
+    let finished = tokio::time::timeout(Duration::from_secs(5), done.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(finished.done.is_none());
+
+    let response = service.node(
+        &Peer {
+            id: PeerId::random().to_string(),
+            group: "test".into(),
+            coarse: "test".into(),
+        },
+        proto::NodeRequest {
+            request: Some(proto::node_request::Request::Info(proto::InfoRequest {})),
+        },
+    );
+    assert_eq!(response.status, i32::from(Status::Ok));
+}
+
 fn hold(media: &MediaStore) -> (Vec<u8>, proto::MediaManifest) {
     let whole = b"listed whole blob".to_vec();
     let whole_hash = dyapp_identity::sha256(&whole).to_vec();

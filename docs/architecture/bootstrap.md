@@ -1278,6 +1278,13 @@ The current protocol replies are:
   `get` run on their own fair queue and two workers. Replication replies, gossip,
   repair, media inventory and maintenance still call SQLite on the loop. `/dyapp/node` touches no
   store and is answered on the loop, so it stays prompt while every worker is busy.
+  A store-job panic is caught and drops only that request. The node deliberately keeps std locks:
+  poisoned in-memory deny, admission, cache and maintenance guards are recovered with
+  `PoisonError::into_inner`. Complete deny sets replace their predecessors, while recovered
+  counters and maps can only repeat work or conservatively delay/refuse work; they do not roll back
+  SQLite transactions. Locks guarding persistent writers return an error instead. New recovered
+  state must preserve that rule or be reset before reuse. The zero `unwrap_used`/`expect_used`
+  production budgets in `check-panics.py` reject lock guards that panic on poisoning.
 - An unknown `oneof` variant (decoded as empty) gets `UNSUPPORTED`.
 
 ### Trusted vs untrusted fields
