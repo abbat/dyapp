@@ -32,6 +32,20 @@ impl ReplicaSet {
         self.nodes.get_mut(holder)
     }
 
+    /// Two nodes associated with different replica keys, for an independent mailbox comparison.
+    /// One physical node serving both keys is not independent evidence.
+    pub fn pair_mut(&mut self) -> Option<(&mut Node, &mut Node)> {
+        let first = self.holders.iter().flatten().next().copied()?;
+        let second = self
+            .holders
+            .iter()
+            .flatten()
+            .find(|&&holder| holder != first)
+            .copied()?;
+        let [first, second] = self.nodes.get_disjoint_mut([first, second]).ok()?;
+        Some((first, second))
+    }
+
     /// Replica keys without a connected holder.
     pub fn missing(&self) -> impl Iterator<Item = &[u8]> {
         self.keys

@@ -142,6 +142,34 @@ impl Session {
         Ok(events)
     }
 
+    /// Run the persisted daily or MLS-gap check with two independent replica holders. Missing
+    /// independent coverage and failures leave the schedule due; a remaining gap does the same.
+    ///
+    /// # Errors
+    /// Returns schedule storage, fetch, processing or ACK errors; completed work stays durable.
+    pub async fn cross_check_due(
+        &mut self,
+        replicas: &mut crate::ReplicaSet,
+        device_key: &Identity,
+        profiles: &[VerifiedProfile],
+        seal_key: &[u8; 32],
+        now: u64,
+    ) -> Result<Vec<Event>, Error> {
+        if !self.store.mailbox_cross_check_due(now)? {
+            return Ok(Vec::new());
+        }
+        let Some((first, second)) = replicas.pair_mut() else {
+            return Ok(Vec::new());
+        };
+        let events = self
+            .cross_check(first, second, device_key, profiles, seal_key)
+            .await?;
+        if !events.iter().any(|event| matches!(event, Event::Gap(_))) {
+            self.store.mailbox_cross_checked(now)?;
+        }
+        Ok(events)
+    }
+
     /// Whether [`Self::receive_page`] is due again after a page that reported `more`. Once a
     /// profile resolved, the next page is the head: the owner's earlier texts wait there, and
     /// opening later ones first would push them past the ratchet's out-of-order window, refused
@@ -199,6 +227,9 @@ impl Session {
             if let Some(event) =
                 self.stage_envelope(&key, &envelope.ciphertext, profiles, seal_key)?
             {
+                if matches!(event, Event::Gap(_)) {
+                    self.store.note_mailbox_gap()?;
+                }
                 self.track_pending_join(&event, &mut pending)?;
                 let opened = self.newly_opened_group(&event, &pending)?;
                 if let Some(group) = receipted_group(&event) {

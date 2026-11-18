@@ -75,6 +75,22 @@ pub async fn receive(
         )
         .await?;
     if !stop() {
+        let mut profiles = pass.cached.all().to_vec();
+        profiles.extend(pass.own.clone());
+        let checked = session
+            .cross_check_due(
+                &mut replicas,
+                device_key,
+                &profiles,
+                &seal_key,
+                dyapp_client::now(),
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+        changed += checked
+            .iter()
+            .filter(|event| !matches!(event, Event::Gap(_) | Event::Refused(_)))
+            .count();
         changed += exchange_packs(
             &mut session,
             replicas.nodes_mut(),

@@ -451,8 +451,9 @@ transaction as `receive_page`; duplicates create no new event or receipt. The op
 touch either continuation cursor. An envelope only the second node holds counts as a fault of the
 first in the client's [node scores](bootstrap.md#replication-and-repair) only when the first page
 is complete. Committed and previously pending IDs are ACKed at both holders, and the local ACK
-state is cleared only after both answer. Gap and persisted daily invocation by the app mail pass
-remain separate integration work.
+state is cleared only after both answer. Desktop and FFI mail passes persist the next due time:
+they run the check once per day and immediately after an MLS gap. They require holders of two
+distinct replica keys; unavailable coverage, failed work and an unresolved gap leave the check due.
 
 Planned limits (node settings): a message up to 100 KB, a mailbox up to 10 MB.
 

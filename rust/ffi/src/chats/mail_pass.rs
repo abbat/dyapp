@@ -88,9 +88,16 @@ impl ChatSession {
                     .retry_due(replicas.nodes_mut(), now_ms, &self.seal_key)
                     .await
                     .map_err(failed)?;
-                let changed = self
-                    .receive_mailbox(session, &mut node, replicas.nodes_mut(), own)
+                let mut changed = self
+                    .receive_mailbox(session, &mut node, replicas.nodes_mut(), own.clone())
                     .await?;
+                let profiles = own.into_iter().collect::<Vec<_>>();
+                let checked = self
+                    .receive_cross_check(session, &mut replicas, &profiles, now.as_secs())
+                    .await?;
+                changed = changed
+                    .checked_add(checked)
+                    .ok_or_else(|| failed("changeCountOverflow"))?;
                 self.maintain_receive(session, &mut node, replicas.nodes_mut(), now)
                     .await?;
                 let notice =
@@ -98,6 +105,35 @@ impl ChatSession {
                 Ok(ChatMailPass { changed, notice })
             })
         })
+    }
+
+    async fn receive_cross_check(
+        &self,
+        session: &mut Session,
+        replicas: &mut dyapp_client::ReplicaSet,
+        profiles: &[dyapp_profile::VerifiedProfile],
+        now: u64,
+    ) -> Result<u32, CoreError> {
+        let events = session
+            .cross_check_due(
+                replicas,
+                &self.device_key.identity,
+                profiles,
+                &self.seal_key,
+                now,
+            )
+            .await
+            .map_err(failed)?;
+        let changed = events
+            .iter()
+            .filter(|event| {
+                !matches!(
+                    event,
+                    dyapp_client::chat::Event::Gap(_) | dyapp_client::chat::Event::Refused(_)
+                )
+            })
+            .count();
+        u32::try_from(changed).map_err(failed)
     }
 
     async fn maintain_receive(

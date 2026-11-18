@@ -27,6 +27,7 @@ pub use link_state::{
     LinkPreference, LinkPreferenceChoice, LinkPreferenceDifference, LinkPreferenceSelectionError,
     LinkPreferenceSource, LinkPreferenceValue, LinkSelectedPreference, LinkStateReview,
 };
+mod mailbox_cross_check;
 mod mailbox_cursor;
 pub mod messages;
 mod notice;
