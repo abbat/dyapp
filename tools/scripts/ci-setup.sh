@@ -71,9 +71,9 @@ if [[ $1 == rust ]]; then
     curl -fsSL -o "$tmp/swiftlint.zip" https://github.com/realm/SwiftLint/releases/download/0.65.1/swiftlint_linux_amd64.zip
     curl -fsSL -o "$tmp/zizmor.tgz" https://github.com/zizmorcore/zizmor/releases/download/v1.30.1/zizmor-x86_64-unknown-linux-gnu.tar.gz
     curl -fsSL -o "$tmp/detekt-cli.jar" https://repo.maven.apache.org/maven2/io/gitlab/arturbosch/detekt/detekt-cli/1.23.8/detekt-cli-1.23.8-all.jar ||
-        curl -fsSL -o "$tmp/detekt-cli.jar" https://repo1.maven.org/maven2/io/gitlab/arturbosch/detekt/detekt-cli/1.23.8/detekt-cli-1.23.8-all.jar
+        curl -fsSL -o "$tmp/detekt-cli.jar" https://maven-central.storage-download.googleapis.com/maven2/io/gitlab/arturbosch/detekt/detekt-cli/1.23.8/detekt-cli-1.23.8-all.jar
     curl -fsSL -o "$tmp/detekt-formatting.jar" https://repo.maven.apache.org/maven2/io/gitlab/arturbosch/detekt/detekt-formatting/1.23.8/detekt-formatting-1.23.8.jar ||
-        curl -fsSL -o "$tmp/detekt-formatting.jar" https://repo1.maven.org/maven2/io/gitlab/arturbosch/detekt/detekt-formatting/1.23.8/detekt-formatting-1.23.8.jar
+        curl -fsSL -o "$tmp/detekt-formatting.jar" https://maven-central.storage-download.googleapis.com/maven2/io/gitlab/arturbosch/detekt/detekt-formatting/1.23.8/detekt-formatting-1.23.8.jar
     curl -fsSL -o "$tmp/age.tgz" https://github.com/FiloSottile/age/releases/download/v1.3.2/age-v1.3.2-linux-amd64.tar.gz
     curl -fsSL -o "$tmp/hawk.tgz" https://github.com/astral-sh/hawk/releases/download/0.1.17/cargo-hawk-x86_64-unknown-linux-gnu.tar.gz
     (cd "$tmp" && printf '%s\n' 'aca6b5d546307092b8d0a8e0a89dd80f9da51f2f7617c5e45c5607c1684ffbf2  typos.tgz' \

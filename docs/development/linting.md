@@ -398,9 +398,8 @@ config sets:
 The quality step and `make lint-android` run `tests/scripts/kotlin-format.sh lint`:
 the SHA256-pinned Maven detekt CLI and detekt-formatting 1.23.8 jars use
 `detekt.yml`, `detekt-baseline.xml` and every owned Kotlin source under
-`clients/android`, excluding build output. CI setup retries Maven Central through its
-`repo1.maven.org` fallback and still verifies the same SHA256 checksums. `make quick-check` runs
-the same stage.
+`clients/android`, excluding build output. CI setup retries Maven Central through its Google Cloud
+Storage mirror and still verifies the same SHA256 checksums. `make quick-check` runs the same stage.
 `detekt-baseline.xml` is empty: every finding fails the check.
 `--build-upon-default-config` keeps every default setting `detekt.yml` does not override.
 `make fmt-kotlin` applies the supported corrections in Docker, then requires a clean
