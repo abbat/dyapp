@@ -624,7 +624,7 @@ mod tests {
             &mut cached,
         );
         assert_eq!(keys, [key(&a), key(&b)]);
-        assert!(cached.is_empty());
+        assert_eq!(cached.len(), 0);
     }
 
     #[test]

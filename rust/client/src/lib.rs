@@ -35,6 +35,8 @@ pub mod profile_editor;
 pub mod profiles;
 mod providers;
 pub mod publish;
+mod replicas;
+pub use replicas::ReplicaSet;
 pub mod scores;
 pub mod search;
 pub mod search_input;
