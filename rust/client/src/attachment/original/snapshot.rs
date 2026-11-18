@@ -56,7 +56,9 @@ impl Snapshot {
     }
 
     fn validate(&self, bytes: &[u8]) -> Result<(), LookupError> {
-        if dyapp_identity::sha256(bytes) != self.photo.plaintext_sha256 {
+        if u64::try_from(bytes.len()).ok() != Some(self.photo.size)
+            || dyapp_identity::sha256(bytes) != self.photo.plaintext_sha256
+        {
             return Err(LookupError::Corrupted);
         }
         validate(bytes, self.photo.width, self.photo.height)
@@ -102,5 +104,33 @@ impl Snapshot {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn declared_size_must_equal_the_decrypted_length() {
+        let bytes = include_bytes!("validate/three-by-two.png");
+        let (photo, _) = crate::attachment::seal(bytes).unwrap();
+        let mut snapshot = Snapshot {
+            owner: String::new(),
+            peer: String::new(),
+            group: Vec::new(),
+            author: String::new(),
+            id: Vec::new(),
+            photo,
+        };
+        for size in [0, u64::try_from(bytes.len()).unwrap() + 1] {
+            snapshot.photo.size = size;
+            assert!(matches!(
+                snapshot.validate(bytes),
+                Err(LookupError::Corrupted)
+            ));
+        }
+        snapshot.photo.size = u64::try_from(bytes.len()).unwrap();
+        snapshot.validate(bytes).unwrap();
     }
 }
