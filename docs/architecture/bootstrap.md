@@ -831,7 +831,8 @@ reload; the node refuses new puts and reads of that hash.
   ([deployment](../manuals/bootstrap.md#debian-12-package)).
 - A TOML config sets addresses, paths per store, roles, limits and TTL; environment variables
   override it and unknown keys are ignored, so a rolled-back node still starts. Invalid config
-  fails at startup ([Configuration](#configuration)).
+  fails at startup ([Configuration](#configuration)). TOML input is capped at 1 MiB before parsing;
+  larger files are rejected with their path and byte limit.
 - The node key is a libp2p key made once by `dyappd keygen` with the node-ID proof of work: a
   file (mode 0600) at `storage.key`, by default in the data directory, or, from the package, a
   `systemd-creds` credential the unit decrypts (`keygen -` pipes it to `systemd-creds encrypt`,
@@ -843,7 +844,8 @@ reload; the node refuses new puts and reads of that hash.
   keygen restores a missing `node.id` from a valid file-backed key, including when data exists;
   corrupt keys and existing IDs fail closed. A new key is a new node: the node refuses a key that
   does not match the stored data, and the
-  operator deletes the data. On a leak or a move the operator creates a new key.
+  operator deletes the data. On a leak or a move the operator creates a new key. Key files above
+  4 KiB and `node.id` files above 128 bytes are refused before their contents drive an allocation.
 - <a id="storage-network"></a>The data directory belongs to one network: the `network` file in
   it holds the name (empty for the public network, no newline). `keygen` or the first start
   writes it and never replaces it; a start under another `network.name`, or a malformed or
@@ -1676,14 +1678,15 @@ in it, media blobs in `<dir>/data`; the removed `storage.{profiles,messages,medi
 `network.{name,id_pow_bits,distinct_outbound_groups,guard_dials,deny_dial}` ([P2P networking](p2p-networking.md)),
 `network.storage_trust_minutes` ([Rate Limiting](#rate-limiting)),
 `network.{share_deny_list,accept_deny_lists}` ([Deny-list exchange](#deny-list-exchange)),
-`turn.{urls,secret,secret_file,credential_minutes}` (`secret_file` is read into `secret` before validation) ([TURN](#turn-credentials)),
+`turn.{urls,secret,secret_file,credential_minutes}` (`secret_file` is read into `secret` before validation and capped at 64 KiB) ([TURN](#turn-credentials)),
 `search.{max_profile_bytes,max_bytes,newcomer_days,newcomer_share,max_scan_rows,topics,puzzle_wait_ms,max_puzzle_bits}` ([Search](#search), checked only with
 the role); the
 example and startup checks are in [operator manual](../manuals/bootstrap.md#configuration). `dyappd`
 starts the libp2p node ([P2P networking](p2p-networking.md)) in `Mode::Auto` with the stores open
 and serves the protocols in [Served protocol](#served-protocol). The `store`, `media`, `turn`
 and `search` roles are accepted, the last three only together with `store`. On start it dials its
-anchors, then fills the routing table from the peer cache; the seeds follow
+anchors, then fills the routing table from the peer cache; each cache file is capped at 1 MiB,
+with an oversized or unreadable cache treated as empty. The seeds follow
 ([P2P networking](p2p-networking.md#current-code)).
 
 Planned: the remaining resource guards, store retention.

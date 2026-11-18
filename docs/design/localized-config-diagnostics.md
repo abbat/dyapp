@@ -1,6 +1,6 @@
 # Configuration diagnostics for Russian operators
 
-Status: implemented for syntax, known type mismatches and file-read guidance.
+Status: implemented for syntax, known type mismatches, oversize files and file-read guidance.
 
 ## Decision
 
@@ -11,7 +11,8 @@ configuration values is necessary to prevent secret disclosure.
 
 Do not translate third-party error strings by matching their English text. For a
 file-read failure, show the path, a Russian action for known kinds (missing file or
-permission denied) or a generic read failure, and the original OS cause. For TOML
+permission denied) or a generic read failure, and the original OS cause. Oversize input is an
+invalid-data read failure whose cause includes the fixed byte limit. For TOML
 syntax failures, show the path, line and column when the parser provides them, and
 a safe parser cause without echoing the source line. For type failures, compare
 the merged table with serialized defaults and show known key paths and expected

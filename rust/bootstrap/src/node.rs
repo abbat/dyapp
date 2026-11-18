@@ -18,7 +18,7 @@ pub use open::{open, Opened};
 use report::{state, status};
 pub use run::run;
 
-use crate::config::{Limits, Role};
+use crate::config::{read_string, Limits, Role, MAX_PEER_CACHE_BYTES};
 use crate::deny::DenyStore;
 use crate::maintenance::RebuildBudget;
 use crate::media_repair::{Repair as MediaRepair, Schedule as MediaRepairSchedule};
@@ -187,10 +187,10 @@ fn masked(ip: IpAddr, ipv4: u8, ipv6: u8) -> String {
     }
 }
 
-/// Peers saved by the last run; a missing file or a damaged line is skipped.
+/// Peers saved by the last run; a missing or oversized file is empty and a damaged line is skipped.
 #[must_use]
 pub fn cached_peers(path: &Path) -> Vec<Multiaddr> {
-    let text = fs::read_to_string(path).unwrap_or_default();
+    let text = read_string(path, MAX_PEER_CACHE_BYTES).unwrap_or_default();
     text.lines().filter_map(|line| line.parse().ok()).collect()
 }
 

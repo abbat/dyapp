@@ -22,6 +22,25 @@ pub use relay::Relay;
 /// `DYAPPD_<KEY>` for a top-level key. Section names have no `_`, so the first one ends it.
 pub const ENV_PREFIX: &str = "DYAPPD_";
 
+const MAX_CONFIG_BYTES: u64 = 1024 * 1024;
+const MAX_TURN_SECRET_BYTES: u64 = 64 * 1024;
+const MAX_NODE_ID_BYTES: u64 = 128;
+pub(crate) const MAX_PEER_CACHE_BYTES: u64 = 1024 * 1024;
+
+pub(crate) fn read_string(path: &Path, max: u64) -> std::io::Result<Zeroizing<String>> {
+    let mut text = Zeroizing::new(String::new());
+    File::open(path)?
+        .take(max.saturating_add(1))
+        .read_to_string(&mut text)?;
+    if u64::try_from(text.len()).unwrap_or(u64::MAX) > max {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("file exceeds {max} bytes"),
+        ));
+    }
+    Ok(text)
+}
+
 /// Whether the process message locale requests Russian operator text.
 #[must_use]
 pub fn russian_locale() -> bool {
@@ -723,8 +742,8 @@ impl NodeConfig {
     ///
     /// # Errors
     ///
-    /// Returns an error if both TURN secret sources are configured, or the secret file cannot
-    /// be read as UTF-8 or is empty after its trailing newline is removed.
+    /// Returns an error if both TURN secret sources are configured, or the secret file exceeds
+    /// 64 KiB, cannot be read as UTF-8 or is empty after its trailing newline is removed.
     pub fn resolve_secrets(&mut self) -> anyhow::Result<()> {
         let path = &self.turn.secret_file;
         if path.as_os_str().is_empty() {
@@ -736,7 +755,7 @@ impl NodeConfig {
                 "одновременно заданы turn.secret и turn.secret_file"
             ));
         }
-        let text = Zeroizing::new(fs::read_to_string(path).map_err(|e| {
+        let text = read_string(path, MAX_TURN_SECRET_BYTES).map_err(|e| {
             let guidance = if russian_locale() {
                 match e.kind() {
                     std::io::ErrorKind::NotFound => ": файл не найден; проверьте путь",
@@ -751,7 +770,7 @@ impl NodeConfig {
                 message("turn.secret_file", "файл секрета TURN"),
                 path.display()
             )
-        })?);
+        })?;
         let secret = text.strip_suffix('\n').unwrap_or(&text);
         if secret.is_empty() {
             anyhow::bail!(
@@ -764,11 +783,21 @@ impl NodeConfig {
         Ok(())
     }
 
+    /// Reads the stored node ID, rejecting files larger than the fixed `PeerId` representation needs.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `node.id` cannot be read as at most 128 UTF-8 bytes.
+    pub fn node_id(&self) -> std::io::Result<String> {
+        let mut text = read_string(&self.storage.dir.join("node.id"), MAX_NODE_ID_BYTES)?;
+        Ok(std::mem::take(&mut *text))
+    }
+
     fn read_table(file: Option<&Path>) -> anyhow::Result<toml::Table> {
         let Some(path) = file else {
             return Ok(toml::Table::new());
         };
-        let source = fs::read_to_string(path).map_err(|e| {
+        let source = read_string(path, MAX_CONFIG_BYTES).map_err(|e| {
             if russian_locale() {
                 let guidance = match e.kind() {
                     std::io::ErrorKind::NotFound => "файл не найден; проверьте путь",

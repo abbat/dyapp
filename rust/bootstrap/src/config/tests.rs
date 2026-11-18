@@ -1,4 +1,4 @@
-use super::key::{persist_new, persist_new_with};
+use super::key::{persist_new, persist_new_with, MAX_KEY_BYTES};
 use super::*;
 use proptest::prelude::*;
 
@@ -175,6 +175,25 @@ fn file_then_env_overrides_and_unknown_keys() {
 }
 
 #[test]
+fn config_file_reads_stop_at_the_format_boundary() {
+    let dir = temp_dir();
+    fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("node.toml");
+    let prefix = "future_key = 1\n#";
+    let mut source = String::from(prefix);
+    source.push_str(&"x".repeat(usize::try_from(MAX_CONFIG_BYTES).unwrap() - prefix.len()));
+    fs::write(&file, &source).unwrap();
+    NodeConfig::load(Some(&file), [], &[]).unwrap();
+    source.push('x');
+    fs::write(&file, source).unwrap();
+    let error = NodeConfig::load(Some(&file), [], &[])
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("file exceeds 1048576 bytes"), "{error}");
+    fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn options_override_env() {
     assert_eq!(
         NodeConfig::default().listen,
@@ -217,6 +236,10 @@ fn turn_secret_file() {
     };
     assert_eq!(load("s3cret\n", None).unwrap(), "s3cret");
     assert_eq!(load("s3cret\n\n", None).unwrap(), "s3cret\n");
+    let boundary = "s".repeat(usize::try_from(MAX_TURN_SECRET_BYTES).unwrap());
+    assert_eq!(load(&boundary, None).unwrap(), boundary);
+    let error = load(&(boundary + "s"), None).unwrap_err().to_string();
+    assert!(error.contains("file exceeds 65536 bytes"), "{error}");
     assert!(load("", None).unwrap_err().to_string().contains(&path));
     let both = load("s3cret", Some("other")).unwrap_err().to_string();
     assert_eq!(both, "turn.secret and turn.secret_file are both set");
@@ -363,6 +386,36 @@ fn node_key_is_bound_to_the_data() {
     config.keygen(None).unwrap();
     config.network.id_pow_bits = 32;
     config.node_key().unwrap_err();
+}
+
+#[test]
+fn node_key_and_id_reads_stop_at_their_format_boundaries() {
+    let mut config = NodeConfig::default();
+    config.storage.dir = temp_dir();
+    config.network.id_pow_bits = 0;
+    config.validate().unwrap();
+    config.keygen(None).unwrap();
+    config.node_key().unwrap();
+
+    let id_path = config.storage.dir.join("node.id");
+    let boundary = "i".repeat(usize::try_from(MAX_NODE_ID_BYTES).unwrap());
+    fs::write(&id_path, &boundary).unwrap();
+    assert_eq!(config.node_id().unwrap(), boundary);
+    fs::write(&id_path, boundary + "i").unwrap();
+    let error = config.node_id().unwrap_err().to_string();
+    assert!(error.contains("file exceeds 128 bytes"), "{error}");
+
+    let key_path = config.storage.key_path();
+    fs::write(&key_path, vec![0; usize::try_from(MAX_KEY_BYTES).unwrap()]).unwrap();
+    let error = config.node_key().unwrap_err().to_string();
+    assert!(!error.contains("exceeds 4096 bytes"), "{error}");
+    fs::write(
+        &key_path,
+        vec![0; usize::try_from(MAX_KEY_BYTES + 1).unwrap()],
+    )
+    .unwrap();
+    let error = config.node_key().unwrap_err().to_string();
+    assert!(error.contains("exceeds 4096 bytes"), "{error}");
 }
 
 #[test]

@@ -328,7 +328,7 @@ fn deny(config: &NodeConfig, args: &[&str]) -> anyhow::Result<()> {
 /// The peer ID, then one `seeds` entry per `external` address for other nodes to pin this one.
 fn id(config: &NodeConfig) -> anyhow::Result<String> {
     let path = config.storage.dir.join("node.id");
-    let peer_id = std::fs::read_to_string(&path).map_err(|e| {
+    let peer_id = config.node_id().map_err(|e| {
         anyhow::anyhow!(
             "{}: {e}; {}",
             path.display(),
@@ -450,7 +450,7 @@ fn storage_counts(config: &NodeConfig) -> [(&'static str, String); 8] {
 /// One `name value` line each: health, then store counts (a store not created yet shows
 /// `none`), then traffic since the node started (`unavailable` when stopped or metrics are off).
 fn status(config: &NodeConfig, running: bool) -> String {
-    let peer_id = std::fs::read_to_string(config.storage.dir.join("node.id")).unwrap_or_default();
+    let peer_id = config.node_id().unwrap_or_default();
     let metrics = running.then(|| scrape(config)).flatten();
     let traffic = |value: &dyn Fn(&str) -> u64| {
         metrics

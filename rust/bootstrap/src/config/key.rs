@@ -1,10 +1,13 @@
 //! The node key: made once with its proof of work, then loaded with the data directory binding.
 
 use super::{
-    fs, message, File, Keypair, NodeConfig, OpenOptions, Path, PeerId, Read, Write, Zeroizing,
+    fs, message, read_string, File, Keypair, NodeConfig, OpenOptions, Path, PeerId, Read, Write,
+    Zeroizing, MAX_NODE_ID_BYTES,
 };
 #[cfg(unix)]
 use super::{MetadataExt, OpenOptionsExt};
+
+pub(super) const MAX_KEY_BYTES: u64 = 4096;
 
 fn sync_directory(path: &Path) -> std::io::Result<()> {
     #[cfg(unix)]
@@ -205,6 +208,12 @@ impl NodeConfig {
             .metadata()
             .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?;
         check_permissions(&metadata, check_mode, key_path)?;
+        anyhow::ensure!(
+            metadata.len() <= MAX_KEY_BYTES,
+            "{} {}",
+            key_path.display(),
+            message("exceeds 4096 bytes", "превышает 4096 байт")
+        );
         // Read into one fixed allocation: growing a Vec could leave freed secret copies.
         let mut bytes = Zeroizing::new(vec![0; usize::try_from(metadata.len())?]);
         file.read_exact(&mut bytes)
@@ -251,7 +260,7 @@ impl NodeConfig {
     fn validate_key(&self, key_path: &Path, keypair: &Keypair) -> anyhow::Result<()> {
         let peer_id = self.validate_pow(key_path, keypair)?;
         let id_path = self.storage.dir.join("node.id");
-        let stored: PeerId = fs::read_to_string(&id_path)
+        let stored: PeerId = read_string(&id_path, MAX_NODE_ID_BYTES)
             .map_err(|e| anyhow::anyhow!("{}: {e}", id_path.display()))?
             .trim()
             .parse()

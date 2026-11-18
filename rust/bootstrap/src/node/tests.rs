@@ -884,6 +884,13 @@ fn damaged_peer_cache_lines_are_skipped() {
     assert_eq!(cached_peers(&dir), [] as [libp2p::Multiaddr; 0]);
     fs::write(&dir, "/ip4/1.2.3.4/tcp/1\ngarbage\n").unwrap();
     assert_eq!(cached_peers(&dir), ["/ip4/1.2.3.4/tcp/1".parse().unwrap()]);
+    let mut boundary = "/ip4/1.2.3.4/tcp/1\n".to_string();
+    boundary.push_str(&"x".repeat(usize::try_from(MAX_PEER_CACHE_BYTES).unwrap() - boundary.len()));
+    fs::write(&dir, &boundary).unwrap();
+    assert_eq!(cached_peers(&dir), ["/ip4/1.2.3.4/tcp/1".parse().unwrap()]);
+    boundary.push('x');
+    fs::write(&dir, boundary).unwrap();
+    assert_eq!(cached_peers(&dir), [] as [libp2p::Multiaddr; 0]);
     fs::remove_file(&dir).unwrap();
 }
 
