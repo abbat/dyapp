@@ -258,6 +258,14 @@ hints, are unchanged; legacy decoders ignore the added fields. Fixed-wire tests 
 `info` and uses the validation clock snapshot for signed-time `INVALID` replies: profile/search
 heartbeats, direct media keep/attach, and replica/shard authorizations (future skew or existing
 retention expiry). Invalid signatures, versions, hashes and other failures leave the hint zero.
+
+The client records nonzero hints by node Peer ID in a bounded, process-local set of at most 64
+entries. Fewer than three distinct nodes cannot install an offset. With three or more, the collector
+exposes the median of `server_time - local_receive_time` to signing paths; a zero hint means an older
+node and never an epoch sample. The set is refreshed by new replies and resets at process start. This
+is a skew workaround, not clock consensus: one outlier cannot move a three-node median, while a
+majority of lying nodes can.
+Monotonic deadlines, retry scheduling and message timestamps never use this offset.
 Existing freshness rules are preserved; this field does not introduce a new validation window.
 Client correction using a median from three distinct nodes and device-clock guidance remain planned.
 

@@ -11,6 +11,7 @@ pub mod chat;
 pub mod chat_composer;
 pub mod chat_links;
 pub mod chat_preview;
+pub mod clock;
 pub mod compatibility;
 pub mod contact_notes;
 pub mod contact_verification;
@@ -29,6 +30,8 @@ pub mod photo;
 pub mod places;
 mod prepared;
 mod private_peer;
+pub use clock::now;
+pub(crate) use clock::{clock_range, now_ms};
 pub(crate) use prepared::prepare;
 pub use prepared::{prepare_put, prepare_tokened_put, PreparedEnvelope};
 pub mod profile_editor;
@@ -73,7 +76,7 @@ use libp2p::{Multiaddr, PeerId, Swarm};
 use prost::Message as _;
 use std::future::Future;
 use std::sync::{Arc, OnceLock};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 /// How long a dial or one request may take.
 pub const TIMEOUT: Duration = Duration::from_secs(15);
@@ -744,7 +747,9 @@ impl Node {
         let response = self
             .node(node_request::Request::Info(proto::InfoRequest {}))
             .await?;
-        response.info.ok_or(Error::Reply("no node info"))
+        let info = response.info.ok_or(Error::Reply("no node info"))?;
+        clock::observe(self.peer, info.server_time, now());
+        Ok(info)
     }
 
     async fn node(&mut self, request: node_request::Request) -> Result<proto::NodeResponse, Error> {
@@ -797,6 +802,7 @@ impl Node {
         &mut self,
         request: search_request::Request,
     ) -> Result<proto::SearchResponse, Error> {
+        let signed_time = matches!(&request, search_request::Request::Heartbeat(_));
         let request = proto::SearchRequest {
             request: Some(request),
         };
@@ -804,17 +810,21 @@ impl Node {
             .behaviour_mut()
             .search
             .send_request(&self.peer, request);
-        self.wait(|event| match event {
-            BehaviourEvent::Search(event) => reply(event),
-            _ => None,
-        })
-        .await
+        let response = self
+            .wait(|event| match event {
+                BehaviourEvent::Search(event) => reply(event),
+                _ => None,
+            })
+            .await?;
+        clock::observe_invalid(self.peer, signed_time, &response);
+        Ok(response)
     }
 
     async fn profile(
         &mut self,
         request: profile_request::Request,
     ) -> Result<proto::ProfileResponse, Error> {
+        let signed_time = matches!(&request, profile_request::Request::Heartbeat(_));
         let request = proto::ProfileRequest {
             request: Some(request),
             age_seconds: 0,
@@ -823,11 +833,14 @@ impl Node {
             .behaviour_mut()
             .profile
             .send_request(&self.peer, request);
-        self.wait(|event| match event {
-            BehaviourEvent::Profile(event) => reply(event),
-            _ => None,
-        })
-        .await
+        let response = self
+            .wait(|event| match event {
+                BehaviourEvent::Profile(event) => reply(event),
+                _ => None,
+            })
+            .await?;
+        clock::observe_invalid(self.peer, signed_time, &response);
+        Ok(response)
     }
 
     async fn keypackage(
@@ -870,6 +883,12 @@ impl Node {
         &mut self,
         request: media_request::Request,
     ) -> Result<proto::MediaResponse, Error> {
+        let signed_time = matches!(
+            &request,
+            media_request::Request::Keep(_)
+                | media_request::Request::Attach(_)
+                | media_request::Request::ConditionalKeep(_)
+        );
         let request = proto::MediaRequest {
             request: Some(request),
         };
@@ -877,11 +896,14 @@ impl Node {
             .behaviour_mut()
             .media
             .send_request(&self.peer, request);
-        self.wait(|event| match event {
-            BehaviourEvent::Media(event) => reply(event),
-            _ => None,
-        })
-        .await
+        let response = self
+            .wait(|event| match event {
+                BehaviourEvent::Media(event) => reply(event),
+                _ => None,
+            })
+            .await?;
+        clock::observe_invalid(self.peer, signed_time, &response);
+        Ok(response)
     }
 
     async fn wait<R>(
@@ -957,22 +979,6 @@ fn search_ok(response: proto::SearchResponse) -> Result<proto::SearchResponse, E
         )));
     }
     ok(response.status).map(|()| response)
-}
-
-/// Unix seconds.
-#[must_use]
-pub fn now() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |since| since.as_secs())
-}
-
-pub(crate) fn now_ms() -> u64 {
-    now().saturating_mul(1000)
-}
-
-fn clock_range(_: std::num::TryFromIntError) -> store::Error {
-    store::Error::ClockRange
 }
 
 fn unhex(text: &str) -> Result<Vec<u8>, Error> {
