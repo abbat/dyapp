@@ -6,6 +6,67 @@ use super::{
 #[cfg(unix)]
 use super::{MetadataExt, OpenOptionsExt};
 
+fn sync_directory(path: &Path) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        fs::File::open(path)?.sync_all()
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        Ok(())
+    }
+}
+
+pub(super) fn persist_new(path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
+    persist_new_with(
+        path,
+        |file| {
+            file.write_all(bytes)?;
+            file.sync_all()
+        },
+        sync_directory,
+    )
+}
+
+pub(super) fn persist_new_with(
+    path: &Path,
+    write: impl FnOnce(&mut File) -> std::io::Result<()>,
+    mut sync: impl FnMut(&Path) -> std::io::Result<()>,
+) -> anyhow::Result<()> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("{}: missing parent directory", path.display()))?;
+    let name = path
+        .file_name()
+        .ok_or_else(|| anyhow::anyhow!("{}: missing file name", path.display()))?;
+    let temp = parent.join(format!(
+        ".{}.{}.tmp",
+        name.to_string_lossy(),
+        uuid::Uuid::new_v4()
+    ));
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    options.mode(0o600);
+    let mut file = options
+        .open(&temp)
+        .map_err(|e| anyhow::anyhow!("{}: {e}", temp.display()))?;
+    write(&mut file).map_err(|e| anyhow::anyhow!("{}: {e}", temp.display()))?;
+    drop(file);
+    // A hard link publishes the complete inode without replacing a concurrently created file.
+    fs::hard_link(&temp, path).map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
+    let directory = if parent.as_os_str().is_empty() {
+        Path::new(".")
+    } else {
+        parent
+    };
+    sync(directory).map_err(|e| anyhow::anyhow!("{}: {e}", directory.display()))?;
+    fs::remove_file(&temp).map_err(|e| anyhow::anyhow!("{}: {e}", temp.display()))?;
+    sync(directory).map_err(|e| anyhow::anyhow!("{}: {e}", directory.display()))?;
+    Ok(())
+}
+
 fn check_permissions(metadata: &fs::Metadata, check_mode: bool, path: &Path) -> anyhow::Result<()> {
     #[cfg(unix)]
     if check_mode && metadata.mode() & 0o077 != 0 {
@@ -25,19 +86,49 @@ fn check_permissions(metadata: &fs::Metadata, check_mode: bool, path: &Path) -> 
 
 impl NodeConfig {
     /// Makes the node key with the proof of work of `network.id_pow_bits` (about a minute on
-    /// 2 vCPU) and binds the data directory to it and to `network.name`. Refuses an existing key,
-    /// existing data or a directory of another network: a new key is a new node. The key goes to
-    /// `out` when given (to be sealed by another tool), else to a new file (0600 on Unix,
-    /// inherited user-directory access control on Windows).
+    /// 2 vCPU) and binds the data directory to it and to `network.name`: a new key is a new node.
+    /// The key goes to `out` when given (to be sealed by another tool), else to a new file (0600
+    /// on Unix,
+    /// inherited user-directory access control on Windows). A valid file-backed key with a missing
+    /// node ID is recovered; other existing keys, IDs and node data are refused.
     ///
     /// # Errors
     ///
     /// Returns an error if a key, node ID or existing node data is present, random generation,
     /// network binding, key encoding, output writing or node-ID persistence fails.
     pub fn keygen(&self, out: Option<&mut dyn Write>) -> anyhow::Result<PeerId> {
+        self.keygen_with(out, persist_new)
+    }
+
+    pub(super) fn keygen_with(
+        &self,
+        out: Option<&mut dyn Write>,
+        mut persist: impl FnMut(&Path, &[u8]) -> anyhow::Result<()>,
+    ) -> anyhow::Result<PeerId> {
         let key_path = self.storage.key_path();
         let id_path = self.storage.dir.join("node.id");
-        if let Some(file) = [&key_path, &id_path].into_iter().find(|s| s.exists()) {
+        if out.is_none() && key_path.exists() && !id_path.exists() {
+            return self.recover_key(&key_path, &id_path, &mut persist);
+        }
+        Self::refuse_existing(&key_path, &id_path)?;
+        self.fresh_key(out, &key_path, &id_path, &mut persist)
+    }
+
+    fn recover_key(
+        &self,
+        key_path: &Path,
+        id_path: &Path,
+        persist: &mut impl FnMut(&Path, &[u8]) -> anyhow::Result<()>,
+    ) -> anyhow::Result<PeerId> {
+        let keypair = Self::read_key(key_path, true)?;
+        let peer_id = self.validate_pow(key_path, &keypair)?;
+        self.bind_network()?;
+        persist(id_path, peer_id.to_string().as_bytes())?;
+        Ok(peer_id)
+    }
+
+    fn refuse_existing(key_path: &Path, id_path: &Path) -> anyhow::Result<()> {
+        if let Some(file) = [key_path, id_path].into_iter().find(|s| s.exists()) {
             anyhow::bail!(
                 "{} {}",
                 file.display(),
@@ -47,6 +138,16 @@ impl NodeConfig {
                 )
             );
         }
+        Ok(())
+    }
+
+    fn fresh_key(
+        &self,
+        out: Option<&mut dyn Write>,
+        key_path: &Path,
+        id_path: &Path,
+        persist: &mut impl FnMut(&Path, &[u8]) -> anyhow::Result<()>,
+    ) -> anyhow::Result<PeerId> {
         if self.has_data()? {
             anyhow::bail!(
                 "{} {}",
@@ -64,19 +165,10 @@ impl NodeConfig {
             out.write_all(&encoded)?;
             out.flush()?;
         } else {
-            let mut options = OpenOptions::new();
-            options.write(true).create_new(true);
-            #[cfg(unix)]
-            options.mode(0o600);
-            // Windows inherits access control from the user's app-config directory,
-            // as desktop file-backed identities do; POSIX mode bits do not apply.
-            options
-                .open(&key_path)
-                .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))?
-                .write_all(&encoded)?;
+            persist(key_path, &encoded)?;
         }
         let peer_id = keypair.public().to_peer_id();
-        fs::write(&id_path, peer_id.to_string())?;
+        persist(id_path, peer_id.to_string().as_bytes())?;
         Ok(peer_id)
     }
 
@@ -136,7 +228,7 @@ impl NodeConfig {
             .map_err(|e| anyhow::anyhow!("{}: {e}", key_path.display()))
     }
 
-    fn validate_key(&self, key_path: &Path, keypair: &Keypair) -> anyhow::Result<()> {
+    fn validate_pow(&self, key_path: &Path, keypair: &Keypair) -> anyhow::Result<PeerId> {
         let peer_id = keypair.public().to_peer_id();
         if !dyapp_p2p_net::id_has_pow(&peer_id, self.network.id_pow_bits) {
             anyhow::bail!(
@@ -153,6 +245,11 @@ impl NodeConfig {
                 )
             );
         }
+        Ok(peer_id)
+    }
+
+    fn validate_key(&self, key_path: &Path, keypair: &Keypair) -> anyhow::Result<()> {
+        let peer_id = self.validate_pow(key_path, keypair)?;
         let id_path = self.storage.dir.join("node.id");
         let stored: PeerId = fs::read_to_string(&id_path)
             .map_err(|e| anyhow::anyhow!("{}: {e}", id_path.display()))?

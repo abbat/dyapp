@@ -348,8 +348,14 @@ What keygen and startup check:
 - `dyappd keygen` writes the key (mode 0600) to `storage.key` or `storage.dir/node.key`, writes
   `node.id` (the peer ID) and `network` (the network name) to `storage.dir` and prints the peer
   ID; `dyappd keygen -` writes the key to stdout, refuses a terminal, and prints the peer ID on
-  stderr.
-- Keygen refuses when a key or any data already exists.
+  stderr. File-backed keys and IDs are fully written and synced in a same-directory temporary
+  file, then atomically linked without replacing an existing path. On Unix the directory is
+  synced; other platforms do not guarantee directory-entry persistence across power loss.
+- With a valid file-backed key but no `node.id`, plain `dyappd keygen` derives and restores the ID,
+  even when node data exists. An existing ID, a corrupt or unsafe key, or `keygen -` with an
+  existing key is refused without overwriting it. If `keygen -` was interrupted before writing
+  `node.id`, decrypt or restore the backed-up key as a readable `storage.key` and run plain
+  `keygen`, or generate and seal a new key. Stranded temporary files are never used as keys.
 - The node does not start without the key, with a key that lacks the proof of work or with one
   that does not match `node.id`. `dyappd probe-key --storage.dir=<stopped-copy>` performs the
   same key/ID check without opening a store or listener and prints the verified peer ID. Use

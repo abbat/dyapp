@@ -1,3 +1,4 @@
+use super::key::{persist_new, persist_new_with};
 use super::*;
 use proptest::prelude::*;
 
@@ -413,6 +414,149 @@ fn key_source_is_independent_of_its_protection() {
     let mode = fs::metadata(&config.storage.key).unwrap().mode();
     assert_eq!(mode & 0o777, 0o600);
     assert_eq!(config.load_key(None).unwrap().public().to_peer_id(), peer);
+}
+
+#[test]
+fn keygen_recovers_only_a_valid_file_backed_key_without_id() {
+    let config = named("city");
+    let peer = config.keygen(None).unwrap();
+    let key_path = config.storage.key_path();
+    let id_path = config.storage.dir.join("node.id");
+    let original = fs::read(&key_path).unwrap();
+    fs::remove_file(&id_path).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&key_path, fs::Permissions::from_mode(0o640)).unwrap();
+        config.keygen(None).unwrap_err();
+        assert!(!id_path.exists());
+        assert_eq!(fs::metadata(&key_path).unwrap().mode() & 0o777, 0o640);
+        fs::set_permissions(&key_path, fs::Permissions::from_mode(0o600)).unwrap();
+    }
+    fs::write(config.storage.profiles_path(), b"existing data").unwrap();
+    assert_eq!(config.keygen(None).unwrap(), peer);
+    assert_eq!(fs::read(&key_path).unwrap(), original);
+    assert_eq!(fs::read_to_string(&id_path).unwrap(), peer.to_string());
+    assert_eq!(config.node_key().unwrap().public().to_peer_id(), peer);
+    config.keygen(None).unwrap_err();
+
+    let corrupt = named("city");
+    fs::write(corrupt.storage.key_path(), b"unknown key").unwrap();
+    corrupt.keygen(None).unwrap_err();
+    assert_eq!(
+        fs::read(corrupt.storage.key_path()).unwrap(),
+        b"unknown key"
+    );
+    assert!(!corrupt.storage.dir.join("node.id").exists());
+}
+
+#[test]
+fn keygen_persistence_faults_leave_a_retryable_or_complete_identity() {
+    let unwritten = named("city");
+    unwritten
+        .keygen_with(None, |_, _| Err(anyhow::anyhow!("injected write failure")))
+        .unwrap_err();
+    assert!(!unwritten.storage.key_path().exists());
+    assert!(!unwritten.storage.dir.join("node.id").exists());
+    unwritten.keygen(None).unwrap();
+
+    let interrupted = named("city");
+    let mut calls = 0;
+    interrupted
+        .keygen_with(None, |path, bytes| {
+            calls += 1;
+            if calls == 1 {
+                persist_new(path, bytes)
+            } else {
+                Err(anyhow::anyhow!("injected node.id failure"))
+            }
+        })
+        .unwrap_err();
+    let key = fs::read(interrupted.storage.key_path()).unwrap();
+    assert!(!interrupted.storage.dir.join("node.id").exists());
+    let peer = interrupted.keygen(None).unwrap();
+    assert_eq!(fs::read(interrupted.storage.key_path()).unwrap(), key);
+    assert_eq!(interrupted.node_key().unwrap().public().to_peer_id(), peer);
+
+    let published = named("city");
+    let mut calls = 0;
+    published
+        .keygen_with(None, |path, bytes| {
+            calls += 1;
+            if calls == 1 {
+                persist_new(path, bytes)
+            } else {
+                persist_new_with(
+                    path,
+                    |file| {
+                        file.write_all(bytes)?;
+                        file.sync_all()
+                    },
+                    |_| Err(std::io::Error::other("injected directory sync failure")),
+                )
+            }
+        })
+        .unwrap_err();
+    let stored: PeerId = fs::read_to_string(published.storage.dir.join("node.id"))
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    assert_eq!(published.node_key().unwrap().public().to_peer_id(), stored);
+}
+
+#[test]
+fn atomic_publication_never_exposes_partial_or_replaced_files() {
+    let dir = temp_dir();
+    fs::create_dir_all(&dir).unwrap();
+    let partial = dir.join("partial");
+    persist_new_with(
+        &partial,
+        |file| {
+            file.write_all(b"partial")?;
+            Err(std::io::Error::new(
+                std::io::ErrorKind::WriteZero,
+                "injected full disk",
+            ))
+        },
+        |_| Ok(()),
+    )
+    .unwrap_err();
+    assert!(!partial.exists());
+
+    let complete = dir.join("complete");
+    let mut syncs = 0;
+    persist_new_with(
+        &complete,
+        |file| {
+            file.write_all(b"complete")?;
+            file.sync_all()
+        },
+        |_| {
+            syncs += 1;
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(fs::read(&complete).unwrap(), b"complete");
+    assert_eq!(syncs, 2);
+
+    let unsynced = dir.join("unsynced");
+    persist_new_with(
+        &unsynced,
+        |file| {
+            file.write_all(b"complete")?;
+            file.sync_all()
+        },
+        |_| Err(std::io::Error::other("injected directory sync failure")),
+    )
+    .unwrap_err();
+    assert_eq!(fs::read(&unsynced).unwrap(), b"complete");
+
+    let existing = dir.join("existing");
+    fs::write(&existing, b"keep").unwrap();
+    persist_new(&existing, b"replace").unwrap_err();
+    assert_eq!(fs::read(existing).unwrap(), b"keep");
 }
 
 fn named(name: &str) -> NodeConfig {

@@ -835,8 +835,12 @@ reload; the node refuses new puts and reads of that hash.
   `systemd-creds` credential the unit decrypts (`keygen -` pipes it to `systemd-creds encrypt`,
   [ADR 0018](../decisions/0018-node-key-source.md)). The node does not start without it or with
   a key file that has group/other permission bits. It checks the opened file and suggests `chmod 600` without
-  changing permissions. Owned serialization/loading buffers are cleared on drop.
-  A new key is a new node: the node refuses a key that does not match the stored data, and the
+  changing permissions. Owned serialization/loading buffers are cleared on drop. Keygen syncs a
+  same-directory temporary file and atomically hard-links it without replacing an existing path;
+  Unix also syncs the directory, while other platforms lack that power-loss guarantee. Plain
+  keygen restores a missing `node.id` from a valid file-backed key, including when data exists;
+  corrupt keys and existing IDs fail closed. A new key is a new node: the node refuses a key that
+  does not match the stored data, and the
   operator deletes the data. On a leak or a move the operator creates a new key.
 - <a id="storage-network"></a>The data directory belongs to one network: the `network` file in
   it holds the name (empty for the public network, no newline). `keygen` or the first start
