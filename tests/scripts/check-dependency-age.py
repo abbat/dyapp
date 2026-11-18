@@ -19,14 +19,7 @@ ExceptionPolicy = typing.Mapping[tuple[str, str], tuple[str, str]]
 CRATES_IO = "registry+https://github.com/rust-lang/crates.io-index"
 # (crate, version): (date added, reason). Remove the entry once it is 14 days
 # old; an entry older than MIN_AGE is reported as stale.
-ZBUS = "clears RUSTSEC-2026-0370, 0371 and 0372 on Linux"
-EXCEPTIONS = {
-    # zbus 6 is what drops the retired zvariant crates from the Linux lockfile.
-    ("zbus", "6.2.1"): ("2026-11-03", ZBUS),
-    ("zbus_macros", "6.2.1"): ("2026-11-03", ZBUS),
-    ("zbus_utils", "6.1.0"): ("2026-11-03", ZBUS),
-    ("zruntime", "0.2.2"): ("2026-11-03", ZBUS),
-}
+EXCEPTIONS: dict[tuple[str, str], tuple[str, str]] = {}
 
 
 def index_path(name: "str") -> "str":
