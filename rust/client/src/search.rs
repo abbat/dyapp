@@ -10,7 +10,7 @@ use dyapp_p2p_net::proto::{self, Condition, Status};
 use dyapp_p2p_net::search_results;
 use dyapp_p2p_net::Protocols;
 use dyapp_profile::VerifiedProfile;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -166,9 +166,10 @@ pub async fn connect_search_nodes(
     }
 }
 
-/// Profiles matching every condition, from up to `limit` hits (0 means 50) of each node in
-/// `nodes`, with at least `min_pow_bits` of profile proof of work. A hit whose version `cache`
-/// already holds is taken from the cache, not fetched, and its proof of work is not hashed again.
+/// Profiles matching every condition, from up to `limit` distinct hits (0 means 50, at most 200)
+/// of each node in `nodes`, with at least `min_pow_bits` of profile proof of work. A hit whose
+/// version `cache` already holds is taken from the cache, not fetched, and its proof of work is
+/// not hashed again. Across all nodes, each owner is hashed at most once.
 /// Peers in `blocked` ([`Store::blocked_peers`]) are neither fetched nor returned.
 pub async fn search(
     nodes: &mut [Node],
@@ -182,6 +183,10 @@ pub async fn search(
     let mut observed = evidence::Observed::default();
     let mut partial = nodes.is_empty();
     let mut failures = Vec::new();
+    let hit_limit = match limit {
+        0 => 50,
+        n => n.min(200),
+    } as usize;
     if nodes.is_empty() {
         failures.push(SearchFailure::NoNodes);
     }
@@ -203,7 +208,11 @@ pub async fn search(
             partial = true;
             continue;
         }
-        let keys = cache_keys(reply.hits, cache, blocked, &mut cached);
+        if reply.hits.len() > hit_limit {
+            failures.push(SearchFailure::Invalid);
+            partial = true;
+        }
+        let keys = cache_keys(reply.hits, hit_limit, cache, blocked, &mut cached);
         let (records, incomplete) = fetch(node, keys, &mut failures).await;
         partial |= incomplete;
         // `check` drops such a record anyway; the node that sent it is not to be trusted.
@@ -224,12 +233,23 @@ pub async fn search(
 
 fn cache_keys(
     hits: Vec<proto::SearchHit>,
+    limit: usize,
     cache: &Profiles,
     blocked: &[String],
     cached: &mut Vec<VerifiedProfile>,
 ) -> Vec<Vec<u8>> {
-    let mut keys = Vec::new();
+    let mut unique: Vec<proto::SearchHit> = Vec::new();
+    let mut indices: HashMap<Vec<u8>, usize> = HashMap::new();
     for hit in hits {
+        if let Some(&index) = indices.get(&hit.key) {
+            unique[index].version = unique[index].version.max(hit.version);
+        } else {
+            indices.insert(hit.key.clone(), unique.len());
+            unique.push(hit);
+        }
+    }
+    let mut keys = Vec::new();
+    for hit in unique.into_iter().take(limit) {
         let peer_id: String = dyapp_identity::hex(&hit.key);
         if blocked.contains(&peer_id) {
             continue;
@@ -584,6 +604,30 @@ mod tests {
     }
 
     #[test]
+    fn cache_keys_deduplicates_with_the_highest_version_before_truncating() {
+        let [a, b, c] = [(); 3].map(|()| Identity::try_generate().unwrap());
+        let mut cache = Profiles::default();
+        cache
+            .accept(dyapp_profile::verify(&record(&a, 2, 30)).unwrap())
+            .unwrap();
+        let mut cached = Vec::new();
+        let keys = cache_keys(
+            vec![
+                hit(key(&a), 1),
+                hit(key(&b), 1),
+                hit(key(&a), 3),
+                hit(key(&c), 1),
+            ],
+            2,
+            &cache,
+            &[],
+            &mut cached,
+        );
+        assert_eq!(keys, [key(&a), key(&b)]);
+        assert!(cached.is_empty());
+    }
+
+    #[test]
     fn offers_only_fields_every_node_lists_and_the_client_checks() {
         let info = |fields: &[u32]| proto::NodeInfo {
             search_fields: fields.to_vec(),
@@ -633,7 +677,7 @@ mod tests {
         cached: &Identity,
         unprompted: &Identity,
     ) -> (Node, Requests) {
-        // 51 uncached hits: two gets. uncached was not asked for; cached is newer and no longer fits.
+        // The reply exceeds the default limit; only 49 uncached keys fit after the cached hit.
         let mut hits: Vec<_> = (0..51u8).map(|n| hit(vec![n; 32], 1)).collect();
         // A whole reply that misses keys is not asked again.
         hits[0] = hit(key(unprompted), 1);
@@ -689,7 +733,7 @@ mod tests {
         assert_eq!(one_gets[1].len(), 2);
         assert_eq!(one_gets[2], [key(missing)]);
         let two_gets = gets(two_asked);
-        assert_eq!(two_gets.iter().map(Vec::len).collect::<Vec<_>>(), [50, 1]);
+        assert_eq!(two_gets.iter().map(Vec::len).collect::<Vec<_>>(), [49]);
         assert!(!two_gets.concat().contains(&key(cached)));
     }
 

@@ -36,6 +36,20 @@ pub fn check(
     min_pow_bits: u32,
     replies: &[Vec<SignedRecord>],
 ) -> Vec<VerifiedProfile> {
+    check_with(
+        conditions,
+        min_pow_bits,
+        replies,
+        dyapp_profile::pow_leading_bits,
+    )
+}
+
+fn check_with(
+    conditions: &[Condition],
+    min_pow_bits: u32,
+    replies: &[Vec<SignedRecord>],
+    pow: impl Fn(&[u8; 32], u64) -> u32,
+) -> Vec<VerifiedProfile> {
     let mut order = Vec::new();
     let mut newest: HashMap<[u8; 32], VerifiedProfile> = HashMap::new();
     for record in replies.iter().flatten() {
@@ -64,8 +78,7 @@ pub fn check(
             let p = &verified.profile;
             // Argon2 last: the cheap checks drop most records first.
             let keep = passes(conditions, min_pow_bits, p)
-                && (p.pow_bits == 0
-                    || dyapp_profile::pow_leading_bits(&owner, p.pow_nonce) >= p.pow_bits);
+                && (p.pow_bits == 0 || pow(&owner, p.pow_nonce) >= p.pow_bits);
             keep.then_some(verified)
         })
         .collect()
@@ -682,7 +695,7 @@ mod tests {
     }
 
     #[test]
-    fn malformed_conditions_match_nothing_and_pow_is_checked() {
+    fn malformed_conditions_match_nothing() {
         let a = Identity::try_generate().unwrap();
         let replies = [vec![record(&a, 1, 30, &[])]];
         let bad = condition(BIRTH_AGE, Op::Range, &[], &["30"]);
@@ -691,24 +704,6 @@ mod tests {
         assert_eq!(check(&[reversed], 0, &replies), [] as [VerifiedProfile; 0]);
         assert_eq!(check(&[], 0, &replies).len(), 1);
         assert_eq!(check(&[], 1, &replies), [] as [VerifiedProfile; 0]);
-        // Claimed bits the Argon2 hash does not reach.
-        let lying = Profile {
-            version: 1,
-            pow_bits: 30,
-            ..Profile::default()
-        }
-        .sign(&a);
-        assert_eq!(check(&[], 0, &[vec![lying]]), [] as [VerifiedProfile; 0]);
-        let key: [u8; 32] = replies[0][0].public_key.as_slice().try_into().unwrap();
-        let nonce = dyapp_profile::solve(&key, 2, 0, 1000).unwrap();
-        let mined = Profile {
-            version: 1,
-            pow_bits: 2,
-            pow_nonce: nonce,
-            ..Profile::default()
-        }
-        .sign(&a);
-        assert_eq!(check(&[], 2, &[vec![mined]]).len(), 1);
     }
 
     #[test]
@@ -984,5 +979,7 @@ mod tests {
     }
 }
 
+#[cfg(test)]
+mod check_tests;
 #[cfg(test)]
 mod filter_validation_tests;
