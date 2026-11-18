@@ -1040,8 +1040,9 @@ the payload and storage limits below are checked separately.
 The reply schemas include additive `server_time` Unix-seconds fields in `NodeInfo` and
 profile/media/search responses ([clock hints](protobuf-schema.md#clock-hints)). `info` reports
 the node clock; signed-time `INVALID` replies report the clock snapshot used in validation.
-Other failures leave the field zero. Client clock correction from three distinct nodes remains
-planned.
+Other failures leave the field zero. Startup seed checks collect `info` hints, and the client signs
+heartbeat, keep, media state and attach requests with the lower-median offset of at least three
+distinct nodes. Fewer than three hints leaves local signing time unchanged; this is not consensus.
 
 `NodeInfo.capabilities` names optional features beyond the roles: `PROFILE_HEARTBEAT` with the
 store role, `SEARCH_PUZZLE` with the search role, `SHARED_DENY_LIST` with

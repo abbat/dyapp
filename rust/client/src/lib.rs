@@ -77,7 +77,6 @@ use prost::Message as _;
 use std::future::Future;
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
-
 /// How long a dial or one request may take.
 pub const TIMEOUT: Duration = Duration::from_secs(15);
 /// Hardest search puzzle a client solves, in leading zero bits; a node asking more is skipped.
@@ -562,11 +561,12 @@ impl Node {
         owner: &Identity,
         version: u64,
         hashes: Vec<Vec<u8>>,
+        local_time: u64,
     ) -> Result<Vec<Vec<u8>>, Error> {
         let keep = proto::MediaKeep {
             version,
             hashes,
-            time: now(),
+            time: clock::corrected(local_time),
         };
         let record = owner.sign(Domain::MediaKeep, keep.encode_to_vec());
         let response = self.media(media_request::Request::Keep(record)).await?;
@@ -597,11 +597,12 @@ impl Node {
         &mut self,
         sender: &Identity,
         attachment: &attachment::Attachment,
+        local_time: u64,
     ) -> Result<Vec<Vec<u8>>, Error> {
         let attach = proto::MediaAttach {
             release: attachment.release_hash().to_vec(),
             hashes: vec![attachment.blob_sha256.to_vec()],
-            created: now(),
+            created: clock::corrected(local_time),
         };
         let record = sender.sign(Domain::MediaAttach, attach.encode_to_vec());
         let response = self.media(media_request::Request::Attach(record)).await?;

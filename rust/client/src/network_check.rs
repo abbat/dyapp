@@ -112,7 +112,7 @@ impl Checks {
             biased;
             () = cancellation.cancelled() => return Err(Error::Cancelled),
             () = attempt.cancelled() => return Err(Error::Cancelled),
-            rows = seeds::check(&draft, wait) => rows,
+            rows = seeds::check(&draft, wait, crate::now()) => rows,
         };
         self.complete(&attempt, dir, draft, rows)
     }
@@ -196,7 +196,9 @@ pub async fn connect(dir: &Path, wait: Duration) -> Result<bool, Error> {
     else {
         return Ok(false);
     };
-    let rows = seeds::check(&active, wait).await.unwrap_or_default();
+    let rows = seeds::check(&active, wait, crate::now())
+        .await
+        .unwrap_or_default();
     Ok(rows.iter().any(|row| matches!(row, Row::Connected(_))))
 }
 

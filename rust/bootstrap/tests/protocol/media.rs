@@ -15,13 +15,16 @@ const SEAL: [u8; 32] = [6; 32];
 
 /// Leaves only `hashes` listed under the current publication intent, as a node losing blobs would.
 async fn keep_only(node: &mut dyapp_client::Node, owner: &Identity, hashes: Vec<Vec<u8>>) {
-    let state = node.media_keep_state(owner).await.unwrap();
+    let state = node
+        .media_keep_state(owner, dyapp_client::now())
+        .await
+        .unwrap();
     let intent = Intent {
         profile_hash: state.intent_hash().unwrap(),
         pending: state.pending(),
     };
     let replaced = node
-        .replace_media_keep(owner, &state, hashes, intent)
+        .replace_media_keep(owner, &state, hashes, intent, dyapp_client::now())
         .await
         .unwrap();
     assert!(matches!(replaced, Replaced::Applied { .. }));
@@ -183,7 +186,7 @@ async fn client_keeps_attaches_reads_and_releases_media() {
     // A kept blob is accepted, read back whole and checked against its hash.
     let photo = b"profile photo".to_vec();
     let hash = dyapp_identity::sha256(&photo);
-    node.keep_media(&owner, 1, vec![hash.to_vec()])
+    node.keep_media(&owner, 1, vec![hash.to_vec()], dyapp_client::now())
         .await
         .unwrap();
     node.put_media(&owner.peer_id(), photo.clone())
@@ -198,7 +201,9 @@ async fn client_keeps_attaches_reads_and_releases_media() {
     // An attachment blob is put after its attach and dropped once released.
     let (sealed, blob) = attachment::seal(b"chat photo").unwrap();
     assert_eq!(
-        node.attach_media(&owner, &sealed).await.unwrap(),
+        node.attach_media(&owner, &sealed, dyapp_client::now())
+            .await
+            .unwrap(),
         [sealed.blob_sha256.to_vec()]
     );
     node.put_media(&owner.peer_id(), blob.clone())

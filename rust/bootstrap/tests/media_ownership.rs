@@ -3,7 +3,7 @@ use dyapp_bootstrap::config::Role;
 use dyapp_bootstrap::media::{KeepSnapshot, MediaStore, Put};
 use dyapp_bootstrap::service::{Peer, Service};
 use dyapp_bootstrap::{node, BootstrapStore, NodeConfig};
-use dyapp_client::media_ownership::{Intent, Replaced};
+use dyapp_client::media_ownership::{Intent, Replaced, State};
 use dyapp_client::{Error, Node};
 use dyapp_identity::{sha256, Domain, Identity, SignedRecord};
 use dyapp_p2p_net::proto::{self, media_request, Status};
@@ -185,11 +185,25 @@ async fn start(service: Arc<Service>) -> Node {
     .unwrap()
 }
 
+fn assert_applied_intent(state: &State) {
+    assert_eq!(state.revision(), 1);
+    assert_eq!(state.intent_hash(), Some([3; 32]));
+    assert!(state.pending());
+    state
+        .record()
+        .unwrap()
+        .verify(Domain::MediaConditionalKeep)
+        .unwrap();
+}
+
 #[tokio::test]
 async fn tcp_query_apply_put_and_stale_expectation_preserve_exact_intent() {
     let fixture = Fixture::new();
     let mut client = start(Arc::clone(&fixture.service)).await;
-    let absent = client.media_keep_state(&fixture.owner).await.unwrap();
+    let absent = client
+        .media_keep_state(&fixture.owner, now())
+        .await
+        .unwrap();
     assert_eq!(absent.revision(), 0);
     assert!(
         !fixture
@@ -204,27 +218,20 @@ async fn tcp_query_apply_put_and_stale_expectation_preserve_exact_intent() {
         pending: true,
     };
     let Replaced::Applied { state, missing } = client
-        .replace_media_keep(&fixture.owner, &absent, vec![hash.clone()], intent)
+        .replace_media_keep(&fixture.owner, &absent, vec![hash.clone()], intent, now())
         .await
         .unwrap()
     else {
         panic!("initial ownership conflicted");
     };
     assert_eq!(missing, vec![hash.clone()]);
-    assert_eq!(state.revision(), 1);
-    assert_eq!(state.intent_hash(), Some([3; 32]));
-    assert!(state.pending());
-    state
-        .record()
-        .unwrap()
-        .verify(Domain::MediaConditionalKeep)
-        .unwrap();
+    assert_applied_intent(&state);
     client
         .put_media(&fixture.owner.peer_id(), b"original".to_vec())
         .await
         .unwrap();
     let Replaced::Conflict(current) = client
-        .replace_media_keep(&fixture.owner, &absent, Vec::new(), intent)
+        .replace_media_keep(&fixture.owner, &absent, Vec::new(), intent, now())
         .await
         .unwrap()
     else {
@@ -252,7 +259,10 @@ async fn tcp_query_neither_renews_retention_nor_changes_the_signed_record() {
         .keep_signed(&fixture.owner.peer_id(), &keep, &record)
         .unwrap();
     let mut client = start(Arc::clone(&fixture.service)).await;
-    let state = client.media_keep_state(&fixture.owner).await.unwrap();
+    let state = client
+        .media_keep_state(&fixture.owner, now())
+        .await
+        .unwrap();
     assert_eq!(state.record(), Some(&record));
     assert_eq!(
         fixture
@@ -267,7 +277,10 @@ async fn tcp_query_neither_renews_retention_nor_changes_the_signed_record() {
 async fn a_state_cannot_cross_an_owner_switch_even_when_both_owners_are_absent() {
     let fixture = Fixture::new();
     let mut client = start(Arc::clone(&fixture.service)).await;
-    let state = client.media_keep_state(&fixture.owner).await.unwrap();
+    let state = client
+        .media_keep_state(&fixture.owner, now())
+        .await
+        .unwrap();
     let other = Identity::from_secret(&[50; 32]);
     let result = client
         .replace_media_keep(
@@ -278,6 +291,7 @@ async fn a_state_cannot_cross_an_owner_switch_even_when_both_owners_are_absent()
                 profile_hash: [3; 32],
                 pending: false,
             },
+            now(),
         )
         .await;
     assert!(matches!(result, Err(Error::Input(_))));
@@ -290,7 +304,7 @@ async fn a_state_cannot_cross_an_owner_switch_even_when_both_owners_are_absent()
     );
     assert_eq!(
         client
-            .media_keep_state(&fixture.owner)
+            .media_keep_state(&fixture.owner, now())
             .await
             .unwrap()
             .revision(),
@@ -302,7 +316,10 @@ async fn a_state_cannot_cross_an_owner_switch_even_when_both_owners_are_absent()
 async fn media_revision_is_independent_of_the_public_profiles_version_limit() {
     let fixture = Fixture::new();
     let mut client = start(Arc::clone(&fixture.service)).await;
-    let state = client.media_keep_state(&fixture.owner).await.unwrap();
+    let state = client
+        .media_keep_state(&fixture.owner, now())
+        .await
+        .unwrap();
     let profile = dyapp_profile::Profile {
         version: u64::MAX,
         ..Default::default()
@@ -318,6 +335,7 @@ async fn media_revision_is_independent_of_the_public_profiles_version_limit() {
                 profile_hash: digest,
                 pending: false,
             },
+            now(),
         )
         .await
         .unwrap()

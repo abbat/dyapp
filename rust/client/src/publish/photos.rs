@@ -55,7 +55,7 @@ async fn replace(
     intent: Intent,
 ) -> Result<Replaced, Error> {
     patiently(async || {
-        node.replace_media_keep(identity, state, hashes.clone(), intent)
+        node.replace_media_keep(identity, state, hashes.clone(), intent, crate::now())
             .await
     })
     .await
@@ -66,7 +66,7 @@ async fn state_for(
     identity: &Identity,
     hashes: &[Vec<u8>],
 ) -> Result<Option<State>, Failure> {
-    match patiently(async || node.media_keep_state(identity).await).await {
+    match patiently(async || node.media_keep_state(identity, crate::now()).await).await {
         Ok(state) => Ok(Some(state)),
         // A photo-free profile can use a store without the media role. No weaker write is made.
         Err(Error::Status(Status::Unsupported)) if hashes.is_empty() => Ok(None),

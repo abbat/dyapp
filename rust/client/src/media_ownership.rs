@@ -1,5 +1,5 @@
 //! Owner-authenticated media snapshots and signed conditional keep requests.
-use crate::{now, ok, Error, Node};
+use crate::{clock, ok, Error, Node};
 use dyapp_identity::{sha256, Domain, Identity, SignedRecord};
 use dyapp_p2p_net::proto::{self, media_request, Status};
 use prost::Message;
@@ -227,9 +227,13 @@ impl Node {
     /// # Errors
     /// Returns request/status errors or malformed, unsigned or wrongly signed reply errors.
     /// Unsupported peers are never retried through the weaker legacy keep operation.
-    pub async fn media_keep_state(&mut self, owner: &Identity) -> Result<State, Error> {
+    pub async fn media_keep_state(
+        &mut self,
+        owner: &Identity,
+        local_time: u64,
+    ) -> Result<State, Error> {
         let query = proto::MediaKeepIntent {
-            time: now(),
+            time: clock::corrected(local_time),
             requester: self.swarm.local_peer_id().to_base58(),
             ..Default::default()
         };
@@ -261,6 +265,7 @@ impl Node {
         expected: &State,
         hashes: Vec<Vec<u8>>,
         intent: Intent,
+        local_time: u64,
     ) -> Result<Replaced, Error> {
         if !valid_hashes(&hashes) || expected.revision() >= i64::MAX.cast_unsigned() {
             return Err(Error::Input(
@@ -272,7 +277,7 @@ impl Node {
         let keep = proto::MediaKeepIntent {
             version: expected.revision().saturating_add(1),
             hashes,
-            time: now(),
+            time: clock::corrected(local_time),
             expected: Some(expected.condition()),
             intent_hash: intent.profile_hash.to_vec(),
             pending: intent.pending,

@@ -131,8 +131,9 @@ separates package stock from the existing write-token refill. Platform backgroun
 delivery remains opportunistic; the guaranteed retry point is the next foreground
 open or resume.
 
-The clock checks cover node replies. Client signing-time correction using a median from
-three distinct nodes remains planned.
+Clock checks cover node replies and `clock_correction.rs` exercises the real startup and signing
+paths: two hints cannot install an offset, three can, and a one-hour-skewed client successfully signs
+heartbeat, direct/conditional keep, media state and attach requests.
 
 ### Replication, placement and repair
 

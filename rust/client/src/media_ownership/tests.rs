@@ -247,7 +247,7 @@ async fn serve_unsupported(
 async fn an_unsupported_peer_never_causes_a_weaker_fallback() {
     let (mut node, requests) = unsupported_node().await;
     assert!(matches!(
-        node.media_keep_state(&owner()).await,
+        node.media_keep_state(&owner(), crate::now()).await,
         Err(Error::Status(Status::Unsupported))
     ));
     assert_eq!(*requests.lock().unwrap(), vec!["conditional"]);

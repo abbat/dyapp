@@ -15,7 +15,11 @@ pub(super) async fn upload(
     let mut uploaded = false;
     for node in nodes.iter_mut() {
         let upload = async {
-            if !node.attach_media(identity, attachment).await?.is_empty() {
+            if !node
+                .attach_media(identity, attachment, crate::now())
+                .await?
+                .is_empty()
+            {
                 node.put_media(&identity.peer_id(), blob.to_vec()).await?;
             }
             Ok(())

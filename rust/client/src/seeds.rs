@@ -4,6 +4,7 @@
 //! is cancelled by dropping its future and retried by calling it again.
 
 use dyapp_identity::network::Network;
+use dyapp_p2p_net::proto::{self, node_request};
 use dyapp_p2p_net::seed::{self, SeedError};
 use dyapp_p2p_net::{
     build_configured_swarm, Behaviour, BehaviourEvent, Mode, Protocols, SwarmOptions,
@@ -11,10 +12,11 @@ use dyapp_p2p_net::{
 use libp2p::futures::StreamExt;
 use libp2p::identity::Keypair;
 use libp2p::multiaddr::Protocol;
+use libp2p::request_response::{Event as RequestEvent, Message as RequestMessage};
 use libp2p::swarm::dial_opts::{DialOpts, PeerCondition};
 use libp2p::swarm::{ConnectionId, DialError, SwarmEvent};
 use libp2p::{identify, Multiaddr, PeerId, Swarm};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 /// What one seed row turned out to be, in the order the rows were given.
@@ -66,7 +68,11 @@ fn dial_opts(address: Multiaddr) -> DialOpts {
 /// Returns an error if there are no seed rows, the network name is invalid,
 /// or the client swarm cannot be constructed. Per-row dial and validation
 /// failures are returned as [`Row`] values.
-pub async fn check(network: &Network, wait: Duration) -> Result<Vec<Row>, CheckError> {
+pub async fn check(
+    network: &Network,
+    wait: Duration,
+    local_time: u64,
+) -> Result<Vec<Row>, CheckError> {
     if network.seeds.is_empty() {
         return Err(CheckError::NoSeeds);
     }
@@ -81,10 +87,11 @@ pub async fn check(network: &Network, wait: Duration) -> Result<Vec<Row>, CheckE
     let mut swarm = build_configured_swarm(Keypair::generate_ed25519(), options)
         .map_err(|error| CheckError::Swarm(error.to_string()))?;
 
-    let mut state = CheckState::dial(&network.seeds, &mut swarm);
+    let mut state = CheckState::dial(&network.seeds, &mut swarm, local_time);
     let _ = tokio::time::timeout(wait, async {
-        while state.rows.iter().any(Option::is_none) {
-            state.event(swarm.select_next_some().await, &version);
+        while !state.done() {
+            let event = swarm.select_next_some().await;
+            state.event(&mut swarm, event, &version);
         }
     })
     .await;
@@ -96,15 +103,19 @@ struct CheckState {
     dials: HashMap<ConnectionId, usize>,
     pending: Vec<usize>,
     errors: HashMap<usize, String>,
+    clock_pending: HashSet<PeerId>,
+    local_time: u64,
 }
 
 impl CheckState {
-    fn dial(seeds: &[String], swarm: &mut Swarm<Behaviour>) -> Self {
+    fn dial(seeds: &[String], swarm: &mut Swarm<Behaviour>, local_time: u64) -> Self {
         let mut state = Self {
             rows: Vec::with_capacity(seeds.len()),
             dials: HashMap::new(),
             pending: vec![0; seeds.len()],
             errors: HashMap::new(),
+            clock_pending: HashSet::new(),
+            local_time,
         };
         let mut seen = Vec::new();
         for (index, row) in seeds.iter().enumerate() {
@@ -162,7 +173,16 @@ impl CheckState {
         }
     }
 
-    fn event(&mut self, event: SwarmEvent<BehaviourEvent>, version: &str) {
+    fn done(&self) -> bool {
+        self.rows.iter().all(Option::is_some) && self.clock_pending.is_empty()
+    }
+
+    fn event(
+        &mut self,
+        swarm: &mut Swarm<Behaviour>,
+        event: SwarmEvent<BehaviourEvent>,
+        version: &str,
+    ) {
         match event {
             // The node's identify names its network; ours goes out at the same time.
             SwarmEvent::Behaviour(BehaviourEvent::Identify(identify::Event::Received {
@@ -171,11 +191,34 @@ impl CheckState {
                 info,
             })) => {
                 let row = if info.protocol_version == version {
+                    self.clock_pending.insert(peer_id);
+                    swarm.behaviour_mut().node.send_request(
+                        &peer_id,
+                        proto::NodeRequest {
+                            request: Some(node_request::Request::Info(proto::InfoRequest {})),
+                        },
+                    );
                     Row::Connected(peer_id)
                 } else {
                     Row::WrongNetwork
                 };
                 self.decide(connection_id, row);
+            }
+            SwarmEvent::Behaviour(BehaviourEvent::Node(RequestEvent::Message {
+                peer,
+                message: RequestMessage::Response { response, .. },
+                ..
+            })) => {
+                self.clock_pending.remove(&peer);
+                if let Some(info) = response.info {
+                    crate::clock::observe(peer, info.server_time, self.local_time);
+                }
+            }
+            SwarmEvent::Behaviour(BehaviourEvent::Node(RequestEvent::OutboundFailure {
+                peer,
+                ..
+            })) => {
+                self.clock_pending.remove(&peer);
             }
             SwarmEvent::OutgoingConnectionError {
                 connection_id,
@@ -221,6 +264,7 @@ impl CheckState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use libp2p::request_response::ResponseChannel;
     use std::net::TcpListener;
 
     #[tokio::test]
@@ -248,7 +292,7 @@ mod tests {
         assert_classified(&network(""), real, wait).await;
         assert_foreign_network(&network("city"), &mut heard, wait).await;
         assert_eq!(
-            check(&Network::default(), wait).await,
+            check(&Network::default(), wait, crate::now()).await,
             Err(CheckError::NoSeeds)
         );
         let bad_name = Network {
@@ -256,10 +300,28 @@ mod tests {
             name: " city".into(),
         };
         assert!(matches!(
-            check(&bad_name, wait).await,
+            check(&bad_name, wait, crate::now()).await,
             Err(CheckError::Name(_))
         ));
         server.abort();
+    }
+
+    fn answer_info(server: &mut Swarm<Behaviour>, channel: ResponseChannel<proto::NodeResponse>) {
+        server
+            .behaviour_mut()
+            .node
+            .send_response(
+                channel,
+                proto::NodeResponse {
+                    status: i32::from(proto::Status::Ok),
+                    info: Some(proto::NodeInfo {
+                        server_time: crate::now(),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
     }
 
     async fn seed_server() -> (
@@ -292,11 +354,15 @@ mod tests {
         let (record, heard) = tokio::sync::mpsc::unbounded_channel();
         let task = tokio::spawn(async move {
             loop {
-                if let SwarmEvent::Behaviour(BehaviourEvent::Identify(
-                    identify::Event::Received { info, .. },
-                )) = server.select_next_some().await
-                {
-                    record.send(info.protocol_version).unwrap();
+                match server.select_next_some().await {
+                    SwarmEvent::Behaviour(BehaviourEvent::Identify(
+                        identify::Event::Received { info, .. },
+                    )) => record.send(info.protocol_version).unwrap(),
+                    SwarmEvent::Behaviour(BehaviourEvent::Node(RequestEvent::Message {
+                        message: RequestMessage::Request { channel, .. },
+                        ..
+                    })) => answer_info(&mut server, channel),
+                    _ => {}
                 }
             }
         });
@@ -304,7 +370,7 @@ mod tests {
     }
 
     async fn assert_classified(network: &Network, real: PeerId, wait: Duration) {
-        let rows = check(network, wait).await.unwrap();
+        let rows = check(network, wait, crate::now()).await.unwrap();
         assert_eq!(rows[0], Row::Connected(real));
         assert!(matches!(rows[1], Row::Unreachable(_)), "{:?}", rows[1]);
         assert_eq!(rows[2], Row::WrongPin);
@@ -318,7 +384,7 @@ mod tests {
         heard: &mut tokio::sync::mpsc::UnboundedReceiver<String>,
         wait: Duration,
     ) {
-        let rows = check(network, wait).await.unwrap();
+        let rows = check(network, wait, crate::now()).await.unwrap();
         assert_eq!(rows[0], Row::WrongNetwork);
         assert_eq!(rows[2], Row::WrongPin);
         assert_eq!(rows[3], Row::WrongNetwork);

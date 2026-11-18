@@ -261,13 +261,14 @@ retention expiry). Invalid signatures, versions, hashes and other failures leave
 
 The client records nonzero hints by node Peer ID in a bounded, process-local set of at most 64
 entries. Fewer than three distinct nodes cannot install an offset. With three or more, the collector
-exposes the median of `server_time - local_receive_time` to signing paths; a zero hint means an older
+exposes the median of `server_time - local_time` to signing paths; a zero hint means an older
 node and never an epoch sample. The set is refreshed by new replies and resets at process start. This
 is a skew workaround, not clock consensus: one outlier cannot move a three-node median, while a
 majority of lying nodes can.
 Monotonic deadlines, retry scheduling and message timestamps never use this offset.
 Existing freshness rules are preserved; this field does not introduce a new validation window.
-Client correction using a median from three distinct nodes and device-clock guidance remain planned.
+Startup seed checks request `info`; heartbeat, direct and conditional keep, state query and attach
+sign with the corrected time. Device-clock guidance for an unverified offset remains planned.
 
 ## FFI boundary
 

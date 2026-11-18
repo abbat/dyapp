@@ -36,7 +36,9 @@ async fn client_seed_check_names_a_real_node_of_each_network() {
             ],
             name: client_name.into(),
         };
-        let rows = check(&network, Duration::from_secs(5)).await.unwrap();
+        let rows = check(&network, Duration::from_secs(5), dyapp_client::now())
+            .await
+            .unwrap();
         let reached = if joins {
             Row::Connected(peer)
         } else {

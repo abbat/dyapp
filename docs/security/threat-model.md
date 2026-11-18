@@ -551,14 +551,17 @@ Accepted residuals:
 Class 22 in detail. In place: signed heartbeat and direct keep times must be within 10 minutes of the
 node's clock, an attachment's `created` at most 10 minutes ahead, and a replayed record never
 extends retention ([Replay](#replay)). Retention and expiry run on the node's clock.
-Nodes now report `server_time` in `info` and signed-time `INVALID` replies. Client offset-based
-signing remains planned ([clock hints](../architecture/protobuf-schema.md#clock-hints)).
+Nodes report `server_time` in `info` and signed-time `INVALID` replies. Startup seed checks and
+signed-time failures refresh a process-local, lower-median offset from at least three distinct nodes;
+heartbeat, keep, media state and attach signing use it ([clock hints](../architecture/protobuf-schema.md#clock-hints)).
+Monotonic timers and retry schedules stay on local clocks, and no consensus or persisted offset is
+claimed. Guidance to check the device clock when no median is available remains planned.
 
 | Attack | Entry point | Impact × likelihood | Verdict |
 |--------|-------------|---------------------|---------|
 | Future-dated heartbeat, keep or attach to live longer | `profile.heartbeat`, `search.heartbeat`, `media.keep`, `media.attach` | Medium × low | Accept: the 10-minute window bounds the gain to 10 minutes |
 | Backdated record | Same | Low × low | Accept: a heartbeat or keep outside the window is `INVALID`; a backdated attach only expires sooner |
-| A user's device clock is more than 10 minutes off | Client | Medium × medium | Partial: `info` and a signed-time `INVALID` reply carry the node's clock. Planned: the client signs with the median offset of at least 3 nodes, so one lying node cannot shift it. Until client correction exists, skewed heartbeats and keeps fail and the profile and media can expire |
+| A user's device clock is more than 10 minutes off | Client | Medium × medium | Mitigated: startup `info` and signed-time `INVALID` replies feed a lower median from at least 3 distinct nodes, so one lying node cannot shift it; heartbeat, keep, media state and attach use the offset. With fewer than 3 hints local time remains in use; a user-facing clock warning is planned |
 | Spoofed NTP pushes a node's clock forward or back | Node host | Medium × low | Accept: the node is a cache and other replicas keep the data; [deployment](../manuals/bootstrap.md#clock) asks for authenticated time sync (chrony with NTS) |
 | Clock step against per-second rate limits | `limits.*_per_second` | Low × low | Accept: a step resets or extends one second's count |
 | Fake send time in a message | Client | Low × medium | Accept: the app shows it as the sender's claim |

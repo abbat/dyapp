@@ -418,7 +418,8 @@ pub async fn beat_due(
     if store.profile_hidden()? || !store.search_heartbeat_due(now)? {
         return Ok(false);
     }
-    let Ok(day) = u32::try_from(now / 86_400) else {
+    let signed_time = crate::clock::corrected(now);
+    let Ok(day) = u32::try_from(signed_time / 86_400) else {
         return Ok(false);
     };
     // shortcut: solves on the calling task (seconds at the default 8 bits); move to a blocking
@@ -428,7 +429,7 @@ pub async fn beat_due(
         return Ok(false);
     };
     let beat = proto::Heartbeat {
-        time: now,
+        time: signed_time,
         version,
         pow_nonce: nonce,
         pow_bits: bits,
