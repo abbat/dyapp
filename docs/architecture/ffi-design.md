@@ -1113,8 +1113,8 @@ or returns constants.
 | `VideoSession` | Object | `new() -> Result<Self, CoreError>` | Creates a dedicated Tokio runtime. No peer ID. The WebRTC session itself is created lazily by `create_offer` or `set_remote_offer`. |
 | | method | `create_offer() -> Result<String, CoreError>` | Creates the inner session on first call, returns an SDP offer. |
 | | method | `mark_offer_sent() -> Result<(), CoreError>` | OfferCreated → OfferSent. |
-| | method | `receive_answer(sdp: String) -> Result<(), CoreError>` | Parses and applies the remote answer, then applies stored remote ICE candidates (see [video](video.md)). |
-| | method | `set_remote_offer(sdp: String) -> Result<(), CoreError>` | Callee side: applies the caller's offer, then stored remote ICE candidates; Idle → OfferReceived. |
+| | method | `receive_answer(sdp: String) -> Result<(), CoreError>` | Core rejects SDP above 256 KiB before cloning/parsing, then applies the remote answer and stored remote ICE candidates (see [video](video.md)). |
+| | method | `set_remote_offer(sdp: String) -> Result<(), CoreError>` | Callee side: core rejects SDP above 256 KiB before cloning/parsing, then applies the caller's offer and stored remote ICE candidates; Idle → OfferReceived. |
 | | method | `create_answer() -> Result<String, CoreError>` | The SDP answer to that offer; OfferReceived → AnswerCreated. |
 | | method | `end_session() -> Result<(), CoreError>` | Closes the session; not `close`, which clashes with `AutoCloseable.close()` in the Kotlin bindings. |
 | | method | `get_session_id() -> Result<String, CoreError>` | Session UUID. |

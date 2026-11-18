@@ -35,6 +35,40 @@ pub enum SessionState {
     Closed,
 }
 
+const MAX_SDP_BYTES: usize = 256 * 1024;
+const MAX_REMOTE_ICE_CANDIDATES: usize = 128;
+const MAX_REMOTE_ICE_BYTES: usize = 64 * 1024;
+
+fn validate_sdp(sdp: &str) -> Result<()> {
+    if sdp.len() > MAX_SDP_BYTES {
+        return Err(VideoError::InvalidState(format!(
+            "SDP exceeds {MAX_SDP_BYTES} bytes"
+        )));
+    }
+    Ok(())
+}
+
+fn candidate_bytes(candidate: &ICECandidate) -> usize {
+    candidate
+        .candidate
+        .len()
+        .saturating_add(candidate.sdp_mid.as_ref().map_or(0, String::len))
+}
+
+fn check_candidate_budget(candidates: &[ICECandidate], candidate: &ICECandidate) -> Result<()> {
+    let bytes = candidates.iter().fold(0usize, |total, stored| {
+        total.saturating_add(candidate_bytes(stored))
+    });
+    if candidates.len() >= MAX_REMOTE_ICE_CANDIDATES
+        || bytes.saturating_add(candidate_bytes(candidate)) > MAX_REMOTE_ICE_BYTES
+    {
+        return Err(VideoError::ICEError(
+            "Remote ICE candidate budget exceeded".to_string(),
+        ));
+    }
+    Ok(())
+}
+
 type Event<'a> = Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
 
 /// Records local candidates and the connection outcome into the session.
@@ -222,6 +256,7 @@ impl VideoSession {
         if *self.state.read().await != SessionState::OfferSent {
             return Err(VideoError::InvalidState("Offer not sent yet".to_string()));
         }
+        validate_sdp(&sdp)?;
 
         let answer = RTCSessionDescription::answer(sdp.clone())
             .map_err(|e| VideoError::InvalidState(format!("Invalid answer: {e}")))?;
@@ -250,6 +285,7 @@ impl VideoSession {
                 "Offer already created or received".to_string(),
             ));
         }
+        validate_sdp(&sdp)?;
 
         let offer = RTCSessionDescription::offer(sdp.clone())
             .map_err(|e| VideoError::InvalidState(format!("Invalid offer: {e}")))?;
@@ -311,10 +347,11 @@ impl VideoSession {
     /// is set; earlier candidates are applied by `receive_answer` or `set_remote_offer`.
     ///
     /// # Errors
-    /// Returns [`VideoError::ICEError`] if the peer connection rejects the candidate.
-    /// A rejected candidate is not appended to the stored candidates.
+    /// Returns [`VideoError::ICEError`] if the per-session budget is exceeded or the peer
+    /// connection rejects the candidate. A rejected candidate is not appended to storage.
     pub async fn add_ice_candidate(&self, candidate: ICECandidate) -> Result<()> {
         let mut candidates = self.ice_candidates.write().await;
+        check_candidate_budget(&candidates, &candidate)?;
         if self.remote_sdp.read().await.is_some() {
             self.apply_ice_candidate(&candidate).await?;
         }
@@ -547,6 +584,83 @@ mod tests {
         let result = session.receive_answer("fake-sdp".to_string()).await;
         assert!(result.is_err());
         assert_eq!(session.state().await, SessionState::OfferSent);
+    }
+
+    #[tokio::test]
+    async fn test_sdp_byte_budget_preserves_state_and_valid_boundary() {
+        let initiator = VideoSession::new().await.expect("caller");
+        let responder = VideoSession::new().await.expect("callee");
+        let mut offer = initiator.create_offer().await.expect("offer");
+        let prefix = "a=dyapp-padding:";
+        let used = offer.len().saturating_add(prefix.len()).saturating_add(2);
+        let value_bytes = MAX_SDP_BYTES.checked_sub(used).expect("room for padding");
+        offer.push_str(prefix);
+        offer.push_str(&"x".repeat(value_bytes));
+        offer.push_str("\r\n");
+        assert_eq!(offer.len(), MAX_SDP_BYTES);
+        responder
+            .set_remote_offer(offer)
+            .await
+            .expect("valid boundary");
+        assert_eq!(responder.state().await, SessionState::OfferReceived);
+
+        let oversized = " ".repeat(MAX_SDP_BYTES + 1);
+        let rejected = VideoSession::new().await.expect("rejected callee");
+        let error = rejected
+            .set_remote_offer(oversized.clone())
+            .await
+            .expect_err("oversized offer");
+        assert!(error.to_string().contains("SDP exceeds"));
+        assert_eq!(rejected.state().await, SessionState::Idle);
+
+        initiator.mark_offer_sent().await.expect("sent");
+        let error = initiator
+            .receive_answer(oversized)
+            .await
+            .expect_err("oversized answer");
+        assert!(error.to_string().contains("SDP exceeds"));
+        assert_eq!(initiator.state().await, SessionState::OfferSent);
+    }
+
+    #[tokio::test]
+    async fn test_remote_ice_candidate_count_budget() {
+        let session = VideoSession::new().await.expect("session");
+        for _ in 0..MAX_REMOTE_ICE_CANDIDATES {
+            session
+                .add_ice_candidate(ICECandidate::new("c".to_string(), None, None))
+                .await
+                .expect("within budget");
+        }
+        session
+            .add_ice_candidate(ICECandidate::new("c".to_string(), None, None))
+            .await
+            .expect_err("count boundary plus one");
+        assert_eq!(
+            session.get_ice_candidates().await.len(),
+            MAX_REMOTE_ICE_CANDIDATES
+        );
+    }
+
+    #[tokio::test]
+    async fn test_remote_ice_candidate_byte_budget() {
+        let session = VideoSession::new().await.expect("session");
+        session
+            .add_ice_candidate(ICECandidate::new(
+                "c".repeat(MAX_REMOTE_ICE_BYTES - 1),
+                None,
+                None,
+            ))
+            .await
+            .expect("first candidate");
+        session
+            .add_ice_candidate(ICECandidate::new("c".to_string(), None, None))
+            .await
+            .expect("exact byte boundary");
+        session
+            .add_ice_candidate(ICECandidate::new("c".to_string(), None, None))
+            .await
+            .expect_err("byte boundary plus one");
+        assert_eq!(session.get_ice_candidates().await.len(), 2);
     }
 
     #[tokio::test]

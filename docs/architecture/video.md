@@ -29,10 +29,10 @@ hardware and open-source flags are static classifications, not capability probes
 | `VideoSession::new()` | Builds a `PeerConnection` with webrtc's default codecs, UDP sockets on every local interface (`0.0.0.0:0`), one send/receive video transceiver with no track, no ICE servers (no STUN/TURN) and mDNS off (remote `.local` candidates, as browsers send, are not resolved). Its event handler records local candidates and sets `Connected` / `Failed` from the connection state |
 | `create_offer()` | Calls `create_offer` + `set_local_description`, returns the SDP with one video media section |
 | `mark_offer_sent()` | Manual state change; the caller says the offer was delivered |
-| `receive_answer(sdp)` | Parses the SDP as an answer and calls `set_remote_description`; on success stores it in `remote_sdp` and applies the candidates added so far |
-| `set_remote_offer(sdp)` | Callee side: parses the SDP as an offer and calls `set_remote_description`; on success stores it in `remote_sdp` and applies the candidates added so far |
+| `receive_answer(sdp)` | Rejects SDP above 256 KiB, then parses it as an answer and calls `set_remote_description`; on success stores it in `remote_sdp` and applies the candidates added so far |
+| `set_remote_offer(sdp)` | Callee side: rejects SDP above 256 KiB, then parses it as an offer and calls `set_remote_description`; on success stores it in `remote_sdp` and applies the candidates added so far |
 | `create_answer()` | Calls `create_answer` + `set_local_description` on the applied offer, returns the answer SDP; the transceiver from `new()` takes the offer's video section |
-| `add_ice_candidate(c)` | Stores a remote candidate; once the remote offer or answer is set, also passes it to the peer connection (`ICEError` if rejected). Allowed in any state |
+| `add_ice_candidate(c)` | Stores a remote candidate, with a per-session budget of 128 candidates and 64 KiB across candidate and SDP-MID strings; once the remote offer or answer is set, also passes it to the peer connection (`ICEError` if over budget or rejected). Allowed in any state |
 | `get_ice_candidates()` | Returns the candidates added above (remote ones) |
 | `local_ice_candidates()` | Returns the candidates gathered after the local offer or answer was set (`on_ice_candidate`), for the app to send to the peer; host candidates only, as no STUN or TURN server is configured |
 | `close()` | Closes the peer connection, state → `Closed` |
@@ -93,8 +93,8 @@ Callee app                    VideoSession
 
 ### ICE
 
-Remote candidates reach the peer connection: `add_ice_candidate` applies them
-once the remote offer or answer is set, and `set_remote_offer` or
+Remote candidates reach the peer connection: `add_ice_candidate` enforces the 128-candidate/64-KiB
+session budget before storage or application, then applies them once the remote offer or answer is set, and `set_remote_offer` or
 `receive_answer` applies those that came earlier.
 
 Local candidates come from `on_ice_candidate`: `local_ice_candidates()` returns those gathered
@@ -193,7 +193,8 @@ Unit tests (`rust/video/src/*.rs`):
   both reach `Connected`
 - `receive_answer` with a real answer from a second peer connection, with a
   candidate added before it; invalid SDP and an answer before an offer are
-  rejected
+  rejected; exact 256-KiB SDP and limit-plus-one offer/answer boundaries preserve state
+- Remote ICE candidate count and aggregate-byte boundaries reject excess without storing it
 - ICE helper string matching and `best_candidate`
 - `CodecNegotiation` selection
 - SFrame: RFC 9605 header and encryption test vectors, tampering, wrong key,
