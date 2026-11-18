@@ -1,6 +1,6 @@
 # OpenMLS curve dependency migration
 
-Status: investigation, 2026-10-24. No dependency or MLS state format has changed.
+Status: investigation, rechecked 2026-11-18. No dependency or MLS state format has changed.
 
 ## Why the audit fails
 
@@ -25,7 +25,7 @@ cannot remove the advisory.
 ## Temporary risk acceptance
 
 On 2026-10-24 the maintainer accepted the residual risk until a review by
-**2026-11-24** ([tracking issue #25](https://github.com/abbat/dyapp/issues/25)).
+**2026-12-24** ([tracking issue #25](https://github.com/abbat/dyapp/issues/25)).
 The application permits only MLS suite `0x0001` (X25519/Ed25519), whereas the
 vulnerable crate is retained by P-curve dependencies. That limits the intended
 runtime path; it does **not** prove that vulnerable operations are unreachable.
