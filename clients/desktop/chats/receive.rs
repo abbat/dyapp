@@ -64,6 +64,7 @@ pub async fn receive(
         epoch,
         cached,
         own,
+        stop: &stop,
     };
     pass.run(
         &mut session,
@@ -72,7 +73,6 @@ pub async fn receive(
         device_key,
         identity,
         &seal_key,
-        stop,
     )
     .await
 }
@@ -161,6 +161,7 @@ struct MailPass<'a> {
     epoch: u64,
     cached: dyapp_client::profiles::Profiles,
     own: Option<dyapp_profile::VerifiedProfile>,
+    stop: &'a dyn Fn() -> bool,
 }
 
 impl MailPass<'_> {
@@ -172,10 +173,9 @@ impl MailPass<'_> {
         device_key: &Identity,
         identity: &Identity,
         seal_key: &[u8; 32],
-        stop: impl Fn() -> bool,
     ) -> Result<usize, String> {
         let changed = self
-            .apply(session, replicas, device_key, identity, seal_key, &stop)
+            .apply(session, replicas, device_key, identity, seal_key)
             .await?;
         maintenance(
             self, session, node, replicas, device_key, identity, seal_key,
@@ -191,17 +191,16 @@ impl MailPass<'_> {
         device_key: &Identity,
         identity: &Identity,
         seal_key: &[u8; 32],
-        stop: &impl Fn() -> bool,
     ) -> Result<usize, String> {
         let mut changed = self
-            .pages(session, replicas.nodes_mut(), device_key, seal_key, stop)
+            .pages(session, replicas.nodes_mut(), device_key, seal_key)
             .await?;
-        if !stop() {
+        if !(self.stop)() {
             let mut profiles = self.cached.all().to_vec();
             profiles.extend(self.own.clone());
             changed += cross_check(session, replicas, device_key, &profiles, seal_key).await?;
-            changed +=
-                exchange_packs(session, replicas.nodes_mut(), identity, seal_key, stop).await?;
+            changed += exchange_packs(session, replicas.nodes_mut(), identity, seal_key, self.stop)
+                .await?;
         }
         Ok(changed)
     }
@@ -249,11 +248,10 @@ impl MailPass<'_> {
         nodes: &mut [dyapp_client::Node],
         device_key: &Identity,
         seal_key: &[u8; 32],
-        stop: &impl Fn() -> bool,
     ) -> Result<usize, String> {
         let mut changed = 0;
         for _ in 0..RECEIVE_PAGES {
-            if stop() {
+            if (self.stop)() {
                 break;
             }
             let mut from_head = false;
