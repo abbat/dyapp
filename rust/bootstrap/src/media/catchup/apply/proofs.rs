@@ -1,6 +1,7 @@
 //! Recheck staged hash links before copying authenticated proofs into accepted history.
 use super::super::storage;
 use crate::media::{history, storage_error};
+use crate::storage::{check_result_size, MAX_RESULT_ROWS};
 use crate::Result;
 use dyapp_identity::SignedRecord;
 use dyapp_p2p_net::proto;
@@ -78,6 +79,7 @@ impl Parts {
         let mut rows = query.query([owner]).map_err(storage_error)?;
         let mut values = BTreeMap::new();
         while let Some(row) = rows.next().map_err(storage_error)? {
+            check_result_size(values.len(), MAX_RESULT_ROWS)?;
             let bytes = row
                 .get_ref(1)
                 .map_err(storage_error)?

@@ -39,10 +39,12 @@ fn open_reader(path: &Path) -> rusqlite::Result<Connection> {
             Some("injected reader open failure".into()),
         ));
     }
-    Connection::open_with_flags(
+    let db = Connection::open_with_flags(
         path,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
-    )
+    )?;
+    storage::bound_values(&db)?;
+    Ok(db)
 }
 
 /// The active generation and its idle read-only connections.
@@ -149,6 +151,7 @@ fn complete(version: u32, path: &Path) -> Result<bool> {
         OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
     .map_err(failed)?;
+    storage::bound_values(&db).map_err(failed)?;
     let stamped: bool = db
         .query_row(
             "SELECT EXISTS (SELECT 1 FROM `sqlite_master` WHERE `name` = 'generation')",

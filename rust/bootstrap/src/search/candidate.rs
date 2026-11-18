@@ -321,6 +321,7 @@ impl SearchIndex {
         min_free: u64,
     ) -> std::result::Result<bool, Abort> {
         let mut db = Connection::open(&candidate.path).map_err(storage_error)?;
+        storage::bound_values(&db).map_err(storage_error)?;
         let file = candidate.path.to_string_lossy();
         for _ in 0..REPLAY_ROUNDS {
             let changed = self.take_dirty()?.map_err(|Overflow| Abort::Overflow)?;

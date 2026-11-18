@@ -1566,7 +1566,13 @@ starts refusing and a line when it clears, not one per request:
 ## Storage
 
 One SQLite file per data type in the storage directory, WAL journal,
-`auto_vacuum = INCREMENTAL`, `journal_size_limit` 64 MiB:
+`auto_vacuum = INCREMENTAL`, `journal_size_limit` 64 MiB. Every bootstrap SQLite connection,
+including search readers and candidate writers, sets `SQLITE_LIMIT_LENGTH` to 8 MiB: above the
+6 MiB media ceiling and its signed framing. Queries that collect rows without a caller-provided
+SQL page limit retain at most 100 000 rows; received deny lists retain 1000 and mailbox revokes
+4096. An oversized value or excess row returns a storage error instead of growing Rust memory
+without limit. These are fail-closed guards for corrupted local state; validated network writes
+already have tighter protocol budgets:
 
 ```text
 profiles.db  profiles(peer_id PK, record BLOB, live, last_seen)

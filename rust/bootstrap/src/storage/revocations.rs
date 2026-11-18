@@ -1,8 +1,8 @@
 //! Revoked write token keys and the signed revokes that carry them to other replicas.
 
 use super::{
-    decode, lock, params, storage_error, BootstrapStore, Message, Result, SignedRecord,
-    TransactionBehavior,
+    collect_bounded, decode, lock, params, storage_error, BootstrapStore, Message, Result,
+    SignedRecord, TransactionBehavior,
 };
 
 /// Revoked keys kept per mailbox, and signed revokes: about 130 blocked contacts a month.
@@ -154,10 +154,11 @@ impl BootstrapStore {
                  ORDER BY `seq`",
             )
             .map_err(storage_error)?;
-        let rows: Vec<Vec<u8>> = query
-            .query_map(params![mailbox, now], |row| row.get(0))
-            .and_then(Iterator::collect)
+        let rows = query
+            .query_map(params![mailbox, now], |row| row.get::<_, Vec<u8>>(0))
             .map_err(storage_error)?;
+        let rows: Vec<Vec<u8>> =
+            collect_bounded(rows, usize::try_from(MAX_REVOKED).unwrap_or(usize::MAX))?;
         rows.into_iter().map(|bytes| decode(&bytes)).collect()
     }
 }

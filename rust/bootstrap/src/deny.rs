@@ -5,7 +5,7 @@
 use crate::config::Limits;
 use crate::error::Result;
 use crate::node::ip_group;
-use crate::storage::{lock, open, storage_error};
+use crate::storage::{collect_bounded, lock, open, storage_error, MAX_RESULT_ROWS};
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_p2p_net::proto;
 use libp2p::identity::{ed25519, PublicKey};
@@ -186,15 +186,16 @@ impl DenyStore {
         let rows = statement
             .query_map([], |row| {
                 let record: Vec<u8> = row.get(2)?;
-                Ok((row.get(0)?, row.get(1)?, record))
+                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?, record))
             })
             .map_err(storage_error)?;
-        rows.map(|row| {
-            let (peer, time, record) = row.map_err(storage_error)?;
-            let record = SignedRecord::decode(record.as_slice()).map_err(storage_error)?;
-            Ok((peer, time, record))
-        })
-        .collect()
+        collect_bounded(rows, usize::try_from(MAX_RECEIVED).unwrap_or(usize::MAX))?
+            .into_iter()
+            .map(|(peer, time, record)| {
+                let record = SignedRecord::decode(record.as_slice()).map_err(storage_error)?;
+                Ok((peer, time, record))
+            })
+            .collect()
     }
 
     /// Adds an entry; false when it was listed already.
@@ -235,9 +236,15 @@ impl DenyStore {
             .prepare("SELECT `entry`, `note`, `added` FROM `deny` ORDER BY `added`, `entry`")
             .map_err(storage_error)?;
         let rows = statement
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                ))
+            })
             .map_err(storage_error)?;
-        rows.collect::<rusqlite::Result<_>>().map_err(storage_error)
+        collect_bounded(rows, MAX_RESULT_ROWS)
     }
 
     // ponytail: the node holds every entry in memory; query the indexed table per request if
@@ -295,6 +302,33 @@ mod tests {
         assert_eq!(n("203.0.113.0/16"), None);
         assert_eq!(n("bogus"), None);
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn corrupt_received_rows_stop_at_the_retained_list_boundary() {
+        let dir = std::env::temp_dir().join(format!("dyapp-deny-limit-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let store = DenyStore::open(&dir.join("deny.db")).unwrap();
+        let db = lock(&store.db).unwrap();
+        let tx = db.unchecked_transaction().unwrap();
+        for peer in 0..MAX_RECEIVED {
+            tx.execute(
+                "INSERT INTO `received` VALUES (?, 1, x'', 1)",
+                [peer.to_string()],
+            )
+            .unwrap();
+        }
+        tx.commit().unwrap();
+        drop(db);
+        assert_eq!(
+            store.received().unwrap().len(),
+            usize::try_from(MAX_RECEIVED).unwrap()
+        );
+        lock(&store.db)
+            .unwrap()
+            .execute("INSERT INTO `received` VALUES ('over', 1, x'', 1)", [])
+            .unwrap();
+        assert!(store.received().is_err());
     }
 
     #[test]

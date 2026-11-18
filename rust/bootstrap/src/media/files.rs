@@ -2,7 +2,7 @@
 
 use super::{hex, lock, remove_file, storage_error, MediaStore};
 use crate::replication::MEDIA_MAX_BYTES;
-use crate::storage::free;
+use crate::storage::{collect_bounded, free, MAX_RESULT_ROWS};
 use crate::Result;
 use rusqlite::params;
 use std::fs;
@@ -157,10 +157,13 @@ impl MediaStore {
     /// Returns an error if the database lock, expired-cache deletion or cache-file removal fails.
     pub fn expire_cache(&self, before: i64) -> Result<usize> {
         let db = lock(&self.db)?;
-        let hashes: Vec<Vec<u8>> = db
+        let mut query = db
             .prepare("SELECT `hash` FROM `cache` WHERE `read` < ?")
-            .and_then(|mut q| q.query_map([before], |row| row.get(0))?.collect())
             .map_err(storage_error)?;
+        let rows = query
+            .query_map([before], |row| row.get::<_, Vec<u8>>(0))
+            .map_err(storage_error)?;
+        let hashes = collect_bounded(rows, MAX_RESULT_ROWS)?;
         for hash in &hashes {
             remove_file(&self.cache.join(hex(hash)))?;
             db.execute("DELETE FROM `cache` WHERE `hash` = ?", [hash])
@@ -177,10 +180,8 @@ impl MediaStore {
                 .map_err(storage_error)?;
             let rows = query
                 .query_map([], |row| row.get::<_, Vec<u8>>(0))
-                .map_err(storage_error)?
-                .collect::<std::result::Result<Vec<_>, _>>()
                 .map_err(storage_error)?;
-            rows
+            collect_bounded(rows, MAX_RESULT_ROWS)?
         };
         let mut missing = Vec::new();
         for hash in hashes {

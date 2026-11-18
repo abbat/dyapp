@@ -2,6 +2,7 @@
 use super::{
     invalid, proto, sha256, storage_error, Connection, MediaStore, Message, Result, SignedRecord,
 };
+use crate::storage::{collect_bounded, MAX_RESULT_ROWS};
 use rusqlite::{params, OptionalExtension};
 
 pub(super) struct Session {
@@ -151,10 +152,13 @@ pub(crate) fn discard(db: &Connection, owner: &str) -> Result<()> {
 }
 
 pub(super) fn trim(db: &Connection, target: u64) -> Result<usize> {
-    let owners: Vec<String> = db
+    let mut query = db
         .prepare("SELECT `owner` FROM `keep_pending` WHERE `bytes` > 0 ORDER BY `time`, `owner`")
-        .and_then(|mut query| query.query_map([], |row| row.get(0))?.collect())
         .map_err(storage_error)?;
+    let rows = query
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(storage_error)?;
+    let owners = collect_bounded(rows, MAX_RESULT_ROWS)?;
     let mut removed: usize = 0;
     for owner in owners {
         if MediaStore::used(db)? <= target {
@@ -167,10 +171,13 @@ pub(super) fn trim(db: &Connection, target: u64) -> Result<usize> {
 }
 
 pub(crate) fn expire(db: &Connection, cutoff: i64) -> Result<()> {
-    let owners: Vec<String> = db
+    let mut query = db
         .prepare("SELECT `owner` FROM `keep_pending` WHERE `time` <= ?")
-        .and_then(|mut query| query.query_map([cutoff], |row| row.get(0))?.collect())
         .map_err(storage_error)?;
+    let rows = query
+        .query_map([cutoff], |row| row.get::<_, String>(0))
+        .map_err(storage_error)?;
+    let owners = collect_bounded(rows, MAX_RESULT_ROWS)?;
     for owner in owners {
         discard(db, &owner)?;
     }

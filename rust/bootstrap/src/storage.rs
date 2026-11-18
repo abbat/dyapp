@@ -5,6 +5,39 @@ use dyapp_identity::SignedRecord;
 use dyapp_profile::VerifiedProfile;
 use prost::Message;
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
+
+/// Maximum SQLite string or blob size: above the 6 MiB media ceiling, including signed framing.
+pub(crate) const MAX_VALUE_BYTES: i32 = 8 * 1024 * 1024;
+/// Corrupt local databases must not turn maintenance scans into unbounded vectors.
+pub(crate) const MAX_RESULT_ROWS: usize = 100_000;
+
+pub(crate) fn bound_values(db: &Connection) -> rusqlite::Result<()> {
+    db.set_limit(
+        rusqlite::limits::Limit::SQLITE_LIMIT_LENGTH,
+        MAX_VALUE_BYTES,
+    )
+    .map(drop)
+}
+
+pub(crate) fn check_result_size(len: usize, limit: usize) -> Result<()> {
+    if len < limit {
+        Ok(())
+    } else {
+        Err(storage_error(format!("stored result exceeds {limit} rows")))
+    }
+}
+
+pub(crate) fn collect_bounded<T>(
+    rows: impl IntoIterator<Item = rusqlite::Result<T>>,
+    limit: usize,
+) -> Result<Vec<T>> {
+    let mut values = Vec::new();
+    for row in rows {
+        check_result_size(values.len(), limit)?;
+        values.push(row.map_err(storage_error)?);
+    }
+    Ok(values)
+}
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
 
@@ -38,6 +71,7 @@ pub(crate) fn storage_error(error: impl ToString) -> BootstrapError {
 /// a file with a nonzero `PRAGMA user_version` is from a newer dyappd and is refused.
 pub(crate) fn open(path: &Path, schema: &[&str]) -> Result<Mutex<Connection>> {
     let db = Connection::open(path).map_err(storage_error)?;
+    bound_values(&db).map_err(storage_error)?;
     let version: i64 = db
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .map_err(storage_error)?;
@@ -737,6 +771,51 @@ mod tests {
             );
             assert_eq!(std::fs::read(&path).unwrap(), before, "{file} changed");
         }
+    }
+
+    #[test]
+    fn sqlite_value_limit_applies_to_corrupt_existing_rows() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../build")
+            .join(format!("sqlite-value-limit-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("values.db");
+        let schema = &["CREATE TABLE IF NOT EXISTS `values` (`value` BLOB NOT NULL);"];
+        drop(open(&path, schema).unwrap());
+        let raw = Connection::open(&path).unwrap();
+        for size in [MAX_VALUE_BYTES, MAX_VALUE_BYTES + 1] {
+            raw.execute("INSERT INTO `values` VALUES (zeroblob(?))", [size])
+                .unwrap();
+        }
+        drop(raw);
+        let db = open(&path, schema).unwrap().into_inner().unwrap();
+        let valid = db
+            .query_row(
+                "SELECT `value` FROM `values` WHERE `rowid` = 1",
+                [],
+                |row| row.get::<_, Vec<u8>>(0),
+            )
+            .unwrap();
+        assert_eq!(valid.len(), usize::try_from(MAX_VALUE_BYTES).unwrap());
+        let error = db
+            .query_row(
+                "SELECT `value` FROM `values` WHERE `rowid` = 2",
+                [],
+                |row| row.get::<_, Vec<u8>>(0),
+            )
+            .unwrap_err();
+        assert!(matches!(
+            error,
+            rusqlite::Error::SqliteFailure(error, _)
+                if error.extended_code == rusqlite::ffi::SQLITE_TOOBIG
+        ));
+    }
+
+    #[test]
+    fn result_collection_accepts_the_boundary_and_rejects_one_more_row() {
+        assert_eq!(collect_bounded((0..2).map(Ok), 2).unwrap(), vec![0, 1]);
+        let error = collect_bounded((0..3).map(Ok), 2).unwrap_err();
+        assert!(error.to_string().contains("exceeds 2 rows"));
     }
 
     #[test]

@@ -18,7 +18,7 @@ pub use catchup::KeepHistoryProgress;
 use files::{sql_size, sync_directory, write_aside_with};
 pub use keeps::{KeepSnapshot, KeepUpdate};
 
-use crate::storage::{lock, open, storage_error};
+use crate::storage::{collect_bounded, lock, open, storage_error, MAX_RESULT_ROWS};
 use crate::Result;
 use dyapp_identity::SignedRecord;
 use dyapp_p2p_net::proto::{self, media_replica_put::Authorization};
@@ -140,6 +140,16 @@ fn list(tx: &Connection, owner: &str, hashes: &[Vec<u8>]) -> Result<Vec<Vec<u8>>
         }
     }
     Ok(missing)
+}
+
+fn hashes(db: &Connection, owner: &str) -> Result<Vec<Vec<u8>>> {
+    let mut query = db
+        .prepare("SELECT `hash` FROM `blobs` WHERE `owner` = ?")
+        .map_err(storage_error)?;
+    let rows = query
+        .query_map([owner], |row| row.get::<_, Vec<u8>>(0))
+        .map_err(storage_error)?;
+    collect_bounded(rows, MAX_RESULT_ROWS)
 }
 
 /// The `dropped` hashes no row holds stored any more.
@@ -527,10 +537,14 @@ impl MediaStore {
         let mut db = lock(&self.db)?;
         let tx = db.transaction().map_err(storage_error)?;
         tx.execute(first, [&param]).map_err(storage_error)?;
-        let slots: Vec<String> = tx
+        let mut query = tx
             .prepare(&format!("SELECT `slot` FROM `attachments` WHERE {which}"))
-            .and_then(|mut q| q.query_map([&param], |row| row.get(0))?.collect())
             .map_err(storage_error)?;
+        let rows = query
+            .query_map([&param], |row| row.get::<_, String>(0))
+            .map_err(storage_error)?;
+        let slots = collect_bounded(rows, MAX_RESULT_ROWS)?;
+        drop(query);
         let orphans = Self::drop_lists(&tx, &slots, true)?;
         tx.commit().map_err(storage_error)?;
         self.remove(orphans)?;
@@ -547,10 +561,14 @@ impl MediaStore {
         let mut db = lock(&self.db)?;
         let tx = db.transaction().map_err(storage_error)?;
         catchup::expire(&tx, cutoff)?;
-        let owners: Vec<String> = tx
+        let mut query = tx
             .prepare("SELECT `owner` FROM `owners` WHERE `last_seen` <= ?")
-            .and_then(|mut q| q.query_map([cutoff], |row| row.get(0))?.collect())
             .map_err(storage_error)?;
+        let rows = query
+            .query_map([cutoff], |row| row.get::<_, String>(0))
+            .map_err(storage_error)?;
+        let owners = collect_bounded(rows, MAX_RESULT_ROWS)?;
+        drop(query);
         let orphans = Self::drop_lists(&tx, &owners, false)?;
         tx.commit().map_err(storage_error)?;
         self.remove(orphans)?;
@@ -560,10 +578,7 @@ impl MediaStore {
     fn drop_lists(tx: &Connection, owners: &[String], attachments: bool) -> Result<Vec<Vec<u8>>> {
         let mut dropped = Vec::new();
         for owner in owners {
-            let hashes: Vec<Vec<u8>> = tx
-                .prepare("SELECT `hash` FROM `blobs` WHERE `owner` = ?")
-                .and_then(|mut q| q.query_map([owner], |row| row.get(0))?.collect())
-                .map_err(storage_error)?;
+            let hashes = hashes(tx, owner)?;
             dropped.extend(hashes);
             tx.execute("DELETE FROM `blobs` WHERE `owner` = ?", [owner])
                 .map_err(storage_error)?;

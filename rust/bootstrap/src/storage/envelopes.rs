@@ -1,8 +1,8 @@
 //! Envelope writes: the per-mailbox quotas, the tokenless pool and its eviction rule.
 
 use super::{
-    decode, lock, params, storage_error, BootstrapStore, Connection, Message, Result, SignedRecord,
-    TransactionBehavior, EVICT_STEPS,
+    collect_bounded, decode, lock, params, storage_error, BootstrapStore, Connection, Message,
+    Result, SignedRecord, TransactionBehavior, EVICT_STEPS, MAX_RESULT_ROWS,
 };
 use std::collections::BTreeMap;
 
@@ -320,7 +320,7 @@ impl BootstrapStore {
 fn rows(db: &Connection, sql: &str, mailbox: &[u8], class: i64) -> Result<Vec<Row>> {
     let mut query = db.prepare(sql).map_err(storage_error)?;
     let count = query.column_count();
-    query
+    let rows = query
         .query_map(params![mailbox, class], |row| {
             Ok(Row {
                 seq: row.get(0)?,
@@ -330,8 +330,8 @@ fn rows(db: &Connection, sql: &str, mailbox: &[u8], class: i64) -> Result<Vec<Ro
                     .collect::<rusqlite::Result<_>>()?,
             })
         })
-        .and_then(Iterator::collect)
-        .map_err(storage_error)
+        .map_err(storage_error)?;
+    collect_bounded(rows, MAX_RESULT_ROWS)
 }
 
 /// The `seq`s to delete to free `over` bytes, taking each tier in turn; `None` when the

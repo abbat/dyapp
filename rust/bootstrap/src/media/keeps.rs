@@ -134,9 +134,7 @@ fn check_condition(record: &SignedRecord, current: &KeepSnapshot) -> Result<()> 
 }
 
 pub(super) fn owned(db: &Connection, owner: &str) -> Result<Vec<Vec<u8>>> {
-    db.prepare("SELECT `hash` FROM `blobs` WHERE `owner` = ?")
-        .and_then(|mut query| query.query_map([owner], |row| row.get(0))?.collect())
-        .map_err(storage_error)
+    super::hashes(db, owner)
 }
 
 pub(super) struct Projected {
