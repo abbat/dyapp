@@ -653,8 +653,7 @@ impl MediaStore {
         while Self::used(db)? > target {
             let hash: Option<Vec<u8>> = db
                 .query_row(
-                    "DELETE FROM `cache` WHERE `hash` = \
-                 (SELECT `hash` FROM `cache` ORDER BY `read` LIMIT 1) RETURNING `hash`",
+                    "SELECT `hash` FROM `cache` ORDER BY `read` LIMIT 1",
                     [],
                     |row| row.get(0),
                 )
@@ -662,6 +661,8 @@ impl MediaStore {
                 .map_err(storage_error)?;
             let Some(hash) = hash else { break };
             remove_file(&self.cache.join(hex(&hash)))?;
+            db.execute("DELETE FROM `cache` WHERE `hash` = ?", [&hash])
+                .map_err(storage_error)?;
             removed = removed.saturating_add(1);
         }
         Ok(removed)

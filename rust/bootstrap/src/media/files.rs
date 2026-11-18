@@ -74,11 +74,13 @@ impl MediaStore {
     pub fn expire_cache(&self, before: i64) -> Result<usize> {
         let db = lock(&self.db)?;
         let hashes: Vec<Vec<u8>> = db
-            .prepare("DELETE FROM `cache` WHERE `read` < ? RETURNING `hash`")
+            .prepare("SELECT `hash` FROM `cache` WHERE `read` < ?")
             .and_then(|mut q| q.query_map([before], |row| row.get(0))?.collect())
             .map_err(storage_error)?;
         for hash in &hashes {
             remove_file(&self.cache.join(hex(hash)))?;
+            db.execute("DELETE FROM `cache` WHERE `hash` = ?", [hash])
+                .map_err(storage_error)?;
         }
         Ok(hashes.len())
     }

@@ -322,3 +322,64 @@ fn only_a_missing_file_reads_as_absent() {
     assert!(media.get(&hash).is_err());
     assert_eq!(media.get(&[5u8; 32]).unwrap(), None);
 }
+
+#[test]
+fn expiry_keeps_metadata_until_file_removal_and_recovers_after_reopen() {
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../build/media-cache-faults")
+        .join(uuid::Uuid::new_v4().to_string());
+    let media = MediaStore::open(&dir).unwrap();
+    let hash = [6u8; 32];
+    let path = media.cache.join(hex(&hash));
+    media.cache(&hash, &[6; 50], 100).unwrap();
+
+    std::fs::remove_file(&path).unwrap();
+    std::fs::create_dir(&path).unwrap();
+    assert!(media.expire_cache(150).is_err());
+    assert_eq!(media.usage().unwrap().0, 50);
+    std::fs::remove_dir(&path).unwrap();
+
+    lock(&media.db)
+        .unwrap()
+        .execute_batch(
+            "CREATE TRIGGER `fail_cache_delete` BEFORE DELETE ON `cache`
+         BEGIN SELECT RAISE(ABORT, 'injected cache delete failure'); END;",
+        )
+        .unwrap();
+    assert!(media.expire_cache(150).is_err());
+    assert!(!path.exists());
+    assert_eq!(media.usage().unwrap().0, 50);
+    lock(&media.db)
+        .unwrap()
+        .execute_batch("DROP TRIGGER `fail_cache_delete`")
+        .unwrap();
+
+    drop(media);
+    let media = MediaStore::open(&dir).unwrap();
+    assert_eq!(media.cached(&hash, 200).unwrap(), None);
+    assert_eq!(media.usage().unwrap().0, 0);
+}
+
+#[test]
+fn disk_guard_retries_metadata_deletion_after_the_file_is_gone() {
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../build/media-cache-faults")
+        .join(uuid::Uuid::new_v4().to_string());
+    let media = MediaStore::open(&dir).unwrap();
+    let hash = [7u8; 32];
+    let path = media.cache.join(hex(&hash));
+    media.cache(&hash, &[7; 50], 100).unwrap();
+    let db = lock(&media.db).unwrap();
+    db.execute_batch(
+        "CREATE TRIGGER `fail_cache_delete` BEFORE DELETE ON `cache`
+         BEGIN SELECT RAISE(ABORT, 'injected cache delete failure'); END;",
+    )
+    .unwrap();
+    assert!(media.evict_cache(&db, 0).is_err());
+    assert!(!path.exists());
+    db.execute_batch("DROP TRIGGER `fail_cache_delete`")
+        .unwrap();
+    assert_eq!(media.evict_cache(&db, 0).unwrap(), 1);
+    drop(db);
+    assert_eq!(media.usage().unwrap().0, 0);
+}
