@@ -312,7 +312,8 @@ Practice B4 ([fuzzing](../testing/README.md#fuzzing)). This job runs on ubuntu-2
 linker and build libraries without downloading unrelated quality/UI tools. The separate pinned
 setup installs cargo-fuzz 0.13.2; rust-cache keeps `build/fuzz`. Step `fuzz`
 runs `rust-check.sh fuzz`: every target for 60 seconds, its saved corpus first. On failure the
-artifact **`fuzz-crashes`** keeps the crash inputs and the raw check logs. The nightly hour per target is `fuzz.yml`
+artifact **`fuzz-crashes`** keeps the crash inputs and the raw check logs. The nightly hour per target is `fuzz.yml`;
+its matrix is tested for exact equality with the targets declared in `tests/fuzz/Cargo.toml`
 ([ci-matrix.md](ci-matrix.md#other-workflows)).
 
 ## What is not here

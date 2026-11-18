@@ -2,7 +2,10 @@
 
 import importlib.util
 from pathlib import Path
+import tomllib
 import unittest
+
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
@@ -52,6 +55,15 @@ class Fuzz(unittest.TestCase):
             ),
             8,
         )
+
+    def test_daily_matrix_matches_declared_targets(self) -> None:
+        manifest = tomllib.loads((ROOT / "tests/fuzz/Cargo.toml").read_text())
+        declared = {target["name"] for target in manifest["bin"]}
+        workflow = yaml.safe_load(
+            (ROOT / ".github/workflows/fuzz.yml").read_text()
+        )
+        matrix = workflow["jobs"]["fuzz"]["strategy"]["matrix"]["target"]
+        self.assertCountEqual(matrix, declared)
 
 
 if __name__ == "__main__":

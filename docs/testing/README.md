@@ -142,7 +142,8 @@ Boundary cases (including zero, the threshold endpoints and integer extremes) ar
 explicitly rather than relying on random generation to discover them. Fixed-case unit tests
 remain useful for specific regressions. These generated checks sample inputs; they are not
 proofs for the entire input space. Round-trips do not establish compatibility with an older
-encoder; historical wire fixtures serve that separate purpose. Fuzzing remains planned.
+encoder; historical wire fixtures serve that separate purpose. Fuzzing below complements these
+properties with coverage-guided malformed inputs.
 
 **Run:** `make test` includes all properties. For a focused run, use
 `cargo test -p dyapp-bootstrap --locked prop_` (configuration) or `--test properties` (wire
@@ -381,7 +382,9 @@ target yet (planned). `replication` calls replica, shard and inventory handlers 
 
 **Runs.** `make fuzz` (`rust-check.sh fuzz`) runs each target (`FUZZ_TARGETS`, default all) for
 `FUZZ_SECONDS` (default 60): CI job [`fuzz`](../development/ci-base.md#fuzz--fuzz) on every push,
-and `.github/workflows/fuzz.yml` for an hour per target every night. Both workflows cache the
+and `.github/workflows/fuzz.yml` for an hour per target every night. The nightly matrix must
+match every `[[bin]]` target declared in `tests/fuzz/Cargo.toml`; `tests/test_fuzz.py` rejects
+an omitted, extra or duplicate entry. Both workflows cache the
 `tests/fuzz` Cargo workspace against `build/fuzz`. The script passes `--fuzz-dir .` from
 `tests/fuzz/` so cargo-fuzz opens that workspace. An explicit `FUZZ_TARGETS` builds
 only those targets; without it one build covers all targets. A failed discovery or
@@ -623,7 +626,6 @@ Before shipping:
 
 ## Future Enhancements
 
-- [ ] Fuzz testing (libfuzzer)
 - [ ] Load testing (k6 scripts for bootstrap server)
 - [ ] Multi-peer sync simulation (signed profiles, HLC-ordered messages)
 - [ ] Hardware acceleration tests (iOS metal, Android Vulkan)
