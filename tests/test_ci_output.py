@@ -190,6 +190,12 @@ class CiOutputTests(unittest.TestCase):
         names = [
             item.get("name") for item in workflow["jobs"]["kotlin"]["steps"]
         ]
+        cache = next(
+            index
+            for index, item in enumerate(workflow["jobs"]["kotlin"]["steps"])
+            if item.get("uses", "").startswith("Swatinem/rust-cache@")
+        )
+        self.assertLess(cache, names.index("prepare JNA"))
         self.assertLess(names.index("prepare JNA"), names.index("init"))
         for prepared in (False, True):
             with (

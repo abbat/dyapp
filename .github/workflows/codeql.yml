@@ -65,13 +65,6 @@ jobs:
           persist-credentials: false
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
-      # Reuse Android's pinned builder and layer cache without loading its SDK image into Docker.
-      - name: prepare JNA
-        run: |
-          python3 tools/scripts/run-check.py --log-dir build/check-output docker -- \
-            docker buildx build --file tests/docker/Dockerfile.android-test \
-            --target jna-native-export --cache-from type=gha,scope=dyapp-android-tools \
-            --output type=local,dest=build/codeql-jna-native .
       # uniffiBindgen builds the host core to generate the Kotlin bindings the app compiles against.
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
@@ -81,6 +74,15 @@ jobs:
           workspaces: ". -> build"
           key: codeql-kotlin
           save-if: ${{ github.ref == 'refs/heads/main' }}
+      # Restore the Rust cache before this export: its archive writes the same build/ tree.
+      # Reuse Android's pinned builder and layer cache without loading its SDK image into Docker.
+      - name: prepare JNA
+        run: |
+          python3 tools/scripts/run-check.py --log-dir build/check-output docker -- \
+            docker buildx build --file tests/docker/Dockerfile.android-test \
+            --target jna-native-export --cache-from type=gha,scope=dyapp-android-tools \
+            --output type=local,dest=build/codeql-jna-native .
+          test -s build/codeql-jna-native/manifest.json
       - name: install java
         uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
