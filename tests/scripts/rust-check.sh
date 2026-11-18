@@ -25,6 +25,15 @@ check() {
     python3 -B tools/scripts/run-check.py --log-dir "${DYAPP_CHECK_LOG_DIR:-build/check-output}" \
         "$name" -- "$@"
 }
+cargo_locks() {
+    local locks
+    locks=$(git ls-files '*Cargo.lock') || return
+    if [[ ! $locks =~ [^[:space:]] ]]; then
+        echo "No tracked Cargo.lock files found" >&2
+        return 2
+    fi
+    printf '%s\n' "$locks"
+}
 # Bound compiler analysis stacks; the pinned toolchain exceeds its defaults here.
 compiler_stack() (
     ulimit -s 65536
@@ -69,13 +78,23 @@ step() {
             ;;
         unused-dependencies)
             local locks lock
-            locks=$(git ls-files '*Cargo.lock')
-            if [[ ! $locks =~ [^[:space:]] ]]; then
-                echo "No tracked Cargo.lock files found" >&2
-                return 2
-            fi
+            locks=$(cargo_locks)
             while read -r lock; do
+                echo "Checking $lock"
+                # The child shell expands its positional parameter.
+                # shellcheck disable=SC2016
                 check cargo-shear bash -c 'cd "$(dirname "$1")" && cargo shear' _ "$lock"
+            done <<< "$locks"
+            ;;
+        audit)
+            local locks lock
+            locks=$(cargo_locks)
+            while read -r lock; do
+                echo "Auditing $lock"
+                # The child shell expands its positional parameter.
+                # shellcheck disable=SC2016
+                check cargo-audit bash -c \
+                    'echo "Lockfile: $1"; cargo audit --file "$1"' _ "$lock"
             done <<< "$locks"
             ;;
         unused-public)
@@ -243,6 +262,7 @@ step() {
             python3 tests/scripts/rehearsal.py --raw "$target/rehearsal-old/release" "$target/release"
             ;;
         security)
+            local locks lock mode=--locked
             if [[ -d /opt/advisory-dbs ]]; then
                 # The dev image ships the advisory DB; --frozen also skips fetching it. The workspace
                 # is read-only, and without --locked cargo metadata rewrites Cargo.lock.
@@ -251,18 +271,25 @@ step() {
                 for database in /tmp/ai/advisory-dbs/advisory-db-*; do
                     check advisory-db git -C "$database" log -1 --format="advisory DB: %H %cI"
                 done
-                check cargo-deny cargo deny --frozen check advisories bans licenses sources
-            else
-                check cargo-deny cargo deny --locked check advisories bans licenses sources
+                mode=--frozen
             fi
+            locks=$(cargo_locks)
+            while read -r lock; do
+                echo "Checking ${lock%Cargo.lock}Cargo.toml"
+                # The child shell expands its positional parameters.
+                # shellcheck disable=SC2016
+                check cargo-deny bash -c \
+                    'echo "Manifest: $2"; cargo deny "$1" --manifest-path "$2" --config deny.toml check advisories bans licenses sources' \
+                    _ "$mode" "${lock%Cargo.lock}Cargo.toml"
+            done <<< "$locks"
             ;;
         *) echo "Unknown step: $1" >&2; exit 2 ;;
     esac
 }
 if [[ ${1:-} != --raw ]]; then
-    stage=${1:?step required: quality|android-lint|build|test|coverage|cov-build|cov-test|cov-report|mutants|fuzz|network|memory|rehearsal|security|unused-dependencies}
+    stage=${1:?step required: quality|android-lint|build|test|coverage|cov-build|cov-test|cov-report|mutants|fuzz|network|memory|rehearsal|security|audit|unused-dependencies}
     case "$stage" in
-        quality|fmt|fmt-write|web-check|web-format|swift-check|python-check|python-format|kotlin-format|unused-public|unused-dependencies|rustdoc|android-lint|security) exec bash "$0" --raw "$@" ;;
+        quality|fmt|fmt-write|web-check|web-format|swift-check|python-check|python-format|kotlin-format|unused-public|unused-dependencies|rustdoc|android-lint|security|audit) exec bash "$0" --raw "$@" ;;
         build) policy=rust-build ;;
         test|cov-build|cov-test) policy=rust-test ;;
         coverage|cov-report) policy=rust-coverage ;;

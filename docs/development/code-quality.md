@@ -13,7 +13,7 @@ All checks run in Docker; build the image once with `make prepare`.
 | `make lint-android` | `tests/scripts/rust-check.sh android-lint`: `check-repository.py` and detekt, the Android part of `make quality`; both run even if the first fails |
 | `make fmt` | `cargo fmt --all -- --check` (check only) |
 | `make coverage` (= `tests/scripts/check-quality.sh --coverage`) | cargo-llvm-cov with the line coverage ratchet: total ≥ baseline, changed lines ≥80% |
-| `make security` (= `audit`, `deny`) | `rust-check.sh security`: `cargo deny --frozen check advisories bans licenses sources` (offline, the advisory DB from the image) |
+| `make security` (= `audit`, `deny`) | `rust-check.sh security`: `cargo deny --frozen --manifest-path <manifest> --config deny.toml check advisories bans licenses sources` for every tracked `Cargo.lock` (offline, the advisory DB from the image) |
 | `make doc` | `cargo doc --workspace --all-features --locked --no-deps` in Docker, with warnings denied |
 | `make test-all` | `docker-test.sh all`: build, quality, test, coverage, security, network, UI tests |
 
@@ -332,8 +332,10 @@ they get the same wrappers when they carry keys.
 
 ## Dependency checks (cargo-deny)
 
-`deny.toml`, run by `rust-check.sh security`. Under `make security` it runs offline against the advisory
-databases baked into the dev image. In the CI `core / build` step `deny` it fetches them at run time:
+`deny.toml`, run by `rust-check.sh security` for the manifest beside every tracked `Cargo.lock`.
+Under `make security` it runs offline against the advisory databases baked into the dev image. In
+the CI `core / build` step `deny` it fetches them at run time. Both paths print the manifest before
+each check; `security.yml` similarly runs `cargo audit --file` for every tracked lockfile:
 
 - **advisories**: any RustSec advisory fails (no CVSS threshold); a yanked crate fails. Ignored: RUSTSEC-2024-0436
   (`paste` unmaintained, a proc-macro reached only through libp2p's `if-watch`, no upgrade yet),
@@ -342,10 +344,13 @@ databases baked into the dev image. In the CI `core / build` step `deny` it fetc
   of `hax-lib` reached only through openmls -> hpke-rs -> libcrux, no upgrade yet), and
   RUSTSEC-2026-0330 and RUSTSEC-2026-0331 (a panic on a short hybrid seed or key in
   `libcrux-kem` 0.0.9, pinned by hpke-rs 0.7, which openmls needs; only hybrid KEMs are hit and
-  dyapp accepts ciphersuite 0x0001 only). `cargo audit` in `security.yml` ignores the same
-  vulnerabilities through `.cargo/audit.toml`, and the Scorecard Vulnerabilities check ignores all of
-  these through `osv-scanner.toml`.
-- **licenses**: only the listed licenses are allowed (permissive set plus `MPL-2.0`); anything else fails.
+  dyapp accepts ciphersuite 0x0001 only). Desktop-only exceptions cover unmaintained
+  `proc-macro-error` in Tauri's compile-time GTK stack and the zbus 5 companion crates selected by
+  Linux-only plugin edges but not compiled on macOS or Windows. `cargo audit` in `security.yml`
+  ignores the same advisories through `.cargo/audit.toml`, and the Scorecard Vulnerabilities check
+  uses the reviewed `osv-scanner.toml` entries.
+- **licenses**: only the listed licenses are allowed (permissive set plus `MPL-2.0`, BSL-1.0 and
+  NCSA); anything else fails.
 - **bans**: `openssl` and `openssl-sys` are denied; a second version of a crate fails unless
   `[bans] skip` lists that older version with the dependency that keeps it. cargo-deny warns about
   a skip that no longer matches; remove it then.

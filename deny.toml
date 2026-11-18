@@ -28,6 +28,13 @@ ignore = [
     # vulnerable crypto-bigint 0.5.5 enters through unconditional P-curve deps.
     # Reachability is not proven absent. Review by 2026-12-24: GH issue #25.
     { id = "RUSTSEC-2026-0387", reason = "temporary acceptance: crypto-bigint 0.5.5 in unused MLS P-curve paths; review by 2026-12-24 (issue #25)" },
+    # proc-macro-error 1 is unmaintained (no fix): a compile-time macro of Tauri's GTK 3 stack.
+    { id = "RUSTSEC-2024-0370", reason = "unmaintained compile-time macro via Tauri GTK 3, no upgrade; review by 2026-12-08 (issue #22)" },
+    # zbus 5's split crates are unmaintained and merged into zbus 6. Desktop locks retain them
+    # through Linux-only plugin edges; those edges are not compiled on macOS or Windows.
+    { id = "RUSTSEC-2026-0370", reason = "zvariant via Linux-only desktop plugin edges, not compiled on macOS or Windows; review by 2026-12-08 (issue #22)" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names via Linux-only desktop plugin edges, not compiled on macOS or Windows; review by 2026-12-08 (issue #22)" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive via Linux-only desktop plugin edges, not compiled on macOS or Windows; review by 2026-12-08 (issue #22)" },
 ]
 
 [licenses]
@@ -46,6 +53,10 @@ allow = [
     "CDLA-Permissive-2.0",
     "Unlicense",
     "MPL-2.0",
+    # OSI-approved Boost license of clipboard-win and error-code via arboard.
+    "BSL-1.0",
+    # libfuzzer-sys combines MIT/Apache-2.0 with the University of Illinois/NCSA license.
+    "NCSA",
 ]
 exceptions = [
     { allow = ["Apache-2.0"], crate = "rustls" },
@@ -118,6 +129,47 @@ skip = [
     { crate = "hashbrown@0.15.5", reason = "petgraph 0.8" },
     { crate = "hashbrown@0.16.1", reason = "governor and rsqlite-vfs" },
     { crate = "windows-sys@0.52.0", reason = "ring and memory-stats use windows-sys 0.52" },
+    # The independent desktop locks combine Tauri 2's pinned UI stack with the workspace's newer
+    # networking and image generations. Keep every accepted version tied to its incoming edge.
+    { crate = "base64@0.21.7", reason = "swift-rs 1 in Tauri 2 uses base64 0.21" },
+    { crate = "core-foundation@0.9.4", reason = "if-watch and system-configuration use core-foundation 0.9" },
+    { crate = "heck@0.4.1", reason = "glib-macros 0.18 uses heck 0.4" },
+    { crate = "indexmap@1.9.3", reason = "schemars 0.8 in tauri-build uses indexmap 1" },
+    { crate = "jni@0.21.1", reason = "Tauri's tao and wry use jni 0.21" },
+    { crate = "jni-sys@0.3.1", reason = "jni 0.21 uses jni-sys 0.3" },
+    { crate = "libloading@0.7.4", reason = "libappindicator-sys 0.9 uses libloading 0.7" },
+    { crate = "miniz_oxide@0.8.9", reason = "png 0.17 uses miniz_oxide 0.8" },
+    { crate = "nom@7.1.3", reason = "x509-parser 0.18 and bindgen's cexpr use nom 7" },
+    { crate = "png@0.17.16", reason = "ico 0.5 in tauri-codegen uses png 0.17" },
+    { crate = "proc-macro-crate@1.3.1", reason = "gtk3-macros 0.18 uses proc-macro-crate 1" },
+    { crate = "proc-macro-crate@2.0.2", reason = "glib-macros 0.18 uses proc-macro-crate 2" },
+    { crate = "quick-xml@0.41.0", reason = "wayland-scanner 0.31 uses quick-xml 0.41" },
+    { crate = "serde_spanned@0.6.9", reason = "toml 0.8 uses serde_spanned 0.6" },
+    { crate = "syn@1.0.109", reason = "libp2p multibase and Tauri's GTK macros use syn 1" },
+    { crate = "toml@0.8.2", reason = "system-deps 6 in GTK uses toml 0.8" },
+    { crate = "toml_datetime@0.6.3", reason = "proc-macro-crate 2 uses toml_datetime 0.6" },
+    { crate = "toml_edit@0.19.15", reason = "proc-macro-crate 1 uses toml_edit 0.19" },
+    { crate = "toml_edit@0.20.2", reason = "proc-macro-crate 2 uses toml_edit 0.20" },
+    { crate = "windows-sys@0.45.0", reason = "jni 0.21 uses windows-sys 0.45" },
+    { crate = "windows-targets@0.42.2", reason = "windows-sys 0.45 uses windows-targets 0.42" },
+    { crate = "windows_aarch64_gnullvm@0.42.2", reason = "windows-targets 0.42 uses the 0.42 architecture crates" },
+    { crate = "windows_aarch64_msvc@0.42.2", reason = "windows-targets 0.42 uses the 0.42 architecture crates" },
+    { crate = "windows_i686_gnu@0.42.2", reason = "windows-targets 0.42 uses the 0.42 architecture crates" },
+    { crate = "windows_i686_msvc@0.42.2", reason = "windows-targets 0.42 uses the 0.42 architecture crates" },
+    { crate = "windows_x86_64_gnu@0.42.2", reason = "windows-targets 0.42 uses the 0.42 architecture crates" },
+    { crate = "windows_x86_64_gnullvm@0.42.2", reason = "windows-targets 0.42 uses the 0.42 architecture crates" },
+    { crate = "windows_x86_64_msvc@0.42.2", reason = "windows-targets 0.42 uses the 0.42 architecture crates" },
+    { crate = "winnow@0.5.40", reason = "toml_edit 0.19 and 0.20 use winnow 0.5" },
+    # tauri-winrt-notification 0.7 keeps the windows 0.61 family beside the 0.62 generation.
+    { crate = "windows@0.61.3", reason = "tauri-winrt-notification 0.7 uses windows 0.61" },
+    { crate = "windows-collections@0.2.0", reason = "windows 0.61 uses windows-collections 0.2" },
+    { crate = "windows-core@0.61.2", reason = "windows 0.61 uses windows-core 0.61" },
+    { crate = "windows-future@0.2.1", reason = "windows 0.61 uses windows-future 0.2" },
+    { crate = "windows-link@0.1.3", reason = "windows 0.61 and windows-core 0.61 use windows-link 0.1" },
+    { crate = "windows-numerics@0.2.0", reason = "windows 0.61 uses windows-numerics 0.2" },
+    { crate = "windows-result@0.3.4", reason = "windows-core 0.61 uses windows-result 0.3" },
+    { crate = "windows-strings@0.4.2", reason = "windows-core 0.61 uses windows-strings 0.4" },
+    { crate = "windows-threading@0.1.0", reason = "windows-future 0.2 uses windows-threading 0.1" },
 ]
 
 [sources]

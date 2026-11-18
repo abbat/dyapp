@@ -279,19 +279,19 @@ nothing.
 | tests | `cov-test` | `cargo nextest run` and `cargo test --doc` on that build; [flaky tests](../testing/README.md#flaky-tests) |
 | coverage | `cov-report` | `cargo llvm-cov report` → `build/coverage/coverage.{json,lcov,txt}` + `check_coverage.py` with `COVERAGE_BASE` = the PR base or `github.event.before` (gate: [Coverage policy](../testing/README.md#coverage-policy)) |
 | coverage upload (`if: always()`) | — | `upload-artifact`: artifact **`rust-workspace-coverage`**; `if-no-files-found: error` |
-| deny | `security` | `cargo deny --locked check advisories bans licenses sources`; it fetches the advisory DB at run time |
+| deny | `security` | `cargo deny --locked --manifest-path <manifest> --config deny.toml check advisories bans licenses sources` for every tracked `Cargo.lock`; it fetches the advisory DB at run time |
 | network | `network` | reuses `dyapp-bootstrap`'s `dyappd`, also the client, from the build step (`cargo test` builds it for the bootstrap integration tests). `network-test.py --local` then starts three `dyappd` processes on TCP and QUIC `127.0.0.1:7071`–`:7073`, each with its own storage and its listen addresses as external (`DYAPPD_LISTEN`, `DYAPPD_EXTERNAL`, `DYAPPD_STORAGE_DIR`); the second and third use the first as seed, the third allows 5 requests per second. Through the client commands it checks `info`, publishes a signed profile over TCP and reads it back over QUIC, expects `STALE` on replay, checks that the stores are independent, the mailbox round trip and that a watching fetch gets the next envelope pushed; then that a DHT lookup through the third node finds all three, that every replica holder serves the profile, that an ack on one mailbox replica node clears the envelope on all of them, that an envelope put to one replica node reaches another after a watching fetch there, that a flood of 15 gets on the third node gets the burst answered and the rest `RATE_LIMITED`, and, after stopping the second node, that new replicas skip it. It also checks the deny list (a listed mailbox and IP group refused after SIGHUP, the first node's shared list received by the third), that restarted nodes keep their peer ID and that SIGHUP's `node state` line shows nothing pending once the nodes idle |
 
 `core` does not run a release build; `make build` runs `tools/scripts/build-rust.sh`
 (`cargo build --release`).
 
-**Scope:** every Cargo step uses `--workspace`, which covers all 8 crates (`bootstrap`,
-`client`, `ffi`, `identity`, `messaging`, `p2p-net`, `profile`, `video`). The platform apps under `clients/linux/` and
-`clients/windows/` are separate manifests and are not part of this pipeline.
+**Scope:** build and test Cargo steps use `--workspace`, which covers all 8 crates (`bootstrap`,
+`client`, `ffi`, `identity`, `messaging`, `p2p-net`, `profile`, `video`). Dependency checks also
+enumerate the separate Linux, macOS, Windows, fuzz and rust-functions lockfiles.
 
 **Freshness:** in CI, `deny` fetches the current advisory DB. The local dev image instead uses
-the snapshot taken when the image was built, offline with `--frozen`. `cargo audit` also
-runs in `security.yml` ([ci-matrix.md](ci-matrix.md#other-workflows)).
+the snapshot taken when the image was built, offline with `--frozen`. `cargo audit --file` covers
+the same tracked inventory in `security.yml` ([ci-matrix.md](ci-matrix.md#other-workflows)).
 
 ### `mutants` → **mutants**
 

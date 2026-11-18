@@ -3,6 +3,7 @@ name = "dyapp-fuzz"
 version = "0.0.0"
 edition = "2021"
 publish = false
+license = "MIT"
 description = "cargo-fuzz targets for the request handlers of a bootstrap node (practice B4)"
 
 [package.metadata]

@@ -42,6 +42,8 @@ The workspace, desktop and fuzz locks use `rusqlite` 0.41.0 with bundled SQLite 
 [RUSTSEC-2026-0459](https://rustsec.org/advisories/RUSTSEC-2026-0459.html): a crafted database
 and sibling WAL with inconsistent page sizes could otherwise expose page-cache memory.
 Keep all five locks aligned when updating the shared storage dependency.
+`cargo audit` and `cargo deny` enumerate every tracked lockfile, including the independent desktop,
+fuzz and rust-functions workspaces, so these policies are not limited to the root workspace.
 
 **Exceptions.** Scorecard's Vulnerabilities check runs OSV-Scanner over supported manifests.
 OSV-Scanner reads `osv-scanner.toml` from the scanned manifest's directory; a root exception
