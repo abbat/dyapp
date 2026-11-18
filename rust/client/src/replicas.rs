@@ -100,23 +100,25 @@ impl Node {
             }
         };
         let _ = tokio::time::timeout(TIMEOUT, collect).await;
-        for candidate in &mut found {
-            restore_entry_address(candidate, self.peer, &self.address);
-        }
-        if !found.iter().any(|candidate| candidate.peer_id == self.peer) {
-            found.push(kad::PeerInfo {
-                peer_id: self.peer,
-                addrs: vec![self.address.clone()],
-            });
-        }
+        restore_entry(&mut found, self.peer, &self.address);
         found
     }
 }
 
-fn restore_entry_address(candidate: &mut kad::PeerInfo, peer: PeerId, address: &Multiaddr) {
-    if candidate.peer_id == peer && candidate.addrs.is_empty() {
-        candidate.addrs.push(address.clone());
+fn restore_entry(candidates: &mut Vec<kad::PeerInfo>, peer: PeerId, address: &Multiaddr) {
+    if let Some(candidate) = candidates
+        .iter_mut()
+        .find(|candidate| candidate.peer_id == peer)
+    {
+        if candidate.addrs.is_empty() {
+            candidate.addrs.push(address.clone());
+        }
+        return;
     }
+    candidates.push(kad::PeerInfo {
+        peer_id: peer,
+        addrs: vec![address.clone()],
+    });
 }
 
 fn closest_event(

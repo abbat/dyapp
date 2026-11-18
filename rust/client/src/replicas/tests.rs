@@ -19,27 +19,34 @@ async fn server() -> (libp2p::Swarm<dyapp_p2p_net::Behaviour>, Multiaddr) {
 }
 
 #[test]
-fn entry_address_is_restored_only_for_an_empty_self_entry() {
+fn entry_is_restored_once_whether_present_or_omitted() {
     let peer = PeerId::random();
     let address: Multiaddr = "/ip4/127.0.0.1/tcp/4001".parse().expect("address");
-    let mut entry = kad::PeerInfo {
-        peer_id: peer,
-        addrs: Vec::new(),
-    };
-    restore_entry_address(&mut entry, peer, &address);
-    assert_eq!(entry.addrs, vec![address.clone()]);
-
-    let mut other = kad::PeerInfo {
+    let other = kad::PeerInfo {
         peer_id: PeerId::random(),
         addrs: Vec::new(),
     };
-    restore_entry_address(&mut other, peer, &address);
-    assert_eq!(other.addrs, Vec::<Multiaddr>::new());
+    let entry = kad::PeerInfo {
+        peer_id: peer,
+        addrs: Vec::new(),
+    };
+    let mut candidates = vec![other, entry];
+    restore_entry(&mut candidates, peer, &address);
+    assert_eq!(candidates.len(), 2);
+    assert_eq!(candidates[0].addrs, Vec::<Multiaddr>::new());
+    assert_eq!(candidates[1].addrs, vec![address.clone()]);
 
     let existing: Multiaddr = "/ip4/127.0.0.1/tcp/4002".parse().expect("address");
-    entry.addrs = vec![existing.clone()];
-    restore_entry_address(&mut entry, peer, &address);
-    assert_eq!(entry.addrs, vec![existing]);
+    candidates[1].addrs = vec![existing.clone()];
+    restore_entry(&mut candidates, peer, &address);
+    assert_eq!(candidates.len(), 2);
+    assert_eq!(candidates[1].addrs, vec![existing]);
+
+    candidates.clear();
+    restore_entry(&mut candidates, peer, &address);
+    assert_eq!(candidates.len(), 1);
+    assert_eq!(candidates[0].peer_id, peer);
+    assert_eq!(candidates[0].addrs, vec![address]);
 }
 
 #[tokio::test]
