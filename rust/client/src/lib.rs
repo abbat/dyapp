@@ -16,6 +16,8 @@ pub mod compatibility;
 pub mod contact_notes;
 pub mod contact_verification;
 pub mod device_directory;
+mod encoding;
+use encoding::unhex;
 pub mod favorites;
 pub mod forwarding;
 pub mod identity_slots;
@@ -182,6 +184,7 @@ fn wire() -> Arc<WireBytes> {
 pub struct Node {
     swarm: Swarm<Behaviour>,
     peer: PeerId,
+    address: Multiaddr,
 }
 
 impl Node {
@@ -207,7 +210,10 @@ impl Node {
                 match swarm.select_next_some().await {
                     SwarmEvent::ConnectionEstablished { peer_id, .. } => {
                         // A DHT lookup starts from this node.
-                        swarm.behaviour_mut().kad.add_address(&peer_id, addr);
+                        swarm
+                            .behaviour_mut()
+                            .kad
+                            .add_address(&peer_id, addr.clone());
                         return Ok(peer_id);
                     }
                     SwarmEvent::OutgoingConnectionError { error, .. } => {
@@ -218,7 +224,11 @@ impl Node {
             }
         })
         .await
-        .map(|peer| Self { swarm, peer })
+        .map(|peer| Self {
+            swarm,
+            peer,
+            address: addr,
+        })
     }
 
     /// The node's Peer ID, the key of its [`scores::Scores`] entry.
@@ -980,20 +990,6 @@ fn search_ok(response: proto::SearchResponse) -> Result<proto::SearchResponse, E
         )));
     }
     ok(response.status).map(|()| response)
-}
-
-fn unhex(text: &str) -> Result<Vec<u8>, Error> {
-    if !text.len().is_multiple_of(2) {
-        return Err(Error::Reply("odd-length hex"));
-    }
-    (0..text.len())
-        .step_by(2)
-        .map(|i| {
-            text.get(i..i.saturating_add(2))
-                .and_then(|pair| u8::from_str_radix(pair, 16).ok())
-                .ok_or(Error::Reply("bad hex"))
-        })
-        .collect()
 }
 
 #[cfg(test)]

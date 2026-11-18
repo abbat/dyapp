@@ -18,6 +18,8 @@ node work, and preserve `node-config/network` for startup without an account (AD
 Bootstrap reserves `node/network` for its raw storage-binding marker; seed-list configuration
 must use the separate `node-config/` directory. Network-setting wire fixtures must write exact LF
 bytes: Python text writes translate to CRLF on Windows, which the strict decoder rejects.
+A Kademlia lookup can return the entry node's Peer ID with no addresses; the client keeps the
+successful dial address so replica discovery can reconnect to that holder.
 Windows links the same node library; it ships no separate daemon. Filesystem capacity queries
 belong in bootstrap's safe `storage::free` API (Unix statvfs, Windows caller-quota-aware
 GetDiskFreeSpaceExW), keeping unsafe code outside native desktop crates. In Linux smoke, the

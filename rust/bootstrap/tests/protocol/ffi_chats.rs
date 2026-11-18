@@ -133,6 +133,7 @@ fn texts(chats: &ChatSession, peer_id: &str) -> Vec<String> {
 
 /// A store node; the sessions block on their own runtimes, so it needs threads of its own.
 fn store_node() -> (tokio::runtime::Runtime, Multiaddr) {
+    dyapp_p2p_net::set_id_pow_bits(0);
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()

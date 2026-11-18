@@ -25,6 +25,7 @@ async fn last_resort_rotation_overflow_cannot_advance_snapshot_or_publish_a_reco
         )
         .unwrap(),
         peer: libp2p::PeerId::random(),
+        address: libp2p::Multiaddr::empty(),
     };
     assert!(matches!(
         f.session

@@ -100,6 +100,11 @@ impl Node {
             }
         };
         let _ = tokio::time::timeout(TIMEOUT, collect).await;
+        for candidate in &mut found {
+            if candidate.peer_id == self.peer && candidate.addrs.is_empty() {
+                candidate.addrs.push(self.address.clone());
+            }
+        }
         found
     }
 }
