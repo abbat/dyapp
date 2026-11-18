@@ -2,6 +2,7 @@
 
 mod snapshot;
 mod validate;
+pub(crate) const MAX_BLOB_BYTES: usize = 6 * 1024 * 1024;
 pub use snapshot::{select, Snapshot};
 pub use validate::validate;
 

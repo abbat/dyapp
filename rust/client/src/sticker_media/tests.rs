@@ -188,6 +188,26 @@ fn saved_fallback_and_authenticated_cache_return_only_exact_core_pixels() {
 }
 
 #[test]
+fn oversized_cached_sticker_is_removed_without_decryption() {
+    let f = Fixture::new(true, true);
+    f.select()
+        .finish(&f.store, &f.dir, &SEAL, &f.bytes)
+        .unwrap();
+    let attachment = f.select().item.sticker.attachment.unwrap();
+    let path = f
+        .dir
+        .join("originals")
+        .join(dyapp_identity::hex(&attachment.blob_sha256));
+    std::fs::write(
+        &path,
+        vec![0; crate::attachment::original::MAX_BLOB_BYTES + 1],
+    )
+    .unwrap();
+    assert!(f.select().local(&f.store, &f.dir, &SEAL).unwrap().is_none());
+    assert!(!path.exists());
+}
+
+#[test]
 fn automatic_download_respects_strangers_metering_and_explicit_off() {
     let f = Fixture::new(true, true);
     let snapshot = f.select();

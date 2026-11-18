@@ -34,6 +34,19 @@ fn jpeg_and_png_with_unspecified_dimensions_use_the_same_validated_cache_path() 
 }
 
 #[test]
+fn oversized_cached_original_is_removed_without_decryption() {
+    let f = Fixture::new();
+    let path = f
+        .dir
+        .join("originals")
+        .join(dyapp_identity::hex(&f.first.blob_sha256));
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(&path, vec![0; MAX_BLOB_BYTES + 1]).unwrap();
+    assert_eq!(selected(&f).local(&f.store, &f.dir, &SEAL).unwrap(), None);
+    assert!(!path.exists());
+}
+
+#[test]
 fn authenticated_invalid_cached_originals_do_not_bypass_the_common_validator() {
     let f = Fixture::new();
     originals::keep(&f.dir, &SEAL, &f.first, b"first original").unwrap();

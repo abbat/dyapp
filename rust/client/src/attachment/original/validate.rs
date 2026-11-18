@@ -1,6 +1,6 @@
 //! Incoming chat photos follow the attachment wire budget, not the composer output budget.
 
-use super::LookupError;
+use super::{LookupError, MAX_BLOB_BYTES};
 use crate::attachment::sealed_size;
 use crate::photo::{frame_size, prepare::MAX_SOURCE_PIXELS};
 mod png;
@@ -13,7 +13,7 @@ mod png;
 /// # Errors
 /// Returns `corrupted` for unsupported headers, oversized bytes/pixels or mismatched dimensions.
 pub fn validate(bytes: &[u8], width: u32, height: u32) -> Result<(), LookupError> {
-    if sealed_size(bytes.len()).is_none_or(|size| size > 6 * 1024 * 1024) {
+    if sealed_size(bytes.len()).is_none_or(|size| size > MAX_BLOB_BYTES) {
         return Err(LookupError::Corrupted);
     }
     let (actual_width, actual_height) = if bytes.starts_with(&[0xff, 0xd8]) {

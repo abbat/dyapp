@@ -5,12 +5,12 @@
 //! clearing a chat erases them, and removing an identity removes the folder.
 
 use super::{Error, Store};
-use crate::attachment::{self, Attachment};
+use crate::attachment::{self, original::MAX_BLOB_BYTES, Attachment};
 use crate::chat::Body;
 use dyapp_identity::sha256;
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
@@ -113,17 +113,24 @@ fn keep_with(
     published
 }
 
-/// The kept original, marked as just used for eviction. A missing file is `None`, and so is a torn
-/// or foreign one, which goes, so that the photo stops counting as kept: the caller falls back to
-/// the nodes, which the automatic path may only do under the download policy.
+/// The kept original, marked as just used for eviction. A missing file is `None`, and so is an
+/// oversized, torn or foreign one, which goes, so that the photo stops counting as kept: the caller
+/// falls back to the nodes, which the automatic path may only do under the download policy.
 #[must_use]
 pub fn read(dir: &Path, seal_key: &[u8; 32], photo: &Attachment) -> Option<Vec<u8>> {
     let path = path(dir, &photo.blob_sha256);
-    let sealed = fs::read(&path).ok()?;
-    let opened = attachment::decrypt(&file_key(seal_key, &photo.blob_sha256), &sealed);
-    let Some(plaintext) = opened
-        .ok()
-        .filter(|plaintext| sha256(plaintext) == photo.plaintext_sha256)
+    let mut sealed = Vec::new();
+    File::open(&path)
+        .ok()?
+        .take((MAX_BLOB_BYTES as u64).saturating_add(1))
+        .read_to_end(&mut sealed)
+        .ok()?;
+    let opened = if sealed.len() > MAX_BLOB_BYTES {
+        None
+    } else {
+        attachment::decrypt(&file_key(seal_key, &photo.blob_sha256), &sealed).ok()
+    };
+    let Some(plaintext) = opened.filter(|plaintext| sha256(plaintext) == photo.plaintext_sha256)
     else {
         let _ = fs::remove_file(path);
         return None;

@@ -103,8 +103,9 @@ replay metadata carry local receipt/removal times and expire after 31 days, beyo
 Originals of photos this device opened live beside the Store, in `originals/` of the identity's
 folder, one file per blob hash (`store::originals`). The Store holds each attachment's key in the
 clear, so a file is sealed anew under a key derived from the identity's sealing secret and the blob
-hash, and a read checks it against the descriptor's plaintext hash; a torn or foreign final file is
-removed. A keep writes a unique same-directory `.pending` file, syncs and closes it, then atomically
+hash, and a read checks it against the descriptor's plaintext hash. Reads stop at the 6 MiB sealed
+blob limit plus one byte; an oversized, torn or foreign final file is removed before decryption. A
+keep writes a unique same-directory `.pending` file, syncs and closes it, then atomically
 renames it over the final path; Unix also syncs the directory, while other platforms do not guarantee
 that directory entry across power loss. A failed or interrupted replacement therefore leaves the
 previous or complete new sealed file, never a partial final. Pending files are not readable originals
