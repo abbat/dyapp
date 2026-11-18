@@ -103,8 +103,13 @@ replay metadata carry local receipt/removal times and expire after 31 days, beyo
 Originals of photos this device opened live beside the Store, in `originals/` of the identity's
 folder, one file per blob hash (`store::originals`). The Store holds each attachment's key in the
 clear, so a file is sealed anew under a key derived from the identity's sealing secret and the blob
-hash, and a read checks it against the descriptor's plaintext hash; a torn or foreign file is
-removed. `Store::sweep_originals` runs after each keep, Clear chat and limit change: it removes files
+hash, and a read checks it against the descriptor's plaintext hash; a torn or foreign final file is
+removed. A keep writes a unique same-directory `.pending` file, syncs and closes it, then atomically
+renames it over the final path; Unix also syncs the directory, while other platforms do not guarantee
+that directory entry across power loss. A failed or interrupted replacement therefore leaves the
+previous or complete new sealed file, never a partial final. Pending files are not readable originals
+and do not count against a contact; the next sweep removes them. Replacement temporarily needs space
+for both the old and new sealed copies. `Store::sweep_originals` runs after each keep, Clear chat and limit change: it removes files
 no `chat_attachments` row names, then the least recently read past the `kept_originals` setting
 (256 MiB enabled by default, with a numeric 1 MiB–10 GiB byte budget). Each contact also has a
 64 MiB LRU share; only an over-limit contact's older files are candidates. A hash shared with an

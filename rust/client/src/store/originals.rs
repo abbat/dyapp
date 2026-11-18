@@ -9,8 +9,8 @@ use crate::attachment::{self, Attachment};
 use crate::chat::Body;
 use dyapp_identity::sha256;
 use std::collections::{HashMap, HashSet};
-use std::fs::{self, File};
-use std::io;
+use std::fs::{self, File, OpenOptions};
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
@@ -50,17 +50,67 @@ pub fn is_kept(dir: &Path, blob_sha256: &[u8; 32]) -> bool {
 /// # Errors
 ///
 /// Returns an error if encrypting the original, creating its directory, or
-/// writing the file fails. A failed write may leave a partial file.
+/// writing, syncing or publishing the file fails.
 pub fn keep(
     dir: &Path,
     seal_key: &[u8; 32],
     photo: &Attachment,
     plaintext: &[u8],
 ) -> io::Result<()> {
+    keep_with(
+        dir,
+        seal_key,
+        photo,
+        plaintext,
+        |file, bytes| {
+            file.write_all(bytes)?;
+            file.sync_all()
+        },
+        publish,
+    )
+}
+
+fn publish(pending: &Path, path: &Path) -> io::Result<()> {
+    fs::rename(pending, path)?;
+    #[cfg(unix)]
+    File::open(
+        path.parent()
+            .ok_or_else(|| io::Error::other("original path has no parent"))?,
+    )?
+    .sync_all()?;
+    Ok(())
+}
+
+fn keep_with(
+    dir: &Path,
+    seal_key: &[u8; 32],
+    photo: &Attachment,
+    plaintext: &[u8],
+    write: impl FnOnce(&mut File, &[u8]) -> io::Result<()>,
+    publish: impl FnOnce(&Path, &Path) -> io::Result<()>,
+) -> io::Result<()> {
     let sealed = attachment::encrypt(&file_key(seal_key, &photo.blob_sha256), plaintext)
         .map_err(io::Error::other)?;
-    fs::create_dir_all(dir.join(FOLDER))?;
-    fs::write(path(dir, &photo.blob_sha256), sealed)
+    let folder = dir.join(FOLDER);
+    fs::create_dir_all(&folder)?;
+    let mut random = [0; 16];
+    getrandom::fill(&mut random).map_err(|_| io::Error::other("no OS randomness"))?;
+    let pending = folder.join(format!(".{}.pending", dyapp_identity::hex(&random)));
+    let path = path(dir, &photo.blob_sha256);
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&pending)?;
+    let published = (|| {
+        let written = write(&mut file, &sealed);
+        drop(file);
+        written?;
+        publish(&pending, &path)
+    })();
+    if published.is_err() {
+        let _ = fs::remove_file(pending);
+    }
+    published
 }
 
 /// The kept original, marked as just used for eviction. A missing file is `None`, and so is a torn
@@ -257,11 +307,12 @@ impl Store {
 
 #[cfg(test)]
 mod tests {
-    use super::{file_name, is_kept, keep, path, prune, prune_contacts, read};
+    use super::{file_name, is_kept, keep, keep_with, path, prune, prune_contacts, read, FOLDER};
     use crate::attachment::{seal, Attachment};
     use dyapp_identity::Identity;
     use std::collections::{HashMap, HashSet};
     use std::fs::{self, File};
+    use std::io::Write;
     use std::path::PathBuf;
     use std::time::{Duration, SystemTime};
 
@@ -300,6 +351,112 @@ mod tests {
         other.plaintext_sha256 = [0; 32];
         keep(&dir, &[1; 32], &photo, &bytes).unwrap();
         assert_eq!(read(&dir, &[1; 32], &other), None);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn write_failures_preserve_a_valid_original() {
+        let dir = folder();
+        let bytes = b"a complete original";
+        let photo = photo(bytes);
+        keep(&dir, &[1; 32], &photo, bytes).unwrap();
+        let path = path(&dir, &photo.blob_sha256);
+        let original = fs::read(&path).unwrap();
+
+        keep_with(
+            &dir,
+            &[1; 32],
+            &photo,
+            bytes,
+            |file, sealed| {
+                file.write_all(&sealed[..sealed.len() / 2])?;
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::WriteZero,
+                    "injected full disk",
+                ))
+            },
+            |_, _| panic!("a failed write must not be published"),
+        )
+        .unwrap_err();
+        assert_eq!(fs::read(&path).unwrap(), original);
+        assert_eq!(read(&dir, &[1; 32], &photo), Some(bytes.to_vec()));
+
+        keep_with(
+            &dir,
+            &[1; 32],
+            &photo,
+            bytes,
+            |file, sealed| {
+                file.write_all(sealed)?;
+                Err(std::io::Error::other("injected file sync failure"))
+            },
+            |_, _| panic!("a failed sync must not be published"),
+        )
+        .unwrap_err();
+        assert_eq!(fs::read(&path).unwrap(), original);
+        assert_eq!(read(&dir, &[1; 32], &photo), Some(bytes.to_vec()));
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn publication_failures_leave_a_complete_original() {
+        let dir = folder();
+        let bytes = b"a complete original";
+        let photo = photo(bytes);
+        keep(&dir, &[1; 32], &photo, bytes).unwrap();
+        let path = path(&dir, &photo.blob_sha256);
+        let original = fs::read(&path).unwrap();
+
+        keep_with(
+            &dir,
+            &[1; 32],
+            &photo,
+            bytes,
+            |file, sealed| {
+                file.write_all(sealed)?;
+                file.sync_all()
+            },
+            |_, _| Err(std::io::Error::other("injected rename failure")),
+        )
+        .unwrap_err();
+        assert_eq!(fs::read(&path).unwrap(), original);
+        assert_eq!(read(&dir, &[1; 32], &photo), Some(bytes.to_vec()));
+
+        keep_with(
+            &dir,
+            &[1; 32],
+            &photo,
+            bytes,
+            |file, sealed| {
+                file.write_all(sealed)?;
+                file.sync_all()
+            },
+            |pending, path| {
+                fs::rename(pending, path)?;
+                Err(std::io::Error::other("injected directory sync failure"))
+            },
+        )
+        .unwrap_err();
+        assert_eq!(fs::read(&path).unwrap(), original);
+        assert_eq!(read(&dir, &[1; 32], &photo), Some(bytes.to_vec()));
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn a_sweep_ignores_pending_contact_entries_then_removes_them() {
+        let dir = folder();
+        let bytes = b"a complete original";
+        let photo = photo(bytes);
+        keep(&dir, &[1; 32], &photo, bytes).unwrap();
+        let pending = dir.join(FOLDER).join(".interrupted.pending");
+        fs::write(&pending, b"partial temporary data").unwrap();
+        let known = HashSet::from([file_name(&photo.blob_sha256)]);
+        let contacts = HashMap::from([("alice".to_owned(), known.clone())]);
+        prune_contacts(&dir, &known, &contacts, u64::MAX).unwrap();
+        assert!(pending.is_file());
+        prune(&dir, &known, u64::MAX).unwrap();
+        assert!(!pending.exists());
+        assert_eq!(read(&dir, &[1; 32], &photo), Some(bytes.to_vec()));
         fs::remove_dir_all(dir).unwrap();
     }
 
