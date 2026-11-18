@@ -24,6 +24,18 @@ fn malformed_jpeg_does_not_panic_in_decoder() {
 }
 
 #[test]
+fn zero_component_progressive_jpeg_is_rejected_before_decoding() {
+    let bytes = include_bytes!(
+        "../../../../tests/fuzz/corpus/preview/oom-bbb3dd1fa081912ff61161850a90906b12d28f44"
+    );
+    assert_eq!(
+        frame_size(bytes).unwrap_err().to_string(),
+        "invalid SOF component count"
+    );
+    assert!(check_preview(bytes).is_err());
+}
+
+#[test]
 fn empty_mismatched_and_overflowing_dimensions_are_rejected() {
     for (pixels, width, height) in [
         (&[][..], 0, 0),

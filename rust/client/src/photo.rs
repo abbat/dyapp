@@ -178,6 +178,17 @@ pub fn frame_size(bytes: &[u8]) -> Result<(u32, u32), PhotoError> {
                 };
                 let height = u32::from(u16::from_be_bytes([height_hi, height_lo]));
                 let width = u32::from(u16::from_be_bytes([width_hi, width_lo]));
+                let components = bytes
+                    .get(at.saturating_add(9))
+                    .ok_or_else(|| failed("truncated SOF"))?;
+                let expected_len = usize::from(*components)
+                    .checked_mul(3)
+                    .and_then(|length| length.checked_add(8));
+                if *components == 0
+                    || expected_len != Some(usize::from(u16::from_be_bytes([len_hi, len_lo])))
+                {
+                    return Err(failed("invalid SOF component count"));
+                }
                 if size.replace((width, height)).is_some() {
                     return Err(failed("repeated SOF"));
                 }
