@@ -6,8 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
-import unittest
-from unittest import mock
+from unittest import TestCase, main, mock
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
@@ -29,7 +28,7 @@ def status(current: int, code: int, name: str = "example") -> bytes:
     ).encode()
 
 
-class AndroidInstrumentation(unittest.TestCase):
+class AndroidInstrumentation(TestCase):
     def test_healthy_sequence_can_outlive_the_initial_budget(self) -> None:
         clock = 0.0
         progress = MONITOR.Progress(10, now=lambda: clock)
@@ -327,4 +326,4 @@ class AndroidInstrumentation(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    main()
