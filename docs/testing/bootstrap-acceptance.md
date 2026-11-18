@@ -221,6 +221,7 @@ assertion changes.
 | Behaviour | Layer | Test | Status |
 |-----------|-------|------|--------|
 | Data survives reopen and restart | Unit, E2E | `storage.rs::data_survives_reopen`, `network-test.py::media_retention` | exists |
+| Media rename syncs the parent and new ancestors before metadata; sync/SQL failures leave no stored accounting, and reopen clears accounting for a missing file and requests reupload | Unit, fault injection | `media/tests.rs::directory_sync_covers_new_ancestors_before_metadata_commit`, `::directory_sync_failure_leaves_no_durable_metadata_and_retry_succeeds`, `::database_failure_after_sync_does_not_publish_blob_metadata`, `::reopen_clears_missing_blob_accounting_and_requests_reupload` | exists |
 | A restarted node keeps its peer ID | E2E | `network-test.py::profile_repair`, `::media_retention` | exists |
 | SIGTERM stops the node without a handler; SQLite WAL keeps committed data | — | — | accepted: [Decisions](#decisions) |
 | The package installs on Debian 12, runs as `dyappd` and removes cleanly | Package | `deb-test.sh` | exists, local only |

@@ -303,6 +303,118 @@ fn keeps_after_resumes_skips_unsigned_and_uses_an_index() {
     crate::storage::assert_indexed(&lock(&media.db).unwrap(), KEEPS_AFTER);
 }
 
+fn durability_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../build/media-durability")
+        .join(uuid::Uuid::new_v4().to_string())
+}
+
+#[test]
+fn directory_sync_covers_new_ancestors_before_metadata_commit() {
+    let media = MediaStore::open(&durability_dir()).unwrap();
+    let data = vec![7; 100];
+    let hash = dyapp_identity::sha256(&data).to_vec();
+    media
+        .keep("alice", 1, std::slice::from_ref(&hash), 10)
+        .unwrap();
+    let mut synced = Vec::new();
+    media
+        .put_with("alice", &data, 1000, |dir| {
+            synced.push(dir.to_path_buf());
+            sync_directory(dir)
+        })
+        .unwrap();
+    let path = media.path(&hash);
+    let parent = path.parent().unwrap();
+    assert_eq!(
+        synced,
+        vec![
+            parent.to_path_buf(),
+            parent.parent().unwrap().to_path_buf(),
+            media.dir.clone(),
+        ]
+    );
+    assert_eq!(media.usage().unwrap().0, 100);
+}
+
+#[test]
+fn directory_sync_failure_leaves_no_durable_metadata_and_retry_succeeds() {
+    let media = MediaStore::open(&durability_dir()).unwrap();
+    let data = vec![8; 100];
+    let hash = dyapp_identity::sha256(&data).to_vec();
+    media
+        .keep("alice", 1, std::slice::from_ref(&hash), 10)
+        .unwrap();
+    let result = media.put_with("alice", &data, 1000, |_| {
+        Err(storage_error("injected directory sync failure"))
+    });
+    assert!(result.is_err());
+    assert_eq!(media.get(&hash).unwrap(), Some(data.clone()));
+    assert_eq!(media.usage().unwrap().0, 0);
+    assert_eq!(media.put("alice", &data, 1000).unwrap(), Put::Stored);
+    assert_eq!(media.usage().unwrap().0, 100);
+}
+
+#[test]
+fn database_failure_after_sync_does_not_publish_blob_metadata() {
+    let dir = durability_dir();
+    let media = MediaStore::open(&dir).unwrap();
+    let data = vec![10; 100];
+    let hash = dyapp_identity::sha256(&data).to_vec();
+    media
+        .keep("alice", 1, std::slice::from_ref(&hash), 10)
+        .unwrap();
+    lock(&media.db)
+        .unwrap()
+        .execute_batch(
+            "CREATE TRIGGER `fail_blob_update` BEFORE UPDATE ON `blobs`
+             BEGIN SELECT RAISE(ABORT, 'injected blob update failure'); END;",
+        )
+        .unwrap();
+    assert!(media.put("alice", &data, 1000).is_err());
+    assert_eq!(media.get(&hash).unwrap(), Some(data));
+    assert_eq!(media.usage().unwrap().0, 0);
+    lock(&media.db)
+        .unwrap()
+        .execute_batch("DROP TRIGGER `fail_blob_update`")
+        .unwrap();
+    drop(media);
+
+    let media = MediaStore::open(&dir).unwrap();
+    assert_eq!(media.usage().unwrap().0, 0);
+    assert_eq!(
+        media
+            .keep("alice", 2, std::slice::from_ref(&hash), 20)
+            .unwrap(),
+        Some(vec![hash])
+    );
+}
+
+#[test]
+fn reopen_clears_missing_blob_accounting_and_requests_reupload() {
+    let dir = durability_dir();
+    let media = MediaStore::open(&dir).unwrap();
+    let data = vec![9; 100];
+    let hash = dyapp_identity::sha256(&data).to_vec();
+    media
+        .keep("alice", 1, std::slice::from_ref(&hash), 10)
+        .unwrap();
+    media.put("alice", &data, 1000).unwrap();
+    std::fs::remove_file(media.path(&hash)).unwrap();
+    drop(media);
+
+    let media = MediaStore::open(&dir).unwrap();
+    assert_eq!(media.get(&hash).unwrap(), None);
+    assert_eq!(media.usage().unwrap().0, 0);
+    assert_eq!(
+        media
+            .keep("alice", 2, std::slice::from_ref(&hash), 20)
+            .unwrap(),
+        Some(vec![hash.clone()])
+    );
+    assert_eq!(media.put("alice", &data, 1000).unwrap(), Put::Stored);
+}
+
 #[test]
 fn only_a_missing_file_reads_as_absent() {
     let dir = PathBuf::from(format!("/tmp/ai/test-media-{}", uuid::Uuid::new_v4()));

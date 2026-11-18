@@ -701,8 +701,11 @@ maximum, from a newer client, stored as NULL),
 - One SQLite file per data type ([ADR 0015](../decisions/0015-sqlite-node-storage.md)): `profiles.db`, `profiles-idx.db` (disposable, rebuilt),
   `messages.db` (messages and signals), `deny.db` for the operator's deny list. No transaction spans two stores.
 - Media blobs are files, never database rows: `<media dir>/aa/bb/<hash>`, written to a temporary
-  file, fsync'd and renamed; the name is the SHA-256 of the data. Implemented, without an fsync
-  of the directory ([Storage](#storage)).
+  file, fsync'd and renamed; the name is the SHA-256 of the data. After rename, the parent and any
+  newly created ancestors through the nearest existing directory are fsync'd before blob metadata
+  commits. On Unix a missing file found during reopen has its `size`/`cost` cleared so usage drops
+  and the next keep requests reupload; non-Unix media writes fail closed because directory sync is
+  not implemented ([Storage](#storage)).
 - No routine full `VACUUM`: stores use `auto_vacuum = INCREMENTAL` with `incremental_vacuum(N)`,
   a bounded WAL (`journal_size_limit`, regular checkpoints) and `PRAGMA optimize`, on one
   schedule for all stores with a page budget per run (implemented, [Storage](#storage)). There

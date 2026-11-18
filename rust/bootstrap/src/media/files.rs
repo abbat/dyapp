@@ -1,10 +1,79 @@
 //! Blob-file reads, assembled-cache retention and disk usage.
 
-use super::{hex, lock, remove_file, storage_error, write_aside, MediaStore};
+use super::{hex, lock, remove_file, storage_error, MediaStore};
 use crate::storage::free;
 use crate::Result;
 use rusqlite::params;
 use std::fs;
+use std::io::Write;
+use std::path::Path;
+
+fn existing_ancestor(mut path: &Path) -> Result<&Path> {
+    while !path.try_exists().map_err(storage_error)? {
+        path = path
+            .parent()
+            .ok_or_else(|| storage_error("media path has no existing ancestor"))?;
+    }
+    Ok(path)
+}
+
+pub(super) fn sync_directory(path: &Path) -> Result<()> {
+    #[cfg(unix)]
+    {
+        fs::File::open(path)
+            .and_then(|file| file.sync_all())
+            .map_err(storage_error)?;
+        Ok(())
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        Err(storage_error("media directory sync is unsupported"))
+    }
+}
+
+fn sync_created_directories(
+    dir: &Path,
+    existing: &Path,
+    mut sync: impl FnMut(&Path) -> Result<()>,
+) -> Result<()> {
+    let mut current = dir;
+    loop {
+        sync(current)?;
+        if current == existing {
+            return Ok(());
+        }
+        current = current
+            .parent()
+            .ok_or_else(|| storage_error("media directory chain escaped its ancestor"))?;
+    }
+}
+
+pub(super) fn write_aside(path: &Path, data: &[u8]) -> Result<()> {
+    write_aside_with(path, data, sync_directory)
+}
+
+pub(super) fn write_aside_with(
+    path: &Path,
+    data: &[u8],
+    sync: impl FnMut(&Path) -> Result<()>,
+) -> Result<()> {
+    let dir = path
+        .parent()
+        .ok_or_else(|| storage_error("media path has no parent"))?;
+    let existing = existing_ancestor(dir)?;
+    fs::create_dir_all(dir).map_err(storage_error)?;
+    let temp = dir.join(format!(".{}", uuid::Uuid::new_v4()));
+    let mut file = fs::File::create(&temp).map_err(storage_error)?;
+    file.write_all(data)
+        .and_then(|()| file.sync_all())
+        .and_then(|()| fs::rename(&temp, path))
+        .map_err(|error| {
+            let _ = fs::remove_file(&temp);
+            storage_error(error)
+        })?;
+    sync_created_directories(dir, existing, sync)
+}
 
 pub(super) fn sql_size(value: impl TryInto<i64>) -> Result<i64> {
     value
@@ -83,6 +152,42 @@ impl MediaStore {
                 .map_err(storage_error)?;
         }
         Ok(hashes.len())
+    }
+
+    pub(super) fn reconcile_missing(&self) -> Result<()> {
+        let mut db = lock(&self.db)?;
+        let hashes = {
+            let mut query = db
+                .prepare("SELECT DISTINCT `hash` FROM `blobs` WHERE `size` IS NOT NULL")
+                .map_err(storage_error)?;
+            let rows = query
+                .query_map([], |row| row.get::<_, Vec<u8>>(0))
+                .map_err(storage_error)?
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(storage_error)?;
+            rows
+        };
+        let mut missing = Vec::new();
+        for hash in hashes {
+            match fs::metadata(self.path(&hash)) {
+                Ok(metadata) if metadata.is_file() => {}
+                Ok(_) => return Err(storage_error("stored media path is not a file")),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => missing.push(hash),
+                Err(error) => return Err(storage_error(error)),
+            }
+        }
+        if missing.is_empty() {
+            return Ok(());
+        }
+        let tx = db.transaction().map_err(storage_error)?;
+        for hash in missing {
+            tx.execute(
+                "UPDATE `blobs` SET `size` = NULL, `cost` = NULL WHERE `hash` = ?",
+                [hash],
+            )
+            .map_err(storage_error)?;
+        }
+        tx.commit().map_err(storage_error)
     }
 
     /// The whole blob file, if stored.

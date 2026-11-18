@@ -15,7 +15,7 @@ mod files;
 mod history;
 mod keeps;
 pub use catchup::KeepHistoryProgress;
-use files::sql_size;
+use files::{sql_size, sync_directory, write_aside_with};
 pub use keeps::{KeepSnapshot, KeepUpdate};
 
 use crate::storage::{lock, open, storage_error};
@@ -25,7 +25,6 @@ use dyapp_p2p_net::proto::{self, media_replica_put::Authorization};
 use prost::Message;
 use rusqlite::{params, Connection, OptionalExtension};
 use std::fs;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
@@ -168,23 +167,6 @@ fn orphans(tx: &Connection, dropped: Vec<Vec<u8>>) -> Result<Vec<Vec<u8>>> {
 const KEEPS_AFTER: &str = "SELECT `owner`, `record` FROM `owners` \
      WHERE `owner` > ? AND `record` IS NOT NULL ORDER BY `owner` LIMIT ?";
 
-/// Writes `data` aside and renames it to `path`, so a reader never sees a partial file.
-fn write_aside(path: &Path, data: &[u8]) -> Result<()> {
-    let dir = path
-        .parent()
-        .ok_or_else(|| storage_error("media path has no parent"))?;
-    fs::create_dir_all(dir).map_err(storage_error)?;
-    let temp = dir.join(format!(".{}", uuid::Uuid::new_v4()));
-    let mut file = fs::File::create(&temp).map_err(storage_error)?;
-    file.write_all(data)
-        .and_then(|()| file.sync_all())
-        .and_then(|()| fs::rename(&temp, path))
-        .map_err(|e| {
-            let _ = fs::remove_file(&temp);
-            storage_error(e)
-        })
-}
-
 /// Removes `path`; true if it was there.
 fn remove_file(path: &Path) -> Result<bool> {
     match fs::remove_file(path) {
@@ -251,12 +233,14 @@ impl MediaStore {
                  WHERE `size` IS NULL;",
             )
             .map_err(storage_error)?;
-        Ok(Self {
+        let store = Self {
             dir: data,
             cache: dir.join("cache"),
             db,
             removed: Mutex::default(),
-        })
+        };
+        store.reconcile_missing()?;
+        Ok(store)
     }
 
     pub(crate) fn path(&self, hash: &[u8]) -> PathBuf {
@@ -740,6 +724,16 @@ impl MediaStore {
     /// Returns an error if the database lock, quota queries, blob read/write or storage transaction
     /// fails. An unlisted blob or exceeded quota is reported through `Put`.
     pub fn put(&self, owner: &str, data: &[u8], quota: u64) -> Result<Put> {
+        self.put_with(owner, data, quota, sync_directory)
+    }
+
+    fn put_with(
+        &self,
+        owner: &str,
+        data: &[u8],
+        quota: u64,
+        sync: impl FnMut(&Path) -> Result<()>,
+    ) -> Result<Put> {
         let hash = dyapp_identity::sha256(data);
         let mut db = lock(&self.db)?;
         let Some((stored, charge)) = whole_charge(&db, owner, &hash, data.len())? else {
@@ -753,7 +747,7 @@ impl MediaStore {
             return Ok(Put::Stored);
         }
         if held.as_deref() != Some(data) {
-            write_aside(&self.path(&hash), data)?;
+            write_aside_with(&self.path(&hash), data, sync)?;
         }
         let tx = db.transaction().map_err(storage_error)?;
         tx.execute(
