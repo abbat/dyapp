@@ -101,11 +101,15 @@ impl Node {
         };
         let _ = tokio::time::timeout(TIMEOUT, collect).await;
         for candidate in &mut found {
-            if candidate.peer_id == self.peer && candidate.addrs.is_empty() {
-                candidate.addrs.push(self.address.clone());
-            }
+            restore_entry_address(candidate, self.peer, &self.address);
         }
         found
+    }
+}
+
+fn restore_entry_address(candidate: &mut kad::PeerInfo, peer: PeerId, address: &Multiaddr) {
+    if candidate.peer_id == peer && candidate.addrs.is_empty() {
+        candidate.addrs.push(address.clone());
     }
 }
 

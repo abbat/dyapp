@@ -19,6 +19,50 @@ async fn server() -> (libp2p::Swarm<dyapp_p2p_net::Behaviour>, Multiaddr) {
 }
 
 #[test]
+fn entry_address_is_restored_only_for_an_empty_self_entry() {
+    let peer = PeerId::random();
+    let address: Multiaddr = "/ip4/127.0.0.1/tcp/4001".parse().expect("address");
+    let mut entry = kad::PeerInfo {
+        peer_id: peer,
+        addrs: Vec::new(),
+    };
+    restore_entry_address(&mut entry, peer, &address);
+    assert_eq!(entry.addrs, vec![address.clone()]);
+
+    let mut other = kad::PeerInfo {
+        peer_id: PeerId::random(),
+        addrs: Vec::new(),
+    };
+    restore_entry_address(&mut other, peer, &address);
+    assert_eq!(other.addrs, Vec::<Multiaddr>::new());
+
+    let existing: Multiaddr = "/ip4/127.0.0.1/tcp/4002".parse().expect("address");
+    entry.addrs = vec![existing.clone()];
+    restore_entry_address(&mut entry, peer, &address);
+    assert_eq!(entry.addrs, vec![existing]);
+}
+
+#[tokio::test]
+async fn entry_connection_is_established_before_the_test_deadline() {
+    let (mut swarm, address) = server().await;
+    let peer = *swarm.local_peer_id();
+    let task = tokio::spawn(async move {
+        loop {
+            swarm.select_next_some().await;
+        }
+    });
+    let node = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        Node::connect(address, Arc::new(Protocols::public())),
+    )
+    .await
+    .expect("connection deadline")
+    .expect("entry connection");
+    assert_eq!(node.peer(), peer);
+    task.abort();
+}
+
+#[test]
 fn empty_routing_has_explicit_missing_coverage() {
     let mut replicas = ReplicaSet {
         nodes: Vec::new(),
