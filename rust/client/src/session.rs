@@ -959,6 +959,9 @@ pub use submission::Submission;
 mod interaction_submission;
 pub use interaction_submission::InteractionSubmission;
 #[cfg(test)]
+#[path = "session/cross_check_tests.rs"]
+mod cross_check_tests;
+#[cfg(test)]
 #[path = "session/public_operations_tests.rs"]
 mod public_operations_tests;
 #[cfg(test)]

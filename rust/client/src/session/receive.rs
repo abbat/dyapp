@@ -35,7 +35,7 @@ impl Session {
                 Ok((node.peer(), node.fetch(device_key).await?))
             })
             .await?;
-        self.process_page(nodes, device_key, profiles, seal_key, at, envelopes)
+        self.process_page(nodes, device_key, profiles, seal_key, Some(at), envelopes)
             .await
     }
 
@@ -77,7 +77,14 @@ impl Session {
                 }
             };
             let events = self
-                .process_page(nodes, device_key, profiles, seal_key, at, page.envelopes)
+                .process_page(
+                    nodes,
+                    device_key,
+                    profiles,
+                    seal_key,
+                    Some(at),
+                    page.envelopes,
+                )
                 .await?;
             if page.more {
                 let next = page
@@ -91,6 +98,48 @@ impl Session {
             return Ok((events, page.more));
         }
         Err(last.into())
+    }
+
+    /// Fetch one bounded page from each of two distinct holders, commit their union through the
+    /// normal per-envelope transactions, and acknowledge it at both. A complete `first` page that
+    /// omits an ID returned by `second` counts as withholding; a partial page does not. Neither
+    /// holder's continuation cursor is changed by this head check.
+    ///
+    /// # Errors
+    /// Returns fetch, processing or ACK errors. Committed envelopes and receipts remain durable;
+    /// ACKs stay pending until both holders have answered.
+    pub async fn cross_check(
+        &mut self,
+        first: &mut Node,
+        second: &mut Node,
+        device_key: &Identity,
+        profiles: &[VerifiedProfile],
+        seal_key: &[u8; 32],
+    ) -> Result<Vec<Event>, Error> {
+        if first.peer() == second.peer() {
+            return Err(crate::Error::Input("cross-check needs distinct holders").into());
+        }
+        let first_page = first.fetch_page(device_key, None, 20).await?;
+        let second_page = second.fetch_page(device_key, None, 20).await?;
+        let mut envelopes = first_page.envelopes;
+        let held = envelopes.len();
+        for envelope in second_page.envelopes {
+            if !envelopes.iter().any(|known| known.id == envelope.id) {
+                envelopes.push(envelope);
+            }
+        }
+        if envelopes.len() > held && !first_page.more {
+            self.scores.fault(first.peer(), crate::now());
+        }
+        envelopes.sort_by_key(|envelope| {
+            dyapp_messaging::mls::epoch_of(&envelope.ciphertext)
+                .ok()
+                .flatten()
+        });
+        let events = self
+            .process_union(first, second, device_key, profiles, seal_key, envelopes)
+            .await?;
+        Ok(events)
     }
 
     /// Whether [`Self::receive_page`] is due again after a page that reported `more`. Once a
@@ -127,7 +176,7 @@ impl Session {
         device_key: &Identity,
         profiles: &[VerifiedProfile],
         seal_key: &[u8; 32],
-        at: libp2p::PeerId,
+        at: Option<libp2p::PeerId>,
         envelopes: Vec<crate::Envelope>,
     ) -> Result<Vec<Event>, Error> {
         let mailbox = crate::mailbox(&device_key.public_key());
@@ -165,10 +214,43 @@ impl Session {
                 }
             }
         }
-        self.acknowledge_page(nodes, device_key, at, mailbox, seen)
-            .await?;
+        if let Some(at) = at {
+            self.acknowledge_page(nodes, device_key, at, mailbox, seen)
+                .await?;
+        }
         self.send_receipts(nodes, mailbox, receipts, seal_key)
             .await?;
+        Ok(events)
+    }
+
+    async fn process_union(
+        &mut self,
+        first: &mut Node,
+        second: &mut Node,
+        device_key: &Identity,
+        profiles: &[VerifiedProfile],
+        seal_key: &[u8; 32],
+        envelopes: Vec<crate::Envelope>,
+    ) -> Result<Vec<Event>, Error> {
+        let mailbox = crate::mailbox(&device_key.public_key());
+        let events = self
+            .process_page(
+                std::slice::from_mut(first),
+                device_key,
+                profiles,
+                seal_key,
+                None,
+                envelopes,
+            )
+            .await?;
+        let acks = self.acks(mailbox, Vec::new())?;
+        for node in [first, second] {
+            node.ack(device_key, acks.iter().map(|key| key.id.to_vec()).collect())
+                .await?;
+        }
+        for key in acks {
+            self.store.mark_acked(&key)?;
+        }
         Ok(events)
     }
 
