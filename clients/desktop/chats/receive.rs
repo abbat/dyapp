@@ -65,54 +65,63 @@ pub async fn receive(
         cached,
         own,
     };
-    let mut changed = pass
-        .pages(
-            &mut session,
-            replicas.nodes_mut(),
+    pass.run(
+        &mut session,
+        &mut node,
+        &mut replicas,
+        device_key,
+        identity,
+        &seal_key,
+        stop,
+    )
+    .await
+}
+
+async fn cross_check(
+    session: &mut Session,
+    replicas: &mut dyapp_client::ReplicaSet,
+    device_key: &Identity,
+    profiles: &[dyapp_profile::VerifiedProfile],
+    seal_key: &[u8; 32],
+) -> Result<usize, String> {
+    let checked = session
+        .cross_check_due(
+            replicas,
             device_key,
-            &seal_key,
-            &stop,
+            profiles,
+            seal_key,
+            dyapp_client::now(),
         )
-        .await?;
-    if !stop() {
-        let mut profiles = pass.cached.all().to_vec();
-        profiles.extend(pass.own.clone());
-        let checked = session
-            .cross_check_due(
-                &mut replicas,
-                device_key,
-                &profiles,
-                &seal_key,
-                dyapp_client::now(),
-            )
-            .await
-            .map_err(|e| e.to_string())?;
-        changed += checked
-            .iter()
-            .filter(|event| !matches!(event, Event::Gap(_) | Event::Refused(_)))
-            .count();
-        changed += exchange_packs(
-            &mut session,
-            replicas.nodes_mut(),
-            identity,
-            &seal_key,
-            stop,
-        )
-        .await?;
-    }
-    refill_if_due(&mut session, replicas.nodes_mut(), &seal_key).await?;
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(checked
+        .iter()
+        .filter(|event| !matches!(event, Event::Gap(_) | Event::Refused(_)))
+        .count())
+}
+
+async fn maintenance(
+    pass: &mut MailPass<'_>,
+    session: &mut Session,
+    node: &mut dyapp_client::Node,
+    replicas: &mut dyapp_client::ReplicaSet,
+    device_key: &Identity,
+    identity: &Identity,
+    seal_key: &[u8; 32],
+) -> Result<(), String> {
+    refill_if_due(session, replicas.nodes_mut(), seal_key).await?;
     // Rotates or repeats the package once the first profile publish made one; a failure stays due.
     if matches!(session.store().last_resort(), Ok(Some(_))) {
         let _ = session
-            .keep_last_resort(&mut node, device_key, dyapp_client::now(), &seal_key)
+            .keep_last_resort(node, device_key, dyapp_client::now(), seal_key)
             .await;
     }
     // Best effort like the package above; it tries again the next day.
     let now = dyapp_client::now();
-    let _ = dyapp_client::publish::refresh_photos(session.store(), &mut node, identity, now).await;
-    pass.refresh_own(&mut session, &mut node, identity, &seal_key, now)
+    let _ = dyapp_client::publish::refresh_photos(session.store(), node, identity, now).await;
+    pass.refresh_own(session, node, identity, seal_key, now)
         .await;
-    Ok(changed)
+    Ok(())
 }
 
 /// Answers authorized sticker pack requests, then saves downloaded packs; returns completed saves.
@@ -155,6 +164,48 @@ struct MailPass<'a> {
 }
 
 impl MailPass<'_> {
+    async fn run(
+        &mut self,
+        session: &mut Session,
+        node: &mut dyapp_client::Node,
+        replicas: &mut dyapp_client::ReplicaSet,
+        device_key: &Identity,
+        identity: &Identity,
+        seal_key: &[u8; 32],
+        stop: impl Fn() -> bool,
+    ) -> Result<usize, String> {
+        let changed = self
+            .apply(session, replicas, device_key, identity, seal_key, &stop)
+            .await?;
+        maintenance(
+            self, session, node, replicas, device_key, identity, seal_key,
+        )
+        .await?;
+        Ok(changed)
+    }
+
+    async fn apply(
+        &mut self,
+        session: &mut Session,
+        replicas: &mut dyapp_client::ReplicaSet,
+        device_key: &Identity,
+        identity: &Identity,
+        seal_key: &[u8; 32],
+        stop: &impl Fn() -> bool,
+    ) -> Result<usize, String> {
+        let mut changed = self
+            .pages(session, replicas.nodes_mut(), device_key, seal_key, stop)
+            .await?;
+        if !stop() {
+            let mut profiles = self.cached.all().to_vec();
+            profiles.extend(self.own.clone());
+            changed += cross_check(session, replicas, device_key, &profiles, seal_key).await?;
+            changed +=
+                exchange_packs(session, replicas.nodes_mut(), identity, seal_key, stop).await?;
+        }
+        Ok(changed)
+    }
+
     async fn fetch_owner(
         &mut self,
         peer: &str,
