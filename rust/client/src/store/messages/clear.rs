@@ -63,13 +63,15 @@ pub(in crate::store) fn clear_pair_tx(tx: &Transaction<'_>, peer_id: &str) -> Re
 
 fn clear_group_tx(tx: &Transaction<'_>, group: &[u8]) -> Result<usize, Error> {
     tx.execute(
-        "INSERT OR IGNORE INTO `chat_cleared` (`group_id`, `author`, `message_id`)
-         SELECT `group_id`, `author`, `message_id` FROM `chat_messages` WHERE `group_id` = ?1
-         UNION SELECT `group_id`, `author`, `message_id` FROM `chat_attachments`
+        "INSERT INTO `chat_cleared` (`group_id`, `author`, `message_id`, `cleared_at_ms`)
+         SELECT `group_id`, `author`, `message_id`, ?2 FROM `chat_messages` WHERE `group_id` = ?1
+         UNION SELECT `group_id`, `author`, `message_id`, ?2 FROM `chat_attachments`
          WHERE `group_id` = ?1
-         UNION SELECT `group_id`, `author`, `target_id` FROM `chat_operations`
-         WHERE `group_id` = ?1 AND `pending` = 1",
-        [group],
+         UNION SELECT `group_id`, `author`, `target_id`, ?2 FROM `chat_operations`
+         WHERE `group_id` = ?1 AND `pending` = 1
+         ON CONFLICT (`group_id`, `author`, `message_id`) DO UPDATE SET
+         `cleared_at_ms` = excluded.`cleared_at_ms`",
+        params![group, super::quota::now_ms()?],
     )?;
     let texts = tx.execute("DELETE FROM `chat_messages` WHERE `group_id` = ?1", [group])?;
     let attachments = tx.execute(

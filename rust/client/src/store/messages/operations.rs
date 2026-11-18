@@ -169,12 +169,14 @@ fn apply_pending(
     if pending_count > MAX_PENDING_OPERATIONS {
         return Err(Error::InboxConflict);
     }
+    let mut visible = true;
     if state.row.is_none() && operation.replacement.is_none() {
         tx.execute(
             "INSERT INTO `chat_messages` (`group_id`, `author`, `message_id`, `text`, `original_digest`, `edited`, `deleted`, `last_hlc`, `last_device`, `last_operation`)
              VALUES (?1, ?2, ?3, NULL, NULL, 0, 1, ?4, ?5, ?6)",
             params![&key.group, &key.author, key.id.as_slice(), hlc, device, operation.id.as_slice()],
         )?;
+        visible = super::quota::enforce(tx, key)?;
     }
     if operation.replacement.is_none() || state.tombstone {
         // A deletion makes all earlier pending replacement text unnecessary.
@@ -184,7 +186,7 @@ fn apply_pending(
             params![&key.group, &key.author, key.id.as_slice()],
         )?;
     }
-    Ok(true)
+    Ok(visible)
 }
 
 fn apply_resolved(

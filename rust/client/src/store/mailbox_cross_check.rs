@@ -21,7 +21,11 @@ impl Store {
             )
             .optional()?;
         let Some((1, value)) = row else {
-            return Ok(row.is_none());
+            return if row.is_none() {
+                Ok(true)
+            } else {
+                Err(Error::InvalidSetting)
+            };
         };
         let bytes: [u8; 8] = value
             .as_slice()

@@ -562,7 +562,7 @@ CREATE TABLE `inbox` (
     `envelope_id` BLOB NOT NULL CHECK (length(`envelope_id`) = 16),
     `kind` INTEGER NOT NULL,
     `payload` BLOB,
-    `ack_pending` INTEGER NOT NULL CHECK (`ack_pending` IN (0, 1)),
+    `ack_pending` INTEGER NOT NULL CHECK (`ack_pending` IN (0, 1)), `received_at_ms` INTEGER NOT NULL CHECK (`received_at_ms` >= 0),
     PRIMARY KEY (`mailbox`, `envelope_id`)
 ) STRICT;
 CREATE TABLE `outbox` (

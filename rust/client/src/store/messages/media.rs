@@ -98,5 +98,5 @@ pub(super) fn record(
             media.kind
         ],
     )?;
-    Ok(true)
+    super::quota::enforce(tx, &key)
 }

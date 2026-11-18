@@ -61,14 +61,16 @@ impl Store {
             return Err(Error::GroupConflict);
         }
         let tx = self.db.transaction()?;
+        super::messages::quota::purge_replay(&tx, super::messages::quota::now_ms()?)?;
         let inserted = tx.execute(
-            "INSERT INTO `inbox` (`mailbox`, `envelope_id`, `kind`, `payload`, `ack_pending`)
-             VALUES (?1, ?2, ?3, ?4, 1) ON CONFLICT (`mailbox`, `envelope_id`) DO NOTHING",
+            "INSERT INTO `inbox` (`mailbox`, `envelope_id`, `kind`, `payload`, `ack_pending`, `received_at_ms`)
+             VALUES (?1, ?2, ?3, ?4, 1, ?5) ON CONFLICT (`mailbox`, `envelope_id`) DO NOTHING",
             params![
                 key.mailbox.as_slice(),
                 key.id.as_slice(),
                 kind as i64,
-                payload
+                payload,
+                super::messages::quota::now_ms()?
             ],
         )?;
         if inserted == 0 {

@@ -18,6 +18,7 @@ pub(super) use clear::clear_pair_tx;
 mod inbound_tests;
 mod media;
 mod operations;
+pub(in crate::store) mod quota;
 mod sticker_operations;
 mod stickers;
 pub use stickers::ChatSticker;
@@ -143,6 +144,7 @@ CREATE TABLE `chat_cleared` (
     `group_id` BLOB NOT NULL,
     `author` TEXT NOT NULL,
     `message_id` BLOB NOT NULL CHECK (length(`message_id`) = 16),
+    `cleared_at_ms` INTEGER NOT NULL CHECK (`cleared_at_ms` >= 0),
     PRIMARY KEY (`group_id`, `author`, `message_id`)
 ) STRICT;
 ";
@@ -940,7 +942,7 @@ impl Store {
                     params![&key.group, &key.author, key.id.as_slice(), text, digest.as_slice(), original_hlc, i64::from(unread), i64::from(forwarded)],
                 )?;
                 operations::resolve_pending(tx, key, false)?;
-                Ok(true)
+                quota::enforce(tx, key)
             }
         }
     }

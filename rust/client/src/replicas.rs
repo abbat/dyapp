@@ -70,10 +70,9 @@ impl Node {
         };
         let mut connected = HashMap::<PeerId, usize>::new();
         for (index, key) in keys.iter().enumerate() {
-            for candidate in self.closest(key).await {
-                if add_holder(&mut result, &mut connected, index, candidate, &protocols).await {
-                    break;
-                }
+            let candidates = self.closest(key).await;
+            if !add_new_holder(&mut result, &mut connected, index, &candidates, &protocols).await {
+                reuse_holder(&mut result, &connected, index, &candidates);
             }
         }
         result
@@ -119,6 +118,38 @@ fn closest_event(
         return None;
     };
     (id == query).then_some((result, step.last))
+}
+
+async fn add_new_holder(
+    result: &mut ReplicaSet,
+    connected: &mut HashMap<PeerId, usize>,
+    index: usize,
+    candidates: &[kad::PeerInfo],
+    protocols: &Arc<Protocols>,
+) -> bool {
+    for candidate in candidates {
+        if connected.contains_key(&candidate.peer_id) {
+            continue;
+        }
+        if add_holder(result, connected, index, candidate.clone(), protocols).await {
+            return true;
+        }
+    }
+    false
+}
+
+fn reuse_holder(
+    result: &mut ReplicaSet,
+    connected: &HashMap<PeerId, usize>,
+    index: usize,
+    candidates: &[kad::PeerInfo],
+) {
+    let holder = candidates
+        .iter()
+        .find_map(|candidate| connected.get(&candidate.peer_id));
+    if let Some(holder) = holder {
+        result.holders[index] = Some(*holder);
+    }
 }
 
 async fn add_holder(

@@ -8,8 +8,7 @@ use super::{Error, Store};
 use crate::attachment::{self, Attachment};
 use crate::chat::Body;
 use dyapp_identity::sha256;
-use std::cmp::Reverse;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
 use std::io;
 use std::path::{Path, PathBuf};
@@ -18,6 +17,7 @@ use std::time::SystemTime;
 const FOLDER: &str = "originals";
 const SETTING: &str = "kept_originals";
 const MIB: u64 = 1024 * 1024;
+const CONTACT_LIMIT: u64 = 64 * MIB;
 const KEY_LABEL: &[u8] = b"dyapp-kept-original-v1";
 
 mod settings;
@@ -103,7 +103,7 @@ fn prune(dir: &Path, known: &HashSet<String>, limit: u64) -> io::Result<()> {
             fs::remove_file(entry.path())?;
         }
     }
-    held.sort_by_key(|file| Reverse(file.0));
+    held.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.2.cmp(&b.2)));
     let mut total = 0u64;
     for (_, size, path) in held {
         total = total.saturating_add(size);
@@ -114,7 +114,80 @@ fn prune(dir: &Path, known: &HashSet<String>, limit: u64) -> io::Result<()> {
     Ok(())
 }
 
+fn attachment_blob(kind: i64, bytes: &[u8]) -> Result<Option<[u8; 32]>, Error> {
+    match kind {
+        1 => {
+            let body = Body::decode(bytes).map_err(|_| Error::InboxConflict)?;
+            let message = body.attachment_message().ok_or(Error::InboxConflict)?;
+            Ok(Some(message.attachment.blob_sha256))
+        }
+        2 => Ok(crate::chat::sticker::Sticker::decode(bytes)
+            .map_err(|_| Error::InboxConflict)?
+            .download()
+            .map(|attachment| attachment.blob_sha256)),
+        _ => Err(Error::InboxConflict),
+    }
+}
+
+fn prune_contacts(
+    dir: &Path,
+    known: &HashSet<String>,
+    contacts: &HashMap<String, HashSet<String>>,
+    limit: u64,
+) -> io::Result<()> {
+    let entries = match fs::read_dir(dir.join(FOLDER)) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error),
+    };
+    let mut held = Vec::new();
+    let mut totals = HashMap::<String, u64>::new();
+    for entry in entries {
+        let entry = entry?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if !known.contains(&name) {
+            continue;
+        }
+        let meta = entry.metadata()?;
+        for (peer, hashes) in contacts {
+            if hashes.contains(&name) {
+                let total = totals.entry(peer.clone()).or_default();
+                *total = total.saturating_add(meta.len());
+            }
+        }
+        held.push((meta.modified()?, meta.len(), entry.path(), name));
+    }
+    let over: HashSet<String> = totals
+        .into_iter()
+        .filter(|(_, total)| *total > limit)
+        .map(|(peer, _)| peer)
+        .collect();
+    let mut ordered: Vec<_> = over.iter().cloned().collect();
+    ordered.sort();
+    held.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.3.cmp(&b.3)));
+    let mut removed = HashSet::new();
+    for peer in ordered {
+        let mut total = 0u64;
+        for (_, size, path, name) in &held {
+            if removed.contains(name) || !contacts[&peer].contains(name) {
+                continue;
+            }
+            total = total.saturating_add(*size);
+            let shared_with_safe = contacts
+                .iter()
+                .any(|(other, hashes)| !over.contains(other) && hashes.contains(name));
+            if total > limit && !shared_with_safe {
+                fs::remove_file(path)?;
+                removed.insert(name.clone());
+                total = total.saturating_sub(*size);
+            }
+        }
+    }
+    Ok(())
+}
+
 impl Store {
+    #[cfg(test)]
     pub(crate) fn attachment_blobs(&self) -> Result<HashSet<String>, Error> {
         let mut query = self
             .db
@@ -125,23 +198,34 @@ impl Store {
         let mut blobs = HashSet::new();
         for row in rows {
             let (kind, bytes) = row?;
-            let hash = match kind {
-                1 => {
-                    let body = Body::decode(&bytes).map_err(|_| Error::InboxConflict)?;
-                    let message = body.attachment_message().ok_or(Error::InboxConflict)?;
-                    Some(message.attachment.blob_sha256)
-                }
-                2 => crate::chat::sticker::Sticker::decode(&bytes)
-                    .map_err(|_| Error::InboxConflict)?
-                    .download()
-                    .map(|attachment| attachment.blob_sha256),
-                _ => return Err(Error::InboxConflict),
-            };
-            if let Some(hash) = hash {
+            if let Some(hash) = attachment_blob(kind, &bytes)? {
                 blobs.insert(file_name(&hash));
             }
         }
         Ok(blobs)
+    }
+
+    fn attachment_contacts(&self) -> Result<HashMap<String, HashSet<String>>, Error> {
+        let mut query = self.db.prepare(
+            "SELECT `conversation_groups`.`peer_id`, `media_kind`, `descriptor`
+             FROM `chat_attachments` JOIN `conversation_groups` ON
+             `conversation_groups`.`group_id` = `chat_attachments`.`group_id`",
+        )?;
+        let rows = query.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, Vec<u8>>(2)?,
+            ))
+        })?;
+        let mut contacts = HashMap::<String, HashSet<String>>::new();
+        for row in rows {
+            let (peer, kind, bytes) = row?;
+            if let Some(hash) = attachment_blob(kind, &bytes)? {
+                contacts.entry(peer).or_default().insert(file_name(&hash));
+            }
+        }
+        Ok(contacts)
     }
 
     /// Erases kept originals of attachments gone from every chat and what the limit no longer
@@ -155,7 +239,10 @@ impl Store {
     /// Earlier file removals remain applied when a later operation fails.
     pub fn sweep_originals(&self, dir: &Path) -> io::Result<()> {
         let config = self.media_cache_config().map_err(io::Error::other)?;
-        let known = self.attachment_blobs().map_err(io::Error::other)?;
+        let contacts = self.attachment_contacts().map_err(io::Error::other)?;
+        let known: HashSet<String> = contacts.values().flatten().cloned().collect();
+        let contact_limit = if config.enabled { CONTACT_LIMIT } else { 0 };
+        prune_contacts(dir, &known, &contacts, contact_limit)?;
         prune(
             dir,
             &known,
@@ -170,10 +257,10 @@ impl Store {
 
 #[cfg(test)]
 mod tests {
-    use super::{file_name, is_kept, keep, path, prune, read};
+    use super::{file_name, is_kept, keep, path, prune, prune_contacts, read};
     use crate::attachment::{seal, Attachment};
     use dyapp_identity::Identity;
-    use std::collections::HashSet;
+    use std::collections::{HashMap, HashSet};
     use std::fs::{self, File};
     use std::path::PathBuf;
     use std::time::{Duration, SystemTime};
@@ -222,7 +309,7 @@ mod tests {
         let bytes = [7; 1024];
         let photos = [photo(&bytes), photo(&bytes), photo(&bytes), photo(&bytes)];
         let now = SystemTime::now();
-        for (age, photo) in (1..).zip(&photos) {
+        for (age, photo) in (1u64..).zip(&photos) {
             keep(&dir, &[1; 32], photo, &bytes).unwrap();
             File::options()
                 .write(true)
@@ -248,5 +335,94 @@ mod tests {
         assert!(!photos.iter().any(|p| is_kept(&dir, &p.blob_sha256)));
         fs::remove_dir_all(&dir).unwrap();
         prune(&dir, &known, 0).unwrap();
+    }
+
+    #[test]
+    fn contact_limits_are_exact_oldest_first_and_isolated() {
+        let dir = folder();
+        let photos = [photo(b"first"), photo(b"second"), photo(b"third")];
+        let now = SystemTime::now();
+        for (age, photo) in (1u64..).zip(&photos) {
+            keep(&dir, &[1; 32], photo, &[u8::try_from(age).unwrap()]).unwrap();
+            File::options()
+                .write(true)
+                .open(path(&dir, &photo.blob_sha256))
+                .unwrap()
+                .set_modified(now - Duration::from_secs(age * 60))
+                .unwrap();
+        }
+        let names: Vec<_> = photos.iter().map(|p| file_name(&p.blob_sha256)).collect();
+        let known = names.iter().cloned().collect();
+        let mut contacts = HashMap::new();
+        contacts.insert("a".into(), names[..2].iter().cloned().collect());
+        contacts.insert("b".into(), HashSet::from([names[2].clone()]));
+        let size = fs::metadata(path(&dir, &photos[0].blob_sha256))
+            .unwrap()
+            .len();
+        prune_contacts(&dir, &known, &contacts, size * 2).unwrap();
+        assert!(photos.iter().all(|p| is_kept(&dir, &p.blob_sha256)));
+
+        prune_contacts(&dir, &known, &contacts, size).unwrap();
+        assert!(is_kept(&dir, &photos[0].blob_sha256));
+        assert!(!is_kept(&dir, &photos[1].blob_sha256));
+        assert!(is_kept(&dir, &photos[2].blob_sha256));
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn a_shared_blob_is_pinned_for_an_under_limit_contact() {
+        let dir = folder();
+        let photos = [photo(b"shared"), photo(b"private")];
+        let now = SystemTime::now();
+        for (age, photo) in (2u64..).zip(&photos) {
+            keep(&dir, &[1; 32], photo, &[u8::try_from(age).unwrap()]).unwrap();
+            File::options()
+                .write(true)
+                .open(path(&dir, &photo.blob_sha256))
+                .unwrap()
+                .set_modified(now - Duration::from_secs(age * 60))
+                .unwrap();
+        }
+        let names: Vec<_> = photos.iter().map(|p| file_name(&p.blob_sha256)).collect();
+        let known = names.iter().cloned().collect();
+        let mut contacts = HashMap::new();
+        contacts.insert("a".into(), names.iter().cloned().collect());
+        contacts.insert("b".into(), HashSet::from([names[1].clone()]));
+        let size = fs::metadata(path(&dir, &photos[0].blob_sha256))
+            .unwrap()
+            .len();
+        prune_contacts(&dir, &known, &contacts, size).unwrap();
+        assert!(is_kept(&dir, &photos[0].blob_sha256));
+        assert!(is_kept(&dir, &photos[1].blob_sha256));
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn a_contact_remove_failure_is_recoverable_and_does_not_touch_another() {
+        let dir = folder();
+        let photos = [photo(b"first"), photo(b"second"), photo(b"other")];
+        let now = SystemTime::now();
+        for (age, photo) in (1u64..).zip(&photos) {
+            keep(&dir, &[1; 32], photo, &[u8::try_from(age).unwrap()]).unwrap();
+            File::options()
+                .write(true)
+                .open(path(&dir, &photo.blob_sha256))
+                .unwrap()
+                .set_modified(now - Duration::from_secs(age * 60))
+                .unwrap();
+        }
+        let names: Vec<_> = photos.iter().map(|p| file_name(&p.blob_sha256)).collect();
+        let known = names.iter().cloned().collect();
+        let mut contacts = HashMap::new();
+        contacts.insert("a".into(), names[..2].iter().cloned().collect());
+        contacts.insert("b".into(), HashSet::from([names[2].clone()]));
+        fs::remove_file(path(&dir, &photos[1].blob_sha256)).unwrap();
+        fs::create_dir(path(&dir, &photos[1].blob_sha256)).unwrap();
+        assert!(prune_contacts(&dir, &known, &contacts, 1).is_err());
+        assert!(is_kept(&dir, &photos[2].blob_sha256));
+        fs::remove_dir(path(&dir, &photos[1].blob_sha256)).unwrap();
+        prune_contacts(&dir, &known, &contacts, u64::MAX).unwrap();
+        assert!(is_kept(&dir, &photos[0].blob_sha256));
+        fs::remove_dir_all(dir).unwrap();
     }
 }

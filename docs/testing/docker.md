@@ -226,7 +226,9 @@ sockets to make the check pass.
 The network-test image builds the current Rust tree in a fresh `/build-src` directory while
 writing binaries to `/workspace/build`. This prevents renamed binary targets left in the
 prepared base image from appearing alongside current sources during Cargo discovery.
-The loopback and Compose network fixtures explicitly set `search.min_profile_pow_bits = 0`
+If the compiler suggests an API that no longer exists although the mounted source is current, the
+shared Cargo cache can predate a renamed symbol; run `cargo clean -p <crate>` for the stale
+dependency before retrying. The loopback and Compose network fixtures explicitly set `search.min_profile_pow_bits = 0`
 because the test client's `sign-profile` command emits zero-difficulty records. Production
 nodes retain the default threshold of 11 bits. The real-TCP protocol tests additionally
 exercise nonzero proof thresholds on store-only and mixed-role nodes, including replica admission,
