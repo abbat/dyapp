@@ -185,8 +185,9 @@ copies ([Erasure coding](#erasure-coding-reed-solomon)).
 `dyapp_p2p_net::replica_key(key, i)` is the Kademlia lookup key `key ‖ i` (Kademlia applies
 SHA-256). `Node::replicas` performs a separately bounded closest-peer lookup for every replica key
 and connects only discovered, PoW-eligible addresses through the normal client dial stack. Its
-`ReplicaSet` maps each key to a connected node, reuses a node that holds several keys, and exposes
-missing keys instead of treating the entry node as every holder. A client sends one put to the
+`ReplicaSet` maps each key to a connected node and reuses a node that holds several keys. The
+connected entry node remains a fallback candidate even when the lookup omits it; other missing
+holders leave partial coverage explicit. A client sends one put to the
 holder of one replica key and falls back to the others on any failure. It keeps local scores of
 nodes (`rust/client` `scores`): a refusal, a timeout,
 invalid data or an older profile than another replica adds one to a node's penalty, which halves

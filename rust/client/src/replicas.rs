@@ -103,6 +103,12 @@ impl Node {
         for candidate in &mut found {
             restore_entry_address(candidate, self.peer, &self.address);
         }
+        if !found.iter().any(|candidate| candidate.peer_id == self.peer) {
+            found.push(kad::PeerInfo {
+                peer_id: self.peer,
+                addrs: vec![self.address.clone()],
+            });
+        }
         found
     }
 }

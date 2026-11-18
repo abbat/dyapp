@@ -62,6 +62,31 @@ async fn entry_connection_is_established_before_the_test_deadline() {
     task.abort();
 }
 
+#[tokio::test]
+async fn entry_is_the_fallback_when_routing_returns_no_peers() {
+    dyapp_p2p_net::set_id_pow_bits(0);
+    let (mut swarm, address) = server().await;
+    let peer = *swarm.local_peer_id();
+    let task = tokio::spawn(async move {
+        loop {
+            swarm.select_next_some().await;
+        }
+    });
+    let mut entry = Node::connect(address, Arc::new(Protocols::public()))
+        .await
+        .expect("entry connection");
+    let mut replicas = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        entry.replicas(&[7; 32], Arc::new(Protocols::public())),
+    )
+    .await
+    .expect("replica discovery deadline");
+    assert_eq!(replicas.nodes_mut().len(), 1);
+    assert_eq!(replicas.nodes_mut()[0].peer(), peer);
+    assert_eq!(replicas.missing().count(), 0);
+    task.abort();
+}
+
 #[test]
 fn empty_routing_has_explicit_missing_coverage() {
     let mut replicas = ReplicaSet {
