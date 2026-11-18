@@ -40,7 +40,7 @@ dev Docker container without compiling code. Kotlin lint/format, Protobuf lint/f
 | Docs with the code | `tests/scripts/docs-sync.py` ([rules](code-quality.md#docs-change-with-the-code)) | `RULES` in the script | yes | — | enforced: commits since the push or PR base |
 | Spelling | typos on the source tree | `_typos.toml` | yes | — | enforced |
 | TOML | `taplo fmt --check` | `.taplo.toml` | yes | — | enforced |
-| Cargo dependencies | cargo-shear (unused dependencies) | `[package.metadata.cargo-shear]` | yes | — | enforced; cargo-udeps (nightly, compile-precise) is planned |
+| Cargo dependencies | cargo-shear (unused dependencies in every tracked Cargo workspace) | `[package.metadata.cargo-shear]` | yes | — | enforced |
 | Swift (iOS only) | SwiftLint 0.65.1 and strict swift-format from pinned Swift 6.4.0 | `.swiftlint.yml`, `.swift-format` | yes | — | enforced; three SourceKit rules are skipped on Linux |
 | Kotlin | detekt and detekt-formatting 1.23.8 on Android | `detekt.yml`, `detekt-baseline.xml`, `.editorconfig` | yes | Gradle `detekt`, `check` and app `preBuild` | enforced; empty baseline |
 | Desktop UI JavaScript types | TypeScript 7.0.2 (`checkJs`, strict, no emit) | `rust-check.sh web-check` | yes | — | enforced |

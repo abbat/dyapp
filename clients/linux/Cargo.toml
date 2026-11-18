@@ -34,6 +34,28 @@ ui-smoke = []
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
 
+[package.metadata.cargo-shear]
+# src/main.rs includes ../../desktop/main.rs, which cargo-shear 1.14.0 does not follow.
+ignored = [
+    "dbus-secret-service",
+    "dyapp-bootstrap",
+    "dyapp-client",
+    "dyapp-identity",
+    "dyapp-p2p-net",
+    "dyapp-profile",
+    "image",
+    "libp2p",
+    "qrcodegen",
+    "quircs",
+    "serde",
+    "serde_json",
+    "tauri",
+    "tauri-plugin-clipboard-manager",
+    "tokio",
+    "zbus",
+    "zeroize",
+]
+
 [lints.rust]
 unreachable_pub = "deny"
 unfulfilled_lint_expectations = "deny"

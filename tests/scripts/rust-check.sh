@@ -57,7 +57,7 @@ step() {
             step python-check
             step swift-check
             step fmt
-            check cargo-shear cargo shear
+            step unused-dependencies
             check rust-test cargo test --manifest-path tools/rust-functions/Cargo.toml --locked
             check clippy cargo clippy --manifest-path tools/rust-functions/Cargo.toml --all-targets --locked -- -D warnings
             step unused-public
@@ -66,6 +66,17 @@ step() {
             check panics python3 -B tests/scripts/check-panics.py --raw
             check clock python3 -B tests/scripts/check-clock.py
             step rustdoc
+            ;;
+        unused-dependencies)
+            local locks lock
+            locks=$(git ls-files '*Cargo.lock')
+            if [[ ! $locks =~ [^[:space:]] ]]; then
+                echo "No tracked Cargo.lock files found" >&2
+                return 2
+            fi
+            while read -r lock; do
+                check cargo-shear bash -c 'cd "$(dirname "$1")" && cargo shear' _ "$lock"
+            done <<< "$locks"
             ;;
         unused-public)
             compiler_stack check unused-public python3 -B tests/scripts/check-unused-public.py --raw
@@ -249,9 +260,9 @@ step() {
     esac
 }
 if [[ ${1:-} != --raw ]]; then
-    stage=${1:?step required: quality|android-lint|build|test|coverage|cov-build|cov-test|cov-report|mutants|fuzz|network|memory|rehearsal|security}
+    stage=${1:?step required: quality|android-lint|build|test|coverage|cov-build|cov-test|cov-report|mutants|fuzz|network|memory|rehearsal|security|unused-dependencies}
     case "$stage" in
-        quality|fmt|fmt-write|web-check|web-format|swift-check|python-check|python-format|kotlin-format|unused-public|rustdoc|android-lint|security) exec bash "$0" --raw "$@" ;;
+        quality|fmt|fmt-write|web-check|web-format|swift-check|python-check|python-format|kotlin-format|unused-public|unused-dependencies|rustdoc|android-lint|security) exec bash "$0" --raw "$@" ;;
         build) policy=rust-build ;;
         test|cov-build|cov-test) policy=rust-test ;;
         coverage|cov-report) policy=rust-coverage ;;
