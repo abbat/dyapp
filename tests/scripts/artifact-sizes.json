@@ -28,10 +28,10 @@
     "evidence": "https://github.com/abbat/dyapp/actions/runs/43016004734"
   },
   "ios-macos15-arm64-release-unsigned-ipa": {
-    "bytes": 10849526,
+    "bytes": 11695695,
     "environment": "macOS 15.8.2 arm64; Xcode 16.4 (16F6); Rust 1.99.0; iOS device arm64 Release; unsigned IPA",
-    "revision": "b196c97d1fe2b37566b6776444461a6fed87190d",
-    "evidence": "https://github.com/abbat/dyapp/actions/runs/43016004734"
+    "revision": "dd5c245b61e301d89d76923709627e3a10b74e81",
+    "evidence": "https://github.com/abbat/dyapp/actions/runs/44094122354"
   },
   "android-apk-release-unsigned": {
     "bytes": 71867816,
