@@ -186,7 +186,8 @@ copies ([Erasure coding](#erasure-coding-reed-solomon)).
 SHA-256). `Node::replicas` performs a separately bounded closest-peer lookup for every replica key
 and connects only discovered, PoW-eligible addresses through the normal client dial stack. Its
 `ReplicaSet` maps each key to a connected node and reuses a node that holds several keys. The
-connected entry node remains a fallback candidate even when the lookup omits it; other missing
+connected entry node remains a fallback candidate even when the lookup omits it; its successful
+dial address is preferred over any different addresses returned by the lookup. Other missing
 holders leave partial coverage explicit. A client sends one put to the
 holder of one replica key and falls back to the others on any failure. It keeps local scores of
 nodes (`rust/client` `scores`): a refusal, a timeout,

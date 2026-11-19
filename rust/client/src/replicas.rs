@@ -110,9 +110,8 @@ fn restore_entry(candidates: &mut Vec<kad::PeerInfo>, peer: PeerId, address: &Mu
         .iter_mut()
         .find(|candidate| candidate.peer_id == peer)
     {
-        if candidate.addrs.is_empty() {
-            candidate.addrs.push(address.clone());
-        }
+        candidate.addrs.retain(|candidate| candidate != address);
+        candidate.addrs.insert(0, address.clone());
         return;
     }
     candidates.push(kad::PeerInfo {

@@ -408,8 +408,9 @@ never prevent mail work; network/mail failures keep receive's existing errors. C
 `receive()` uses the same mail routine without notice snapshots. One entry connection discovers a
 `ReplicaSet`; retry, mailbox/pack work and token refill use all of its connected holders, while
 best-effort key/photo maintenance stays on the entry node. Replica discovery retains the connected
-entry as a fallback when the lookup omits it, so a one-node network can still receive mail. Other
-missing holders leave partial coverage explicit and do not suppress healthy replicas.
+entry as a fallback when the lookup omits it and prefers its successful dial address over other
+returned addresses, so a one-node network can still receive mail. Other missing holders leave
+partial coverage explicit and do not suppress healthy replicas.
 
 Android `receiveMail` consumes this result. Kotlin only chooses the local short sender and existing
 blank-body fallback, builds/posts the OS notification and keeps foreground/permission/public

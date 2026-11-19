@@ -40,7 +40,9 @@ fn entry_is_restored_once_whether_present_or_omitted() {
     candidates[1].addrs = vec![existing.clone()];
     restore_entry(&mut candidates, peer, &address);
     assert_eq!(candidates.len(), 2);
-    assert_eq!(candidates[1].addrs, vec![existing]);
+    assert_eq!(candidates[1].addrs, vec![address.clone(), existing.clone()]);
+    restore_entry(&mut candidates, peer, &address);
+    assert_eq!(candidates[1].addrs, vec![address.clone(), existing]);
 
     candidates.clear();
     restore_entry(&mut candidates, peer, &address);
