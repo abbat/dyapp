@@ -52,7 +52,7 @@ impl Scores {
             node,
             &Multiaddr::empty(),
             operation,
-            if cost > crate::TIMEOUT / 2 {
+            if cost > crate::TIMEOUT.checked_div(2).unwrap_or(crate::TIMEOUT) {
                 Outcome::Slow
             } else {
                 Outcome::Normal

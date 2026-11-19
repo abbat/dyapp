@@ -112,19 +112,23 @@ def main() -> bool:
     args.report = args.report or Path("build") / "panics.json"
     result: qc.PanicReport = {"errors": []}
     try:
-        metadata: qc.CargoMetadata = json.loads(
-            subprocess.check_output(
-                [
-                    "cargo",
-                    "metadata",
-                    "--no-deps",
-                    "--locked",
-                    "--format-version=1",
-                ],
-                cwd=ROOT,
-                text=True,
-            )
+        metadata_run = subprocess.run(
+            [
+                "cargo",
+                "metadata",
+                "--no-deps",
+                "--locked",
+                "--format-version=1",
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
         )
+        if metadata_run.returncode:
+            raise ValueError(
+                "Cargo metadata failed: " + metadata_run.stderr[-4096:]
+            )
+        metadata: qc.CargoMetadata = json.loads(metadata_run.stdout)
         flags = [flag for lint in LINTS for flag in ("--force-warn", lint)]
         run = subprocess.run(
             [

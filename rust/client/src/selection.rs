@@ -112,7 +112,7 @@ impl NodeHealth {
         let seconds = 60u64
             .checked_shl(self.open_count.saturating_sub(1).into())
             .unwrap_or(u64::MAX);
-        self.open_until = Some(now + Duration::from_secs(seconds.min(1800)));
+        self.open_until = now.checked_add(Duration::from_secs(seconds.min(1800)));
         self.recovery_successes = 0;
         self.consecutive_hard = 0;
         self.healthy_streak = 0;
@@ -127,7 +127,7 @@ impl NodeHealth {
         self.consecutive_hard = 0;
         self.confidence = self.confidence.saturating_add(1);
         if self.open_until.is_some_and(|until| now >= until) {
-            self.recovery_successes += 1;
+            self.recovery_successes = self.recovery_successes.saturating_add(1);
             if self.recovery_successes == 2 {
                 self.open_until = None;
                 self.hard.clear();
@@ -217,7 +217,10 @@ impl Policy {
             self.nodes.remove(&evict);
             self.ring.retain(|peer| *peer != evict);
             self.explored.remove(&evict);
-            self.ring_at %= self.ring.len().max(1);
+            self.ring_at = self
+                .ring_at
+                .checked_rem(self.ring.len().max(1))
+                .unwrap_or(0);
         }
         let group_open = self
             .nodes
@@ -297,7 +300,7 @@ impl Policy {
             node.addresses
                 .entry(address.clone())
                 .or_default()
-                .open_until = Some(now + Duration::from_secs(60));
+                .open_until = now.checked_add(Duration::from_secs(60));
             return;
         }
         match outcome {
@@ -312,11 +315,18 @@ impl Policy {
                 let healthy_alternates = self.nodes.values().filter(|other| {
                     other.incumbent
                         && other.open_until.is_none()
-                        && other.slow.iter().filter(|slow| **slow).count() * 10
-                            < other.slow.len() * 3
+                        && other
+                            .slow
+                            .iter()
+                            .filter(|slow| **slow)
+                            .count()
+                            .saturating_mul(10)
+                            < other.slow.len().saturating_mul(3)
                 });
                 if slow_faults >= 3 && healthy_alternates.count() >= 2 {
-                    self.nodes.get_mut(&peer).expect("known peer").open(now);
+                    if let Some(node) = self.nodes.get_mut(&peer) {
+                        node.open(now);
+                    }
                 }
             }
             Outcome::Normal | Outcome::NotFound | Outcome::ZeroYield => {
@@ -363,17 +373,19 @@ impl Policy {
     fn weights(&mut self, pool: &[PeerId]) -> Vec<f64> {
         let mut costs = pool
             .iter()
-            .map(|peer| self.nodes.get(peer).expect("pool peer").mean_cost())
+            .map(|peer| self.nodes.get(peer).map_or(1.0, NodeHealth::mean_cost))
             .collect::<Vec<_>>();
         costs.sort_unstable_by(f64::total_cmp);
         let median = if costs.is_empty() {
             1.0
         } else {
-            costs[costs.len() / 2]
+            costs.get(costs.len() / 2).copied().unwrap_or(1.0)
         };
         pool.iter()
             .map(|peer| {
-                let node = self.nodes.get(peer).expect("pool peer");
+                let Some(node) = self.nodes.get(peer) else {
+                    return 1.0;
+                };
                 if node.confidence < 3 || node.degraded || node.zero_yield >= 3 {
                     1.0
                 } else {
@@ -410,14 +422,17 @@ impl Policy {
         let mut candidates = Vec::new();
         let mut candidate_weights = Vec::new();
         for (index, weight) in weights.iter().enumerate() {
+            let (Some(group), Some(&used)) = (groups.get(index), assigned.get(index)) else {
+                continue;
+            };
             let group_used = pool
                 .iter()
                 .zip(groups)
                 .zip(assigned)
-                .filter(|((_, group), _)| **group == groups[index])
+                .filter(|((_, candidate), _)| *candidate == group)
                 .map(|((_, _), count)| count)
                 .sum::<usize>();
-            if assigned[index] < ALLOCATION_TICKETS * cap / 100 && group_used < group_cap {
+            if used < ALLOCATION_TICKETS.saturating_mul(cap) / 100 && group_used < group_cap {
                 candidates.push(index);
                 candidate_weights.push(*weight);
             }
@@ -425,15 +440,43 @@ impl Policy {
         (candidates, candidate_weights)
     }
 
+    fn assign_one(
+        candidates: &[usize],
+        candidate_weights: &[f64],
+        assigned: &mut [usize],
+        rng: &mut u64,
+    ) {
+        let total = candidate_weights.iter().sum::<f64>();
+        let mut draw = seeded_random(rng) * total;
+        let mut selected = candidates.len().saturating_sub(1);
+        for (position, weight) in candidate_weights.iter().enumerate() {
+            draw -= weight;
+            if draw <= 0.0 {
+                selected = position;
+                break;
+            }
+        }
+        if let Some(count) = candidates
+            .get(selected)
+            .and_then(|candidate| assigned.get_mut(*candidate))
+        {
+            *count = count.saturating_add(1);
+        }
+    }
+
     fn allocate(&mut self, pool: Vec<PeerId>, weights: &[f64]) -> Vec<(PeerId, f64)> {
         let Some((cap, floor)) = bounds(pool.len()) else {
             return Vec::new();
         };
-        let mut assigned = vec![ALLOCATION_TICKETS * floor / 100; pool.len()];
-        let mut remaining = ALLOCATION_TICKETS - assigned.iter().sum::<usize>();
+        let mut assigned = vec![ALLOCATION_TICKETS.saturating_mul(floor) / 100; pool.len()];
+        let mut remaining = ALLOCATION_TICKETS.saturating_sub(assigned.iter().sum::<usize>());
         let groups = pool
             .iter()
-            .map(|peer| self.nodes.get(peer).expect("pool peer").group.clone())
+            .map(|peer| {
+                self.nodes
+                    .get(peer)
+                    .map_or_else(String::new, |node| node.group.clone())
+            })
             .collect::<Vec<_>>();
         let distinct = groups
             .iter()
@@ -450,23 +493,15 @@ impl Policy {
                 Self::available(&pool, &groups, &assigned, weights, cap, group_cap);
             if candidates.is_empty() {
                 if group_cap < ALLOCATION_TICKETS {
-                    group_cap = (group_cap + ALLOCATION_TICKETS / 10).min(ALLOCATION_TICKETS);
+                    group_cap = group_cap
+                        .saturating_add(ALLOCATION_TICKETS / 10)
+                        .min(ALLOCATION_TICKETS);
                     continue;
                 }
                 break;
             }
-            let total = candidate_weights.iter().sum::<f64>();
-            let mut draw = seeded_random(&mut rng) * total;
-            let mut selected = candidates.len() - 1;
-            for (position, weight) in candidate_weights.iter().enumerate() {
-                draw -= weight;
-                if draw <= 0.0 {
-                    selected = position;
-                    break;
-                }
-            }
-            assigned[candidates[selected]] += 1;
-            remaining -= 1;
+            Self::assign_one(&candidates, &candidate_weights, &mut assigned, &mut rng);
+            remaining = remaining.saturating_sub(1);
         }
         pool.into_iter()
             .zip(assigned)
@@ -504,7 +539,7 @@ impl Policy {
             }
             let total = shares.iter().map(|(_, share)| share).sum::<f64>();
             let mut draw = self.random() * total;
-            let mut index = shares.len() - 1;
+            let mut index = shares.len().saturating_sub(1);
             for (position, (_, share)) in shares.iter().enumerate() {
                 draw -= share;
                 if draw <= 0.0 {
@@ -542,20 +577,30 @@ impl Policy {
     fn explore(&mut self, allowed: Option<&[PeerId]>) -> Option<PeerId> {
         let len = self.ring.len();
         for offset in 0..len {
-            let index = (self.ring_at + offset) % len;
-            let peer = self.ring[index];
+            let index = self
+                .ring_at
+                .checked_add(offset)
+                .and_then(|index| index.checked_rem(len))
+                .unwrap_or(0);
+            let Some(&peer) = self.ring.get(index) else {
+                continue;
+            };
             let Some(node) = self.nodes.get(&peer) else {
                 continue;
             };
             if node.incumbent || node.open_until.is_some() || !candidate_allowed(allowed, &peer) {
                 continue;
             }
-            self.ring_at = (index + 1) % len;
+            self.ring_at = index
+                .checked_add(1)
+                .and_then(|next| next.checked_rem(len))
+                .unwrap_or(0);
             if self.ring_at == 0 {
                 self.shuffle_ring();
             }
             self.explorations = self.explorations.saturating_add(1);
-            *self.explored.entry(peer).or_default() += 1;
+            let count = self.explored.entry(peer).or_default();
+            *count = count.saturating_add(1);
             return Some(peer);
         }
         None
@@ -621,17 +666,20 @@ impl Policy {
 
     fn shuffle_ring(&mut self) {
         for index in (1..self.ring.len()).rev() {
-            let other = usize::try_from(next_u32(&mut self.rng)).unwrap_or(0) % (index + 1);
+            let other = usize::try_from(next_u32(&mut self.rng))
+                .ok()
+                .and_then(|other| other.checked_rem(index.saturating_add(1)))
+                .unwrap_or(0);
             self.ring.swap(index, other);
         }
     }
 }
 
 fn next_u32(seed: &mut u64) -> u32 {
-    *seed ^= *seed << 13;
-    *seed ^= *seed >> 7;
-    *seed ^= *seed << 17;
-    u32::try_from(*seed >> 32).unwrap_or(0)
+    *seed ^= seed.wrapping_shl(13);
+    *seed ^= seed.wrapping_shr(7);
+    *seed ^= seed.wrapping_shl(17);
+    u32::try_from(seed.wrapping_shr(32)).unwrap_or(0)
 }
 
 fn seeded_random(seed: &mut u64) -> f64 {
