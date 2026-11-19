@@ -4,7 +4,7 @@ import argparse
 import json
 import os
 
-REQUIRED = {"core", "docker", "linux", "apple", "windows"}
+REQUIRED = {"core", "docker", "docker-emulators", "linux", "apple", "windows"}
 
 
 def validate(results: object) -> None:

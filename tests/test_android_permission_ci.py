@@ -61,6 +61,37 @@ class AndroidPermissionCi(unittest.TestCase):
             services["android-permission-emulator"],
         )
 
+    def test_emulator_lanes_share_packages_but_run_in_parallel(self) -> None:
+        workflow = yaml.safe_load(
+            (ROOT / ".github/workflows/ci.yml").read_text()
+        )
+        lanes = workflow["jobs"]["docker-emulators"]
+        self.assertEqual(lanes["needs"], "docker")
+        self.assertFalse(lanes["strategy"]["fail-fast"])
+        matrix = lanes["strategy"]["matrix"]["include"]
+        self.assertEqual(
+            {item["lane"] for item in matrix},
+            {"android-emulator", "android-permissions"},
+        )
+        self.assertEqual(
+            {item["budget"] for item in matrix},
+            {15, 30},
+        )
+        self.assertIn("docker-emulators", workflow["jobs"]["summary"]["needs"])
+        build = workflow["jobs"]["docker"]["steps"]
+        packages = next(
+            step
+            for step in build
+            if step.get("with", {}).get("name") == "android-runtime-packages"
+        )
+        self.assertIn(
+            "build/android-build/debug/dyappd", packages["with"]["path"]
+        )
+        self.assertIn("app-debug-androidTest.apk", packages["with"]["path"])
+        for lane in lanes["steps"]:
+            if lane.get("name") == "test":
+                self.assertEqual(lane["env"]["DYAPP_ANDROID_SKIP_BUILD"], "1")
+
 
 if __name__ == "__main__":
     unittest.main()

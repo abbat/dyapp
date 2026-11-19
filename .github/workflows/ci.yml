@@ -19,12 +19,11 @@ env:
 jobs:
   core:
     uses: ./.github/workflows/ci-base.yml
-  # Android runs in Docker: the image carries the SDK and system image, the app builds from the
-  # checkout into build/android-build.
+  # Build once, then run the two independent emulator lanes on separate runners.
   docker:
     name: docker - android
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 45
     env:
       DYAPP_BUILD_CACHE: gha
     steps:
@@ -37,11 +36,6 @@ jobs:
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
-      - name: kvm
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
       # Downloaded dependencies only: build outputs would grow the cache past its 10 GB limit.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: android-cache
@@ -52,18 +46,14 @@ jobs:
             build/android-build/cargo-home/registry
           key: android-deps-${{ hashFiles('Cargo.lock', 'clients/android/**/*.gradle', 'clients/android/gradle/**') }}
           restore-keys: android-deps-
-      - name: test
-        env:
-          DYAPP_KVM: "1"
+      - name: build and unit
         run: |
-          python3 tools/scripts/docker-local.py -f tests/docker/compose.ui.yml --profile all build android-build android-permission-emulator
+          python3 tools/scripts/docker-local.py -f tests/docker/compose.ui.yml --profile all build android-build
           mkdir -p build/android-reports/build-provenance
           git rev-parse HEAD > build/android-reports/build-provenance/source-head.txt
           docker image inspect --format '{{.Id}}' dyapp:android-tools > build/android-reports/build-provenance/android-tools-image.txt
           bash tests/scripts/ui-test.sh android
-          export DYAPP_ANDROID_SKIP_BUILD=1
-          bash tests/scripts/ui-test.sh android-emulator
-          timeout --kill-after=30s 15m bash tests/scripts/ui-test.sh android-permissions
+      # Save dependencies before an emulator lane can time out.
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.android-cache.outputs.cache-hit != 'true' }}
         with:
@@ -72,6 +62,15 @@ jobs:
             build/android-build/gradle-home/wrapper
             build/android-build/cargo-home/registry
           key: ${{ steps.android-cache.outputs.cache-primary-key }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-runtime-packages
+          path: |
+            build/android-build/android/lifecycle/app-base.apk
+            build/android-build/android/lifecycle/app-upgrade.apk
+            build/android-build/android/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            build/android-build/debug/dyappd
+          if-no-files-found: error
       - name: logs
         if: always()
         run: |
@@ -98,13 +97,95 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: android-check-output
+          name: android-build-check-output
+          path: |
+            build/platform-check-output/
+            build/platform-reports/
+            build/android-reports/build-provenance/
+            build/android-build/android/app/reports/lint-results-*
+          if-no-files-found: error
+
+  docker-emulators:
+    name: docker - ${{ matrix.lane }}
+    needs: docker
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      DYAPP_BUILD_CACHE: gha
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lane: android-emulator
+            image_service: android-build
+            image: dyapp:android-tools
+            artifact: android-check-output
+            budget: 30
+          - lane: android-permissions
+            image_service: android-permission-emulator
+            image: dyapp:android-permission-tools
+            artifact: android-permission-check-output
+            budget: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: free disk
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
+      - name: kvm
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: android-runtime-packages
+          path: build/android-build
+      - name: test
+        env:
+          DYAPP_KVM: "1"
+          DYAPP_ANDROID_SKIP_BUILD: "1"
+        run: |
+          chmod +x build/android-build/debug/dyappd
+          python3 tools/scripts/docker-local.py -f tests/docker/compose.ui.yml --profile all build ${{ matrix.image_service }}
+          mkdir -p build/android-reports/build-provenance
+          git rev-parse HEAD > build/android-reports/build-provenance/source-head.txt
+          docker image inspect --format '{{.Id}}' ${{ matrix.image }} > build/android-reports/build-provenance/android-tools-image.txt
+          timeout --kill-after=30s "${{ matrix.budget }}m" bash tests/scripts/ui-test.sh ${{ matrix.lane }}
+      - name: logs
+        if: always()
+        run: |
+          set -o pipefail
+          evidence_status=0
+          mkdir -p build/android-reports/build-provenance
+          ps -eo pid,ppid,stat,etime,args > build/android-reports/build-provenance/processes.txt || true
+          docker ps -a --no-trunc > build/android-reports/build-provenance/containers.txt || true
+          docker ps -aq --filter label=com.docker.compose.project=dyapp |
+            xargs -r docker inspect > build/android-reports/build-provenance/container-state.json || true
+          docker ps -aq --filter label=com.docker.compose.project=dyapp |
+            xargs -r -n1 docker top > build/android-reports/build-provenance/container-processes.txt 2>&1 || true
+          docker ps -aq --filter label=com.docker.compose.project=dyapp |
+            xargs -r docker inspect --format '{{.Config.Hostname}} {{.Image}} {{index .Config.Labels "com.docker.compose.service"}}' \
+            > build/android-reports/build-provenance/container-images.txt || evidence_status=$?
+          docker ps -aq --filter label=com.docker.compose.project=dyapp --filter label=com.docker.compose.oneoff=True |
+            xargs -r -n1 docker logs > build/android-reports/build-provenance/one-off-container-logs.txt 2>&1 || true
+          python3 tools/scripts/run-check.py --log-dir build/platform-check-output docker -- docker compose -f tests/docker/compose.ui.yml --profile all logs || evidence_status=$?
+          python3 tests/scripts/export-ui-reports.py || {
+            copy_status=$?
+            if (( evidence_status == 0 )); then evidence_status=$copy_status; fi
+          }
+          exit "$evidence_status"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ${{ matrix.artifact }}
           path: |
             build/platform-check-output/
             build/platform-reports/
             build/android-permission-reports/
             build/android-reports/build-provenance/
-            build/android-build/android/app/reports/lint-results-*
           if-no-files-found: error
 
   linux:
@@ -262,7 +343,7 @@ jobs:
   summary:
     name: required
     runs-on: ubuntu-24.04
-    needs: [core, docker, linux, apple, windows]
+    needs: [core, docker, docker-emulators, linux, apple, windows]
     if: always()
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

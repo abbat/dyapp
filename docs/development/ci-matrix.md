@@ -19,11 +19,12 @@ steps skip on cancel, so a long burst of pushes reuses the older cache until one
 ```text
 ci.yml ("ci")
   ├─ core     ──▶ ci-base.yml ──▶ quality, build
-  ├─ docker   (android)
+  ├─ docker   (Android build and unit)
+  ├─ docker-emulators (matrix: API 31, API 37; needs docker)
   ├─ linux
   ├─ apple    (matrix: ios, macos)
   ├─ windows
-  └─ summary  needs [core, docker, linux, apple, windows], if: always()
+  └─ summary  needs [core, docker, docker-emulators, linux, apple, windows], if: always()
 ```
 
 `ci-base.yml` is `workflow_call` only. Rust-core jobs are documented in [ci-base.md](ci-base.md).
@@ -43,7 +44,8 @@ cache past its 10 GB limit.
 |------------------|--------|--------------------|----------|--------|
 | `core` | — | Calls [ci-base.yml](ci-base.md) | `rust-workspace-coverage` | Working pipeline |
 | `linux` → **native - linux** | ubuntu-24.04 | `ci-setup.sh linux` (apt packages mirroring `tests/docker/Dockerfile.linux-test`, toolchain 1.99.0), rust-cache, `linux-test.sh`: builds `clients/linux/` with `--features ui-smoke` and writes `build/unit-build.json`, runs the unit binaries, then `desktop-smoke.py` on the Tauri app under Xvfb | none (logs only) | Shell app |
-| `docker` → **docker - android** | ubuntu-24.04 | build `dyapp:android-tools` and the extra API 37 `dyapp:android-permission-tools` stage (services `android-build` and `android-permission-emulator`, BuildKit GHA layer cache; the extra system image is outside the release stage); restore the Gradle and cargo dependency downloads in `build/android-build` (`actions/cache`, keyed by `Cargo.lock` and the Gradle files, saved on a miss); `ui-test.sh android` (service `android-build` compiles the debug `rust/ffi` for x86_64 only, generates Android-aware Kotlin bindings, builds the APKs from the checkout and runs strict `:app:lintDebug`; then `:app:testDebugUnitTest`, JUnit check); `ui-test.sh android-emulator` (API 31 x86_64 emulator, AVD in `build/android-avd` on disk because the emulator needs ~7.4G free for its 6G minimum userdata partition, KVM via `DYAPP_KVM=1` + `tests/docker/compose.kvm.yml` after a `kvm` step opens `/dev/kvm`, installs debug + androidTest APKs, explicit legacy LAN permission/native-connection phase, `am instrument`, `ready.png` screenshot); `ui-test.sh android-permissions` (API 37 Google APIs 16 KiB x86_64, grant/deny/regrant/revoke native LAN phases, shared APKs mounted read-only, isolated AVD and node data) | `android-check-output` (check logs, test evidence, full Android Lint reports and `build/android-permission-reports/`) | Shell app |
+| `docker` → **docker - android** | ubuntu-24.04 | Build `dyapp:android-tools` with the BuildKit GHA cache; restore Gradle/cargo dependency downloads and save them immediately after a successful build/unit step; compile the x86_64 FFI and bindings, build/lint APKs and run JUnit checks. Publish the base/upgrade/test APKs and `dyappd` for the emulator jobs. | `android-runtime-packages`, `android-build-check-output` | Shell app |
+| `docker-emulators` → **docker - android-emulator** / **docker - android-permissions** | ubuntu-24.04 | After `docker`, run API 31 and API 37 lanes in parallel on separate runners with `fail-fast: false`. Download the same runtime packages and build only the required cached toolchain image. API 31 keeps the full instrumentation, worker lifecycle and legacy LAN coverage; API 37 keeps isolated grant/deny/regrant/revoke coverage. The per-lane test budgets are 30 and 15 minutes. | `android-check-output`, `android-permission-check-output` | Shell app |
 | `apple` → **native - ios** / **native - macos** | macos-15 | iOS: XCFramework, XcodeGen and XCTest/XCUITest. macOS: Cargo unit tests with login Keychain enabled, `build-macos-client.py --profile debug --features ui-smoke`, then shared `desktop-smoke.py` on the bundled executable with pinned axe-core. | `apple-ios`, `apple-macos` (native logs and test artifacts) | Native clients |
 | `windows` → **native - windows** | windows-2022 | Rust 1.99.0; `cargo build` + `cargo test` with `--features ui-smoke` of `clients/windows/Cargo.toml`; full `desktop-smoke.py` on the test-enabled exe | `windows-app-and-ui` (exe + `desktop-ui-results.json`) | Shell app |
 | `summary` → **required** | ubuntu-24.04 | Requires every job to succeed | — | Working |

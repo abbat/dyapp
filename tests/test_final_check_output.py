@@ -22,6 +22,7 @@ class FinalChecks(unittest.TestCase):
             for name in (
                 "core",
                 "docker",
+                "docker-emulators",
                 "linux",
                 "apple",
                 "windows",

@@ -885,12 +885,13 @@ read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID
   KVM and boot/package-manager readiness follow the API 31 lane, but its node key keeps the
   default 8-bit proof because no fresh-process worker runs here. Its AVD is
   `build/android-permission-avd`; node data, phase reports and logcat are in
-  `build/android-permission-reports`, also uploaded in `android-check-output`.
-  `docker-local.py` stops dependencies after each suite, so the two emulator lanes run sequentially.
-  CI bounds this stage to 15 minutes and retains host processes, container state/processes and
-  one-off Compose logs in `android-check-output` when it stalls. The Android job has a 90-minute
-  total limit and sets `DYAPP_ANDROID_SKIP_BUILD=1` after `ui-test.sh android`, so the emulator and
-  permission stages reuse the first build instead of paying for two more Gradle startups.
+  `build/android-permission-reports`, uploaded in `android-permission-check-output`.
+  Locally `docker-local.py` stops dependencies after each suite, so the two emulator lanes run
+  sequentially. CI publishes the APKs and `dyappd` from one 45-minute build/unit job, then runs the
+  two lanes in parallel on separate 45-minute runners with `fail-fast: false`. Their test budgets
+  are 30 minutes for API 31 and 15 minutes for API 37. Both retain host processes, container
+  state/processes and one-off Compose logs on a stall; the main lane keeps the
+  `android-check-output` artifact name.
 
 ### Linux
 
