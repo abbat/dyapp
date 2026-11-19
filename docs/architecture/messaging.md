@@ -241,7 +241,8 @@ outbox sends, mailbox fetches and ACK retries for the active slot: a runtime thr
 pass every minute, and Chats requests one when it opens. Android also schedules a persisted,
 network-constrained `MailJob` with a requested 15-minute period. It resolves the active ready identity
 and calls native `ChatSession.receive()`, which retries due writes and applies incoming mail. Recovery
-or absent identities are skipped. This is scheduled catch-up without push, not a delivery deadline;
+or absent identities are skipped; a failed pass requests JobScheduler backoff. This is scheduled
+catch-up without push, not a delivery deadline;
 Doze/App Standby, reboot and update delivery verification remains pending.
 
 Mailbox fetch can now return a cursor after at most 100 records ordered by class and

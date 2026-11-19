@@ -57,6 +57,7 @@ permission dialog. Android 12–16 do not receive this request.
 
 The app schedules a network-constrained background mail job for the active ready identity, requesting
 a 15-minute period. Each run retries due queued messages and receives mail through the shared core.
+A failed pass asks JobScheduler for a backoff retry instead of waiting for the next periodic run.
 This is not an exact delivery interval or a push wake-up service. The app lock protects the interface;
 it does not prevent this background receive. Missing or recovery identities are skipped. The job is
 configured as persisted, but delivery under idle restrictions and across reboot or app update still

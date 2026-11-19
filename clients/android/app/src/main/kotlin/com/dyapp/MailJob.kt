@@ -43,12 +43,12 @@ open class MailJob : JobService() {
         var completionRequested = false
         var retryRequested = false
         try {
-            if (!isSearchJob(params)) receiveMail(applicationContext)
+            val received = if (isSearchJob(params)) true else receiveMail(applicationContext)
             if (!completion.isActive()) return
             val wake = searchPass(params)
             completion.complete {
                 if (running.remove(params.scopedJobId(), completion)) {
-                    val retry = isSearchJob(params) && wake == SearchOutboxWake.Retry
+                    val retry = !received || isSearchJob(params) && wake == SearchOutboxWake.Retry
                     jobFinished(params, retry)
                     completionRequested = true
                     retryRequested = retry
@@ -83,21 +83,22 @@ internal fun JobParameters.scopedJobId(): Pair<String?, Int> {
 
 /**
  * One receive for the active ready identity, then a notice when it left more to read; none, a
- * recovery state or a failure stays quiet.
+ * recovery state or a failure stays quiet. Returns whether the framework should consider it done.
  */
-internal fun receiveMail(context: Context) {
+internal fun receiveMail(context: Context): Boolean = runCatching {
+    val opened = RustBridge.slots(context).open() as? Opened.Ready ?: return true
     runCatching {
-        val opened = RustBridge.slots(context).open() as? Opened.Ready ?: return
-        runCatching {
-            RustBridge.withChats(opened) {
-                val notice = it.receiveWithNotice(context.getString(R.string.notice_sticker)).notice
-                if (notice != null) postMailNotice(context, noticeLines(notice))
-            }
-        }.onFailure {
-            if (completeRevokedDevice(opened) == null) throw it
+        RustBridge.withChats(opened) {
+            val notice = it.receiveWithNotice(context.getString(R.string.notice_sticker)).notice
+            if (notice != null) postMailNotice(context, noticeLines(notice))
         }
-    }.onFailure { Log.i(MAIL_LOG_TAG, "Background receive failed: ${it.javaClass.simpleName}") }
-}
+    }.onFailure {
+        if (completeRevokedDevice(opened) == null) throw it
+    }
+    true
+}.onFailure {
+    Log.i(MAIL_LOG_TAG, "Background receive failed: ${it.javaClass.simpleName}")
+}.getOrDefault(false)
 
 /** Schedules [MailJob] once; it survives reboots and runs only with a network. */
 internal fun scheduleMailJob(context: Context) {

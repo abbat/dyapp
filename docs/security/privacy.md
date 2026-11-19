@@ -204,8 +204,9 @@ when the notice is turned on or on Allow, never at launch, and while notices are
 so and nothing is posted.
 
 The Android app also receives the active identity's mail while it is closed: a JobScheduler job
-runs at most every 15 minutes when a network is up, and Doze and App Standby defer it further.
-The nodes therefore see receives while the app is not open, and the job opens the identity key
+requests a 15-minute period when a network is up, retries failed passes with platform backoff, and
+Doze and App Standby can defer it further. The nodes therefore see receives while the app is not
+open, and the job opens the identity key
 even while the app lock is on, because that lock covers only the screens. When a receive leaves
 more unread items or unanswered likes from peers that are not muted and the app is not on screen,
 it posts one notice, replacing the previous one, as a private notification whose version for a
