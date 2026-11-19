@@ -64,6 +64,18 @@ pub(crate) fn open(dir: &Path, identity: &Identity) -> Result<Store, String> {
     Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())
 }
 
+fn shared_session(
+    store: Store,
+    identity: &Identity,
+    device: &Identity,
+    seal_key: &[u8; 32],
+    dir: &Path,
+) -> Result<Session, String> {
+    let scores = dyapp_client::contact_verification::scores(dir).map_err(|e| e.to_string())?;
+    Session::open_or_create_with_scores(store, identity, device, seal_key, scores)
+        .map_err(|e| e.to_string())
+}
+
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn chat_rows(dir: &Path, identity: &Identity) -> Result<Vec<ChatRowView>, String> {
     let store = open(dir, identity)?;
@@ -221,8 +233,7 @@ pub async fn send_text(
         return Err("unpublished".into());
     }
     let seal_key = crate::sealing_key(root, dir, &store)?;
-    let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
-        .map_err(|e| e.to_string())?;
+    let mut session = shared_session(store, identity, device_key, &seal_key, dir)?;
     if !own
         .profile
         .devices
@@ -307,7 +318,7 @@ pub async fn block(
         Ok(key) => key,
         Err(error) => return Ok(BlockResult::pending(&error)),
     };
-    let mut session = match Session::open_or_create(store, identity, &device, &seal_key) {
+    let mut session = match shared_session(store, identity, &device, &seal_key, dir) {
         Ok(session) => session,
         Err(error) => return Ok(BlockResult::pending(&error)),
     };
@@ -358,8 +369,7 @@ pub async fn like(
     }
     let mut node = profile::connect(&active).await?;
     let seal_key = crate::sealing_key(root, dir, &store)?;
-    let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
-        .map_err(|e| e.to_string())?;
+    let mut session = shared_session(store, identity, device_key, &seal_key, dir)?;
     let kind = if liked { Kind::Like } else { Kind::Unlike };
     session
         .interact_with(

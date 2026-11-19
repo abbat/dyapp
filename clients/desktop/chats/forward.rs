@@ -49,8 +49,14 @@ pub(crate) async fn open_session(
         return Err("unpublished".into());
     }
     let seal_key = crate::sealing_key(root, dir, &store)?;
-    let session = Session::open_or_create(store, identity, device_key, &seal_key)
-        .map_err(|e| e.to_string())?;
+    let session = Session::open_or_create_with_scores(
+        store,
+        identity,
+        device_key,
+        &seal_key,
+        dyapp_client::contact_verification::scores(dir).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
     if !own
         .profile
         .devices

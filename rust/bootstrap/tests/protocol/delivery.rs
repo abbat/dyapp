@@ -245,9 +245,9 @@ async fn assert_receipt_penalty(
     // Bob's receipt for "two" blames the first node, and "one" is due at once.
     // Token requests sent when the match opened may also be outstanding on that node.
     let now = u64::try_from(now_ms / 1000).unwrap();
-    let before = session.scores().penalty(dropper, now);
+    let before = session.scores().lock().await.penalty(dropper, now);
     let checked_items = receive(session, node, device_key, profiles).await;
     assert_eq!(checked_items.len(), 0);
-    assert!(session.scores().penalty(dropper, now) > before);
+    assert!(session.scores().lock().await.penalty(dropper, now) > before);
     assert!(!session.due_outbound(now_ms + 120_000).unwrap().is_empty());
 }

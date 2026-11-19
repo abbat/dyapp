@@ -25,7 +25,11 @@ impl Session {
         let Some(state) = self.store.link_pending()? else {
             return Ok(false);
         };
-        let adopted = publish::adopt(&mut self.store, node, identity, &state, now).await?;
+        let adopted = {
+            let mut scores = self.scores.lock().await;
+            publish::adopt_with_scores(&mut self.store, node, identity, &state, now, &mut scores)
+                .await?
+        };
         self.complete_link_directory(node, identity, device_key, &adopted.published, &state)
             .await?;
         self.complete_link_packages(node, device_key, key_packages, seal_key, now, &state)

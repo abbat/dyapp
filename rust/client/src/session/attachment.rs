@@ -91,7 +91,10 @@ impl Session {
         seal_key: &[u8; 32],
     ) -> Result<Submission, Error> {
         attachment.check()?;
-        upload(nodes, identity, attachment, blob, &mut self.scores).await?;
+        {
+            let mut scores = self.scores.lock().await;
+            upload(nodes, identity, attachment, blob, &mut scores).await?;
+        }
         self.submit_uploaded_attachment(nodes, group_id, attachment, seal_key)
             .await
     }

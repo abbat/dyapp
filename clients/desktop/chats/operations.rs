@@ -100,8 +100,14 @@ async fn operate(
         .ok_or("notConnected")?;
     let mut node = profile::connect(&active).await?;
     let seal_key = crate::sealing_key(root, dir, &store)?;
-    let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
-        .map_err(|e| e.to_string())?;
+    let mut session = Session::open_or_create_with_scores(
+        store,
+        identity,
+        device_key,
+        &seal_key,
+        dyapp_client::contact_verification::scores(dir).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
     match text {
         Some(text) => session
             .send_edit(

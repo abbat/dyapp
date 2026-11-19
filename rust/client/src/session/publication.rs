@@ -27,9 +27,9 @@ impl Session {
         {
             return Err(crate::store::Error::WrongIdentity.into());
         }
+        let mut scores = self.scores.lock().await;
         let source =
-            publish::prepare_fields(&self.store, node, identity, &mut attempt, &mut self.scores)
-                .await?;
+            publish::prepare_fields(&self.store, node, identity, &mut attempt, &mut scores).await?;
         if let Some(source) = source {
             if self.own_device_revoked(&source)? {
                 return Err(Error::Revoked);
@@ -49,9 +49,10 @@ impl Session {
             node,
             identity,
             &attempt,
-            &mut self.scores,
+            &mut scores,
         )
         .await?;
+        drop(scores);
         self.store.note_device_listed(outcome.published.version)?;
         Ok(outcome)
     }
@@ -66,7 +67,7 @@ impl Session {
         identity: &Identity,
         now: u64,
     ) -> Result<(), publish::Failure> {
-        publish::refresh_photos_with_scores(&self.store, node, identity, now, &mut self.scores)
-            .await
+        let mut scores = self.scores.lock().await;
+        publish::refresh_photos_with_scores(&self.store, node, identity, now, &mut scores).await
     }
 }

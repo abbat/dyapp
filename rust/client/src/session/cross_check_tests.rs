@@ -236,6 +236,8 @@ async fn complete_withholding_is_scored_and_the_union_is_committed_and_acked() {
         fixture
             .session
             .scores
+            .lock()
+            .await
             .penalty(first_node.peer(), crate::now()),
         1
     );
@@ -243,6 +245,8 @@ async fn complete_withholding_is_scored_and_the_union_is_committed_and_acked() {
         fixture
             .session
             .scores
+            .lock()
+            .await
             .penalty(second_node.peer(), crate::now()),
         0
     );
@@ -264,6 +268,8 @@ async fn partial_first_page_is_not_scored_for_omission() {
         fixture
             .session
             .scores
+            .lock()
+            .await
             .penalty(first_node.peer(), crate::now()),
         0
     );

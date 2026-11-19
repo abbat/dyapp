@@ -31,14 +31,16 @@ impl Session {
         profiles: &[VerifiedProfile],
         seal_key: &[u8; 32],
     ) -> Result<Vec<Event>, Error> {
+        let mut scores = self.scores.lock().await;
         let (at, (envelopes, _more)) = scores::first(
-            &mut self.scores,
+            &mut scores,
             nodes,
             Node::describe,
             Operation::MailboxRead,
             async |node| Ok((node.peer(), node.fetch(device_key).await?)),
         )
         .await?;
+        drop(scores);
         self.process_page(nodes, device_key, profiles, seal_key, Some(at), envelopes)
             .await
     }
@@ -60,10 +62,10 @@ impl Session {
     ) -> Result<(Vec<Event>, bool), Error> {
         const PAGE_LIMIT: u32 = 20;
         let now = crate::now();
-        self.scores.register_nodes(nodes);
         let peers: Vec<_> = nodes.iter().map(Node::peer).collect();
+        let order = self.mailbox_order(nodes, &peers).await;
         let mut last = crate::Error::Status(dyapp_p2p_net::proto::Status::NotFound);
-        for i in self.scores.ranked(&peers, Operation::MailboxRead) {
+        for i in order {
             let (Some(&at), Some(node)) = (peers.get(i), nodes.get_mut(i)) else {
                 continue;
             };
@@ -76,13 +78,18 @@ impl Session {
                 Ok(page) => page,
                 Err(error) => {
                     if scores::faulty(&error) {
-                        self.scores.fault(at, now, Operation::MailboxRead);
+                        self.scores
+                            .lock()
+                            .await
+                            .fault(at, now, Operation::MailboxRead);
                     }
                     last = error;
                     continue;
                 }
             };
             self.scores
+                .lock()
+                .await
                 .success(at, Operation::MailboxRead, started.elapsed());
             let events = self
                 .process_page(
@@ -94,18 +101,31 @@ impl Session {
                     page.envelopes,
                 )
                 .await?;
-            if page.more {
-                let next = page
-                    .next_cursor
-                    .as_deref()
-                    .ok_or(crate::Error::Reply("missing mailbox cursor"))?;
-                self.store.save_mailbox_cursor(at, next)?;
-            } else {
-                self.store.clear_mailbox_cursor()?;
-            }
+            self.save_page_cursor(at, page.more, page.next_cursor.as_deref())?;
             return Ok((events, page.more));
         }
         Err(last.into())
+    }
+
+    async fn mailbox_order(&mut self, nodes: &[Node], peers: &[libp2p::PeerId]) -> Vec<usize> {
+        let mut scores = self.scores.lock().await;
+        scores.register_nodes(nodes);
+        scores.ranked(peers, Operation::MailboxRead)
+    }
+
+    fn save_page_cursor(
+        &mut self,
+        at: libp2p::PeerId,
+        more: bool,
+        next: Option<&[u8]>,
+    ) -> Result<(), Error> {
+        if more {
+            let next = next.ok_or(crate::Error::Reply("missing mailbox cursor"))?;
+            self.store.save_mailbox_cursor(at, next)?;
+        } else {
+            self.store.clear_mailbox_cursor()?;
+        }
+        Ok(())
     }
 
     /// Fetch one bounded page from each of two distinct holders, commit their union through the
@@ -137,8 +157,11 @@ impl Session {
             }
         }
         if envelopes.len() > held && !first_page.more {
-            self.scores
-                .fault(first.peer(), crate::now(), Operation::MailboxCrossCheck);
+            self.scores.lock().await.fault(
+                first.peer(),
+                crate::now(),
+                Operation::MailboxCrossCheck,
+            );
         }
         envelopes.sort_by_key(|envelope| {
             dyapp_messaging::mls::epoch_of(&envelope.ciphertext)

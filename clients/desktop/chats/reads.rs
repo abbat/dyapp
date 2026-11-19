@@ -58,8 +58,14 @@ pub(super) async fn send_read_receipts(
         .ok_or("notConnected")?;
     let mut node = profile::connect(&active).await?;
     let seal_key = crate::sealing_key(root, dir, &store)?;
-    let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
-        .map_err(|e| e.to_string())?;
+    let mut session = Session::open_or_create_with_scores(
+        store,
+        identity,
+        device_key,
+        &seal_key,
+        dyapp_client::contact_verification::scores(dir).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
     for (group, seen) in &due {
         session
             .mark_read(std::slice::from_mut(&mut node), group, *seen, &seal_key)

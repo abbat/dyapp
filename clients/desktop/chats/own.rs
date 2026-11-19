@@ -57,8 +57,10 @@ pub async fn change_peer(
     }
     let device = crate::device_key(root, dir, identity)?;
     let seal_key = crate::sealing_key(root, dir, &store)?;
+    let scores = dyapp_client::contact_verification::scores(dir).map_err(|e| e.to_string())?;
     let mut session =
-        Session::open_or_create(store, identity, &device, &seal_key).map_err(|e| e.to_string())?;
+        Session::open_or_create_with_scores(store, identity, &device, &seal_key, scores)
+            .map_err(|e| e.to_string())?;
     session
         .change_peer(&mut [], peer_id, change, &seal_key)
         .await

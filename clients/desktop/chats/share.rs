@@ -76,7 +76,8 @@ async fn send(
 ) -> Result<[u8; 16], String> {
     let store = super::open(dir, identity)?;
     let seal_key = crate::sealing_key(root, dir, &store)?;
-    let mut session = Session::open(store, &seal_key).map_err(share_error)?;
+    let scores = dyapp_client::contact_verification::scores(dir).map_err(|e| e.to_string())?;
+    let mut session = Session::open_with_scores(store, &seal_key, scores).map_err(share_error)?;
     session
         .prepare_profile_share(target_peer, peer_id)
         .map_err(share_error)?;

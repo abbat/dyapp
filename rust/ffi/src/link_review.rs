@@ -38,7 +38,10 @@ impl Owner {
             operation.identity(),
         )
         .map_err(failed)?;
-        let session = Session::open(store, operation.state_key()).map_err(failed)?;
+        let scores = dyapp_client::contact_verification::scores(&operation.slot().dir)
+            .map_err(|error| failed(error.to_string()))?;
+        let session =
+            Session::open_with_scores(store, operation.state_key(), scores).map_err(failed)?;
         Ok(Admitted { session, operation })
     }
 }

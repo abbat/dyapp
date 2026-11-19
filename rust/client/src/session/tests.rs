@@ -962,3 +962,27 @@ fn the_first_open_creates_the_device_and_later_opens_keep_it() {
     let listed = dyapp_profile::DeviceCertificate::decode(first.payload.as_slice()).unwrap();
     assert_eq!(listed.device_key, device_key.public_key().to_vec());
 }
+
+#[test]
+fn reopened_sessions_can_share_identity_network_selection_state() {
+    let identity = Identity::try_generate().unwrap();
+    let device = Identity::try_generate().unwrap();
+    let path = crate::store::tests::temp_db_path();
+    let scores = std::sync::Arc::default();
+    let first = Session::open_or_create_with_scores(
+        Store::open(&path, &identity).unwrap(),
+        &identity,
+        &device,
+        &[5; 32],
+        std::sync::Arc::clone(&scores),
+    )
+    .unwrap();
+    let reopened = Session::open_with_scores(
+        Store::open(&path, &identity).unwrap(),
+        &[5; 32],
+        std::sync::Arc::clone(&scores),
+    )
+    .unwrap();
+    assert!(std::sync::Arc::ptr_eq(&first.scores(), &scores));
+    assert!(std::sync::Arc::ptr_eq(&reopened.scores(), &scores));
+}

@@ -56,8 +56,10 @@ impl Session {
                 completed = add(completed, downloaded);
                 continue;
             }
-            let fetched =
-                attachment::fetch_with_scores(nodes, &answer.attachment, &mut self.scores).await;
+            let fetched = {
+                let mut scores = self.scores.lock().await;
+                attachment::fetch_with_scores(nodes, &answer.attachment, &mut scores).await
+            };
             if stop() {
                 break;
             }

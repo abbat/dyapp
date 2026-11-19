@@ -545,8 +545,14 @@ pub async fn publish(
         .ok_or("notConnected")?;
     let mut node = connect(&active).await?;
     let seal_key = crate::sealing_key(root, dir, &store)?;
-    let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
-        .map_err(|e| e.to_string())?;
+    let mut session = Session::open_or_create_with_scores(
+        store,
+        identity,
+        device_key,
+        &seal_key,
+        dyapp_client::contact_verification::scores(dir).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
     let published = session
         .publish_profile(&mut node, identity, device_key, attempt)
         .await
@@ -765,14 +771,15 @@ pub async fn finish_link(
     let mut node = connect(&active).await?;
     let seal_key = crate::sealing_key(root, dir, &store)?;
     let now = unix_now()?;
-    Session::finish_link(
+    let scores = dyapp_client::contact_verification::scores(dir).map_err(|e| e.to_string())?;
+    Session::finish_link_with_scores(
         store,
         &mut node,
         identity,
         device,
-        KEY_PACKAGES,
+        session::LinkOptions::new(KEY_PACKAGES, now),
         &seal_key,
-        now,
+        scores,
     )
     .await
     .map_err(|error| match error {

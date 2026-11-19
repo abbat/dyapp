@@ -1,7 +1,7 @@
 //! Adds devices the owner linked to the groups this device holds and starts the private group of
 //! the owner's devices ([ADR 0040](../../../../docs/decisions/0040-device-linking.md)).
 
-use super::{prepare, Error, Session};
+use super::{prepare, Arc, Error, Session};
 use crate::chat::{self, Body, Delivery, Event, PeerChange};
 use crate::scores::Scores;
 use crate::selection::Operation;
@@ -16,6 +16,21 @@ use dyapp_profile::{Profile, VerifiedProfile};
 /// first. Two commits on one epoch fork a group for good, and no server orders them.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub const ADD_TURN_SECONDS: u64 = 3600;
+
+/// Bounded package count and observation time for one link completion.
+#[derive(Clone, Copy)]
+pub struct LinkOptions {
+    key_packages: usize,
+    now: u64,
+}
+
+impl LinkOptions {
+    /// Capture link completion options.
+    #[must_use]
+    pub fn new(key_packages: usize, now: u64) -> Self {
+        Self { key_packages, now }
+    }
+}
 
 #[path = "link/resume.rs"]
 mod resume;
@@ -33,7 +48,7 @@ impl Session {
     /// package, or database access fails. Earlier steps may already be applied;
     /// the pending-link row is cleared only after all steps succeed.
     pub async fn finish_link(
-        mut store: Store,
+        store: Store,
         node: &mut Node,
         identity: &Identity,
         device_key: &Identity,
@@ -41,20 +56,53 @@ impl Session {
         seal_key: &[u8; 32],
         now: u64,
     ) -> Result<bool, Error> {
+        Self::finish_link_with_scores(
+            store,
+            node,
+            identity,
+            device_key,
+            LinkOptions::new(key_packages, now),
+            seal_key,
+            Arc::default(),
+        )
+        .await
+    }
+
+    /// Finish a pending link using shared identity/network selection state.
+    ///
+    /// # Errors
+    /// Returns the same import, publication, package and storage failures as [`Self::finish_link`].
+    pub async fn finish_link_with_scores(
+        mut store: Store,
+        node: &mut Node,
+        identity: &Identity,
+        device_key: &Identity,
+        options: LinkOptions,
+        seal_key: &[u8; 32],
+        scores: Arc<tokio::sync::Mutex<Scores>>,
+    ) -> Result<bool, Error> {
         let Some(state) = store.link_pending()? else {
             return Ok(false);
         };
-        let mut scores = Scores::default();
-        let adopted =
-            publish::adopt_with_scores(&mut store, node, identity, &state, now, &mut scores)
-                .await?;
-        let mut session = Self::open_or_create(store, identity, device_key, seal_key)?;
-        session.scores = scores;
+        let adopted = {
+            let mut shared = scores.lock().await;
+            publish::adopt_with_scores(&mut store, node, identity, &state, options.now, &mut shared)
+                .await?
+        };
+        let mut session =
+            Self::open_or_create_with_scores(store, identity, device_key, seal_key, scores)?;
         session
             .complete_link_directory(node, identity, device_key, &adopted.published, &state)
             .await?;
         session
-            .complete_link_packages(node, device_key, key_packages, seal_key, now, &state)
+            .complete_link_packages(
+                node,
+                device_key,
+                options.key_packages,
+                seal_key,
+                options.now,
+                &state,
+            )
             .await?;
         Ok(true)
     }
@@ -74,14 +122,17 @@ impl Session {
             let attempt = self.prepare_link_listing(identity, device_key, published)?;
             self.store
                 .admit_link_enrollment(identity, &self.certificate()?, &attempt, state)?;
-            let listed = publish::relist_prepared_with_scores(
-                &self.store,
-                node,
-                identity,
-                &attempt,
-                &mut self.scores,
-            )
-            .await?;
+            let listed = {
+                let mut scores = self.scores.lock().await;
+                publish::relist_prepared_with_scores(
+                    &self.store,
+                    node,
+                    identity,
+                    &attempt,
+                    &mut scores,
+                )
+                .await?
+            };
             self.store.note_device_listed(listed.published.version)?;
         }
         Ok(())
@@ -256,14 +307,17 @@ impl Session {
         if keys.is_empty() {
             return Ok(());
         }
-        scores::first(
-            &mut self.scores,
-            nodes,
-            Node::describe,
-            Operation::MailboxWrite,
-            async |node| node.revoke_tokens(device_key, &keys).await,
-        )
-        .await?;
+        {
+            let mut scores = self.scores.lock().await;
+            scores::first(
+                &mut scores,
+                nodes,
+                Node::describe,
+                Operation::MailboxWrite,
+                async |node| node.revoke_tokens(device_key, &keys).await,
+            )
+            .await?;
+        }
         Ok(())
     }
 
@@ -391,14 +445,17 @@ impl Session {
                     .try_into()
                     .map_err(|_| crate::Error::Reply("bad device key"))?;
                 let address = mailbox(&key).to_vec();
-                let fetched = scores::first(
-                    &mut self.scores,
-                    nodes,
-                    Node::describe,
-                    Operation::MailboxRead,
-                    async |node| node.fetch_key_package(own, &address).await,
-                )
-                .await;
+                let fetched = {
+                    let mut scores = self.scores.lock().await;
+                    scores::first(
+                        &mut scores,
+                        nodes,
+                        Node::describe,
+                        Operation::MailboxRead,
+                        async |node| node.fetch_key_package(own, &address).await,
+                    )
+                    .await
+                };
                 if let Ok(package) = fetched {
                     packages.push((address, package));
                 }

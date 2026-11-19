@@ -1,7 +1,7 @@
 //! Session restoration and read-only state access.
 
 use super::{
-    CurrentMessage, Device, Error, Identity, MessageKey, Scores, Session, SignedRecord, Store,
+    Arc, CurrentMessage, Device, Error, Identity, MessageKey, Scores, Session, SignedRecord, Store,
 };
 
 impl Session {
@@ -11,6 +11,18 @@ impl Session {
     /// Returns [`Error::MissingSnapshot`] if no snapshot exists, [`Error::Store`]
     /// for database failures, or [`Error::Mls`] if restoring the sealed device fails.
     pub fn open(store: Store, seal_key: &[u8; 32]) -> Result<Self, Error> {
+        Self::open_with_scores(store, seal_key, Arc::default())
+    }
+
+    /// Open a snapshot with selection state shared by the active identity/network workers.
+    ///
+    /// # Errors
+    /// Returns the same snapshot, storage and MLS failures as [`Self::open`].
+    pub fn open_with_scores(
+        store: Store,
+        seal_key: &[u8; 32],
+        scores: Arc<tokio::sync::Mutex<Scores>>,
+    ) -> Result<Self, Error> {
         let sealed = store.sealed_device()?.ok_or(Error::MissingSnapshot)?;
         let device = Device::open(&sealed, seal_key)?;
         let groups = store
@@ -22,7 +34,7 @@ impl Session {
             store,
             device: Some(device),
             groups,
-            scores: Scores::default(),
+            scores,
         })
     }
 
@@ -33,16 +45,30 @@ impl Session {
     /// Returns storage or MLS errors when creating, sealing, saving or restoring
     /// the device, and any restoration error from [`Self::open`].
     pub fn open_or_create(
+        store: Store,
+        identity: &Identity,
+        device_key: &Identity,
+        seal_key: &[u8; 32],
+    ) -> Result<Self, Error> {
+        Self::open_or_create_with_scores(store, identity, device_key, seal_key, Arc::default())
+    }
+
+    /// Open or create a device with shared identity/network selection state.
+    ///
+    /// # Errors
+    /// Returns the same storage and MLS failures as [`Self::open_or_create`].
+    pub fn open_or_create_with_scores(
         mut store: Store,
         identity: &Identity,
         device_key: &Identity,
         seal_key: &[u8; 32],
+        scores: Arc<tokio::sync::Mutex<Scores>>,
     ) -> Result<Self, Error> {
         if store.sealed_device()?.is_none() {
             let device = Device::new(identity, device_key.public_key(), 1)?;
             store.stage_outbound(&device.seal(seal_key)?, &[])?;
         }
-        Self::open(store, seal_key)
+        Self::open_with_scores(store, seal_key, scores)
     }
 
     /// The profile's store, for the calls outside chats such as the profile publish.
@@ -53,8 +79,8 @@ impl Session {
 
     /// The scores of the nodes this session used.
     #[must_use]
-    pub fn scores(&self) -> &Scores {
-        &self.scores
+    pub fn scores(&self) -> Arc<tokio::sync::Mutex<Scores>> {
+        Arc::clone(&self.scores)
     }
 
     /// Read one current logical message, including its edited or deleted state.

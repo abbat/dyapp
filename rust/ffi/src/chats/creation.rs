@@ -31,9 +31,15 @@ impl ChatSession {
         operation: Option<ChatOperation>,
     ) -> Result<Arc<Self>, CoreError> {
         let database = Store::open(&dir.join("client.db"), &key.identity).map_err(failed)?;
-        let session =
-            Session::open_or_create(database, &key.identity, &device_key.identity, &seal_key)
-                .map_err(failed)?;
+        let scores = dyapp_client::contact_verification::scores(&dir).map_err(failed)?;
+        let session = Session::open_or_create_with_scores(
+            database,
+            &key.identity,
+            &device_key.identity,
+            &seal_key,
+            scores,
+        )
+        .map_err(failed)?;
         let certificate = session.certificate().map_err(failed)?;
         let certified = DeviceCertificate::decode(certificate.payload.as_slice())
             .map_err(failed)?

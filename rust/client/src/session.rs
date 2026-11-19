@@ -11,6 +11,7 @@ use dyapp_identity::{Identity, SignedRecord};
 use dyapp_messaging::mls::{Device, Group};
 use dyapp_p2p_net::proto::{EnvelopeClass, Status};
 use dyapp_profile::VerifiedProfile;
+use std::sync::Arc;
 
 /// A last-resort `KeyPackage` is replaced this long after its publication, ahead of its 30-day
 /// expiry, so a person who opens the app monthly never leaves an expired one behind.
@@ -77,7 +78,7 @@ pub struct Session {
     store: Store,
     device: Option<Device>,
     groups: Vec<Group>,
-    scores: Scores,
+    scores: Arc<tokio::sync::Mutex<Scores>>,
 }
 
 impl Session {
@@ -474,8 +475,9 @@ impl Session {
             .try_into()
             .map_err(|_| crate::Error::Reply("bad device key"))?;
         let own = crate::mailbox(&key);
+        let mut scores = self.scores.lock().await;
         Ok(scores::first(
-            &mut self.scores,
+            &mut scores,
             nodes,
             Node::describe,
             Operation::MailboxRead,
@@ -725,9 +727,12 @@ impl Session {
     ) -> Result<(), Error> {
         let today = u32::try_from(now_ms / 86_400_000).map_err(crate::clock_range)?;
         let now = u64::try_from(now_ms).map_err(crate::clock_range)? / 1000;
-        self.scores.register_nodes(nodes);
         let peers: Vec<_> = nodes.iter().map(Node::peer).collect();
-        let mut order = self.scores.ranked(&peers, Operation::MailboxWrite);
+        let mut order = {
+            let mut scores = self.scores.lock().await;
+            scores.register_nodes(nodes);
+            scores.ranked(&peers, Operation::MailboxWrite)
+        };
         if let Some(by) = self.store.accepted_by(&write)? {
             if let Some(at) = order
                 .iter()
@@ -748,14 +753,20 @@ impl Session {
                 .await?
             {
                 None => {
-                    self.scores
-                        .success(peer, Operation::MailboxWrite, started.elapsed());
+                    self.scores.lock().await.success(
+                        peer,
+                        Operation::MailboxWrite,
+                        started.elapsed(),
+                    );
                     return Ok(());
                 }
                 Some(error) => last = error,
             }
             if scores::faulty(&last) {
-                self.scores.fault(peer, now, Operation::MailboxWrite);
+                self.scores
+                    .lock()
+                    .await
+                    .fault(peer, now, Operation::MailboxWrite);
             }
         }
         Err(last.into())
@@ -879,7 +890,7 @@ impl Session {
                 body: Body::Receipt(receipt),
                 ..
             } => {
-                self.record_receipt(&receipt)?;
+                self.record_receipt(&receipt).await?;
                 Ok(None)
             }
             Event::Message {
@@ -900,7 +911,7 @@ impl Session {
         }
     }
 
-    fn record_receipt(&mut self, receipt: &chat::Receipt) -> Result<(), Error> {
+    async fn record_receipt(&mut self, receipt: &chat::Receipt) -> Result<(), Error> {
         let mailbox = receipt.mailbox.as_slice().try_into().unwrap_or([0; 32]);
         let ids = receipt
             .ids
@@ -910,7 +921,10 @@ impl Session {
         let now = crate::now();
         for peer in self.store.receipted(&mailbox, &ids)?.1 {
             if let Ok(peer) = peer.parse() {
-                self.scores.fault(peer, now, Operation::MailboxWrite);
+                self.scores
+                    .lock()
+                    .await
+                    .fault(peer, now, Operation::MailboxWrite);
             }
         }
         Ok(())
@@ -953,6 +967,7 @@ mod attachment;
 mod clock;
 mod forward;
 mod link;
+pub use link::LinkOptions;
 mod local;
 mod mailbox_failure;
 pub use mailbox_failure::MailboxFailure;

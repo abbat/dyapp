@@ -56,8 +56,14 @@ pub async fn receive(
     let mailbox = dyapp_client::mailbox(&device_key.public_key());
     let mut replicas = node.replicas(&mailbox, protocols).await;
     let seal_key = crate::sealing_key(root, dir, &store)?;
-    let mut session = Session::open_or_create(store, identity, device_key, &seal_key)
-        .map_err(|e| e.to_string())?;
+    let mut session = Session::open_or_create_with_scores(
+        store,
+        identity,
+        device_key,
+        &seal_key,
+        dyapp_client::contact_verification::scores(dir).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
     own::retry_outbox(&mut session, replicas.nodes_mut(), &seal_key).await?;
     let mut pass = MailPass {
         cache,
