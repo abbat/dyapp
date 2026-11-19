@@ -47,11 +47,12 @@ pub(crate) enum State {
     HalfOpen,
 }
 
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 struct AddressHealth {
     open_until: Option<Instant>,
 }
 
+#[derive(Clone, Debug)]
 struct NodeHealth {
     group: String,
     addresses: HashMap<Multiaddr, AddressHealth>,
@@ -164,6 +165,7 @@ impl NodeHealth {
     }
 }
 
+#[derive(Clone, Debug)]
 pub(crate) struct Policy {
     nodes: HashMap<PeerId, NodeHealth>,
     ring: Vec<PeerId>,
@@ -330,7 +332,7 @@ impl Policy {
                 let Some(node) = self.nodes.get_mut(&peer) else {
                     continue;
                 };
-                if !node.probation && node.open_until.is_none() {
+                if (!node.probation || pool.is_empty()) && node.open_until.is_none() {
                     node.incumbent = true;
                     pool.push(peer);
                 }

@@ -37,7 +37,7 @@ pub fn same_ip(observed: &Multiaddr, claimed: &Multiaddr) -> bool {
 
 /// The IP group of `address`: /24 (IPv6 /48), or /16 (IPv6 /32) when `wide`; a DNS name is its
 /// own group.
-pub(super) fn ip_group(address: &Multiaddr, wide: bool) -> Option<String> {
+pub fn ip_group(address: &Multiaddr, wide: bool) -> Option<String> {
     address.iter().find_map(|p| match p {
         Protocol::Ip4(ip) => {
             let [a, b, c, _] = ip.octets();

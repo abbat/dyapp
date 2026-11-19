@@ -187,9 +187,10 @@ write stays until its delivery receipt: `Session::receive` sends each group one 
 naming the envelope IDs it committed, and the sender's outbox drops them. Without a receipt it
 is put again 1 h after acceptance, then up to a day apart, and given up after 30 days. A receipt
 leaves the outbox once a node accepts it and is not receipted itself. Each `Session` call takes
-the caller's nodes, e.g. one per replica key: a put tries them lowest penalty first
-([scores](bootstrap.md#replication-and-repair)), the node that accepted the write last tried
-last, and each failure counts against its node; `receive` fetches from the first that answers. A
+the caller's nodes, e.g. one per replica key: mailbox puts and reads use the shared sufficient-node
+policy ([selection](../design/node-selection.md)); the node that accepted the write last is tried
+last, and each failure counts against its node; `receive` fetches from the first selected holder
+that answers. A
 receipt for a later write to the same mailbox counts against the node that accepted a
 still-waiting earlier one, which is resent at once. The Linux desktop's minute catch-up pass and
 the native mobile mail pass discover one connected holder per replica key, then call

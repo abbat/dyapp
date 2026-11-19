@@ -11,6 +11,7 @@
 use crate::attachment::Attachment;
 use crate::interactions::Interaction;
 use crate::scores::Scores;
+use crate::selection::Operation;
 use crate::{mailbox, Envelope, Error, Node};
 use dyapp_identity::{Identity, SignedRecord};
 use dyapp_messaging::mls::{self, Device, Group, Received};
@@ -763,7 +764,7 @@ pub async fn cross_check(
         }
     }
     if envelopes.len() > held && !more {
-        scores.fault(first.peer(), crate::now());
+        scores.fault(first.peer(), crate::now(), Operation::MailboxCrossCheck);
     }
     // Welcomes first, then by epoch, an epoch's messages before the commit that ends it.
     envelopes.sort_by_key(|envelope| mls::epoch_of(&envelope.ciphertext).ok().flatten());

@@ -3,6 +3,7 @@
 
 use super::{prepare, Error, Session};
 use crate::chat::{self, Body, Delivery, Event, PeerChange};
+use crate::selection::Operation;
 use crate::store::Store;
 use crate::{mailbox, publish, scores, Node, PreparedEnvelope};
 use dyapp_identity::{Identity, SignedRecord};
@@ -243,9 +244,13 @@ impl Session {
         if keys.is_empty() {
             return Ok(());
         }
-        scores::first(&mut self.scores, nodes, Node::peer, async |node| {
-            node.revoke_tokens(device_key, &keys).await
-        })
+        scores::first(
+            &mut self.scores,
+            nodes,
+            Node::describe,
+            Operation::MailboxWrite,
+            async |node| node.revoke_tokens(device_key, &keys).await,
+        )
         .await?;
         Ok(())
     }
@@ -374,9 +379,13 @@ impl Session {
                     .try_into()
                     .map_err(|_| crate::Error::Reply("bad device key"))?;
                 let address = mailbox(&key).to_vec();
-                let fetched = scores::first(&mut self.scores, nodes, Node::peer, async |node| {
-                    node.fetch_key_package(own, &address).await
-                })
+                let fetched = scores::first(
+                    &mut self.scores,
+                    nodes,
+                    Node::describe,
+                    Operation::MailboxRead,
+                    async |node| node.fetch_key_package(own, &address).await,
+                )
                 .await;
                 if let Ok(package) = fetched {
                     packages.push((address, package));

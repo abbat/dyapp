@@ -4,31 +4,77 @@
 //! key, lowest penalty first. What a node says about itself (`info`, status) is never scored: it
 //! is a hint only.
 
-use crate::Error;
+use crate::selection::{Operation, Outcome, Policy};
+use crate::{Error, Node};
 use dyapp_p2p_net::proto::Status;
-use libp2p::PeerId;
+use libp2p::{Multiaddr, PeerId};
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 /// Seconds after which a node's penalty halves.
 pub const HALF_LIFE: u64 = 24 * 3_600;
 
-/// Penalty and the time it was last raised, per node.
+/// Penalty and the time it was last raised, per node, plus the selection policy.
 // shortcut: held in memory only, a restart forgives every node; persist it when the app
 // stores client state.
-#[derive(Debug, Default, Clone)]
-pub struct Scores(HashMap<PeerId, (u32, u64)>);
+#[derive(Debug, Clone)]
+pub struct Scores {
+    penalties: HashMap<PeerId, (u32, u64)>,
+    policy: Policy,
+}
+
+impl Default for Scores {
+    fn default() -> Self {
+        Self {
+            penalties: HashMap::new(),
+            policy: Policy::new(getrandom::u64().unwrap_or(0xd17)),
+        }
+    }
+}
 
 impl Scores {
     /// Counts one fault of `node` at `now`, seconds since the epoch.
-    pub fn fault(&mut self, node: PeerId, now: u64) {
+    pub(crate) fn fault(&mut self, node: PeerId, now: u64, operation: Operation) {
         let penalty = self.penalty(node, now).saturating_add(1);
-        self.0.insert(node, (penalty, now));
+        self.penalties.insert(node, (penalty, now));
+        self.policy.observe(
+            node,
+            &Multiaddr::empty(),
+            operation,
+            Outcome::HardFault,
+            Duration::ZERO,
+            Instant::now(),
+        );
+    }
+
+    /// Records one valid response and its observed cost.
+    pub(crate) fn success(&mut self, node: PeerId, operation: Operation, cost: Duration) {
+        self.policy.observe(
+            node,
+            &Multiaddr::empty(),
+            operation,
+            Outcome::Normal,
+            cost,
+            Instant::now(),
+        );
+    }
+
+    /// Records an honest absence without penalizing the node.
+    pub(crate) fn not_found(&mut self, node: PeerId, operation: Operation, cost: Duration) {
+        self.policy.observe(
+            node,
+            &Multiaddr::empty(),
+            operation,
+            Outcome::NotFound,
+            cost,
+            Instant::now(),
+        );
     }
 
     /// The penalty of `node` at `now`: 0 for a node without faults.
     #[must_use]
     pub fn penalty(&self, node: PeerId, now: u64) -> u32 {
-        self.0.get(&node).map_or(0, |&(penalty, at)| {
+        self.penalties.get(&node).map_or(0, |&(penalty, at)| {
             let halvings = now.saturating_sub(at) / HALF_LIFE;
             u32::try_from(halvings)
                 .ok()
@@ -37,12 +83,30 @@ impl Scores {
         })
     }
 
-    /// Indexes of `nodes` by penalty at `now`; equal penalties keep the given order.
+    /// Registers real holder addresses and IP groups before selecting them.
+    pub(crate) fn register_nodes(&mut self, nodes: &[Node]) {
+        for node in nodes {
+            let (peer, address, group) = node.describe();
+            self.policy.register(peer, group, address);
+        }
+    }
+
+    fn register(&mut self, peer: PeerId, address: Multiaddr, group: String) {
+        self.policy.register(peer, group, address);
+    }
+
+    /// Indexes selected by the shared operation policy without replacement.
     #[must_use]
-    pub fn ranked(&self, nodes: &[PeerId], now: u64) -> Vec<usize> {
-        let mut order: Vec<usize> = (0..nodes.len()).collect();
-        order.sort_by_key(|&i| nodes.get(i).map_or(0, |node| self.penalty(*node, now)));
-        order
+    pub(crate) fn ranked(&mut self, nodes: &[PeerId], operation: Operation) -> Vec<usize> {
+        for peer in nodes {
+            self.policy
+                .register(*peer, String::new(), Multiaddr::empty());
+        }
+        self.policy
+            .select(operation, nodes.len(), Instant::now())
+            .iter()
+            .filter_map(|selected| nodes.iter().position(|peer| peer == selected))
+            .collect()
     }
 }
 
@@ -62,25 +126,36 @@ pub fn faulty(error: &Error) -> bool {
 /// Returns the last request error when every node fails, [`Error::Timeout`] when the total
 /// failover budget expires, or the not-found status when `nodes` is empty. Fault penalties from
 /// failed attempts remain applied.
-pub async fn first<T, R>(
+pub(crate) async fn first<T, R>(
     scores: &mut Scores,
     nodes: &mut [T],
-    peer: impl Fn(&T) -> PeerId,
+    describe: impl Fn(&T) -> (PeerId, Multiaddr, String),
+    operation: Operation,
     mut request: impl AsyncFnMut(&mut T) -> Result<R, Error>,
 ) -> Result<R, Error> {
     let now = crate::now();
-    let peers: Vec<PeerId> = nodes.iter().map(&peer).collect();
+    let descriptions: Vec<_> = nodes.iter().map(&describe).collect();
+    for (peer, address, group) in descriptions {
+        scores.register(peer, address, group);
+    }
+    let peers: Vec<PeerId> = nodes.iter().map(|node| describe(node).0).collect();
     let mut last = Error::Status(Status::NotFound);
     tokio::time::timeout(crate::OPERATION_TIMEOUT, async {
-        for i in scores.ranked(&peers, now) {
+        for i in scores.ranked(&peers, operation) {
             let (Some(node), Some(&peer)) = (nodes.get_mut(i), peers.get(i)) else {
                 continue;
             };
+            let started = Instant::now();
             match request(node).await {
-                Ok(reply) => return Ok(reply),
+                Ok(reply) => {
+                    scores.success(peer, operation, started.elapsed());
+                    return Ok(reply);
+                }
                 Err(error) => {
                     if faulty(&error) {
-                        scores.fault(peer, now);
+                        scores.fault(peer, now, operation);
+                    } else {
+                        scores.not_found(peer, operation, started.elapsed());
                     }
                     last = error;
                 }
@@ -115,39 +190,64 @@ mod tests {
 
     #[tokio::test]
     async fn a_node_that_refuses_one_user_is_skipped_and_scored() {
-        let mut nodes = [
-            Fake {
-                peer: PeerId::random(),
-                refused: "alice",
-            },
-            Fake {
-                peer: PeerId::random(),
-                refused: "",
-            },
-        ];
-        let (hostile, honest) = (nodes[0].peer, nodes[1].peer);
+        let hostile = PeerId::random();
+        let honest = PeerId::random();
+        let mut nodes = vec![Fake {
+            peer: hostile,
+            refused: "alice",
+        }];
         let mut scores = Scores::default();
+        for _ in 0..2 {
+            let refused = first(
+                &mut scores,
+                &mut nodes,
+                |node| (node.peer, Multiaddr::empty(), String::new()),
+                Operation::Search,
+                async |node| node.put("alice"),
+            )
+            .await;
+            assert!(matches!(refused, Err(Error::Status(Status::Refused))));
+        }
+        assert_eq!(scores.penalty(hostile, crate::now()), 2);
+        nodes.push(Fake {
+            peer: honest,
+            refused: "",
+        });
         let served = first(
             &mut scores,
             &mut nodes,
-            |node| node.peer,
-            async |node| node.put("alice"),
-        )
-        .await
-        .unwrap();
-        assert_eq!(served, honest);
-        assert_eq!(scores.penalty(hostile, crate::now()), 1);
-        assert_eq!(scores.penalty(honest, crate::now()), 0);
-        // The hostile node is now tried last, even for a user it serves.
-        let served = first(
-            &mut scores,
-            &mut nodes,
-            |node| node.peer,
+            |node| (node.peer, Multiaddr::empty(), String::new()),
+            Operation::Search,
             async |node| node.put("bob"),
         )
         .await
         .unwrap();
         assert_eq!(served, honest);
+        assert_eq!(scores.penalty(honest, crate::now()), 0);
+    }
+
+    #[test]
+    fn penalties_decay_while_selection_recovery_uses_the_policy_clock() {
+        let (bad, good) = (PeerId::random(), PeerId::random());
+        let mut scores = Scores::default();
+        scores.fault(bad, NOW, Operation::Search);
+        scores.fault(bad, NOW + 60, Operation::Search);
+        assert_eq!(scores.penalty(bad, NOW + 60), 2);
+        assert_eq!(scores.penalty(bad, NOW + 60 + HALF_LIFE), 1);
+        assert_eq!(scores.penalty(bad, NOW + 60 + 2 * HALF_LIFE), 0);
+        assert_eq!(scores.penalty(bad, u64::MAX), 0);
+        assert_eq!(scores.ranked(&[bad, good], Operation::Search).len(), 2);
+    }
+
+    #[test]
+    fn policy_state_is_isolated_per_session_scores() {
+        let bad = PeerId::random();
+        let mut first = Scores::default();
+        let mut second = Scores::default();
+        first.fault(bad, NOW, Operation::MailboxRead);
+        first.fault(bad, NOW, Operation::MailboxRead);
+        assert_eq!(second.penalty(bad, NOW), 0);
+        assert_eq!(second.ranked(&[bad], Operation::MailboxRead), [0]);
     }
 
     #[tokio::test]
@@ -157,7 +257,8 @@ mod tests {
         let result: Result<(), _> = first(
             &mut scores,
             &mut nodes,
-            |peer| *peer,
+            |peer| (*peer, Multiaddr::empty(), String::new()),
+            Operation::Search,
             async |_| Err(Error::Status(Status::NotFound)),
         )
         .await;
@@ -166,30 +267,13 @@ mod tests {
         let result: Result<(), _> = first(
             &mut scores,
             &mut nodes,
-            |peer| *peer,
+            |peer| (*peer, Multiaddr::empty(), String::new()),
+            Operation::Search,
             async |_| Err(Error::Timeout),
         )
         .await;
         assert!(matches!(result, Err(Error::Timeout)));
         assert_eq!(scores.penalty(nodes[1], crate::now()), 1);
-    }
-
-    #[test]
-    fn a_bad_node_is_tried_last_and_recovers_over_time() {
-        let (bad, good) = (PeerId::random(), PeerId::random());
-        let mut scores = Scores::default();
-        scores.fault(bad, NOW);
-        scores.fault(bad, NOW + 60);
-        assert_eq!(scores.penalty(bad, NOW + 60), 2);
-        assert_eq!(scores.ranked(&[bad, good], NOW + 60), [1, 0]);
-        assert_eq!(scores.penalty(bad, NOW + 60 + HALF_LIFE), 1);
-        assert_eq!(scores.ranked(&[bad, good], NOW + HALF_LIFE), [1, 0]);
-        assert_eq!(scores.penalty(bad, NOW + 60 + 2 * HALF_LIFE), 0);
-        assert_eq!(
-            scores.ranked(&[bad, good], NOW + 60 + 2 * HALF_LIFE),
-            [0, 1]
-        );
-        assert_eq!(scores.penalty(bad, u64::MAX), 0);
     }
 
     #[tokio::test(start_paused = true)]
@@ -200,7 +284,8 @@ mod tests {
         let mut operation = Box::pin(first(
             &mut scores,
             &mut nodes,
-            |peer| *peer,
+            |peer| (*peer, Multiaddr::empty(), String::new()),
+            Operation::Search,
             async |_| {
                 calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 std::future::pending::<Result<(), Error>>().await
@@ -223,7 +308,8 @@ mod tests {
         let mut operation = Box::pin(first(
             &mut scores,
             &mut nodes,
-            |peer| *peer,
+            |peer| (*peer, Multiaddr::empty(), String::new()),
+            Operation::Search,
             async |peer| {
                 if *peer == bad {
                     let _ =

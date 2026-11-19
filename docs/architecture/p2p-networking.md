@@ -110,9 +110,10 @@ Each client dial or request has a 15-second deadline. One replica-discovery or s
 chain has a 30-second total budget; discovery returns holders already collected, and failover returns
 a typed timeout without discarding existing fault scores.
 
-The current client still uses fault-only `scores`; a [sufficient-node selection policy](../design/node-selection.md)
-is proposed for bounded health pools, weighted load distribution, circuit recovery and seeded
-exploration. That policy is not shipped behavior.
+Mailbox and linked-device operations use the [sufficient-node selection policy](../design/node-selection.md)
+for bounded health pools, weighted load distribution, circuit recovery and seeded exploration.
+Profile/search/media integration is pending. Existing in-memory penalties remain for delivery
+receipts and compatibility; no policy state is persisted by default.
 
 Not implemented yet:
 

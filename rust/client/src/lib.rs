@@ -240,6 +240,11 @@ impl Node {
         self.peer
     }
 
+    pub(crate) fn describe(&self) -> (PeerId, Multiaddr, String) {
+        let group = dyapp_p2p_net::ip_group(&self.address, false).unwrap_or_default();
+        (self.peer, self.address.clone(), group)
+    }
+
     /// Addresses of up to `max` nodes providing `key` in the DHT
     /// ([`dyapp_p2p_net::SEARCH_KEY`], [`dyapp_p2p_net::TURN_KEY`]) for [`Node::connect`], in no
     /// set order; fewer when the lookup or [`TIMEOUT`] ends first. Each is dialed once to learn

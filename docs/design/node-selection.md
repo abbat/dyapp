@@ -1,9 +1,8 @@
 # Sufficient-node selection
 
-**Status: implemented and tested in `rust/client::selection`; client operations are not connected
-yet.** Existing operation paths still use the in-memory fault penalty in `scores.rs` and try the
-first success. This page is both the core behavior contract and the integration contract; it does
-not describe shipped desktop/FFI behavior.
+**Status: core and mailbox/linked-device integration are implemented and tested.** Profile,
+search, media and remaining platform lifecycle integration are pending. This page is both the core
+behavior contract and the integration contract; it does not claim full desktop/FFI coverage.
 
 ## Goals and invariants
 

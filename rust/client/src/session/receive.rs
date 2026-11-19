@@ -3,6 +3,7 @@
 use super::{Error, Session, StoredMessage};
 use crate::chat::{self, Body, Event, Receipt, MAX_RECEIPT_IDS};
 use crate::scores;
+use crate::selection::Operation;
 use crate::store::messages::VerifiedChatSender;
 use crate::store::{Conversation, InboxKey, InboxKind};
 use crate::Node;
@@ -30,11 +31,14 @@ impl Session {
         profiles: &[VerifiedProfile],
         seal_key: &[u8; 32],
     ) -> Result<Vec<Event>, Error> {
-        let (at, (envelopes, _more)) =
-            scores::first(&mut self.scores, nodes, Node::peer, async |node| {
-                Ok((node.peer(), node.fetch(device_key).await?))
-            })
-            .await?;
+        let (at, (envelopes, _more)) = scores::first(
+            &mut self.scores,
+            nodes,
+            Node::describe,
+            Operation::MailboxRead,
+            async |node| Ok((node.peer(), node.fetch(device_key).await?)),
+        )
+        .await?;
         self.process_page(nodes, device_key, profiles, seal_key, Some(at), envelopes)
             .await
     }
@@ -56,13 +60,15 @@ impl Session {
     ) -> Result<(Vec<Event>, bool), Error> {
         const PAGE_LIMIT: u32 = 20;
         let now = crate::now();
+        self.scores.register_nodes(nodes);
         let peers: Vec<_> = nodes.iter().map(Node::peer).collect();
         let mut last = crate::Error::Status(dyapp_p2p_net::proto::Status::NotFound);
-        for i in self.scores.ranked(&peers, now) {
+        for i in self.scores.ranked(&peers, Operation::MailboxRead) {
             let (Some(&at), Some(node)) = (peers.get(i), nodes.get_mut(i)) else {
                 continue;
             };
             let cursor = self.store.mailbox_cursor_for(at)?;
+            let started = std::time::Instant::now();
             let fetched = node
                 .fetch_page(device_key, cursor.as_deref(), PAGE_LIMIT)
                 .await;
@@ -70,12 +76,14 @@ impl Session {
                 Ok(page) => page,
                 Err(error) => {
                     if scores::faulty(&error) {
-                        self.scores.fault(at, now);
+                        self.scores.fault(at, now, Operation::MailboxRead);
                     }
                     last = error;
                     continue;
                 }
             };
+            self.scores
+                .success(at, Operation::MailboxRead, started.elapsed());
             let events = self
                 .process_page(
                     nodes,
@@ -129,7 +137,8 @@ impl Session {
             }
         }
         if envelopes.len() > held && !first_page.more {
-            self.scores.fault(first.peer(), crate::now());
+            self.scores
+                .fault(first.peer(), crate::now(), Operation::MailboxCrossCheck);
         }
         envelopes.sort_by_key(|envelope| {
             dyapp_messaging::mls::epoch_of(&envelope.ciphertext)

@@ -5,6 +5,7 @@
 //! the held profiles so the guard survives a restart.
 
 use crate::scores::{self, Scores};
+use crate::selection::Operation;
 use crate::{Error, Node};
 use dyapp_profile::VerifiedProfile;
 
@@ -87,7 +88,7 @@ pub async fn newest(
             Ok(profile) => served.push((node.peer(), profile)),
             Err(error) => {
                 if scores::faulty(&error) {
-                    scores.fault(node.peer(), now);
+                    scores.fault(node.peer(), now, Operation::ProfileRead);
                 }
                 last = error;
             }
@@ -100,7 +101,7 @@ pub async fn newest(
     };
     for (peer, held) in &served {
         if rank(held) < best {
-            scores.fault(*peer, now);
+            scores.fault(*peer, now, Operation::ProfileRead);
         }
     }
     served

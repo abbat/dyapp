@@ -3,6 +3,7 @@
 use crate::chat::{self, Body, Event};
 use crate::interactions::{Interaction, Kind};
 use crate::scores::{self, Scores};
+use crate::selection::Operation;
 use crate::store::messages::{CurrentMessage, MessageKey};
 use crate::store::{LastResort, Store};
 use crate::{tokens, Node, PreparedEnvelope};
@@ -473,12 +474,14 @@ impl Session {
             .try_into()
             .map_err(|_| crate::Error::Reply("bad device key"))?;
         let own = crate::mailbox(&key);
-        Ok(
-            scores::first(&mut self.scores, nodes, Node::peer, async |node| {
-                chat::key_packages(node, &own, profiles).await
-            })
-            .await?,
+        Ok(scores::first(
+            &mut self.scores,
+            nodes,
+            Node::describe,
+            Operation::MailboxRead,
+            async |node| chat::key_packages(node, &own, profiles).await,
         )
+        .await?)
     }
 
     /// The one owner in `profiles` other than this one.
@@ -722,8 +725,9 @@ impl Session {
     ) -> Result<(), Error> {
         let today = u32::try_from(now_ms / 86_400_000).map_err(crate::clock_range)?;
         let now = u64::try_from(now_ms).map_err(crate::clock_range)? / 1000;
+        self.scores.register_nodes(nodes);
         let peers: Vec<_> = nodes.iter().map(Node::peer).collect();
-        let mut order = self.scores.ranked(&peers, now);
+        let mut order = self.scores.ranked(&peers, Operation::MailboxWrite);
         if let Some(by) = self.store.accepted_by(&write)? {
             if let Some(at) = order
                 .iter()
@@ -738,15 +742,20 @@ impl Session {
             let (Some(node), Some(&peer)) = (nodes.get_mut(i), peers.get(i)) else {
                 continue;
             };
+            let started = std::time::Instant::now();
             match self
                 .deliver_at(node, &mut write, now_ms, today, seal_key)
                 .await?
             {
-                None => return Ok(()),
+                None => {
+                    self.scores
+                        .success(peer, Operation::MailboxWrite, started.elapsed());
+                    return Ok(());
+                }
                 Some(error) => last = error,
             }
             if scores::faulty(&last) {
-                self.scores.fault(peer, now);
+                self.scores.fault(peer, now, Operation::MailboxWrite);
             }
         }
         Err(last.into())
@@ -901,7 +910,7 @@ impl Session {
         let now = crate::now();
         for peer in self.store.receipted(&mailbox, &ids)?.1 {
             if let Ok(peer) = peer.parse() {
-                self.scores.fault(peer, now);
+                self.scores.fault(peer, now, Operation::MailboxWrite);
             }
         }
         Ok(())

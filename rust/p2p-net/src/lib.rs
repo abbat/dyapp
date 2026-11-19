@@ -784,8 +784,7 @@ pub fn set_distinct_groups(on: bool) {
 }
 
 mod address;
-use address::ip_group;
-pub use address::{is_circuit, same_ip};
+pub use address::{ip_group, is_circuit, same_ip};
 
 /// Adds `peer` at `address` to the routing table unless its IP group already has
 /// [`MAX_GROUP_PER_BUCKET`] other peers in the peer's bucket or [`MAX_GROUP_PER_TABLE`] in the
