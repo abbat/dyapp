@@ -86,7 +86,9 @@ jobs:
           docker ps -aq --filter label=com.docker.compose.project=dyapp |
             xargs -r docker inspect --format '{{.Config.Hostname}} {{.Image}} {{index .Config.Labels "com.docker.compose.service"}}' \
             > build/android-reports/build-provenance/container-images.txt || evidence_status=$?
-          python3 tools/scripts/run-check.py --log-dir build/platform-check-output docker -- docker compose -f tests/docker/compose.ui.yml --profile all logs --all || evidence_status=$?
+          docker ps -aq --filter label=com.docker.compose.project=dyapp --filter label=com.docker.compose.oneoff=True |
+            xargs -r -n1 docker logs > build/android-reports/build-provenance/one-off-container-logs.txt 2>&1 || true
+          python3 tools/scripts/run-check.py --log-dir build/platform-check-output docker -- docker compose -f tests/docker/compose.ui.yml --profile all logs || evidence_status=$?
           python3 tests/scripts/export-ui-reports.py || {
             copy_status=$?
             if (( evidence_status == 0 )); then evidence_status=$copy_status; fi

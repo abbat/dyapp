@@ -83,8 +83,9 @@ case "${1:?suite required}" in
             DYAPPD_ROLES='["store", "search", "media"]'
         # The UI container forges this index after the suite, so it lives on the shared volume.
         rm -rf /reports/node && mkdir -p /reports/node
-        # Fresh-process receive requires the production 22-bit node proof; test traffic still uses 8.
-        DYAPPD_NETWORK_ID_POW_BITS=22 /app/build/debug/dyappd keygen > /reports/node/keygen.log 2>&1
+        # Only the worker lane requests a production-proof key; test traffic always uses 8.
+        DYAPPD_NETWORK_ID_POW_BITS="${DYAPP_TEST_NODE_KEY_ID_POW_BITS:-8}" \
+            /app/build/debug/dyappd keygen > /reports/node/keygen.log 2>&1
         control=/app/tests/scripts/android-node-control.sh
         bash "$control" init /reports/node
         bash "$control" serve /reports/node /app/build/debug/dyappd &

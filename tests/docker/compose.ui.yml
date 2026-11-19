@@ -63,7 +63,9 @@ services:
       - ../..:/app:ro
       - ../../build/android-build:/app/build
       - ../../build/android-avd:/avd
-    environment: *android-environment
+    environment:
+      <<: *android-environment
+      DYAPP_TEST_NODE_KEY_ID_POW_BITS: "22"
     command: [bash, /app/tests/scripts/android-test-in-container.sh, emulator]
     healthcheck: &android-emulator-health
       test: [CMD-SHELL, 'test "$$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\\r")" = 1 && adb -s emulator-5554 shell cmd package path android >/dev/null']

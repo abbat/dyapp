@@ -882,7 +882,8 @@ read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID
   `android-permission-emulator`: installs the same base debug and instrumentation APKs, then runs
   the explicit modern LAN phases. The emulator uses
   `system-images;android-37.0;google_apis_ps16k;x86_64`; its toolchain stage adds only that image.
-  KVM and boot/package-manager readiness follow the API 31 lane. Its AVD is
+  KVM and boot/package-manager readiness follow the API 31 lane, but its node key keeps the
+  default 8-bit proof because no fresh-process worker runs here. Its AVD is
   `build/android-permission-avd`; node data, phase reports and logcat are in
   `build/android-permission-reports`, also uploaded in `android-check-output`.
   `docker-local.py` stops dependencies after each suite, so the two emulator lanes run sequentially.
