@@ -5,7 +5,15 @@ async fn connection_event(
     swarm: &mut Swarm<Behaviour>,
     matches: impl Fn(&SwarmEvent<BehaviourEvent>) -> bool,
 ) -> SwarmEvent<BehaviourEvent> {
-    tokio::time::timeout(Duration::from_secs(10), async {
+    connection_event_within(swarm, Duration::from_secs(10), matches).await
+}
+
+async fn connection_event_within(
+    swarm: &mut Swarm<Behaviour>,
+    timeout: Duration,
+    matches: impl Fn(&SwarmEvent<BehaviourEvent>) -> bool,
+) -> SwarmEvent<BehaviourEvent> {
+    tokio::time::timeout(timeout, async {
         loop {
             let event = swarm.next().await.unwrap();
             if matches(&event) {
@@ -86,6 +94,52 @@ async fn incoming_group_caps_pending_tcp_and_releases_failed_handshakes() {
     let (_, client) = group_test_client(address, Keypair::generate_ed25519());
     connection_event(&mut node, |e| {
         matches!(e, SwarmEvent::ConnectionEstablished { .. })
+    })
+    .await;
+    stop_group_client(client).await;
+}
+
+#[tokio::test]
+async fn partial_tcp_handshake_times_out_and_frees_global_and_group_admission() {
+    let limits = Limits {
+        max_connections: 1,
+        max_connections_per_ip_group: 1,
+        max_memory_mb: 0,
+        ..Limits::default()
+    };
+    let (mut node, address) = group_test_node(&limits).await;
+    let port = address
+        .iter()
+        .find_map(|part| match part {
+            Protocol::Tcp(port) => Some(port),
+            _ => None,
+        })
+        .unwrap();
+    let socket = tokio::net::TcpStream::connect(("127.0.0.1", port))
+        .await
+        .unwrap();
+    let SwarmEvent::IncomingConnection { connection_id, .. } =
+        connection_event(&mut node, |event| {
+            matches!(event, SwarmEvent::IncomingConnection { .. })
+        })
+        .await
+    else {
+        unreachable!()
+    };
+    connection_event_within(&mut node, Duration::from_secs(20), |event| {
+        matches!(
+            event,
+            SwarmEvent::IncomingConnectionError { connection_id: failed, .. }
+                if *failed == connection_id
+        )
+    })
+    .await;
+    let guard = node.behaviour().incoming_groups.as_ref().unwrap();
+    assert_eq!((guard.active_connections(), guard.active_groups()), (0, 0));
+    drop(socket);
+    let (_, client) = group_test_client(address, Keypair::generate_ed25519());
+    connection_event(&mut node, |event| {
+        matches!(event, SwarmEvent::ConnectionEstablished { .. })
     })
     .await;
     stop_group_client(client).await;
