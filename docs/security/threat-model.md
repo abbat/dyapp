@@ -279,6 +279,7 @@ clients score the nodes they use and cross-check their mailbox at a second repli
 | Sybils near a key receive republished data | DHT, republish | Medium × medium | Accept: republish goes only to trusted peers, the data is encrypted or signed, old holders keep their copies, and the exposure lasts at most one TTL |
 | Churn causes republish traffic | DHT, republish | Low × medium | Fix: a key is handed over at most once an hour, 16 at a time, and only while traffic is under 50 % |
 | A client keeps using nodes that failed it | Client | Medium × high | In place: `rust/client` `scores` counts refusals, timeouts, invalid data and older profiles per node, halves the penalty daily and tries the lowest penalty first, falling back across replica keys ([replication](../architecture/bootstrap.md#replication-and-repair)); missing receipts count once delivery receipts exist |
+| A connected node trickles, or a coordinated swarm earns rank and degrades together | Client selection | High × high | Proposed, not implemented: bounded operation budgets plus sufficient-node pools, slow-outcome circuits, per-node/group load caps and real-operation-only seeded exploration ([design](../design/node-selection.md)). A swarm across independent groups and a response just below the soft threshold remain accepted residual risks |
 
 ### Denial of service
 

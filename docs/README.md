@@ -41,6 +41,7 @@ it are entry points that tools discover by path (see
 - [Sticker packs](design/stickers.md): validated TAR/WebP, chat tags 14 to 16, durable pack exchange, shared media storage and desktop picker
 - [v0.0.1 client screen draft](design/v0.0.1-client-screens.md): entry, settings, profile and search interaction cards
 - [Profile photos](design/profile-photos.md): planned publication, limits, cache and failure states
+- [Sufficient-node selection](design/node-selection.md): proposed health pools, weighted load bounds, recovery and bounded exploration
 - [Desktop screens](design/desktop-screens.md): control IDs and states for the desktop shell (part shipped, the rest planned), checked against the static prototype
 - [Mobile screens](design/mobile-screens.md): control IDs and states for the Android client, checked against the static Android prototype
 - [Desktop heuristic review](design/desktop-heuristics.md): Nielsen heuristics review of the prototype and the shipped desktop UI, its fixes and the rule to re-check screen changes

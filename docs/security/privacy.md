@@ -233,6 +233,15 @@ Always; with Always the notice keeps the fixed text. A tap opens the app behind 
 notices only after asking the user, and the app asks when the notice is turned on or on Allow, never
 at launch.
 
+## Proposed node health selection
+
+The [sufficient-node selection design](../design/node-selection.md) is not implemented. Its bounded
+exploration can disclose an existing operation's mailbox, profile, search or media interest to one
+additional eligible operator in at most 5% of operations with a sufficient pool, or 10% while below
+target. Exploration and recovery reuse real operations: no idle health traffic, broadcast probes or
+persistent health/contact history are proposed. These limits reduce additional exposure but do not
+hide metadata from the operators already contacted.
+
 Attacks and verdicts: [Threat Model](threat-model.md#traffic-analysis).
 
 ## Rules for other docs
