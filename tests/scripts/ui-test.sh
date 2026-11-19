@@ -39,10 +39,10 @@ run() {
     python3 tools/scripts/docker-local.py "${compose[@]}" --profile all run --pull never "$1"
 }
 case "${1:-help}" in
-    # android-build builds the app from the checkout; a second run finds it up to date.
-    android) run android-build; run android-unit-test ;;
-    android-emulator) run android-build; run android-emulator-test ;;
-    android-permissions) run android-build; run android-permission-test ;;
+    # CI sets DYAPP_ANDROID_SKIP_BUILD=1 after the first stage to avoid three Gradle startups.
+    android) [[ ${DYAPP_ANDROID_SKIP_BUILD:-0} == 1 ]] || run android-build; run android-unit-test ;;
+    android-emulator) [[ ${DYAPP_ANDROID_SKIP_BUILD:-0} == 1 ]] || run android-build; run android-emulator-test ;;
+    android-permissions) [[ ${DYAPP_ANDROID_SKIP_BUILD:-0} == 1 ]] || run android-build; run android-permission-test ;;
     linux) shots; run linux-test ;;
     prototype)
         mkdir -p build/ux-research/prototype && rm -f build/ux-research/prototype/*.png

@@ -24,7 +24,7 @@ jobs:
   docker:
     name: docker - android
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       DYAPP_BUILD_CACHE: gha
     steps:
@@ -61,6 +61,7 @@ jobs:
           git rev-parse HEAD > build/android-reports/build-provenance/source-head.txt
           docker image inspect --format '{{.Id}}' dyapp:android-tools > build/android-reports/build-provenance/android-tools-image.txt
           bash tests/scripts/ui-test.sh android
+          export DYAPP_ANDROID_SKIP_BUILD=1
           bash tests/scripts/ui-test.sh android-emulator
           timeout --kill-after=30s 15m bash tests/scripts/ui-test.sh android-permissions
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

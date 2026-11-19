@@ -888,7 +888,9 @@ read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID
   `build/android-permission-reports`, also uploaded in `android-check-output`.
   `docker-local.py` stops dependencies after each suite, so the two emulator lanes run sequentially.
   CI bounds this stage to 15 minutes and retains host processes, container state/processes and
-  one-off Compose logs in `android-check-output` when it stalls.
+  one-off Compose logs in `android-check-output` when it stalls. The Android job has a 90-minute
+  total limit and sets `DYAPP_ANDROID_SKIP_BUILD=1` after `ui-test.sh android`, so the emulator and
+  permission stages reuse the first build instead of paying for two more Gradle startups.
 
 ### Linux
 
