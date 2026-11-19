@@ -59,8 +59,9 @@ pub fn faulty(error: &Error) -> bool {
 ///
 /// # Errors
 ///
-/// Returns the last request error when every node fails, or the not-found status
-/// when `nodes` is empty. Fault penalties from failed attempts remain applied.
+/// Returns the last request error when every node fails, [`Error::Timeout`] when the total
+/// failover budget expires, or the not-found status when `nodes` is empty. Fault penalties from
+/// failed attempts remain applied.
 pub async fn first<T, R>(
     scores: &mut Scores,
     nodes: &mut [T],
@@ -70,21 +71,25 @@ pub async fn first<T, R>(
     let now = crate::now();
     let peers: Vec<PeerId> = nodes.iter().map(&peer).collect();
     let mut last = Error::Status(Status::NotFound);
-    for i in scores.ranked(&peers, now) {
-        let (Some(node), Some(&peer)) = (nodes.get_mut(i), peers.get(i)) else {
-            continue;
-        };
-        match request(node).await {
-            Ok(reply) => return Ok(reply),
-            Err(error) => {
-                if faulty(&error) {
-                    scores.fault(peer, now);
+    tokio::time::timeout(crate::OPERATION_TIMEOUT, async {
+        for i in scores.ranked(&peers, now) {
+            let (Some(node), Some(&peer)) = (nodes.get_mut(i), peers.get(i)) else {
+                continue;
+            };
+            match request(node).await {
+                Ok(reply) => return Ok(reply),
+                Err(error) => {
+                    if faulty(&error) {
+                        scores.fault(peer, now);
+                    }
+                    last = error;
                 }
-                last = error;
             }
         }
-    }
-    Err(last)
+        Err(last)
+    })
+    .await
+    .map_err(|_| Error::Timeout)?
 }
 
 #[cfg(test)]
@@ -185,5 +190,54 @@ mod tests {
             [0, 1]
         );
         assert_eq!(scores.penalty(bad, u64::MAX), 0);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn operation_budget_stops_a_pending_failover_chain() {
+        let calls = std::sync::atomic::AtomicUsize::new(0);
+        let mut nodes = [PeerId::random(), PeerId::random()];
+        let mut scores = Scores::default();
+        let mut operation = Box::pin(first(
+            &mut scores,
+            &mut nodes,
+            |peer| *peer,
+            async |_| {
+                calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                std::future::pending::<Result<(), Error>>().await
+            },
+        ));
+        let result = tokio::select! {
+            biased;
+            result = &mut operation => result,
+            () = tokio::time::advance(crate::OPERATION_TIMEOUT) => operation.await
+        };
+        assert!(matches!(result, Err(Error::Timeout)));
+        assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn one_attempt_timeout_leaves_budget_for_a_healthy_fallback() {
+        let (bad, good) = (PeerId::random(), PeerId::random());
+        let mut nodes = [bad, good];
+        let mut scores = Scores::default();
+        let mut operation = Box::pin(first(
+            &mut scores,
+            &mut nodes,
+            |peer| *peer,
+            async |peer| {
+                if *peer == bad {
+                    let _ =
+                        tokio::time::timeout(crate::TIMEOUT, std::future::pending::<()>()).await;
+                    return Err(Error::Timeout);
+                }
+                Ok(*peer)
+            },
+        ));
+        let result = tokio::select! {
+            biased;
+            result = &mut operation => result,
+            () = tokio::time::advance(crate::OPERATION_TIMEOUT) => operation.await
+        };
+        assert_eq!(result.unwrap(), good);
     }
 }

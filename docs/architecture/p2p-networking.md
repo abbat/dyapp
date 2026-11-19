@@ -106,6 +106,10 @@ The simultaneous, failed and stale connection-ID cases have focused node admissi
 Outbound probe traffic is bounded by the [dial guard](#dial-filtering), with its documented
 policy exceptions.
 
+Each client dial or request has a 15-second deadline. One replica-discovery or sequential failover
+chain has a 30-second total budget; discovery returns holders already collected, and failover returns
+a typed timeout without discarding existing fault scores.
+
 The current client still uses fault-only `scores`; a [sufficient-node selection policy](../design/node-selection.md)
 is proposed for bounded health pools, weighted load distribution, circuit recovery and seeded
 exploration. That policy is not shipped behavior.

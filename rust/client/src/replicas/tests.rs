@@ -166,3 +166,48 @@ async fn distinct_holders_cover_every_key_and_are_reused() {
         task.abort();
     }
 }
+
+#[tokio::test]
+async fn slow_holders_hit_one_discovery_budget_and_keep_partial_coverage() {
+    dyapp_p2p_net::set_id_pow_bits(0);
+    let (mut server, address) = server().await;
+    let server_peer = *server.local_peer_id();
+    let unavailable = PeerId::random();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("silent holder listener");
+    let unavailable_address = format!(
+        "/ip4/127.0.0.1/tcp/{}",
+        listener.local_addr().unwrap().port()
+    );
+    let stub = tokio::spawn(async move {
+        let mut sockets = Vec::new();
+        loop {
+            sockets.push(listener.accept().await.unwrap());
+        }
+    });
+    server.behaviour_mut().kad.add_address(
+        &unavailable,
+        unavailable_address.parse().expect("silent holder"),
+    );
+    let task = tokio::spawn(async move {
+        loop {
+            server.select_next_some().await;
+        }
+    });
+    let mut entry = Node::connect(address, Arc::new(Protocols::public()))
+        .await
+        .expect("entry connection");
+    let mut replicas = tokio::time::timeout(
+        OPERATION_TIMEOUT + std::time::Duration::from_secs(5),
+        entry.replicas(&[9; 32], Arc::new(Protocols::public())),
+    )
+    .await
+    .expect("one replica discovery budget");
+    assert_eq!(replicas.nodes_mut().len(), 1);
+    assert_eq!(replicas.nodes_mut()[0].peer(), server_peer);
+    let missing = replicas.missing().count();
+    assert!(missing > 0 && missing < usize::from(REPLICAS));
+    task.abort();
+    stub.abort();
+}

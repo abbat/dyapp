@@ -1,6 +1,6 @@
 //! Discovery of the nodes holding the independent replicas of one mailbox.
 
-use crate::{Node, TIMEOUT};
+use crate::{Node, OPERATION_TIMEOUT, TIMEOUT};
 use dyapp_p2p_net::{id_has_pow, id_pow_bits, replica_key, BehaviourEvent, Protocols, REPLICAS};
 use libp2p::futures::StreamExt;
 use libp2p::kad;
@@ -58,7 +58,8 @@ impl ReplicaSet {
 
 impl Node {
     /// Finds and connects one holder for every replica of `mailbox` through this entry node.
-    /// Each lookup and dial has its own [`TIMEOUT`]; failed keys remain absent from the result.
+    /// Each lookup and dial has its own [`TIMEOUT`], while [`OPERATION_TIMEOUT`] bounds the whole
+    /// discovery; on expiry the holders already collected remain available.
     pub async fn replicas(&mut self, mailbox: &[u8], protocols: Arc<Protocols>) -> ReplicaSet {
         let keys = (0..REPLICAS)
             .map(|index| replica_key(mailbox, index))
@@ -69,12 +70,17 @@ impl Node {
             keys: keys.clone(),
         };
         let mut connected = HashMap::<PeerId, usize>::new();
-        for (index, key) in keys.iter().enumerate() {
-            let candidates = self.closest(key).await;
-            if !add_new_holder(&mut result, &mut connected, index, &candidates, &protocols).await {
-                reuse_holder(&mut result, &connected, index, &candidates);
+        let discovery = async {
+            for (index, key) in keys.iter().enumerate() {
+                let candidates = self.closest(key).await;
+                if !add_new_holder(&mut result, &mut connected, index, &candidates, &protocols)
+                    .await
+                {
+                    reuse_holder(&mut result, &connected, index, &candidates);
+                }
             }
-        }
+        };
+        let _ = tokio::time::timeout(OPERATION_TIMEOUT, discovery).await;
         result
     }
 

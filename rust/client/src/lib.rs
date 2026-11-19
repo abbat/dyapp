@@ -81,6 +81,8 @@ use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 /// How long a dial or one request may take.
 pub const TIMEOUT: Duration = Duration::from_secs(15);
+/// Total budget of one replica-discovery or failover chain.
+pub const OPERATION_TIMEOUT: Duration = Duration::from_secs(30);
 /// Hardest search puzzle a client solves, in leading zero bits; a node asking more is skipped.
 pub const MAX_PUZZLE_BITS: u32 = 24;
 // Expiry of a published KeyPackage record, below the node's 30-day bound for clock skew.

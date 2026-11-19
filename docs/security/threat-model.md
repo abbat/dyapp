@@ -310,7 +310,7 @@ Volumetric floods below libp2p stay out of scope ([below](#out-of-scope)).
 | A flood of profile changes during a search index rebuild keeps it from settling | Search publication and heartbeat | Low × medium | Accept: after three postpones or overflows in a row the node stops writes for one full replay under the writer lock (at most 262 144 tracked keys) and logs `stop_the_world` ([rebuild](../architecture/bootstrap.md#storage-on-a-node)) |
 | Filling the disk during a search index rebuild | Any write | Low × low | Accept: after three free-space aborts in a row the node drops the index and refills it by catch-up, answering `partial` meanwhile, and logs `drop_refill`; clients ask other search nodes |
 | Signature and Argon2id checks used to burn CPU | Writes, search | Low × medium | Accept: Ed25519 is cheap and runs after the buckets; Argon2id has its own permits and a cache |
-| Slow or idle streams hold connections | libp2p | Low × medium | Accept: requests time out after 20 s, idle connections after 60 s. Direct and relay setup are bounded to 10 s by the final transport builder and free admission |
+| Slow or idle streams hold connections | libp2p | Low × medium | Accept: requests time out after 20 s, idle connections after 60 s. Direct and relay setup are bounded to 10 s by the final transport builder and free admission. Client discovery/failover chains have a 30-second total budget |
 
 ### Homoglyphs and Unicode tricks
 
