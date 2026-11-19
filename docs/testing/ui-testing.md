@@ -391,9 +391,11 @@ fetches it through JNI and decodes it with the production Android decoder. Its p
 atomic record keeps the full public selector, original SHA-256 and dimensions.
 Existing `reopenQueued` phases verify those exact bytes and dimensions while the host's
 external node is stopped, including after guest reboot and APK upgrade. The existing
-queued-text, identity/inventory and scheduled-worker checks remain. Checkpoint tests reject
-swapped owners and malformed or overflowing dimensions. These assertions require actual
-instrumentation; they add no Android node or separate emulator lane.
+queued-text, identity/inventory and scheduled-worker checks remain. The external node key has the
+production 22-bit proof required by fresh-process receive phases, while the node and preparation
+phases accept 8-bit test traffic. Checkpoint tests reject swapped owners and malformed or
+overflowing dimensions. These assertions require actual instrumentation; they add no Android node
+or separate emulator lane.
 
 Core lookup tests additionally distinguish equal author/ID values across two groups. Shared
 original tests cover JPEG/PNG, unspecified and mismatched dimensions, literal sealed-byte/pixel
