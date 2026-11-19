@@ -71,6 +71,19 @@ impl Employer {
     }
 }
 
+pub(crate) fn response_ok(response: proto::SearchResponse) -> Result<proto::SearchResponse, Error> {
+    if response.status == i32::from(Status::RateLimited) {
+        return Err(Error::RateLimited(Duration::from_secs(
+            response.retry_after,
+        )));
+    }
+    match Status::try_from(response.status) {
+        Ok(Status::Ok) => Ok(response),
+        Ok(status) => Err(Error::Status(status)),
+        Err(_) => Err(Error::Reply("unknown status")),
+    }
+}
+
 /// Why a search gave no usable reply from a node; each has its own message and retry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SearchFailure {

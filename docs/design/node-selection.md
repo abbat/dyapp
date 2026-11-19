@@ -1,8 +1,8 @@
 # Sufficient-node selection
 
-**Status: core and mailbox/linked-device/profile/search/media integration are implemented.**
-Remaining platform lifecycle integration is pending. This page is both the core behavior contract
-and the integration contract; it does not claim full desktop/FFI lifecycle coverage.
+**Status: core, desktop and UniFFI integration are implemented.** Mailbox, linked-device,
+profile, search and media workers share per-directory in-memory state; identity/network changes
+replace it and observed platform resume moves open circuits to half-open without network traffic.
 
 ## Goals and invariants
 

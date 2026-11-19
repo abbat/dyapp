@@ -708,7 +708,7 @@ impl Node {
     /// # Errors
     /// Returns request/deadline/status/rate-limit errors, or [`Error::Reply`] for an unknown status.
     pub async fn search_publish(&mut self, record: SignedRecord) -> Result<(), Error> {
-        search_ok(
+        search::response_ok(
             self.search(search_request::Request::Publish(record))
                 .await?,
         )
@@ -725,7 +725,7 @@ impl Node {
                 "search-only withdrawal authorization required",
             ));
         }
-        search_ok(
+        search::response_ok(
             self.search(search_request::Request::Withdraw(record))
                 .await?,
         )
@@ -737,7 +737,7 @@ impl Node {
     /// # Errors
     /// Returns request/deadline/status/rate-limit errors, or [`Error::Reply`] for an unknown status.
     pub async fn search_heartbeat(&mut self, record: SignedRecord) -> Result<(), Error> {
-        search_ok(
+        search::response_ok(
             self.search(search_request::Request::Heartbeat(record))
                 .await?,
         )
@@ -814,7 +814,7 @@ impl Node {
             };
             response = self.search(request(Some(puzzle))).await?;
         }
-        search_ok(response)
+        search::response_ok(response)
     }
 
     async fn search(
@@ -989,15 +989,6 @@ fn ok(status: i32) -> Result<(), Error> {
         Ok(status) => Err(Error::Status(status)),
         Err(_) => Err(Error::Reply("unknown status")),
     }
-}
-
-fn search_ok(response: proto::SearchResponse) -> Result<proto::SearchResponse, Error> {
-    if response.status == i32::from(Status::RateLimited) {
-        return Err(Error::RateLimited(Duration::from_secs(
-            response.retry_after,
-        )));
-    }
-    ok(response.status).map(|()| response)
 }
 
 #[cfg(test)]

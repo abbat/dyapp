@@ -646,8 +646,10 @@ computed by core using the current millisecond clock. Retry takes priority over 
 queue; platform backoff governs the next pass, which recomputes every owner's deadlines.
 Android launches an initial network-constrained persisted wake from `DYApplication` and reuses
 `MailJob` for deadline sends, periodic fallback and mail. Publish/hide/withdraw and network-activation
-completion kick the same outbox job even after a failed or cancelled UI result. Kotlin adapts the
-native wake to `JobScheduler`; failed/still-due passes request its backoff rather than an immediate
+completion kick the same outbox job even after a failed or cancelled UI result. Android `onResume`
+offloads `resumeNetworkSelection` to `Dispatchers.IO`; the UniFFI adapter resumes every live
+per-directory selection context without issuing requests. Kotlin adapts the native wake to
+`JobScheduler`; failed/still-due passes request its backoff rather than an immediate
 loop. Long waits are capped at `JobInfo.MAX_BACKOFF_DELAY_MILLIS` for safe OS adaptation; every
 resulting pass still checks the exact core deadline before sending.
 Stopping a job suppresses its late platform completion without releasing actual Rust admission.

@@ -8,7 +8,7 @@ use dyapp_profile::VerifiedProfile;
 use std::sync::Arc;
 
 mod registry;
-pub use registry::{scores, shared};
+pub use registry::{resume_all, scores, shared};
 mod fetch;
 pub use fetch::{fetch, FetchError};
 

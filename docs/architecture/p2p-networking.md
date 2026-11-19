@@ -113,8 +113,9 @@ a typed timeout without discarding existing fault scores.
 Mailbox, linked-device, profile, search and media operations use the
 [sufficient-node selection policy](../design/node-selection.md) for bounded health pools, weighted
 load distribution, circuit recovery and seeded exploration. Desktop and UniFFI callers retain the
-policy in the active identity/network context. Existing in-memory penalties remain for delivery
-receipts and compatibility; no policy state is persisted by default.
+policy in the active identity/network context. Observed desktop/Android resume moves open circuits
+to half-open through real subsequent operations, without probe traffic. Existing in-memory
+penalties remain for delivery receipts and compatibility; no policy state is persisted by default.
 
 Not implemented yet:
 

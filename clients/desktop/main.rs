@@ -940,6 +940,11 @@ fn run_event(app: &tauri::AppHandle, event: &tauri::RunEvent) {
         let _ = ui_smoke::window::marker(app, "dock-reopened");
         tray::show(app);
     }
+    if let tauri::RunEvent::Resumed = event {
+        tauri::async_runtime::spawn(async {
+            let _ = dyapp_client::contact_verification::resume_all().await;
+        });
+    }
     if let tauri::RunEvent::Exit = event {
         node_usage_commands::shutdown(app);
         if let Ok(config) = config_dir(app) {

@@ -15,9 +15,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.lifecycleScope
 import com.dyapp.ui.theme.DYAppTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import uniffi.dyapp.resumeNetworkSelection
 
 internal const val APP_READY_TAG = "app-ready"
 
@@ -148,6 +151,7 @@ class MainActivity : ComponentActivity() {
         val secure = getSystemService(KeyguardManager::class.java).isDeviceSecure
         device = DeviceLock(secure, biometrics()) { setPin(null, null, true) }
         appLock.onForeground()
+        lifecycleScope.launch(Dispatchers.IO) { runCatching { resumeNetworkSelection() } }
         refreshLock()
     }
 

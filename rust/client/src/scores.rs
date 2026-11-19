@@ -113,6 +113,11 @@ impl Scores {
         self.policy.resume(Instant::now());
     }
 
+    #[cfg(test)]
+    pub(crate) fn state(&mut self, peer: PeerId, now: Instant) -> crate::selection::State {
+        self.policy.state(peer, now)
+    }
+
     /// Registers real holder addresses and IP groups before selecting them.
     pub(crate) fn register_nodes(&mut self, nodes: &[Node]) {
         for node in nodes {
@@ -121,7 +126,7 @@ impl Scores {
         }
     }
 
-    fn register(&mut self, peer: PeerId, address: Multiaddr, group: String) {
+    pub(crate) fn register(&mut self, peer: PeerId, address: Multiaddr, group: String) {
         self.policy.register(peer, group, address);
     }
 

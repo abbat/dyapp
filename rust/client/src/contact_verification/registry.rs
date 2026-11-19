@@ -38,6 +38,31 @@ pub fn shared(dir: &Path) -> io::Result<Arc<Mutex<Context>>> {
     Ok(context)
 }
 
+/// Move every live context's open circuits to half-open after a platform resume.
+///
+/// # Errors
+/// Returns poisoned registry/context failures without issuing network traffic.
+pub async fn resume_all() -> io::Result<()> {
+    let contexts: Vec<_> = {
+        let mut entries = CONTEXTS
+            .get_or_init(Mutex::default)
+            .lock()
+            .map_err(|_| io::Error::other("contact context registry is poisoned"))?;
+        entries.retain(|_, context| context.strong_count() != 0);
+        entries.values().filter_map(Weak::upgrade).collect()
+    };
+    for context in contexts {
+        let scores = {
+            let context = context
+                .lock()
+                .map_err(|_| io::Error::other("contact context is poisoned"))?;
+            context.scores()
+        };
+        scores.lock().await.resume();
+    }
+    Ok(())
+}
+
 /// Share only the async selection state, releasing the context registry lock before network I/O.
 ///
 /// # Errors
@@ -88,6 +113,31 @@ mod tests {
         let new = context.lock().unwrap().scores();
         assert!(!Arc::ptr_eq(&old, &new));
         assert!(old.try_lock().is_ok());
+    }
+
+    #[tokio::test]
+    async fn resume_moves_a_live_open_circuit_to_half_open() {
+        let path = temp_db_path();
+        std::fs::create_dir_all(&path).unwrap();
+        let context = shared(&path).unwrap();
+        let scores = context.lock().unwrap().scores();
+        let peer = libp2p::identity::Keypair::generate_ed25519()
+            .public()
+            .to_peer_id();
+        {
+            let mut scores = scores.lock().await;
+            scores.register(peer, libp2p::Multiaddr::empty(), String::new());
+            scores.invalid(peer, crate::selection::Operation::Search);
+            assert_eq!(
+                scores.state(peer, std::time::Instant::now()),
+                crate::selection::State::Open
+            );
+        }
+        resume_all().await.unwrap();
+        assert_eq!(
+            scores.lock().await.state(peer, std::time::Instant::now()),
+            crate::selection::State::HalfOpen
+        );
     }
 
     #[test]

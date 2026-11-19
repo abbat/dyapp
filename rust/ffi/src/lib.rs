@@ -94,7 +94,8 @@ mod safety;
 pub use safety::{safety_number_text, safety_qr_payload};
 mod profile_network;
 pub use profile_network::{
-    profile_visibility, ProfilePublished, ProfilePublisher, ProfileVisibility,
+    profile_visibility, resume_network_selection, ProfilePublished, ProfilePublisher,
+    ProfileVisibility,
 };
 mod profile_photo_edits;
 pub use profile_photo_edits::{

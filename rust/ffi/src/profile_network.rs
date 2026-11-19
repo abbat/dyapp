@@ -137,6 +137,21 @@ pub(crate) async fn send_held(
     Ok(())
 }
 
+/// Move selection circuits to half-open after an observed platform foreground resume.
+///
+/// # Errors
+/// Returns runtime or poisoned shared-context failures; no network request is issued.
+#[uniffi::export]
+pub fn resume_network_selection() -> Result<(), CoreError> {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(failed)?;
+    runtime
+        .block_on(dyapp_client::contact_verification::resume_all())
+        .map_err(failed)
+}
+
 /// Swift detached tasks run on 512 KiB stacks, too small for the network futures.
 const NETWORK_STACK: usize = 16 << 20;
 
