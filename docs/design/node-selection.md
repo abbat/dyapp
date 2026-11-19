@@ -274,3 +274,14 @@ insufficient-set transitions and seeded discovery of an unknown or recovered nod
 completion signals, controlled clocks and per-transition deadlines, not sleeps. Real protocol tests
 must additionally prove that existing mailbox cross-checks, profile freshness and independent
 search coverage are unchanged.
+
+Verification evidence lives beside the behavior: `selection::tests` covers caps/floors,
+heterogeneous capacity, all-slow and sole-survivor pools, coordinated degradation/recovery,
+rolling-mean challengers, retained-candidate flooding, targeted discrimination and the no-honest
+case. `scores::tests` covers bounded failover budgets and NotFound; `search::tests` covers repeated
+circuit state and independent result validation. `bootstrap::node::tests::groups` covers partial
+and one-byte-trickled TCP handshakes, permit release and a subsequent healthy connection.
+`contact_verification::registry::tests` covers context replacement and open-to-half-open resume.
+Existing mailbox, profile and search protocol suites remain the correctness/freshness coverage.
+The privacy, coordinated-swarm, admission-churn and no-honest-candidate limits above are explicit
+residual risks, not claims of a permanent optimum.

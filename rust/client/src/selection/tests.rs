@@ -464,3 +464,67 @@ fn bounded_registry_evicts_stale_open_entry_for_a_new_candidate() {
     assert!(!policy.nodes.contains_key(&stale));
     assert!(policy.nodes.contains_key(&fresh));
 }
+
+#[test]
+fn all_slow_candidates_stay_available_with_a_complete_allocation() {
+    let now = Instant::now();
+    let mut policy = Policy::new(0xd17);
+    for id in 1..=5 {
+        let slow = register(&mut policy, id, "slow");
+        for _ in 0..3 {
+            observe_at(&mut policy, slow, Outcome::Slow, now);
+        }
+        assert_eq!(policy.state(slow, now), State::Degraded);
+    }
+    let shares = policy.shares(Operation::Search, now);
+    assert_eq!(shares.len(), 5);
+    assert!((shares.iter().map(|(_, share)| share).sum::<f64>() - 1.0).abs() < 0.0001);
+}
+
+#[test]
+fn coordinated_good_then_degraded_swarm_shifts_without_request_amplification() {
+    let now = Instant::now();
+    let mut policy = Policy::new(0xd17);
+    for id in 1..=5 {
+        let candidate = register(&mut policy, id, "candidate");
+        observe(&mut policy, candidate, id, 100, now);
+    }
+    for id in 1..=3 {
+        for _ in 0..2 {
+            observe_at(&mut policy, peer(id), Outcome::HardFault, now);
+        }
+        assert_eq!(policy.state(peer(id), now), State::Open);
+    }
+    for _ in 0..100 {
+        assert_eq!(policy.select(Operation::Search, 2, now).len(), 2);
+    }
+    assert_eq!(policy.shares(Operation::Search, now).len(), 2);
+    let resumed = now + Duration::from_secs(61);
+    for id in 1..=3 {
+        for _ in 0..2 {
+            observe_at(&mut policy, peer(id), Outcome::Normal, resumed);
+        }
+    }
+    for id in 1..=3 {
+        assert_eq!(policy.state(peer(id), resumed), State::Sufficient);
+    }
+    assert_eq!(policy.shares(Operation::Search, resumed).len(), 3);
+}
+
+#[test]
+fn bounded_candidate_flood_cannot_postpone_a_retained_honest_candidate_forever() {
+    let now = Instant::now();
+    let mut policy = Policy::new(0xd17);
+    for id in 1..=3 {
+        register(&mut policy, id, "incumbent");
+    }
+    policy.shares(Operation::Search, now);
+    let honest = register(&mut policy, 4, "honest");
+    for id in 5..=131 {
+        register(&mut policy, id, "flood");
+    }
+    for _ in 0..3000 {
+        policy.select(Operation::Search, 1, now);
+    }
+    assert!(policy.explored(honest) > 0);
+}

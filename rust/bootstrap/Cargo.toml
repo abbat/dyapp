@@ -55,6 +55,7 @@ name = "integration_tests"
 path = "../../tests/integration_tests.rs"
 
 [dev-dependencies]
+tokio = { version = "1", features = ["test-util"] }
 proptest.workspace = true
 dyapp-client = { path = "../client" }
 dyapp-ffi = { path = "../ffi" }
