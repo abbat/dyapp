@@ -46,6 +46,7 @@ pub mod scores;
 pub mod search;
 pub mod search_input;
 pub mod seeds;
+mod selection;
 pub mod session;
 pub mod sticker_manifest;
 pub mod sticker_media;

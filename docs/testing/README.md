@@ -83,6 +83,14 @@ Located in `#[cfg(test)]` modules within each crate.
 - ICECandidate: type detection (host/srflx/relay), priority ranking
 - CodecNegotiation: agreement algorithm, no agreement without a common codec
 
+**Client** (rust/client)
+
+- Sufficient-node selection: per-node/group caps, cold/undersized pools, slow/hard/invalid outcomes,
+  probation, address scoping, comparative utility, rolling-cost challengers, fair seeded exploration,
+  false recovery, suspend/resume and bounded-registry eviction. Adaptive tests include work-to-rule
+  and evolved strike/recovery schedules; no-honest-candidate and ring-churn cases assert residual
+  limits instead of claiming recovery.
+
 **Bootstrap** (rust/bootstrap)
 
 - Mailbox: envelope once per id, size limits, fetch with challenge, ack, replay and forgery rejected, TTL

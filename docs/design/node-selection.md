@@ -1,8 +1,9 @@
 # Sufficient-node selection
 
-**Status: proposed, not implemented.** Current `rust/client` code still ranks nodes only by the
-in-memory fault penalty in `scores.rs` and tries the first success. This page is the implementation
-contract for health-aware selection; it does not describe shipped behavior.
+**Status: implemented and tested in `rust/client::selection`; client operations are not connected
+yet.** Existing operation paths still use the in-memory fault penalty in `scores.rs` and try the
+first success. This page is both the core behavior contract and the integration contract; it does
+not describe shipped desktop/FFI behavior.
 
 ## Goals and invariants
 
