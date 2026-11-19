@@ -108,6 +108,37 @@ class ExportChecks(unittest.TestCase):
             )
             self.assertTrue(json.loads(calls.read_text().splitlines()[0]))
 
+    def test_report_export_falls_back_to_emulator_container(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            docker = root / "docker"
+            docker.write_text(
+                "#!/usr/bin/env python3\n"
+                "import sys\n"
+                "from pathlib import Path\n"
+                "args = sys.argv[1:]\n"
+                "if args[0] == 'ps' and"
+                " 'label=com.docker.compose.service=android-unit-test' not in args:\n"
+                " print('abcdef123456')\n"
+                "elif args[0] == 'cp':\n"
+                " Path(args[-1], 'payload').write_text('ok')\n"
+            )
+            docker.chmod(0o755)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "tests/scripts/export-ui-reports.py"),
+                    "--directory",
+                    str(root / "reports"),
+                ],
+                env=dict(os.environ, PATH=f"{root}:{os.environ['PATH']}"),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertTrue(list(root.rglob("payload")))
+
     def test_model_report_is_data_and_self_check_is_a_check(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
 

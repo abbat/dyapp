@@ -11,18 +11,26 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def export(directory: Path) -> Path:
-    containers = subprocess.check_output(
-        [
-            "docker",
-            "ps",
-            "-aq",
-            "--filter",
-            "label=com.docker.compose.project=dyapp",
-            "--filter",
-            "label=com.docker.compose.service=android-unit-test",
-        ],
-        text=True,
-    ).split()
+    containers = []
+    for service in (
+        "android-unit-test",
+        "android-emulator-test",
+        "android-permission-test",
+    ):
+        containers = subprocess.check_output(
+            [
+                "docker",
+                "ps",
+                "-aq",
+                "--filter",
+                "label=com.docker.compose.project=dyapp",
+                "--filter",
+                f"label=com.docker.compose.service={service}",
+            ],
+            text=True,
+        ).split()
+        if containers:
+            break
     if not containers:
         raise RuntimeError("No Android test container; no reports to export")
     directory.mkdir(parents=True, exist_ok=True)
