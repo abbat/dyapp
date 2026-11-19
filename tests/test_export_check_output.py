@@ -136,7 +136,9 @@ class ExportChecks(unittest.TestCase):
                 text=True,
                 check=False,
             )
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(
+                result.returncode, 0, result.stdout + result.stderr
+            )
             self.assertTrue(list(root.rglob("payload")))
 
     def test_model_report_is_data_and_self_check_is_a_check(self) -> None:
