@@ -28,9 +28,18 @@ fn zero_component_progressive_jpeg_is_rejected_before_decoding() {
     let bytes = include_bytes!(
         "../../../../tests/fuzz/corpus/preview/oom-bbb3dd1fa081912ff61161850a90906b12d28f44"
     );
+    assert!(frame_size(bytes).is_err());
+    assert!(check_preview(bytes).is_err());
+}
+
+#[test]
+fn invalid_marker_cannot_hide_an_oversized_frame() {
+    let bytes = include_bytes!(
+        "../../../../tests/fuzz/corpus/preview/oom-988e047b529a141c749937b6d42e292bf6795287"
+    );
     assert_eq!(
         frame_size(bytes).unwrap_err().to_string(),
-        "invalid SOF component count"
+        "bad JPEG marker"
     );
     assert!(check_preview(bytes).is_err());
 }

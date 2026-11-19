@@ -324,6 +324,8 @@ the directory, preserving idle-worker removal semantics.
 `dyapp_client::photo` exposes preview encoding, bounded peer JPEG decoding and frame inspection
 directly to Rust clients, with no UniFFI dependency. It retains the current 320 px / 24 KiB
 preview policy and 1 MiB decoder allocation cap, and rejects overflowing raw pixel dimensions.
+Frame inspection rejects standalone and fill markers before the first scan, so malformed segments
+cannot hide a different oversized frame from the pre-decode bounds.
 The common UniFFI preview adapter delegates to this core and only converts pixel records and
 errors. Its Kotlin/Swift API stays unchanged; Tauri can call the same core functions directly.
 `dyapp_client::photo::prepare` now owns typed profile/chat purposes, source limits, decode

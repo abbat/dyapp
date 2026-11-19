@@ -168,6 +168,7 @@ pub fn frame_size(bytes: &[u8]) -> Result<(u32, u32), PhotoError> {
             return Err(failed("bad JPEG marker"));
         };
         match marker {
+            0x00 | 0x01 | 0xD0..=0xD9 | 0xFF => return Err(failed("bad JPEG marker")),
             0xDA => break,
             0xC0..=0xCF if !matches!(marker, 0xC4 | 0xC8 | 0xCC) => {
                 let sof = bytes
