@@ -138,7 +138,7 @@ impl Scores {
                 .register(*peer, String::new(), Multiaddr::empty());
         }
         self.policy
-            .select(operation, nodes.len(), Instant::now())
+            .select_allowed(operation, nodes.len(), Instant::now(), Some(nodes))
             .iter()
             .filter_map(|selected| nodes.iter().position(|peer| peer == selected))
             .collect()

@@ -528,3 +528,19 @@ fn bounded_candidate_flood_cannot_postpone_a_retained_honest_candidate_forever()
     }
     assert!(policy.explored(honest) > 0);
 }
+
+#[test]
+fn exploration_never_displaces_the_only_caller_supplied_node() {
+    let now = Instant::now();
+    let mut policy = Policy::new(0xd17);
+    let previous = register(&mut policy, 1, "previous");
+    policy.shares(Operation::MailboxRead, now);
+    let current = register(&mut policy, 2, "current");
+    for _ in 0..40 {
+        assert_eq!(
+            policy.select_allowed(Operation::MailboxRead, 1, now, Some(&[current])),
+            [current]
+        );
+    }
+    assert_eq!(policy.explored(previous), 0);
+}

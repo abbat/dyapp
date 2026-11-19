@@ -98,11 +98,6 @@ impl Context {
         Arc::clone(&self.scores)
     }
 
-    /// Move open circuits to half-open after an observed platform resume.
-    pub async fn resume(&self) {
-        self.scores.lock().await.resume();
-    }
-
     /// Admit a verified display/fetch result using the existing authority/version rules.
     ///
     /// # Errors

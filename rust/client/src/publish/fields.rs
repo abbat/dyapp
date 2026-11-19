@@ -5,26 +5,10 @@ use super::{
 };
 use crate::scores::Scores;
 
-/// Publish editable fields against verified ordinary directory authority, without enrolling devices.
-/// Session-aware clients use `Session::publish_profile` to admit their original device as well.
-///
-/// # Errors
-/// Pending enrollment, absent/withdrawn/older authority and normal publication failures are refused.
-/// The low-level `publish`/`publish_prepared` owner-signing capability remains separate.
-pub async fn publish_fields_prepared(
-    store: &Store,
-    node: &mut Node,
-    identity: &Identity,
-    attempt: ProfilePublication,
-) -> Result<ProfilePublicationOutcome, Failure> {
-    publish_fields_prepared_with_scores(store, node, identity, attempt, &mut Scores::default())
-        .await
-}
-
 /// Publish editable fields using the caller's persistent selection state.
 ///
 /// # Errors
-/// Returns the same failures as [`publish_fields_prepared`].
+/// Refuses pending, absent, withdrawn or older authority and ordinary publication failures.
 pub async fn publish_fields_prepared_with_scores(
     store: &Store,
     node: &mut Node,

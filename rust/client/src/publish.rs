@@ -22,7 +22,7 @@ mod fields;
 mod network;
 mod photos;
 pub(crate) use fields::prepare_fields;
-pub use fields::{publish_fields_prepared, publish_fields_prepared_with_scores};
+pub use fields::publish_fields_prepared_with_scores;
 pub use photos::{refresh_photos, refresh_photos_with_scores};
 
 pub use adoption_confirm::{
@@ -532,20 +532,10 @@ async fn patiently<T>(
     result
 }
 
-/// The owner's profile at `node`, if it has one.
-///
-/// # Errors
-///
-/// Returns an error if the profile request or reply validation fails, except
-/// that a node's not-found response returns `Ok(None)`.
-pub async fn newest(node: &mut Node, identity: &Identity) -> Result<Option<Profile>, Error> {
-    newest_with_scores(node, identity, &mut Scores::default()).await
-}
-
 /// Read the owner's profile using the caller's persistent selection state.
 ///
 /// # Errors
-/// Returns the same failures as [`newest`].
+/// Returns request or reply-validation failures; `NotFound` returns `Ok(None)`.
 pub async fn newest_with_scores(
     node: &mut Node,
     identity: &Identity,

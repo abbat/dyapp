@@ -177,6 +177,14 @@ pub(crate) struct Policy {
     explored: HashMap<PeerId, u32>,
 }
 
+fn candidate_allowed(allowed: Option<&[PeerId]>, peer: &PeerId) -> bool {
+    allowed.is_none_or(|peers| peers.contains(peer))
+}
+
+fn incumbent_available(node: &NodeHealth, peer: &PeerId, allowed: Option<&[PeerId]>) -> bool {
+    node.incumbent && node.open_until.is_none() && candidate_allowed(allowed, peer)
+}
+
 impl Policy {
     pub(crate) fn new(seed: u64) -> Self {
         Self {
@@ -318,17 +326,20 @@ impl Policy {
         }
     }
 
-    fn pool(&mut self, operation: Operation) -> Vec<PeerId> {
+    fn pool(&mut self, operation: Operation, allowed: Option<&[PeerId]>) -> Vec<PeerId> {
         let (target, maximum) = operation.limits();
         let mut pool = self
             .nodes
             .iter_mut()
-            .filter(|(_, node)| node.incumbent && node.open_until.is_none())
+            .filter(|(peer, node)| incumbent_available(node, peer, allowed))
             .map(|(peer, _)| *peer)
             .collect::<Vec<_>>();
         let wanted = if pool.is_empty() { maximum } else { target };
         if pool.len() < wanted {
             for peer in self.ring.clone() {
+                if !candidate_allowed(allowed, &peer) {
+                    continue;
+                }
                 if pool.len() == wanted {
                     break;
                 }
@@ -372,8 +383,18 @@ impl Policy {
             .collect()
     }
 
-    pub(crate) fn shares(&mut self, operation: Operation, _now: Instant) -> Vec<(PeerId, f64)> {
-        let pool = self.pool(operation);
+    #[cfg(test)]
+    pub(crate) fn shares(&mut self, operation: Operation, now: Instant) -> Vec<(PeerId, f64)> {
+        self.shares_for(operation, now, None)
+    }
+
+    fn shares_for(
+        &mut self,
+        operation: Operation,
+        _now: Instant,
+        allowed: Option<&[PeerId]>,
+    ) -> Vec<(PeerId, f64)> {
+        let pool = self.pool(operation, allowed);
         let weights = self.weights(&pool);
         self.allocate(pool, &weights)
     }
@@ -453,19 +474,30 @@ impl Policy {
             .collect()
     }
 
+    #[cfg(test)]
     pub(crate) fn select(
         &mut self,
         operation: Operation,
         count: usize,
         now: Instant,
     ) -> Vec<PeerId> {
-        let exploration_period = if self.pool(operation).len() < operation.limits().0 {
+        self.select_allowed(operation, count, now, None)
+    }
+
+    pub(crate) fn select_allowed(
+        &mut self,
+        operation: Operation,
+        count: usize,
+        now: Instant,
+        allowed: Option<&[PeerId]>,
+    ) -> Vec<PeerId> {
+        let exploration_period = if self.pool(operation, allowed).len() < operation.limits().0 {
             10
         } else {
             20
         };
         let mut selected = Vec::new();
-        let mut shares = self.shares(operation, now);
+        let mut shares = self.shares_for(operation, now, allowed);
         for _ in 0..count {
             if shares.is_empty() {
                 break;
@@ -484,13 +516,18 @@ impl Policy {
         }
         self.operations = self.operations.saturating_add(1);
         if self.operations.is_multiple_of(exploration_period) {
-            self.add_exploration(&mut selected, count);
+            self.add_exploration(&mut selected, count, allowed);
         }
         selected
     }
 
-    fn add_exploration(&mut self, selected: &mut Vec<PeerId>, count: usize) {
-        let Some(peer) = self.explore() else {
+    fn add_exploration(
+        &mut self,
+        selected: &mut Vec<PeerId>,
+        count: usize,
+        allowed: Option<&[PeerId]>,
+    ) {
+        let Some(peer) = self.explore(allowed) else {
             return;
         };
         if selected.contains(&peer) {
@@ -502,7 +539,7 @@ impl Policy {
         selected.push(peer);
     }
 
-    fn explore(&mut self) -> Option<PeerId> {
+    fn explore(&mut self, allowed: Option<&[PeerId]>) -> Option<PeerId> {
         let len = self.ring.len();
         for offset in 0..len {
             let index = (self.ring_at + offset) % len;
@@ -510,7 +547,7 @@ impl Policy {
             let Some(node) = self.nodes.get(&peer) else {
                 continue;
             };
-            if node.incumbent || node.open_until.is_some() {
+            if node.incumbent || node.open_until.is_some() || !candidate_allowed(allowed, &peer) {
                 continue;
             }
             self.ring_at = (index + 1) % len;
@@ -551,7 +588,7 @@ impl Policy {
             candidate.mean_cost()
         };
         let Some((incumbent, _)) = self
-            .pool(operation)
+            .pool(operation, None)
             .into_iter()
             .filter(|peer| *peer != challenger)
             .map(|peer| (peer, self.nodes.get(&peer).expect("pool peer").mean_cost()))
