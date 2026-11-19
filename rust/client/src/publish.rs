@@ -4,6 +4,8 @@
 //! A caller runs [`check`], calls [`work`] in short steps (saving the draft after each, so a
 //! cancelled publish resumes where it stopped), then [`publish`].
 
+use crate::scores::Scores;
+use crate::selection::Operation;
 use crate::store::profile_photos::{fits, MAX_PHOTO_BYTES};
 use crate::store::{self, ProfilePublication, ProfilePublicationOutcome, Store};
 use crate::{Error, Node};
@@ -17,14 +19,19 @@ mod adoption_fields;
 mod adoption_review;
 mod condition;
 mod fields;
+mod network;
 mod photos;
 pub(crate) use fields::prepare_fields;
-pub use fields::publish_fields_prepared;
+pub use fields::{publish_fields_prepared, publish_fields_prepared_with_scores};
+pub use photos::{refresh_photos, refresh_photos_with_scores};
 
-pub use adoption_confirm::{confirm_adoption_review, AdoptionConfirmError};
+pub use adoption_confirm::{
+    confirm_adoption_review, confirm_adoption_review_with_scores, AdoptionConfirmError,
+};
 pub use adoption_fields::AdoptionField;
 pub use adoption_review::{
-    review_adoption, AdoptionReview, AdoptionSelectionError, AdoptionSource,
+    review_adoption, review_adoption_with_scores, AdoptionReview, AdoptionSelectionError,
+    AdoptionSource,
 };
 
 /// Why a draft cannot be published yet.
@@ -177,7 +184,30 @@ pub async fn publish_prepared(
     identity: &Identity,
     attempt: &ProfilePublication,
 ) -> Result<ProfilePublicationOutcome, Failure> {
-    send_prepared(store, node, identity, attempt, false, ForeignDraft::Import).await
+    publish_prepared_with_scores(store, node, identity, attempt, &mut Scores::default()).await
+}
+
+/// Publish a prepared request using the caller's persistent selection state.
+///
+/// # Errors
+/// Returns the same failures as [`publish_prepared`].
+pub async fn publish_prepared_with_scores(
+    store: &Store,
+    node: &mut Node,
+    identity: &Identity,
+    attempt: &ProfilePublication,
+    scores: &mut Scores,
+) -> Result<ProfilePublicationOutcome, Failure> {
+    network::send_prepared(
+        store,
+        node,
+        identity,
+        attempt,
+        false,
+        ForeignDraft::Import,
+        scores,
+    )
+    .await
 }
 
 /// Relist a prepared device change, retaining the visibility captured with its baseline.
@@ -192,13 +222,28 @@ pub async fn relist_prepared(
     identity: &Identity,
     attempt: &ProfilePublication,
 ) -> Result<ProfilePublicationOutcome, Failure> {
-    send_prepared(
+    relist_prepared_with_scores(store, node, identity, attempt, &mut Scores::default()).await
+}
+
+/// Relist a prepared request using the caller's persistent selection state.
+///
+/// # Errors
+/// Returns the same failures as [`relist_prepared`].
+pub async fn relist_prepared_with_scores(
+    store: &Store,
+    node: &mut Node,
+    identity: &Identity,
+    attempt: &ProfilePublication,
+    scores: &mut Scores,
+) -> Result<ProfilePublicationOutcome, Failure> {
+    network::send_prepared(
         store,
         node,
         identity,
         attempt,
         attempt.hidden(),
         ForeignDraft::Import,
+        scores,
     )
     .await
 }
@@ -241,8 +286,31 @@ pub async fn revoke_device(
     draft: &Profile,
     device_key: &[u8],
 ) -> Result<Profile, Failure> {
+    revoke_device_with_scores(
+        store,
+        node,
+        identity,
+        draft,
+        device_key,
+        &mut Scores::default(),
+    )
+    .await
+}
+
+/// Revoke a device using the caller's persistent selection state.
+///
+/// # Errors
+/// Returns the same failures as [`revoke_device`].
+pub async fn revoke_device_with_scores(
+    store: &Store,
+    node: &mut Node,
+    identity: &Identity,
+    draft: &Profile,
+    device_key: &[u8],
+    scores: &mut Scores,
+) -> Result<Profile, Failure> {
     let mut attempt = store.prepare_profile_publication(identity)?;
-    let held = newest(node, identity)
+    let held = newest_with_scores(node, identity, scores)
         .await?
         .ok_or(Error::Reply("the account has no profile"))?;
     if held.deleted {
@@ -262,20 +330,21 @@ pub async fn revoke_device(
     version
         .checked_add(u64::from(attempt.hidden()))
         .ok_or(store::Error::ProfileVersionExhausted)?;
-    take_photos(store, node, &held).await?;
+    take_photos(store, node, &held, scores).await?;
     node.close_mailbox(identity, binding).await?;
     if !changed {
         return Ok(store
             .commit_profile_import(identity, &attempt, &held)?
             .draft);
     }
-    Ok(send_prepared(
+    Ok(network::send_prepared(
         store,
         node,
         identity,
         &attempt,
         attempt.hidden(),
         ForeignDraft::PreserveLocal,
+        scores,
     )
     .await?
     .draft)
@@ -341,12 +410,27 @@ pub async fn adopt(
     state: &[u8],
     now: u64,
 ) -> Result<ProfilePublicationOutcome, Failure> {
+    adopt_with_scores(store, node, identity, state, now, &mut Scores::default()).await
+}
+
+/// Adopt linked state using the caller's persistent selection state.
+///
+/// # Errors
+/// Returns the same failures as [`adopt`].
+pub async fn adopt_with_scores(
+    store: &mut Store,
+    node: &mut Node,
+    identity: &Identity,
+    state: &[u8],
+    now: u64,
+    scores: &mut Scores,
+) -> Result<ProfilePublicationOutcome, Failure> {
     if identity.peer_id() != store.owner_peer_id() {
         return Err(store::Error::WrongIdentity.into());
     }
     store.import_link_state(state)?;
     let attempt = store.prepare_profile_publication(identity)?;
-    let held = newest(node, identity)
+    let held = newest_with_scores(node, identity, scores)
         .await?
         .ok_or(Error::Reply("the account has no profile"))?;
     if held.deleted {
@@ -355,7 +439,7 @@ pub async fn adopt(
     held.version
         .checked_add(u64::from(store.profile_hidden()?))
         .ok_or(store::Error::ProfileVersionExhausted)?;
-    take_photos(store, node, &held).await?;
+    take_photos(store, node, &held, scores).await?;
     match store.commit_profile_adoption(identity, &attempt, &held, now) {
         Err(store::Error::ProfileCompletionSuperseded) => Err(Failure::AdoptionReviewRequired),
         result => Ok(result?),
@@ -365,33 +449,6 @@ pub async fn adopt(
 enum ForeignDraft {
     Import,
     PreserveLocal,
-}
-
-async fn send_prepared(
-    store: &Store,
-    node: &mut Node,
-    identity: &Identity,
-    attempt: &ProfilePublication,
-    stay_hidden: bool,
-    foreign: ForeignDraft,
-) -> Result<ProfilePublicationOutcome, Failure> {
-    let mut next = store.profile_publication_record(identity, attempt)?;
-    let observed = condition::newest(node, identity).await?;
-    let held = observed.as_ref().map(|(_, profile)| profile);
-    if let Some(held) = condition::foreign_source(store, identity, attempt, held, &next)? {
-        if matches!(foreign, ForeignDraft::Import) {
-            take_photos(store, node, held).await?;
-            store.commit_profile_import(identity, attempt, held)?;
-        }
-        return Err(Failure::Missed);
-    }
-    condition::bind(&mut next, observed.as_ref())?;
-    let staged = photos::prepare(store, node, identity, &next).await?;
-    let profile = send(node, identity, next)
-        .await
-        .map_err(condition::publication_error)?;
-    photos::finish(store, node, identity, staged, &profile).await?;
-    Ok(store.commit_profile_publication(identity, attempt, &profile, stay_hidden)?)
 }
 
 // Equal hidden versions are foreign except our withdrawal. Its exact remembered bytes also
@@ -414,14 +471,20 @@ fn from_another_device(
 
 // Fetch the blobs of `profile` this store lacks, for a publish that may have to put them back. One
 // a node lost stays missing: nothing here can restore it.
-async fn take_photos(store: &Store, node: &mut Node, profile: &Profile) -> Result<(), Failure> {
-    take_photo_hashes(store, node, photo_hashes(profile)).await
+async fn take_photos(
+    store: &Store,
+    node: &mut Node,
+    profile: &Profile,
+    scores: &mut Scores,
+) -> Result<(), Failure> {
+    take_photo_hashes(store, node, photo_hashes(profile), scores).await
 }
 
 async fn take_photo_hashes(
     store: &Store,
     node: &mut Node,
     hashes: Vec<Vec<u8>>,
+    scores: &mut Scores,
 ) -> Result<(), Failure> {
     for hash in hashes {
         let Ok(key) = <[u8; 32]>::try_from(hash.as_slice()) else {
@@ -430,7 +493,8 @@ async fn take_photo_hashes(
         if store.profile_photo(&hash)?.is_some() {
             continue;
         }
-        match patiently(async || node.get_media(&key).await).await {
+        let peer = node.peer();
+        match patiently(async || node.get_media(&key).await, scores, peer).await {
             Ok(blob) if fits(&blob, MAX_PHOTO_BYTES) => {
                 store.save_profile_blob(&blob)?;
             }
@@ -442,17 +506,30 @@ async fn take_photo_hashes(
 }
 
 // Repeat a media request the node refused for its rate.
-async fn patiently<T>(mut request: impl AsyncFnMut() -> Result<T, Error>) -> Result<T, Error> {
+async fn patiently<T>(
+    mut request: impl AsyncFnMut() -> Result<T, Error>,
+    scores: &mut Scores,
+    peer: libp2p::PeerId,
+) -> Result<T, Error> {
+    let started = std::time::Instant::now();
     let mut waits = 0;
-    loop {
+    let result = loop {
         match request().await {
             Err(Error::Status(Status::RateLimited)) if waits < PUT_WAITS => {
                 waits = waits.saturating_add(1);
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             }
-            done => return done,
+            done => break done,
         }
+    };
+    match &result {
+        Ok(_) => scores.success(peer, Operation::Media, started.elapsed()),
+        Err(Error::Status(Status::NotFound)) => {
+            scores.not_found(peer, Operation::Media, started.elapsed());
+        }
+        Err(_) => scores.fault(peer, crate::now(), Operation::Media),
     }
+    result
 }
 
 /// The owner's profile at `node`, if it has one.
@@ -462,7 +539,19 @@ async fn patiently<T>(mut request: impl AsyncFnMut() -> Result<T, Error>) -> Res
 /// Returns an error if the profile request or reply validation fails, except
 /// that a node's not-found response returns `Ok(None)`.
 pub async fn newest(node: &mut Node, identity: &Identity) -> Result<Option<Profile>, Error> {
-    Ok(condition::newest(node, identity)
+    newest_with_scores(node, identity, &mut Scores::default()).await
+}
+
+/// Read the owner's profile using the caller's persistent selection state.
+///
+/// # Errors
+/// Returns the same failures as [`newest`].
+pub async fn newest_with_scores(
+    node: &mut Node,
+    identity: &Identity,
+    scores: &mut Scores,
+) -> Result<Option<Profile>, Error> {
+    Ok(condition::newest(node, identity, scores)
         .await?
         .map(|(_, profile)| profile))
 }
@@ -481,29 +570,6 @@ fn photo_hashes(profile: &Profile) -> Vec<Vec<u8>> {
 /// One-second waits for a blob the node refused for its rate. Six photos are 13 requests, and a
 /// node takes ten media requests a second by default.
 const PUT_WAITS: u32 = 5;
-
-/// Renews the node's hold on the published photos at most once a day and puts back whatever it
-/// lost. The list comes from the live profile: a draft may hold edits that are not published, and
-/// a keep with them would release a photo readers still see. A failed attempt waits for the next
-/// day, because a failure that repeats would otherwise cost requests on every pass.
-///
-/// # Errors
-///
-/// Returns an error if stored refresh state is invalid, database access or node
-/// requests fail, or a photo requested for upload is absent locally. Once the
-/// attempt is recorded, a later failure still delays the next attempt.
-pub async fn refresh_photos(
-    store: &Store,
-    node: &mut Node,
-    identity: &Identity,
-    now: u64,
-) -> Result<(), Failure> {
-    if !store.profile_keep_due(now)? {
-        return Ok(());
-    }
-    store.profile_keep_refreshed(now)?;
-    photos::refresh(store, node, identity).await
-}
 
 /// Hide from search with a signed tombstone held for search nodes, leaving the last ordinary
 /// profile and device directory at store nodes. The caller sends the held record and reports a
@@ -535,38 +601,30 @@ pub async fn withdraw(
     identity: &Identity,
     draft: &Profile,
 ) -> Result<Profile, Failure> {
-    let observed = condition::newest(node, identity).await?;
+    withdraw_with_scores(store, node, identity, draft, &mut Scores::default()).await
+}
+
+/// Withdraw using the caller's persistent selection state.
+///
+/// # Errors
+/// Returns the same failures as [`withdraw`].
+pub async fn withdraw_with_scores(
+    store: &Store,
+    node: &mut Node,
+    identity: &Identity,
+    draft: &Profile,
+    scores: &mut Scores,
+) -> Result<Profile, Failure> {
+    let observed = condition::newest(node, identity, scores).await?;
     let held = observed.as_ref().map_or(0, |(_, held)| held.version);
     let mut next = store.prepare_profile_withdrawal(identity, draft, held)?;
     condition::bind(&mut next, observed.as_ref())?;
-    let staged = photos::prepare(store, node, identity, &next).await?;
-    let tombstone = send(node, identity, next)
+    let staged = photos::prepare(store, node, identity, &next, scores).await?;
+    let tombstone = network::send(node, identity, next, scores)
         .await
         .map_err(condition::publication_error)?;
-    photos::finish(store, node, identity, staged, &tombstone).await?;
+    photos::finish(store, node, identity, staged, &tombstone, scores).await?;
     Ok(store.commit_profile_withdrawal(identity, draft, &tombstone)?)
-}
-
-// Publish `profile` to `node` and read it back. Refused as stale unless the node holds this same
-// profile, from a publish whose reply was lost.
-async fn send(node: &mut Node, identity: &Identity, profile: Profile) -> Result<Profile, Error> {
-    let peer_id = identity.peer_id();
-    let signed = profile.sign(identity);
-    let result = if profile.previous.is_some() {
-        node.publish_profile_conditional(signed.clone()).await
-    } else {
-        node.publish_profile(signed.clone()).await
-    };
-    match result {
-        Ok(()) => {}
-        Err(Error::Status(Status::Stale))
-            if node.get_profile_signed(&peer_id).await?.0 == signed => {}
-        Err(error) => return Err(error),
-    }
-    if node.get_profile_signed(&peer_id).await?.0 != signed {
-        return Err(Error::Reply("readback differs from the published profile"));
-    }
-    Ok(profile)
 }
 
 /// Why publication or adoption failed; adoption review requires an explicit recovery decision.

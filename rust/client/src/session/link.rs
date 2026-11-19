@@ -3,6 +3,7 @@
 
 use super::{prepare, Error, Session};
 use crate::chat::{self, Body, Delivery, Event, PeerChange};
+use crate::scores::Scores;
 use crate::selection::Operation;
 use crate::store::Store;
 use crate::{mailbox, publish, scores, Node, PreparedEnvelope};
@@ -43,8 +44,12 @@ impl Session {
         let Some(state) = store.link_pending()? else {
             return Ok(false);
         };
-        let adopted = publish::adopt(&mut store, node, identity, &state, now).await?;
+        let mut scores = Scores::default();
+        let adopted =
+            publish::adopt_with_scores(&mut store, node, identity, &state, now, &mut scores)
+                .await?;
         let mut session = Self::open_or_create(store, identity, device_key, seal_key)?;
+        session.scores = scores;
         session
             .complete_link_directory(node, identity, device_key, &adopted.published, &state)
             .await?;
@@ -55,7 +60,7 @@ impl Session {
     }
 
     async fn complete_link_directory(
-        &self,
+        &mut self,
         node: &mut Node,
         identity: &Identity,
         device_key: &Identity,
@@ -69,7 +74,14 @@ impl Session {
             let attempt = self.prepare_link_listing(identity, device_key, published)?;
             self.store
                 .admit_link_enrollment(identity, &self.certificate()?, &attempt, state)?;
-            let listed = publish::relist_prepared(&self.store, node, identity, &attempt).await?;
+            let listed = publish::relist_prepared_with_scores(
+                &self.store,
+                node,
+                identity,
+                &attempt,
+                &mut self.scores,
+            )
+            .await?;
             self.store.note_device_listed(listed.published.version)?;
         }
         Ok(())

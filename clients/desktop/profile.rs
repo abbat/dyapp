@@ -572,7 +572,7 @@ pub async fn publish(
         .keep_last_resort(&mut node, device_key, dyapp_client::now(), &seal_key)
         .await
         .map_err(|e| e.to_string())?;
-    send_held(session.store(), &mut node, &active).await?;
+    send_held(session.store(), &mut node, &active, dir).await?;
     view(&published, today, Some(session.store()))
 }
 
@@ -587,7 +587,7 @@ pub async fn hide(dir: &Path, identity: &Identity) -> Result<View, String> {
         .ok_or("notConnected")?;
     let mut node = connect(&active).await?;
     let hidden = publish::hide(&store, identity, &draft).map_err(|e| e.to_string())?;
-    send_held(&store, &mut node, &active).await?;
+    send_held(&store, &mut node, &active, dir).await?;
     view(&hidden, today()?, Some(&store))
 }
 
@@ -614,7 +614,16 @@ pub async fn devices(
     let draft = stored(&open(dir, identity)?)?;
     let held = match network::load(dir, Settings::Active) {
         Ok(Some(active)) if live => match connect(&active).await {
-            Ok(mut node) => publish::newest(&mut node, identity).await.ok().flatten(),
+            Ok(mut node) => match dyapp_client::contact_verification::scores(dir) {
+                Ok(scores) => {
+                    let mut scores = scores.lock().await;
+                    publish::newest_with_scores(&mut node, identity, &mut scores)
+                        .await
+                        .ok()
+                        .flatten()
+                }
+                Err(_) => None,
+            },
             Err(_) => None,
         },
         _ => None,
@@ -644,9 +653,19 @@ pub async fn revoke_device(
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
     let mut node = connect(&active).await?;
-    let dropped = publish::revoke_device(&store, &mut node, identity, &draft, device_key)
-        .await
-        .map_err(publish_code)?;
+    let scores =
+        dyapp_client::contact_verification::scores(dir).map_err(|error| error.to_string())?;
+    let mut scores = scores.lock().await;
+    let dropped = publish::revoke_device_with_scores(
+        &store,
+        &mut node,
+        identity,
+        &draft,
+        device_key,
+        &mut scores,
+    )
+    .await
+    .map_err(publish_code)?;
     view(&dropped, today()?, Some(&store))
 }
 
@@ -689,17 +708,26 @@ pub async fn withdraw(dir: &Path, identity: &Identity) -> Result<View, String> {
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
     let mut node = connect(&active).await?;
-    let removed = publish::withdraw(&store, &mut node, identity, &draft)
+    let scores =
+        dyapp_client::contact_verification::scores(dir).map_err(|error| error.to_string())?;
+    let mut scores = scores.lock().await;
+    let removed = publish::withdraw_with_scores(&store, &mut node, identity, &draft, &mut scores)
         .await
         .map_err(|e| e.to_string())?;
-    send_held(&store, &mut node, &active).await?;
+    drop(scores);
+    send_held(&store, &mut node, &active, dir).await?;
     view(&removed, today()?, Some(&store))
 }
 
 /// Sends the published profile the search window holds once the window has ended, to up to
 /// [`SEARCH_NODES`] search nodes `node` finds on `network`. Best effort: a profile no node took
 /// stays held, and [`View::search_minutes`] says when to call [`send_search`].
-async fn send_held(store: &Store, node: &mut Node, network: &Network) -> Result<(), String> {
+async fn send_held(
+    store: &Store,
+    node: &mut Node,
+    network: &Network,
+    dir: &Path,
+) -> Result<(), String> {
     if store
         .due_search_profile(unix_now()?)
         .map_err(|e| e.to_string())?
@@ -708,8 +736,13 @@ async fn send_held(store: &Store, node: &mut Node, network: &Network) -> Result<
         return Ok(());
     }
     let protocols = Arc::new(Protocols::new(&network.name).map_err(|e| e.to_string())?);
-    let mut reached = search::connect_search_nodes(node, protocols, SEARCH_NODES).await;
-    let _ = search::publish_due(store, &mut reached.nodes, unix_now()?).await;
+    let scores =
+        dyapp_client::contact_verification::scores(dir).map_err(|error| error.to_string())?;
+    let mut scores = scores.lock().await;
+    let mut reached =
+        search::connect_search_nodes_with_scores(node, protocols, SEARCH_NODES, &mut scores).await;
+    let _ =
+        search::publish_due_with_scores(store, &mut reached.nodes, &mut scores, unix_now()?).await;
     Ok(())
 }
 
@@ -746,7 +779,7 @@ pub async fn finish_link(
         session::Error::Revoked => crate::chats::own::REVOKED.to_owned(),
         error => error.to_string(),
     })?;
-    send_held(&open(dir, identity)?, &mut node, &active).await
+    send_held(&open(dir, identity)?, &mut node, &active, dir).await
 }
 
 /// Sends a held profile whose search window has ended (see `send_held`) and returns the view.
@@ -763,7 +796,7 @@ pub async fn send_search(dir: &Path, identity: &Identity) -> Result<View, String
             .map_err(|e| e.to_string())?
             .ok_or("notConnected")?;
         let mut node = connect(&active).await?;
-        send_held(&store, &mut node, &active).await?;
+        send_held(&store, &mut node, &active, dir).await?;
     }
     view(&stored(&store)?, today()?, Some(&store))
 }

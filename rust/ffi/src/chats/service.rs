@@ -53,7 +53,7 @@ impl ChatSession {
                     )
                     .await
                     .map_err(failed)?;
-                send_held(session.store(), &mut node, &network).await?;
+                send_held(session.store(), &mut node, &network, &self.dir).await?;
                 session
                     .store()
                     .profile_publication_state(&self.key.identity, &published)

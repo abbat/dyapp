@@ -3,6 +3,8 @@
 //! record with [`search_results::check`].
 
 use crate::profiles::Profiles;
+use crate::scores::Scores;
+use crate::selection::Operation;
 use crate::store::{self, Store};
 use crate::{Error, Node};
 use dyapp_identity::{Domain, Identity, SignedRecord};
@@ -12,7 +14,7 @@ use dyapp_p2p_net::Protocols;
 use dyapp_profile::VerifiedProfile;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// Keys one get request may carry.
 const GET_KEYS: usize = 50;
@@ -143,14 +145,26 @@ pub async fn connect_search_nodes(
     protocols: Arc<Protocols>,
     max: usize,
 ) -> SearchNodes {
+    connect_search_nodes_with_scores(entry, protocols, max, &mut Scores::default()).await
+}
+
+/// Connect search nodes using the caller's persistent selection state.
+pub async fn connect_search_nodes_with_scores(
+    entry: &mut Node,
+    protocols: Arc<Protocols>,
+    max: usize,
+    scores: &mut Scores,
+) -> SearchNodes {
     let (mut nodes, mut infos, mut failures) = (Vec::new(), Vec::new(), Vec::new());
     for addr in entry.providers(dyapp_p2p_net::SEARCH_KEY, max).await {
+        let started = Instant::now();
         let reached = match Node::connect(addr, protocols.clone()).await {
             Ok(mut node) => node.info().await.map(|info| (node, info)),
             Err(error) => Err(error),
         };
         match reached {
             Ok((node, info)) if info.roles.contains(&(proto::Role::Search as i32)) => {
+                scores.success(node.peer(), Operation::Search, started.elapsed());
                 nodes.push(node);
                 infos.push(info);
             }
@@ -179,48 +193,61 @@ pub async fn search(
     cache: &Profiles,
     blocked: &[String],
 ) -> SearchResults {
+    search_with_scores(
+        nodes,
+        &mut Scores::default(),
+        conditions,
+        limit,
+        min_pow_bits,
+        cache,
+        blocked,
+    )
+    .await
+}
+
+/// Search using the caller's persistent selection state.
+pub async fn search_with_scores(
+    nodes: &mut [Node],
+    scores: &mut Scores,
+    conditions: &[Condition],
+    limit: u32,
+    min_pow_bits: u32,
+    cache: &Profiles,
+    blocked: &[String],
+) -> SearchResults {
     let (mut replies, mut cached) = (Vec::new(), Vec::new());
     let mut observed = evidence::Observed::default();
     let mut partial = nodes.is_empty();
     let mut failures = Vec::new();
-    let hit_limit = match limit {
-        0 => 50,
-        n => n.min(200),
-    } as usize;
+    let hit_limit = hit_limit(limit);
     if nodes.is_empty() {
         failures.push(SearchFailure::NoNodes);
     }
-    let needs = |field| conditions.iter().any(|condition| condition.field == field);
-    let active = needs(search_results::ACTIVE_DAY);
-    let age = needs(search_results::BIRTH_AGE);
-    for node in nodes {
-        let reply = match node.search_query(conditions.to_vec(), limit).await {
-            Ok(reply) => reply,
-            Err(error) => {
-                failures.push((&error).into());
-                partial = true;
-                continue;
-            }
-        };
-        partial |= reply.partial || (age && !reply.applied.contains(&search_results::BIRTH_AGE));
-        // The client cannot re-check activity, so a node that skipped it adds nothing.
-        if active && !reply.applied.contains(&search_results::ACTIVE_DAY) {
-            partial = true;
+    scores.register_nodes(nodes);
+    let peers: Vec<_> = nodes.iter().map(Node::peer).collect();
+    let order = scores.ranked(&peers, Operation::Search);
+    let mut yields = Vec::new();
+    for index in order {
+        let Some(node) = nodes.get_mut(index) else {
             continue;
+        };
+        let call = SearchCall::new(conditions, limit, hit_limit, cache, blocked);
+        let result = search_node(
+            node,
+            scores,
+            &call,
+            &mut observed,
+            &mut failures,
+            &mut cached,
+        )
+        .await;
+        partial |= result.partial;
+        if let Some(count) = result.count {
+            yields.push((node.peer(), count, result.cost));
         }
-        if reply.hits.len() > hit_limit {
-            failures.push(SearchFailure::Invalid);
-            partial = true;
-        }
-        let keys = cache_keys(reply.hits, hit_limit, cache, blocked, &mut cached);
-        let (records, incomplete) = fetch(node, keys, &mut failures).await;
-        partial |= incomplete;
-        // `check` drops such a record anyway; the node that sent it is not to be trusted.
-        if !observed.observe(&records) {
-            failures.push(SearchFailure::Invalid);
-        }
-        replies.push(records);
+        replies.push(result.records);
     }
+    record_zero_yields(scores, yields);
     let mut found = search_results::check(conditions, min_pow_bits, &replies);
     merge_cached(&mut found, cached, cache);
     found.retain(|profile| result_matches(profile, blocked, &observed, conditions, min_pow_bits));
@@ -228,6 +255,153 @@ pub async fn search(
         profiles: found,
         partial,
         failures,
+    }
+}
+
+fn hit_limit(limit: u32) -> usize {
+    (match limit {
+        0 => 50,
+        n => n.min(200),
+    }) as usize
+}
+
+fn record_zero_yields(scores: &mut Scores, yields: Vec<(libp2p::PeerId, usize, Duration)>) {
+    if yields.iter().any(|(_, count, _)| *count > 0) {
+        for (peer, count, cost) in yields {
+            if count == 0 {
+                scores.zero_yield(peer, Operation::Search, cost);
+            }
+        }
+    }
+}
+
+struct SearchCall<'a> {
+    conditions: &'a [Condition],
+    limit: u32,
+    hit_limit: usize,
+    active: bool,
+    age: bool,
+    cache: &'a Profiles,
+    blocked: &'a [String],
+}
+
+impl<'a> SearchCall<'a> {
+    fn new(
+        conditions: &'a [Condition],
+        limit: u32,
+        hit_limit: usize,
+        cache: &'a Profiles,
+        blocked: &'a [String],
+    ) -> Self {
+        let needs = |field| conditions.iter().any(|condition| condition.field == field);
+        Self {
+            conditions,
+            limit,
+            hit_limit,
+            active: needs(search_results::ACTIVE_DAY),
+            age: needs(search_results::BIRTH_AGE),
+            cache,
+            blocked,
+        }
+    }
+}
+
+struct SearchYield {
+    records: Vec<SignedRecord>,
+    partial: bool,
+    count: Option<usize>,
+    cost: Duration,
+}
+
+async fn search_node(
+    node: &mut Node,
+    scores: &mut Scores,
+    call: &SearchCall<'_>,
+    observed: &mut evidence::Observed,
+    failures: &mut Vec<SearchFailure>,
+    cached: &mut Vec<VerifiedProfile>,
+) -> SearchYield {
+    let peer = node.peer();
+    let started = Instant::now();
+    let reply = match query_node(node, scores, call, failures).await {
+        Ok(reply) => reply,
+        Err(failure) => return failure,
+    };
+    let mut partial = call.partial(&reply);
+    let mut valid = true;
+    if reply.hits.len() > call.hit_limit {
+        scores.invalid(peer, Operation::Search);
+        failures.push(SearchFailure::Invalid);
+        partial = true;
+        valid = false;
+    }
+    let keys = cache_keys(reply.hits, call.hit_limit, call.cache, call.blocked, cached);
+    let (records, incomplete) = fetch(node, keys, failures).await;
+    partial |= incomplete;
+    if incomplete {
+        scores.fault(peer, crate::now(), Operation::Search);
+    }
+    // `check` drops such a record anyway; the node that sent it is not to be trusted.
+    if !observed.observe(&records) {
+        scores.invalid(peer, Operation::Search);
+        failures.push(SearchFailure::Invalid);
+        valid = false;
+    }
+    if valid {
+        scores.success(peer, Operation::Search, started.elapsed());
+    }
+    SearchYield {
+        count: Some(records.len()),
+        records,
+        partial,
+        cost: started.elapsed(),
+    }
+}
+
+impl SearchYield {
+    fn failure(cost: Duration) -> Self {
+        Self {
+            records: Vec::new(),
+            partial: true,
+            count: None,
+            cost,
+        }
+    }
+}
+
+async fn query_node(
+    node: &mut Node,
+    scores: &mut Scores,
+    call: &SearchCall<'_>,
+    failures: &mut Vec<SearchFailure>,
+) -> Result<proto::SearchResponse, SearchYield> {
+    let peer = node.peer();
+    let started = Instant::now();
+    let reply = match node
+        .search_query(call.conditions.to_vec(), call.limit)
+        .await
+    {
+        Ok(reply) => reply,
+        Err(error) => {
+            if crate::scores::faulty(&error) {
+                scores.fault(peer, crate::now(), Operation::Search);
+            } else {
+                scores.not_found(peer, Operation::Search, started.elapsed());
+            }
+            failures.push((&error).into());
+            return Err(SearchYield::failure(started.elapsed()));
+        }
+    };
+    if call.active && !reply.applied.contains(&search_results::ACTIVE_DAY) {
+        scores.fault(peer, crate::now(), Operation::Search);
+        return Err(SearchYield::failure(started.elapsed()));
+    }
+    Ok(reply)
+}
+
+impl SearchCall<'_> {
+    fn partial(&self, reply: &proto::SearchResponse) -> bool {
+        reply.partial || (self.age && !reply.applied.contains(&search_results::BIRTH_AGE))
     }
 }
 
@@ -306,10 +480,23 @@ pub async fn publish_due(
     nodes: &mut [Node],
     now: u64,
 ) -> Result<bool, store::Error> {
+    publish_due_with_scores(store, nodes, &mut Scores::default(), now).await
+}
+
+/// Publish using the caller's persistent selection state.
+///
+/// # Errors
+/// Returns the same storage and held-publication failures as [`publish_due`].
+pub async fn publish_due_with_scores(
+    store: &Store,
+    nodes: &mut [Node],
+    scores: &mut Scores,
+    now: u64,
+) -> Result<bool, store::Error> {
     let Some(record) = store.due_search_publication(now)? else {
         return Ok(false);
     };
-    publish_record(store, nodes, record, now).await
+    publish_record(store, nodes, scores, record, now).await
 }
 
 /// Retry only the exact explicitly confirmed recovery record, without signing or confirming.
@@ -323,15 +510,30 @@ pub async fn publish_recovery(
     nodes: &mut [Node],
     now: u64,
 ) -> Result<bool, store::Error> {
+    publish_recovery_with_scores(store, plan, nodes, &mut Scores::default(), now).await
+}
+
+/// Publish recovery using the caller's persistent selection state.
+///
+/// # Errors
+/// Returns the same review, malformed-state and storage failures as [`publish_recovery`].
+pub async fn publish_recovery_with_scores(
+    store: &Store,
+    plan: &store::SearchWithdrawalRecovery,
+    nodes: &mut [Node],
+    scores: &mut Scores,
+    now: u64,
+) -> Result<bool, store::Error> {
     let Some(record) = store.due_search_withdrawal_recovery(plan, now)? else {
         return Ok(false);
     };
-    publish_record(store, nodes, record, now).await
+    publish_record(store, nodes, scores, record, now).await
 }
 
 async fn publish_record(
     store: &Store,
     nodes: &mut [Node],
+    scores: &mut Scores,
     record: SignedRecord,
     now: u64,
 ) -> Result<bool, store::Error> {
@@ -339,7 +541,9 @@ async fn publish_record(
         .map_err(|_| store::Error::InvalidSetting)?
         .profile;
     let (mut taken, mut wait) = (false, None);
+    scores.register_nodes(nodes);
     for node in nodes {
+        let started = Instant::now();
         let result = if profile.search_only {
             node.search_withdraw(record.clone()).await
         } else {
@@ -347,9 +551,21 @@ async fn publish_record(
         };
         match result {
             // A node that holds this version already took it.
-            Ok(()) | Err(Error::Status(Status::Stale)) => taken = true,
-            Err(Error::RateLimited(after)) => wait = wait.max(Some(after)),
-            Err(_) => {}
+            Ok(()) | Err(Error::Status(Status::Stale)) => {
+                scores.success(node.peer(), Operation::ProfilePublish, started.elapsed());
+                taken = true;
+            }
+            Err(Error::RateLimited(after)) => {
+                scores.fault(node.peer(), crate::now(), Operation::ProfilePublish);
+                wait = wait.max(Some(after));
+            }
+            Err(error) => {
+                if crate::scores::faulty(&error) {
+                    scores.fault(node.peer(), crate::now(), Operation::ProfilePublish);
+                } else {
+                    scores.not_found(node.peer(), Operation::ProfilePublish, started.elapsed());
+                }
+            }
         }
     }
     if taken {
@@ -450,535 +666,5 @@ pub async fn beat_due(
     }
     Ok(taken)
 }
-
 #[cfg(test)]
-mod tests {
-    #[path = "withdrawal_tests.rs"]
-    mod withdrawal_tests;
-
-    use super::*;
-    use dyapp_identity::Identity;
-    use dyapp_p2p_net::proto::{search_request::Request, Op, SearchHit, SearchResponse, Status};
-    use dyapp_p2p_net::{build_configured_swarm, BehaviourEvent, Protocols, SwarmOptions};
-    use dyapp_profile::Profile;
-    use libp2p::futures::StreamExt;
-    use libp2p::identity::Keypair;
-    use libp2p::request_response::{Event, Message};
-    use libp2p::swarm::SwarmEvent;
-    use std::sync::{Arc, Mutex};
-    use std::time::Duration;
-
-    fn record(identity: &Identity, version: u64, age: u32) -> SignedRecord {
-        Profile {
-            version,
-            birth_year: Some(2026 - age),
-            birth_month: Some(1),
-            birth_day: Some(1),
-            ..Profile::default()
-        }
-        .sign(identity)
-    }
-
-    fn key(identity: &Identity) -> Vec<u8> {
-        dyapp_identity::key_hash(&identity.public_key()).to_vec()
-    }
-
-    fn hit(key: Vec<u8>, version: u64) -> SearchHit {
-        SearchHit { key, version }
-    }
-
-    fn ok(hits: Vec<SearchHit>, records: Vec<SignedRecord>, partial: bool) -> SearchResponse {
-        SearchResponse {
-            status: Status::Ok.into(),
-            hits,
-            records,
-            partial,
-            ..SearchResponse::default()
-        }
-    }
-
-    type Requests = Arc<Mutex<Vec<Request>>>;
-
-    // A search node that answers each request with `answer` and keeps what it was asked.
-    async fn fake(
-        mut answer: impl FnMut(&Request) -> SearchResponse + Send + 'static,
-    ) -> (Node, Requests) {
-        let options = SwarmOptions {
-            search: true,
-            ..SwarmOptions::default()
-        };
-        let mut server =
-            Box::new(build_configured_swarm(Keypair::generate_ed25519(), options).unwrap());
-        server
-            .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
-            .unwrap();
-        let address = loop {
-            if let SwarmEvent::NewListenAddr { address, .. } = server.select_next_some().await {
-                break address;
-            }
-        };
-        let requests = Requests::default();
-        let seen = Arc::clone(&requests);
-        tokio::spawn(async move {
-            loop {
-                if let SwarmEvent::Behaviour(BehaviourEvent::Search(Event::Message {
-                    message:
-                        Message::Request {
-                            request, channel, ..
-                        },
-                    ..
-                })) = server.select_next_some().await
-                {
-                    let request = request.request.unwrap();
-                    let response = answer(&request);
-                    seen.lock().unwrap().push(request);
-                    let _ = server
-                        .behaviour_mut()
-                        .search
-                        .send_response(channel, response);
-                }
-            }
-        });
-        let node = Node::connect(address, Arc::new(Protocols::public()))
-            .await
-            .unwrap();
-        (node, requests)
-    }
-
-    fn gets(requests: &Requests) -> Vec<Vec<Vec<u8>>> {
-        let requests = requests.lock().unwrap();
-        let gets = requests.iter().filter_map(|request| match request {
-            Request::Get(get) => Some(get.keys.clone()),
-            _ => None,
-        });
-        gets.collect()
-    }
-
-    #[tokio::test]
-    async fn age_filter_marks_skipped_node_partial_and_rechecks_its_records() {
-        let [a, b, c] = [(); 3].map(|()| Identity::try_generate().unwrap());
-        let dated = |identity: &Identity| {
-            Profile {
-                version: 1,
-                birth_year: Some(2000),
-                ..Profile::default()
-            }
-            .sign(identity)
-        };
-        let yearless = Profile {
-            version: 1,
-            birth_month: Some(2),
-            birth_day: Some(29),
-            ..Profile::default()
-        }
-        .sign(&b);
-        let mut nodes = Vec::new();
-        for (hits, records, applied) in [
-            (
-                vec![hit(key(&a), 1), hit(key(&b), 1)],
-                vec![dated(&a), yearless],
-                vec![search_results::BIRTH_AGE],
-            ),
-            (vec![hit(key(&c), 1)], vec![dated(&c)], vec![]),
-        ] {
-            let mut query = ok(hits, Vec::new(), false);
-            query.applied = applied;
-            let mut answers = vec![ok(Vec::new(), records, false), query];
-            nodes.push(fake(move |_| answers.pop().unwrap()).await.0);
-        }
-        let conditions = [Condition {
-            field: search_results::BIRTH_AGE,
-            op: Op::Range.into(),
-            ints: vec![19_991_231, 20_001_231],
-            strings: Vec::new(),
-        }];
-        let result = tokio::time::timeout(
-            Duration::from_secs(10),
-            search(&mut nodes, &conditions, 0, 0, &Profiles::default(), &[]),
-        )
-        .await
-        .unwrap();
-        assert!(result.partial);
-        let mut peers: Vec<_> = result.profiles.iter().map(|p| p.peer_id.clone()).collect();
-        peers.sort();
-        let mut expected = vec![a.peer_id(), c.peer_id()];
-        expected.sort();
-        assert_eq!(peers, expected);
-    }
-
-    #[test]
-    fn cache_keys_deduplicates_with_the_highest_version_before_truncating() {
-        let [a, b, c] = [(); 3].map(|()| Identity::try_generate().unwrap());
-        let mut cache = Profiles::default();
-        cache
-            .accept(dyapp_profile::verify(&record(&a, 2, 30)).unwrap())
-            .unwrap();
-        let mut cached = Vec::new();
-        let keys = cache_keys(
-            vec![
-                hit(key(&a), 1),
-                hit(key(&b), 1),
-                hit(key(&a), 3),
-                hit(key(&c), 1),
-            ],
-            2,
-            &cache,
-            &[],
-            &mut cached,
-        );
-        assert_eq!(keys, [key(&a), key(&b)]);
-        assert_eq!(cached.len(), 0);
-    }
-
-    #[test]
-    fn offers_only_fields_every_node_lists_and_the_client_checks() {
-        let info = |fields: &[u32]| proto::NodeInfo {
-            search_fields: fields.to_vec(),
-            ..proto::NodeInfo::default()
-        };
-        let (age, active) = (search_results::BIRTH_AGE, search_results::ACTIVE_DAY);
-        // 5 is no searchable profile field and 999 is unknown: neither can be checked.
-        let full = info(&[27, 4, 19, active, age, 5, 999, 4]);
-        let narrow = info(&[4, 19, age, 5, 999]);
-        assert_eq!(
-            super::offered_fields(std::slice::from_ref(&full)),
-            [4, 19, 27, active, age]
-        );
-        assert_eq!(super::offered_fields(&[full, narrow]), [4, 19, age]);
-        assert_eq!(super::offered_fields(&[info(&[4]), info(&[])]), [0u32; 0]);
-        assert_eq!(super::offered_fields(&[]), [] as [u32; 0]);
-    }
-
-    #[tokio::test]
-    async fn drops_nodes_that_skip_the_activity_condition() {
-        let [a, b] = [(); 2].map(|()| Identity::try_generate().unwrap());
-        let mut nodes = Vec::new();
-        for (identity, applied) in [(&a, vec![search_results::ACTIVE_DAY]), (&b, vec![])] {
-            let mut query = ok(vec![hit(key(identity), 1)], Vec::new(), false);
-            query.applied = applied;
-            let mut answers = vec![ok(Vec::new(), vec![record(identity, 1, 30)], false), query];
-            nodes.push(fake(move |_| answers.pop().unwrap()).await.0);
-        }
-        let conditions = [Condition {
-            field: search_results::ACTIVE_DAY,
-            op: Op::Range.into(),
-            ints: vec![2, i64::MAX],
-            strings: Vec::new(),
-        }];
-        let cache = Profiles::default();
-        let search = search(&mut nodes, &conditions, 0, 0, &cache, &[]);
-        let found = tokio::time::timeout(Duration::from_secs(10), search)
-            .await
-            .unwrap();
-        assert!(found.partial);
-        let peers: Vec<_> = found.profiles.iter().map(|p| p.peer_id.clone()).collect();
-        assert_eq!(peers, [a.peer_id()]);
-    }
-
-    async fn second_search_node(
-        uncached: &Identity,
-        cached: &Identity,
-        unprompted: &Identity,
-    ) -> (Node, Requests) {
-        // The reply exceeds the default limit; only 49 uncached keys fit after the cached hit.
-        let mut hits: Vec<_> = (0..51u8).map(|n| hit(vec![n; 32], 1)).collect();
-        // A whole reply that misses keys is not asked again.
-        hits[0] = hit(key(unprompted), 1);
-        hits.insert(0, hit(key(cached), 4));
-        let mut responses = vec![
-            ok(hits, Vec::new(), false),
-            ok(
-                Vec::new(),
-                vec![
-                    record(uncached, 1, 30),
-                    record(cached, 4, 30),
-                    record(unprompted, 1, 30),
-                ],
-                false,
-            ),
-            ok(Vec::new(), Vec::new(), false),
-        ]
-        .into_iter();
-        fake(move |_| responses.next().unwrap()).await
-    }
-
-    async fn assert_merged_search(
-        nodes: &mut [Node],
-        conditions: &[Condition],
-        cache: &Profiles,
-        blocked: &[String],
-        one_asked: &Requests,
-        two_asked: &Requests,
-        identities: &[Identity; 8],
-    ) {
-        let [newer, _, _, _, cached, older, missing, unprompted] = identities;
-        let search = search(nodes, conditions, 0, 0, cache, blocked);
-        let found = tokio::time::timeout(Duration::from_secs(10), search)
-            .await
-            .unwrap();
-        assert!(found.partial); // One node failed and two get replies omitted keys.
-        let mut found: Vec<_> = found
-            .profiles
-            .iter()
-            .map(|p| (p.peer_id.clone(), p.profile.version))
-            .collect();
-        found.sort();
-        let mut expected = vec![
-            (newer.peer_id(), 2),
-            (older.peer_id(), 5),
-            (unprompted.peer_id(), 1),
-        ];
-        expected.sort();
-        assert_eq!(found, expected);
-        let one_gets = gets(one_asked);
-        assert_eq!(one_gets.len(), 3);
-        assert_eq!(one_gets[0], [key(newer), key(older), key(missing)]);
-        assert_eq!(one_gets[1].len(), 2);
-        assert_eq!(one_gets[2], [key(missing)]);
-        let two_gets = gets(two_asked);
-        assert_eq!(two_gets.iter().map(Vec::len).collect::<Vec<_>>(), [49]);
-        assert!(!two_gets.concat().contains(&key(cached)));
-    }
-
-    #[tokio::test]
-    #[expect(
-        clippy::many_single_char_names,
-        reason = "Alphabetic identities track the distinct cache, age-filter and retry cases in this fixture"
-    )]
-    async fn merges_nodes_skips_cached_hits_and_resends_cut_gets() {
-        let [a, b, c, d, e, f, g, h] = [(); 8].map(|()| Identity::try_generate().unwrap());
-        let mut cache = Profiles::default();
-        let held = [(&a, 1, 30), (&b, 1, 30), (&e, 5, 60), (&f, 5, 31)];
-        for (identity, version, age) in held {
-            let held = record(identity, version, age);
-            cache.accept(dyapp_profile::verify(&held).unwrap()).unwrap();
-        }
-        // a fits and is newer than cached, b is cached, c misses the age, f is served older than
-        // cached, g never comes.
-        let hits = vec![
-            hit(key(&a), 2),
-            hit(key(&b), 1),
-            hit(key(&c), 3),
-            hit(key(&f), 6),
-            hit(key(&g), 1),
-        ];
-        let mut first = vec![
-            ok(hits, Vec::new(), false),
-            ok(Vec::new(), vec![record(&a, 2, 30)], true),
-            ok(Vec::new(), vec![record(&c, 3, 50), record(&f, 4, 30)], true),
-            ok(Vec::new(), Vec::new(), true),
-        ]
-        .into_iter();
-        let (one, one_asked) = fake(move |_| first.next().unwrap()).await;
-        let (two, two_asked) = second_search_node(&d, &e, &h).await;
-        let (down, _) = fake(|_| SearchResponse {
-            status: Status::Denied.into(),
-            ..SearchResponse::default()
-        })
-        .await;
-        let conditions = [Condition {
-            field: search_results::BIRTH_AGE,
-            op: Op::Range.into(),
-            ints: vec![19_901_025, 20_011_025],
-            strings: Vec::new(),
-        }];
-        let mut nodes = vec![one, two, down].into_boxed_slice();
-        // Blocked: b is cached and c would be fetched.
-        let blocked = [b.peer_id(), c.peer_id()];
-        let identities = [a, b, c, d, e, f, g, h];
-        assert_merged_search(
-            &mut nodes,
-            &conditions,
-            &cache,
-            &blocked,
-            &one_asked,
-            &two_asked,
-            &identities,
-        )
-        .await;
-    }
-
-    #[tokio::test]
-    async fn classifies_failures_and_drops_forged_records() {
-        let [a, b] = [(); 2].map(|()| Identity::try_generate().unwrap());
-        let mut forged = record(&b, 1, 30);
-        forged.signature[0] ^= 1;
-        let mut answers = vec![
-            ok(Vec::new(), vec![record(&a, 1, 30), forged], false),
-            ok(vec![hit(key(&a), 1), hit(key(&b), 1)], Vec::new(), false),
-        ];
-        let (liar, _) = fake(move |_| answers.pop().unwrap()).await;
-        let (busy, _) = fake(|_| status(Status::RateLimited, 30)).await;
-        let (hard, _) = fake(|_| SearchResponse {
-            status: Status::Puzzle.into(),
-            puzzle_challenge: vec![3; 16],
-            puzzle_bits: crate::MAX_PUZZLE_BITS + 1,
-            ..SearchResponse::default()
-        })
-        .await;
-        let (broken, _) = fake(|_| status(Status::Invalid, 0)).await;
-        let (refusing, _) = fake(|_| status(Status::Refused, 0)).await;
-        let mut nodes = vec![liar, busy, hard, broken, refusing].into_boxed_slice();
-        let cache = Profiles::default();
-        let search = search(&mut nodes, &[], 0, 0, &cache, &[]);
-        let found = tokio::time::timeout(Duration::from_secs(10), search)
-            .await
-            .unwrap();
-        assert!(found.partial);
-        let peers: Vec<_> = found.profiles.iter().map(|p| p.peer_id.clone()).collect();
-        assert_eq!(peers, [a.peer_id()]);
-        assert_eq!(
-            found.failures,
-            [
-                SearchFailure::Invalid,
-                SearchFailure::RateLimited(Duration::from_secs(30)),
-                SearchFailure::Puzzle,
-                SearchFailure::Invalid,
-                SearchFailure::Unavailable,
-            ]
-        );
-        let none = super::search(&mut [], &[], 0, 0, &cache, &[]).await;
-        assert!(none.partial && none.profiles.is_empty());
-        assert_eq!(none.failures, [SearchFailure::NoNodes]);
-        for (error, failure) in [
-            (Error::Timeout, SearchFailure::Timeout),
-            (Error::Connect(String::new()), SearchFailure::Unavailable),
-            (Error::Request(String::new()), SearchFailure::Unavailable),
-            (Error::Status(Status::Puzzle), SearchFailure::Puzzle),
-            (Error::Reply("bad hit"), SearchFailure::Invalid),
-        ] {
-            assert_eq!(SearchFailure::from(&error), failure);
-        }
-    }
-
-    async fn within(
-        publish: impl std::future::Future<Output = Result<bool, store::Error>>,
-    ) -> bool {
-        tokio::time::timeout(Duration::from_secs(10), publish)
-            .await
-            .unwrap()
-            .unwrap()
-    }
-
-    fn status(status: Status, retry_after: u64) -> SearchResponse {
-        SearchResponse {
-            status: status.into(),
-            retry_after,
-            ..SearchResponse::default()
-        }
-    }
-
-    #[tokio::test]
-    async fn publishes_the_held_profile_once_due_and_waits_out_rate_limits() {
-        let alice = Identity::try_generate().unwrap();
-        let store = Store::open(&crate::store::tests::temp_db_path(), &alice).unwrap();
-        let first = record(&alice, 1, 30);
-        let busy = [
-            (Status::RateLimited, 60),
-            (Status::Denied, 0),
-            (Status::Ok, 0),
-        ];
-        let mut busy = busy.map(|(s, after)| status(s, after)).into_iter();
-        let (busy, busy_asked) = fake(move |_| busy.next().unwrap()).await;
-        let slow = [
-            (Status::RateLimited, 120),
-            (Status::Stale, 0),
-            (Status::Denied, 0),
-        ];
-        let mut slow = slow.map(|(s, after)| status(s, after)).into_iter();
-        let (slow, _) = fake(move |_| slow.next().unwrap()).await;
-        let mut nodes = vec![busy, slow].into_boxed_slice();
-        // Nothing held: no node is asked.
-        assert!(!within(publish_due(&store, &mut nodes, 1000)).await);
-        store.hold_search_profile(&first).unwrap();
-        // Both nodes busy: held for the longer wait.
-        assert!(!within(publish_due(&store, &mut nodes, 1000)).await);
-        assert_eq!(store.due_search_profile(1119).unwrap(), None);
-        assert_eq!(store.due_search_profile(1120).unwrap(), Some(first.clone()));
-        // One fails and the other has it already: the window starts.
-        assert!(within(publish_due(&store, &mut nodes, 1120)).await);
-        assert_eq!(store.search_profile_minutes_left(1120).unwrap(), None);
-        let second = record(&alice, 2, 30);
-        store.hold_search_profile(&second).unwrap();
-        assert_eq!(store.due_search_profile(1719).unwrap(), None);
-        // One takes it.
-        assert!(within(publish_due(&store, &mut nodes, 1720)).await);
-        assert_eq!(store.due_search_profile(9999).unwrap(), None);
-        let asked = busy_asked.lock().unwrap();
-        let sent: Vec<_> = asked
-            .iter()
-            .map(|r| match r {
-                Request::Publish(sent) => sent.clone(),
-                _ => panic!("not a publish"),
-            })
-            .collect();
-        assert_eq!(sent, [first.clone(), first, second]);
-    }
-
-    #[tokio::test]
-    async fn beats_once_a_day_with_a_proof_for_the_day() {
-        let alice = Identity::try_generate().unwrap();
-        let store = Store::open(&crate::store::tests::temp_db_path(), &alice).unwrap();
-        let answers = [Status::Denied, Status::RateLimited, Status::Ok];
-        let mut answers = answers.map(|s| status(s, 60)).into_iter();
-        let (node, asked) = fake(move |_| answers.next().unwrap()).await;
-        let mut nodes = [node];
-        let (day, now) = (20_000, 20_000 * 86_400 + 5);
-        assert!(!within(beat_due(&store, &alice, 3, 2, &mut nodes, now)).await);
-        // Two already today: done for the day.
-        assert!(within(beat_due(&store, &alice, 3, 2, &mut nodes, now)).await);
-        assert!(!within(beat_due(&store, &alice, 3, 2, &mut nodes, now + 86_394)).await);
-        // Due at a random second of the next day, so by its last second.
-        let next = u64::from(day + 2) * 86_400 - 1;
-        assert!(within(beat_due(&store, &alice, 3, 2, &mut nodes, next)).await);
-        {
-            let requests = asked.lock().unwrap();
-            assert_eq!(requests.len(), 3);
-            let mut heartbeat = None;
-            if let Request::Heartbeat(record) = &requests[2] {
-                heartbeat = Some(record);
-            }
-            let record = heartbeat.expect("not a heartbeat");
-            let beat: proto::Heartbeat = prost::Message::decode(record.payload.as_slice()).unwrap();
-            assert_eq!((beat.time, beat.version, beat.pow_day), (next, 3, day + 1));
-            let key = alice.public_key();
-            assert!(dyapp_profile::heartbeat_pow_bits(&key, day + 1, beat.pow_nonce) >= 2);
-            assert_eq!(beat.pow_bits, 2);
-            assert_eq!(record.public_key, key.to_vec());
-        }
-        store.set_profile_hidden(true).unwrap();
-        assert!(!within(beat_due(&store, &alice, 3, 2, &mut nodes, next + 86_400)).await);
-        assert_eq!(asked.lock().unwrap().len(), 3);
-    }
-
-    #[test]
-    fn employer_filter_ignores_case_and_spacing_and_keeps_profiles_without_a_company() {
-        let found = |company: &str| {
-            let profile = Profile {
-                version: 1,
-                company: company.into(),
-                ..Profile::default()
-            };
-            dyapp_profile::verify(&profile.sign(&Identity::try_generate().unwrap())).unwrap()
-        };
-        let all = vec![found("Acme  Corp"), found(""), found("Other")];
-        let kept = |filter: Employer| {
-            let mut profiles = all.clone();
-            filter.retain(&mut profiles);
-            profiles
-                .iter()
-                .map(|p| p.profile.company.clone())
-                .collect::<Vec<_>>()
-        };
-        assert_eq!(kept(Employer::Any), ["Acme  Corp", "", "Other"]);
-        assert_eq!(kept(Employer::Same(" acme corp ".into())), ["Acme  Corp"]);
-        assert_eq!(
-            kept(Employer::Same("  ".into())),
-            [] as [std::string::String; 0]
-        );
-        assert_eq!(
-            kept(Employer::Exclude(vec!["ACME CORP".into(), String::new()])),
-            ["", "Other"]
-        );
-    }
-}
+mod tests;

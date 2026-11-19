@@ -39,9 +39,11 @@ impl ChatSession {
     pub fn confirm_contact(&self, peer_id: String) -> Result<FoundProfile, CoreError> {
         self.confirm_contact_with(&peer_id, |network, peer| {
             on_network_stack(|| {
+                let scores = self.contact_context.lock().map_err(failed)?.scores();
+                let mut scores = self.runtime.block_on(scores.lock());
                 Ok(self
                     .runtime
-                    .block_on(contact_verification::fetch(network, peer)))
+                    .block_on(contact_verification::fetch(network, peer, &mut scores)))
             })?
             .map_err(failed)
         })

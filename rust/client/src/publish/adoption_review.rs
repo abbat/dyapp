@@ -1,5 +1,5 @@
 //! Immutable owner-bound adoption comparison; selecting fields never writes or publishes.
-use super::{adoption_fields::AdoptionField, newest, Failure, Identity, Node, Profile, Store};
+use super::{adoption_fields::AdoptionField, Failure, Identity, Node, Profile, Store};
 use crate::store::ProfileAdoptionContext;
 use std::collections::BTreeMap;
 
@@ -154,10 +154,23 @@ pub async fn review_adoption(
     node: &mut Node,
     identity: &Identity,
 ) -> Result<AdoptionReview, Failure> {
+    review_adoption_with_scores(store, node, identity, &mut crate::scores::Scores::default()).await
+}
+
+/// Review adoption using the caller's persistent selection state.
+///
+/// # Errors
+/// Returns the same failures as [`review_adoption`].
+pub async fn review_adoption_with_scores(
+    store: &Store,
+    node: &mut Node,
+    identity: &Identity,
+    scores: &mut crate::scores::Scores,
+) -> Result<AdoptionReview, Failure> {
     let context = store
         .prepare_profile_adoption_context(identity)?
         .ok_or(super::Error::Input("no pending linked-device recovery"))?;
-    let remote = newest(node, identity)
+    let remote = super::newest_with_scores(node, identity, scores)
         .await?
         .ok_or(super::Error::Reply("the account has no profile"))?;
     if remote.deleted {

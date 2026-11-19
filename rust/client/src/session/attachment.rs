@@ -3,6 +3,8 @@
 use super::{Body, Error, Node, Session, Submission};
 use crate::attachment::Attachment;
 use crate::chat::AttachmentMessage;
+use crate::scores::Scores;
+use crate::selection::Operation;
 use dyapp_identity::Identity;
 
 pub(super) async fn upload(
@@ -10,10 +12,19 @@ pub(super) async fn upload(
     identity: &Identity,
     attachment: &Attachment,
     blob: &[u8],
+    scores: &mut Scores,
 ) -> Result<(), Error> {
     let mut last = crate::Error::Request("no node".into());
     let mut uploaded = false;
-    for node in nodes.iter_mut() {
+    scores.register_nodes(nodes);
+    let peers: Vec<_> = nodes.iter().map(Node::peer).collect();
+    let order = scores.ranked(&peers, Operation::Media);
+    for index in order {
+        let Some(node) = nodes.get_mut(index) else {
+            continue;
+        };
+        let peer = node.peer();
+        let started = std::time::Instant::now();
         let upload = async {
             if !node
                 .attach_media(identity, attachment, crate::now())
@@ -26,10 +37,14 @@ pub(super) async fn upload(
         };
         match upload.await {
             Ok(()) => {
+                scores.success(peer, Operation::Media, started.elapsed());
                 uploaded = true;
                 break;
             }
-            Err(error) => last = error,
+            Err(error) => {
+                scores.fault(peer, crate::now(), Operation::Media);
+                last = error;
+            }
         }
     }
     if !uploaded {
@@ -76,7 +91,7 @@ impl Session {
         seal_key: &[u8; 32],
     ) -> Result<Submission, Error> {
         attachment.check()?;
-        upload(nodes, identity, attachment, blob).await?;
+        upload(nodes, identity, attachment, blob, &mut self.scores).await?;
         self.submit_uploaded_attachment(nodes, group_id, attachment, seal_key)
             .await
     }

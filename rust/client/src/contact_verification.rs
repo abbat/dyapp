@@ -1,13 +1,14 @@
 //! Contact confirmation against the current identity/network profile context.
 
 use crate::profiles::Profiles;
+use crate::scores::Scores;
 use crate::session::Session;
 use crate::store::Store;
 use dyapp_profile::VerifiedProfile;
 use std::sync::Arc;
 
 mod registry;
-pub use registry::shared;
+pub use registry::{scores, shared};
 mod fetch;
 pub use fetch::{fetch, FetchError};
 
@@ -60,34 +61,46 @@ pub struct Ticket {
     peer: String,
 }
 
-/// Held ordinary profiles for one active identity/network context.
+/// Held ordinary profiles and selection health for one active identity/network context.
 ///
 /// Keep this object under the same lock as context activation. Call [`Self::clear`]
 /// when identity/network changes, including switching back to an earlier network.
 /// The adapter fetches the highest observed signed profile after [`Self::begin`].
 #[derive(Debug, Default)]
 pub struct Context {
-    context: Arc<()>,
+    generation: Arc<()>,
     profiles: Profiles,
+    scores: Arc<tokio::sync::Mutex<Scores>>,
 }
 
 impl Context {
     /// Capture the current generation before starting search/display work.
     #[must_use]
     pub fn generation(&self) -> Generation {
-        Generation(Arc::clone(&self.context))
+        Generation(Arc::clone(&self.generation))
     }
 
     /// Whether work captured this context's current generation.
     #[must_use]
     pub fn is_current(&self, generation: &Generation) -> bool {
-        Arc::ptr_eq(&self.context, &generation.0)
+        Arc::ptr_eq(&self.generation, &generation.0)
     }
 
     /// The currently held ordinary profile authority.
     #[must_use]
     pub fn profiles(&self) -> &Profiles {
         &self.profiles
+    }
+
+    /// The persistent selection state of this identity/network context.
+    #[must_use]
+    pub fn scores(&self) -> Arc<tokio::sync::Mutex<Scores>> {
+        Arc::clone(&self.scores)
+    }
+
+    /// Move open circuits to half-open after an observed platform resume.
+    pub async fn resume(&self) {
+        self.scores.lock().await.resume();
     }
 
     /// Admit a verified display/fetch result using the existing authority/version rules.
@@ -98,11 +111,12 @@ impl Context {
         self.profiles.accept(profile)
     }
 
-    /// Invalidate every admitted comparison and discard the previous context's profiles.
+    /// Invalidate comparisons and discard the previous context's profiles and selection health.
     pub fn clear(&mut self) {
         // Retained generations/tickets prevent allocation reuse, so old work cannot become current.
-        self.context = Arc::new(());
+        self.generation = Arc::new(());
         self.profiles = Profiles::default();
+        self.scores = Arc::new(tokio::sync::Mutex::new(Scores::default()));
     }
 
     /// Capture a one-use comparison before fetching the requested peer's latest profile.

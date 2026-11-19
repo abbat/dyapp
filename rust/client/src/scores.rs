@@ -1,8 +1,7 @@
-//! Local scores of the nodes the client uses. A node can refuse one user, time out, serve invalid
-//! data or an older profile than another replica; each such fault adds one to its penalty, which
-//! halves every [`HALF_LIFE`] seconds. [`first`] tries the caller's nodes, e.g. one per replica
-//! key, lowest penalty first. What a node says about itself (`info`, status) is never scored: it
-//! is a hint only.
+//! Local operation health of the nodes the client uses. The shared policy ranks candidates,
+//! bounds their shares and opens recovery circuits; the legacy penalty retains the public scoring
+//! contract used by existing callers. What a node says about itself (`info`, status) is never
+//! scored: it is a hint only.
 
 use crate::selection::{Operation, Outcome, Policy};
 use crate::{Error, Node};
@@ -53,7 +52,33 @@ impl Scores {
             node,
             &Multiaddr::empty(),
             operation,
-            Outcome::Normal,
+            if cost > crate::TIMEOUT / 2 {
+                Outcome::Slow
+            } else {
+                Outcome::Normal
+            },
+            cost,
+            Instant::now(),
+        );
+    }
+
+    pub(crate) fn invalid(&mut self, node: PeerId, operation: Operation) {
+        self.policy.observe(
+            node,
+            &Multiaddr::empty(),
+            operation,
+            Outcome::Invalid,
+            Duration::ZERO,
+            Instant::now(),
+        );
+    }
+
+    pub(crate) fn zero_yield(&mut self, node: PeerId, operation: Operation, cost: Duration) {
+        self.policy.observe(
+            node,
+            &Multiaddr::empty(),
+            operation,
+            Outcome::ZeroYield,
             cost,
             Instant::now(),
         );
@@ -81,6 +106,11 @@ impl Scores {
                 .and_then(|halvings| penalty.checked_shr(halvings))
                 .unwrap_or(0)
         })
+    }
+
+    /// Move open circuits to half-open after an observed platform resume.
+    pub fn resume(&mut self) {
+        self.policy.resume(Instant::now());
     }
 
     /// Registers real holder addresses and IP groups before selecting them.

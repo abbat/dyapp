@@ -73,7 +73,7 @@ impl Subject {
 
 #[tokio::test]
 async fn ordinary_fields_keep_the_original_editor_baseline_and_verified_directory() {
-    let f = Subject::new(true);
+    let mut f = Subject::new(true);
     let mut attempt = f.attempt();
     attempt.draft_mut().name = "explicit request".into();
     let (mut node, held) = profile_node(Vec::new()).await;
@@ -96,7 +96,7 @@ async fn ordinary_fields_keep_the_original_editor_baseline_and_verified_director
 
 #[tokio::test]
 async fn actual_accepted_readback_keeps_later_private_fields_photos_and_proof() {
-    let f = Subject::new(true);
+    let mut f = Subject::new(true);
     let attempt = f.attempt();
     let path = f.path.clone();
     let (mut node, held) = profile_node_observed(
@@ -130,7 +130,7 @@ async fn actual_accepted_readback_keeps_later_private_fields_photos_and_proof() 
 
 #[tokio::test]
 async fn source_change_before_the_guard_cannot_restore_an_observed_directory() {
-    let f = Subject::new(true);
+    let mut f = Subject::new(true);
     let before = f.session.store().profile_draft().unwrap();
     let attempt = f.attempt();
     let current = Arc::new(OnceLock::<ProfileCell>::new());
@@ -183,7 +183,7 @@ async fn source_change_before_the_guard_cannot_restore_an_observed_directory() {
 
 #[tokio::test]
 async fn intervening_revocation_after_the_guard_survives_a_hidden_version_gap() {
-    let f = Subject::new(true);
+    let mut f = Subject::new(true);
     let mut editor = Store::open(&f.path, &f.identity).unwrap();
     editor
         .add_profile_photo(&[0xff, 0xd8, 0xff, 31], &[0xff, 0xd8, 0xff, 32])
@@ -231,7 +231,7 @@ async fn intervening_revocation_after_the_guard_survives_a_hidden_version_gap() 
 
 #[tokio::test]
 async fn unsupported_conditional_publication_never_falls_back_to_legacy_authorization() {
-    let f = Subject::new(true);
+    let mut f = Subject::new(true);
     let before = f.session.store().profile_draft().unwrap();
     let attempt = f.attempt();
     let legacy = Arc::new(AtomicUsize::new(0));
@@ -269,7 +269,7 @@ async fn unsupported_conditional_publication_never_falls_back_to_legacy_authoriz
 
 #[tokio::test]
 async fn wrong_keys_and_pending_enrollment_refuse_before_any_profile_request() {
-    let f = Subject::new(true);
+    let mut f = Subject::new(true);
     let reads = Arc::new(AtomicUsize::new(0));
     let observed = reads.clone();
     let (mut node, held) = profile_node_observed(Vec::new(), move |_, _| {
@@ -307,7 +307,7 @@ async fn wrong_keys_and_pending_enrollment_refuse_before_any_profile_request() {
 #[tokio::test]
 async fn missing_withdrawn_or_unproven_membership_cannot_become_first_enrollment() {
     for case in 0..3 {
-        let f = Subject::new(case != 2);
+        let mut f = Subject::new(case != 2);
         let before = f.session.store().profile_draft().unwrap();
         let (mut node, held) = profile_node(Vec::new()).await;
         let source = match case {
@@ -339,7 +339,7 @@ async fn missing_withdrawn_or_unproven_membership_cannot_become_first_enrollment
 #[tokio::test]
 async fn a_new_enough_verified_directory_resolves_the_floor_without_enrolling_a_missing_device() {
     for listed in [true, false] {
-        let f = Subject::new(true);
+        let mut f = Subject::new(true);
         // Isolate membership recovery from the independent hidden-profile conflict policy.
         f.session.store().set_profile_hidden(false).unwrap();
         let before = f.session.store().profile_draft().unwrap().unwrap();
@@ -382,7 +382,7 @@ async fn a_new_enough_verified_directory_resolves_the_floor_without_enrolling_a_
 
 #[tokio::test]
 async fn legacy_draft_derived_listing_knowledge_is_not_silently_decremented() {
-    let f = Subject::new(true);
+    let mut f = Subject::new(true);
     let before = f.session.store().profile_draft().unwrap().unwrap();
     let mut legacy = before.clone();
     // Reproduce the old client call before connecting, rather than editing a stored counter.

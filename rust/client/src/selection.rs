@@ -40,6 +40,7 @@ pub(crate) enum Outcome {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg(test)]
 pub(crate) enum State {
     Sufficient,
     Degraded,
@@ -220,12 +221,14 @@ impl Policy {
         self.ring.push(peer);
     }
 
+    #[cfg(test)]
     pub(crate) fn admitted(&self, peer: PeerId) -> bool {
         self.nodes
             .get(&peer)
             .is_some_and(|node| node.incumbent && node.open_until.is_none())
     }
 
+    #[cfg(test)]
     pub(crate) fn state(&mut self, peer: PeerId, now: Instant) -> State {
         let Some(node) = self.nodes.get_mut(&peer) else {
             return State::Open;
@@ -244,10 +247,12 @@ impl Policy {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn open_count(&self, peer: PeerId) -> u8 {
         self.nodes.get(&peer).map_or(0, |node| node.open_count)
     }
 
+    #[cfg(test)]
     pub(crate) fn address_open(&self, peer: PeerId, address: &Multiaddr) -> bool {
         self.nodes
             .get(&peer)
@@ -256,6 +261,7 @@ impl Policy {
             .is_some_and(|until| until > Instant::now())
     }
 
+    #[cfg(test)]
     pub(crate) fn raw_weight(&self, peer: PeerId) -> u8 {
         self.nodes.get(&peer).map_or(0, |node| {
             if node.confidence < 3 || node.degraded || node.zero_yield >= 3 {
@@ -518,14 +524,17 @@ impl Policy {
         None
     }
 
+    #[cfg(test)]
     pub(crate) fn exploration_count(&self) -> u64 {
         self.explorations
     }
 
+    #[cfg(test)]
     pub(crate) fn explored(&self, peer: PeerId) -> u32 {
         self.explored.get(&peer).copied().unwrap_or(0)
     }
 
+    #[cfg(test)]
     pub(crate) fn challenge(
         &mut self,
         challenger: PeerId,

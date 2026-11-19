@@ -77,12 +77,16 @@ impl MobileLinkRecovery {
             let admitted = self.owner.open()?;
             let certificate = admitted.session.certificate().map_err(failed)?;
             let network = active_network(&admitted.operation.slot().dir)?;
+            let scores = dyapp_client::contact_verification::scores(&admitted.operation.slot().dir)
+                .map_err(|error| failed(error.to_string()))?;
+            let mut scores = runtime.block_on(scores.lock());
             let review = runtime.block_on(async {
                 let mut node = connect(&network).await?;
-                publish::review_adoption(
+                publish::review_adoption_with_scores(
                     admitted.session.store(),
                     &mut node,
                     admitted.operation.identity(),
+                    &mut scores,
                 )
                 .await
                 .map_err(LinkReviewError::from)
@@ -143,14 +147,18 @@ impl ProfileAdoptionReview {
         link_network(|runtime| {
             let admitted = self.owner.open()?;
             self.admit(&admitted)?;
+            let scores = dyapp_client::contact_verification::scores(&admitted.operation.slot().dir)
+                .map_err(|error| failed(error.to_string()))?;
+            let mut scores = runtime.block_on(scores.lock());
             runtime.block_on(async {
                 let mut node = connect(&self.network).await?;
-                publish::confirm_adoption_review(
+                publish::confirm_adoption_review_with_scores(
                     &admitted.session,
                     &mut node,
                     admitted.operation.identity(),
                     &self.review,
                     &choices,
+                    &mut scores,
                 )
                 .await
                 .map(|outcome| LinkReviewSaved::from(&outcome))

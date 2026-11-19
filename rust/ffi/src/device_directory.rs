@@ -98,7 +98,11 @@ impl MobileDeviceDirectory {
                     .then(|| active_network(&admitted.operation.slot().dir).ok())
                     .flatten()?;
                 let mut node = connect(&network).await.ok()?;
-                publish::newest(&mut node, admitted.operation.identity())
+                let scores =
+                    dyapp_client::contact_verification::scores(&admitted.operation.slot().dir)
+                        .ok()?;
+                let mut scores = scores.lock().await;
+                publish::newest_with_scores(&mut node, admitted.operation.identity(), &mut scores)
                     .await
                     .ok()
                     .flatten()
@@ -138,12 +142,17 @@ impl MobileDeviceDirectory {
             let network = active_network(&admitted.operation.slot().dir)?;
             self.runtime.block_on(async {
                 let mut node = connect(&network).await?;
-                publish::revoke_device(
+                let scores =
+                    dyapp_client::contact_verification::scores(&admitted.operation.slot().dir)
+                        .map_err(|error| failed(error.to_string()))?;
+                let mut scores = scores.lock().await;
+                publish::revoke_device_with_scores(
                     store,
                     &mut node,
                     admitted.operation.identity(),
                     &draft,
                     &device_key,
+                    &mut scores,
                 )
                 .await
                 .map_err(failed)?;

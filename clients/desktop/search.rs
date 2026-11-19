@@ -289,10 +289,15 @@ pub async fn search(
         return Err("notConnected".into());
     }
     let protocols = Arc::new(Protocols::new(&active.name).map_err(|e| e.to_string())?);
+    let scores = dyapp_client::contact_verification::scores(dir).map_err(|e| e.to_string())?;
+    let mut scores = scores.lock().await;
     let mut entry = profile::connect(&active).await?;
-    let mut reached = search::connect_search_nodes(&mut entry, protocols, SEARCH_NODES).await;
-    let mut results = search::search(
+    let mut reached =
+        search::connect_search_nodes_with_scores(&mut entry, protocols, SEARCH_NODES, &mut scores)
+            .await;
+    let mut results = search::search_with_scores(
         &mut reached.nodes,
+        &mut scores,
         &conditions,
         limit,
         dyapp_profile::required_pow_bits(),

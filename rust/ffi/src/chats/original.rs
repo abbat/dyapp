@@ -54,12 +54,14 @@ impl ChatSession {
                 return Ok(bytes);
             }
             let network = active_network(&self.dir)?;
+            let scores = self.contact_context.lock().map_err(failed)?.scores();
+            let mut scores = self.runtime.block_on(scores.lock());
             let bytes = self.runtime.block_on(async {
                 let mut nodes = reachable(&network).await?;
                 if nodes.is_empty() {
                     return Err(failed("notConnected"));
                 }
-                attachment::fetch(&mut nodes, photo.attachment())
+                attachment::fetch_with_scores(&mut nodes, photo.attachment(), &mut scores)
                     .await
                     .map_err(fetch_error)
             })?;

@@ -201,7 +201,9 @@ async fn confirm(
             .ok_or("notConnected")?;
         (ticket, active)
     };
-    let fetched = contact_verification::fetch(&active, peer_id)
+    let scores = dyapp_client::contact_verification::scores(dir).map_err(|e| e.to_string())?;
+    let mut scores = scores.lock().await;
+    let fetched = contact_verification::fetch(&active, peer_id, &mut scores)
         .await
         .map_err(|e| e.to_string())?;
     mark(cache, ticket, &store, fetched)

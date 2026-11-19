@@ -5,6 +5,7 @@ use dyapp_client::{
     identity_slots::{ChatBinding, ChatOperation},
     store::{self, Store},
 };
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 /// Why a native search recovery review cannot proceed.
@@ -210,7 +211,13 @@ impl SearchWithdrawalReview {
                 .enable_all()
                 .build()
                 .map_err(network_failed)?;
-            runtime.block_on(send_recovery(&admitted.store, plan, &network, now))?;
+            runtime.block_on(send_recovery(
+                &admitted.store,
+                plan,
+                &network,
+                &admitted.operation.slot().dir,
+                now,
+            ))?;
         }
         Ok(admitted.store.search_visibility()?.into())
     }
@@ -220,12 +227,28 @@ async fn send_recovery(
     store: &Store,
     plan: &store::SearchWithdrawalRecovery,
     network: &dyapp_identity::network::Network,
+    dir: &Path,
     now: u64,
 ) -> Result<(), SearchRecoveryError> {
     let mut entry = crate::profile_network::connect(network).await?;
     let protocols = Arc::new(dyapp_p2p_net::Protocols::new(&network.name).map_err(network_failed)?);
-    let mut reached = dyapp_client::search::connect_search_nodes(&mut entry, protocols, 2).await;
-    dyapp_client::search::publish_recovery(store, plan, &mut reached.nodes, now).await?;
+    let scores = dyapp_client::contact_verification::scores(dir).map_err(network_failed)?;
+    let mut scores = scores.lock().await;
+    let mut reached = dyapp_client::search::connect_search_nodes_with_scores(
+        &mut entry,
+        protocols,
+        2,
+        &mut scores,
+    )
+    .await;
+    dyapp_client::search::publish_recovery_with_scores(
+        store,
+        plan,
+        &mut reached.nodes,
+        &mut scores,
+        now,
+    )
+    .await?;
     Ok(())
 }
 

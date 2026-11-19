@@ -81,7 +81,7 @@ impl MobileSearchOutbox {
             }
             let network = active_network(dir)?;
             let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(failed)?;
-            runtime.block_on(send(store, &network, now))?;
+            runtime.block_on(send(store, &network, dir, now))?;
             store.search_outbox_schedule().map(Into::into).map_err(failed)
         })
         })
@@ -110,12 +110,21 @@ impl MobileSearchOutbox {
 async fn send(
     store: &Store,
     network: &dyapp_identity::network::Network,
+    dir: &Path,
     now: u64,
 ) -> Result<(), CoreError> {
     let mut entry = connect(network).await?;
     let protocols = Arc::new(dyapp_p2p_net::Protocols::new(&network.name).map_err(failed)?);
-    let mut reached = dyapp_client::search::connect_search_nodes(&mut entry, protocols, 2).await;
-    dyapp_client::search::publish_due(store, &mut reached.nodes, now)
+    let scores = dyapp_client::contact_verification::scores(dir).map_err(failed)?;
+    let mut scores = scores.lock().await;
+    let mut reached = dyapp_client::search::connect_search_nodes_with_scores(
+        &mut entry,
+        protocols,
+        2,
+        &mut scores,
+    )
+    .await;
+    dyapp_client::search::publish_due_with_scores(store, &mut reached.nodes, &mut scores, now)
         .await
         .map_err(failed)?;
     Ok(())

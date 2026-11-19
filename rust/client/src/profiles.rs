@@ -83,12 +83,25 @@ pub async fn newest(
     let now = crate::now();
     let mut served = Vec::new();
     let mut last = Error::Status(dyapp_p2p_net::proto::Status::NotFound);
-    for node in nodes {
+    scores.register_nodes(nodes);
+    let peers: Vec<_> = nodes.iter().map(Node::peer).collect();
+    let order = scores.ranked(&peers, Operation::ProfileRead);
+    for index in order {
+        let Some(node) = nodes.get_mut(index) else {
+            continue;
+        };
+        let peer = node.peer();
+        let started = std::time::Instant::now();
         match node.get_profile(peer_id).await {
-            Ok(profile) => served.push((node.peer(), profile)),
+            Ok(profile) => {
+                scores.success(peer, Operation::ProfileRead, started.elapsed());
+                served.push((peer, profile));
+            }
             Err(error) => {
                 if scores::faulty(&error) {
-                    scores.fault(node.peer(), now, Operation::ProfileRead);
+                    scores.fault(peer, now, Operation::ProfileRead);
+                } else {
+                    scores.not_found(peer, Operation::ProfileRead, started.elapsed());
                 }
                 last = error;
             }

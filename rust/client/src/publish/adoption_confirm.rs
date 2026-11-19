@@ -39,6 +39,29 @@ pub async fn confirm_adoption_review(
     review: &AdoptionReview,
     choices: &[(AdoptionField, AdoptionSource)],
 ) -> Result<ProfilePublicationOutcome, AdoptionConfirmError> {
+    confirm_adoption_review_with_scores(
+        session,
+        node,
+        identity,
+        review,
+        choices,
+        &mut crate::scores::Scores::default(),
+    )
+    .await
+}
+
+/// Confirm adoption using the caller's persistent selection state.
+///
+/// # Errors
+/// Returns the same failures as [`confirm_adoption_review`].
+pub async fn confirm_adoption_review_with_scores(
+    session: &Session,
+    node: &mut Node,
+    identity: &Identity,
+    review: &AdoptionReview,
+    choices: &[(AdoptionField, AdoptionSource)],
+    scores: &mut crate::scores::Scores,
+) -> Result<ProfilePublicationOutcome, AdoptionConfirmError> {
     let store = session.store();
     let selected = review.select_fields(choices)?;
     store
@@ -56,8 +79,10 @@ pub async fn confirm_adoption_review(
         return Err(AdoptionConfirmError::DeviceNotListed);
     }
     dyapp_profile::verify(&selected.sign(identity))?;
-    super::take_photos(store, node, &selected).await?;
-    let current = super::newest(node, identity).await.map_err(Failure::from)?;
+    super::take_photos(store, node, &selected, scores).await?;
+    let current = super::newest_with_scores(node, identity, scores)
+        .await
+        .map_err(Failure::from)?;
     if current.as_ref() != Some(review.remote_profile()) {
         return Err(Failure::AdoptionReviewRequired.into());
     }

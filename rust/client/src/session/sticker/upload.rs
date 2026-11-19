@@ -112,8 +112,14 @@ impl Session {
                 let blob = ciphertext(&pending.attachment, bytes)?;
                 // Anchor local expiry before the node's signed attach timestamp, never after it.
                 let started = crate::now();
-                super::super::attachment::upload(nodes, identity, &pending.attachment, &blob)
-                    .await?;
+                super::super::attachment::upload(
+                    nodes,
+                    identity,
+                    &pending.attachment,
+                    &blob,
+                    &mut self.scores,
+                )
+                .await?;
                 self.store.finish_sticker_upload(&pending, started)?;
                 Some(pending.attachment)
             }

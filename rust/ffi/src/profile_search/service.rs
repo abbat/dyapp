@@ -6,7 +6,6 @@ use super::{
 use crate::profile_network::{active_network, connect, on_network_stack};
 use crate::{CoreError, IdentityKey};
 use dyapp_client::compatibility;
-use dyapp_client::profiles::Profiles;
 use dyapp_client::search::{self, Employer, SearchFailure, SearchResults};
 use dyapp_client::store::Store;
 use dyapp_identity::network::Network;
@@ -66,10 +65,7 @@ impl ProfileSearcher {
         limit: u32,
     ) -> Result<ProfileSearchResult, CoreError> {
         // Never hold the context mutex while the shared runtime drives network/photo work.
-        let (generation, held) = {
-            let cache = self.cache.lock().map_err(failed)?;
-            (cache.generation(), cache.profiles().clone())
-        };
+        let generation = self.cache.lock().map_err(failed)?.generation();
         let store = Store::open(&self.dir.join("client.db"), &key.identity).map_err(failed)?;
         let mut hidden = store.blocked_peers().map_err(failed)?;
         hidden.extend(store.passed_peers().map_err(failed)?);
@@ -77,7 +73,7 @@ impl ProfileSearcher {
         let network = active_network(&self.dir)?;
         let conditions: Vec<proto::Condition> = conditions.into_iter().map(Into::into).collect();
         let (offered, mut failures, mut results) =
-            self.query(&network, &conditions, limit, &held, &hidden)?;
+            self.query(&network, &conditions, limit, &hidden)?;
         Employer::from(employer).retain(&mut results.profiles);
         compatibility::rank(&own, &mut results.profiles);
         let profiles = self.admit_profiles(&generation, results.profiles)?;
@@ -96,21 +92,32 @@ impl ProfileSearcher {
         network: &Network,
         conditions: &[proto::Condition],
         limit: u32,
-        cache: &Profiles,
         hidden: &[String],
     ) -> Result<(Vec<u32>, Vec<SearchFailure>, SearchResults), CoreError> {
         on_network_stack(|| {
             self.runtime.block_on(async {
                 let protocols = Arc::new(Protocols::new(&network.name).map_err(failed)?);
+                let cache = Arc::clone(&self.cache);
+                let (scores, profiles) = {
+                    let cache = cache.lock().map_err(failed)?;
+                    (cache.scores(), cache.profiles().clone())
+                };
+                let mut scores = scores.lock().await;
                 let mut entry = connect(network).await?;
-                let mut reached =
-                    search::connect_search_nodes(&mut entry, protocols, SEARCH_NODES).await;
-                let results = search::search(
+                let mut reached = search::connect_search_nodes_with_scores(
+                    &mut entry,
+                    protocols,
+                    SEARCH_NODES,
+                    &mut scores,
+                )
+                .await;
+                let results = search::search_with_scores(
                     &mut reached.nodes,
+                    &mut scores,
                     conditions,
                     limit,
                     dyapp_profile::required_pow_bits(),
-                    cache,
+                    &profiles,
                     hidden,
                 )
                 .await;

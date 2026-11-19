@@ -86,7 +86,10 @@ async fn original(
     if nodes.is_empty() {
         return Err("notConnected".into());
     }
-    let bytes = attachment::fetch(&mut nodes, photo.attachment())
+    let scores =
+        dyapp_client::contact_verification::scores(dir).map_err(|error| error.to_string())?;
+    let mut scores = scores.lock().await;
+    let bytes = attachment::fetch_with_scores(&mut nodes, photo.attachment(), &mut scores)
         .await
         .map_err(code)?;
     photo

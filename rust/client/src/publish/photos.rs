@@ -31,17 +31,24 @@ async fn upload(
     identity: &Identity,
     missing: Vec<Vec<u8>>,
     required: &[Vec<u8>],
+    scores: &mut crate::scores::Scores,
 ) -> Result<(), Failure> {
     let required_missing: Vec<_> = missing
         .into_iter()
         .filter(|hash| required.contains(hash))
         .collect();
-    take_photo_hashes(store, node, required_missing.clone()).await?;
+    take_photo_hashes(store, node, required_missing.clone(), scores).await?;
     for hash in required_missing {
         let blob = store
             .profile_photo(&hash)?
             .ok_or(Error::Reply("kept photo is not in the store"))?;
-        patiently(async || node.put_media(&identity.peer_id(), blob.clone()).await).await?;
+        let peer = node.peer();
+        patiently(
+            async || node.put_media(&identity.peer_id(), blob.clone()).await,
+            scores,
+            peer,
+        )
+        .await?;
     }
     Ok(())
 }
@@ -53,11 +60,17 @@ async fn replace(
     state: &State,
     hashes: Vec<Vec<u8>>,
     intent: Intent,
+    scores: &mut crate::scores::Scores,
 ) -> Result<Replaced, Error> {
-    patiently(async || {
-        node.replace_media_keep(identity, state, hashes.clone(), intent, crate::now())
-            .await
-    })
+    let peer = node.peer();
+    patiently(
+        async || {
+            node.replace_media_keep(identity, state, hashes.clone(), intent, crate::now())
+                .await
+        },
+        scores,
+        peer,
+    )
     .await
 }
 
@@ -65,8 +78,16 @@ async fn state_for(
     node: &mut Node,
     identity: &Identity,
     hashes: &[Vec<u8>],
+    scores: &mut crate::scores::Scores,
 ) -> Result<Option<State>, Failure> {
-    match patiently(async || node.media_keep_state(identity, crate::now()).await).await {
+    let peer = node.peer();
+    match patiently(
+        async || node.media_keep_state(identity, crate::now()).await,
+        scores,
+        peer,
+    )
+    .await
+    {
         Ok(state) => Ok(Some(state)),
         // A photo-free profile can use a store without the media role. No weaker write is made.
         Err(Error::Status(Status::Unsupported)) if hashes.is_empty() => Ok(None),
@@ -79,9 +100,10 @@ pub(super) async fn prepare(
     node: &mut Node,
     identity: &Identity,
     profile: &Profile,
+    scores: &mut crate::scores::Scores,
 ) -> Result<Option<Staged>, Failure> {
     let hashes = photo_hashes(profile);
-    let Some(mut state) = state_for(node, identity, &hashes).await? else {
+    let Some(mut state) = state_for(node, identity, &hashes, scores).await? else {
         return Ok(None);
     };
     let target = digest(&profile.sign(identity));
@@ -91,9 +113,9 @@ pub(super) async fn prepare(
             profile_hash: target,
             pending: true,
         };
-        match replace(node, identity, &state, all, intent).await? {
+        match replace(node, identity, &state, all, intent, scores).await? {
             Replaced::Applied { state, missing } => {
-                upload(store, node, identity, missing, &hashes).await?;
+                upload(store, node, identity, missing, &hashes, scores).await?;
                 return Ok(Some(Staged { target, state }));
             }
             Replaced::Conflict(current) => state = current,
@@ -102,9 +124,35 @@ pub(super) async fn prepare(
     Err(Error::Status(Status::Stale).into())
 }
 
-async fn live(node: &mut Node, identity: &Identity) -> Result<(Profile, [u8; 32]), Failure> {
-    let (record, verified) = node.get_profile_signed(&identity.peer_id()).await?;
-    Ok((verified.profile, digest(&record)))
+async fn live(
+    node: &mut Node,
+    identity: &Identity,
+    scores: &mut crate::scores::Scores,
+) -> Result<(Profile, [u8; 32]), Failure> {
+    let peer = node.peer();
+    let started = std::time::Instant::now();
+    match node.get_profile_signed(&identity.peer_id()).await {
+        Ok((record, verified)) => {
+            scores.success(
+                peer,
+                crate::selection::Operation::ProfileRead,
+                started.elapsed(),
+            );
+            Ok((verified.profile, digest(&record)))
+        }
+        Err(error) => {
+            if matches!(&error, Error::Status(Status::NotFound)) {
+                scores.not_found(
+                    peer,
+                    crate::selection::Operation::ProfileRead,
+                    started.elapsed(),
+                );
+            } else {
+                scores.fault(peer, crate::now(), crate::selection::Operation::ProfileRead);
+            }
+            Err(error.into())
+        }
+    }
 }
 
 pub(super) async fn finish(
@@ -113,6 +161,7 @@ pub(super) async fn finish(
     identity: &Identity,
     staged: Option<Staged>,
     profile: &Profile,
+    scores: &mut crate::scores::Scores,
 ) -> Result<(), Failure> {
     let Some(Staged { target, mut state }) = staged else {
         return Ok(());
@@ -126,16 +175,16 @@ pub(super) async fn finish(
             // Another prepared publication owns the list; retain all of its references.
             return Ok(());
         }
-        if live(node, identity).await?.1 != target {
+        if live(node, identity, scores).await?.1 != target {
             return Err(Error::Status(Status::Stale).into());
         }
         let intent = Intent {
             profile_hash: target,
             pending: false,
         };
-        match replace(node, identity, &state, hashes.clone(), intent).await? {
+        match replace(node, identity, &state, hashes.clone(), intent, scores).await? {
             Replaced::Applied { missing, .. } => {
-                return upload(store, node, identity, missing, &hashes).await;
+                return upload(store, node, identity, missing, &hashes, scores).await;
             }
             Replaced::Conflict(current) => state = current,
         }
@@ -173,21 +222,60 @@ pub(super) async fn refresh(
     store: &Store,
     node: &mut Node,
     identity: &Identity,
+    scores: &mut crate::scores::Scores,
 ) -> Result<(), Failure> {
-    let (profile, target) = live(node, identity).await?;
+    let (profile, target) = live(node, identity, scores).await?;
     let hashes = photo_hashes(&profile);
-    let Some(mut state) = state_for(node, identity, &hashes).await? else {
+    let Some(mut state) = state_for(node, identity, &hashes, scores).await? else {
         return Ok(());
     };
     for _ in 0..CONFLICT_ATTEMPTS {
         let (all, intent) = renewal(&state, target, &hashes);
-        match replace(node, identity, &state, all, intent).await? {
+        match replace(node, identity, &state, all, intent, scores).await? {
             Replaced::Applied { missing, .. } => {
-                upload(store, node, identity, missing, &hashes).await?;
+                upload(store, node, identity, missing, &hashes, scores).await?;
                 return Ok(());
             }
             Replaced::Conflict(current) => state = current,
         }
     }
     Err(Error::Status(Status::Stale).into())
+}
+
+/// Renews the node's hold on published photos at most once a day.
+///
+/// # Errors
+/// Returns stored refresh-state, database, node or missing-local-photo failures.
+pub async fn refresh_photos(
+    store: &Store,
+    node: &mut Node,
+    identity: &Identity,
+    now: u64,
+) -> Result<(), Failure> {
+    refresh_photos_with_scores(
+        store,
+        node,
+        identity,
+        now,
+        &mut crate::scores::Scores::default(),
+    )
+    .await
+}
+
+/// Renew published photos using the caller's persistent selection state.
+///
+/// # Errors
+/// Returns the same failures as [`refresh_photos`].
+pub async fn refresh_photos_with_scores(
+    store: &Store,
+    node: &mut Node,
+    identity: &Identity,
+    now: u64,
+    scores: &mut crate::scores::Scores,
+) -> Result<(), Failure> {
+    if !store.profile_keep_due(now)? {
+        return Ok(());
+    }
+    store.profile_keep_refreshed(now)?;
+    refresh(store, node, identity, scores).await
 }

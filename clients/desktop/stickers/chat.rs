@@ -50,7 +50,10 @@ async fn fetch(
     if stop() {
         return Err("Identity changed".into());
     }
-    let bytes = attachment::fetch(&mut nodes, descriptor)
+    let scores =
+        dyapp_client::contact_verification::scores(dir).map_err(|error| error.to_string())?;
+    let mut scores = scores.lock().await;
+    let bytes = attachment::fetch_with_scores(&mut nodes, descriptor, &mut scores)
         .await
         .map_err(chat_photos::code)?;
     if stop() {

@@ -1,8 +1,8 @@
 # Sufficient-node selection
 
-**Status: core and mailbox/linked-device integration are implemented and tested.** Profile,
-search, media and remaining platform lifecycle integration are pending. This page is both the core
-behavior contract and the integration contract; it does not claim full desktop/FFI coverage.
+**Status: core and mailbox/linked-device/profile/search/media integration are implemented.**
+Remaining platform lifecycle integration is pending. This page is both the core behavior contract
+and the integration contract; it does not claim full desktop/FFI lifecycle coverage.
 
 ## Goals and invariants
 

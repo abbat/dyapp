@@ -115,8 +115,14 @@ impl Session {
             UploadPlan::Upload(pending) => {
                 let blob = super::upload::ciphertext(&pending.attachment, &bytes)?;
                 let started = crate::now();
-                match super::super::attachment::upload(nodes, identity, &pending.attachment, &blob)
-                    .await
+                match super::super::attachment::upload(
+                    nodes,
+                    identity,
+                    &pending.attachment,
+                    &blob,
+                    &mut self.scores,
+                )
+                .await
                 {
                     Ok(()) => {}
                     Err(Error::Client(_)) => {

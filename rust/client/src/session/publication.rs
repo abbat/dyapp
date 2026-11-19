@@ -13,7 +13,7 @@ impl Session {
     /// Refuses wrong owner/device credentials, pending or uncertain enrollment, revoked/missing
     /// authorization and ordinary publication failures. Remote acceptance may precede local failure.
     pub async fn publish_profile(
-        &self,
+        &mut self,
         node: &mut Node,
         identity: &Identity,
         device_key: &Identity,
@@ -27,7 +27,9 @@ impl Session {
         {
             return Err(crate::store::Error::WrongIdentity.into());
         }
-        let source = publish::prepare_fields(&self.store, node, identity, &mut attempt).await?;
+        let source =
+            publish::prepare_fields(&self.store, node, identity, &mut attempt, &mut self.scores)
+                .await?;
         if let Some(source) = source {
             if self.own_device_revoked(&source)? {
                 return Err(Error::Revoked);
@@ -42,8 +44,29 @@ impl Session {
                 crate::owner_binding(device_key, &identity.public_key()),
             );
         }
-        let outcome = publish::publish_prepared(&self.store, node, identity, &attempt).await?;
+        let outcome = publish::publish_prepared_with_scores(
+            &self.store,
+            node,
+            identity,
+            &attempt,
+            &mut self.scores,
+        )
+        .await?;
         self.store.note_device_listed(outcome.published.version)?;
         Ok(outcome)
+    }
+
+    /// Renew published profile photos using this session's media selection state.
+    ///
+    /// # Errors
+    /// Returns stored refresh-state, database, node or missing-local-photo failures.
+    pub async fn refresh_profile_photos(
+        &mut self,
+        node: &mut Node,
+        identity: &Identity,
+        now: u64,
+    ) -> Result<(), publish::Failure> {
+        publish::refresh_photos_with_scores(&self.store, node, identity, now, &mut self.scores)
+            .await
     }
 }

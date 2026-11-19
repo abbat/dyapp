@@ -56,7 +56,8 @@ impl Session {
                 completed = add(completed, downloaded);
                 continue;
             }
-            let fetched = attachment::fetch(nodes, &answer.attachment).await;
+            let fetched =
+                attachment::fetch_with_scores(nodes, &answer.attachment, &mut self.scores).await;
             if stop() {
                 break;
             }

@@ -27,7 +27,11 @@ pub enum FetchError {
 ///
 /// # Errors
 /// Returns invalid network configuration, no reachable seeds, or no available valid profile.
-pub async fn fetch(network: &Network, peer: &str) -> Result<VerifiedProfile, FetchError> {
+pub async fn fetch(
+    network: &Network,
+    peer: &str,
+    scores: &mut Scores,
+) -> Result<VerifiedProfile, FetchError> {
     let protocols = Arc::new(
         Protocols::new(&network.name).map_err(|error| FetchError::Network(error.to_string()))?,
     );
@@ -43,7 +47,7 @@ pub async fn fetch(network: &Network, peer: &str) -> Result<VerifiedProfile, Fet
     if nodes.is_empty() {
         return Err(FetchError::NotConnected);
     }
-    profiles::newest(&mut Scores::default(), &mut nodes, peer)
+    profiles::newest(scores, &mut nodes, peer)
         .await
         .map_err(|_| FetchError::Unavailable)
 }
@@ -60,7 +64,7 @@ mod tests {
                 name: String::new(),
             };
             assert!(matches!(
-                fetch(&network, "unused").await,
+                fetch(&network, "unused", &mut Scores::default()).await,
                 Err(FetchError::NotConnected)
             ));
         }

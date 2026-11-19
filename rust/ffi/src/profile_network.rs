@@ -119,6 +119,7 @@ pub(crate) async fn send_held(
     store: &Store,
     node: &mut Node,
     network: &Network,
+    dir: &Path,
 ) -> Result<(), CoreError> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -128,8 +129,11 @@ pub(crate) async fn send_held(
         return Ok(());
     }
     let protocols = Arc::new(Protocols::new(&network.name).map_err(failed)?);
-    let mut reached = search::connect_search_nodes(node, protocols, SEARCH_NODES).await;
-    let _ = search::publish_due(store, &mut reached.nodes, now).await;
+    let scores = dyapp_client::contact_verification::scores(dir).map_err(failed)?;
+    let mut scores = scores.lock().await;
+    let mut reached =
+        search::connect_search_nodes_with_scores(node, protocols, SEARCH_NODES, &mut scores).await;
+    let _ = search::publish_due_with_scores(store, &mut reached.nodes, &mut scores, now).await;
     Ok(())
 }
 
@@ -238,12 +242,21 @@ impl ProfilePublisher {
             let store = store;
             self.runtime.block_on(async {
                 let mut node = connect(&network).await?;
-                let outcome =
-                    publish::publish_fields_prepared(&store, &mut node, &key.identity, attempt)
-                        .await
-                        .map_err(failed)?;
+                let scores = dyapp_client::contact_verification::scores(&self.dir)
+                    .map_err(|error| failed(error.to_string()))?;
+                let mut scores = scores.lock().await;
+                let outcome = publish::publish_fields_prepared_with_scores(
+                    &store,
+                    &mut node,
+                    &key.identity,
+                    attempt,
+                    &mut scores,
+                )
+                .await
+                .map_err(failed)?;
+                drop(scores);
                 let published = outcome.published;
-                send_held(&store, &mut node, &network).await?;
+                send_held(&store, &mut node, &network, &self.dir).await?;
                 store
                     .profile_publication_state(&key.identity, &published)
                     .map_err(failed)
@@ -275,7 +288,7 @@ impl ProfilePublisher {
             self.runtime.block_on(async {
                 let mut node = connect(&network).await?;
                 let hidden = publish::hide(&store, &key.identity, &draft).map_err(failed)?;
-                send_held(&store, &mut node, &network).await?;
+                send_held(&store, &mut node, &network, &self.dir).await?;
                 Ok(hidden)
             })
         })?;
@@ -308,10 +321,20 @@ impl ProfilePublisher {
             let store = store;
             self.runtime.block_on(async {
                 let mut node = connect(&network).await?;
-                let removed = publish::withdraw(&store, &mut node, &key.identity, &draft)
-                    .await
-                    .map_err(failed)?;
-                send_held(&store, &mut node, &network).await?;
+                let scores = dyapp_client::contact_verification::scores(&self.dir)
+                    .map_err(|error| failed(error.to_string()))?;
+                let mut scores = scores.lock().await;
+                let removed = publish::withdraw_with_scores(
+                    &store,
+                    &mut node,
+                    &key.identity,
+                    &draft,
+                    &mut scores,
+                )
+                .await
+                .map_err(failed)?;
+                drop(scores);
+                send_held(&store, &mut node, &network, &self.dir).await?;
                 Ok(removed)
             })
         })?;
@@ -412,16 +435,16 @@ mod tests {
             runtime.block_on(async {
                 let mut node = connect(&network).await?;
                 // Nothing held: nothing is sent.
-                send_held(&store, &mut node, &network).await?;
+                send_held(&store, &mut node, &network, &dir).await?;
                 store.hold_search_profile(&record).map_err(failed)?;
                 // The node serves no search, so the profile waits for a later publish.
-                send_held(&store, &mut node, &network).await?;
+                send_held(&store, &mut node, &network, &dir).await?;
                 // A held profile is sent on the given network, so its name must be valid.
                 let invalid = Network {
                     name: " city".into(),
                     ..network.clone()
                 };
-                assert!(send_held(&store, &mut node, &invalid).await.is_err());
+                assert!(send_held(&store, &mut node, &invalid, &dir).await.is_err());
                 store.due_search_profile(u64::MAX).map_err(failed)
             })
         });

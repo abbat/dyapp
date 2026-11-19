@@ -40,11 +40,31 @@ use dyapp_profile::ProfileCondition;
 pub(super) async fn newest(
     node: &mut Node,
     identity: &Identity,
+    scores: &mut crate::scores::Scores,
 ) -> Result<Option<(SignedRecord, Profile)>, Error> {
+    let peer = node.peer();
+    let started = std::time::Instant::now();
     match node.get_profile_signed(&identity.peer_id()).await {
-        Ok((record, held)) => Ok(Some((record, held.profile))),
-        Err(Error::Status(Status::NotFound)) => Ok(None),
-        Err(error) => Err(error),
+        Ok((record, held)) => {
+            scores.success(
+                peer,
+                crate::selection::Operation::ProfileRead,
+                started.elapsed(),
+            );
+            Ok(Some((record, held.profile)))
+        }
+        Err(Error::Status(Status::NotFound)) => {
+            scores.not_found(
+                peer,
+                crate::selection::Operation::ProfileRead,
+                started.elapsed(),
+            );
+            Ok(None)
+        }
+        Err(error) => {
+            scores.fault(peer, crate::now(), crate::selection::Operation::ProfileRead);
+            Err(error)
+        }
     }
 }
 

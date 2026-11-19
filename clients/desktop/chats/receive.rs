@@ -118,7 +118,7 @@ async fn maintenance(
     }
     // Best effort like the package above; it tries again the next day.
     let now = dyapp_client::now();
-    let _ = dyapp_client::publish::refresh_photos(session.store(), node, identity, now).await;
+    let _ = session.refresh_profile_photos(node, identity, now).await;
     pass.refresh_own(session, node, identity, seal_key, now)
         .await;
     Ok(())

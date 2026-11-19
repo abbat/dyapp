@@ -88,9 +88,24 @@ async fn send(
     let mut entry = crate::profile::connect(&network).await?;
     let protocols =
         Arc::new(dyapp_p2p_net::Protocols::new(&network.name).map_err(|error| error.to_string())?);
-    let mut reached = dyapp_client::search::connect_search_nodes(&mut entry, protocols, 2).await;
-    dyapp_client::search::publish_recovery(store, plan, &mut reached.nodes, now)
-        .await
-        .map_err(|error| error.to_string())?;
+    let scores =
+        dyapp_client::contact_verification::scores(dir).map_err(|error| error.to_string())?;
+    let mut scores = scores.lock().await;
+    let mut reached = dyapp_client::search::connect_search_nodes_with_scores(
+        &mut entry,
+        protocols,
+        2,
+        &mut scores,
+    )
+    .await;
+    dyapp_client::search::publish_recovery_with_scores(
+        store,
+        plan,
+        &mut reached.nodes,
+        &mut scores,
+        now,
+    )
+    .await
+    .map_err(|error| error.to_string())?;
     Ok(())
 }

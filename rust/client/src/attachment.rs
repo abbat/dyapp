@@ -237,7 +237,7 @@ pub fn hours_left(sent_ms: u64, now_ms: u64) -> Option<u32> {
     (hours < WARN_HOURS).then_some(hours)
 }
 
-/// Downloads the blob of `attachment` from the first of `nodes` that holds it and opens it. A
+/// Downloads the blob of `attachment` in policy-selected node order and opens it. A
 /// recipient never releases it: in MLS every device is a member, so the first release would drop
 /// it for the others; it expires after the retention.
 ///
@@ -247,11 +247,47 @@ pub fn hours_left(sent_ms: u64, now_ms: u64) -> Option<u32> {
 /// successfully fetched blob fails hash or decryption checks. If all requests
 /// fail, returns the last request error.
 pub async fn fetch(nodes: &mut [crate::Node], attachment: &Attachment) -> Result<Vec<u8>, Error> {
+    fetch_with_scores(nodes, attachment, &mut crate::scores::Scores::default()).await
+}
+
+/// Fetch using the caller's persistent media selection state.
+///
+/// # Errors
+/// Returns the same request, absence, hash and decryption failures as [`fetch`].
+pub async fn fetch_with_scores(
+    nodes: &mut [crate::Node],
+    attachment: &Attachment,
+    scores: &mut crate::scores::Scores,
+) -> Result<Vec<u8>, Error> {
     let mut last = Error::Request("no node".into());
-    for node in nodes {
+    scores.register_nodes(nodes);
+    let peers: Vec<_> = nodes.iter().map(crate::Node::peer).collect();
+    let order = scores.ranked(&peers, crate::selection::Operation::Media);
+    for index in order {
+        let Some(node) = nodes.get_mut(index) else {
+            continue;
+        };
+        let peer = node.peer();
+        let started = std::time::Instant::now();
         match node.get_media(&attachment.blob_sha256).await {
-            Ok(blob) => return open(attachment, &blob),
-            Err(error) => last = error,
+            Ok(blob) => match open(attachment, &blob) {
+                Ok(opened) => {
+                    scores.success(peer, crate::selection::Operation::Media, started.elapsed());
+                    return Ok(opened);
+                }
+                Err(error) => {
+                    scores.invalid(peer, crate::selection::Operation::Media);
+                    return Err(error);
+                }
+            },
+            Err(error) => {
+                if crate::scores::faulty(&error) {
+                    scores.fault(peer, crate::now(), crate::selection::Operation::Media);
+                } else {
+                    scores.not_found(peer, crate::selection::Operation::Media, started.elapsed());
+                }
+                last = error;
+            }
         }
     }
     Err(last)

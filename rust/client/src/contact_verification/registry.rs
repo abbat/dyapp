@@ -1,5 +1,6 @@
 //! In-process contact authority shared by workers for one canonical identity directory.
 use super::Context;
+use crate::scores::Scores;
 use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -37,6 +38,18 @@ pub fn shared(dir: &Path) -> io::Result<Arc<Mutex<Context>>> {
     Ok(context)
 }
 
+/// Share only the async selection state, releasing the context registry lock before network I/O.
+///
+/// # Errors
+/// Returns the same directory and registry failures as [`shared`].
+pub fn scores(dir: &Path) -> io::Result<Arc<tokio::sync::Mutex<Scores>>> {
+    let context = shared(dir)?;
+    let context = context
+        .lock()
+        .map_err(|_| io::Error::other("contact context registry is poisoned"))?;
+    Ok(context.scores())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -63,6 +76,18 @@ mod tests {
         drop(alias);
         assert!(weak.upgrade().is_none());
         assert!(shared(&path).is_ok());
+    }
+
+    #[test]
+    fn clear_replaces_selection_without_waiting_for_an_old_operation() {
+        let path = temp_db_path();
+        std::fs::create_dir_all(&path).unwrap();
+        let context = shared(&path).unwrap();
+        let old = context.lock().unwrap().scores();
+        context.lock().unwrap().clear();
+        let new = context.lock().unwrap().scores();
+        assert!(!Arc::ptr_eq(&old, &new));
+        assert!(old.try_lock().is_ok());
     }
 
     #[test]

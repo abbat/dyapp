@@ -155,13 +155,9 @@ impl ChatSession {
                 )
                 .await;
         }
-        let _ = dyapp_client::publish::refresh_photos(
-            session.store(),
-            node,
-            &self.key.identity,
-            now.as_secs(),
-        )
-        .await;
+        let _ = session
+            .refresh_profile_photos(node, &self.key.identity, now.as_secs())
+            .await;
         Ok(())
     }
 }
