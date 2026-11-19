@@ -62,7 +62,7 @@ jobs:
           docker image inspect --format '{{.Id}}' dyapp:android-tools > build/android-reports/build-provenance/android-tools-image.txt
           bash tests/scripts/ui-test.sh android
           bash tests/scripts/ui-test.sh android-emulator
-          bash tests/scripts/ui-test.sh android-permissions
+          timeout --kill-after=30s 15m bash tests/scripts/ui-test.sh android-permissions
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.android-cache.outputs.cache-hit != 'true' }}
         with:
@@ -77,10 +77,16 @@ jobs:
           set -o pipefail
           evidence_status=0
           mkdir -p build/android-reports/build-provenance
+          ps -eo pid,ppid,stat,etime,args > build/android-reports/build-provenance/processes.txt || true
+          docker ps -a --no-trunc > build/android-reports/build-provenance/containers.txt || true
+          docker ps -aq --filter label=com.docker.compose.project=dyapp |
+            xargs -r docker inspect > build/android-reports/build-provenance/container-state.json || true
+          docker ps -aq --filter label=com.docker.compose.project=dyapp |
+            xargs -r -n1 docker top > build/android-reports/build-provenance/container-processes.txt 2>&1 || true
           docker ps -aq --filter label=com.docker.compose.project=dyapp |
             xargs -r docker inspect --format '{{.Config.Hostname}} {{.Image}} {{index .Config.Labels "com.docker.compose.service"}}' \
             > build/android-reports/build-provenance/container-images.txt || evidence_status=$?
-          python3 tools/scripts/run-check.py --log-dir build/platform-check-output docker -- docker compose -f tests/docker/compose.ui.yml --profile all logs || evidence_status=$?
+          python3 tools/scripts/run-check.py --log-dir build/platform-check-output docker -- docker compose -f tests/docker/compose.ui.yml --profile all logs --all || evidence_status=$?
           python3 tests/scripts/export-ui-reports.py || {
             copy_status=$?
             if (( evidence_status == 0 )); then evidence_status=$copy_status; fi
