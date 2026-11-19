@@ -139,7 +139,9 @@ fn retry(f: &Fixture, address: &libp2p::Multiaddr) {
             )
             .await
             .unwrap();
-            let now = i64::try_from(dyapp_client::now() * 1000).unwrap();
+            let now = i64::try_from(dyapp_client::now().saturating_mul(1000))
+                .unwrap()
+                .saturating_add(1000);
             session
                 .retry_due(&mut [node], now, &f.chats.seal_key)
                 .await

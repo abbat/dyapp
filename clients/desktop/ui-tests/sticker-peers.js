@@ -145,7 +145,7 @@
           bubble.textContent.includes('😺') &&
           bubble.textContent.includes('Native smoke cats') &&
           bubble.textContent.includes(appApi.strings['stickerImage.unavailable']),
-        'Expired media lost its safe fallback',
+        `Expired media lost its safe fallback: ${bubble.textContent}`,
       );
       check(
         (await requestState(peer, message)).state === 'new',
