@@ -108,9 +108,6 @@ pub fn search_topic(n: u32) -> gossipsub::IdentTopic {
 /// Kademlia provider key under which nodes with the turn role announce their relay.
 pub const TURN_KEY: &[u8] = b"/dyapp/turn";
 
-/// Absolute direct TCP setup budget, including Noise and Yamux upgrades.
-const TRANSPORT_SETUP_TIMEOUT: Duration = Duration::from_secs(15);
-
 /// Replicas of every profile, envelope and signal (ADR 0009).
 pub const REPLICAS: u8 = 5;
 
@@ -719,8 +716,7 @@ pub fn build_configured_swarm(
             let tcp = tcp::tokio::Transport::new(tcp::Config::default())
                 .upgrade(upgrade::Version::V1Lazy)
                 .authenticate(noise::Config::new(key)?)
-                .multiplex(yamux::Config::default())
-                .timeout(TRANSPORT_SETUP_TIMEOUT);
+                .multiplex(yamux::Config::default());
             let combined = quic::tokio::Transport::new(quic::Config::new(key))
                 .or_transport(tcp)
                 .map(|output, point| match output {
