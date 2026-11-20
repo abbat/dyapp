@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isEnabled
@@ -21,6 +22,7 @@ import org.junit.rules.RuleChain
 import uniffi.dyapp.NetworkFile
 
 /** Only the modern permission lane clears OS decision flags before this process starts. */
+@RequiresApi(37)
 class LocalNetworkDialogTests {
     val compose = createAndroidComposeRule<MainActivity>()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()

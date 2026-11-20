@@ -22,7 +22,8 @@ restores the grant even if the foreground test fails. Two explicit requests from
 `MainActivity` network form are denied and then allowed; each must reach the native invalid-address
 result without changing the original selection or active network. The one-shot auto-prompt marker
 is set before activity launch and restored afterward, so startup cannot race a system dialog. `PermissionDialog` observes
-accessibility events and the permission controller's resource IDs with fresh transition deadlines;
+accessibility events and resource IDs scoped to the current system-owned window with fresh
+transition deadlines. It verifies that window's package through public PackageManager metadata;
 it uses no translated labels or guessed geometry. The retained report is
 `local-network-foreground.txt`. Compilation alone does not establish actual dialog execution.
 
