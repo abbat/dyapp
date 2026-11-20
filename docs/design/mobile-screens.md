@@ -235,6 +235,12 @@ only an explicit row Open enters the ordinary verified profile-loading route. No
 stay distinct from empty text, failed saves retain the draft, and stale presentation completions
 cannot update another opening. Notes never enter public profile fields, likes or chat content.
 
+Native Android blocked/passed collections now use the common-core 32-row search/paging projection.
+Search checks complete local IDs without fetching profiles; refresh rereads native state and failed
+reads preserve known rows. Input, navigation and coroutine ownership retire with the collection
+opening. The identity collection still awaits this pager; native runtime/visual acceptance remains
+separate.
+
 Native Android Settings uses the six-category hub. Detailed panes hide the shell bars and provide
 UI/system Back: identity collection returns to Account, blocked/passed return to Privacy, and
 categories return to the hub. Appearance, receipts, notices, photo download modes, identities,

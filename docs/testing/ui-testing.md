@@ -1,5 +1,11 @@
 # UI Testing: Practical Guide
 
+`LocalCollectionViewTests` exercises the actual shared-core FFI projection from Compose: 70 local
+entries mount as 32/32/6 rows, full-target search finds a last-page entry, clearing search returns
+to the first page, and a captured navigation callback cannot change a replacement opening.
+Controls scroll to their current bounds; row readiness uses semantic completion signals. These
+test sources require native CI execution; source lint does not establish device success.
+
 `LanguagePreferenceTests` covers arbitrary catalogue size, legacy enum-name matching and explicit
 system/removed-choice fallback. `LanguageCatalogTests` reads the actual packaged XML inventory and
 checks canonical tags, readable autonyms and exclusion of generated pseudo-locales. Python
