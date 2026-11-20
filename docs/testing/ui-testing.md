@@ -1,5 +1,12 @@
 # UI Testing: Practical Guide
 
+`MediaCacheErrorTests` controls unknown-read retry without default writes, raw invalid input and
+indeterminate-write readback with draft retention. `MediaCacheOwnerTests` checks cancellation without
+a confirmed mutation, a cancelled dialog callback versus a newer opening, repeated captured Confirm
+admission, and late noncancellable completion after identity replacement. Gates are released in
+cleanup even if an assertion fails; transitions use actual completion/readiness signals.
+The widget leaves parsing, cache policy and confirmation decisions to common core through UniFFI.
+
 Shared cache input tests cover integral-byte decimal/exponent conversion, exact non-whole MiB
 round trips, range/overflow refusal and destructive-change boundaries. Store-control tests require
 confirmation before mutation, reevaluate actual state and preserve the other preference and
