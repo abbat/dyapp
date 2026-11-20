@@ -8,6 +8,15 @@ Desktop exposes the same three commands with the viewed identity ID and a lease 
 through background filesystem work. A fetch already in flight may retain a new copy after
 a desktop clear; the returned usage is measured from disk.
 
+The common `store::originals::input` helpers parse exact decimal/exponent MiB without floating-point
+rounding, preserve exact integral-byte budgets in displayed MiB text and classify destructive edits.
+`Store::change_media_cache` targets retention or budget independently, rereads current configuration
+and validated usage under the caller's media/session guard, and returns confirmation-required
+without mutation. Confirmed clear preserves settings and unrelated data. Storage/eviction/readback
+failure can follow a committed change, so native UI must reconcile before another edit.
+The targeted native adapter and cache controls are being wired; the original byte-based exports
+above remain available.
+
 > ⚠️ **Prototype.** This page is the single source of truth for the Rust ↔ native
 > boundary, checked against `rust/ffi/src/lib.rs` (UniFFI 0.32.2). Kotlin bindings are
 > generated during the Android build, Swift bindings by `tools/scripts/build-apple-core.sh`
