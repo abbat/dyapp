@@ -31,6 +31,7 @@ pub mod peer_photo_cache;
 pub mod photo;
 pub mod places;
 mod prepared;
+pub mod presence;
 mod private_peer;
 pub use clock::now;
 pub(crate) use clock::{clock_range, now_ms};

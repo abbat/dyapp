@@ -1,5 +1,10 @@
 # FFI Contract
 
+`ChatSession.active_chat_peers` is a read-only common-core projection of fresh authenticated
+match presence. A failed read stays an error; the native UI must not infer expiry or a fresh mark
+from missing data. It never sends presence, including during mailbox/expiry refresh. Native
+foreground announcement and visible Android marks are still being implemented.
+
 `ChatSession.media_cache`, `set_media_cache(enabled, limit_bytes)` and
 `clear_media_cache` expose the device-local encrypted originals cache. The record contains
 only enabled state, remembered byte budget and used bytes. Calls hold the same session

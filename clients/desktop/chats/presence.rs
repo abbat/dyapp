@@ -19,16 +19,7 @@ pub(super) fn now_ms() -> Result<u64, String> {
 }
 
 fn due(store: &Store) -> Result<bool, String> {
-    let now = now_ms()?;
-    for row in store.chat_rows().map_err(|e| e.to_string())? {
-        let draft = store
-            .draft_presence(&row.peer_id, now)
-            .map_err(|e| e.to_string())?;
-        if draft.is_some() {
-            return Ok(true);
-        }
-    }
-    Ok(false)
+    dyapp_client::presence::due(store).map_err(|error| error.to_string())
 }
 
 /// Send the presence due to matches and return whether any was. With none due, which is always

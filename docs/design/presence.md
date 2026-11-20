@@ -7,6 +7,10 @@ used the app recently, and the user can hide it. Implemented in the Rust client:
 (`rust/client/src/store/presence.rs`: audience setting, hourly throttle, drop and expiry rules),
 `Session::announce_presence` for the foreground send, the apply on receive and the outbox
 expiry. The desktop sends it and shows the mark; planned: the same on the other clients.
+The common `presence::due` preflight avoids opening a node connection when no known chat is
+eligible; actual staging still rechecks the audience and hourly throttle. `presence::active_peers`
+projects fresh authenticated match marks with the same common clock. Client UI must not duplicate
+expiry or infer that hiding its own presence hides received marks.
 
 ## What a peer learns
 
