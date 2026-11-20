@@ -121,6 +121,12 @@ The universal Tauri macOS ZIP budget is 31,143,613 bytes, measured on `77981508`
 It replaces the SwiftUI budget after the shared desktop and embedded-node migration (+41.13%).
 This budget records the exact measurement without added headroom; subsequent builds retain the
 same 5% gate.
+The Windows EXE baseline is 40,073,728 bytes, measured on `56deca3a` in the
+[2026-11-20 release run](https://github.com/abbat/dyapp/actions/runs/44741192593).
+It grew 5.19% from the 2026-11-11 measurement across Windows toast/network-cost integration and
+shared client-core additions. The release build and production-asset check passed; individual
+symbol contributions were not measured. This records the exact CI size without extra headroom;
+the 5% threshold and fail-closed checks remain unchanged.
 `reproducible.yml` checks the real first output of each verified pair against its
 matching Ubuntu baseline, and archives `artifact-size-<target>.json`. Scheduled
 and manual runs use the single source commit range `HEAD^..HEAD`, recorded as

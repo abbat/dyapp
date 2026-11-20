@@ -22,10 +22,10 @@
     "evidence": "https://github.com/abbat/dyapp/actions/runs/41191897049"
   },
   "windows-2022-x86_64-release": {
-    "bytes": 38094848,
+    "bytes": 40073728,
     "environment": "windows-2022; rustc 1.99.0; x86_64; release; unsigned EXE",
-    "revision": "b196c97d1fe2b37566b6776444461a6fed87190d",
-    "evidence": "https://github.com/abbat/dyapp/actions/runs/43016004734"
+    "revision": "56deca3af4e14c6c570fbee5987c3d6d3b409a5e",
+    "evidence": "https://github.com/abbat/dyapp/actions/runs/44741192593"
   },
   "ios-macos15-arm64-release-unsigned-ipa": {
     "bytes": 11695695,
