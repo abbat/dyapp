@@ -155,7 +155,9 @@ and the shared `production-windows-smoke` action uses Windows UI Automation. A f
 must expose a visible setup heading and an enabled Create identity button from the same locale.
 Linux focuses the button and quits with Ctrl+Q; Windows closes the native window. Both require
 clean process exit. Windows uses `tests/scripts/production-windows-smoke.ps1`: UIA window,
-structure and relevant property events wake readiness checks; process exit also signals the wait.
+top-level window events wake startup; structure and relevant property events on the owned window
+wake rendered-control readiness, and process exit also signals the wait. Avoid subscribing to
+unrelated desktop subtrees. The original failure is flushed before provider diagnostics.
 Native-window and rendered-setup transitions have separate monotonic failure deadlines; unrelated
 events do not extend them. Readiness observers are detached before Close destroys the app's UIA
 provider; shutdown uses the process completion signal and still requires a clean exit within its

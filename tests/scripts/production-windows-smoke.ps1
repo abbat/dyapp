@@ -26,14 +26,18 @@ public sealed class ProductionUiChanges : IDisposable {
     private readonly AutomationPropertyChangedEventHandler property;
     private readonly EventHandler exited;
     private Process process;
+    private AutomationElement window;
     public ProductionUiChanges() {
         opened = (s, e) => Signal();
         structure = (s, e) => Signal();
         property = (s, e) => Signal();
         exited = (s, e) => Signal();
-        Automation.AddAutomationEventHandler(WindowPattern.WindowOpenedEvent, root, TreeScope.Subtree, opened);
-        Automation.AddStructureChangedEventHandler(root, TreeScope.Subtree, structure);
-        Automation.AddAutomationPropertyChangedEventHandler(root, TreeScope.Subtree, property,
+        Automation.AddAutomationEventHandler(WindowPattern.WindowOpenedEvent, root, TreeScope.Children, opened);
+    }
+    public void WatchWindow(AutomationElement target) {
+        window = target;
+        Automation.AddStructureChangedEventHandler(window, TreeScope.Subtree, structure);
+        Automation.AddAutomationPropertyChangedEventHandler(window, TreeScope.Subtree, property,
             AutomationElement.NameProperty, AutomationElement.IsEnabledProperty, AutomationElement.IsOffscreenProperty);
     }
     private void Signal() {
@@ -47,8 +51,10 @@ public sealed class ProductionUiChanges : IDisposable {
     public void Wait(int milliseconds) { changed.WaitOne(milliseconds); }
     public void Dispose() {
         Automation.RemoveAutomationEventHandler(WindowPattern.WindowOpenedEvent, root, opened);
-        Automation.RemoveStructureChangedEventHandler(root, structure);
-        Automation.RemoveAutomationPropertyChangedEventHandler(root, property);
+        if (window != null) {
+            Automation.RemoveStructureChangedEventHandler(window, structure);
+            Automation.RemoveAutomationPropertyChangedEventHandler(window, property);
+        }
         if (process != null) process.Exited -= exited;
         changed.Dispose();
     }
@@ -141,7 +147,9 @@ try {
     Mark-Stage 'launch production executable'
     $appProcess = Start-Process -FilePath (Resolve-Path $Executable) -PassThru
     $changes.Watch($appProcess)
-    $null = Await-Ready 'native window' { Get-AppWindow }
+    $nativeWindow = Await-Ready 'native window' { Get-AppWindow }
+    Mark-Stage 'observe owned window changes'
+    $changes.WatchWindow($nativeWindow)
     # A successful window transition starts a fresh render deadline; unrelated events do not extend it.
     $window = Await-Ready 'visible setup heading and enabled create button' {
         $currentWindow = Get-AppWindow
@@ -161,6 +169,9 @@ try {
     if ($appProcess.ExitCode -ne 0) { throw 'Production app exited with an error' }
     Write-Output 'Production desktop rendered setup and closed without injected hooks'
 } catch {
+    # Flush the original error before any provider diagnostics can fail or hang.
+    [Console]::Error.WriteLine("Error: production UI smoke: " + $_.Exception.ToString())
+    [Console]::Error.Flush()
     if ($appProcess) {
         try { Show-ObservedTree } catch { Write-Warning "Production UI diagnostics failed: $_" }
     }

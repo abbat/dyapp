@@ -203,7 +203,8 @@ class CiOutputTests(unittest.TestCase):
             item.get("name") for item in workflow["jobs"]["kotlin"]["steps"]
         ]
         self.assertLess(
-            names.index("prepare JNA"), names.index("resolve kotlin dependencies")
+            names.index("prepare JNA"),
+            names.index("resolve kotlin dependencies"),
         )
         self.assertLess(
             names.index("resolve kotlin dependencies"), names.index("init")
