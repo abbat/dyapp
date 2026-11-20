@@ -308,7 +308,11 @@ supervises it through the existing FIFO lifecycle controller. The UI runner invo
 suite excludes this phase; no uncertain submission is retried. Source-bearing runtime evidence
 remains pending. The phase pairs a normal Android client with the host, receives PNGs
 with known and zero claimed geometry, checks exact original bytes and ImageDecoder pixels, then
-damages the newly created sealed cache file and requires online recovery. It discovers the new file
+damages the newly created sealed cache file and requires online recovery. A separate signed 41×20
+claim for the actual 40×20 PNG must fail as corrupted without creating a cache entry. A second
+negative case changes the parsed IHDR to 8001×8000 and recalculates CRC with Java's standard CRC32;
+Android's bounds-only parser must observe that geometry. JNI must reject the oversized frame before
+any allocating pixel decoder runs, even with zero claimed dimensions. No large pixel fixture is allocated. It discovers the new file
 inside the fixture's native `originals/` folder rather than guessing its blob-hash name or looking for
 plaintext pixels in encrypted files. Until the phase actually runs, this helper establishes no
 incoming-PNG runtime acceptance and adds no production FFI API.

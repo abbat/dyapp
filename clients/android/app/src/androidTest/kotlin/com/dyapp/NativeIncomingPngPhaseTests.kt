@@ -1,16 +1,19 @@
 package com.dyapp
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import androidx.core.graphics.createBitmap
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import uniffi.dyapp.ChatPhoto
 import uniffi.dyapp.ChatState
+import uniffi.dyapp.CoreException
 import uniffi.dyapp.PhotoPurpose
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
@@ -34,8 +37,31 @@ class NativeIncomingPngPhaseTests {
                     )
                     assertPhoto(receiver, host, photo, bytes)
                 }
+                rejectPhoto(receiver, host, bytes, 41u to 20u)
+                rejectOversizedGeometry(receiver, host, bytes)
             }
         }
+    }
+
+    private fun rejectPhoto(receiver: TestPeer, host: HostPhotoPeer, bytes: ByteArray, geometry: Pair<UInt, UInt>) {
+        val result = host.photo(bytes, geometry.first, geometry.second)
+        val photo = awaitPhoto(receiver, host, result.photoHostBytes("id", 16))
+        val before = receiver.originalCacheFiles()
+        val failure = assertThrows(CoreException::class.java) {
+            receiver.session.chatPhotoOriginal(host.peerId, photo.groupId, photo.author, photo.id)
+        }
+        assertTrue(failure.toString(), failure.message.orEmpty().contains("corrupted"))
+        assertEquals(before, receiver.originalCacheFiles())
+    }
+
+    private fun rejectOversizedGeometry(receiver: TestPeer, host: HostPhotoPeer, bytes: ByteArray) {
+        val oversized = oversizedPng(bytes)
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(oversized, 0, oversized.size, bounds)
+        assertEquals(OVERSIZED_PNG_WIDTH, bounds.outWidth)
+        assertEquals(OVERSIZED_PNG_HEIGHT, bounds.outHeight)
+        // The refusal assertion never passes this hostile frame to the allocating decoder.
+        rejectPhoto(receiver, host, oversized, 0u to 0u)
     }
 
     private fun establish(receiver: TestPeer, host: HostPhotoPeer) {
