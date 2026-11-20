@@ -1,5 +1,13 @@
 # UI Testing: Practical Guide
 
+The bootstrap protocol fixture `native_linked_receiver_joins_existing_chat_without_old_history`
+opens a linked device through public `ChatSession` calls against a real external node. Its existing
+pair chat contains pre-enrollment traffic; after completed membership maintenance and native mailbox
+processing, the new device has no previous messages and receives only subsequent traffic. The
+sender's maintenance uses an explicit clock; protocol completions order the phases without sleeps.
+This covers the native receiving adapter, not Android UI, idle contact revocation or a third own
+device joining an already established private own-device group.
+
 The shipped desktop sticker-controller paging check awaits its actual listing completion, then
 checks the localized Pack ID label, contiguous eight-digit prefix and accessible Remove target.
 The full removal confirmation retains the complete identifier. Controller readiness and focus
