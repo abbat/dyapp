@@ -528,6 +528,10 @@ this category navigation with separate collection panes and immediate switches.
 Collection panes search local names/IDs (device keys for Devices), mount at most 32
 rows, expose Previous/Next/Refresh and show total counts on their entry buttons.
 Paging bounds DOM work; native list commands still return their complete local data.
+Block/pass hints distinguish moderation private to the owner from device-local preferences:
+these choices synchronize among linked owner devices without notifying the affected person.
+They do not promise immediate delivery; the blocked pane retains the separate token-revocation
+readback/retry warning.
 The prototype and shipped Photos panes label the download radio group
 “Download originals in an open chat”. The shipped Photos pane
 uses a Keep switch, numeric MiB budget, measured usage, Refresh and confirmed Clear;

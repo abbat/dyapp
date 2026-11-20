@@ -49,7 +49,10 @@ liked; an unlike sets it to unliked. An unlike is an encrypted signal to the pee
 the earlier like was already sent. Both peers remove an active match when they apply it, which
 closes their chat ([chats and matches](chats-and-matches.md)). A match
 exists only when the latest known state in **both directions** is liked. Pass and undo-pass are
-local changes; neither sends a signal, and a passed peer leaves local search and Liked you. A view is sent only when the local setting allows it and
+private owner changes; neither sends an interaction signal to the affected peer, and a passed
+peer leaves search and Liked you. Block/pass changes also travel through the encrypted own-device
+group when linked devices synchronize; this does not synchronize every privacy preference or
+promise immediate delivery. A view is sent only when the local setting allows it and
 at most once per peer profile per UTC day. Receiving views never depends on that setting.
 
 For each sender identity and peer pair, compare `(HLC timestamp, sender device ID, event ID)`

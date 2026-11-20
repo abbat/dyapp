@@ -368,7 +368,7 @@ const STRINGS = {
     'photos.onTap': 'Only when I ask',
     'settings.passed': 'Passed people',
     'settings.passed.hint':
-      'A pass hides someone from your search and Liked you on this computer. They are not told.',
+      'A pass hides someone from your search and Liked you. This choice is shared with your linked devices when they synchronize. The person is not notified.',
     'settings.photos': 'Photos',
     'settings.unpass': 'Undo pass',
     'view.pass': 'Pass',
@@ -432,7 +432,7 @@ const STRINGS = {
     'settings.blocked': 'Blocked people',
     'settings.unblock': 'Unblock',
     'settings.blocked.hint':
-      'Blocking stays on this computer: they are hidden from search and chats and are not told.',
+      'Blocking hides people from your search and chats. This choice is shared with your linked devices when they synchronize. The person is not notified.',
     'remove.loses':
       'Its chats, matches and likes on this computer are deleted with it. Other identities stay.',
   },
@@ -813,7 +813,7 @@ const STRINGS = {
     'photos.onTap': 'Только по запросу',
     'settings.passed': 'Пропущенные люди',
     'settings.passed.hint':
-      'Пропуск скрывает человека из вашего поиска и списка «Вы понравились» на этом компьютере. Человек об этом не узнает.',
+      'Пропуск скрывает человека из вашего поиска и списка «Вы понравились». Этот выбор передаётся вашим связанным устройствам при синхронизации. Уведомление человеку не отправляется.',
     'settings.photos': 'Фото',
     'settings.unpass': 'Отменить пропуск',
     'view.pass': 'Пропустить',
@@ -877,7 +877,7 @@ const STRINGS = {
     'settings.blocked': 'Заблокированные',
     'settings.unblock': 'Разблокировать',
     'settings.blocked.hint':
-      'Блокировка действует только на этом компьютере: человек скрыт из поиска и чатов и ничего не узнает.',
+      'Блокировка скрывает человека из вашего поиска и чатов. Этот выбор передаётся вашим связанным устройствам при синхронизации. Уведомление человеку не отправляется.',
     'remove.loses':
       'Вместе с ней с этого компьютера удаляются её чаты, взаимные симпатии и отметки. Другие идентичности остаются.',
   },
