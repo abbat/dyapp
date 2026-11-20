@@ -1,6 +1,8 @@
 //! The shared desktop/native maintenance entry point drives actual private-device traffic.
 use super::*;
 
+mod third;
+
 #[tokio::test]
 async fn common_maintenance_starts_one_group_and_syncs_private_changes() {
     let address = link_node().await;

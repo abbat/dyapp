@@ -8,8 +8,11 @@ sender's maintenance uses an explicit clock; protocol completions order the phas
 The companion `native_idle_refresh_removes_a_revoked_contact_without_new_mail` reopens the existing
 sender through FFI, publishes a contact device removal, and checks the durable MLS members before
 and after ordinary receive without new incoming traffic or explicit confirmation. These fixtures
-cover native receiving/maintenance adapters, not Android UI or a third own device joining an already
-established private own-device group.
+cover native receiving/maintenance adapters, not Android UI. The separate common protocol fixture
+`a_third_own_device_reuses_the_private_group_and_syncs_both_directions` publishes a third own device,
+runs maintenance on both existing members at the same injected clock, and receives the Welcome before
+the new device performs maintenance. It checks the original group ID, bidirectional private changes
+and absence of chat rows; this common-core proof does not imply three-device JNI execution.
 
 The shipped desktop sticker-controller paging check awaits its actual listing completion, then
 checks the localized Pack ID label, contiguous eight-digit prefix and accessible Remove target.
