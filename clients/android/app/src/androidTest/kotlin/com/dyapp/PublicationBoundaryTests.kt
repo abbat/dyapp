@@ -2,6 +2,7 @@ package com.dyapp
 
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -19,10 +20,10 @@ class PublicationBoundaryTests {
     val compose = createComposeRule()
 
     private val owner = Any()
-    private val revision = mutableStateOf(0)
+    private val revision = mutableIntStateOf(0)
     private val unsaved = mutableStateOf(false)
     private val saving = mutableStateOf(false)
-    private val redraw = mutableStateOf(0)
+    private val redraw = mutableIntStateOf(0)
     private val started = CompletableDeferred<Unit>()
     private val disposed = CompletableDeferred<Unit>()
     private val release = CompletableDeferred<Unit>()
@@ -33,9 +34,9 @@ class PublicationBoundaryTests {
 
     private fun show() {
         compose.setContent {
-            PublicationBoundary(Triple(owner, revision.value, "en"), unsaved.value, saving.value) {
+            PublicationBoundary(Triple(owner, revision.intValue, "en"), unsaved.value, saving.value) {
                 // Reading unrelated state forces recomposition without replacing the attempt.
-                Text("${redraw.value}")
+                Text("${redraw.intValue}")
                 Text(editor.value.name.value)
                 publication = remember {
                     PublishState(VisibilityState(0uL, false)) { editor.value = editor.value.afterPublication(it, "en") }
@@ -68,7 +69,7 @@ class PublicationBoundaryTests {
     @Test
     fun unrelatedRecompositionPreservesTheSuspendedAttempt() {
         show()
-        compose.runOnIdle { redraw.value++ }
+        compose.runOnIdle { redraw.intValue++ }
         compose.runOnIdle {
             assertFalse(disposed.isCompleted)
             assertTrue(publication.adult)
@@ -127,7 +128,7 @@ class PublicationBoundaryTests {
     @Test
     fun aCompletedSaveRevisionCancelsTheOldAttempt() {
         show()
-        compose.runOnIdle { revision.value++ }
+        compose.runOnIdle { revision.intValue++ }
         compose.waitUntil { disposed.isCompleted }
         checkCancelled()
     }

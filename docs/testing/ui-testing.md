@@ -17,6 +17,8 @@ positive control. Invalid-address results avoid network timing. This controls ca
 real API 37 permission-controller dialogs remain separate device acceptance.
 
 The modern permission lane also runs `LocalNetworkDialogTests` after restored-profile cleanup.
+AndroidX Test `SdkSuppress(minSdkVersion = 37)` gates the test class; setup separately requires target
+API 37. Setup and restoration retain checked synchronous preference commits, not unchecked KTX writes.
 It revokes permission and clears decision flags before starting the instrumentation process, then
 restores the grant even if the foreground test fails. Two explicit requests from the actual
 `MainActivity` network form are denied and then allowed; each must reach the native invalid-address

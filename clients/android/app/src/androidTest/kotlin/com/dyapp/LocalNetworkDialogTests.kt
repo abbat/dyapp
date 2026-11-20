@@ -2,9 +2,8 @@ package com.dyapp
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isEnabled
@@ -12,6 +11,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
+import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assume.assumeTrue
@@ -21,8 +21,11 @@ import org.junit.rules.ExternalResource
 import org.junit.rules.RuleChain
 import uniffi.dyapp.NetworkFile
 
+// Setup/restore requires commit acknowledgement; KTX edit returns Unit and cannot preserve it.
+private fun SharedPreferences.Editor.commitChecked() = check(commit()) { "Permission fixture commit failed" }
+
 /** Only the modern permission lane clears OS decision flags before this process starts. */
-@RequiresApi(37)
+@SdkSuppress(minSdkVersion = 37)
 class LocalNetworkDialogTests {
     val compose = createAndroidComposeRule<MainActivity>()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -33,14 +36,14 @@ class LocalNetworkDialogTests {
     private val prompt = object : ExternalResource() {
         override fun before() {
             assumeTrue(InstrumentationRegistry.getArguments().getString("localNetworkForeground") == "true")
-            check(Build.VERSION.SDK_INT >= 37 && context.applicationInfo.targetSdkVersion >= 37)
+            check(context.applicationInfo.targetSdkVersion >= 37)
             previouslyRequested = preferences.getBoolean("auto-requested", false)
             // Open both prompts explicitly after the activity and native form are ready.
-            check(preferences.edit().putBoolean("auto-requested", true).commit())
+            preferences.edit().putBoolean("auto-requested", true).commitChecked()
         }
 
         override fun after() {
-            check(preferences.edit().putBoolean("auto-requested", previouslyRequested).commit())
+            preferences.edit().putBoolean("auto-requested", previouslyRequested).commitChecked()
         }
     }
 
@@ -74,7 +77,7 @@ class LocalNetworkDialogTests {
         compose.awaitNode(hasTestTag("network-check-status") and hasText(invalid))
     }
 
-    @SuppressLint("InlinedApi") // The outer rule requires both OS and target API 37.
+    @SuppressLint("InlinedApi") // SdkSuppress gates OS 37; setup also requires target API 37.
     private fun assertPermission(granted: Boolean) {
         val expected = if (granted) PackageManager.PERMISSION_GRANTED else PackageManager.PERMISSION_DENIED
         assertEquals(expected, context.checkSelfPermission(android.Manifest.permission.ACCESS_LOCAL_NETWORK))
