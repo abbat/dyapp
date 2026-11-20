@@ -28,11 +28,7 @@ fn native_mailbox_authority_never_promotes_the_editable_owner_draft() {
     let chats = &f.chats;
     let generation = chats.contact_context.lock().unwrap().generation();
     let remote = unpublished_owner(&f);
-    assert!(chats
-        .receive_profiles(&generation)
-        .unwrap()
-        .all()
-        .is_empty());
+    assert_eq!(chats.receive_profiles(&generation).unwrap().all().len(), 0);
     {
         let session = chats.session.lock().unwrap();
         let mut context = chats.contact_context.lock().unwrap();
@@ -54,7 +50,7 @@ fn native_mailbox_authority_never_promotes_the_editable_owner_draft() {
     };
     let failure = chats.receive_profiles(&generation).unwrap_err();
     assert_eq!(failure.to_string(), "notConnected");
-    assert!(chats.receive_profiles(&current).unwrap().all().is_empty());
+    assert_eq!(chats.receive_profiles(&current).unwrap().all().len(), 0);
 }
 
 #[test]

@@ -20,7 +20,9 @@ These rules apply to every new or modified test:
 - Make results reproducible with controlled inputs, fixtures and clocks when timing is involved.
   Set the process-global node-ID PoW requirement explicitly in every protocol fixture using
   no-PoW nodes; dependency crates do not inherit the integration test's `cfg(test)`, and parallel
-  tests cannot rely on another fixture changing that global.
+  tests cannot rely on another fixture changing that global. The native linked-device fixture
+  initializes this explicitly before creating clients; a mismatch rejects replica candidates and
+  can look like an unrelated mailbox `NotFound` error.
 - Advance steps on actual completion callbacks, readiness signals or state transitions. Register
   listeners before triggering the action. Do not use `sleep`, arbitrary delays, extra retries or
   larger timeouts to hide races; add an observable readiness signal when one is missing.

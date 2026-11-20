@@ -60,7 +60,7 @@ fn preflight_is_read_only_and_reuses_match_hour_and_audience_rules() {
 #[test]
 fn incoming_projection_expires_and_is_not_reciprocal_with_the_local_send_setting() {
     let (mut store, owner, peer) = fixture();
-    assert!(active_peers_at(&store, T).unwrap().is_empty());
+    assert_eq!(active_peers_at(&store, T).unwrap().len(), 0);
     like(&mut store, &owner, &peer, 1);
     like(&mut store, &peer, &owner, 2);
     let received = Timestamp::new(T, 0).into();
@@ -71,7 +71,7 @@ fn incoming_projection_expires_and_is_not_reciprocal_with_the_local_send_setting
         active_peers_at(&store, T + 7_200_000).unwrap(),
         vec![peer.clone()]
     );
-    assert!(active_peers_at(&store, T + 7_200_001).unwrap().is_empty());
+    assert_eq!(active_peers_at(&store, T + 7_200_001).unwrap().len(), 0);
     store
         .apply_interaction(
             &owner,
@@ -84,5 +84,5 @@ fn incoming_projection_expires_and_is_not_reciprocal_with_the_local_send_setting
             },
         )
         .unwrap();
-    assert!(active_peers_at(&store, T + 1).unwrap().is_empty());
+    assert_eq!(active_peers_at(&store, T + 1).unwrap().len(), 0);
 }

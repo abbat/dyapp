@@ -121,7 +121,7 @@ fn check_offline_defaults(chats: &ChatSession) {
     assert_eq!(chats.state("ab".repeat(32)).unwrap(), ChatState::None);
     assert_eq!(chats.receive().unwrap_err().to_string(), "notConnected");
     assert_eq!(chats.chat_rows().unwrap().len(), 0);
-    assert!(chats.active_chat_peers().unwrap().is_empty());
+    assert_eq!(chats.active_chat_peers().unwrap().len(), 0);
     assert_eq!(
         chats.photo_download().unwrap(),
         ChatPhotoDownload::ByNetwork

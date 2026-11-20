@@ -217,6 +217,10 @@ when fast operations are conflated. Start a fresh readiness check after Activity
 Likewise, a temporary loading state is not a disposal guarantee: key identity-owned coroutine and
 activity-result-launcher subtrees by their owner. Cancel stale presentation continuations without
 interrupting admitted core work or transferring its completion to a newly selected identity.
+Compose semantic assertions such as `assertDoesNotExist` are members of the interaction object,
+not package-level extensions: call them without an import. Detekt alone does not resolve SDK APIs;
+require actual Android compile/instrumentation CI before accepting new UI tests.
+
 Settings navigation/title readiness does not complete its separate native identity-list read. Tests
 asserting identity rows must await those rows (for example `settings-active`) through semantic readiness,
 then check their content; use the localized context for expected strings.

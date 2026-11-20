@@ -58,6 +58,8 @@ struct ExistingChat {
 
 impl ExistingChat {
     async fn new() -> Self {
+        // The dependency is not cfg(test): align native replica admission with this no-PoW node.
+        dyapp_p2p_net::set_id_pow_bits(0);
         let address = link_node().await;
         let mut alice = Person::new(&address).await;
         let mut bob = Person::new(&address).await;
@@ -209,11 +211,10 @@ fn native_linked_receiver_joins_existing_chat_without_old_history() {
     let receiver = native_device(&laptop, &chat.address);
     assert!(receiver.receive().unwrap() > 0);
     let peer = chat.bob.identity.peer_id();
-    assert!(receiver
-        .chat_history(peer.clone())
-        .unwrap()
-        .messages
-        .is_empty());
+    assert_eq!(
+        receiver.chat_history(peer.clone()).unwrap().messages.len(),
+        0
+    );
     runtime.block_on(chat.deliver_new_message());
     assert!(receiver.receive().unwrap() > 0);
     let messages = receiver.chat_history(peer).unwrap().messages;
