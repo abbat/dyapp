@@ -134,9 +134,19 @@
           document.activeElement === get('refresh'),
         'Pagination retained old pages or lost its cursor',
       );
+      const row = get('list').children[0];
+      check(row.children[0].textContent === '<pack>', 'Pack name is not plain text');
+      const id = row.querySelector('code');
       check(
-        get('list').children[0].children[0].textContent === '<pack>',
-        'Pack name is not plain text',
+        id?.textContent === '07070707' &&
+          id.getAttribute('aria-label') === appApi.strings['stickers.packId'] &&
+          id.previousElementSibling?.textContent === appApi.strings['stickers.packId'],
+        'Pack ID lacks its own label or still looks like a peer',
+      );
+      const removeLabel = row.querySelector('button').getAttribute('aria-label');
+      check(
+        removeLabel.includes('<pack>') && removeLabel.includes('07070707'),
+        'Remove lost its unambiguous pack target',
       );
     } catch (error) {
       fixture.close();

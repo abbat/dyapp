@@ -1,5 +1,10 @@
 # UI Testing: Practical Guide
 
+The shipped desktop sticker-controller paging check awaits its actual listing completion, then
+checks the localized Pack ID label, contiguous eight-digit prefix and accessible Remove target.
+The full removal confirmation retains the complete identifier. Controller readiness and focus
+come from completed callbacks and the current DOM, with no timing or positional assumptions.
+
 Android v0.0.1 background acceptance retains exact-message ownership, offline reopen, reboot and
 APK-upgrade/job-restoration phases. Doze/App Standby policy verification is planned after v0.0.1;
 forced worker dispatch does not prove natural idle or periodic execution. Reopening that work

@@ -50,7 +50,9 @@ Prototype states: `stickers-empty`, `stickers-ready`, `stickers-loading`,
 `stickers-error`, `stickers-importing` and `stickers-quota`.
 `sticker-status` describes local progress and used space; `sticker-error` offers
 Refresh after a read failure. `sticker-list` shows names, counts and encrypted sizes,
-and identifies unreadable entries by short PackID while retaining them.
+and retains unreadable entries. Each row labels its eight-hex-digit prefix as Pack ID using the
+shared identifier presentation, without a peer-style `@` prefix. Remove names both the pack and
+that prefix; its confirmation retains the complete identifier.
 `sticker-unknown` explains space occupied by unrecognized or interrupted files.
 Quota failure preserves the collection and asks for a smaller pack. Importing does
 not publish or send anything. The shipped controller now connects these controls to local

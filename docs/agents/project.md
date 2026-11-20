@@ -169,6 +169,10 @@ Bind DOM-node identity before asynchronous audit rechecks: the same selector may
 WebKit2 GTK3 overrides `Gtk.Widget.get_settings()` with a non-null `WebKit2.Settings` result.
 Its consumed typing contract uses a call-site cast to the WebKit settings protocol; declaring that
 incompatible return type as a subclass override fails strict mypy. Keep `set_zoom_level` on WebView.
+GTK snapshot and focus-pixel audits need the GI Cairo foreign converter (`python3-gi-cairo`) in
+addition to `python3-gi`; the prototype image includes both. Use its manual CI capture for complete
+evidence, and retain full-document snapshots when content extends beyond the viewport. Changing
+only PNG serialization leaves the keyboard audit's snapshot conversion unresolved.
 
 UniFFI callback/record member names must avoid target-language keywords. UniFFI 0.32.2 can
 leak Swift backtick escaping into C callback fields; regenerate the Swift header and compile

@@ -63,8 +63,12 @@ const row = (entry, target) => {
     : text('item')
         .replace('{count}', String(entry.stickers))
         .replace('{size}', sizeText(entry.bytes));
+  const idLabel = document.createElement('p');
+  idLabel.className = 'caption';
+  idLabel.textContent = text('packId');
   const id = document.createElement('code');
-  id.textContent = ` @${hexId(entry.id).slice(0, 8)}`;
+  id.textContent = hexId(entry.id).slice(0, 8);
+  id.setAttribute('aria-label', text('packId'));
   const remove = document.createElement('button');
   remove.type = 'button';
   remove.className = 'btn quiet';
@@ -84,7 +88,7 @@ const row = (entry, target) => {
     dialog.showModal();
     domById('sticker-remove-cancel', HTMLButtonElement).focus();
   });
-  item.append(name, id, info, remove);
+  item.append(name, idLabel, id, info, remove);
   return item;
 };
 /** @param {string} notice @param {import('./ipc.js').StickerPacks} page */
