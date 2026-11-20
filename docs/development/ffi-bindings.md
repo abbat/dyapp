@@ -75,8 +75,9 @@ The Android tooling Dockerfile prepares this artifact in `jna-native-builder` fr
 `tools/jna-native.json`; the final `android-tools` stage receives only the AAR and
 `manifest.json` under `/opt/dyapp/jna-native`. Autotools and source archives stay in
 the builder stage. Downloads use fixed origins, SHA-256 pins and a 256 MiB limit. The source
-archive falls back from GitHub codeload to the independent `gh-proxy.com` mirror; every response
-must still match the same pinned checksum.
+archive falls back from GitHub codeload to the independent `gh-proxy.com` mirror, and the AAR
+falls back from Maven Central to its Google Cloud mirror; every response must still match the
+same pinned checksum.
 `jna_source.py fetch --inputs INPUTS` downloads the inputs; `jna_source.py prepare
 --inputs INPUTS --work WORK` verifies them, extracts only regular source files and
 generates vendored libffi configure files. `jna_native.py --work WORK --ndk NDK

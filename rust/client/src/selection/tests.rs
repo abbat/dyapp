@@ -407,6 +407,40 @@ fn operation_matrix_not_found_and_resume_cover_remaining_states() {
 }
 
 #[test]
+fn half_open_recovery_candidate_is_selected_at_low_weight_and_can_close() {
+    let now = Instant::now();
+    for incumbent in [false, true] {
+        for resumed in [false, true] {
+            let mut policy = Policy::new(0xd17);
+            let first = register(&mut policy, 1, "a");
+            if incumbent {
+                policy.shares(Operation::Media, now);
+            }
+            for _ in 0..2 {
+                observe_at(&mut policy, first, Outcome::HardFault, now);
+            }
+            assert_eq!(policy.state(first, now), State::Open);
+            let recovery = if resumed {
+                policy.resume(now);
+                now
+            } else {
+                now + Duration::from_secs(61)
+            };
+            assert_eq!(policy.state(first, recovery), State::HalfOpen);
+            assert_eq!(
+                policy.select_allowed(Operation::Media, 1, recovery, Some(&[first])),
+                [first]
+            );
+            assert_eq!(policy.raw_weight(first), 1);
+            for _ in 0..2 {
+                observe_at(&mut policy, first, Outcome::Normal, recovery);
+            }
+            assert_eq!(policy.state(first, recovery), State::Sufficient);
+        }
+    }
+}
+
+#[test]
 fn undersized_pool_refills_to_target() {
     let now = Instant::now();
     let mut policy = Policy::new(0xd17);

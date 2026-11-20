@@ -50,7 +50,7 @@ class AppPinInputTests {
         replace("\uFF11\uFF12a123456", "123456", "ready")
         replace("9".repeat(65), "9".repeat(64), "ready")
         compose.runOnIdle { entered.value = "" }
-        compose.onNodeWithTag("core-pin").assertTextEquals("")
+        compose.onNodeWithTag("core-pin").assert(SemanticsMatcher.expectValue(SemanticsProperties.InputText, ""))
     }
 
     @Test

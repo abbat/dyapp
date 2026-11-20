@@ -278,7 +278,9 @@ search coverage are unchanged.
 Verification evidence lives beside the behavior: `selection::tests` covers caps/floors,
 heterogeneous capacity, all-slow and sole-survivor pools, coordinated degradation/recovery,
 rolling-mean challengers, retained-candidate flooding, targeted discrimination and the no-honest
-case. `scores::tests` covers bounded failover budgets and NotFound; `search::tests` covers repeated
+case. It also proves half-open selection at recovery weight 1 and circuit closure after two normal
+completions; the FFI photo protocol retries the exact queued write through bounded resume attempts.
+`scores::tests` covers bounded failover budgets and NotFound; `search::tests` covers repeated
 circuit state and independent result validation. `bootstrap::node::tests::groups` covers partial
 and one-byte-trickled TCP handshakes, permit release and a subsequent healthy connection.
 `contact_verification::registry::tests` covers context replacement and open-to-half-open resume.

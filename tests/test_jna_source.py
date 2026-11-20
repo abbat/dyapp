@@ -194,6 +194,21 @@ class JnaSource(unittest.TestCase):
             SOURCE.digest(target / "source.tar.gz"), self.inputs.source_sha256
         )
 
+    def test_aar_mirror_is_used_after_primary_failure(self) -> None:
+        responses = [
+            BytesIO(self.tar.read_bytes()),
+            OSError("primary unavailable"),
+            BytesIO((self.original / "upstream.aar").read_bytes()),
+        ]
+        target = self.root / "aar-mirror-downloads"
+        with patch.object(SOURCE, "urlopen", side_effect=responses) as request:
+            SOURCE.fetch(self.inputs, target)
+        self.assertEqual(request.call_count, 3)
+        self.assertIn("googleapis.com", request.call_args_list[2].args[0])
+        self.assertEqual(
+            SOURCE.digest(target / "upstream.aar"), self.inputs.aar_sha256
+        )
+
     def test_transfer_rejects_bad_hash_budget_and_existing_destinations(
         self,
     ) -> None:

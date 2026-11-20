@@ -8,7 +8,9 @@ use crate::{ChatPhoto, ChatSubmission};
 use dyapp_client::attachment;
 use dyapp_client::photo::prepare::{prepare_photo, PreparedPhoto, Purpose};
 use dyapp_identity::network::{self, Network, Settings};
+use dyapp_identity::SignedRecord;
 use libp2p::multiaddr::Protocol;
+use prost::Message as _;
 use responder::{Mode, Responder, Trace};
 use std::path::Path;
 use std::sync::Arc;
@@ -75,6 +77,18 @@ fn only_photo(f: &Fixture, peer: &str, id: &[u8], trace: &Trace, expected: &[u8]
     rows.into_iter().next().unwrap()
 }
 
+fn ids(writes: &[Vec<u8>]) -> Vec<Vec<u8>> {
+    writes
+        .iter()
+        .map(|write| {
+            let record = SignedRecord::decode(write.as_slice()).unwrap();
+            dyapp_p2p_net::proto::Envelope::decode(record.payload.as_slice())
+                .unwrap()
+                .id
+        })
+        .collect()
+}
+
 fn original(f: &Fixture, peer: &str, photo: &ChatPhoto) -> Vec<u8> {
     f.chats
         .chat_photo_original(
@@ -121,37 +135,63 @@ fn acknowledged_upload_then_mailbox_full_retains_one_id_and_exact_bytes_after_re
     let f = f.reopen();
     assert_eq!(snapshot(&f), before);
     let retried = Responder::start(Mode::RetryMailboxFull, f.key.identity.public_key());
-    retry(&f, &retried.address);
+    let retry_at = retry(&f, &retried, &trace.writes[0]);
     assert_eq!(snapshot(&f), before);
     let repeated = retried.finish();
-    assert!(repeated.writes.contains(&trace.writes[0]));
+    assert!(
+        repeated.writes.contains(&trace.writes[0]),
+        "retry_at={retry_at}, steps={:?}, expected={:?}, repeated={:?}, before={:?}",
+        repeated.steps,
+        ids(&trace.writes),
+        ids(&repeated.writes),
+        ids(&before.1)
+    );
     assert!(repeated.writes.iter().all(|write| before.1.contains(write)));
     only_photo(&f, &peer, &id, &trace, &photo.full);
 }
 
-fn retry(f: &Fixture, address: &libp2p::Multiaddr) {
+fn retry(f: &Fixture, server: &Responder, expected: &[u8]) -> i64 {
     crate::profile_network::on_network_stack(|| {
         let mut session = f.chats.session.lock().unwrap();
-        f.chats.runtime.block_on(async {
-            let node = dyapp_client::Node::connect(
-                address.clone(),
+        let retry_at = f.chats.runtime.block_on(async {
+            let mut node = dyapp_client::Node::connect(
+                server.address.clone(),
                 Arc::new(dyapp_p2p_net::Protocols::public()),
             )
             .await
             .unwrap();
-            let now = i64::try_from(dyapp_client::now().saturating_mul(1000)).unwrap();
-            let now = (0i64..=2)
-                .map(|offset| now.saturating_add(offset.saturating_mul(1000)))
-                .find(|now| !session.store().due_outbound(*now).unwrap().is_empty())
-                .expect("queued photo must reach its persisted retry deadline");
-            session
-                .retry_due(&mut [node], now, &f.chats.seal_key)
-                .await
-                .unwrap();
+            let mut retry_at = 0;
+            for attempt in 0..4 {
+                let now = i64::try_from(dyapp_client::now().saturating_mul(1000)).unwrap();
+                retry_at = (0i64..=2)
+                    .map(|offset| now.saturating_add(offset.saturating_mul(1000)))
+                    .find(|now| {
+                        session
+                            .store()
+                            .due_outbound(*now)
+                            .unwrap()
+                            .iter()
+                            .any(|write| write.as_bytes() == expected)
+                    })
+                    .expect("queued photo must reach its persisted retry deadline");
+                session
+                    .retry_due(std::slice::from_mut(&mut node), retry_at, &f.chats.seal_key)
+                    .await
+                    .unwrap();
+                if server.trace().writes.iter().any(|write| write == expected) {
+                    break;
+                }
+                if attempt < 3 {
+                    dyapp_client::contact_verification::resume_all()
+                        .await
+                        .unwrap();
+                }
+            }
+            retry_at
         });
-        Ok(())
+        Ok(retry_at)
     })
-    .unwrap();
+    .unwrap()
 }
 
 #[test]

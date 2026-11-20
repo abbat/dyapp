@@ -181,8 +181,15 @@ fn candidate_allowed(allowed: Option<&[PeerId]>, peer: &PeerId) -> bool {
     allowed.is_none_or(|peers| peers.contains(peer))
 }
 
-fn incumbent_available(node: &NodeHealth, peer: &PeerId, allowed: Option<&[PeerId]>) -> bool {
-    node.incumbent && node.open_until.is_none() && candidate_allowed(allowed, peer)
+fn incumbent_available(
+    node: &NodeHealth,
+    peer: &PeerId,
+    allowed: Option<&[PeerId]>,
+    now: Instant,
+) -> bool {
+    node.incumbent
+        && node.open_until.is_none_or(|until| until <= now)
+        && candidate_allowed(allowed, peer)
 }
 
 impl Policy {
@@ -275,7 +282,11 @@ impl Policy {
     #[cfg(test)]
     pub(crate) fn raw_weight(&self, peer: PeerId) -> u8 {
         self.nodes.get(&peer).map_or(0, |node| {
-            if node.confidence < 3 || node.degraded || node.zero_yield >= 3 {
+            if node.confidence < 3
+                || node.degraded
+                || node.zero_yield >= 3
+                || node.open_until.is_some()
+            {
                 1
             } else {
                 4
@@ -336,12 +347,17 @@ impl Policy {
         }
     }
 
-    fn pool(&mut self, operation: Operation, allowed: Option<&[PeerId]>) -> Vec<PeerId> {
+    fn pool(
+        &mut self,
+        operation: Operation,
+        allowed: Option<&[PeerId]>,
+        now: Instant,
+    ) -> Vec<PeerId> {
         let (target, maximum) = operation.limits();
         let mut pool = self
             .nodes
             .iter_mut()
-            .filter(|(peer, node)| incumbent_available(node, peer, allowed))
+            .filter(|(peer, node)| incumbent_available(node, peer, allowed, now))
             .map(|(peer, _)| *peer)
             .collect::<Vec<_>>();
         let wanted = if pool.is_empty() { maximum } else { target };
@@ -359,7 +375,9 @@ impl Policy {
                 let Some(node) = self.nodes.get_mut(&peer) else {
                     continue;
                 };
-                if (!node.probation || pool.is_empty()) && node.open_until.is_none() {
+                if (!node.probation || pool.is_empty())
+                    && node.open_until.is_none_or(|until| until <= now)
+                {
                     node.incumbent = true;
                     pool.push(peer);
                 }
@@ -386,7 +404,11 @@ impl Policy {
                 let Some(node) = self.nodes.get(peer) else {
                     return 1.0;
                 };
-                if node.confidence < 3 || node.degraded || node.zero_yield >= 3 {
+                if node.confidence < 3
+                    || node.degraded
+                    || node.zero_yield >= 3
+                    || node.open_until.is_some()
+                {
                     1.0
                 } else {
                     (4.0 * median / node.mean_cost()).clamp(1.0, 4.0)
@@ -403,10 +425,10 @@ impl Policy {
     fn shares_for(
         &mut self,
         operation: Operation,
-        _now: Instant,
+        now: Instant,
         allowed: Option<&[PeerId]>,
     ) -> Vec<(PeerId, f64)> {
-        let pool = self.pool(operation, allowed);
+        let pool = self.pool(operation, allowed, now);
         let weights = self.weights(&pool);
         self.allocate(pool, &weights)
     }
@@ -526,7 +548,8 @@ impl Policy {
         now: Instant,
         allowed: Option<&[PeerId]>,
     ) -> Vec<PeerId> {
-        let exploration_period = if self.pool(operation, allowed).len() < operation.limits().0 {
+        let exploration_period = if self.pool(operation, allowed, now).len() < operation.limits().0
+        {
             10
         } else {
             20
@@ -621,7 +644,7 @@ impl Policy {
         &mut self,
         challenger: PeerId,
         operation: Operation,
-        _now: Instant,
+        now: Instant,
     ) -> bool {
         let candidate_cost = {
             let Some(candidate) = self.nodes.get(&challenger) else {
@@ -633,7 +656,7 @@ impl Policy {
             candidate.mean_cost()
         };
         let Some((incumbent, _)) = self
-            .pool(operation, None)
+            .pool(operation, None, now)
             .into_iter()
             .filter(|peer| *peer != challenger)
             .map(|peer| (peer, self.nodes.get(&peer).expect("pool peer").mean_cost()))

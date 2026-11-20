@@ -92,7 +92,10 @@ def fetch(inputs: Inputs, destination: Path) -> None:
             inputs.aar_sha256,
             [
                 "https://repo.maven.apache.org/maven2/net/java/dev/jna/jna/"
-                f"{inputs.version}/jna-{inputs.version}.aar"
+                f"{inputs.version}/jna-{inputs.version}.aar",
+                "https://maven-central.storage-download.googleapis.com/maven2/"
+                "net/java/dev/jna/jna/"
+                f"{inputs.version}/jna-{inputs.version}.aar",
             ],
         ),
     ]
