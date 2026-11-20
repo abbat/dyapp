@@ -96,6 +96,14 @@ internal class TestPeer(name: String, photo: Boolean = false) : AutoCloseable {
         )
     }
 
+    /** Originals are sealed; discover actual files instead of guessing blob-hash names. */
+    fun originalCacheFiles(): Set<File> = File(dir, "originals").listFiles().orEmpty().filter { it.isFile }.toSet()
+
+    fun corruptCachedOriginal(before: Set<File>) {
+        val created = (originalCacheFiles() - before).single()
+        created.writeBytes("invalid PNG cache".toByteArray())
+    }
+
     override fun close() {
         session.close()
         key.close()

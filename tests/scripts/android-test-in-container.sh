@@ -41,6 +41,7 @@ case "${1:?suite required}" in
         cp -f "$apk_dir/app-debug.apk" "$lifecycle_dir/app-upgrade.apk"
         # Host dyappd for the emulator runner's loopback node.
         cargo build --locked -p dyapp-bootstrap --bin dyappd
+        cargo build --locked -p dyapp-client --example android_photo_fixture
         ;;
     unit)
         mkdir -p /tmp/ai/src/clients /tmp/build/android
@@ -89,6 +90,11 @@ case "${1:?suite required}" in
         control=/app/tests/scripts/android-node-control.sh
         bash "$control" init /reports/node
         bash "$control" serve /reports/node /app/build/debug/dyappd &
+        mkdir -p /reports/node/photo-host
+        bash "$control" init /reports/node/photo-host
+        bash "$control" serve /reports/node/photo-host \
+            /app/build/debug/examples/android_photo_fixture /ip4/127.0.0.1/tcp/33445 \
+            /reports/node/photo-host/client.sqlite3 --listen &
         exec emulator -avd test_device -port 5554 -accel "${EMULATOR_ACCEL:-off}" -no-window -no-audio -no-metrics \
             -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 2048 -cores 2 \
             -feature -Vulkan
@@ -144,6 +150,7 @@ case "${1:?suite required}" in
         phase_only=com.dyapp.LocalNetworkPermissionPhaseTests
         phase_only+=,com.dyapp.RetainedPeerPhaseTests,com.dyapp.WorkerPeerPhaseTests
         phase_only+=,com.dyapp.SearchTests#forgedResultsAreDroppedAndListed
+        phase_only+=,com.dyapp.NativeIncomingPngPhaseTests
         failed=() only=() minimum=3
         for attempt in 1 2 3; do
             # Retry only finished JUnit failures, never an uncertain remote invocation.
@@ -166,6 +173,20 @@ case "${1:?suite required}" in
             fi
         done
         python3 /app/tests/scripts/check-flaky.py "${failed[@]}"
+        # One explicit invocation owns the real host peer; never retry an uncertain submission.
+        sha256sum /app/build/debug/examples/android_photo_fixture > "$report_dir/photo-host-binary.sha256"
+        stop_photo_host() {
+            timeout 30 bash /app/tests/scripts/android-node-control.sh command /reports/node/photo-host stop \
+                > "$report_dir/photo-host-stop.txt"
+        }
+        if (run_instrumentation "$report_dir/instrumentation-incoming-png.txt" 900 \
+                -e incomingPngHost 1 -e class com.dyapp.NativeIncomingPngPhaseTests) &&
+            python3 /app/tests/scripts/check-instrumentation-results.py "$report_dir/instrumentation-incoming-png.txt" 1; then
+            stop_photo_host
+        else
+            stop_photo_host || true
+            exit 1
+        fi
         # Separate invocations exercise isolated and actual-worker native registries.
         peer_phase() {
             local fixture=$1 phase=$2 argument test_class deadline=300

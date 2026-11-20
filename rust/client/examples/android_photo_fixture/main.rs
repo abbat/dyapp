@@ -91,9 +91,11 @@ impl Fixture {
             .session
             .receive_page(&mut self.nodes, &self.device, &[own, other], &self.seal)
             .await?;
+        let conversation = self.session.conversation(&self.peer)?;
         Ok(serde_json::json!({
             "events": events.len(), "more": more,
-            "open": self.session.conversation(&self.peer)? == dyapp_client::store::Conversation::Open,
+            "open": conversation == dyapp_client::store::Conversation::Open,
+            "requestReceived": matches!(conversation, dyapp_client::store::Conversation::RequestReceived(_)),
         }))
     }
 

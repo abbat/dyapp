@@ -300,9 +300,18 @@ publication's separate `ready` response with the host Peer ID. The guest reaches
 at `10.0.2.2:33446`; the separate UI container's loopback is not the guest's host.
 Each TCP command has a fresh frame deadline; fragments never extend it. Reads run outside
 the Tokio driver thread, and Quit acknowledges `closed`. Invalid initialization/input ends the process.
-The example enables its guard tests in ordinary workspace test discovery. Android/host
-orchestration and source-bearing device evidence remain planned; this helper alone
-establishes no incoming-PNG runtime acceptance and adds no production FFI API.
+The example enables its guard tests in ordinary workspace test discovery.
+The Android build exports the host example alongside the APKs and daemon. The emulator container
+supervises it through the existing FIFO lifecycle controller. The UI runner invokes
+`NativeIncomingPngPhaseTests` once with `incomingPngHost=1`, records the binary SHA-256 and
+`instrumentation-incoming-png.txt`, and stops/waits for the host on success or failure. The general
+suite excludes this phase; no uncertain submission is retried. Source-bearing runtime evidence
+remains pending. The phase pairs a normal Android client with the host, receives PNGs
+with known and zero claimed geometry, checks exact original bytes and ImageDecoder pixels, then
+damages the newly created sealed cache file and requires online recovery. It discovers the new file
+inside the fixture's native `originals/` folder rather than guessing its blob-hash name or looking for
+plaintext pixels in encrypted files. Until the phase actually runs, this helper establishes no
+incoming-PNG runtime acceptance and adds no production FFI API.
 
 ## Linux sticker exchange
 

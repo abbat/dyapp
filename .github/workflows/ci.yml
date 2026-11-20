@@ -70,6 +70,7 @@ jobs:
             build/android-build/android/lifecycle/app-upgrade.apk
             build/android-build/android/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk
             build/android-build/debug/dyappd
+            build/android-build/debug/examples/android_photo_fixture
           if-no-files-found: error
       - name: logs
         if: always()
@@ -148,7 +149,7 @@ jobs:
           DYAPP_KVM: "1"
           DYAPP_ANDROID_SKIP_BUILD: "1"
         run: |
-          chmod +x build/android-build/debug/dyappd
+          chmod +x build/android-build/debug/dyappd build/android-build/debug/examples/android_photo_fixture
           python3 tools/scripts/docker-local.py -f tests/docker/compose.ui.yml --profile all build ${{ matrix.image_service }}
           mkdir -p build/android-reports/build-provenance
           git rev-parse HEAD > build/android-reports/build-provenance/source-head.txt
