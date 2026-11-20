@@ -78,7 +78,8 @@ case "${1:?suite required}" in
         adb -a -P 5037 nodaemon server > /tmp/ai/adb.log 2>&1 &
         # Loopback dyappd for the publish test; the guest reaches this container's 127.0.0.1 at 10.0.2.2.
         # Media serves the profile photos a publish uploads; without it the node replies Unsupported.
-        export DYAPPD_LISTEN='["127.0.0.1:33445"]' DYAPPD_EXTERNAL='["10.0.2.2:33445"]' \
+        node_listen='["127.0.0.1:33445"]'
+        export DYAPPD_LISTEN="${DYAPPD_LISTEN:-$node_listen}" DYAPPD_EXTERNAL='["10.0.2.2:33445"]' \
             DYAPPD_STORAGE_DIR=/reports/node/storage DYAPPD_NETWORK_ID_POW_BITS=8 \
             DYAPPD_SEARCH_MIN_PROFILE_POW_BITS=4 \
             DYAPPD_ROLES='["store", "search", "media"]'
@@ -111,7 +112,8 @@ case "${1:?suite required}" in
         record_artifacts "$report_dir"
         timeout 300 adb -s emulator-5554 install --no-streaming -r /app/build/android/lifecycle/app-base.apk
         timeout 300 adb -s emulator-5554 install --no-streaming -r /app/build/android/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-        bash /app/tests/scripts/android-lan-permission-phases.sh modern "$report_dir" "10.0.2.2:33445"
+        bash /app/tests/scripts/android-lan-permission-phases.sh modern "$report_dir" \
+            "10.0.2.2:33445" "198.51.100.2:33445"
         ;;
     ui)
         report_dir="/reports/$HOSTNAME"

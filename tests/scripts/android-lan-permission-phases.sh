@@ -4,6 +4,7 @@ set -euo pipefail
 mode=${1:?legacy or modern required}
 report_dir=${2:?report directory required}
 node=${3:?owned LAN node address required}
+public_node=${4:-}
 serial=emulator-5554
 permission=android.permission.ACCESS_LOCAL_NETWORK
 test_class=com.dyapp.LocalNetworkPermissionPhaseTests
@@ -12,12 +13,22 @@ mkdir -p "$report_dir"
 
 phase() {
     local name=$1
+    local -a public_args=()
+    if [[ -n $public_node ]]; then
+        public_args=(-e localNetworkPublicNode "$public_node")
+    fi
     python3 "$(dirname "$checker")/android_instrumentation.py" \
         --report "$report_dir/local-network-$name.txt" --deadline 300 -- \
         adb -s "$serial" shell am instrument -w -r \
         -e localNetworkPermissionPhase "$name" -e localNetworkNode "$node" \
-        -e class "$test_class" com.dyapp.test/androidx.test.runner.AndroidJUnitRunner
+        "${public_args[@]}" -e class "$test_class" com.dyapp.test/androidx.test.runner.AndroidJUnitRunner
     python3 "$checker" "$report_dir/local-network-$name.txt" 1
+    if [[ $mode == modern ]]; then
+        local receipt="$report_dir/local-network-$name-receipt.json"
+        timeout 30 adb -s "$serial" exec-out run-as com.dyapp cat \
+            no_backup/lan-permission-phase.json > "$receipt"
+        python3 "$(dirname "$checker")/android_lan_receipt.py" "$receipt" "$name" "$node" "$public_node"
+    fi
 }
 
 set_permission() {
@@ -27,6 +38,10 @@ set_permission() {
 case "$mode" in
     legacy) phase legacy ;;
     modern)
+        if [[ -z $public_node || $public_node == "$node" ]]; then
+            echo "Modern permission phases require a separate non-LAN node address" >&2
+            exit 2
+        fi
         # Establish and restore a healthy fixture around the refused connection.
         set_permission grant
         phase granted

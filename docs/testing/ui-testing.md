@@ -252,7 +252,16 @@ permission grant/revoke, checking granted, denied, regranted and revoked states 
 node. The first granted phase activates one retained native identity in an isolated
 `noBackupFilesDir` registry. Later phases verify its slot/Peer ID and reopen its exact saved active
 settings, without reactivating or replacing them. An atomic public checkpoint requires the preceding
-phase, the same fixture address and a different boot/PID/process-start marker. The final granted
+phase, both fixture addresses, the same authenticated node Peer ID and a different
+boot/PID/process-start marker. A secondary internal Docker bridge uses documentation-only
+`198.51.100.0/24`; the existing node binds loopback plus `198.51.100.2`. Every modern phase must
+reach the same pinned node through that destination, even when the LAN connection is refused.
+It exercises the platform's non-LAN permission path, without an external Internet service or a
+claim of global Internet reachability. Neither probe activates new settings. Each successful
+phase exports a bounded `local-network-<phase>-receipt.json` with addresses, owner, node, process
+and SDK/target; missing or mismatched receipts fail even after passing JUnit.
+`android_lan_receipt.py RECEIPT PHASE LAN_NODE NON_LAN_NODE` validates the exported record.
+The final granted
 cleanup removes only that fixture and restores its prior inventory through the native registry.
 Revocation must happen outside instrumentation because the OS can terminate the app process.
 Successful connections use native readiness; refusal is checked from the completed native result,
@@ -261,9 +270,8 @@ report stops the sequence even when adb exits zero. Without a requested phase th
 `ui-test.sh android-permissions` provisions an API 37 Google APIs 16 KiB x86_64 image and runs
 these modern phases. It reuses the built APKs read-only, with separate AVD, node and report data;
 the extra system image belongs to `android-permission-tools`, outside the release toolchain.
-Actual modern-device execution, a deterministic public-address fixture and restored-profile /
-foreground callback coverage remain unverified. API 31 and fake-ADB tests do not prove API 37
-socket enforcement.
+Current paired-route device execution and foreground OS-dialog/callback ownership coverage
+remain acceptance gates. API 31 and fake-ADB tests do not prove API 37 socket enforcement.
 
 > **Status:** derived from `tests/scripts/ui-test.sh`, `tests/docker/compose.ui.yml`, `tests/docker/Dockerfile.android-test`,
 > `tests/docker/Dockerfile.linux-test`, `tests/scripts/*-test-*`, `clients/ios/project.yml` and `clients/macos/Cargo.toml` and the test sources on

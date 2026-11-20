@@ -19,9 +19,23 @@ from pathlib import Path
 import sys
 with Path(os.environ["FAKE_ADB_LOG"]).open("a") as log:
     log.write(json.dumps(sys.argv[1:]) + "\\n")
+if "exec-out" in sys.argv:
+    print(Path(os.environ["FAKE_RECEIPT"]).read_text())
+    sys.exit(0)
 if "instrument" in sys.argv:
     phase = sys.argv[sys.argv.index("localNetworkPermissionPhase") + 1]
     failed = phase == os.environ.get("FAIL_PHASE")
+    if not failed and "localNetworkPublicNode" in sys.argv:
+        public = sys.argv[sys.argv.index("localNetworkPublicNode") + 1]
+        if phase == os.environ.get("FAIL_RECEIPT"):
+            public = "wrong-route"
+        Path(os.environ["FAKE_RECEIPT"]).write_text(json.dumps({
+            "phase": phase,
+            "node": sys.argv[sys.argv.index("localNetworkNode") + 1],
+            "publicNode": public, "nodePeer": "owned-node",
+            "owner": "retained-owner", "process": f"process-{phase}",
+            "sdk": 37, "target": 37,
+        }))
     for code in (1, -2 if failed else 0):
         for key, value in {
             "id": "AndroidJUnitRunner", "current": "1",
@@ -37,7 +51,14 @@ if "instrument" in sys.argv:
 
 
 class AndroidLanPhases(unittest.TestCase):
-    def run_phase(self, mode: str, fail: str = "") -> tuple[int, list[str]]:
+    def run_phase(
+        self,
+        mode: str,
+        fail: str = "",
+        *,
+        public_node: str = "198.51.100.2:33445",
+        fail_receipt: str = "",
+    ) -> tuple[int, list[str]]:
         with tempfile.TemporaryDirectory(dir=ROOT / "build") as directory:
             root = Path(directory)
             adb = root / "adb"
@@ -48,7 +69,9 @@ class AndroidLanPhases(unittest.TestCase):
                 os.environ,
                 PATH=str(root) + os.pathsep + os.environ["PATH"],
                 FAKE_ADB_LOG=str(log),
+                FAKE_RECEIPT=str(root / "device-receipt.json"),
                 FAIL_PHASE=fail,
+                FAIL_RECEIPT=fail_receipt,
                 DYAPP_CHECK_LOG_DIR=str(root / "checks"),
             )
             result = subprocess.run(
@@ -58,6 +81,11 @@ class AndroidLanPhases(unittest.TestCase):
                     mode,
                     str(root / "reports"),
                     "10.0.2.2:33445",
+                    *(
+                        [public_node]
+                        if mode == "modern" and public_node
+                        else []
+                    ),
                 ],
                 env=env,
                 capture_output=True,
@@ -72,7 +100,19 @@ class AndroidLanPhases(unittest.TestCase):
             )
             events = []
             for call in calls:
-                self.assertEqual(call[:3], ["-s", "emulator-5554", "shell"])
+                self.assertEqual(call[:2], ["-s", "emulator-5554"])
+                if call[2] == "exec-out":
+                    self.assertEqual(
+                        call[3:],
+                        [
+                            "run-as",
+                            "com.dyapp",
+                            "cat",
+                            "no_backup/lan-permission-phase.json",
+                        ],
+                    )
+                    continue
+                self.assertEqual(call[2], "shell")
                 if call[3] == "pm":
                     self.assertEqual(
                         call[5:],
@@ -93,6 +133,13 @@ class AndroidLanPhases(unittest.TestCase):
                         call[call.index("localNetworkNode") + 1],
                         "10.0.2.2:33445",
                     )
+                    if mode == "modern":
+                        self.assertEqual(
+                            call[call.index("localNetworkPublicNode") + 1],
+                            public_node,
+                        )
+                    else:
+                        self.assertNotIn("localNetworkPublicNode", call)
             return result.returncode, events
 
     def test_legacy_lane_never_mutates_an_unsupported_permission(self) -> None:
@@ -134,6 +181,20 @@ class AndroidLanPhases(unittest.TestCase):
         code, events = self.run_phase("modern", fail="cleanup")
         self.assertNotEqual(code, 0)
         self.assertEqual(events[-2:], ["grant", "cleanup"])
+
+    def test_missing_public_control_never_contacts_a_device(self) -> None:
+        for public_node in ("", "10.0.2.2:33445"):
+            with self.subTest(public_node=public_node):
+                code, events = self.run_phase(
+                    "modern", public_node=public_node
+                )
+                self.assertEqual(code, 2)
+                self.assertEqual(events, [])
+
+    def test_wrong_public_receipt_stops_even_after_passing_junit(self) -> None:
+        code, events = self.run_phase("modern", fail_receipt="denied")
+        self.assertNotEqual(code, 0)
+        self.assertEqual(events, ["grant", "granted", "revoke", "denied"])
 
     def test_unknown_mode_never_contacts_a_device(self) -> None:
         code, events = self.run_phase("unknown")

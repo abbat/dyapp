@@ -37,11 +37,14 @@ class LocalNetworkPermissionPhaseTests {
                 }
             }
         } else {
-            restoredPhase(phase, node, allowed)
+            val publicNode = checkNotNull(arguments.getString("localNetworkPublicNode")) {
+                "Missing isolated non-LAN node fixture"
+            }
+            restoredPhase(phase, node, publicNode, allowed)
         }
     }
 
-    private fun restoredPhase(phase: String, node: String, allowed: Boolean) {
+    private fun restoredPhase(phase: String, node: String, publicNode: String, allowed: Boolean) {
         val files = InstrumentationRegistry.getInstrumentation().targetContext.noBackupFilesDir
         val fixture = WorkerPeerFixture(
             File(files, "lan-permission-slots"),
@@ -49,33 +52,67 @@ class LocalNetworkPermissionPhaseTests {
         )
         val progress = PeerCheckpoint(File(files, "lan-permission-phase.json"))
         val settings = NetworkSettings(listOf(node), "")
-        if (phase == "granted") {
+        val target = if (phase == "granted") {
             prepareActive(fixture, settings)
         } else {
-            requirePreviousPhase(progress.read(), phase, node)
+            val previous = progress.read()
+            requirePreviousPhase(previous, phase, node, publicNode)
             val ready = fixture.reopen()
             val restored = checkNotNull(RustBridge.loadNetwork(ready, NetworkFile.ACTIVE))
             assertEquals("Saved active LAN settings changed", settings, restored)
-            if (phase == "cleanup") {
-                fixture.cleanup()
-            } else {
-                ready.connectionChecker().use { checkConnection(it, restored, allowed) }
-                assertEquals(restored, RustBridge.loadNetwork(ready, NetworkFile.ACTIVE))
+            val peer = previous.getString("nodePeer")
+            if (phase != "cleanup") {
+                val row = ready.connectionChecker().use { checkConnection(it, restored, allowed) }
+                if (allowed) assertEquals(peer, (row as SeedRow.Connected).peerId)
             }
+            ready to peer
         }
-        progress.write(JSONObject().put("phase", phase).put("node", node).put("process", workerProcessMarker()))
+        val (ready, peer) = target
+        checkNonLan(ready, publicNode, peer)
+        assertEquals(settings, RustBridge.loadNetwork(ready, NetworkFile.ACTIVE))
+        if (phase == "cleanup") fixture.cleanup()
+        progress.write(phaseReceipt(phase, node, publicNode, target))
     }
 
-    private fun prepareActive(fixture: WorkerPeerFixture, settings: NetworkSettings) {
-        val ready = fixture.prepare()
+    private fun checkNonLan(ready: Opened.Ready, node: String, peer: String) {
+        // This reserved destination tests the non-LAN policy path, not Internet reachability.
         ready.connectionChecker().use { checker ->
-            checkConnection(checker, settings, allowed = true)
+            val row = checkConnection(checker, NetworkSettings(listOf("$node/$peer"), ""), allowed = true)
+            assertEquals("Non-LAN route reached a different node", peer, (row as SeedRow.Connected).peerId)
+        }
+    }
+
+    private fun phaseReceipt(
+        phase: String,
+        node: String,
+        publicNode: String,
+        target: Pair<Opened.Ready, String>
+    ): JSONObject {
+        val (ready, peer) = target
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        return JSONObject()
+            .put("phase", phase)
+            .put("node", node)
+            .put("publicNode", publicNode)
+            .put("nodePeer", peer)
+            .put("owner", ready.peerId)
+            .put("process", workerProcessMarker())
+            .put("sdk", Build.VERSION.SDK_INT)
+            .put("target", context.applicationInfo.targetSdkVersion)
+    }
+
+    private fun prepareActive(fixture: WorkerPeerFixture, settings: NetworkSettings): Pair<Opened.Ready, String> {
+        val ready = fixture.prepare()
+        val peer = ready.connectionChecker().use { checker ->
+            val row = checkConnection(checker, settings, allowed = true) as SeedRow.Connected
             checker.activate()
+            row.peerId
         }
         assertEquals(settings, RustBridge.loadNetwork(ready, NetworkFile.ACTIVE))
+        return ready to peer
     }
 
-    private fun requirePreviousPhase(previous: JSONObject, phase: String, node: String) {
+    private fun requirePreviousPhase(previous: JSONObject, phase: String, node: String, publicNode: String) {
         val expected = when (phase) {
             "denied" -> "granted"
             "regranted" -> "denied"
@@ -85,6 +122,7 @@ class LocalNetworkPermissionPhaseTests {
         }
         assertEquals("Out-of-order permission transition", expected, previous.getString("phase"))
         assertEquals("LAN fixture changed between processes", node, previous.getString("node"))
+        assertEquals("Non-LAN fixture changed between processes", publicNode, previous.getString("publicNode"))
         assertFalse("Permission phases reused a process", workerProcessMarker() == previous.getString("process"))
     }
 
@@ -108,10 +146,10 @@ class LocalNetworkPermissionPhaseTests {
         return allowed
     }
 
-    private fun checkConnection(checker: ConnectionCheck, settings: NetworkSettings, allowed: Boolean) {
+    private fun checkConnection(checker: ConnectionCheck, settings: NetworkSettings, allowed: Boolean): SeedRow {
         var rows = emptyList<SeedRow>()
         if (allowed) {
-            PeerTransition("native LAN fixture readiness").await(
+            PeerTransition("native permission fixture ${settings.seeds.single()} readiness").await(
                 ready = { rows.singleOrNull() is SeedRow.Connected },
                 advance = { rows = checker.run(settings, LAN_PROBE_WAIT_MS) }
             )
@@ -126,5 +164,6 @@ class LocalNetworkPermissionPhaseTests {
         } else {
             assertTrue(rows.single() is SeedRow.Unreachable)
         }
+        return rows.single()
     }
 }

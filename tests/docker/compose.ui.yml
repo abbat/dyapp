@@ -104,7 +104,10 @@ services:
       target: android-permission-tools
     cpus: ${DYAPP_EMULATOR_CPUS:-3}
     profiles: [android-permissions, all]
-    networks: [android-ui]
+    networks:
+      android-ui: {}
+      android-permission-public:
+        ipv4_address: 198.51.100.2
     volumes:
       - ../../build/android-permission-reports:/reports
       - ../..:/app:ro
@@ -113,6 +116,7 @@ services:
     environment:
       <<: *android-environment
       DYAPP_EMULATOR_IMAGE: system-images;android-37.0;google_apis_ps16k;x86_64
+      DYAPPD_LISTEN: '["127.0.0.1:33445", "198.51.100.2:33445"]'
     command: [bash, /app/tests/scripts/android-test-in-container.sh, emulator]
     healthcheck: *android-emulator-health
 
@@ -200,3 +204,9 @@ services:
 networks:
   android-ui:
     internal: true
+  # Documentation-only destination outside Android's LAN prefixes; no Internet route.
+  android-permission-public:
+    internal: true
+    ipam:
+      config:
+        - subnet: 198.51.100.0/24
