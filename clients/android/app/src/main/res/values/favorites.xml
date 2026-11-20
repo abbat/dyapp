@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="favorites_add">Save privately</string>
+    <string name="favorites_remove">Remove from saved</string>
+    <string name="favorites_retry">Retry saved status</string>
+    <string name="favorites_loading">Loading saved status…</string>
+    <string name="favorites_saving">Saving…</string>
+    <string name="favorites_hint">Only your devices share this saved state. No like or notification is sent to the profile owner.</string>
+    <string name="favorites_load_failed">Saved status could not be read. Retry before changing it.</string>
+    <string name="favorites_change_failed">The saved state could not be changed. Try again.</string>
+    <string name="favorites_blocked">This profile is blocked. Unblock it in Settings before saving.</string>
+    <string name="favorites_saved">Profile saved privately.</string>
+    <string name="favorites_removed">Profile removed from saved.</string>
+</resources>

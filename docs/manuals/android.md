@@ -2,6 +2,12 @@
 
 Who can see what about you: [Your privacy in dyapp](privacy.md).
 
+Other people's profile pages offer **Save privately** and **Remove from saved**. The mark is stored
+for the active identity and shared only with its own devices; it sends no like or notification to
+the profile owner. While loading or saving, the action waits for native completion. A read failure
+offers Retry before any change. Your own profile has no save action. The saved-profile list is
+still planned.
+
 Sticker history is prepared to show emoji and pack name without downloading media.
 Image display, chat delivery and Add pack remain planned.
 

@@ -1,5 +1,11 @@
 # UI Testing: Practical Guide
 
+Android `FavoriteActionOwnerTests` drives the real private-save control with controlled native-call
+completions: two captured callbacks in one UI turn admit one write; successful readback determines
+the label; replacing an owner cancels its prior presentation; failed initial reads offer only read
+retry before any mutation. The existing JNI private-contact tests separately cover durable native
+state, typed policy failures and absence of public-profile/like/chat changes.
+
 The bootstrap protocol fixture `native_linked_receiver_joins_existing_chat_without_old_history`
 opens a linked device through public `ChatSession` calls against a real external node. Its existing
 pair chat contains pre-enrollment traffic; after completed membership maintenance and native mailbox
