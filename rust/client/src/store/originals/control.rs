@@ -100,12 +100,11 @@ impl Store {
                 confirmation_required: true,
             });
         }
-        match change {
-            MediaCacheChange::Clear => self.clear_media_cache(dir)?,
-            _ => {
-                self.set_media_cache_config(config)?;
-                self.sweep_originals(dir)?;
-            }
+        if let MediaCacheChange::Clear = change {
+            self.clear_media_cache(dir)?;
+        } else {
+            self.set_media_cache_config(config)?;
+            self.sweep_originals(dir)?;
         }
         Ok(MediaCacheChangeResult {
             state: self.media_cache_snapshot(dir)?,

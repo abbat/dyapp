@@ -3,7 +3,8 @@
 The Android prototype follows the category hub in
 [desktop screens](desktop-screens.md#settings-and-removal), with separate collection screens,
 immediate switches, a catalogue-driven language picker and a numeric media-cache budget.
-Native category/collection, language-menu and download-setting adoption remain planned.
+Native Android implements the category hub and download/cache controls. Searchable collection
+screens and the catalogue-driven language menu remain planned.
 
 Android chat attachments now use core-ordered mixed history. Photo metadata remains
 visible while stranger previews are blurred; Show preview reveals only the preview,
