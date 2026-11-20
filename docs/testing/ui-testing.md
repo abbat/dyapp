@@ -1,5 +1,11 @@
 # UI Testing: Practical Guide
 
+Android publication callbacks admit one attempt synchronously before coroutine dispatch. Closed,
+busy and disposed owners cannot launch another attempt; native authorization remains unchanged.
+`PublicationAdmissionTests` invokes captured callbacks in one UI turn and gates completion with
+signals, including disposal while the attempt is suspended. Edit/save cancellation remains covered
+by `PublicationBoundaryTests`.
+
 Profile facts use bounded label/value tracks and wrap long labels; safety actions wrap within the
 current panel. Contrast retries align the actual text start inside its scroller, then restore scroll
 and focus. The scroll calibration checks readable and deliberately low-contrast text both shorter

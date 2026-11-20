@@ -22,7 +22,6 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uniffi.dyapp.ProfilePublished
 import uniffi.dyapp.ProfileScale
@@ -135,7 +134,6 @@ private suspend fun prepareAndPublish(
     state.cancelling = false
     state.failure = null
     state.published = null
-    state.running = true
     try {
         if (!solveProof(opened, state, attested)) return
         state.publishing = true
@@ -151,7 +149,6 @@ private suspend fun prepareAndPublish(
         result.fold(state::completed) { state.failure = publishError(it) to R.string.profile_retry_publish }
     } finally {
         state.publishing = false
-        state.running = false
         state.cancelling = false
     }
 }
@@ -186,7 +183,7 @@ internal fun PublishSection(
     }
     if (state.open) {
         PublishDialog(state, scales, { loadDraft(opened) }) {
-            scope.launch { prepareAndPublish(opened, state) }
+            launchPublication(scope, state) { prepareAndPublish(opened, state) }
         }
     }
     state.published?.let { PublishedReadback(it, scales) }
