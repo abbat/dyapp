@@ -8,22 +8,26 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import uniffi.dyapp.appPinInput
@@ -38,16 +42,30 @@ internal fun LockColumn(content: @Composable ColumnScope.() -> Unit) = Column(
 
 @Composable
 internal fun PinField(state: MutableState<String>, label: Int, tag: String, enabled: Boolean) {
+    val field = remember(state) { TextFieldState(state.value) }
+    LaunchedEffect(field) {
+        snapshotFlow { field.text.toString() }.collect { input ->
+            if (state.value != input) state.value = input
+        }
+    }
+    LaunchedEffect(field) {
+        snapshotFlow { state.value }.collect { input ->
+            if (field.text.toString() != input) field.edit { replace(0, length, input) }
+        }
+    }
     // The core supplies the same ASCII/cap assistance as its PIN format.
-    OutlinedTextField(
-        value = state.value,
-        onValueChange = { input -> state.value = appPinInput(input) },
+    OutlinedSecureTextField(
+        state = field,
         modifier = Modifier.fillMaxWidth().testTag(tag),
         enabled = enabled,
         label = { Text(stringResource(label)) },
-        visualTransformation = PasswordVisualTransformation(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-        singleLine = true
+        inputTransformation = {
+            val input = toString()
+            val filtered = appPinInput(input)
+            if (filtered != input) replace(0, length, filtered)
+        },
+        textObfuscationMode = TextObfuscationMode.Hidden,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
     )
 }
 

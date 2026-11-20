@@ -479,7 +479,8 @@ as they could any file they received.
 ## Desktop integration evidence
 
 Linux CI's existing two-client loopback scenario now imports a real TAR through File/change,
-sends from the saved picker, preserves fallback when an isolated expired blob is unavailable,
+sends from the saved picker, preserves metadata fallback when an isolated expired blob is
+unavailable or its read hits a retryable transport failure,
 requests the pack while its owner process is stopped, then receives the answer and replies from
 the saved pack across relaunches. The fixture advances node attachment deadlines and quarantines
 generated blob files rather than waiting for maintenance; it does not change MLS packets or app

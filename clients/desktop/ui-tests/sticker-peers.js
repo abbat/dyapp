@@ -144,7 +144,9 @@
         !bubble.querySelector('canvas') &&
           bubble.textContent.includes('😺') &&
           bubble.textContent.includes('Native smoke cats') &&
-          bubble.textContent.includes(appApi.strings['stickerImage.unavailable']),
+          ['unavailable', 'failed'].some((key) =>
+            bubble.textContent.includes(appApi.strings[`stickerImage.${key}`]),
+          ),
         `Expired media lost its safe fallback: ${bubble.textContent}`,
       );
       check(

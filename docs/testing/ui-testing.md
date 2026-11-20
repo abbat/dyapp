@@ -277,6 +277,8 @@ native and controller tests. Execution of this added node scenario is CI-only.
 
 The loopback two-client desktop scenario now includes real File/TAR import, selection in the
 saved-pack picker, typed received history and emoji/name fallback after individual-media expiry.
+The image check accepts either terminal absence or a retryable transport-failure message, while
+requiring the safe metadata and rejecting pixels in both cases.
 The runner advances attachment deadlines and quarantines only the isolated sender's generated
 blob files to model completed expiry, without waiting for node maintenance or changing signed
 messages. The other client clicks Add pack while the sender process is stopped, verifies durable
