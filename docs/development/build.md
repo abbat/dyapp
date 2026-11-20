@@ -138,6 +138,10 @@ Fails to generate bindings and still reports success. See
 metadata file the Android build resolves: plugins, libraries, lint and test dependencies. Gradle
 refuses an artifact that is missing from the file or whose checksum differs, so a tampered or
 unexpected artifact fails the Android build. Signatures are not checked.
+The Compose 2.4.21 plugin marker POM has two reviewed byte representations, from Maven Central
+and the Gradle Plugin Portal. Both declare only the same pinned compiler-plugin dependency;
+Central includes additional descriptive publication metadata. Both exact SHA-256 values are
+listed for that POM only. This does not relax compiler JAR or other dependency checks.
 The root `settings.gradle` substitutes fixed versions for vulnerable AGP build-classpath and
 project configurations, including the separate release lint tool, before Gradle reads their
 metadata. The requested vulnerable versions are split across string literals so Dependabot
