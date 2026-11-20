@@ -42,6 +42,7 @@ internal class TestPeer(name: String, photo: Boolean = false) : AutoCloseable {
     private val alias = "dyapp-test-peer:$name"
     private val key = IdentityKey.generate()
     private val device = IdentityKey.generate()
+    val directory: File get() = dir
     val peerId: String = key.peerId()
     val session: ChatSession
 
@@ -94,14 +95,6 @@ internal class TestPeer(name: String, photo: Boolean = false) : AutoCloseable {
             // receive returns only after mailbox application; its completion drives the next read.
             advance = { session.receive() }
         )
-    }
-
-    /** Originals are sealed; discover actual files instead of guessing blob-hash names. */
-    fun originalCacheFiles(): Set<File> = File(dir, "originals").listFiles().orEmpty().filter { it.isFile }.toSet()
-
-    fun corruptCachedOriginal(before: Set<File>) {
-        val created = (originalCacheFiles() - before).single()
-        created.writeBytes("invalid PNG cache".toByteArray())
     }
 
     override fun close() {

@@ -312,7 +312,8 @@ supervises it through the existing FIFO lifecycle controller. The UI runner invo
 `NativeIncomingPngPhaseTests` once with `incomingPngHost=1`, records the binary SHA-256 and
 `instrumentation-incoming-png.txt`, and stops/waits for the host on success or failure. The general
 suite excludes this phase; no uncertain submission is retried. Source-bearing runtime evidence
-remains pending. The phase pairs a normal Android client with the host, receives PNGs
+remains pending. `IncomingPngChecks` runs the same assertions against its caller-owned native session. The phase
+pairs a normal Android client with the host, receives PNGs
 with known and zero claimed geometry, checks exact original bytes and ImageDecoder pixels, then
 damages the newly created sealed cache file and requires online recovery. A separate signed 41×20
 claim for the actual 40×20 PNG must fail as corrupted without creating a cache entry. A second
