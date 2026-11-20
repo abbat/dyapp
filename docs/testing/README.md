@@ -89,7 +89,8 @@ Located in `#[cfg(test)]` modules within each crate.
   probation, address scoping, comparative utility, rolling-cost challengers, fair seeded exploration,
   false recovery, suspend/resume and bounded-registry eviction. Adaptive tests include work-to-rule
   and evolved strike/recovery schedules; no-honest-candidate and ring-churn cases assert residual
-  limits instead of claiming recovery.
+  limits instead of claiming recovery. Confidence, degraded/zero-yield/open-circuit guards assert
+  production weights directly; the exploration test distinguishes undersized from exactly full pools.
 
 **Bootstrap** (rust/bootstrap)
 

@@ -701,7 +701,6 @@ class DesktopSmoke:
             (alice, "sticker-send"),
             (bob, "sticker-request"),
             (alice, "sticker-answer"),
-            (bob, "sticker-save-reply"),
             (alice, "sticker-reply-seen"),
             (alice, "share-profile-send"),
             (bob, "share-profile-open"),
@@ -720,6 +719,9 @@ class DesktopSmoke:
             (bob, "chat-after-block"),
             (alice, "chat-blocked"),
         ):
+            if step == "sticker-answer":
+                native.sticker_exchange(self.case, alice, bob, file)
+                continue
             # The step fails unless the click brings the window back.
             with (
                 self.fake_tray("click", root, "fake-notify.py")

@@ -1,4 +1,4 @@
-// Ordered real-node steps: the other profile is a stopped process, never an IPC mock.
+// Real-node steps; the pack request starts offline, then both clients complete the exchange.
 (() => {
   const check = (ok, why) => {
     if (!ok) throw new Error(why);
@@ -35,8 +35,8 @@
     });
   const history = async (peer) =>
     (await appBindings.invoke('chat_history', { peerId: peer })).messages;
-  const received = async (peer) => {
-    const deadline = performance.now() + 30000;
+  const received = async (peer, timeout = 30000) => {
+    const deadline = performance.now() + timeout;
     do {
       // Each completed node pass is the next observation, without a fixed interval.
       await appBindings.invoke('receive_mail');
@@ -178,11 +178,12 @@
     },
     'sticker-answer': async (peer) => {
       // This is a fresh sender process: the request arrived while it was stopped.
-      await appBindings.invoke('receive_mail');
-      await smoke.stickerFileChecks.readback();
+      const packId = await smoke.stickerFileChecks.readback();
+      // Keep durable response retries alive until the recipient saves and replies.
+      metadata(await received(peer, 90000), packId);
       check(
-        (await history(peer)).filter((message) => message.sticker).length === 1,
-        'Hidden request leaked into visible history',
+        (await history(peer)).filter((message) => message.sticker).length === 2,
+        'Reply or hidden request changed visible history',
       );
     },
     'sticker-save-reply': async (peer) => {

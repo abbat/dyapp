@@ -288,8 +288,11 @@ requiring the safe metadata and rejecting pixels in both cases.
 The runner advances attachment deadlines and quarantines only the isolated sender's generated
 blob files to model completed expiry, without waiting for node maintenance or changing signed
 messages. The other client clicks Add pack while the sender process is stopped, verifies durable
-waiting, then saves the answer after the sender relaunches and sends from that pack. Another
-restart verifies the reply and hidden control-packet projection. Request/image controllers are
+waiting, then saves the answer after the sender relaunches and sends from that pack. Both clients
+stay running during this exchange: the sender completes only after receiving the saved-pack reply,
+so a deferred response can retry through completed native mailbox passes. The sender uses a separate
+D-Bus session to avoid single-instance forwarding. Another restart verifies the reply and hidden
+control-packet projection. Request/image controllers are
 awaited through DOM changes and deadlines; native node passes complete before the next check.
 The post-restart recovery deadline covers the selection circuit's 60-second cooldown.
 No fixed sleep or pixel coordinates are added. These native steps execute in Linux CI; prepared

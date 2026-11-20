@@ -6,6 +6,7 @@ from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING
 
 import contextlib
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 from pathlib import Path
@@ -21,6 +22,31 @@ import time
 
 if TYPE_CHECKING:
     import desktop_contracts as dc
+
+
+def sticker_exchange(
+    case: dc.CaseRunner,
+    sender: tuple[str | Path, str],
+    recipient: tuple[str | Path, str],
+    file: Sequence[str],
+) -> None:
+    """Keep the restarted sender alive until the saved-pack reply arrives."""
+    with ThreadPoolExecutor(1) as pool:
+        answer = pool.submit(
+            case,
+            "peers-sticker-answer",
+            [*file, f"--ui-test-step=peer:sticker-answer:{sender[1]}"],
+            sender[0],
+            timeout=180,
+            launcher=["dbus-run-session", "--"],
+        )
+        case(
+            "peers-sticker-save-reply",
+            [*file, f"--ui-test-step=peer:sticker-save-reply:{recipient[1]}"],
+            recipient[0],
+            timeout=180,
+        )
+        answer.result()
 
 
 def tray_driver(executable: str, script: str) -> list[str]:

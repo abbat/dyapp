@@ -279,21 +279,6 @@ impl Policy {
             .is_some_and(|until| until > Instant::now())
     }
 
-    #[cfg(test)]
-    pub(crate) fn raw_weight(&self, peer: PeerId) -> u8 {
-        self.nodes.get(&peer).map_or(0, |node| {
-            if node.confidence < 3
-                || node.degraded
-                || node.zero_yield >= 3
-                || node.open_until.is_some()
-            {
-                1
-            } else {
-                4
-            }
-        })
-    }
-
     pub(crate) fn observe(
         &mut self,
         peer: PeerId,

@@ -1,4 +1,6 @@
 use super::*;
+
+mod weight_guards;
 use std::time::{Duration, Instant};
 
 fn peer(id: u8) -> PeerId {
@@ -286,7 +288,8 @@ fn comparative_utility_is_not_a_hard_fault() {
             now,
         );
     }
-    assert_eq!(policy.raw_weight(empty), 1);
+    let weight = policy.weights(&[empty]).into_iter().next().unwrap();
+    assert!((weight - 1.0).abs() < f64::EPSILON);
     assert_ne!(policy.state(empty, now), State::Open);
 }
 
@@ -431,7 +434,8 @@ fn half_open_recovery_candidate_is_selected_at_low_weight_and_can_close() {
                 policy.select_allowed(Operation::Media, 1, recovery, Some(&[first])),
                 [first]
             );
-            assert_eq!(policy.raw_weight(first), 1);
+            let weight = policy.weights(&[first]).into_iter().next().unwrap();
+            assert!((weight - 1.0).abs() < f64::EPSILON);
             for _ in 0..2 {
                 observe_at(&mut policy, first, Outcome::Normal, recovery);
             }

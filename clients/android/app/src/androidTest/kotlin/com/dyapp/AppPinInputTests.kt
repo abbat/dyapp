@@ -12,6 +12,7 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.text.AnnotatedString
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -50,7 +51,9 @@ class AppPinInputTests {
         replace("\uFF11\uFF12a123456", "123456", "ready")
         replace("9".repeat(65), "9".repeat(64), "ready")
         compose.runOnIdle { entered.value = "" }
-        compose.onNodeWithTag("core-pin").assert(SemanticsMatcher.expectValue(SemanticsProperties.InputText, ""))
+        compose.onNodeWithTag("core-pin").assert(
+            SemanticsMatcher.expectValue(SemanticsProperties.InputText, AnnotatedString(""))
+        )
     }
 
     @Test

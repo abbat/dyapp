@@ -37,6 +37,16 @@ class CaseRunner(Protocol):
 
 
 class NativeSmoke(Protocol):
+    def sticker_exchange(
+        self,
+        case: CaseRunner,
+        sender: tuple[str | Path, str],
+        recipient: tuple[str | Path, str],
+        file: Sequence[str],
+    ) -> None:
+        """Await both clients through the saved-pack reply."""
+        ...
+
     def tray_driver(self, executable: str, script: str) -> list[str]:
         """Select the platform tray automation command."""
         ...
