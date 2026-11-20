@@ -1,6 +1,5 @@
 package com.dyapp
 
-import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
@@ -10,6 +9,7 @@ import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -34,8 +34,7 @@ class IdentitySettingsTests {
 
     // The settings lists load after the screen opens, so a row may not exist yet.
     private fun click(tag: String) {
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag(tag).performScrollTo().performClick()
+        compose.awaitNode(hasTestTag(tag) and isEnabled()).performScrollTo().performClick()
     }
 
     @Test
@@ -99,30 +98,35 @@ class IdentitySettingsTests {
         compose.onNodeWithTag("nav-settings").performClick()
         val switch = compose.onNodeWithTag("message-notifications").performScrollTo()
 
-        // Until the store is read the switch shows off and disabled, so off alone is no proof of a load.
-        fun waitFor(on: Boolean) = compose.waitUntil(5_000) {
-            runCatching { (if (on) switch.assertIsOn() else switch.assertIsOff()).assertIsEnabled() }.isSuccess
-        }
         // On by default; the emulator allows notices, so nothing asks for them.
-        waitFor(true)
+        waitNotice(true)
         compose.onNodeWithTag("notice-blocked").assertDoesNotExist()
         compose.onNodeWithTag("notice-fixed").assertIsSelected()
+        click("notice-name")
+        compose.waitUntil(5_000) { stored() == ChatNotice.NAME }
         click("notice-text")
         compose.waitUntil(5_000) { stored() == ChatNotice.TEXT }
+        waitNotice(true)
         switch.performScrollTo().performClick()
-        waitFor(false)
+        waitNotice(false)
         check(stored() == ChatNotice.OFF) { "Off was not stored" }
         compose.activityRule.scenario.recreate()
         compose.skipNetworkEntry()
         compose.onNodeWithTag("nav-settings").performClick()
-        waitFor(false)
+        waitNotice(false)
         // Off keeps the choice, disabled, and a turn-on brings it back.
         compose.onNodeWithTag("notice-text").performScrollTo().assertIsSelected().assertIsNotEnabled()
         switch.performScrollTo().performClick()
-        waitFor(true)
+        waitNotice(true)
         check(stored() == ChatNotice.TEXT) { "On lost the content choice" }
         click("notice-fixed")
         compose.waitUntil(5_000) { stored() == ChatNotice.FIXED }
+    }
+
+    // Enabled semantics prove native load/save completion; off alone could still mean loading.
+    private fun waitNotice(on: Boolean) {
+        val node = compose.awaitNode(hasTestTag("message-notifications") and isEnabled())
+        if (on) node.assertIsOn() else node.assertIsOff()
     }
 
     private fun stored() = RustBridge.withChats(active()) { it.notice() }

@@ -45,6 +45,15 @@ Create a protected GitHub Actions environment named `android-release`, restricte
 
 The signing job needs both secrets. It fails if either is missing, if the keystore cannot sign, or if `apksigner verify` fails. The key is never stored in the repository or passed to the unsigned build job. Keep the offline backup even after the GitHub secrets are set. Before publishing the first tag, verify the environment protection and the key's certificate fingerprint; use the same signing key for every later APK update.
 
+## Message notices
+
+Settings stores message-notice preferences separately for each identity: off, fixed **New message**,
+the sender's short ID, or the ID and message text. Turning notices off keeps the content choice.
+The switch and content choices wait for each save to complete before accepting another change.
+A failed save restores the controls and shows an error. Replacing the identity or leaving the card
+cancels its presentation continuation, including any permission request following an old save;
+native persistence and message-content policy remain in the shared core.
+
 ## Local network permission
 
 On Android 17 or later, the app requests local-network access once after unlocking the interface.

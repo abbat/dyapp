@@ -137,6 +137,13 @@ Notification settings smoke clicks each `name`, `fixed` and `text` radio choice,
 save completion, then reads settings back before asserting persistence. Restart coverage
 checks that disabling notices retains the selected choice; stale-profile read/write guards remain
 covered by controlled completion callbacks.
+Android `NoticeCardOwnerTests` controls read/write completion on the actual card with isolated native
+identities. It checks single-save admission (including a captured old action), disabled pending
+controls, failure recovery, retained content when turned off, and cancellation of presentation
+continuations after identity replacement or disposal. Each transition awaits semantics or an explicit
+completion signal with its own failure deadline. Native `IdentitySettingsTests` covers all four stored
+modes and off/content retention across recreation; controlled adapters do not substitute for that JNI
+persistence acceptance.
 
 Desktop native smokes use `openArea('settings', category)` and `openSettings(category)`
 to follow the actual category buttons, including parent collections, before operating

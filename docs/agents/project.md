@@ -211,6 +211,9 @@ and store opening; ordinary chat opening can bootstrap missing credentials.
 Android identity UI tests use `identityAction`/`awaitIdentityCompletion`, which await a new completed
 screen revision. `waitForIdle` alone does not await native IO, and waiting for a loading frame fails
 when fast operations are conflated. Start a fresh readiness check after Activity recreation.
+Likewise, a temporary loading state is not a disposal guarantee: key identity-owned coroutine and
+activity-result-launcher subtrees by their owner. Cancel stale presentation continuations without
+interrupting admitted core work or transferring its completion to a newly selected identity.
 Settings navigation/title readiness does not complete its separate native identity-list read. Tests
 asserting identity rows must await those rows (for example `settings-active`) through semantic readiness,
 then check their content; use the localized context for expected strings.

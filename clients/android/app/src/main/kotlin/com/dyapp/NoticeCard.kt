@@ -19,6 +19,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -54,10 +55,19 @@ private class NoticeState(allowed: Boolean) {
     // Kept while off, so a turn-on brings the earlier choice back.
     var content by mutableStateOf(ChatNotice.FIXED)
     var failed by mutableStateOf(false)
+    var saving by mutableStateOf(false)
     var allowed by mutableStateOf(allowed)
 
     // Android 13+ shows its permission dialog once here; after a refusal Allow opens the settings.
     var asked = false
+
+    fun completeLoad(result: Pair<Boolean, ChatNotice>?) {
+        failed = result == null
+        result?.let { (on, content) ->
+            this.content = content
+            this.on = on
+        }
+    }
 }
 
 @androidx.annotation.ChecksSdkIntAtLeast(api = Build.VERSION_CODES.TIRAMISU)
@@ -108,28 +118,34 @@ private fun rememberAllow(state: NoticeState): () -> Unit {
  * settings.
  */
 @Composable
-internal fun NoticeCard(active: Opened.Ready) {
+internal fun NoticeCard(
+    active: Opened.Ready,
+    read: suspend (Opened.Ready) -> Pair<Boolean, ChatNotice>? = ::loadNotice,
+    write: suspend (Opened.Ready, ChatNotice) -> Boolean = ::saveNotice,
+) = key(active.slot.id) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val state = remember(active.slot.id) { NoticeState(noticesAllowed(context)) }
     val allow = rememberAllow(state)
     LaunchedEffect(active.slot.id) {
-        val loaded = loadNotice(active)
-        state.failed = loaded == null
-        loaded?.let { (on, content) ->
-            state.content = content
-            state.on = on
-        }
+        state.completeLoad(read(active))
     }
     NoticeCardContent(state, allow, { ReadReceiptsRow(active) }) { on, content ->
-        scope.launch {
-            val saved = saveNotice(active, if (on) content else ChatNotice.OFF)
-            state.failed = !saved
-            if (saved) {
-                state.on = on
-                state.content = content
+        if (state.on != null && !state.saving) {
+            state.saving = true
+            scope.launch {
+                try {
+                    val saved = write(active, if (on) content else ChatNotice.OFF)
+                    state.failed = !saved
+                    if (saved) {
+                        state.on = on
+                        state.content = content
+                    }
+                    if (saved && on && !state.allowed) allow()
+                } finally {
+                    state.saving = false
+                }
             }
-            if (saved && on && !state.allowed) allow()
         }
     }
 }
@@ -158,7 +174,7 @@ private fun NoticeCardContent(
         Row(
             Modifier.fillMaxWidth().testTag("message-notifications").toggleable(
                 checked,
-                enabled = state.on != null,
+                enabled = state.on != null && !state.saving,
                 role = Role.Switch,
                 onValueChange = { save(it, state.content) }
             ),
@@ -167,7 +183,7 @@ private fun NoticeCardContent(
             Text(stringResource(R.string.notice_toggle), Modifier.weight(1f))
             Switch(checked, onCheckedChange = null)
         }
-        NoticeContentChoice(state.content, enabled = checked) { save(true, it) }
+        NoticeContentChoice(state.content, enabled = checked && !state.saving) { save(true, it) }
         if (state.failed) {
             Caption(stringResource(R.string.notice_failed), Modifier.testTag("notice-error").then(announced))
         }
