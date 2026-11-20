@@ -354,8 +354,13 @@ desktop client takes the owner's profile from a node, ignoring one older than it
 `Session::maintain_own_devices` is the common after-mailbox orchestration: start the private group,
 add listed devices, then remove dropped ones. All three stages run before the first error is
 returned; earlier work may already be committed. Desktop delegates this sequence while retaining
-its verified-profile/cache admission. Native receive freshness and wiring to this helper remain
-planned; initial device-link import alone does not establish later own-device synchronization.
+its verified-profile/cache admission. Native receive now admits verified owner readback through the
+common context generation and `Session::admit_own_profile`, preserving the editable local draft.
+Held equal/newer authority follows `Profiles`; durable ordinary clocks reject older authority after
+cache reopen, and a known revocation remains refused. After mailbox completion, native receive also
+uses the common membership helper. Unavailable owner readback retains the existing mailbox fallback
+but cannot admit new membership maintenance. Bounded idle-contact profile refresh remains planned
+for native parity; initial device-link import alone does not establish later synchronization.
 
 A device a newer profile no longer lists leaves every group the same way: `Group::remove_turn` orders
 the members that stay by device key, contacts included, since a group of a contact and a lost device

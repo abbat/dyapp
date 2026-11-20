@@ -419,7 +419,10 @@ Common `Context::accept_own` admits a verified owner read only in its captured n
 terminal deletion rules, while durable ordinary clocks refuse older authority after reopen. It
 records known revocation without replacing unpublished editable fields or changing credentials.
 This is an authority/readback operation, not enrollment, relisting or local key-cleanup permission.
-Native receive integration with this owner-admission path is planned.
+Both native receive variants now use this admission for fresh owner readback before mailbox work,
+then run common own-device membership maintenance after mailbox/cross-check completion. An
+unavailable owner readback retains existing mailbox fallback but cannot authorize new membership
+maintenance; key cleanup still needs the separately confirmed core capability.
 
 Android `receiveMail` consumes this result. Kotlin only chooses the local short sender and existing
 blank-body fallback, builds/posts the OS notification and keeps foreground/permission/public

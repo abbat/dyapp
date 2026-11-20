@@ -2,7 +2,11 @@
 use super::{failed, own_profile, refill_if_due, ChatSession};
 use crate::profile_network::{active_network, connect, on_network_stack};
 use crate::CoreError;
-use dyapp_client::{mail_notices, session::Session, store::Store, Node};
+use dyapp_client::{
+    contact_verification::Generation, mail_notices, session::Session, store::Store, Node,
+};
+use dyapp_identity::network::Network;
+use dyapp_profile::VerifiedProfile;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// Safe core-admitted content; no sender means the localized fixed new-message notice.
@@ -70,41 +74,68 @@ impl ChatSession {
         let session: &mut Session = &mut guard;
         let before = sticker_label.and_then(|_| mail_notices::capture(session.store()).ok());
         let own = own_profile(session.store(), &self.key.identity)?;
+        let generation = self.contact_context.lock().map_err(failed)?.generation();
         let network = active_network(&self.dir)?;
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_err(failed)?;
-        let now_ms = i64::try_from(now.as_millis()).map_err(failed)?;
         // The guard stays on this thread and lends the session until actual network completion.
         on_network_stack(|| {
             self.runtime.block_on(async {
                 let mut node = connect(&network).await?;
-                let protocols = std::sync::Arc::new(
-                    dyapp_p2p_net::Protocols::new(&network.name).map_err(failed)?,
-                );
-                let mailbox = dyapp_client::mailbox(&self.device_key.identity.public_key());
-                let mut replicas = node.replicas(&mailbox, protocols).await;
-                session
-                    .retry_due(replicas.nodes_mut(), now_ms, &self.seal_key)
-                    .await
-                    .map_err(failed)?;
-                let mut changed = self
-                    .receive_mailbox(session, &mut node, replicas.nodes_mut(), own.clone())
-                    .await?;
-                let profiles = own.into_iter().collect::<Vec<_>>();
-                let checked = self
-                    .receive_cross_check(session, &mut replicas, &profiles, now.as_secs())
-                    .await?;
-                changed = changed
-                    .checked_add(checked)
-                    .ok_or_else(|| failed("changeCountOverflow"))?;
-                self.maintain_receive(session, &mut node, replicas.nodes_mut(), now)
+                let changed = self
+                    .receive_connected(session, &network, &mut node, &generation, own, now)
                     .await?;
                 let notice =
                     sticker_label.and_then(|label| notice_after(before, session.store(), label));
                 Ok(ChatMailPass { changed, notice })
             })
         })
+    }
+
+    async fn receive_connected(
+        &self,
+        session: &mut Session,
+        network: &Network,
+        node: &mut Node,
+        generation: &Generation,
+        own: Option<VerifiedProfile>,
+        now: Duration,
+    ) -> Result<u32, CoreError> {
+        let fresh = self
+            .receive_owner_profiles(session, node, generation, now.as_secs())
+            .await?;
+        let own = fresh
+            .as_ref()
+            .and_then(|profiles| profiles.get(&self.key.identity.peer_id()).cloned())
+            .or(own);
+        let protocols =
+            std::sync::Arc::new(dyapp_p2p_net::Protocols::new(&network.name).map_err(failed)?);
+        let mailbox = dyapp_client::mailbox(&self.device_key.identity.public_key());
+        let mut replicas = node.replicas(&mailbox, protocols).await;
+        let now_ms = i64::try_from(now.as_millis()).map_err(failed)?;
+        session
+            .retry_due(replicas.nodes_mut(), now_ms, &self.seal_key)
+            .await
+            .map_err(failed)?;
+        let changed = self
+            .receive_mailbox(session, node, replicas.nodes_mut(), own.clone())
+            .await?;
+        let profiles = fresh.as_ref().map_or_else(
+            || own.into_iter().collect::<Vec<_>>(),
+            |held| held.all().to_vec(),
+        );
+        let checked = self
+            .receive_cross_check(session, &mut replicas, &profiles, now.as_secs())
+            .await?;
+        let changed = changed
+            .checked_add(checked)
+            .ok_or_else(|| failed("changeCountOverflow"))?;
+        self.maintain_received_own(session, replicas.nodes_mut(), fresh.as_ref(), now.as_secs())
+            .await;
+        self.maintain_receive(session, node, replicas.nodes_mut(), now)
+            .await?;
+        Ok(changed)
     }
 
     async fn receive_cross_check(

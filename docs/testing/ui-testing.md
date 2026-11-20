@@ -593,7 +593,11 @@ publication, explicit approval, authenticated reception, and normal pending-link
 `MobileLinkRecovery`. It first opens the normal linked chat session,
 which preserves the received device and bootstraps only local session state. It verifies an empty
 contact note and favorite list before import, completion followed by an idle retry, then the original
-nonempty note and saved favorite flag. This tests private snapshot import, not later incremental sync.
+nonempty note and saved favorite flag. `verifyNativeOwnPrivateSync` then observes an actual receive
+change in this isolated no-contact-traffic fixture (the own-group Welcome), before staging later
+favorite/note updates in opposite directions. Each exchange awaits exact native values through normal
+receive completions with a fresh failure deadline; no relink, extra snapshot or guessed receive count
+establishes readiness. Source/lint checks do not establish this actual JNI runtime acceptance.
 It then reads both native device directories, identifies each current device by the core marker,
 revokes the linked device through the owner, and requires both readbacks to retain only the original
 public device key. Neither phone hosts a node. The test uses completed native steps and fresh
@@ -614,7 +618,10 @@ The core protocol case `common_maintenance_starts_one_group_and_syncs_private_ch
 node and mailbox-ordered own-device pair. It drives the shared maintenance entry point, checks that
 only the eligible device starts a group and repeated maintenance keeps it, then exchanges private
 changes in both directions. Favorites and note readbacks extend the existing block/mute/name/pass
-checks; no sleep or wall-clock turn delay admits a transition.
+checks; no sleep or wall-clock turn delay admits a transition. Common owner-admission model cases
+also preserve a higher-version unpublished draft, equal/newer cached authority and ordinary clocks
+across reopen, reject wrong owner and obsolete context generations, and keep authorized account
+tombstones separate from search-only withdrawals. Revocation admission is not a key-cleanup command.
 `IdentityActionsTests` additionally gates an admitted switch and delivers a late cleanup completion;
 the old source cannot replace the new screen. Batch cases retain a matching completion even when a
 different slot completed later, preserve its durability diagnostic, and acknowledge only the observed

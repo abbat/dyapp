@@ -35,6 +35,7 @@ pub use mail_pass::{ChatMailNotice, ChatMailPass};
 mod media_cache;
 mod notices;
 mod original;
+mod own_receive;
 mod photo_settings;
 pub use media_cache::ChatMediaCache;
 pub use photo_settings::ChatPhotoDownload;

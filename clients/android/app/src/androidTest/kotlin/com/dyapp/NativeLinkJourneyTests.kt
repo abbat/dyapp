@@ -41,6 +41,7 @@ class NativeLinkJourneyTests {
                 assertNativePrivateContact(installed, contact, "", saved = false)
                 completeEnrollment(installed)
                 assertNativePrivateContact(installed, contact, note, saved = true)
+                verifyNativeOwnPrivateSync(original, installed, contact)
                 verifyDirectoryAndRevocation(original, installed, destination)
             }
         }
