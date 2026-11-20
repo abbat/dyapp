@@ -1,0 +1,54 @@
+name: prototype-review
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    name: docker - prototypes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      DYAPP_CHECK_LOG_DIR: build/prototype-review/check-output
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: record inputs
+        run: |
+          mkdir -p build/prototype-review
+          git rev-parse HEAD > build/prototype-review/source-head.txt
+          git ls-files -z clients/desktop tests/scripts tests/docker tools/scripts/docker-local.py |
+            xargs -0 sha256sum > build/prototype-review/inputs.sha256
+      - name: prepare existing capture image
+        run: |
+          python3 tools/scripts/run-check.py --log-dir "$DYAPP_CHECK_LOG_DIR" prototype-image -- \
+            python3 tools/scripts/docker-local.py -f tests/docker/compose.ui.yml --profile prototype build prototype-shots
+          docker image inspect --format '{{.Id}}' dyapp:prototype > build/prototype-review/image-id.txt
+      - name: capture
+        run: |
+          mkdir -p build/ux-research/prototype
+          python3 tools/scripts/run-check.py --log-dir "$DYAPP_CHECK_LOG_DIR" prototype-capture -- \
+            python3 tools/scripts/docker-local.py -f tests/docker/compose.ui.yml --profile prototype run --pull never prototype-shots
+      - name: validate in capture image
+        run: |
+          validator=(docker run --pull never --network none --read-only
+            --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges
+            -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/app
+            -v "$PWD:/app:ro" --workdir /app dyapp:prototype python3 -B)
+          "${validator[@]}" tests/scripts/check-layout.py desktop build/ux-research/prototype/layout.json
+          "${validator[@]}" tests/scripts/check-ui-criteria.py build/ux-research/prototype/criteria.json
+      - name: screenshots and diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: prototype-review
+          path: |
+            build/prototype-review/
+            build/ux-research/prototype/
+          if-no-files-found: error
+          retention-days: 7

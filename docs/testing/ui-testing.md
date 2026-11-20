@@ -197,8 +197,9 @@ A visible native or ARIA modal is captured in the current viewport: WebKit's ful
 snapshot can reflow its scrollable content and change its scroll position. Pages without a
 visible modal retain full-document captures. Snapshot selection completes through the JavaScript
 callback before a fresh snapshot failure deadline starts.
-CI does not run it: run `make ui-prototype` locally after changing the prototype or its
-helpers; it writes JSON measurements to `build/ux-research/prototype/`. D1-D3 are checked at each screenshot, including
+Use the manual `prototype-review` workflow or run `make ui-prototype` locally after changing the
+prototype or its helpers; JSON measurements go to `build/ux-research/prototype/`.
+D1-D3 are checked at each screenshot, including
 negative fixtures for long titles, wrong Cancel keys and duplicate/missing defaults.
 Selection dialogs may have no default; other dialogs must declare exactly one.
 The profile choice dialog has its own screenshot state. Keyboard checks register the native
@@ -1046,6 +1047,15 @@ read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID
 
 ### Desktop prototype screenshots
 
+Run `.github/workflows/prototype-review.yml` manually from GitHub Actions for current desktop
+prototype review evidence without building WebKit tooling locally. The `docker - prototypes`
+job builds the existing capture image, runs the full desktop matrix and canonical layout/criteria
+checks in Docker, then retains `prototype-review` for seven days, including failed captures.
+The image includes Git for the criteria baseline ratchet; checkout retains full history.
+The artifact includes screenshots, measured/expected criteria, layout, bounded diagnostic logs,
+source commit, tracked input hashes and image ID. A successful capture supplies evidence for
+qualitative review; it does not complete that review or prove native client behavior.
+
 `ui-test.sh prototype` (`make ui-prototype`) uses the lightweight `dyapp:prototype` image
 (Debian 12, WebKitGTK 4.1, Xvfb and pinned axe-core; no Rust build). Assets and Python helpers
 are mounted, so code edits do not need an image rebuild. Every desktop state is captured in
@@ -1135,9 +1145,9 @@ callback, on success and failure; ownership regression tests require no garbage-
 D1's two-line limit stays in the
 frozen matrix; stress variants check clipping and accessibility instead.
 
-The prototype check runs only locally (`make ui-prototype`); CI does not run it. Set
-`DYAPP_PROTOTYPE_THEME`, `DYAPP_PROTOTYPE_TEXT_SCALE` and `DYAPP_PROTOTYPE_LANGUAGE` to check
-one theme, text scale or language.
+The ordinary push/PR workflow does not run prototype captures; use the manual workflow above
+for the full matrix. Locally, set `DYAPP_PROTOTYPE_THEME`, `DYAPP_PROTOTYPE_TEXT_SCALE` and
+`DYAPP_PROTOTYPE_LANGUAGE` to check one theme, text scale or language.
 
 ### Android prototype screenshots
 
