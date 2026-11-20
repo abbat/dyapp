@@ -75,11 +75,12 @@ internal fun RemoveDialog(slots: Slots, target: Opened, act: (() -> Opened) -> U
     }
     if (slot == null) return
     val checked by rememberNativeRead(slots, target) {
-        val copies = hasOtherCopy(slots, slot.id, peerId)
+        val review = slot.removalReview(peerId)
+        check(review.allowed) { "The inventoried identity cannot currently offer removal" }
         val published = (target as? Opened.Ready)?.takeIf {
             RustBridge.withKey(it) { dir, key -> profileVisibility(dir, key).version > 0uL }
         }
-        RemovalView(target, slot to peerId, copies, published)
+        RemovalView(target, slot to peerId, review.hasOtherCopy, published)
     }
     val view = checked?.getOrNull()
     if (view == null) {
@@ -150,10 +151,6 @@ private fun RemoveState.RemoveText(target: Opened, peerId: String?, copies: Bool
         RemoveChoice(this@RemoveText)
     }
 }
-
-private fun hasOtherCopy(slots: Slots, slotId: String, peerId: String?) = peerId != null &&
-    slots.list().filter { it.id != slotId }.map { slots.inspect(it.id) }
-        .any { it is Opened.Ready && it.peerId == peerId }
 
 @Composable
 private fun RemoveCancel(state: RemoveState, onDismiss: () -> Unit) {

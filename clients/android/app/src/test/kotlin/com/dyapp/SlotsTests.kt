@@ -53,11 +53,14 @@ class SlotsTests {
     }
 
     @Test
-    fun removalNeedsAKnownNonLegacyCandidateAndAnExistingRecoveryAction() {
+    fun removalPresentationDefaultsClosedAndUsesTheNativeHint() {
         val legacy = Slot(Slots.LEGACY, File("legacy"), SlotState.READY)
         val pending = Slot("candidate", File("candidate"), SlotState.PENDING)
         assertFalse(removable(Opened.Ready(legacy, "peer")))
         assertFalse(removable(Opened.Recovery(pending, "damaged", null)))
-        assertEquals(true, removable(Opened.Recovery(pending, "incomplete", null)))
+        val projected = Opened.Recovery(pending, "incomplete", null)
+        assertFalse(removable(projected))
+        projected.removalOffered = true
+        assertEquals(true, removable(projected))
     }
 }

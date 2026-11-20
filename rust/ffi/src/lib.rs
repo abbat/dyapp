@@ -73,6 +73,8 @@ mod slot_keys;
 pub use slot_keys::MobileSlotKeys;
 mod slot_resolution;
 pub use slot_resolution::{MobileSlotRecovery, MobileSlotResolution};
+mod slot_removal;
+pub use slot_removal::{identity_removal_allowed, MobileIdentityRemovalReview};
 mod slot_link;
 pub use slot_link::MobileLinkReceiver;
 mod slot_operation;

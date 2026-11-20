@@ -183,6 +183,25 @@ impl MobileIdentityRegistry {
             .map_err(CoreError::Failed)
     }
 
+    /// Recheck a displayed removal candidate and local duplicate-key guidance without mutation.
+    ///
+    /// # Errors
+    /// Returns lock/inventory failures, a missing candidate or a changed displayed Peer ID.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned candidate and confirmation strings across the native boundary"
+    )]
+    pub fn removal_review(
+        &self,
+        id: String,
+        expected_peer: Option<String>,
+    ) -> Result<crate::MobileIdentityRemovalReview, CoreError> {
+        self.registry
+            .removal_review(&id, expected_peer.as_deref(), &self.keys)
+            .map(Into::into)
+            .map_err(CoreError::Failed)
+    }
+
     /// Resolve existing storage without generating an identity or changing selection.
     ///
     /// # Errors

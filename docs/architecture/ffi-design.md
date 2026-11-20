@@ -135,8 +135,12 @@ missing keys and interrupted creation/removal retain explicit cleanup. `Registry
 reads one inventory under shared admission, verifies its key matches the displayed optional Peer ID
 and checks for another ready readable local copy. A failure or unavailable other key never proves a
 surviving copy. This guidance cannot authorize deletion: `Registry::remove` independently validates
-the current target, key, credentials and owned files. UniFFI exposure and Android adoption of this
-new presentation guidance remain planned.
+the current target, key, credentials and owned files. `identity_removal_allowed` projects this
+policy from the typed native resolution; `MobileIdentityRegistry.removal_review` returns
+`MobileIdentityRemovalReview`. Android stores the resulting presentation hint on `Opened`, defaults
+unprojected views to no removal, and reads confirmation guidance through the inventoried `Slot`'s
+actual registry. It no longer compares lifecycle labels or enumerates keys for duplicate-copy
+warnings. Actual SDK/device verification remains separate.
 
 `MobileIdentityRegistry` exposes core inventory, resolution, candidate inspection, explicit
 creation, verified selection and confirmed removal for Android and iOS wrapped-key layouts. `MobileSlotKeys` callbacks implement only

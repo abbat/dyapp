@@ -78,7 +78,8 @@ class CollectionRowGeometryTests {
     private fun ActualRow() = when (kind.value) {
         CollectionRowKind.IDENTITY -> {
             val slot = Slot("geometry-identity", File("build/unopened-geometry"), SlotState.READY)
-            IdentityCollectionRow(Opened.Ready(slot, COMPLETE_COLLECTION_PEER), slot.id, 1) {}
+            val opened = Opened.Ready(slot, COMPLETE_COLLECTION_PEER).apply { removalOffered = true }
+            IdentityCollectionRow(opened, slot.id, 1) {}
         }
         CollectionRowKind.BLOCKED -> {
             PeopleCollectionRow(COMPLETE_COLLECTION_PEER, 1) { _, number ->

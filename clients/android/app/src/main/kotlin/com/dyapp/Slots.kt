@@ -1,9 +1,12 @@
 package com.dyapp
 
+import uniffi.dyapp.IdentityKey
 import uniffi.dyapp.MobileIdentityRegistry
+import uniffi.dyapp.MobileSlot
 import uniffi.dyapp.MobileSlotLayout
 import uniffi.dyapp.MobileSlotResolution
 import uniffi.dyapp.MobileSlotSelection
+import uniffi.dyapp.identityRemovalAllowed
 import java.io.File
 
 /** Presentation adapter over the common native registry; lifecycle policy belongs to Rust. */
@@ -39,19 +42,14 @@ class Slots(root: File) {
 
     private fun selected(selection: MobileSlotSelection): Opened.Ready {
         durabilityDetail = selection.durabilityDetail
-        return selection.key.use { Opened.Ready(selection.slot.view(registry), it.peerId()) }
+        return selection.key.use { projectReady(registry, selection.slot, it) }
     }
 
     private fun project(resolution: MobileSlotResolution): Opened = when (resolution) {
         MobileSlotResolution.Setup -> Opened.Setup
         is MobileSlotResolution.Picker -> Opened.Picker
-        is MobileSlotResolution.Ready -> resolution.key.use {
-            Opened.Ready(
-                resolution.slot.view(registry),
-                it.peerId()
-            )
-        }
-        is MobileSlotResolution.Recovery -> recoveryView(resolution.id, resolution.reason, resolution.peerId, list())
+        is MobileSlotResolution.Ready -> resolution.key.use { projectReady(registry, resolution.slot, it) }
+        is MobileSlotResolution.Recovery -> projectRecovery(resolution, list())
     }
 
     /** Layout identifier shared with the native registry and credential callback. */
@@ -60,3 +58,13 @@ class Slots(root: File) {
         const val LEGACY = "legacy-primary"
     }
 }
+
+private fun projectReady(registry: MobileIdentityRegistry, slot: MobileSlot, key: IdentityKey): Opened.Ready =
+    Opened.Ready(slot.view(registry), key.peerId()).also {
+        it.removalOffered = identityRemovalAllowed(slot.id, null, true)
+    }
+
+private fun projectRecovery(resolution: MobileSlotResolution.Recovery, entries: List<Slot>): Opened.Recovery =
+    recoveryView(resolution.id, resolution.reason, resolution.peerId, entries).also {
+        it.removalOffered = identityRemovalAllowed(resolution.id, resolution.reason, it.slot != null)
+    }

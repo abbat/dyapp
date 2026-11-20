@@ -1,5 +1,13 @@
 # UI Testing: Practical Guide
 
+Android `SlotsTests` checks fail-closed presentation and projection labels; removal lifecycle
+eligibility cases live in the common `identity_slots::removal_policy` table test. Core registry
+review tests retain a real shared lock during key reads and cover denied/missing keys, stale Peer
+IDs, duplicate-key warnings and unchanged selection/files. The exported registry fixture and
+`NativeSlotsTests` cross the actual FFI/Keystore boundary for ready and cleanup hints and wrong-peer
+review refusal. Their SDK/device execution is required in CI; standalone pure-policy/conversion
+checks do not prove registry locking or native binding generation.
+
 `RenameDialogGeometryTests` renders the native private-name dialog in EN/RU at normal and doubled
 font scale, scrolls label/hint into their measured text slots and checks complete layouts/current
 dialog bounds. Save/Cancel remain outside the scrollable fields; cancellation invokes no save,

@@ -116,7 +116,12 @@ scanning `profiles/` plus the root legacy file; there is no second index. The co
 cross-process `profiles.lock`: reads/operations retain shared admission, while creation,
 selection and removal take exclusive admission. Pending/deleting/broken state, credential
 absence and access failures are classified in Rust. Kotlin never validates marker files,
-chooses a UUID, generates an identity key or implements cleanup ownership.
+chooses a UUID, generates an identity key or implements cleanup ownership. The adapter projects
+`identity_removal_allowed` from the typed native resolution into `Opened.removalOffered`; raw
+presentation-only `Opened` instances default to false. The removal dialog calls the inventoried
+`Slot`'s `removal_review` with its displayed optional Peer ID before showing confirmation. Rust
+checks a consistent inventory/key snapshot and the local duplicate-copy warning; this result does
+not replace execution-time removal confirmation.
 
 A per-slot alias means removing an identity deletes its wrapping key, so any leftover copy of
 the blob is useless, and a damaged or deleted Keystore entry affects one identity only. A
