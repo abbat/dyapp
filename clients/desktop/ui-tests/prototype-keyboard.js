@@ -19,6 +19,26 @@ const checkPhotoQuestion = (problems) => {
   if (!legend?.textContent.trim() || !exposed(legend))
     problems.push('photo download choices lack a visible group question');
 };
+const checkPhotoDisclosure = (problems) => {
+  if (!['publish-dialog', 'publish-progress'].includes(document.documentElement.dataset.screen))
+    return;
+  const tiles = document.querySelectorAll('#profile-photos > .photo-tile');
+  const count = document.getElementById('profile-public-photo-count');
+  const label = count?.previousElementSibling;
+  const expectedLabel = document.querySelector('#profile-photos')?.previousElementSibling;
+  if (
+    !tiles.length ||
+    !count ||
+    !exposed(count) ||
+    !label ||
+    !exposed(label) ||
+    !expectedLabel?.textContent.trim() ||
+    label.textContent.trim() !== expectedLabel.textContent.trim() ||
+    !/^\d+$/.test(count.textContent.trim()) ||
+    Number(count.textContent.trim()) !== tiles.length
+  )
+    problems.push('publication summary does not disclose the fixture photo count');
+};
 export const plan = () => {
   const enabled = controller.enabledControls();
   const problems = enabled
@@ -36,6 +56,7 @@ export const plan = () => {
     }
   }
   checkPhotoQuestion(problems);
+  checkPhotoDisclosure(problems);
   const dialog = controller.activeDialog();
   const expected = dialog?.dataset.initialFocus;
   if (expected) {

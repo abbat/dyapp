@@ -199,7 +199,7 @@ Add photo after an add or a removal. Status line states are in
 
 | Control | ID | Notes |
 | --- | --- | --- |
-| Public fields | `profile-public-fields` | Exactly what is published |
+| Public fields | `profile-public-fields` | Exactly what is published, including the photo count; prototype fixture count matches its editor tiles |
 | I am 18 or older | `profile-attested` | Required |
 | Public fields may be copied | `profile-disclosure` | Required |
 | Cancel | `profile-cancel` | Left, focused |
