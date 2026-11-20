@@ -323,6 +323,10 @@ any allocating pixel decoder runs, even with zero claimed dimensions. No large p
 inside the fixture's native `originals/` folder rather than guessing its blob-hash name or looking for
 plaintext pixels in encrypted files. Until the phase actually runs, this helper establishes no
 incoming-PNG runtime acceptance and adds no production FFI API.
+`RetainedPngFixture` reuses the native worker registry and its public photo-proof checkpoint for
+cold offline reopening. Its preparation closes the admitted session before returning; reopening
+requires a distinct boot/PID/start marker and verifies the complete selector, SHA-256 and actual
+decoded dimensions. Host phase wiring and runtime execution of this retained path remain pending.
 
 ## Linux sticker exchange
 
