@@ -703,7 +703,7 @@
   "devices.disconnect": "Disconnect…",
   "devices.hint": "Every device holds the full key of this identity. A disconnected device that copied the key can add itself back; only a new identity recovers fully from that.",
   "disconnect.title": "Disconnect this device?",
-  "disconnect.text": "It stops getting your chats and deletes this identity when it next connects. Your contacts see that the device left.",
+  "disconnect.text": "It stops getting your chats. Copies already stored on that device may remain. Your contacts see that the device left.",
   "disconnect.action": "Disconnect",
   "disconnect.offline": "No node answered, so the device stays connected. Check the network and retry.",
   "devices.gone": "Device disconnected.",

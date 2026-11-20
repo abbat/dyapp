@@ -658,8 +658,11 @@ finishes. A send that fails returns to `device-code-dialog` with the code kept a
 | Cancel | `device-confirm-cancel` | Left, focused |
 | Give full control | `device-confirm-action` | Right |
 
-`disconnect-dialog` names the device by short key. `disconnect-offline`: no node took the update,
-so nothing changed and the action reads Retry.
+`disconnect-dialog` names the device by short key. It explains chat revocation and contact-visible
+departure without promising deletion of copies already held by that device. In particular, legacy
+root identities retain local data; remote erasure is never a guarantee against a copied key or a
+modified client. `disconnect-offline`: no node took the update, so nothing changed and the action
+reads Retry.
 
 | Control | ID | Notes |
 | --- | --- | --- |

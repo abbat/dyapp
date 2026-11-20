@@ -415,7 +415,7 @@ const STRINGS = {
     'devices.confirm.action': 'Give full control',
     'disconnect.title': 'Disconnect this device?',
     'disconnect.text':
-      'It stops getting your chats and deletes this identity when it next connects. Your contacts see that the device left.',
+      'It stops getting your chats. Copies already stored on that device may remain. Your contacts see that the device left.',
     'disconnect.action': 'Disconnect',
     'disconnect.offline':
       'No node answered, so the device stays connected. Check the network and retry.',
@@ -861,7 +861,7 @@ const STRINGS = {
     'devices.confirm.action': 'Дать полный контроль',
     'disconnect.title': 'Отключить это устройство?',
     'disconnect.text':
-      'Оно перестанет получать ваши чаты и удалит эту идентичность при следующем подключении. Контакты увидят, что устройство ушло.',
+      'Оно перестанет получать ваши чаты. Уже сохранённые на нём копии могут остаться. Контакты увидят, что устройство ушло.',
     'disconnect.action': 'Отключить',
     'disconnect.offline':
       'Ни один узел не ответил, устройство осталось подключённым. Проверьте сеть и повторите.',
