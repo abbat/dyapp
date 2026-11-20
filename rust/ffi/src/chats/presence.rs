@@ -13,6 +13,7 @@ impl ChatSession {
     /// Returns session or stored presence failures; unknown state is not a fresh mark.
     pub fn active_chat_peers(&self) -> Result<Vec<String>, CoreError> {
         let session = self.session.lock().map_err(failed)?;
-        dyapp_client::presence::active_peers(session.store()).map_err(failed)
+        dyapp_client::presence::active_peers_at(session.store(), dyapp_client::clock::now_ms())
+            .map_err(failed)
     }
 }

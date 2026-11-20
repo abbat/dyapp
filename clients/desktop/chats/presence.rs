@@ -19,7 +19,7 @@ pub(super) fn now_ms() -> Result<u64, String> {
 }
 
 fn due(store: &Store) -> Result<bool, String> {
-    dyapp_client::presence::due(store).map_err(|error| error.to_string())
+    dyapp_client::presence::due_at(store, now_ms()?).map_err(|error| error.to_string())
 }
 
 /// Send the presence due to matches and return whether any was. With none due, which is always

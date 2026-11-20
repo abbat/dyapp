@@ -38,7 +38,7 @@ fn like(store: &mut Store, sender: &str, target: &str, id: u8) {
 #[test]
 fn preflight_is_read_only_and_reuses_match_hour_and_audience_rules() {
     let (mut store, owner, peer) = fixture();
-    assert!(!due(&store).unwrap());
+    assert!(!due_at(&store, T).unwrap());
     like(&mut store, &owner, &peer, 1);
     assert!(!due_at(&store, T).unwrap());
     like(&mut store, &peer, &owner, 2);
