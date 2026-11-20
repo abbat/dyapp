@@ -177,7 +177,7 @@ private fun PeopleRows(state: PeopleState, refresh: () -> Unit, actions: @Compos
             val peer = entry.target
             Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
                 Avatar(peer)
-                Text(shortPeerId(peer), Modifier.weight(1f), fontFamily = FontFamily.Monospace)
+                Text(peer, Modifier.weight(1f), fontFamily = FontFamily.Monospace)
                 actions(peer, number)
             }
         }

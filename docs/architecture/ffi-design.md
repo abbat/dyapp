@@ -7,9 +7,10 @@ counts and current/total page numbers. Targets are returned unchanged. Navigatio
 normalized query; changing it resets the page, and refresh/removal clamps stale offsets. Empty
 results have one empty page. This pure projection performs no reads, network access or authorization;
 callers must bind the input snapshot, cursor, completions and actions to the current authenticated
-collection opening. Android blocked/passed Settings lists use this projection off the UI thread,
-reset their input/navigation on owner replacement and retain known native rows after a refresh
-failure. Identity-list adoption and native screen acceptance remain planned.
+collection opening. Android identity/blocked/passed Settings lists use this projection off the UI
+thread, reset input/navigation on owner replacement and retain known native rows after a refresh
+failure. Identity rows map unchanged slot IDs back to their inventoried removal candidates; paging
+never selects a candidate. Native screen acceptance remains separate.
 
 `ChatSession.active_chat_peers` is a read-only common-core projection of fresh authenticated
 match presence. A failed read stays an error; the native UI must not infer expiry or a fresh mark

@@ -5,6 +5,11 @@ entries mount as 32/32/6 rows, full-target search finds a last-page entry, clear
 to the first page, and a captured navigation callback cannot change a replacement opening.
 Controls scroll to their current bounds; row readiness uses semantic completion signals. These
 test sources require native CI execution; source lint does not establish device success.
+`IdentityCollectionStateTests` controls read admission/completion with a future and per-transition
+deadlines: failures preserve the known snapshot, successful retry replaces it, concurrent refresh
+admits one read, and a retired owner's completion or selection cannot publish. Existing
+`IdentitySettingsTests` still checks confirmed active/non-active removal through the real registry;
+its non-active row lookup now uses the complete displayed Peer ID.
 
 `LanguagePreferenceTests` covers arbitrary catalogue size, legacy enum-name matching and explicit
 system/removed-choice fallback. `LanguageCatalogTests` reads the actual packaged XML inventory and

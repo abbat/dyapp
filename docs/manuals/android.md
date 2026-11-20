@@ -1,7 +1,8 @@
 # Android client
 
-**Settings → Privacy → Blocked / Passed** lists have local search, entry counts, page navigation
-and **Refresh list**. Search checks the complete Peer ID without downloading profiles. A page
+**Settings → Account → Identities** and **Settings → Privacy → Blocked / Passed** lists have
+local search, entry counts, page navigation and **Refresh list**. Search checks complete local
+identifiers and identity Peer IDs without downloading profiles. A page
 contains at most 32 entries. Changing identity or reopening the list clears its search/navigation.
 Failed refreshes retain the last known list; unblock, revocation retry and undo-pass keep their
 existing meanings.

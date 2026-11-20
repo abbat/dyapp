@@ -91,7 +91,7 @@ class IdentitySettingsTests {
         compose.identityRows(rows + 1)
         compose.onNode(
             hasText(compose.activity.getString(R.string.identity_remove)) and hasAnyAncestor(
-                hasTestTag("settings-identity") and hasAnyDescendant(hasText(shortPeerId(other.peerId)))
+                hasTestTag("settings-identity") and hasAnyDescendant(hasText(other.peerId))
             )
         ).performScrollTo().performClick()
         click("remove-confirm")
