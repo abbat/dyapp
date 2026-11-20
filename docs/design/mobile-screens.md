@@ -187,7 +187,8 @@ The IDs inside each section are the desktop ones; only the frame differs.
   Notifications has `message-notifications` and `notice-content` (`notice-fixed`,
   `notice-name`, `notice-text`). Photos uses `photo-mode`, the `keep-photos` switch,
   numeric MiB `photo-cache-size`, a usage hint and `photo-cache-clear`.
-  These static media controls describe the approved presentation; native controls remain planned.
+  Native Android now implements the download-mode radio group through the common core API;
+  retention, numeric budget/usage and cache-clear controls remain planned.
 - Account links to `settings-identities-screen`. Its `settings-identities` list preserves
   `settings-remove`, `settings-remove-2` and `settings-create`. Blocked and passed have
   `blocked-list` and `passed-list` in the `blocked` and `passed` cards:
@@ -220,7 +221,7 @@ stay distinct from empty text, failed saves retain the draft, and stale presenta
 cannot update another opening. Notes never enter public profile fields, likes or chat content.
 
 Native Android Settings still shows its original cards: identity/removal, app lock, blocked/passed,
-appearance, privacy/notifications, disabled updates and version. The receipt switch defaults off;
+appearance, privacy/notifications, photo download mode, disabled updates and version. The receipt switch defaults off;
 notice delivery defaults on with fixed “New message” content. Turning delivery on requests
 notification permission on Android 13+; when blocked, Allow asks again or opens system settings.
 Content selection is disabled while off and retains its choice. Failed reads/writes preserve the

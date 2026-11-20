@@ -55,6 +55,7 @@ internal fun IdentitySettingsScreen(
         BlockedCard(active)
         PassedCard(active)
         NoticeCard(active)
+        PhotoDownloadCard(active)
         AppearanceCard()
         UpdatesCard()
         Caption(stringResource(R.string.settings_version, BuildConfig.VERSION_NAME))

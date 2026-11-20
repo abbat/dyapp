@@ -1,5 +1,11 @@
 # UI Testing: Practical Guide
 
+`PhotoDownloadOwnerTests` controls the real three-choice native-settings presentation. Unknown reads
+leave every choice disabled and retry performs no write; repeated captured callbacks admit one
+change, and late completion of an old native-like operation cannot replace the next identity's
+selection. A write that commits and then fails disables choices until read-only retry reconciles
+the actual value. The widget delegates network/stranger policy and persistence to the existing core API.
+
 `ContactNoteOwnerTests` checks exact multiline/non-BMP draft retention after controlled save failure,
 retry and clear, unknown-note read retry without editable/Save controls, and an old noncancellable
 native-like completion after identity replacement. Signals order each transition with separate
