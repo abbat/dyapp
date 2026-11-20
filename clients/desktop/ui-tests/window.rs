@@ -87,6 +87,10 @@ pub(crate) async fn ui_test_hide(
 }
 
 /// Request native focus; the webview waits for its actual document focus event.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri injects an owned command window"
+)]
 #[tauri::command]
 pub(crate) fn ui_test_focus(window: tauri::Window) -> Result<(), String> {
     ensure_test()?;
