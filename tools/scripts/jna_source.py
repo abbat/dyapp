@@ -79,19 +79,34 @@ def fetch(inputs: Inputs, destination: Path) -> None:
         (
             "source.tar.gz",
             inputs.source_sha256,
-            "https://codeload.github.com/java-native-access/jna/tar.gz/"
-            f"{inputs.commit}",
+            [
+                "https://codeload.github.com/java-native-access/jna/tar.gz/"
+                f"{inputs.commit}",
+                "https://gh-proxy.com/https://codeload.github.com/"
+                "java-native-access/jna/tar.gz/"
+                f"{inputs.commit}",
+            ],
         ),
         (
             "upstream.aar",
             inputs.aar_sha256,
-            "https://repo.maven.apache.org/maven2/net/java/dev/jna/jna/"
-            f"{inputs.version}/jna-{inputs.version}.aar",
+            [
+                "https://repo.maven.apache.org/maven2/net/java/dev/jna/jna/"
+                f"{inputs.version}/jna-{inputs.version}.aar"
+            ],
         ),
     ]
-    for name, expected, url in sources:
-        with urlopen(url, timeout=60) as source:
-            transfer(source, destination / name, expected)
+    for name, expected, urls in sources:
+        target = destination / name
+        for index, url in enumerate(urls):
+            try:
+                with urlopen(url, timeout=60) as source:
+                    transfer(source, target, expected)
+                break
+            except (OSError, ValueError):
+                target.unlink(missing_ok=True)
+                if index == len(urls) - 1:
+                    raise
 
 
 def extract(archive: Path, destination: Path, commit: str) -> None:
