@@ -109,7 +109,12 @@ the audit job in `security.yml` use mapped checks and archive full logs.
 `codeql.yml` captures Kotlin/Gradle and Swift/Xcode compilation and Clippy stderr, in addition
 to cargo-deny, without changing tracing or advisory policy. Compiler stdout for SARIF stays in
 `clippy.json`; the original JSON and captured logs are archived. Kotlin and Swift retain their
-own check-output artifacts. Scheduled advisory-date validation uses the concise default and
+own check-output artifacts. Kotlin resolves its compile-classpath dependencies in a separate
+captured step before CodeQL tracing, without compiling app/native sources there. Its traced build
+remains mandatory. Rust converts and uploads SARIF only after successful diagnostic collection;
+collector failure still fails the job and retains its JSON/logs without uploading empty SARIF.
+Cargo-deny duplicate policy is checked through its `bans` subcommand.
+Scheduled advisory-date validation uses the concise default and
 archives its raw evidence. Workflow steps must not request `--raw` directly; nested stage bodies
 own that internal flag. Data-producing steps are listed above.
 `release-sizes.yml` and `reproducible.yml` retain measurement JSON and raw logs.

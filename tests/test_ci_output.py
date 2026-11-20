@@ -195,6 +195,31 @@ class CiOutputTests(unittest.TestCase):
                             )
                             self.assertNotIn('"reason"', result.stdout)
 
+    def test_kotlin_dependency_setup_precedes_tracing_without_compiling(
+        self,
+    ) -> None:
+        workflow = yaml.safe_load((WORKFLOWS / "codeql.yml").read_text())
+        names = [
+            item.get("name") for item in workflow["jobs"]["kotlin"]["steps"]
+        ]
+        self.assertLess(
+            names.index("prepare JNA"), names.index("resolve kotlin dependencies")
+        )
+        self.assertLess(
+            names.index("resolve kotlin dependencies"), names.index("init")
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            result = execute(root, "kotlin", "resolve kotlin dependencies", 0)
+            self.assertEqual(
+                result.returncode, 0, result.stdout + result.stderr
+            )
+            arguments = json.loads((root / "arguments.json").read_text())
+            self.assertIn(":app:dependencies", arguments)
+            self.assertIn("debugCompileClasspath", arguments)
+            self.assertNotIn(":app:compileDebugKotlin", arguments)
+            self.assertNotIn("assembleDebug", arguments)
+
     def test_kotlin_build_requires_the_exported_jna_directory(self) -> None:
         workflow = yaml.safe_load((WORKFLOWS / "codeql.yml").read_text())
         names = [
