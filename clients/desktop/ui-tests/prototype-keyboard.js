@@ -13,6 +13,12 @@ export const afterKey = async () => {
 };
 export const active = () =>
   document.activeElement === document.body ? '' : controller.selector(document.activeElement);
+const checkPhotoQuestion = (problems) => {
+  if (document.documentElement.dataset.screen !== 'settings-photos') return;
+  const legend = document.querySelector('#photo-mode fieldset > legend');
+  if (!legend?.textContent.trim() || !exposed(legend))
+    problems.push('photo download choices lack a visible group question');
+};
 export const plan = () => {
   const enabled = controller.enabledControls();
   const problems = enabled
@@ -29,6 +35,7 @@ export const plan = () => {
         problems.push(`switcher state is missing visible #${id}`);
     }
   }
+  checkPhotoQuestion(problems);
   const dialog = controller.activeDialog();
   const expected = dialog?.dataset.initialFocus;
   if (expected) {

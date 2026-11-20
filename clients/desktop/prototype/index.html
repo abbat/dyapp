@@ -648,9 +648,11 @@ search providers asked: 0 of 3</pre>
       <p><a href="#settings" data-t="nav.settings">Settings</a></p>
       <h1 data-t="settings.photos"></h1>
       <div class="card" id="photo-mode">
-        <label class="choice"><input type="radio" name="photo-mode" checked><span data-t="photos.byNetwork"></span></label>
-        <label class="choice"><input type="radio" name="photo-mode"><span data-t="photos.always"></span></label>
-        <label class="choice"><input type="radio" name="photo-mode"><span data-t="photos.onTap"></span></label>
+        <fieldset><legend data-t="photos.mode"></legend>
+          <label class="choice"><input type="radio" name="photo-mode" checked><span data-t="photos.byNetwork"></span></label>
+          <label class="choice"><input type="radio" name="photo-mode"><span data-t="photos.always"></span></label>
+          <label class="choice"><input type="radio" name="photo-mode"><span data-t="photos.onTap"></span></label>
+        </fieldset>
         <label class="choice"><input type="checkbox" class="switch" role="switch" aria-checked="true" id="keep-photos" checked><span data-t="photos.keep"></span></label>
         <div class="field"><label for="photo-cache-size" data-t="photos.cacheSize"></label><input id="photo-cache-size" type="number" min="1" max="10240" value="256"><span>MiB</span></div>
         <p class="caption" data-t="photos.cacheUsage"></p>

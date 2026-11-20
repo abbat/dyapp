@@ -357,6 +357,7 @@ const STRINGS = {
       'One of your other devices disconnected it, so the key, chats and matches of this identity were deleted here. The identity stays on your other devices.',
     'revoked.ok': 'OK',
     'photos.always': 'Always',
+    'photos.mode': 'Download originals in an open chat',
     'photos.byNetwork': 'Unless the network is metered or unknown',
     'photos.hint':
       'Originals from people you have not accepted download only on request. Nodes keep an original for 7 days, then only its preview remains. Originals you open stay on this computer, encrypted, past those 7 days; at the limit the longest unopened go first. Clear chat erases them. Full photos in a profile follow the same choice.',
@@ -801,6 +802,7 @@ const STRINGS = {
       'Его отключило другое ваше устройство, поэтому ключ, чаты и совпадения этой идентичности здесь стёрты. На других ваших устройствах она осталась.',
     'revoked.ok': 'Понятно',
     'photos.always': 'Всегда',
+    'photos.mode': 'Скачивать оригиналы в открытом чате',
     'photos.byNetwork': 'Кроме лимитной или неизвестной сети',
     'photos.hint':
       'От тех, кого вы не приняли, оригиналы скачиваются только по запросу. Узлы хранят оригинал 7 дней, после этого остаётся только превью. Открытые оригиналы остаются на этом компьютере в зашифрованном виде и после этих 7 дней; при достижении лимита первыми стираются те, что дольше не открывали. Очистка чата стирает их. Полные фото в профиле следуют тому же выбору.',
