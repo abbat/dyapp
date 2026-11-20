@@ -22,6 +22,16 @@ The Android app requires Android 12 or later. There is no Google developer accou
 
 The tagged release workflow builds an unsigned APK without secrets, then signs it in a separate GitHub Actions job using the `android-release` environment. It verifies the APK signature, includes the signed `dyapp-X.Y.Z-android.apk` in `SHA256SUMS` and the release provenance attestation, and publishes it only if signing succeeds. Manual workflow runs build but do not publish or sign. No signed APK is available until the release key and CI secrets below are provisioned and the first tag succeeds.
 
+## Private contact notes
+
+Loaded profiles of other people include a **Private note** editor. It reads and writes only the
+active identity's private storage and own-device sync, including for blocked contacts. Notes do not
+appear in public profiles, search, likes or chat messages. Loading failure keeps editing disabled
+until Retry succeeds; it is not treated as an empty note. Saving waits for native readback. A failed
+save retains the exact draft for retry; **Clear private note** clears the saved text only after a
+successful native operation. Changing identity or profile opening discards that private draft and
+its old presentation continuations. Text validation remains in the common core.
+
 ## Release hardening
 
 After signing, the release job runs

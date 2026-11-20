@@ -1,5 +1,11 @@
 # UI Testing: Practical Guide
 
+`ContactNoteOwnerTests` checks exact multiline/non-BMP draft retention after controlled save failure,
+retry and clear, unknown-note read retry without editable/Save controls, and an old noncancellable
+native-like completion after identity replacement. Signals order each transition with separate
+failure deadlines; no arbitrary delays or coordinate estimates are used. Native privacy, blocked
+contact access and persistence remain covered separately by `NativePrivateContactTests`.
+
 Android `FavoriteActionOwnerTests` drives the real private-save control with controlled native-call
 completions: two captured callbacks in one UI turn admit one write; successful readback determines
 the label; replacing an owner cancels its prior presentation; failed initial reads offer only read
