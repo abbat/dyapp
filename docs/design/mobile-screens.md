@@ -238,7 +238,8 @@ cannot update another opening. Notes never enter public profile fields, likes or
 Native Android identity/blocked/passed collections use the common-core 32-row search/paging
 projection. Search checks complete local IDs without fetching profiles; refresh rereads native state
 and failed reads preserve known rows. Input, navigation and coroutine ownership retire with the
-collection opening. Rows show complete identifiers with wrapping. Identity removal retains the
+collection opening. Rows show complete identifiers with wrapping; actions occupy their own line
+below the identifier so enlarged labels cannot consume its width. Identity removal retains the
 inventoried raw slot target and existing confirmation/active-selection behavior. Native
 runtime/visual acceptance remains separate.
 

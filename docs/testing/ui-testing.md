@@ -5,6 +5,10 @@ entries mount as 32/32/6 rows, full-target search finds a last-page entry, clear
 to the first page, and a captured navigation callback cannot change a replacement opening.
 Controls scroll to their current bounds; row readiness uses semantic completion signals. These
 test sources require native CI execution; source lint does not establish device success.
+`CollectionRowGeometryTests` renders the production identity/people row controls in EN/RU at
+normal and doubled font scale. It checks complete identifier/action text layouts, actual current
+horizontal containment and action placement below the identifier, without fixed tap coordinates
+or guessed row heights. Execution on Android remains required.
 `IdentityCollectionStateTests` controls read admission/completion with a future and per-transition
 deadlines: failures preserve the known snapshot, successful retry replaces it, concurrent refresh
 admits one read, and a retired owner's completion or selection cannot publish. Existing

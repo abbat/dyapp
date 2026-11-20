@@ -104,7 +104,7 @@ internal fun BlockedCard(active: Opened.Ready) = key(active) {
 }
 
 @Composable
-private fun BlockedActions(number: Int, busy: Boolean, retry: () -> Unit, unblock: () -> Unit) {
+internal fun BlockedActions(number: Int, busy: Boolean, retry: () -> Unit, unblock: () -> Unit) {
     // Stacked: two long labels beside the Peer ID do not fit a 360 dp phone.
     Column(horizontalAlignment = Alignment.End) {
         TextButton(retry, Modifier.testTag("retry-revocation-$number"), enabled = !busy) {
@@ -174,13 +174,20 @@ private fun PeopleRows(state: PeopleState, refresh: () -> Unit, actions: @Compos
         }
     } else {
         LocalCollectionView(state, entries, if (state.busy) null else refresh) { entry, number ->
-            val peer = entry.target
-            Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
-                Avatar(peer)
-                Text(peer, Modifier.weight(1f), fontFamily = FontFamily.Monospace)
-                actions(peer, number)
-            }
+            PeopleCollectionRow(entry.target, number, actions)
         }
+    }
+}
+
+/** Full identifiers and action labels each retain the current row width at enlarged text. */
+@Composable
+internal fun PeopleCollectionRow(peer: String, number: Int, actions: @Composable (String, Int) -> Unit) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
+            Avatar(peer)
+            Text(peer, Modifier.weight(1f), fontFamily = FontFamily.Monospace)
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { actions(peer, number) }
     }
 }
 

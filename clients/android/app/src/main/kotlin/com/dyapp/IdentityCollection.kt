@@ -102,23 +102,21 @@ private fun IdentityCollectionRows(state: IdentityCollectionState, active: Opene
 }
 
 @Composable
-private fun IdentityCollectionRow(entry: Opened, activeSlotId: String, number: Int, onRemove: () -> Unit) {
+internal fun IdentityCollectionRow(entry: Opened, activeSlotId: String, number: Int, onRemove: () -> Unit) {
     val target = entry.collectionTarget() ?: return
     val peer = entry.collectionLabel()
     val isActive = target == activeSlotId
-    Row(
-        Modifier.fillMaxWidth().testTag("settings-identity"),
-        Arrangement.spacedBy(12.dp),
-        Alignment.CenterVertically
-    ) {
-        Avatar(peer)
-        Column(Modifier.weight(1f)) {
-            Text(peer.ifEmpty { target }, fontFamily = FontFamily.Monospace)
-            IdentityStatus(entry, isActive)
+    Column(Modifier.fillMaxWidth().testTag("settings-identity")) {
+        Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
+            Avatar(peer)
+            Column(Modifier.weight(1f)) {
+                Text(peer.ifEmpty { target }, fontFamily = FontFamily.Monospace)
+                IdentityStatus(entry, isActive)
+            }
         }
         if (removable(entry)) {
             val tag = if (isActive) "settings-remove" else "settings-remove-$number"
-            TextButton(onClick = onRemove, Modifier.testTag(tag)) {
+            TextButton(onClick = onRemove, Modifier.align(Alignment.End).testTag(tag)) {
                 Text(stringResource(R.string.identity_remove))
             }
         }
