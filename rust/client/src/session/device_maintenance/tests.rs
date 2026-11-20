@@ -62,6 +62,36 @@ impl Fixture {
     }
 }
 
+#[tokio::test]
+async fn maintenance_reports_invalidated_state_and_recovers_from_the_committed_snapshot() {
+    let mut fixture = Fixture::new();
+    let own = fixture.profile(3, true);
+    let draft = fixture.session.store().profile_draft().unwrap();
+    let sealed = fixture.session.store().sealed_device().unwrap();
+    // Staging failures discard the in-memory device; maintenance must require a reopen too.
+    fixture.session.device = None;
+    let error = fixture
+        .session
+        .maintain_own_devices(&mut [], &own, std::slice::from_ref(&own), 10, &SEAL)
+        .await
+        .unwrap_err();
+    assert!(matches!(error, Error::Invalidated), "{error}");
+    assert!(fixture.session.own_group().is_none());
+    assert_eq!(fixture.session.store().profile_draft().unwrap(), draft);
+    assert_eq!(fixture.session.store().sealed_device().unwrap(), sealed);
+    drop(fixture.session);
+    let store = Store::open(&fixture.path, &fixture.identity).unwrap();
+    let mut reopened = Session::open(store, &SEAL).unwrap();
+    // A valid singleton needs no network or own group; reopening restores that no-op success.
+    reopened
+        .maintain_own_devices(&mut [], &own, std::slice::from_ref(&own), 11, &SEAL)
+        .await
+        .unwrap();
+    assert!(reopened.own_group().is_none());
+    assert_eq!(reopened.store().profile_draft().unwrap(), draft);
+    assert_eq!(reopened.store().sealed_device().unwrap(), sealed);
+}
+
 #[test]
 fn owner_readback_keeps_ordinary_floor_separate_from_unpublished_draft() {
     let mut fixture = Fixture::new();
