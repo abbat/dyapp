@@ -98,6 +98,11 @@ metadata occupies separate lines, preserving preview width at narrow/large-font 
 conversation text remains separate. Android native runtime/visual acceptance and iOS adoption
 remain pending behind their respective screen gates.
 
+Android's local contact-name snapshot is keyed by both photo-cache owner and requested peers.
+A replacement starts empty while its own read is pending or fails; late retired reads cannot
+populate it. Refreshing the same owner may retain its own last successful names after a read
+failure. These are presentation snapshots; the cache/storage authority remains native.
+
 ## Network attempt ownership
 
 `ConnectionAttempt(checker)` prepares a single-use cancellation owner without key access,

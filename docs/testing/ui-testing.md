@@ -7,6 +7,10 @@ normal/doubled font scale; its narrow host derives from measured text and curren
 It requires wrapping, complete non-ellipsized content, timestamps below the preview and contained
 horizontal bounds, without guessed offsets or sleeps. These sources require actual SDK/device CI;
 static lint alone does not establish rendered acceptance.
+`ContactNameSnapshotTests` separately holds a replacement read pending and failing, completes a
+retired noncancellable read late, and fails a same-owner refresh. Each transition observes its
+completion signal; replacement snapshots must stay empty/current, while refresh may retain only
+that owner's last successful local names.
 
 `MediaCacheErrorTests` controls unknown-read retry without default writes, raw invalid input and
 indeterminate-write readback with draft retention. `MediaCacheOwnerTests` checks cancellation without
