@@ -106,6 +106,23 @@ impl Context {
         self.profiles.accept(profile)
     }
 
+    /// Admit an owner readback only in the network generation that started its request.
+    ///
+    /// # Errors
+    /// Refuses obsolete network context, wrong-owner/rollback/revocation or storage failures.
+    pub fn accept_own(
+        &mut self,
+        generation: &Generation,
+        session: &Session,
+        profile: VerifiedProfile,
+        now: u64,
+    ) -> Result<VerifiedProfile, crate::session::Error> {
+        if !self.is_current(generation) {
+            return Err(crate::Error::Input("notConnected").into());
+        }
+        session.admit_own_profile(&mut self.profiles, profile, now)
+    }
+
     /// Invalidate comparisons and discard the previous context's profiles and selection health.
     pub fn clear(&mut self) {
         // Retained generations/tickets prevent allocation reuse, so old work cannot become current.

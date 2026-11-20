@@ -414,6 +414,13 @@ entry as a fallback when the lookup omits it and prefers its successful dial add
 returned addresses, so a one-node network can still receive mail. Other missing holders leave
 partial coverage explicit and do not suppress healthy replicas.
 
+Common `Context::accept_own` admits a verified owner read only in its captured network generation.
+`Session::admit_own_profile` reuses held ordinary profile authority, equal-version retention and
+terminal deletion rules, while durable ordinary clocks refuse older authority after reopen. It
+records known revocation without replacing unpublished editable fields or changing credentials.
+This is an authority/readback operation, not enrollment, relisting or local key-cleanup permission.
+Native receive integration with this owner-admission path is planned.
+
 Android `receiveMail` consumes this result. Kotlin only chooses the local short sender and existing
 blank-body fallback, builds/posts the OS notification and keeps foreground/permission/public
 lock-screen suppression. It does not count notices, inspect history or sanitize peer text itself.

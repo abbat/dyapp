@@ -1,9 +1,53 @@
 //! Common after-mailbox membership maintenance for the owner's devices.
 use super::{Error, Session};
-use crate::Node;
+use crate::{profiles::Profiles, Node};
 use dyapp_profile::VerifiedProfile;
 
+#[cfg(test)]
+mod tests;
+
 impl Session {
+    /// Admit verified remote owner authority without replacing the editable profile draft.
+    ///
+    /// Held equal/newer authority and final account tombstones follow [`Profiles::accept`].
+    /// Ordinary version clocks survive cache/session reopen. Revocation is remembered before
+    /// it is reported, so a later older read cannot restore the dropped certificate.
+    ///
+    /// # Errors
+    /// Returns wrong-owner, invalid authority, durable rollback, revocation or storage failures.
+    pub fn admit_own_profile(
+        &self,
+        known: &mut Profiles,
+        profile: VerifiedProfile,
+        now: u64,
+    ) -> Result<VerifiedProfile, Error> {
+        let owner = self.store.owner_peer_id();
+        if profile.peer_id != owner {
+            return Err(crate::store::Error::WrongIdentity.into());
+        }
+        // Select only this owner's candidate before touching the shared cache or durable clocks.
+        let mut selected = Profiles::default();
+        if let Some(held) = known.get(owner) {
+            selected.accept(held.clone())?;
+        }
+        match selected.accept(profile) {
+            Ok(_) | Err(crate::Error::Rollback | crate::Error::Deleted) => {}
+            Err(error) => return Err(error.into()),
+        }
+        let admitted = selected.get(owner).cloned().ok_or(crate::Error::Rollback)?;
+        if !admitted.profile.deleted
+            && admitted.profile.version < self.store.ordinary_profile_floor()?
+        {
+            return Err(crate::Error::Rollback.into());
+        }
+        self.store.own_profile_age(admitted.profile.version, now)?;
+        known.accept(admitted.clone())?;
+        if self.own_device_revoked(&admitted.profile)? {
+            return Err(Error::Revoked);
+        }
+        Ok(admitted)
+    }
+
     /// Start the private own group, add listed devices, then remove dropped devices.
     ///
     /// Call after applying the mailbox, using verified current owner/profile authority. The
