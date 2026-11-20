@@ -26,14 +26,14 @@ jobs:
             xargs -0 sha256sum > build/prototype-review/inputs.sha256
       - name: prepare existing capture image
         run: |
-          python3 tools/scripts/run-check.py --log-dir "$DYAPP_CHECK_LOG_DIR" prototype-image -- \
+          python3 tools/scripts/run-check.py --log-dir "$DYAPP_CHECK_LOG_DIR" docker -- \
             docker compose -f tests/docker/compose.ui.yml --profile prototype build prototype-shots
           docker image inspect --format '{{.Id}}' dyapp:prototype > build/prototype-review/image-id.txt
       - name: capture
         run: |
           mkdir -p build/ux-research/prototype
           DYAPP_UID="$(id -u)" DYAPP_GID="$(id -g)" \
-            python3 tools/scripts/run-check.py --log-dir "$DYAPP_CHECK_LOG_DIR" prototype-capture -- \
+            python3 tools/scripts/run-check.py --log-dir "$DYAPP_CHECK_LOG_DIR" ui-tests -- \
               docker compose -f tests/docker/compose.ui.yml --profile prototype run --no-TTY --pull never prototype-shots
       - name: validate in capture image
         run: |

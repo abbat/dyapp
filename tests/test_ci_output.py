@@ -18,8 +18,13 @@ TOOL = """#!/usr/bin/env python3
 import json, os, sys
 from pathlib import Path
 status = int(os.environ['FIXTURE_STATUS'])
+if (Path(sys.argv[0]).name == 'docker'
+        and sys.argv[1:3] == ['image', 'inspect']):
+    print('fixture-image')
+    sys.exit(status)
 Path(os.environ['FIXTURE_ARGS']).write_text(json.dumps(sys.argv[1:]))
-if Path(sys.argv[0]).name == 'docker' and status == 0:
+if (Path(sys.argv[0]).name == 'docker' and status == 0
+        and '--output' in sys.argv):
     output = sys.argv[sys.argv.index('--output') + 1]
     directory = Path(output.removeprefix('type=local,dest='))
     directory.mkdir(parents=True)
@@ -57,8 +62,10 @@ sys.exit(status)
 """
 
 
-def step(job: str, name: str) -> tuple[str, str]:
-    workflow = yaml.safe_load((WORKFLOWS / "codeql.yml").read_text())
+def step(
+    job: str, name: str, workflow_name: str = "codeql.yml"
+) -> tuple[str, str]:
+    workflow = yaml.safe_load((WORKFLOWS / workflow_name).read_text())
     selected = next(
         item
         for item in workflow["jobs"][job]["steps"]
@@ -83,6 +90,7 @@ def execute(
     *,
     prepare: bool = False,
     require_jna: bool = False,
+    workflow_name: str = "codeql.yml",
 ) -> subprocess.CompletedProcess[str]:
     binaries = root / "bin"
     binaries.mkdir()
@@ -96,7 +104,8 @@ def execute(
     ]:
         tool.write_text(TOOL)
         tool.chmod(0o755)
-    command, directory = step(job, name)
+    (root / "build/prototype-review").mkdir(parents=True)
+    command, directory = step(job, name, workflow_name)
     if prepare:
         preparation, _ = step("kotlin", "prepare JNA")
         command = "\n".join(
@@ -116,6 +125,7 @@ def execute(
             FIXTURE_STATUS=str(status),
             FIXTURE_ARGS=str(root / "arguments.json"),
             GITHUB_WORKSPACE=str(root),
+            DYAPP_CHECK_LOG_DIR=str(root / "build/check-output"),
             FIXTURE_REQUIRE_JNA="1" if require_jna else "0",
         ),
         capture_output=True,
@@ -222,6 +232,44 @@ class CiOutputTests(unittest.TestCase):
                 )
                 if not prepared:
                     self.assertIn("missing prepared JNA bundle", result.stdout)
+
+    def test_prototype_steps_keep_real_capture_mapping_and_exit_status(
+        self,
+    ) -> None:
+        cases = [
+            ("prepare existing capture image", "docker", "build"),
+            ("capture", "ui-tests", "run"),
+        ]
+        for name, check, operation in cases:
+            for status in (0, 7):
+                with (
+                    self.subTest(step=name, status=status),
+                    tempfile.TemporaryDirectory(dir=ROOT / "build") as folder,
+                ):
+                    root = Path(folder)
+                    result = execute(
+                        root,
+                        "capture",
+                        name,
+                        status,
+                        workflow_name="prototype-review.yml",
+                    )
+                    self.assertEqual(
+                        result.returncode,
+                        status,
+                        result.stdout + result.stderr,
+                    )
+                    self.assertEqual(result.stderr, "")
+                    self.assertNotIn("passing compiler", result.stdout)
+                    if status == 0:
+                        self.assertEqual(result.stdout, f"OK {check}\n")
+                    else:
+                        self.assertIn(f"FAIL {check}:", result.stdout)
+                    arguments = json.loads(
+                        (root / "arguments.json").read_text()
+                    )
+                    self.assertIn("compose", arguments)
+                    self.assertIn(operation, arguments)
 
     def test_every_declared_frontend_has_a_diagnostic_policy(self) -> None:
         policies = json.loads(

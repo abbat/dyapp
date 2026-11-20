@@ -450,6 +450,11 @@ The dev container mounts a separate volume at `/workspace/build`, hiding the hos
 Bind-mount ad-hoc scripts and cached compiler inputs explicitly; use a dedicated host `build/`
 output mount when generated artifacts must be read afterwards.
 
+`run-check.py` accepts only check IDs registered in `tools/scripts/check-output.json`;
+GitHub step names are display labels, not new check IDs. Prototype image builds use `docker`
+and rendering uses `ui-tests`. Workflow lint alone cannot verify this runtime mapping;
+`tests/test_ci_output.py` executes the prototype steps against the actual runner with a fixture tool.
+
 Use the Make targets above for quiet successful checks. `tools/scripts/docker-local.py` captures
 stdout and stderr from each Docker stage, including Compose stop, in memory: the first 64 KiB
 and the last 256 KiB, with a `[... N bytes truncated ...]` marker between them.
