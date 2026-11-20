@@ -6,7 +6,9 @@ used the app recently, and the user can hide it. Implemented in the Rust client:
 (`Body::Presence` in `rust/client/src/chat.rs`, sent with the signal class), the store rules
 (`rust/client/src/store/presence.rs`: audience setting, hourly throttle, drop and expiry rules),
 `Session::announce_presence` for the foreground send, the apply on receive and the outbox
-expiry. The desktop sends it and shows the mark; planned: the same on the other clients.
+expiry. The desktop sends it and shows the mark. Android shows received marks in chat rows and the open
+chat heading, refreshing after mailbox passes and hiding marks after a failed read or identity
+change. Android foreground sending remains planned.
 The common `presence::due_at` preflight avoids opening a node connection when no known chat is
 eligible; actual staging still rechecks the audience and hourly throttle. `presence::active_peers_at`
 projects fresh authenticated match marks. Both accept local wall time so tests exercise the same

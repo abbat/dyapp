@@ -171,6 +171,7 @@ internal fun ChatListRow(row: ChatRow, name: ContactNameView?, modifier: Modifie
         PeerAvatar(row.peerId, name)
         Column(Modifier.weight(1f)) {
             Text(contactLabel(row.peerId, name), style = MaterialTheme.typography.titleSmall)
+            ChatPresenceLabel(row.peerId)
             Text(
                 chatPreview(row.lastMessage),
                 maxLines = 1,

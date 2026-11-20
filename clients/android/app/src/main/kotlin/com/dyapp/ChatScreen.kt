@@ -169,11 +169,14 @@ private fun ChatBackBar(peer: String, name: ContactNameView?, actions: ChatActio
             Alignment.CenterVertically
         ) {
             PeerAvatar(peer, name)
-            Text(
-                contactLabel(peer, name),
-                Modifier.semantics { heading() },
-                style = MaterialTheme.typography.titleMedium
-            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    contactLabel(peer, name),
+                    Modifier.semantics { heading() },
+                    style = MaterialTheme.typography.titleMedium
+                )
+                ChatPresenceLabel(peer)
+            }
         }
         menu()
     }

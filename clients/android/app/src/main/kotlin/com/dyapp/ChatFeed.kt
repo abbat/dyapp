@@ -49,6 +49,7 @@ internal class ChatFeed(internal val opened: Opened.Ready) {
         private set
 
     val lists = ChatsLists()
+    val presence = ChatPresence()
     private val photos = ChatPhotoFeed(opened, ::read)
 
     /** Counts the reads, so an open chat reloads for a change the rows do not show. */
@@ -57,11 +58,12 @@ internal class ChatFeed(internal val opened: Opened.Ready) {
 
     // Failures stay quiet and keep the last rows: no network and an unpublished profile are normal.
     internal fun read() {
-        runCatching {
+        presence.read {
             RustBridge.withChats(opened) {
                 rows = it.chatRows()
                 version += 1
                 liked = it.likedYou()
+                it.activeChatPeers()
             }
         }
     }

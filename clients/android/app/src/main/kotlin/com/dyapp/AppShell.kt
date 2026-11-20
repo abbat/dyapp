@@ -75,7 +75,11 @@ internal fun AppShell(
     val feed = rememberChatFeed(opened)
     val search = rememberSearchSession(opened)
     val settings = rememberSettingsPane(opened.slot.id)
-    CompositionLocalProvider(LocalPeerPhotos provides search.photos, LocalSettingsPane provides settings) {
+    CompositionLocalProvider(
+        LocalPeerPhotos provides search.photos,
+        LocalSettingsPane provides settings,
+        LocalActiveChatPeers provides feed.presence.peers
+    ) {
         ShellRoutes(slots, opened, section, lockMode, act, open, feed, search)
     }
 }

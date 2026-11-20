@@ -13,6 +13,10 @@ retry states. **Remove from saved** removes only the private mark and works with
 profile. **Refresh saved profiles** rereads the local list; a failure is shown instead of an empty
 list. Pending removal disables row actions, and identity replacement discards the old presentation.
 
+Chat rows and the open chat heading show **Active recently** only for matches with a fresh
+received presence signal according to the common core. Refresh removes expired marks; a failed
+read hides them. There is no exact last-seen time. Sending Android foreground presence remains planned.
+
 Sticker history is prepared to show emoji and pack name without downloading media.
 Image display, chat delivery and Add pack remain planned.
 

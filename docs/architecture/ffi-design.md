@@ -3,7 +3,9 @@
 `ChatSession.active_chat_peers` is a read-only common-core projection of fresh authenticated
 match presence. A failed read stays an error; the native UI must not infer expiry or a fresh mark
 from missing data. It never sends presence, including during mailbox/expiry refresh. Native
-foreground announcement and visible Android marks are still being implemented.
+foreground announcement remains planned. Android shows received marks in chat rows and the open
+chat heading, refreshes them after mailbox passes, and hides them on failed reads or identity changes.
+Kotlin performs only ID membership checks; freshness and match eligibility stay in the core.
 
 `ChatSession.media_cache`, `set_media_cache(enabled, limit_bytes)` and
 `clear_media_cache` expose the device-local encrypted originals cache. The record contains
