@@ -13,7 +13,9 @@ setting, using the same core preflight and staging. Android's unlocked identity 
 announcement on RESUMED transitions and identity opening, never recomposition, mail refresh or timers.
 Pause, lock or identity replacement cancels queued work; a call waiting for native session admission
 checks cancellation again before sending. Already admitted core operations finish with their original
-identity lease. Android's Privacy control remains planned.
+identity lease. Android Privacy exposes matches/nobody radios for this identity on this device.
+Unknown state cannot authorize a write; a failed save requires native readback before another choice.
+Changing the audience does not itself announce presence.
 The common `presence::due_at` preflight avoids opening a node connection when no known chat is
 eligible; actual staging still rechecks the audience and hourly throttle. `presence::active_peers_at`
 projects fresh authenticated match marks. Both accept local wall time so tests exercise the same

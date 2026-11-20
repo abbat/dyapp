@@ -10,7 +10,10 @@ common `presence::due_at` returns false before active-network lookup when nothin
 Android's unlocked identity shell calls the sender once per RESUMED transition or identity opening,
 not recomposition or mail refresh. Retiring that event cancels queued presentation work; after native
 session admission, Kotlin checks cancellation again before invoking the sender. Admitted core work
-retains its operation through completion. Android's Privacy control remains planned.
+retains its operation through completion. Android Privacy offers immediate matches/nobody radios,
+with native readback after writes, disabled unknown/busy states and read-only retry after any
+unconfirmed outcome. Identity replacement retires the old presentation; changing the setting
+itself sends no activity.
 Android shows received marks in chat rows and the open
 chat heading, refreshes them after mailbox passes, and hides them on failed reads or identity changes.
 Kotlin performs only ID membership checks; freshness and match eligibility stay in the core.

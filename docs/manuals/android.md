@@ -17,7 +17,10 @@ Chat rows and the open chat heading show **Active recently** only for matches wi
 received presence signal according to the common core. Refresh removes expired marks; a failed
 read hides them. There is no exact last-seen time. The unlocked app announces recent activity to
 allowed matches when resumed or an identity opens, subject to the core hourly limit. Mail refresh
-never announces activity. The Android audience selector remains planned.
+never announces activity. **Settings → Privacy → Show recent activity to** selects **Matches**
+or **Nobody** for this identity on this device. Nobody stops new signals; already sent marks may
+remain for up to two hours. Received activity remains visible. Enabling takes effect on the next
+foreground opening. Failed settings reads or saves require retry before another change.
 
 Sticker history is prepared to show emoji and pack name without downloading media.
 Image display, chat delivery and Add pack remain planned.

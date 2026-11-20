@@ -182,7 +182,9 @@ The IDs inside each section are the desktop ones; only the frame differs.
   not change the page locale or persist the choice.
 - Privacy contains immediate switches `send-views`, `send-read-receipts`, `send-typing`
   and the `presence-audience` radios. Its hint scopes these preferences to this identity on
-  this device. Separate count links open `settings-blocked` and `settings-passed`.
+  this device. Native Android now exposes the presence audience through common-core storage and
+  foreground send policy, with confirmed readback and read-only retry on unknown outcomes.
+  Separate count links open `settings-blocked` and `settings-passed`.
   The distinct `lock-settings` row opens app lock, whose scope is the whole app.
   Notifications has `message-notifications` and `notice-content` (`notice-fixed`,
   `notice-name`, `notice-text`). Photos uses `photo-mode`, the `keep-photos` switch,

@@ -75,6 +75,7 @@ private fun SettingsCollection(pane: SettingsPane, slots: Slots, active: Opened.
 @Composable
 private fun PrivacySettings(active: Opened.Ready, route: androidx.compose.runtime.MutableState<SettingsPane>) {
     ReadReceiptsRow(active)
+    PresenceCard(active)
     SettingsLink(SettingsPane.BLOCKED, route)
     SettingsLink(SettingsPane.PASSED, route)
 }
