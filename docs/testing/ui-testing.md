@@ -608,6 +608,11 @@ text, and requires private-only mutations to leave public draft, likes and chat 
 Typed invalid/own/text/blocked refusals preserve existing values; blocked favorites remain removable
 and private notes remain readable/editable/clearable. These assertions do not replace the planned
 Android favorite-list and note-editor screen journeys or their own-device incremental-sync evidence.
+The core protocol case `common_maintenance_starts_one_group_and_syncs_private_changes` uses the real
+node and mailbox-ordered own-device pair. It drives the shared maintenance entry point, checks that
+only the eligible device starts a group and repeated maintenance keeps it, then exchanges private
+changes in both directions. Favorites and note readbacks extend the existing block/mute/name/pass
+checks; no sleep or wall-clock turn delay admits a transition.
 `IdentityActionsTests` additionally gates an admitted switch and delivers a late cleanup completion;
 the old source cannot replace the new screen. Batch cases retain a matching completion even when a
 different slot completed later, preserve its durability diagnostic, and acknowledge only the observed

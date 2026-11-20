@@ -16,6 +16,8 @@ use std::slice::from_mut;
 
 #[path = "device_link/finish.rs"]
 mod finish;
+#[path = "device_link/maintenance.rs"]
+mod maintenance;
 #[path = "device_link/offline.rs"]
 mod offline;
 #[path = "device_link/registry.rs"]
@@ -612,6 +614,8 @@ async fn sync_own_private_state(
         PeerChange::Muted(true),
         PeerChange::Passed(true),
         PeerChange::Name("Bobby".into()),
+        PeerChange::Favorite(true),
+        PeerChange::Note("Private note from the first device".into()),
     ] {
         first_session
             .change_peer(from_mut(&mut first.node), &bob, change, &SEAL)
@@ -622,24 +626,38 @@ async fn sync_own_private_state(
         .receive(from_mut(&mut second.node), &second.device_key, held, &SEAL)
         .await
         .unwrap();
-    let synced = second_session.store();
-    assert!(synced.blocked(&bob).unwrap() && synced.muted(&bob).unwrap());
-    assert_eq!(synced.passed_peers().unwrap(), vec![bob.clone()]);
-    assert_eq!(synced.local_name(&bob).unwrap(), "Bobby");
-    second_session
-        .change_peer(
-            from_mut(&mut second.node),
-            &bob,
-            PeerChange::Blocked(false),
-            &SEAL,
-        )
-        .await
-        .unwrap();
+    assert_first_private_sync(second_session.store(), &bob);
+    for change in [
+        PeerChange::Blocked(false),
+        PeerChange::Favorite(false),
+        PeerChange::Note("Private note from the second device".into()),
+    ] {
+        second_session
+            .change_peer(from_mut(&mut second.node), &bob, change, &SEAL)
+            .await
+            .unwrap();
+    }
     first_session
         .receive(from_mut(&mut first.node), &first.device_key, held, &SEAL)
         .await
         .unwrap();
     assert!(!first_session.store().blocked(&bob).unwrap());
+    assert!(!first_session.store().favorite(&bob).unwrap());
+    assert_eq!(
+        first_session.store().contact_note(&bob).unwrap(),
+        "Private note from the second device"
+    );
+}
+
+fn assert_first_private_sync(synced: &Store, peer: &str) {
+    assert!(synced.blocked(peer).unwrap() && synced.muted(peer).unwrap());
+    assert_eq!(synced.passed_peers().unwrap(), vec![peer.to_owned()]);
+    assert_eq!(synced.local_name(peer).unwrap(), "Bobby");
+    assert!(synced.favorite(peer).unwrap());
+    assert_eq!(
+        synced.contact_note(peer).unwrap(),
+        "Private note from the first device"
+    );
 }
 
 #[tokio::test]

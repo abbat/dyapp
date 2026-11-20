@@ -971,6 +971,7 @@ pub use link::LinkOptions;
 mod local;
 mod mailbox_failure;
 pub use mailbox_failure::MailboxFailure;
+mod device_maintenance;
 mod operations;
 mod profile_share;
 mod publication;

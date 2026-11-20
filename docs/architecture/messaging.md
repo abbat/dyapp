@@ -351,6 +351,11 @@ per-field device keys. `Group::add_turn` orders the owner's devices in a group b
 and each waits `ADD_TURN_SECONDS` per earlier device, counted from when it first saw that profile
 (`own_profile_seen` in `settings`), since two commits on one epoch would fork the group. The
 desktop client takes the owner's profile from a node, ignoring one older than its own copy.
+`Session::maintain_own_devices` is the common after-mailbox orchestration: start the private group,
+add listed devices, then remove dropped ones. All three stages run before the first error is
+returned; earlier work may already be committed. Desktop delegates this sequence while retaining
+its verified-profile/cache admission. Native receive freshness and wiring to this helper remain
+planned; initial device-link import alone does not establish later own-device synchronization.
 
 A device a newer profile no longer lists leaves every group the same way: `Group::remove_turn` orders
 the members that stay by device key, contacts included, since a group of a contact and a lost device

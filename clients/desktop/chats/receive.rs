@@ -315,13 +315,7 @@ impl MailPass<'_> {
                 let profiles = self.cached.all().to_vec();
                 let nodes = std::slice::from_mut(node);
                 let _ = session
-                    .join_own_devices(nodes, &newest, now, seal_key)
-                    .await;
-                let _ = session
-                    .add_own_devices(nodes, &newest, &profiles, now, seal_key)
-                    .await;
-                let _ = session
-                    .remove_dropped_devices(nodes, &profiles, now, seal_key)
+                    .maintain_own_devices(nodes, &newest, &profiles, now, seal_key)
                     .await;
             }
         }
