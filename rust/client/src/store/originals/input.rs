@@ -16,7 +16,9 @@ fn decimal(text: &str) -> Option<(u128, i32)> {
         .chain(fraction.bytes())
         .try_fold(0u128, |value, digit| {
             digit.is_ascii_digit().then_some(())?;
-            value.checked_mul(10)?.checked_add(u128::from(digit - b'0'))
+            value
+                .checked_mul(10)?
+                .checked_add(u128::from(digit.checked_sub(b'0')?))
         })?;
     Some((
         value,
@@ -29,7 +31,9 @@ fn scale(value: u128, power: i32) -> Option<u128> {
     if power >= 0 {
         value.checked_mul(factor)
     } else {
-        value.is_multiple_of(factor).then_some(value / factor)
+        value
+            .checked_div(factor)
+            .filter(|_| value.is_multiple_of(factor))
     }
 }
 
@@ -54,8 +58,8 @@ pub fn parse_mib(text: &str) -> Option<u64> {
 #[must_use]
 pub fn mib_text(bytes: u64) -> String {
     let whole = bytes / MIB;
-    // 2^20 divides 10^20, so every integral-byte remainder has an exact finite expansion.
-    let fraction = u128::from(bytes % MIB) * 10u128.pow(20) / u128::from(MIB);
+    // 10^20 / 2^20 = 95_367_431_640_625; remainder < 2^20 keeps the product below 10^20.
+    let fraction = u128::from(bytes % MIB).saturating_mul(95_367_431_640_625);
     if fraction == 0 {
         return whole.to_string();
     }
