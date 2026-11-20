@@ -426,7 +426,11 @@ The app owns one active `Device`, its loaded `Group` handles, the selected ident
 sealing key and the SQLite `Store` together. `stage_group` atomically records a new group's ID,
 its verified peer, the sealed Device and all prepared Welcome writes. On restart, `load_groups`
 uses the catalog to restore every group from the unsealed Device and refuses a missing group or
-one without its recorded peer. It opens the identity key first, then the matching database, then
+an unrelated live peer binding. An established conversation may retain only owner devices after
+its partner loses every device: restoration preserves the original catalog association rather
+than treating authorized removal as corruption. Initial registration still requires the named
+partner, and this retained association never authorizes a new device or bypasses verified-profile
+checks. It opens the identity key first, then the matching database, then
 `Device::open` with the key unwrapped from the platform backend and `load_groups` for each
 conversation. A missing or inaccessible key does not start network work. Never keep a
 group handle from the previous device after reopening a snapshot.

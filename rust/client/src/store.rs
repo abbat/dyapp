@@ -433,14 +433,22 @@ impl Store {
     ///
     /// # Errors
     /// Returns database or MLS errors, or [`Error::GroupMismatch`] for a missing
-    /// group or a group whose membership does not fit its catalog entry.
+    /// group or a group whose membership does not fit its catalog entry. An established group
+    /// may retain only owner devices after all of its partner's devices were revoked;
+    /// initial registration through `stage_group` still requires the named partner.
     pub fn load_groups(&self, device: &Device) -> Result<Vec<(Group, String)>, Error> {
         self.known_groups()?
             .into_iter()
             .map(|(id, peer_id)| {
                 let group = Group::load(device, &id)?.ok_or(Error::GroupMismatch)?;
                 if !self.belongs(&group, &peer_id)? {
-                    return Err(Error::GroupMismatch);
+                    // Revocation may leave only our devices; retain the established partner binding.
+                    let members = group.members()?;
+                    if members.is_empty()
+                        || members.iter().any(|member| member != &self.owner_peer_id)
+                    {
+                        return Err(Error::GroupMismatch);
+                    }
                 }
                 Ok((group, peer_id))
             })

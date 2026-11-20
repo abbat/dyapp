@@ -198,6 +198,10 @@ fn native_idle_refresh_removes_a_revoked_contact_without_new_mail() {
     // No incoming message or explicit contact confirmation supplies the newer authority.
     receiver.receive().unwrap();
     assert!(!stored_members(&chat.dir, &chat.alice, &chat.group).contains(&peer));
+    drop(receiver);
+    let reopened = native_at(&chat.alice, &chat.address, &chat.dir);
+    reopened.receive().unwrap();
+    assert!(!stored_members(&chat.dir, &chat.alice, &chat.group).contains(&peer));
 }
 
 #[test]
