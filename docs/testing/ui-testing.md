@@ -1,5 +1,13 @@
 # UI Testing: Practical Guide
 
+`ChatListPreviewTests` drives actual conversation rows for all six typed bodies and forwarded states,
+with disagreeing legacy text/time, cached shared-profile labels, original navigation and a full-history
+sentinel. `ChatListPreviewGeometryTests` reads actual semantic text layouts and unclipped bounds at
+normal/doubled font scale; its narrow host derives from measured text and current window width.
+It requires wrapping, complete non-ellipsized content, timestamps below the preview and contained
+horizontal bounds, without guessed offsets or sleeps. These sources require actual SDK/device CI;
+static lint alone does not establish rendered acceptance.
+
 `MediaCacheErrorTests` controls unknown-read retry without default writes, raw invalid input and
 indeterminate-write readback with draft retention. `MediaCacheOwnerTests` checks cancellation without
 a confirmed mutation, a cancelled dialog callback versus a newer opening, repeated captured Confirm

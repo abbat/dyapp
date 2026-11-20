@@ -92,7 +92,11 @@ the bounded text; they must not implement another truncation algorithm.
 
 The shared Tauri chat list renders `preview` and its timestamp directly, localizing body kinds
 without inspecting `lastMessage`. Its text wraps without CSS ellipsis; the complete message stays
-in history. Android and iOS list adoption remains planned behind the screen review gate.
+in history. Android also renders the typed body and original preview timestamp, using local cached
+names for shared-profile labels without fetching the target or media. Its bounded text wraps and
+metadata occupies separate lines, preserving preview width at narrow/large-font layouts. Full
+conversation text remains separate. Android native runtime/visual acceptance and iOS adoption
+remain pending behind their respective screen gates.
 
 ## Network attempt ownership
 

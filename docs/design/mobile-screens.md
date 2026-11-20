@@ -164,7 +164,11 @@ The IDs inside each section are the desktop ones; only the frame differs.
   chat. A chat row and the chat header name the peer by the desktop rule
   ([contact names](desktop-screens.md)): the local name; else the public name, Verified or Not
   verified and the short Peer ID; else the short Peer ID; with the main photo once fetched. The
-  row opens the chat. `chat-rename` in the chat menu names the peer on this device. On iOS and macOS
+  row opens the chat. Android uses the core-selected bounded typed preview and its original time,
+  including photo, sticker and shared-profile labels. It does not borrow older retained message text
+  or time, truncate again, or fetch linked profiles/media while formatting. Preview text wraps above
+  metadata so a timestamp cannot squeeze it out. Full messages stay in the conversation.
+  `chat-rename` in the chat menu names the peer on this device. On iOS and macOS
   the menu also opens a sheet with the safety number and QR code, without a copy, a scan or a
   verified mark. The app receives
   the mailbox every minute while it is in the foreground, on every section and in a chat, and a
