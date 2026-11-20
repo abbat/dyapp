@@ -550,8 +550,10 @@ discovery and run nothing; regression tests must cover discovery errors and empt
   their neighbours against Nielsen's 10 heuristics and record the findings, as described in the
   [desktop heuristic review](../design/desktop-heuristics.md#when-to-review). No change ships
   with an open finding of any severity (1-4) unless the maintainer accepted it as an exception.
-- After changing the desktop prototype or its screenshot helpers, run `make ui-prototype` locally
-  before committing: CI does not run the prototype check.
+- After changing the desktop prototype or its screenshot helpers, run `make ui-prototype` or
+  launch the manual `prototype-review` workflow. Ordinary push/PR CI does not capture prototypes;
+  the manual workflow retains current full-matrix evidence and provenance for review. The
+  heuristic review above remains a delivery prerequisite.
 - Track work in GitHub Issues, or in beads when set up locally ([beads.md](beads.md)).
 - Start a session with `gh issue list --label nightly-failure`: each open issue is a failing
   scheduled workflow, opened by `nightly-health.yml`, and is worked before regular tasks. It
