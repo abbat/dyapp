@@ -81,7 +81,8 @@ authentication coverage. Geometry checks cover hidden status, visible status and
 Unknown non-empty smoke steps fail explicitly; the runner checks that rejection separately.
 Linux, Windows and macOS CI retain `desktop-ui-results.json` with named case results alongside
 the captured diagnostic output; a green job alone does not establish coverage of a named case.
-Native keyboard checks wait for document focus through the window focus event and a deadline;
+Native keyboard checks request native focus when inactive, then wait for actual document focus
+through the window focus event and a deadline;
 restoring a desktop window also requests native focus. Notification click scenarios await native
 hidden readiness before receiving mail and actual notification-click restoration afterwards.
 A hidden GTK window can retain its active flag; notification suppression requires both visibility
@@ -285,7 +286,7 @@ due boundary through the public Store API, checks immediately before/at that bou
 once. No wall-clock offset window, global contact resume or arbitrary attempt count synchronizes
 this regression; the real responder records the envelope before completing its reply.
 
-## Host client for Android incoming PNGs
+## Host client for Android incoming PNG images
 
 `cargo run --locked -p dyapp-client --example android_photo_fixture -- LOOPBACK_MULTIADDR ABSOLUTE_NEW_DATABASE PEER_ID`
 starts an ephemeral host client against an existing test node. Only literal loopback TCP addresses
@@ -314,7 +315,7 @@ binary SHA-256 and separate `instrumentation-incoming-png-<phase>.txt` files, an
 the host. The general suite excludes these phases; no uncertain submission is retried.
 Source-bearing runtime evidence remains pending. `IncomingPngChecks` runs the same assertions
 against its caller-owned native session. The phase
-pairs a normal Android client with the host, receives PNGs
+pairs a normal Android client with the host, receives PNG images
 with known and zero claimed geometry, checks exact original bytes and ImageDecoder pixels, then
 damages the newly created sealed cache file and requires online recovery. A separate signed 41×20
 claim for the actual 40×20 PNG must fail as corrupted without creating a cache entry. A second

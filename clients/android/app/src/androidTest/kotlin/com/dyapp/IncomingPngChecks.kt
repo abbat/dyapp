@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import androidx.core.graphics.createBitmap
+import androidx.core.graphics.get
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -127,7 +128,7 @@ internal class IncomingPngChecks(private val session: ChatSession, private val d
         try {
             assertEquals(40, bitmap.width)
             assertEquals(20, bitmap.height)
-            assertEquals(Color.RED, bitmap.getPixel(bitmap.width / 2, bitmap.height / 2))
+            assertEquals(Color.RED, bitmap[bitmap.width / 2, bitmap.height / 2])
         } finally {
             bitmap.recycle()
         }

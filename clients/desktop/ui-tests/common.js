@@ -57,6 +57,12 @@ const documentFocused = () =>
     }, 10000);
     window.addEventListener('focus', finish, true);
     finish();
+    if (!document.hasFocus())
+      invokeTest('ui_test_focus').catch((error) => {
+        stopTimer(deadline);
+        window.removeEventListener('focus', finish, true);
+        reject(error);
+      });
   });
 // With axe-core loaded (DYAPP_AXE), checks the current screen: WCAG 2.x A/AA (labels and
 // contrast included) in the light and dark themes, tab order following the DOM, a visible focus

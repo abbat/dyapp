@@ -86,6 +86,13 @@ pub(crate) async fn ui_test_hide(
     wait(&mut changes, |state| state.visible == Some(true), "restore").await
 }
 
+/// Request native focus; the webview waits for its actual document focus event.
+#[tauri::command]
+pub(crate) fn ui_test_focus(window: tauri::Window) -> Result<(), String> {
+    ensure_test()?;
+    window.set_focus().map_err(|error| error.to_string())
+}
+
 /// Waits until the window is visible; the watch keeps the last state, so an earlier restore counts.
 #[tauri::command]
 pub(crate) async fn ui_test_restored(window: tauri::Window) -> Result<(), String> {

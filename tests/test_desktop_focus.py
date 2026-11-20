@@ -17,7 +17,15 @@ let focused = false;
 const listeners = new Set();
 const timers = new Map();
 let token = 0;
+const focusRequests = [];
+let failFocus = false;
 const context = {
+  invokeTest: (command) => {
+    focusRequests.push(command);
+    return failFocus
+      ? Promise.reject(new Error('native focus refused'))
+      : Promise.resolve();
+  },
   document: {hasFocus: () => focused},
   window: {
     addEventListener: (_type, listener) => listeners.add(listener),
@@ -33,6 +41,7 @@ let settled = false;
 const pending = context.wait().then(() => {settled = true;});
 await Promise.resolve();
 assert.equal(settled, false);
+assert.deepEqual(focusRequests, ['ui_test_focus']);
 assert.equal(listeners.size, 1);
 focused = true;
 for (const listener of [...listeners]) listener();
@@ -40,6 +49,7 @@ await pending;
 assert.equal(listeners.size, 0);
 assert.equal(timers.size, 0);
 await context.wait();
+assert.equal(focusRequests.length, 1, 'already focused needs no request');
 assert.equal(listeners.size, 0);
 assert.equal(timers.size, 0);
 focused = false;
@@ -49,6 +59,10 @@ timers.clear();
 expire();
 await assert.rejects(expired, /native document focus deadline/);
 assert.equal(listeners.size, 0);
+failFocus = true;
+await assert.rejects(context.wait(), /native focus refused/);
+assert.equal(listeners.size, 0);
+assert.equal(timers.size, 0);
 
 const axeSource = readFileSync(
   'clients/desktop/ui-tests/criteria-axe.js', 'utf8',
