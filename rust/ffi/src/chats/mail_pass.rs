@@ -121,6 +121,10 @@ impl ChatSession {
         let changed = self
             .receive_mailbox(session, node, replicas.nodes_mut(), own.clone())
             .await?;
+        let held = self
+            .receive_contact_profiles(session, node, generation, now.as_secs())
+            .await?;
+        let fresh = fresh.map(|_| held);
         let profiles = fresh.as_ref().map_or_else(
             || own.into_iter().collect::<Vec<_>>(),
             |held| held.all().to_vec(),

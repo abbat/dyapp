@@ -22,6 +22,30 @@ impl ChatSession {
         Ok(Some(context.profiles().clone()))
     }
 
+    pub(super) async fn receive_contact_profiles(
+        &self,
+        session: &Session,
+        node: &mut Node,
+        generation: &Generation,
+        now: u64,
+    ) -> Result<Profiles, CoreError> {
+        if let Ok(Some(peer)) =
+            dyapp_client::contact_verification::refresh_target(session.store(), now)
+        {
+            if let Ok(remote) = node.get_profile(&peer).await {
+                let mut context = self.contact_context.lock().map_err(failed)?;
+                // Read failures/older authority remain best-effort; obsolete generations cannot commit.
+                let _ =
+                    context.accept_contact_if_current(generation, session.store(), &peer, remote);
+            }
+        }
+        let context = self.contact_context.lock().map_err(failed)?;
+        if !context.is_current(generation) {
+            return Err(failed("notConnected"));
+        }
+        Ok(context.profiles().clone())
+    }
+
     pub(super) async fn maintain_received_own(
         &self,
         session: &mut Session,
