@@ -12,6 +12,7 @@ checker="$(dirname "${BASH_SOURCE[0]}")/check-instrumentation-results.py"
 mkdir -p "$report_dir"
 
 phase() {
+    # The legacy caller inspects failure: Bash disables errexit in conditional functions.
     local name=$1
     local -a public_args=()
     if [[ -n $public_node ]]; then
@@ -21,8 +22,8 @@ phase() {
         --report "$report_dir/local-network-$name.txt" --deadline 300 -- \
         adb -s "$serial" shell am instrument -w -r \
         -e localNetworkPermissionPhase "$name" -e localNetworkNode "$node" \
-        "${public_args[@]}" -e class "$test_class" com.dyapp.test/androidx.test.runner.AndroidJUnitRunner
-    python3 "$checker" "$report_dir/local-network-$name.txt" 1
+        "${public_args[@]}" -e class "$test_class" com.dyapp.test/androidx.test.runner.AndroidJUnitRunner || return
+    python3 "$checker" "$report_dir/local-network-$name.txt" 1 || return
     if [[ $mode == modern ]]; then
         local receipt="$report_dir/local-network-$name-receipt.json"
         timeout 30 adb -s "$serial" exec-out run-as com.dyapp cat \
@@ -49,7 +50,13 @@ foreground() (
 )
 
 case "$mode" in
-    legacy) phase legacy ;;
+    legacy)
+        if ! phase legacy; then
+            printf 'ERROR Android guest-to-node readiness failed for %s; see %s/local-network-legacy.txt\n' \
+                "$node" "$report_dir" >&2
+            exit 1
+        fi
+        ;;
     modern)
         if [[ -z $public_node || $public_node == "$node" ]]; then
             echo "Modern permission phases require a separate non-LAN node address" >&2

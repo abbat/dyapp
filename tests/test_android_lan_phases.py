@@ -161,9 +161,13 @@ class AndroidLanPhases(unittest.TestCase):
             return result.returncode, events
 
     def test_legacy_lane_never_mutates_an_unsupported_permission(self) -> None:
-        code, events = self.run_phase("legacy")
-        self.assertEqual(code, 0)
-        self.assertEqual(events, ["legacy"])
+        for failed in (False, True):
+            with self.subTest(failed=failed):
+                code, events = self.run_phase(
+                    "legacy", fail="legacy" if failed else ""
+                )
+                self.assertEqual(code, 1 if failed else 0)
+                self.assertEqual(events, ["legacy"])
 
     def test_modern_uses_separate_instrumentations(
         self,

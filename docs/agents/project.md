@@ -461,6 +461,9 @@ output mount when generated artifacts must be read afterwards.
 GitHub step names are display labels, not new check IDs. Prototype image builds use `docker`
 and rendering uses `ui-tests`. Workflow lint alone cannot verify this runtime mapping;
 `tests/test_ci_output.py` executes the prototype steps against the actual runner with a fixture tool.
+Shell functions invoked in `if`, `!` or boolean lists cannot rely on `set -e`: Bash disables it
+through the function body. Propagate each required command failure explicitly (`|| return`) and
+exercise the real failed-command path before adding contextual diagnostics around such a function.
 
 Use the Make targets above for quiet successful checks. `tools/scripts/docker-local.py` captures
 stdout and stderr from each Docker stage, including Compose stop, in memory: the first 64 KiB
