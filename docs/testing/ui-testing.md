@@ -6,6 +6,9 @@ a confirmed mutation, a cancelled dialog callback versus a newer opening, repeat
 admission, and late noncancellable completion after identity replacement. Gates are released in
 cleanup even if an assertion fails; transitions use actual completion/readiness signals.
 The widget leaves parsing, cache policy and confirmation decisions to common core through UniFFI.
+`NativeMediaCacheTests` separately exercises real JNI exact input, confirmation, preservation of
+independent fields, reopened identity isolation and actual cache clearing without losing private
+notes/favorites. Only actual instrumented execution establishes this native acceptance.
 
 Shared cache input tests cover integral-byte decimal/exponent conversion, exact non-whole MiB
 round trips, range/overflow refusal and destructive-change boundaries. Store-control tests require
