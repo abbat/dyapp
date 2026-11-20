@@ -149,9 +149,15 @@ try {
     }
     $missingLabels = @(@{ heading = 'Missing smoke heading'; button = 'Missing smoke button' })
     if (Find-Setup $window $missingLabels) { throw 'Accessibility check accepted absent controls' }
+    # Readiness is complete. Detach UIA before destroying the provider it observes.
+    Mark-Stage 'release readiness observers'
+    $changes.Dispose()
+    $changes = $null
     Mark-Stage 'close production window'
     if (-not $appProcess.CloseMainWindow()) { throw 'Could not close production window' }
+    Mark-Stage 'await production process exit'
     if (-not $appProcess.WaitForExit(15000)) { throw 'Production app did not exit after Close' }
+    Mark-Stage 'verify production exit code'
     if ($appProcess.ExitCode -ne 0) { throw 'Production app exited with an error' }
     Write-Output 'Production desktop rendered setup and closed without injected hooks'
 } catch {
@@ -160,6 +166,9 @@ try {
     }
     throw
 } finally {
-    $changes.Dispose()
+    if ($changes) {
+        Mark-Stage 'release remaining readiness observers'
+        $changes.Dispose()
+    }
     if ($appProcess -and -not $appProcess.HasExited) { $appProcess.Kill(); $appProcess.WaitForExit() }
 }

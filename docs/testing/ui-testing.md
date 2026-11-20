@@ -141,8 +141,10 @@ Linux focuses the button and quits with Ctrl+Q; Windows closes the native window
 clean process exit. Windows uses `tests/scripts/production-windows-smoke.ps1`: UIA window,
 structure and relevant property events wake readiness checks; process exit also signals the wait.
 Native-window and rendered-setup transitions have separate monotonic failure deadlines; unrelated
-events do not extend them. Flushed phase markers distinguish observer initialization, process launch,
-window readiness, rendering and close. If the child PowerShell host dies, the parent retains its
+events do not extend them. Readiness observers are detached before Close destroys the app's UIA
+provider; shutdown uses the process completion signal and still requires a clean exit within its
+own deadline. Flushed phase markers distinguish observer initialization, process launch, window
+readiness, rendering, observer release, close, process completion and exit-code verification. If the child PowerShell host dies, the parent retains its
 failure code and reports at most five matching recent Windows crash events with bounded messages;
 absence of such events is diagnostic only, never success. A failure records the process/window and a bounded UIA tree, while
 retaining localized visible/enabled controls, missing-label countercheck and clean Close/exit.
