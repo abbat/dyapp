@@ -13,7 +13,8 @@ kotlin {
 
 android {
     namespace "com.dyapp"
-    compileSdk = "android-37.1"
+    compileSdk = 37
+    compileSdkMinor = 1
 
     defaultConfig {
         applicationId "com.dyapp"
