@@ -108,11 +108,11 @@ internal fun ProfileViewContent(
             CopyButton(peer, "copy-view-peer")
             if (!own) ProfileLikes(form, actions.message, onLike)
             ProfileBody(load, onRetry)
-            if (!own) favorite()
-            if (load is ProfileLoad.Shown) {
-                if (!own) note()
-                share()
+            if (!own) {
+                favorite()
+                note()
             }
+            if (load is ProfileLoad.Shown) share()
             if (!own) QuietActions(form, onPass)
         }
     }

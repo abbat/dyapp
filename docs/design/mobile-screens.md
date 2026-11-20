@@ -208,6 +208,17 @@ The IDs inside each section are the desktop ones; only the frame differs.
   A published profile is withdrawn before the key goes; if no node accepts it, offer Retry,
   Remove anyway and Cancel. A key that cannot open cannot sign the withdrawal and skips it.
 
+Android screens may be reviewed and implemented individually against the frozen criteria and the
+corresponding desktop behavior. The complete prototype review and per-client impact review remain
+v0.0.1 release requirements; this delivery order does not waive criteria or native verification.
+
+Native Android profile pages include a private Save/Remove action and a private note editor,
+scoped to the current identity and profile opening. Both use common-core local operations even if
+the public profile cannot be loaded. Search's saved-profile collection reads local IDs/cached labels;
+only an explicit row Open enters the ordinary verified profile-loading route. Note load failures
+stay distinct from empty text, failed saves retain the draft, and stale presentation completions
+cannot update another opening. Notes never enter public profile fields, likes or chat content.
+
 Native Android Settings still shows its original cards: identity/removal, app lock, blocked/passed,
 appearance, privacy/notifications, disabled updates and version. The receipt switch defaults off;
 notice delivery defaults on with fixed “New message” content. Turning delivery on requests

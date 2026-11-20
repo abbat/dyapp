@@ -24,7 +24,8 @@ The tagged release workflow builds an unsigned APK without secrets, then signs i
 
 ## Private contact notes
 
-Loaded profiles of other people include a **Private note** editor. It reads and writes only the
+Other people's profile pages include a **Private note** editor, even when public profile loading
+fails. It reads and writes only the
 active identity's private storage and own-device sync, including for blocked contacts. Notes do not
 appear in public profiles, search, likes or chat messages. Loading failure keeps editing disabled
 until Retry succeeds; it is not treated as an empty note. Saving waits for native readback. A failed
