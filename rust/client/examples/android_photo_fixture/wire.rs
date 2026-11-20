@@ -12,6 +12,9 @@ const MAX_COMMAND: u64 = (MAX_PNG as u64) * 4 + 1024;
 #[derive(Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub(super) enum Command {
+    Init {
+        peer: String,
+    },
     Receive {},
     Text {},
     Photo {
@@ -57,7 +60,7 @@ pub(super) fn png(bytes: &[u8]) -> Result<()> {
     Ok(())
 }
 
-fn read_from(reader: impl BufRead) -> Result<Option<Command>> {
+pub(super) fn read_from(reader: impl BufRead) -> Result<Option<Command>> {
     let mut bytes = Vec::new();
     let read = reader.take(MAX_COMMAND + 1).read_until(b'\n', &mut bytes)?;
     if read == 0 {
@@ -69,10 +72,6 @@ fn read_from(reader: impl BufRead) -> Result<Option<Command>> {
     Ok(Some(serde_json::from_slice(&bytes)?))
 }
 
-pub(super) fn read() -> Result<Option<Command>> {
-    read_from(std::io::stdin().lock())
-}
-
 pub(super) fn submitted(submission: &Submission) -> serde_json::Value {
     serde_json::json!({
         "id": submission.id(),
@@ -81,8 +80,11 @@ pub(super) fn submitted(submission: &Submission) -> serde_json::Value {
 }
 
 pub(super) fn reply(value: &serde_json::Value) -> Result<()> {
-    let mut output = std::io::stdout().lock();
-    serde_json::to_writer(&mut output, value)?;
+    write_to(&mut std::io::stdout().lock(), value)
+}
+
+pub(super) fn write_to(output: &mut impl Write, value: &serde_json::Value) -> Result<()> {
+    serde_json::to_writer(&mut *output, value)?;
     writeln!(output)?;
     output.flush()?;
     Ok(())

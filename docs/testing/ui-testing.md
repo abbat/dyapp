@@ -293,6 +293,13 @@ submits through the normal MLS attachment API, and returns only the committed ID
 flag and plaintext SHA-256. Zero claimed dimensions deliberately model unknown incoming geometry.
 The signature check does not prove pixel validity: Android's normal incoming-image path must check
 and decode the actual file. Commands are bounded; malformed input or native errors end the process.
+Use `--listen` instead of the Peer ID to accept one guest on `127.0.0.1:33446` inside the
+emulator container. Stdout reports `listening` after binding; the guest sends
+`{"op":"init","peer":"<Android owner ID>"}` and receives `initialized`, then the native
+publication's separate `ready` response with the host Peer ID. The guest reaches this listener
+at `10.0.2.2:33446`; the separate UI container's loopback is not the guest's host.
+Each TCP command has a fresh frame deadline; fragments never extend it. Reads run outside
+the Tokio driver thread, and Quit acknowledges `closed`. Invalid initialization/input ends the process.
 The example enables its guard tests in ordinary workspace test discovery. Android/host
 orchestration and source-bearing device evidence remain planned; this helper alone
 establishes no incoming-PNG runtime acceptance and adds no production FFI API.

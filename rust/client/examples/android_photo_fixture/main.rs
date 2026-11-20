@@ -1,5 +1,6 @@
 //! Host-only loopback client for Android incoming-PNG instrumentation.
 
+mod controller;
 mod wire;
 
 use dyapp_client::{attachment, session::Session, store::Store, Node};
@@ -131,6 +132,21 @@ impl Fixture {
         reply["sha256"] = serde_json::json!(descriptor.plaintext_sha256);
         Ok(reply)
     }
+
+    async fn command(&mut self, command: Command) -> Result<Option<serde_json::Value>> {
+        let response = match command {
+            Command::Receive {} => self.receive().await?,
+            Command::Text {} => self.text().await?,
+            Command::Photo {
+                bytes,
+                width,
+                height,
+            } => self.photo(&bytes, width, height).await?,
+            Command::Quit {} => return Ok(None),
+            Command::Init { .. } => return Err("guest already initialized".into()),
+        };
+        Ok(Some(response))
+    }
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -141,23 +157,18 @@ async fn main() -> Result<()> {
             "usage: android_photo_fixture LOOPBACK_MULTIADDR ABSOLUTE_NEW_DATABASE PEER_ID".into(),
         );
     };
-    let mut fixture = Fixture::start(address, Path::new(database), peer.clone()).await?;
-    wire::reply(&serde_json::json!({"ready": true, "peer": fixture.owner.peer_id()}))?;
+    let (mut controller, peer) = controller::Controller::open(peer).await?;
+    let mut fixture = Fixture::start(address, Path::new(database), peer).await?;
+    controller.reply(&serde_json::json!({"ready": true, "peer": fixture.owner.peer_id()}))?;
     loop {
         // A blocked controller must not block the current-thread libp2p runtime.
-        let command = tokio::task::spawn_blocking(wire::read).await??;
+        let command = controller.read().await?;
         let Some(command) = command else { break };
-        let response = match command {
-            Command::Receive {} => fixture.receive().await?,
-            Command::Text {} => fixture.text().await?,
-            Command::Photo {
-                bytes,
-                width,
-                height,
-            } => fixture.photo(&bytes, width, height).await?,
-            Command::Quit {} => break,
+        let Some(response) = fixture.command(command).await? else {
+            controller.reply(&serde_json::json!({"closed": true}))?;
+            break;
         };
-        wire::reply(&response)?;
+        controller.reply(&response)?;
     }
     Ok(())
 }
