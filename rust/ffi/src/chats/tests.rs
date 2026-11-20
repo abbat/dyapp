@@ -22,6 +22,8 @@ mod photo_original;
 mod photo_protocol;
 #[path = "tests/photo_submission.rs"]
 mod photo_submission;
+#[path = "tests/presence.rs"]
+mod presence;
 #[path = "tests/profile_share.rs"]
 mod profile_share;
 #[path = "tests/saved_sticker.rs"]

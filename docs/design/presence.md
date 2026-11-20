@@ -8,7 +8,9 @@ used the app recently, and the user can hide it. Implemented in the Rust client:
 `Session::announce_presence` for the foreground send, the apply on receive and the outbox
 expiry. The desktop sends it and shows the mark. Android shows received marks in chat rows and the open
 chat heading, refreshing after mailbox passes and hiding marks after a failed read or identity
-change. Android foreground sending remains planned.
+change. The shared native API exposes explicit foreground announcement and the matches/nobody
+setting, using the same core preflight and staging. Android lifecycle wiring and its Privacy
+control remain planned; exposing an API alone does not authorize a background send.
 The common `presence::due_at` preflight avoids opening a node connection when no known chat is
 eligible; actual staging still rechecks the audience and hourly throttle. `presence::active_peers_at`
 projects fresh authenticated match marks. Both accept local wall time so tests exercise the same

@@ -3,7 +3,12 @@
 `ChatSession.active_chat_peers` is a read-only common-core projection of fresh authenticated
 match presence. A failed read stays an error; the native UI must not infer expiry or a fresh mark
 from missing data. It never sends presence, including during mailbox/expiry refresh. Native
-foreground announcement remains planned. Android shows received marks in chat rows and the open
+foreground announcement is exposed through an explicit `ChatSession.announce_presence` call:
+common `presence::due_at` returns false before active-network lookup when nothing is due, and
+`Session::announce_presence` rechecks audience/throttle while staging. `presence_enabled` and
+`set_presence_enabled` persist the core matches/nobody choice without sending or hiding received marks.
+Android lifecycle admission and the Privacy control remain planned; mail refresh must never call the sender.
+Android shows received marks in chat rows and the open
 chat heading, refreshes them after mailbox passes, and hides them on failed reads or identity changes.
 Kotlin performs only ID membership checks; freshness and match eligibility stay in the core.
 
