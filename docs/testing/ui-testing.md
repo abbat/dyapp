@@ -90,7 +90,12 @@ Release packages are checked externally: `production-desktop-smoke.py` uses Linu
 and the shared `production-windows-smoke` action uses Windows UI Automation. A fresh profile
 must expose a visible setup heading and an enabled Create identity button from the same locale.
 Linux focuses the button and quits with Ctrl+Q; Windows closes the native window. Both require
-clean process exit. The artifact check rejects missing, empty or smoke-instrumented binaries.
+clean process exit. Windows uses `tests/scripts/production-windows-smoke.ps1`: UIA window,
+structure and relevant property events wake readiness checks; process exit also signals the wait.
+Native-window and rendered-setup transitions have separate monotonic failure deadlines; unrelated
+events do not extend them. A failure records the process/window and a bounded UIA tree, while
+retaining localized visible/enabled controls, missing-label countercheck and clean Close/exit.
+The artifact check rejects missing, empty or smoke-instrumented binaries.
 Debian package sessions also run real WebKit counterexamples for missing/hidden headings,
 disabled buttons and mixed locales; native functional flows remain in feature-enabled CI.
 The clean package-test container provisions AT-SPI/WebKit introspection and xdotool.
