@@ -26,7 +26,10 @@ result without changing the original selection or active network. The one-shot a
 is set before activity launch and restored afterward, so startup cannot race a system dialog. `PermissionDialog` observes
 accessibility events and resource IDs scoped to the current system-owned window with fresh
 transition deadlines. It verifies that window's package through public PackageManager metadata;
-it uses no translated labels or guessed geometry. The retained report is
+it matches the observed resource entry within that owner window rather than assuming the APK
+package is also the resource namespace. Traversal is bounded, ambiguous controls fail, and failures
+include the observed package/flags/resource IDs without copying dialog text. It uses no translated
+labels or guessed geometry. The retained report is
 `local-network-foreground.txt`. Compilation alone does not establish actual dialog execution.
 
 Android publication callbacks admit one attempt synchronously before coroutine dispatch. Closed,

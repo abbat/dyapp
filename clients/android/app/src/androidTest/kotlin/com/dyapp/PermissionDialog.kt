@@ -18,6 +18,7 @@ internal class PermissionDialog : AutoCloseable {
     private val automation = instrumentation.uiAutomation
     private val events = LinkedBlockingQueue<Unit>(1)
     private val originalFlags = automation.serviceInfo.flags
+    private var observed = "No accessibility root observed"
 
     init {
         val info = automation.serviceInfo
@@ -36,8 +37,7 @@ internal class PermissionDialog : AutoCloseable {
             if (root == null || controller == null) {
                 false
             } else {
-                val nodes = root.findAccessibilityNodeInfosByViewId("$controller:id/$button")
-                    .filter { it.isEnabled && it.isVisibleToUser }
+                val nodes = buttons(root, controller, button)
                 check(nodes.size <= 1) { "Ambiguous permission-controller button: $button" }
                 nodes.singleOrNull()?.let {
                     check(it.performAction(AccessibilityNodeInfo.ACTION_CLICK)) { "Cannot click $button" }
@@ -48,6 +48,28 @@ internal class PermissionDialog : AutoCloseable {
         awaitReady("application window") {
             automation.rootInActiveWindow?.packageName?.toString() == instrumentation.targetContext.packageName
         }
+    }
+
+    private fun buttons(root: AccessibilityNodeInfo, controller: String, button: String): List<AccessibilityNodeInfo> {
+        val pending = ArrayDeque<AccessibilityNodeInfo>()
+        val nodes = mutableListOf<AccessibilityNodeInfo>()
+        pending.add(root)
+        var visited = 0
+        val identifiers = mutableListOf<String>()
+        while (pending.isNotEmpty()) {
+            check(++visited <= 256) { "Permission-controller tree exceeds 256 nodes" }
+            val node = pending.removeFirst()
+            val id = node.viewIdResourceName
+            if (id != null) identifiers.add(id)
+            // An OEM package can retain the resources of the original controller namespace.
+            val matches = node.packageName?.toString() == controller && id?.substringAfter(":id/", "") == button
+            if (matches && node.isEnabled && node.isVisibleToUser) {
+                nodes.add(node)
+            }
+            repeat(node.childCount) { index -> node.getChild(index)?.let(pending::addLast) }
+        }
+        observed = "Controller $controller; resource IDs: ${identifiers.distinct()}"
+        return nodes
     }
 
     private fun controllerRoot(): AccessibilityNodeInfo? {
@@ -62,6 +84,7 @@ internal class PermissionDialog : AutoCloseable {
             }
         }
         val system = ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP
+        observed = "Active package=$name; application flags=${owner?.flags}"
         return root?.takeIf { owner != null && owner.flags and system != 0 }
     }
 
@@ -70,7 +93,7 @@ internal class PermissionDialog : AutoCloseable {
         while (!ready()) {
             val remaining = deadline - System.nanoTime()
             check(remaining > 0 && events.poll(remaining, TimeUnit.NANOSECONDS) != null) {
-                "Permission transition not ready: $step"
+                "Permission transition not ready: $step; $observed"
             }
         }
     }
