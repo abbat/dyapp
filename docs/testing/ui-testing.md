@@ -279,6 +279,24 @@ the writable chat. The fixture shares the sender's own public profile to avoid a
 identity; production Share filtering and private-state/stale-fetch guards retain their separate
 native and controller tests. Execution of this added node scenario is CI-only.
 
+## Host client for Android incoming PNGs
+
+`cargo run --locked -p dyapp-client --example android_photo_fixture -- LOOPBACK_MULTIADDR ABSOLUTE_NEW_DATABASE PEER_ID`
+starts an ephemeral host client against an existing test node. Only literal loopback TCP addresses
+are accepted before lowering fixture proof costs. Owner/device/sealing secrets stay in memory;
+the database is newly created and is not reusable after exit. The tool never runs a node.
+After profile and key-package publication it prints a public `ready`/`peer` JSON line. Send one
+newline-terminated JSON command at a time: `receive`, `text`, `photo`, or `quit` in `op`.
+`receive` performs native outbox/inbox work and reports `open`/`more`; `text` sends a fixed fixture
+message. `photo` accepts `bytes` (PNG byte array, at most 1 MiB), `width` and `height`, seals and
+submits through the normal MLS attachment API, and returns only the committed ID, acceptance
+flag and plaintext SHA-256. Zero claimed dimensions deliberately model unknown incoming geometry.
+The signature check does not prove pixel validity: Android's normal incoming-image path must check
+and decode the actual file. Commands are bounded; malformed input or native errors end the process.
+The example enables its guard tests in ordinary workspace test discovery. Android/host
+orchestration and source-bearing device evidence remain planned; this helper alone
+establishes no incoming-PNG runtime acceptance and adds no production FFI API.
+
 ## Linux sticker exchange
 
 The loopback two-client desktop scenario now includes real File/TAR import, selection in the

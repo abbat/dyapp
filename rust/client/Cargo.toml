@@ -34,5 +34,9 @@ zeroize = "1.9"
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt", "test-util"] }
 
+[[example]]
+name = "android_photo_fixture"
+test = true
+
 [lints]
 workspace = true
