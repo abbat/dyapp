@@ -1,8 +1,14 @@
 param([Parameter(Mandatory = $true)][string]$Executable)
 $ErrorActionPreference = 'Stop'
+function Mark-Stage([string]$stage) {
+    [Console]::Out.WriteLine("Production UI stage: $stage")
+    [Console]::Out.Flush()
+}
+Mark-Stage 'load UIA assemblies'
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 # UIA invokes callbacks on its own threads; C# signals a handle without a PowerShell runspace.
+Mark-Stage 'compile UIA observers'
 Add-Type -ReferencedAssemblies @(
     [System.Windows.Automation.AutomationElement].Assembly.Location,
     [System.Windows.Automation.AutomationProperty].Assembly.Location
@@ -49,6 +55,7 @@ public sealed class ProductionUiChanges : IDisposable {
 }
 '@
 
+Mark-Stage 'load locale catalogues'
 $labels = Get-ChildItem clients/desktop/ui/i18n/*.json | ForEach-Object {
     $catalogue = Get-Content -Raw -Encoding UTF8 $_.FullName | ConvertFrom-Json
     @{ heading = $catalogue.'setup.title'; button = $catalogue.'setup.create' }
@@ -80,6 +87,7 @@ function Get-AppWindow {
 }
 
 function Await-Ready([string]$stage, [scriptblock]$probe) {
+    Mark-Stage $stage
     $clock = [System.Diagnostics.Stopwatch]::StartNew()
     while ($true) {
         $appProcess.Refresh()
@@ -126,9 +134,11 @@ $profileDir = Join-Path $env:RUNNER_TEMP ('production-desktop-' + [guid]::NewGui
 $env:APPDATA = Join-Path $profileDir 'roaming'
 $env:LOCALAPPDATA = Join-Path $profileDir 'local'
 New-Item -ItemType Directory -Force $env:APPDATA, $env:LOCALAPPDATA | Out-Null
+Mark-Stage 'register UIA observers'
 $changes = [ProductionUiChanges]::new()
 $appProcess = $null
 try {
+    Mark-Stage 'launch production executable'
     $appProcess = Start-Process -FilePath (Resolve-Path $Executable) -PassThru
     $changes.Watch($appProcess)
     $null = Await-Ready 'native window' { Get-AppWindow }
@@ -139,6 +149,7 @@ try {
     }
     $missingLabels = @(@{ heading = 'Missing smoke heading'; button = 'Missing smoke button' })
     if (Find-Setup $window $missingLabels) { throw 'Accessibility check accepted absent controls' }
+    Mark-Stage 'close production window'
     if (-not $appProcess.CloseMainWindow()) { throw 'Could not close production window' }
     if (-not $appProcess.WaitForExit(15000)) { throw 'Production app did not exit after Close' }
     if ($appProcess.ExitCode -ne 0) { throw 'Production app exited with an error' }

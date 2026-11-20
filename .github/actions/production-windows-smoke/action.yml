@@ -20,4 +20,19 @@ runs:
         DYAPP_RELEASE_EXE: ${{ inputs.executable }}
       run: |
         python tools/scripts/run-check.py --log-dir build/release-check-output production-desktop-smoke -- powershell -NoProfile -NonInteractive -Mta -File tests/scripts/production-windows-smoke.ps1 -Executable "$env:DYAPP_RELEASE_EXE"
-        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        $smokeExit = $LASTEXITCODE
+        if ($smokeExit -ne 0) {
+          try {
+            Get-WinEvent -FilterHashtable @{
+              LogName = 'Application'; Id = 1000, 1001, 1026
+              StartTime = (Get-Date).AddMinutes(-3)
+            } -MaxEvents 20 -ErrorAction Stop |
+              Where-Object { $_.Message -match '(?i)(powershell|dyapp)\.exe' } |
+              Select-Object -First 5 | ForEach-Object {
+                $message = $_.Message
+                if ($message.Length -gt 2000) { $message = $message.Substring(0, 2000) }
+                Write-Output "Production UI crash event: $($_.TimeCreated) id=$($_.Id) $message"
+              }
+          } catch { Write-Warning "Production UI crash events unavailable: $_" }
+          exit $smokeExit
+        }
