@@ -560,8 +560,12 @@ Shared `sticker_media::select` binds the complete stored message key to its iden
 Its snapshot reads authenticated local originals/saved packs, applies automatic-download policy
 using the adapter's OS network report, and revalidates current metadata before decoding/cache
 retention. Cache-write failure does not discard validated pixels. Desktop and common native
-`chat_sticker_frame` use this boundary. The native call retains session/identity ownership through
-blocking completion; UI cancellation still requires the caller's presentation generation guard.
+`chat_sticker_frame` use this boundary. Shared `Snapshot::access` orders local lookup before
+retrieval admission. Native `chat_sticker_image` exposes typed `Ready`, `OnTap` and `Unavailable`
+outcomes; transport and validation failures remain errors. The compatibility `chat_sticker_frame`
+API preserves its `onTap`/`notFound` errors. No descriptor or compressed image crosses either API.
+The native call retains session/identity ownership through blocking completion; UI cancellation
+still requires the caller's presentation generation guard.
 Network connection, desktop cancellation checks between async stages and binary/record projection
 remain in the adapter.
 
@@ -1225,6 +1229,7 @@ or returns constants.
 | | method | `change_sticker_pack_request(peer_id: String, group_id: Vec<u8>, author: String, id: Vec<u8>, action: StickerPackSaveAction) -> Result<StickerPackSaveAttempt, CoreError>` | Apply a core received-pack action offline; preserve completion if later status is unavailable. |
 | | method | `chat_sticker_pack_status(peer_id: String, group_id: Vec<u8>, author: String, id: Vec<u8>) -> Result<StickerPackSaveStatus, CoreError>` | Full-key received-pack status from shared core. Typed state/failure, current intent generation and exact retry deadline; no descriptor, key or raw peer text. Can reconcile an already-saved intent under the native session lease; call off the UI thread. Own-authored/invalid/blocked sources refuse, unreadable content stays explicit Failed/Storage, and a failed lookup is never New. |
 | | method | `chat_sticker_frame(peer_id: String, group_id: Vec<u8>, author: String, id: Vec<u8>, manual: bool) -> Result<ChatStickerFrame, CoreError>` | Full-key current-message retrieval through shared media snapshots. Authenticated local originals/saved packs precede network access; automatic download obeys core policy and the current OS report, while manual means an explicit tap. Returns actual dimensions and bounded RGBA8 only, with no compressed peer media or transport descriptor. Core revalidates current identity/content before completion/cache retention. Keep the UI generation guard after cancellation. Errors distinguish onTap, notFound, current-message refusals and network failure. |
+| | method | `chat_sticker_image(peer_id: String, group_id: Vec<u8>, author: String, id: Vec<u8>, manual: bool) -> Result<ChatStickerImage, CoreError>` | Same core read and lifetime as `chat_sticker_frame`, with typed `Ready { frame }`, `OnTap` and `Unavailable` outcomes. No error-string parsing for UI decisions; other current-message, validation and transport failures remain errors. |
 | | method | `chat_photo_auto(peer_id: String) -> Result<bool, CoreError>` | Whether full chat originals may load without a tap now: shared download setting, current platform network report and an open conversation are required. Strangers never auto-download, even with Always; blocked peers err `blocked`. Original retrieval uses the separate method below. |
 | | method | `receive_with_notice(sticker_label: String) -> Result<ChatMailPass, CoreError>` | Same mail work with core-admitted optional sender/plain body under one session owner; OS posting stays in the client. |
 | | method | `receive() -> Result<u32, CoreError>` | Over the active network: resends due staged writes, applies this device's mailbox, runs bounded core pack responses/admitted downloads (completed saves add to refresh count) and refills tokens when due, then, best effort as on the desktop, keeps the last-resort key package and runs the daily photo keep refresh. Returns how many events changed a chat. Senders' profiles are fetched from the node on each call; an envelope whose owner has none there waits in the mailbox for the next call. |

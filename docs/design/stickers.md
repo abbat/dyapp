@@ -275,8 +275,12 @@ Shared `sticker_media` owns current full-key selection, identity/content revalid
 authenticated local-source lookup, automatic-download admission and decoded completion/cache
 retention. Desktop and common native `ChatSession.chat_sticker_frame` delegate these rules
 to core. Native results contain actual dimensions and RGBA8 only; full stored message identity
-is required and an explicit tap supplies manual download permission. OS network reports,
-connection transport and display projection stay in adapters. Mobile chat rendering remains planned.
+is required and an explicit tap supplies manual download permission. Core `Snapshot::access`
+checks local pixels before descriptor availability and automatic-download eligibility. The native
+`chat_sticker_image` API returns typed ready/on-tap/unavailable outcomes, including origin NotFound;
+transport and validation failures remain errors. The older frame API keeps its error-code contract.
+OS network reports, connection transport and display projection stay in adapters. Mobile chat
+rendering remains planned.
 
 ### Receive
 

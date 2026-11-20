@@ -144,13 +144,25 @@ fn current_completion_refuses_block_clear_wrong_identity_and_corrupt_pixels() {
         snapshot.finish(&f.store, &f.dir, &SEAL, &f.bytes),
         Err(Error::Blocked)
     ));
+    assert!(matches!(
+        snapshot.access(&f.store, &f.dir, &SEAL, false, true),
+        Err(Error::Blocked)
+    ));
     f.store.set_blocked(&f.peer, false).unwrap();
     let foreign = Fixture::new(true, true);
     assert!(matches!(
         snapshot.finish(&foreign.store, &foreign.dir, &SEAL, &f.bytes),
         Err(Error::IdentityChanged)
     ));
+    assert!(matches!(
+        snapshot.access(&foreign.store, &foreign.dir, &SEAL, false, true),
+        Err(Error::IdentityChanged)
+    ));
     f.store.clear_chat_pair(&f.peer).unwrap();
+    assert!(matches!(
+        snapshot.access(&f.store, &f.dir, &SEAL, false, true),
+        Err(Error::UnknownMessage)
+    ));
     assert!(matches!(
         snapshot.finish(&f.store, &f.dir, &SEAL, &f.bytes),
         Err(Error::UnknownMessage)
@@ -162,6 +174,16 @@ fn current_completion_refuses_block_clear_wrong_identity_and_corrupt_pixels() {
 fn saved_fallback_and_authenticated_cache_return_only_exact_core_pixels() {
     let mut saved = Fixture::new(true, false);
     saved.store.save_sticker_pack(&SEAL, &saved.pack).unwrap();
+    saved
+        .store
+        .set_auto_download(attachment::AutoDownload::OnTap)
+        .unwrap();
+    assert!(matches!(
+        saved
+            .select()
+            .access(&saved.store, &saved.dir, &SEAL, true, false),
+        Ok(Access::Local(_))
+    ));
     let frame = saved
         .select()
         .local(&saved.store, &saved.dir, &SEAL)
@@ -216,10 +238,26 @@ fn automatic_download_respects_strangers_metering_and_explicit_off() {
         .unwrap();
     assert!(snapshot.auto_download(&f.store, false).unwrap());
     assert!(!snapshot.auto_download(&f.store, true).unwrap());
+    assert!(matches!(
+        snapshot.access(&f.store, &f.dir, &SEAL, false, false),
+        Ok(Access::Download(_))
+    ));
+    assert!(matches!(
+        snapshot.access(&f.store, &f.dir, &SEAL, true, false),
+        Ok(Access::OnTap)
+    ));
+    assert!(matches!(
+        snapshot.access(&f.store, &f.dir, &SEAL, true, true),
+        Ok(Access::Download(_))
+    ));
     f.store
         .set_auto_download(attachment::AutoDownload::OnTap)
         .unwrap();
     assert!(!snapshot.auto_download(&f.store, false).unwrap());
+    assert!(matches!(
+        snapshot.access(&f.store, &f.dir, &SEAL, false, false),
+        Ok(Access::OnTap)
+    ));
     let stranger = Fixture::new(false, true);
     stranger
         .store
@@ -229,6 +267,19 @@ fn automatic_download_respects_strangers_metering_and_explicit_off() {
         .select()
         .auto_download(&stranger.store, false)
         .unwrap());
+    assert!(matches!(
+        stranger
+            .select()
+            .access(&stranger.store, &stranger.dir, &SEAL, false, false),
+        Ok(Access::OnTap)
+    ));
+    let missing = Fixture::new(true, false);
+    assert!(matches!(
+        missing
+            .select()
+            .access(&missing.store, &missing.dir, &SEAL, false, true),
+        Ok(Access::Unavailable)
+    ));
 }
 
 #[test]

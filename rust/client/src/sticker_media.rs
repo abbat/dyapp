@@ -31,6 +31,18 @@ pub enum Error {
     Store(#[from] crate::store::Error),
 }
 
+/// Core-admitted read step; retrieval capabilities stay inside trusted Rust adapters.
+pub enum Access<'a> {
+    /// Validated local first-frame pixels, available without network access.
+    Local(Frame),
+    /// The current stored descriptor is eligible for retrieval.
+    Download(&'a Attachment),
+    /// Automatic retrieval is refused; an explicit user request may try again.
+    OnTap,
+    /// No matching local pixels or usable stored retrieval descriptor exist.
+    Unavailable,
+}
+
 /// Immutable selected metadata bound to its originating identity and conversation.
 pub struct Snapshot {
     owner: String,
@@ -86,6 +98,33 @@ impl Snapshot {
             return Err(Error::UnknownMessage);
         }
         Ok(())
+    }
+
+    /// Plan a read with local pixels first, then current descriptor and automatic-download policy.
+    ///
+    /// The returned download capability must stay inside Rust. An explicit manual action does not
+    /// skip current-message/identity checks or validation of the retrieved bytes in [`Self::finish`].
+    ///
+    /// # Errors
+    /// Returns the same current-message/identity/storage/corruption failures as local retrieval.
+    pub fn access(
+        &self,
+        store: &Store,
+        dir: &Path,
+        seal: &[u8; 32],
+        metered: bool,
+        manual: bool,
+    ) -> Result<Access<'_>, Error> {
+        if let Some(frame) = self.local(store, dir, seal)? {
+            return Ok(Access::Local(frame));
+        }
+        let Some(descriptor) = self.download() else {
+            return Ok(Access::Unavailable);
+        };
+        if !manual && !self.auto_download(store, metered)? {
+            return Ok(Access::OnTap);
+        }
+        Ok(Access::Download(descriptor))
     }
 
     /// Read authenticated originals or a matching saved pack before considering network access.

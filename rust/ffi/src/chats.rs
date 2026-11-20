@@ -59,7 +59,7 @@ pub use sticker_request_status::{
     StickerPackSaveFailure, StickerPackSaveState, StickerPackSaveStatus,
 };
 mod sticker_original;
-pub use sticker_original::ChatStickerFrame;
+pub use sticker_original::{ChatStickerFrame, ChatStickerImage};
 mod sticker_picker;
 pub use sticker_picker::{
     RecentStickerPickerEntry, RecentStickerPickerPage, SavedStickerPickerPage, StickerPickerEntry,
