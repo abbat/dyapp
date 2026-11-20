@@ -10,6 +10,8 @@ mod favorites;
 mod forwarding;
 #[path = "tests/mail_pass.rs"]
 mod mail_pass;
+#[path = "tests/mailbox.rs"]
+mod mailbox;
 #[path = "tests/offline.rs"]
 mod offline;
 #[path = "tests/photo_original.rs"]

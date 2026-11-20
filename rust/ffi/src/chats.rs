@@ -4,7 +4,6 @@
 use crate::mls::unwrap_state_key;
 use crate::profile_draft::database;
 use crate::{CoreError, IdentityKey, KeyStore};
-use dyapp_client::chat::Event;
 use dyapp_client::publish;
 use dyapp_client::session::Session;
 use dyapp_client::store::{Conversation, Store};
@@ -31,6 +30,7 @@ mod like_submission;
 mod service;
 pub use like_submission::{ChatLikeAttempt, ChatLikeState};
 mod mail_pass;
+mod mailbox;
 pub use mail_pass::{ChatMailNotice, ChatMailPass};
 mod media_cache;
 mod notices;
@@ -201,8 +201,8 @@ fn likes_in(store: &Store, peer_id: &str) -> Result<ChatLikes, CoreError> {
     })
 }
 
-/// This identity's published profile, signed again from its stored draft; `None` before the first
-/// publish.
+/// Legacy outbound profile projection, signed from the editable stored draft; `None` before
+/// the first publish. This is not directory readback and must not authorize receive/membership.
 fn own_profile(store: &Store, identity: &Identity) -> Result<Option<VerifiedProfile>, CoreError> {
     let own = store.profile_draft().map_err(failed)?.unwrap_or_default();
     if own.version == 0 {
@@ -219,58 +219,6 @@ fn listed_own(session: &Session, identity: &Identity) -> Result<VerifiedProfile,
     own_profile(session.store(), identity)?
         .filter(|own| own.profile.devices.contains(&certificate))
         .ok_or_else(|| CoreError::Failed("unpublished".into()))
-}
-
-/// Apply one mailbox fetch, then once more if that fetched profiles of owners it did not know,
-/// such as the Welcome of a first text. Returns how many events changed a chat.
-async fn apply_mailbox(
-    session: &mut Session,
-    node: &mut Node,
-    nodes: &mut [Node],
-    own: Option<VerifiedProfile>,
-    device_key: &Identity,
-    seal_key: &[u8; 32],
-) -> Result<u32, CoreError> {
-    // shortcut: every call fetches the senders' profiles again, since the app opens a session
-    // per call; keep them in the Store if mailbox polls start costing too many requests.
-    let mut profiles: Vec<VerifiedProfile> = own.into_iter().collect();
-    let mut changed = 0u32;
-    for _ in 0..2 {
-        let events = session
-            .receive(nodes, device_key, &profiles, seal_key)
-            .await
-            .map_err(failed)?;
-        let mut fetched = false;
-        for event in events {
-            match event {
-                Event::UnknownOwner(peer) => {
-                    fetched |= fetch_unknown_owner(node, &mut profiles, &peer).await;
-                }
-                Event::Gap(_) | Event::Refused(_) => {}
-                _ => changed = changed.saturating_add(1),
-            }
-        }
-        if !fetched {
-            break;
-        }
-    }
-    Ok(changed)
-}
-
-async fn fetch_unknown_owner(
-    node: &mut Node,
-    profiles: &mut Vec<VerifiedProfile>,
-    peer: &str,
-) -> bool {
-    if profiles.iter().any(|known| known.peer_id == peer) {
-        return false;
-    }
-    if let Ok(found) = node.get_profile(peer).await {
-        profiles.push(found);
-        true
-    } else {
-        false
-    }
 }
 
 #[cfg(test)]

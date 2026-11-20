@@ -364,9 +364,12 @@ but cannot admit new membership maintenance. Both desktop and native use
 the minute clock selects its persisted catalog turn consistently across word sizes. Native contact
 readback uses `Context::accept_contact_if_current` to reject obsolete generations, wrong-owner
 replies and attempts to bypass the separate owner admission path. Membership sees the admitted
-post-mailbox context only when fresh owner readback succeeded. Propagating mailbox-fetched profiles
-into that held context remains planned; initial device-link import alone does not establish later
-synchronization.
+post-mailbox context only when fresh owner readback succeeded. Unknown-owner mailbox replies are
+admitted to the same context before a second bounded receive pass; an older cached contact still
+permits one fresh read per requested peer. Owner replies use the separate durable owner admission.
+The receive path never signs the editable local draft as profile authority. Context invalidation
+refuses old snapshots, while unavailable readback leaves existing held authority intact. Initial
+device-link import alone does not establish later synchronization.
 
 A device a newer profile no longer lists leaves every group the same way: `Group::remove_turn` orders
 the members that stay by device key, contacts included, since a group of a contact and a lost device
