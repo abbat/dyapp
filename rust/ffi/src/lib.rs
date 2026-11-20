@@ -24,13 +24,14 @@ mod chats;
 pub use chats::{
     chat_photo_hours_left, new_chat_state_key, sticker_import_byte_limit, ChatBlock, ChatDelivery,
     ChatForwardError, ChatForwardSource, ChatHistory, ChatItem, ChatLikeAttempt, ChatLikeState,
-    ChatLikes, ChatListPreview, ChatMailNotice, ChatMailPass, ChatMediaCache, ChatMessage,
-    ChatNotice, ChatPhoto, ChatPhotoDownload, ChatPreviewBody, ChatRevocation, ChatRow,
-    ChatSession, ChatState, ChatSticker, ChatStickerFrame, ChatSubmission, ContactNoteError,
-    ContactVerificationState, FavoriteError, RecentStickerPickerEntry, RecentStickerPickerPage,
-    SavedStickerFrame, SavedStickerPackEntry, SavedStickerPackImport, SavedStickerPackPage,
-    SavedStickerPackState, SavedStickerPickerPage, StickerPackSaveAction, StickerPackSaveAttempt,
-    StickerPackSaveFailure, StickerPackSaveState, StickerPackSaveStatus, StickerPickerEntry,
+    ChatLikes, ChatListPreview, ChatMailNotice, ChatMailPass, ChatMediaCache, ChatMediaCacheEdit,
+    ChatMediaCacheError, ChatMediaCacheResult, ChatMediaCacheSettings, ChatMessage, ChatNotice,
+    ChatPhoto, ChatPhotoDownload, ChatPreviewBody, ChatRevocation, ChatRow, ChatSession, ChatState,
+    ChatSticker, ChatStickerFrame, ChatSubmission, ContactNoteError, ContactVerificationState,
+    FavoriteError, RecentStickerPickerEntry, RecentStickerPickerPage, SavedStickerFrame,
+    SavedStickerPackEntry, SavedStickerPackImport, SavedStickerPackPage, SavedStickerPackState,
+    SavedStickerPickerPage, StickerPackSaveAction, StickerPackSaveAttempt, StickerPackSaveFailure,
+    StickerPackSaveState, StickerPackSaveStatus, StickerPickerEntry,
 };
 mod link_review;
 pub use link_review::{

@@ -33,6 +33,10 @@ mod mail_pass;
 mod mailbox;
 pub use mail_pass::{ChatMailNotice, ChatMailPass};
 mod media_cache;
+mod media_cache_control;
+pub use media_cache_control::{
+    ChatMediaCacheEdit, ChatMediaCacheError, ChatMediaCacheResult, ChatMediaCacheSettings,
+};
 mod notices;
 mod original;
 mod own_receive;

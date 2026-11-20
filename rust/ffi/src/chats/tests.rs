@@ -12,6 +12,8 @@ mod forwarding;
 mod mail_pass;
 #[path = "tests/mailbox.rs"]
 mod mailbox;
+#[path = "tests/media_cache_control.rs"]
+mod media_cache_control;
 #[path = "tests/offline.rs"]
 mod offline;
 #[path = "tests/photo_original.rs"]

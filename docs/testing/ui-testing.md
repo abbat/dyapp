@@ -1,5 +1,11 @@
 # UI Testing: Practical Guide
 
+Shared cache input tests cover integral-byte decimal/exponent conversion, exact non-whole MiB
+round trips, range/overflow refusal and destructive-change boundaries. Store-control tests require
+confirmation before mutation, reevaluate actual state and preserve the other preference and
+unrelated data. Native export tests check typed invalid input, confirmation, restart and identity
+isolation; these cases require actual CI execution rather than binding/lint-only acceptance.
+
 `SettingsHubTests` checks the native category root has no collection/removal actions, detail panes
 hide shell bars, collection Back returns to its category, and system Back restores the root.
 Existing settings tests enter explicit categories and await native values/rows after navigation.

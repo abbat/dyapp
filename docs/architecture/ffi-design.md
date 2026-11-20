@@ -14,8 +14,13 @@ rounding, preserve exact integral-byte budgets in displayed MiB text and classif
 and validated usage under the caller's media/session guard, and returns confirmation-required
 without mutation. Confirmed clear preserves settings and unrelated data. Storage/eviction/readback
 failure can follow a committed change, so native UI must reconcile before another edit.
-The targeted native adapter and cache controls are being wired; the original byte-based exports
-above remain available.
+`ChatSession.media_cache_settings` projects actual state plus exact/minimum/maximum MiB text.
+`change_media_cache(ChatMediaCacheEdit, confirmed)` holds the ordinary session lock through core
+planning, mutation and readback. Retention edits preserve the actual budget; budget edits preserve
+actual retention. Its result carries measured settings and `confirmation_required`; `InvalidLimit`
+is distinct from a backend failure. Native UI must request first without confirmation, show a
+warning if required, and only resubmit that owner-bound intent after explicit confirmation.
+The original byte-based exports remain available. Android cache presentation is being wired.
 
 > ⚠️ **Prototype.** This page is the single source of truth for the Rust ↔ native
 > boundary, checked against `rust/ffi/src/lib.rs` (UniFFI 0.32.2). Kotlin bindings are
