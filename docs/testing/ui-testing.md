@@ -112,7 +112,9 @@ API 37. Setup and restoration retain checked synchronous preference commits, not
 It revokes permission and clears decision flags before starting the instrumentation process, then
 restores the grant even if the foreground test fails. Two explicit requests from the actual
 `MainActivity` network form are denied and then allowed; each must reach the native invalid-address
-result without changing the original selection or active network. The one-shot auto-prompt marker
+result without changing the original selection or active network. Each edit and check-button tap
+scrolls its target into the current viewport; completion requires the result row for that attempt's
+address as well as the invalid-address summary. The one-shot auto-prompt marker
 is set before activity launch and restored afterward, so startup cannot race a system dialog. `PermissionDialog` observes
 accessibility events and resource IDs scoped to the current system-owned window with fresh
 transition deadlines. It verifies that window's package through public PackageManager metadata;

@@ -4,12 +4,15 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
@@ -70,10 +73,12 @@ class LocalNetworkDialogTests {
 
     private fun checkWith(seed: String, answer: () -> Unit) {
         compose.awaitNode(hasTestTag("check-and-connect") and isEnabled())
-        compose.onNodeWithTag("network-seeds").performTextReplacement(seed)
-        compose.onNodeWithTag("check-and-connect").performClick()
+        compose.onNodeWithTag("network-seeds").performScrollTo().performTextReplacement(seed)
+        // Completed rows and the IME can move the button below the current viewport.
+        compose.onNodeWithTag("check-and-connect").performScrollTo().assertIsDisplayed().performClick()
         answer()
         val invalid = context.getString(R.string.network_invalid_address)
+        compose.awaitNode(hasTestTag("seed-rows") and hasAnyDescendant(hasText(seed)))
         compose.awaitNode(hasTestTag("network-check-status") and hasText(invalid))
     }
 
