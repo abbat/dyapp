@@ -129,6 +129,15 @@ on non-cancellable IO after actual completion, including disposal.
 
 ## Shared mobile identity registry
 
+The common core `identity_slots::removal_allowed` classifies the existing inventoried resolution
+for presentation: legacy roots, absent inventory and unavailable/damaged keys do not offer removal;
+missing keys and interrupted creation/removal retain explicit cleanup. `Registry::removal_review`
+reads one inventory under shared admission, verifies its key matches the displayed optional Peer ID
+and checks for another ready readable local copy. A failure or unavailable other key never proves a
+surviving copy. This guidance cannot authorize deletion: `Registry::remove` independently validates
+the current target, key, credentials and owned files. UniFFI exposure and Android adoption of this
+new presentation guidance remain planned.
+
 `MobileIdentityRegistry` exposes core inventory, resolution, candidate inspection, explicit
 creation, verified selection and confirmed removal for Android and iOS wrapped-key layouts. `MobileSlotKeys` callbacks implement only
 credential presence, `open_wrapped`, fresh-only `wrap`, existing-only `wrap_existing` and `erase` by

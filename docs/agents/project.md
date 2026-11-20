@@ -201,7 +201,10 @@ retrying into another destination.
 
 `Registry::list`, `inspect` and `resolve` acquire shared admission themselves. In controlled
 storage tests, release an explicit exclusive registry guard before those public read APIs;
-module-level inventory reads have a different locking contract.
+module-level inventory reads have a different locking contract. A composite registry review uses
+one shared admission and one inventory snapshot, then `open_slot` on those candidates; do not
+re-enter public locking reads for each candidate. Removal guidance is only a snapshot: actual
+removal must independently recheck the confirmed key and owned files.
 
 Shared identity operations retain `IdentityOperation` through actual worker completion, including
 caller cancellation. Keep installation node work outside that lease and never upgrade its shared

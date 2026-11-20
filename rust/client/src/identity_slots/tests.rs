@@ -6,6 +6,7 @@ mod open;
 mod operation;
 mod registry;
 mod removal;
+mod removal_review;
 mod removed;
 mod write;
 
