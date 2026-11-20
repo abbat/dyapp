@@ -15,7 +15,9 @@ list. Pending removal disables row actions, and identity replacement discards th
 
 Chat rows and the open chat heading show **Active recently** only for matches with a fresh
 received presence signal according to the common core. Refresh removes expired marks; a failed
-read hides them. There is no exact last-seen time. Sending Android foreground presence remains planned.
+read hides them. There is no exact last-seen time. The unlocked app announces recent activity to
+allowed matches when resumed or an identity opens, subject to the core hourly limit. Mail refresh
+never announces activity. The Android audience selector remains planned.
 
 Sticker history is prepared to show emoji and pack name without downloading media.
 Image display, chat delivery and Add pack remain planned.

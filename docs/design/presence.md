@@ -9,8 +9,11 @@ used the app recently, and the user can hide it. Implemented in the Rust client:
 expiry. The desktop sends it and shows the mark. Android shows received marks in chat rows and the open
 chat heading, refreshing after mailbox passes and hiding marks after a failed read or identity
 change. The shared native API exposes explicit foreground announcement and the matches/nobody
-setting, using the same core preflight and staging. Android lifecycle wiring and its Privacy
-control remain planned; exposing an API alone does not authorize a background send.
+setting, using the same core preflight and staging. Android's unlocked identity shell attempts
+announcement on RESUMED transitions and identity opening, never recomposition, mail refresh or timers.
+Pause, lock or identity replacement cancels queued work; a call waiting for native session admission
+checks cancellation again before sending. Already admitted core operations finish with their original
+identity lease. Android's Privacy control remains planned.
 The common `presence::due_at` preflight avoids opening a node connection when no known chat is
 eligible; actual staging still rechecks the audience and hourly throttle. `presence::active_peers_at`
 projects fresh authenticated match marks. Both accept local wall time so tests exercise the same

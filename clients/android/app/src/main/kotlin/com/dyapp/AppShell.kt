@@ -73,6 +73,7 @@ internal fun AppShell(
     if (showNetworkWizard(opened, section)) return
     // Above the chat branch: the mailbox poll goes on while a chat is open.
     val feed = rememberChatFeed(opened)
+    ChatPresenceForeground(opened)
     val search = rememberSearchSession(opened)
     val settings = rememberSettingsPane(opened.slot.id)
     CompositionLocalProvider(

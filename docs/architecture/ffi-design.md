@@ -7,7 +7,10 @@ foreground announcement is exposed through an explicit `ChatSession.announce_pre
 common `presence::due_at` returns false before active-network lookup when nothing is due, and
 `Session::announce_presence` rechecks audience/throttle while staging. `presence_enabled` and
 `set_presence_enabled` persist the core matches/nobody choice without sending or hiding received marks.
-Android lifecycle admission and the Privacy control remain planned; mail refresh must never call the sender.
+Android's unlocked identity shell calls the sender once per RESUMED transition or identity opening,
+not recomposition or mail refresh. Retiring that event cancels queued presentation work; after native
+session admission, Kotlin checks cancellation again before invoking the sender. Admitted core work
+retains its operation through completion. Android's Privacy control remains planned.
 Android shows received marks in chat rows and the open
 chat heading, refreshes them after mailbox passes, and hides them on failed reads or identity changes.
 Kotlin performs only ID membership checks; freshness and match eligibility stay in the core.
