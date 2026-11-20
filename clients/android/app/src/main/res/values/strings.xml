@@ -181,8 +181,6 @@
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_language">Language</string>
-    <string name="settings_language_en">English</string>
-    <string name="settings_language_ru">Русский</string>
     <string name="settings_identities">Identities on this device</string>
     <string name="settings_active">Active</string>
     <string name="settings_key_store">Android Keystore</string>

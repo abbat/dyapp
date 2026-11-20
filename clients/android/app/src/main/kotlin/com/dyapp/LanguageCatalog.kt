@@ -26,5 +26,5 @@ internal fun selectedLanguage(saved: String?, available: List<String>): String? 
 
 internal fun languageName(tag: String): String {
     val locale = Locale.forLanguageTag(tag)
-    return locale.getDisplayName(locale).ifBlank { tag }
+    return locale.getDisplayName(locale).ifBlank { tag }.replaceFirstChar { it.titlecase() }
 }
