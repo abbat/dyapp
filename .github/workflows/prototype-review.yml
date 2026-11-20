@@ -22,18 +22,19 @@ jobs:
         run: |
           mkdir -p build/prototype-review
           git rev-parse HEAD > build/prototype-review/source-head.txt
-          git ls-files -z clients/desktop tests/scripts tests/docker tools/scripts/docker-local.py |
+          git ls-files -z clients/desktop tests/scripts tests/docker tools/scripts |
             xargs -0 sha256sum > build/prototype-review/inputs.sha256
       - name: prepare existing capture image
         run: |
           python3 tools/scripts/run-check.py --log-dir "$DYAPP_CHECK_LOG_DIR" prototype-image -- \
-            python3 tools/scripts/docker-local.py -f tests/docker/compose.ui.yml --profile prototype build prototype-shots
+            docker compose -f tests/docker/compose.ui.yml --profile prototype build prototype-shots
           docker image inspect --format '{{.Id}}' dyapp:prototype > build/prototype-review/image-id.txt
       - name: capture
         run: |
           mkdir -p build/ux-research/prototype
-          python3 tools/scripts/run-check.py --log-dir "$DYAPP_CHECK_LOG_DIR" prototype-capture -- \
-            python3 tools/scripts/docker-local.py -f tests/docker/compose.ui.yml --profile prototype run --pull never prototype-shots
+          DYAPP_UID="$(id -u)" DYAPP_GID="$(id -g)" \
+            python3 tools/scripts/run-check.py --log-dir "$DYAPP_CHECK_LOG_DIR" prototype-capture -- \
+              docker compose -f tests/docker/compose.ui.yml --profile prototype run --no-TTY --pull never prototype-shots
       - name: validate in capture image
         run: |
           validator=(docker run --pull never --network none --read-only
