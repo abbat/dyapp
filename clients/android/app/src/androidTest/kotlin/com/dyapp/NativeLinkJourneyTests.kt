@@ -29,15 +29,18 @@ class NativeLinkJourneyTests {
             activateWorkerPeer(destination)
             val contact = IdentityKey.generate().use { it.peerId() }
             val note = "private note transferred through the authenticated link"
-            RustBridge.withChats(original) { it.setContactNote(contact, note) }
+            RustBridge.withChats(original) {
+                it.setContactNote(contact, note)
+                it.setFavorite(contact, true)
+            }
             transfer(owner, original, recipient, destination).let { installed ->
                 assertEquals(original.peerId, installed.peerId)
                 assertNotEquals(destination.slot.id, installed.slot.id)
                 assertEquals(2, recipient.list().size)
                 // Normal session bootstrap preserves the received device before pending-state import.
-                assertEquals("", RustBridge.withChats(installed) { it.contactNote(contact) })
+                assertNativePrivateContact(installed, contact, "", saved = false)
                 completeEnrollment(installed)
-                assertEquals(note, RustBridge.withChats(installed) { it.contactNote(contact) })
+                assertNativePrivateContact(installed, contact, note, saved = true)
                 verifyDirectoryAndRevocation(original, installed, destination)
             }
         }

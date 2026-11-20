@@ -590,7 +590,8 @@ then stops the responder before terminal retries. This package-local coverage mu
 publication, explicit approval, authenticated reception, and normal pending-link enrollment through
 `MobileLinkRecovery`. It first opens the normal linked chat session,
 which preserves the received device and bootstraps only local session state. It verifies an empty
-contact note before import, completion followed by an idle retry, then the original nonempty note.
+contact note and favorite list before import, completion followed by an idle retry, then the original
+nonempty note and saved favorite flag. This tests private snapshot import, not later incremental sync.
 It then reads both native device directories, identifies each current device by the core marker,
 revokes the linked device through the owner, and requires both readbacks to retain only the original
 public device key. Neither phone hosts a node. The test uses completed native steps and fresh
@@ -601,6 +602,12 @@ then completes verified cleanup through the same Kotlin adapter used by both rec
 second adapter call has no authority to recreate the removed context. Only the linked slot disappears;
 the other selected identity still opens. Native package tests separately retain duplicate/concurrent
 capability outcomes. This cleanup extension needs its own actual CI runtime proof.
+`NativePrivateContactTests` separately invokes the actual JNI favorite/note APIs without a profile
+fetch or counterpart mailbox. It reopens native storage, checks identity isolation and exact Unicode
+text, and requires private-only mutations to leave public draft, likes and chat state unchanged.
+Typed invalid/own/text/blocked refusals preserve existing values; blocked favorites remain removable
+and private notes remain readable/editable/clearable. These assertions do not replace the planned
+Android favorite-list and note-editor screen journeys or their own-device incremental-sync evidence.
 `IdentityActionsTests` additionally gates an admitted switch and delivers a late cleanup completion;
 the old source cannot replace the new screen. Batch cases retain a matching completion even when a
 different slot completed later, preserve its durability diagnostic, and acknowledge only the observed
