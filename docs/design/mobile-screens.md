@@ -220,6 +220,11 @@ only an explicit row Open enters the ordinary verified profile-loading route. No
 stay distinct from empty text, failed saves retain the draft, and stale presentation completions
 cannot update another opening. Notes never enter public profile fields, likes or chat content.
 
+The native Settings route/frame components implement six categories, per-identity route ownership,
+collection-to-category Back and a saved presentation-only route across the app-lock overlay.
+Their integration into the shell and existing panels is being completed; these components alone
+are not native screen acceptance.
+
 Native Android Settings still shows its original cards: identity/removal, app lock, blocked/passed,
 appearance, privacy/notifications, photo download mode, disabled updates and version. The receipt switch defaults off;
 notice delivery defaults on with fixed “New message” content. Turning delivery on requests
