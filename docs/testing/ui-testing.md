@@ -1,5 +1,13 @@
 # UI Testing: Practical Guide
 
+`LanguagePreferenceTests` covers arbitrary catalogue size, legacy enum-name matching and explicit
+system/removed-choice fallback. `LanguageCatalogTests` reads the actual packaged XML inventory and
+checks canonical tags, readable autonyms and exclusion of generated pseudo-locales. Python
+`test_android_language_catalog.py` compares registry tags with own application translations,
+including region/script qualifiers while excluding UI/night/density qualifiers and libraries.
+Kotlin test sources still require actual SDK/unit/device execution; Python inventory tests alone
+do not prove native resource selection or recreation.
+
 `ChatListPreviewTests` drives actual conversation rows for all six typed bodies and forwarded states,
 with disagreeing legacy text/time, cached shared-profile labels, original navigation and a full-history
 sentinel. `ChatListPreviewGeometryTests` reads actual semantic text layouts and unclipped bounds at

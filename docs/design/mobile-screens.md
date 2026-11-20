@@ -4,7 +4,11 @@ The Android prototype follows the category hub in
 [desktop screens](desktop-screens.md#settings-and-removal), with separate collection screens,
 immediate switches, a catalogue-driven language picker and a numeric media-cache budget.
 Native Android implements the category hub and download/cache controls. Searchable collection
-screens and the catalogue-driven language menu remain planned.
+screens and the catalogue-driven language menu remain planned. The native language adapter reads
+only the app-owned `res/xml/app_languages.xml` registry, whose tags must match own translation
+resources in CI; dependency and generated pseudo-locales are not advertised. Saved legacy EN/RU
+names match tags without case sensitivity; missing/removed choices fall back to system without
+rewriting preferences. The existing Appearance control has not adopted this adapter yet.
 
 Android chat attachments now use core-ordered mixed history. Photo metadata remains
 visible while stranger previews are blurred; Show preview reveals only the preview,
