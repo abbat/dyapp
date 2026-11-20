@@ -39,6 +39,10 @@ pub use link_review::{
     LinkReviewSaved, LinkReviewSnapshot, LinkReviewSource, MobileLinkRecovery,
     ProfileAdoptionReview,
 };
+mod local_collection;
+pub use local_collection::{
+    local_collection_page, LocalCollectionCursor, LocalCollectionEntry, LocalCollectionPage,
+};
 mod mls;
 pub use mls::{MlsDevice, MlsGroup, MlsNewGroup, MlsReceived};
 mod network;

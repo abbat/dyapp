@@ -1,5 +1,14 @@
 # FFI Contract
 
+`local_collection_page` delegates local collection presentation to
+`dyapp_client::local_collection`: input-order-preserving pages of at most 32 rows, complete raw-target
+or local-label substring search using shared input trimming and Unicode lowercase, total/matched
+counts and current/total page numbers. Targets are returned unchanged. Navigation cursors bind the
+normalized query; changing it resets the page, and refresh/removal clamps stale offsets. Empty
+results have one empty page. This pure projection performs no reads, network access or authorization;
+callers must bind the input snapshot, cursor, completions and actions to the current authenticated
+collection opening. Android Settings adoption and native screen acceptance remain planned.
+
 `ChatSession.active_chat_peers` is a read-only common-core projection of fresh authenticated
 match presence. A failed read stays an error; the native UI must not infer expiry or a fresh mark
 from missing data. It never sends presence, including during mailbox/expiry refresh. Native

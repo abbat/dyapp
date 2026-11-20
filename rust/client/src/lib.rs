@@ -24,6 +24,7 @@ pub mod identity_slots;
 pub mod interactions;
 /// The device link code and record.
 pub mod link;
+pub mod local_collection;
 pub mod mail_notices;
 pub mod media_ownership;
 pub mod network_check;
