@@ -91,17 +91,12 @@ score = 72.2
 # iOS: the local-node check showed no row outcome within 30 s; the retry passed.
 "LaunchTests testLocalNodeConnectsOnlyAfterContinue()" = 2026-11-21
 "LaunchTests testCancelRetryAndRestartKeepDraft()" = 2026-11-21
-# Android: publishing showed no status and no error within 120 s, twice in one process; the retries passed.
-"com.dyapp.ProfileRemovalTests removalWithdrawsThePublishedProfileAndWaitsForANode" = 2026-11-12
-"com.dyapp.ProfileRemovalTests removeAnywayRemovesWithoutANode" = 2026-11-12
 # Android: after Save the network status kept the draft hint instead of the saved notice; the retry passed.
 "com.dyapp.NetworkDraftTests savedDraftSurvivesRestartAndFailedRowsBlockContinue" = 2026-11-13
 # iOS: the local-node check showed no row outcome within 30 s; the retry passed.
 "ChatsUITests testPeerRequestRepliesEditsClearsAndBlocks()" = 2026-11-21
 # iOS: the tap on the age field gave it no keyboard focus; the retry passed.
 "ProfileUITests testTypedFieldsRefuseBadHeightAndSurviveRestart()" = 2026-11-21
-# macOS: the profile form stayed disabled with its read error; the retry passed.
-"ChatsUITests testFullPhotoLoadsWithoutATapOnAnUnmeteredNetwork()" = 2026-11-12
 # iOS: failed once with the cause not read yet; the retry passed.
 "LaunchTests testWrongNetworkDisablesContinue()" = 2026-11-21
 # iOS: the tap on Save right after typing did nothing, the keyboard still up; the retry passed.

@@ -187,7 +187,7 @@
     },
     'sticker-save-reply': async (peer) => {
       const message = await received(peer);
-      const deadline = performance.now() + 30000;
+      const deadline = performance.now() + 90000;
       let status;
       do {
         await appBindings.invoke('receive_mail');
@@ -197,7 +197,7 @@
       } while (performance.now() < deadline);
       check(
         status.state === 'saved' && status.generation === null,
-        'Requested pack did not save after sender restart',
+        `Requested pack did not save after sender restart: ${JSON.stringify(status)}`,
       );
       const packId = await smoke.stickerFileChecks.readback();
       metadata(message, packId);

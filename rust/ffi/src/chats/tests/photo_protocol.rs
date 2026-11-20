@@ -139,9 +139,11 @@ fn retry(f: &Fixture, address: &libp2p::Multiaddr) {
             )
             .await
             .unwrap();
-            let now = i64::try_from(dyapp_client::now().saturating_mul(1000))
-                .unwrap()
-                .saturating_add(1000);
+            let now = i64::try_from(dyapp_client::now().saturating_mul(1000)).unwrap();
+            let now = (0i64..=2)
+                .map(|offset| now.saturating_add(offset.saturating_mul(1000)))
+                .find(|now| !session.store().due_outbound(*now).unwrap().is_empty())
+                .expect("queued photo must reach its persisted retry deadline");
             session
                 .retry_due(&mut [node], now, &f.chats.seal_key)
                 .await

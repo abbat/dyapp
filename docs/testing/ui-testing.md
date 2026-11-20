@@ -285,6 +285,7 @@ messages. The other client clicks Add pack while the sender process is stopped, 
 waiting, then saves the answer after the sender relaunches and sends from that pack. Another
 restart verifies the reply and hidden control-packet projection. Request/image controllers are
 awaited through DOM changes and deadlines; native node passes complete before the next check.
+The post-restart recovery deadline covers the selection circuit's 60-second cooldown.
 No fixed sleep or pixel coordinates are added. These native steps execute in Linux CI; prepared
 WebKit runs with mocked IPC establish controller behavior only. Release size comes from CI
 artifacts, not a local native build.

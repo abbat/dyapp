@@ -298,11 +298,10 @@ struct Scan<'a> {
     scopes: &'a [Scope],
     rest: &'a str,
     rest_values: &'a [rusqlite::types::Value],
-    limit: usize,
 }
 
 impl Scan<'_> {
-    fn range(&self, lo: i64, hi: i64, budget: u32) -> Result<(Hits, u32)> {
+    fn range(&self, lo: i64, hi: i64, budget: u32, limit: usize) -> Result<(Hits, u32)> {
         use rusqlite::types::Value;
         let (mut hits, mut scanned) = (Vec::new(), 0u32);
         let mut statements = Vec::new();
@@ -338,7 +337,7 @@ impl Scan<'_> {
             heads.push(next(rows)?);
         }
         // Merge the scopes by `r`.
-        while hits.len() < self.limit && scanned < budget {
+        while hits.len() < limit && scanned < budget {
             let Some(i) = lowest_head(&heads) else {
                 break;
             };
@@ -387,7 +386,6 @@ impl SearchIndex {
             scopes: &scopes,
             rest: &rest,
             rest_values: &rest_values,
-            limit,
         };
         let start = i64::from_ne_bytes(rand_bytes()?);
         let (mut hits, mut scanned) = (Vec::new(), 0u32);
@@ -396,8 +394,12 @@ impl SearchIndex {
             if hits.len() >= limit || scanned >= max_scan_rows || lo > hi {
                 break;
             }
-            let (mut range_hits, range_scanned) =
-                scan.range(lo, hi, max_scan_rows.saturating_sub(scanned))?;
+            let (mut range_hits, range_scanned) = scan.range(
+                lo,
+                hi,
+                max_scan_rows.saturating_sub(scanned),
+                limit.saturating_sub(hits.len()),
+            )?;
             hits.append(&mut range_hits);
             scanned = scanned.saturating_add(range_scanned);
         }

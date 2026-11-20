@@ -21,7 +21,7 @@ RUN curl -fL https://dl.google.com/android/repository/commandlinetools-linux-158
 # SHELL is bash, but hadolint checks RUN lines as POSIX sh.
 # hadolint ignore=SC3040
 RUN set +o pipefail && yes | sdkmanager --licenses >/dev/null
-RUN sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0' 'platform-tools' 'emulator' 'system-images;android-31;default;x86_64' \
+RUN sdkmanager 'platforms;android-37.1' 'build-tools;36.0.0' 'platform-tools' 'emulator' 'system-images;android-31;default;x86_64' \
     'ndk;29.0.14206865'
 ENV ANDROID_NDK_HOME=/opt/android-sdk/ndk/29.0.14206865
 # The app build compiles the Rust core (see clients/android/app/build.gradle); the build user owns the
