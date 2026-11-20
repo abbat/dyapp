@@ -1,5 +1,11 @@
 # UI Testing: Practical Guide
 
+`NetworkPermissionOwnerTests` queues foreground permission continuations around the actual
+`NetworkDraftScreen` and two native identities. It replaces and disposes the original form before
+completion, verifies unchanged selection/active settings, and completes a current request as a
+positive control. Invalid-address results avoid network timing. This controls callback delivery;
+real API 37 permission-controller dialogs remain separate device acceptance.
+
 Android publication callbacks admit one attempt synchronously before coroutine dispatch. Closed,
 busy and disposed owners cannot launch another attempt; native authorization remains unchanged.
 `PublicationAdmissionTests` invokes captured callbacks in one UI turn and gates completion with
