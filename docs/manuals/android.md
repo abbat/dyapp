@@ -60,8 +60,9 @@ a 15-minute period. Each run retries due queued messages and receives mail throu
 A failed pass asks JobScheduler for a backoff retry instead of waiting for the next periodic run.
 This is not an exact delivery interval or a push wake-up service. The app lock protects the interface;
 it does not prevent this background receive. Missing or recovery identities are skipped. The job is
-configured as persisted, but delivery under idle restrictions and across reboot or app update still
-requires release verification. Foreground use remains available for catch-up.
+configured as persisted; delivery across reboot or app update still requires v0.0.1 verification.
+Doze/App Standby can defer jobs and network access until the platform permits them again; this
+policy's device verification is planned after v0.0.1. Foreground use remains available for catch-up.
 
 ## Share a profile
 

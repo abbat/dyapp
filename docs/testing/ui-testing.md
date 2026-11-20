@@ -1,5 +1,10 @@
 # UI Testing: Practical Guide
 
+Android v0.0.1 background acceptance retains exact-message ownership, offline reopen, reboot and
+APK-upgrade/job-restoration phases. Doze/App Standby policy verification is planned after v0.0.1;
+forced worker dispatch does not prove natural idle or periodic execution. Reopening that work
+requires owner approval and a fresh cost analysis.
+
 `NetworkPermissionOwnerTests` queues foreground permission continuations around the actual
 `NetworkDraftScreen` and two native identities. It replaces and disposes the original form before
 completion, verifies unchanged selection/active settings, and completes a current request as a
