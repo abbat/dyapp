@@ -188,7 +188,8 @@ The IDs inside each section are the desktop ones; only the frame differs.
   `notice-name`, `notice-text`). Photos uses `photo-mode`, the `keep-photos` switch,
   numeric MiB `photo-cache-size`, a usage hint and `photo-cache-clear`.
   Native Android now implements the download-mode radio group through the common core API;
-  retention, numeric budget/usage and cache-clear controls remain planned.
+  retention, exact numeric MiB budget, byte usage, refresh and confirmed cache clear use shared core
+  input and current-state edit policy. Native runtime and visual acceptance remain separate.
 - Account links to `settings-identities-screen`. Its `settings-identities` list preserves
   `settings-remove`, `settings-remove-2` and `settings-create`. Blocked and passed have
   `blocked-list` and `passed-list` in the `blocked` and `passed` cards:
@@ -231,8 +232,8 @@ notice delivery defaults on with fixed “New message” content. Turning delive
 notification permission on Android 13+; when blocked, Allow asks again or opens system settings.
 Content selection is disabled while off and retains its choice. Failed reads/writes preserve the
 last shown values/list and explain the failure. Token-revocation retry reports its outcome.
-The remaining catalogue-driven menu, collection pagination/search, cache controls and missing
-privacy/activity controls remain planned. Source implementation and prototype captures do not
+The remaining catalogue-driven menu, collection pagination/search and missing privacy/activity
+controls remain planned. Source implementation and prototype captures do not
 establish native runtime or visual acceptance; Settings still requires its owner visual review.
 
 The theme and language follow the system by default; the prototype shows the dark theme with

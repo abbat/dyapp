@@ -48,12 +48,18 @@ internal fun IdentitySettingsScreen(
             SettingsPane.APPEARANCE -> AppearanceCard()
             SettingsPane.PRIVACY -> PrivacySettings(active, route)
             SettingsPane.NOTIFICATIONS -> NoticeCard(active)
-            SettingsPane.PHOTOS -> PhotoDownloadCard(active)
+            SettingsPane.PHOTOS -> PhotoSettings(active)
             SettingsPane.ACCOUNT -> AccountSettings(lockMode, route, onLock)
             SettingsPane.ABOUT -> AboutSettings()
             else -> SettingsCollection(pane, slots, active, act)
         }
     }
+}
+
+@Composable
+private fun PhotoSettings(active: Opened.Ready) {
+    PhotoDownloadCard(active)
+    MediaCacheCard(active)
 }
 
 @Composable

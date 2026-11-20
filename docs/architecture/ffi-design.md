@@ -20,7 +20,10 @@ planning, mutation and readback. Retention edits preserve the actual budget; bud
 actual retention. Its result carries measured settings and `confirmation_required`; `InvalidLimit`
 is distinct from a backend failure. Native UI must request first without confirmation, show a
 warning if required, and only resubmit that owner-bound intent after explicit confirmation.
-The original byte-based exports remain available. Android cache presentation is being wired.
+The original byte-based exports remain available. Android Photos uses these targeted exports for
+retention, numeric MiB input, usage, refresh and confirmed clear. Its presentation stores raw input
+and an owner-bound pending intent; it does not parse budgets or decide whether changes erase data.
+Native compilation, runtime and visual acceptance are tracked separately.
 
 > ⚠️ **Prototype.** This page is the single source of truth for the Rust ↔ native
 > boundary, checked against `rust/ffi/src/lib.rs` (UniFFI 0.32.2). Kotlin bindings are
