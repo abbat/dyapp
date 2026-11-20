@@ -1,6 +1,7 @@
 //! The shared desktop/native maintenance entry point drives actual private-device traffic.
 use super::*;
 
+#[path = "maintenance/third.rs"]
 mod third;
 
 #[tokio::test]
