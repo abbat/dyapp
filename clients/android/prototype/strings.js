@@ -12,7 +12,7 @@ Object.assign(STRINGS.en, {
   'lock.body': 'A PIN of 6 to 64 digits hides your identities and chats until you enter it.',
   'lock.recovery': 'The device screen lock recovers a forgotten PIN.',
   'lock.skip': 'Skip',
-  'rename.label': 'Name on this phone',
+  'rename.label': 'Private contact name',
   'clear.text':
     'Messages and their kept originals will be removed from this device only. The other person keeps their copy.',
   'chat.cleared': 'Chat cleared on this device',
@@ -47,7 +47,7 @@ Object.assign(STRINGS.ru, {
   'lock.body': 'PIN из 6–64 цифр скрывает ваши личности и чаты, пока вы его не введёте.',
   'lock.recovery': 'Забытый PIN восстанавливается блокировкой экрана устройства.',
   'lock.skip': 'Пропустить',
-  'rename.label': 'Имя на этом телефоне',
+  'rename.label': 'Личное имя контакта',
   'clear.text':
     'Сообщения и сохранённые оригиналы удалятся только с этого устройства. У собеседника останется копия.',
   'chat.cleared': 'Переписка очищена на этом устройстве',

@@ -135,8 +135,9 @@ const STRINGS = {
     'chat.rename': 'Name this contact',
     'chat.mute': 'Mute notifications',
     'chat.muted': 'Muted',
-    'rename.label': 'Name on this computer',
-    'rename.hint': 'Only you see this name. Leave it empty to remove it.',
+    'rename.label': 'Private contact name',
+    'rename.hint':
+      'Only you see this name. It is shared with your linked devices when they synchronize. Leave it empty to remove it.',
     'rename.save': 'Save name',
     'chat.clear': 'Clear chat',
     'chat.cleared': 'Chat cleared on this computer',
@@ -577,8 +578,9 @@ const STRINGS = {
     'chat.rename': 'Назвать контакт',
     'chat.mute': 'Отключить уведомления',
     'chat.muted': 'Без уведомлений',
-    'rename.label': 'Имя на этом компьютере',
-    'rename.hint': 'Это имя видите только вы. Оставьте поле пустым, чтобы убрать его.',
+    'rename.label': 'Личное имя контакта',
+    'rename.hint':
+      'Это имя видите только вы. Оно передаётся вашим связанным устройствам при синхронизации. Оставьте поле пустым, чтобы убрать его.',
     'rename.save': 'Сохранить имя',
     'chat.clear': 'Очистить переписку',
     'chat.cleared': 'Переписка очищена на этом компьютере',

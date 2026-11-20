@@ -2,6 +2,8 @@ package com.dyapp
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -20,7 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** `chat-rename-dialog`: the name only this device shows for the peer; an empty one removes it. */
+/** `chat-rename-dialog`: this identity's private contact name, shared with own devices; empty clears it. */
 @Composable
 internal fun RenameDialog(form: ChatForm, onSave: () -> Unit) {
     val cancel = {
@@ -45,7 +47,7 @@ internal fun RenameDialog(form: ChatForm, onSave: () -> Unit) {
 
 @Composable
 private fun RenameFields(form: ChatForm) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
             form.renaming.value.orEmpty(),
             { form.renaming.value = it },

@@ -1,5 +1,11 @@
 # UI Testing: Practical Guide
 
+`RenameDialogGeometryTests` renders the native private-name dialog in EN/RU at normal and doubled
+font scale, scrolls label/hint into their measured text slots and checks complete layouts/current
+dialog bounds. Save/Cancel remain outside the scrollable fields; cancellation invokes no save,
+and an empty name still reaches the save callback. Device execution is required separately from
+source lint and WebKit prototype captures.
+
 `LocalCollectionViewTests` exercises the actual shared-core FFI projection from Compose: 70 local
 entries mount as 32/32/6 rows, full-target search finds a last-page entry, clearing search returns
 to the first page, and a captured navigation callback cannot change a replacement opening.

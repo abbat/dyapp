@@ -9,6 +9,10 @@ existing meanings.
 
 Who can see what about you: [Your privacy in dyapp](privacy.md).
 
+A chat's **Name this contact** sets a private contact name for this identity. The name is shared
+with your linked devices when they synchronize, and is not shown to the contact. An empty name
+removes it; Cancel changes nothing.
+
 Other people's profile pages offer **Save privately** and **Remove from saved**. The mark is stored
 for the active identity and shared only with its own devices; it sends no like or notification to
 the profile owner. While loading or saving, the action waits for native completion. A read failure
