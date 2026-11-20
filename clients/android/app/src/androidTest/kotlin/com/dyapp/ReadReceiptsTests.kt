@@ -8,7 +8,6 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.platform.app.InstrumentationRegistry
@@ -42,12 +41,12 @@ class ReadReceiptsTests {
     @Test
     fun theReadReceiptSwitchIsOffByDefaultAndStored() {
         compose.shownPeerId()
-        compose.onNodeWithTag("nav-settings").performClick()
+        compose.openSettingsPane("settings-privacy")
         changeTo(true)
         check(stored()) { "On was not stored" }
         compose.activityRule.scenario.recreate()
         compose.skipNetworkEntry()
-        compose.onNodeWithTag("nav-settings").performClick()
+        compose.openSettingsPane("settings-privacy")
         changeTo(false)
         check(!stored()) { "Off was not stored" }
         compose.onNodeWithTag("receipts-error").assertDoesNotExist()

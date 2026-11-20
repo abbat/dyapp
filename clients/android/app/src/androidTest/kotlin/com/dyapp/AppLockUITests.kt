@@ -45,12 +45,14 @@ internal fun ComposeTestRule.skipNetworkEntry() {
 
 /** Adds an identity from the switcher sheet in the top bar. */
 internal fun ComposeTestRule.addIdentity() {
+    settingsRoot()
     onNodeWithTag("identity-switcher").performClick()
     identityAction { onNodeWithTag("add-identity-menu").performClick() }
 }
 
 /** Switches to the identity shown as [label] in the switcher sheet. */
 internal fun ComposeTestRule.switchIdentity(label: String) {
+    settingsRoot()
     onNodeWithTag("identity-switcher").performClick()
     val candidate = hasText(label) and hasAnyAncestor(hasTestTag("identity-menu"))
     awaitNode(candidate)
@@ -59,6 +61,7 @@ internal fun ComposeTestRule.switchIdentity(label: String) {
 
 /** The ready identity's Peer ID from the Profile section, past the first-run network wizard. */
 internal fun ComposeTestRule.shownPeerId(): String {
+    settingsRoot()
     skipNetworkEntry()
     if (onAllNodesWithTag("nav-profile").fetchSemanticsNodes().isNotEmpty()) {
         openProfileEditor()
@@ -124,12 +127,12 @@ class AppLockUITests {
 
     private fun bothBacksLeaveLockSettings() {
         compose.onNodeWithTag("lock-back").performClick()
-        compose.onNodeWithTag("settings-identities").assertExists()
+        compose.onNodeWithTag("settings-account").assertExists()
         compose.onNodeWithTag("lock-settings").performScrollTo().performClick()
         // Waits for the screen, whose BackHandler would otherwise miss the press and finish the activity.
         compose.onNodeWithTag("lock-back").assertExists()
         compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
-        compose.onNodeWithTag("settings-identities").assertExists()
+        compose.onNodeWithTag("settings-account").assertExists()
     }
 
     @Test
@@ -140,7 +143,7 @@ class AppLockUITests {
             compose.activityRule.scenario.recreate()
             enterPin("123456")
             compose.shownPeerId()
-            compose.onNodeWithTag("nav-settings").performClick()
+            compose.openSettingsPane("settings-account")
             compose.onNodeWithTag("lock-settings").performScrollTo().performClick()
             compose.onNodeWithTag("lock-mode").assertTextEquals(string(R.string.lock_mode_pin))
             compose.onNodeWithTag("pin-current").performTextInput("654321")

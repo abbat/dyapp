@@ -99,7 +99,7 @@ class AppUITests {
         val second = compose.shownPeerId()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val alias = identityAlias((RustBridge.slots(context).open() as Opened.Ready).slot.id)
-        compose.onNodeWithTag("nav-settings").performClick()
+        compose.openSettingsPane("settings-account", "settings-identities-screen")
         compose.awaitNode(hasTestTag("settings-remove")).performScrollTo().performClick()
         compose.awaitNode(hasTestTag("remove-confirm"))
         compose.onNodeWithTag("remove-title").assertTextEquals(string(R.string.remove_title))

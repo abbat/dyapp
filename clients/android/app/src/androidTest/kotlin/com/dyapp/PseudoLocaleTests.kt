@@ -58,12 +58,12 @@ class PseudoLocaleTests {
         check(none != base.getString(R.string.status_no_network)) { "Russian translation missing: $none" }
         compose.onNodeWithTag("nav-settings").performClick()
         compose.awaitNode(hasTestTag("app-ready") and hasText(russian.getString(R.string.nav_settings)))
-        // The section title precedes the asynchronous native identity list.
+        // Check the shell before entering detail panes, which hide its bars.
+        compose.awaitNode(hasTestTag("connection-status") and hasText(none))
+        compose.openSettingsPane("settings-account", "settings-identities-screen")
         compose.awaitNode(hasTestTag("settings-active"))
             .assertTextEquals(russian.getString(R.string.settings_active_key))
         compose.onNodeWithTag("settings-create").assertTextEquals(russian.getString(R.string.identity_add))
-        // Other tests leave no active network.
-        compose.awaitNode(hasTestTag("connection-status") and hasText(none))
     }
 
     @Test

@@ -40,7 +40,7 @@ class ProfileRemovalTests {
     }
 
     private fun askToRemove() {
-        compose.onNodeWithTag("nav-settings").performClick()
+        compose.openSettingsPane("settings-account", "settings-identities-screen")
         compose.awaitNode(hasTestTag("settings-remove")).performScrollTo().performClick()
         compose.awaitNode(hasTestTag("remove-confirm"))
         compose.onNodeWithText(string(R.string.remove_withdraws)).assertExists()

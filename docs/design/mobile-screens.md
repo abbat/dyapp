@@ -220,19 +220,20 @@ only an explicit row Open enters the ordinary verified profile-loading route. No
 stay distinct from empty text, failed saves retain the draft, and stale presentation completions
 cannot update another opening. Notes never enter public profile fields, likes or chat content.
 
-The native Settings route/frame components implement six categories, per-identity route ownership,
-collection-to-category Back and a saved presentation-only route across the app-lock overlay.
-Their integration into the shell and existing panels is being completed; these components alone
-are not native screen acceptance.
-
-Native Android Settings still shows its original cards: identity/removal, app lock, blocked/passed,
-appearance, privacy/notifications, photo download mode, disabled updates and version. The receipt switch defaults off;
+Native Android Settings uses the six-category hub. Detailed panes hide the shell bars and provide
+UI/system Back: identity collection returns to Account, blocked/passed return to Privacy, and
+categories return to the hub. Appearance, receipts, notices, photo download modes, identities,
+app lock, blocked/passed, disabled updates and version retain their existing native controls.
+Only the presentation route survives the app-lock settings overlay; changing identity creates
+a fresh route object, so callbacks from an old owner cannot navigate the next one.
+The receipt switch defaults off;
 notice delivery defaults on with fixed “New message” content. Turning delivery on requests
 notification permission on Android 13+; when blocked, Allow asks again or opens system settings.
 Content selection is disabled while off and retains its choice. Failed reads/writes preserve the
 last shown values/list and explain the failure. Token-revocation retry reports its outcome.
-The catalogue-driven menu, category hub, separate paged/searchable collections and media controls
-are not established as native behavior by these prototype captures.
+The remaining catalogue-driven menu, collection pagination/search, cache controls and missing
+privacy/activity controls remain planned. Source implementation and prototype captures do not
+establish native runtime or visual acceptance; Settings still requires its owner visual review.
 
 The theme and language follow the system by default; the prototype shows the dark theme with
 `?theme=dark` instead of a separate state. On Android a picked theme applies at once. A picked

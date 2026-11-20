@@ -1,5 +1,12 @@
 # UI Testing: Practical Guide
 
+`SettingsHubTests` checks the native category root has no collection/removal actions, detail panes
+hide shell bars, collection Back returns to its category, and system Back restores the root.
+Existing settings tests enter explicit categories and await native values/rows after navigation.
+`SettingsFrameOwnerTests` captures an old collection callback, replaces its identity and invokes
+that callback to prove it cannot navigate the successor. The route-only owner survives the app-lock
+settings overlay without retaining native handles or loaded values.
+
 `PhotoDownloadOwnerTests` controls the real three-choice native-settings presentation. Unknown reads
 leave every choice disabled and retry performs no write; repeated captured callbacks admit one
 change, and late completion of an old native-like operation cannot replace the next identity's

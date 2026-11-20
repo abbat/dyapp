@@ -74,7 +74,8 @@ internal fun AppShell(
     // Above the chat branch: the mailbox poll goes on while a chat is open.
     val feed = rememberChatFeed(opened)
     val search = rememberSearchSession(opened)
-    CompositionLocalProvider(LocalPeerPhotos provides search.photos) {
+    val settings = rememberSettingsPane(opened.slot.id)
+    CompositionLocalProvider(LocalPeerPhotos provides search.photos, LocalSettingsPane provides settings) {
         ShellRoutes(slots, opened, section, lockMode, act, open, feed, search)
     }
 }
@@ -133,9 +134,10 @@ private fun ShellFrame(
 ) {
     var switcher by remember { mutableStateOf(false) }
     val current = sections.firstOrNull { it.target == section } ?: sections.first()
+    val detail = current.target == StartTarget.SETTINGS && LocalSettingsPane.current?.value != SettingsPane.ROOT
     Scaffold(
-        topBar = { ShellTopBar(opened, current, open) { switcher = true } },
-        bottomBar = { ShellNavigationBar(current, chatsBadge(feed.rows), open) },
+        topBar = { if (!detail) ShellTopBar(opened, current, open) { switcher = true } },
+        bottomBar = { if (!detail) ShellNavigationBar(current, chatsBadge(feed.rows), open) },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             if (current.target == StartTarget.CHATS) {

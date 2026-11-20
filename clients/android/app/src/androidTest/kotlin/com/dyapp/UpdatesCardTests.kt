@@ -5,7 +5,6 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import org.junit.Rule
 import org.junit.Test
@@ -20,7 +19,7 @@ class UpdatesCardTests {
     @Test
     fun updatesStayDisabledUntilTheFeedIsPublished() {
         compose.shownPeerId()
-        compose.onNodeWithTag("nav-settings").performClick()
+        compose.openSettingsPane("settings-about")
         for (tag in listOf("update-6h", "update-12h", "update-24h", "update-7d", "update-check")) {
             compose.onNodeWithTag(tag).performScrollTo().assertIsNotEnabled()
         }

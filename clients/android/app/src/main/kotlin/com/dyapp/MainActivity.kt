@@ -10,6 +10,7 @@ import android.view.MotionEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -105,17 +106,25 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(locked, lock) {
                 if (!locked && lock != StoredLock.NEW) networkAccess.firstUnlock()
             }
+            val settingsNavigation = rememberSettingsNavigation()
             ProvideLocalNetworkAccess(networkAccess) {
-                DYAppTheme(chosenDarkTheme()) {
-                    when {
-                        locked -> Locked()
-                        lock == StoredLock.NEW -> SetupScreen(
-                            device,
-                            skipLock
-                        ) { setPin(null, it) == PinAttempt.UNLOCKED }
-                        settings -> LockSettingsScreen(lockMode, device, ::setPin, leaveSettings)
-                        else -> Main()
-                    }
+                CompositionLocalProvider(LocalSettingsNavigation provides settingsNavigation) {
+                    PrivateScreens()
+                }
+            }
+        }
+
+        @Composable
+        private fun PrivateScreens() {
+            DYAppTheme(chosenDarkTheme()) {
+                when {
+                    locked -> Locked()
+                    lock == StoredLock.NEW -> SetupScreen(
+                        device,
+                        skipLock
+                    ) { setPin(null, it) == PinAttempt.UNLOCKED }
+                    settings -> LockSettingsScreen(lockMode, device, ::setPin, leaveSettings)
+                    else -> Main()
                 }
             }
         }

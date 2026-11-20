@@ -35,7 +35,7 @@ class AppearanceTests {
 
     private fun openSettings() {
         compose.shownPeerId()
-        compose.onNodeWithTag("nav-settings").performClick()
+        compose.openSettingsPane("settings-appearance")
     }
 
     private fun click(tag: String) = compose.onNodeWithTag(tag).performScrollTo().performClick()

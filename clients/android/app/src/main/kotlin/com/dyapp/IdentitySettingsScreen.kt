@@ -3,13 +3,10 @@ package com.dyapp
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,10 +28,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 /**
- * The Settings section: the identities on this device, the lock row with [lockMode], the blocked
- * and passed people, the new-mail notice, the theme and language, updates and the version.
- * Add changes the active slot through [act]; Lock opens its screen through [onLock]. Switching and the
- * network live in the identity menu, the connection chip and the Network tab.
+ * Six Settings categories preserve native panels and separate destructive collection actions.
+ * Add changes the active slot through [act]; the lock row uses [lockMode] and [onLock].
+ * Switching and the network remain in the shell; detail pages provide their own back route.
  */
 @Composable
 @Suppress("LongParameterList") // The section needs the slots, the lock mode and both routes out.
@@ -45,21 +41,52 @@ internal fun IdentitySettingsScreen(
     act: (() -> Opened) -> Unit,
     onLock: () -> Unit
 ) {
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 24.dp),
-        Arrangement.spacedBy(12.dp)
-    ) {
-        IdentityList(slots, active, act)
-        LockRow(lockMode, onLock)
-        BlockedCard(active)
-        PassedCard(active)
-        NoticeCard(active)
-        PhotoDownloadCard(active)
-        AppearanceCard()
-        UpdatesCard()
-        Caption(stringResource(R.string.settings_version, BuildConfig.VERSION_NAME))
+    val fallback = rememberSettingsPane(active.slot.id)
+    val route = LocalSettingsPane.current ?: fallback
+    SettingsFrame(route) { pane ->
+        when (pane) {
+            SettingsPane.APPEARANCE -> AppearanceCard()
+            SettingsPane.PRIVACY -> PrivacySettings(active, route)
+            SettingsPane.NOTIFICATIONS -> NoticeCard(active)
+            SettingsPane.PHOTOS -> PhotoDownloadCard(active)
+            SettingsPane.ACCOUNT -> AccountSettings(lockMode, route, onLock)
+            SettingsPane.ABOUT -> AboutSettings()
+            else -> SettingsCollection(pane, slots, active, act)
+        }
     }
+}
+
+@Composable
+private fun SettingsCollection(pane: SettingsPane, slots: Slots, active: Opened.Ready, act: (() -> Opened) -> Unit) {
+    when (pane) {
+        SettingsPane.IDENTITIES -> IdentityList(slots, active, act)
+        SettingsPane.BLOCKED -> BlockedCard(active)
+        SettingsPane.PASSED -> PassedCard(active)
+        else -> Unit
+    }
+}
+
+@Composable
+private fun PrivacySettings(active: Opened.Ready, route: androidx.compose.runtime.MutableState<SettingsPane>) {
+    ReadReceiptsRow(active)
+    SettingsLink(SettingsPane.BLOCKED, route)
+    SettingsLink(SettingsPane.PASSED, route)
+}
+
+@Composable
+private fun AccountSettings(
+    mode: LockMode,
+    route: androidx.compose.runtime.MutableState<SettingsPane>,
+    onLock: () -> Unit
+) {
+    SettingsLink(SettingsPane.IDENTITIES, route)
+    LockRow(mode, onLock)
+}
+
+@Composable
+private fun AboutSettings() {
+    UpdatesCard()
+    Caption(stringResource(R.string.settings_version, BuildConfig.VERSION_NAME))
 }
 
 @Composable
