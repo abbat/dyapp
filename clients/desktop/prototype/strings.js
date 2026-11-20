@@ -351,7 +351,7 @@ const STRINGS = {
     'remove.confirm': 'I understand this key cannot be recovered',
     'remove.action': 'Remove identity',
     'remove.offline':
-      'No node accepted the withdrawal. The profile disappears from search by itself within 30 days.',
+      'No node accepted the withdrawal. The profile may stay in search until nodes expire it. Another device can keep it published.',
     'remove.anyway': 'Remove anyway',
     'revoked.title': 'This computer was disconnected from the identity',
     'revoked.text':
@@ -797,7 +797,7 @@ const STRINGS = {
     'remove.confirm': 'Я понимаю, что этот ключ нельзя восстановить',
     'remove.action': 'Удалить идентичность',
     'remove.offline':
-      'Ни один узел не принял снятие профиля. Профиль сам исчезнет из поиска в течение 30 дней.',
+      'Ни один узел не принял снятие профиля. Он может оставаться в поиске, пока узлы его хранят. Другое устройство может продлевать публикацию.',
     'remove.anyway': 'Всё равно удалить',
     'revoked.title': 'Этот компьютер отключён от идентичности',
     'revoked.text':

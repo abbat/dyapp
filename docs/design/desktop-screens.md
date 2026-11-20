@@ -618,8 +618,9 @@ sending off never stops receiving.
 `remove-dialog` names the identity by avatar, short Peer ID and kind, then the full ID, withdraws
 the profile with a tombstone and deletes the key with this identity's chats, matches and likes on
 this computer. `remove-offline`:
-no node accepted the tombstone, so the dialog says the profile expires by itself within the
-nodes' profile lifetime and offers Retry or Remove anyway.
+no node accepted the tombstone, so the dialog offers Retry or Remove anyway and warns that the
+profile may remain searchable until nodes expire it. Retention is operator-configured and another
+device can renew publication; local removal never guarantees disappearance within a fixed deadline.
 
 | Control | ID | Notes |
 | --- | --- | --- |
