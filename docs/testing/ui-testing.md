@@ -7,6 +7,12 @@ checks canonical tags, readable autonyms and exclusion of generated pseudo-local
 including region/script qualifiers while excluding UI/night/density qualifiers and libraries.
 Kotlin test sources still require actual SDK/unit/device execution; Python inventory tests alone
 do not prove native resource selection or recreation.
+`LanguagePickerTests` checks Cancel/unchanged selection without writes, stale callbacks from an
+older opening or owner, arbitrary option count and single admission of captured repeated selection.
+`LanguagePickerGeometryTests` checks complete long-label text and current unclipped dialog bounds
+at normal/doubled font scale, with Cancel still visible. Initial/return focus readiness uses actual
+window-focus signals. `AppearanceTests` enters the dialog and preserves its existing native
+language/theme persistence and Activity recreation assertions. Actual CI execution remains required.
 
 `ChatListPreviewTests` drives actual conversation rows for all six typed bodies and forwarded states,
 with disagreeing legacy text/time, cached shared-profile labels, original navigation and a full-history
