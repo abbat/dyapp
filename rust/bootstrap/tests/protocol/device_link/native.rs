@@ -8,8 +8,12 @@ use std::sync::Arc;
 fn native_device(person: &Person, address: &Multiaddr) -> Arc<ChatSession> {
     let dir = protocol_build_path("native-linked-device");
     std::fs::create_dir_all(&dir).unwrap();
+    native_at(person, address, &dir)
+}
+
+fn native_at(person: &Person, address: &Multiaddr, dir: &std::path::Path) -> Arc<ChatSession> {
     network::save(
-        &dir,
+        dir,
         Settings::Active,
         &Network {
             seeds: vec![seed_row(address)],
@@ -18,9 +22,11 @@ fn native_device(person: &Person, address: &Multiaddr) -> Arc<ChatSession> {
     )
     .unwrap();
     let mut store = Store::open(&dir.join("client.db"), &person.identity).unwrap();
-    store
-        .stage_outbound(&person.device.seal(&SEAL).unwrap(), &[])
-        .unwrap();
+    if store.sealed_device().unwrap().is_none() {
+        store
+            .stage_outbound(&person.device.seal(&SEAL).unwrap(), &[])
+            .unwrap();
+    }
     drop(store);
     let key = |identity: &Identity| {
         IdentityKey::unwrap(
@@ -40,6 +46,7 @@ fn native_device(person: &Person, address: &Multiaddr) -> Arc<ChatSession> {
 }
 
 struct ExistingChat {
+    dir: std::path::PathBuf,
     address: Multiaddr,
     alice: Person,
     bob: Person,
@@ -63,7 +70,10 @@ impl ExistingChat {
             alice.node.get_profile(&owner).await.unwrap(),
             alice.node.get_profile(&peer).await.unwrap(),
         ];
-        let (mut sender, contact, group) = begin_chat(&mut alice, &mut bob, &held).await;
+        let dir = protocol_build_path("native-existing-chat");
+        std::fs::create_dir_all(&dir).unwrap();
+        let (mut sender, contact, group) =
+            begin_chat_at(&mut alice, &mut bob, &held, &dir.join("client.db")).await;
         sender
             .send_message(
                 from_mut(&mut alice.node),
@@ -74,6 +84,7 @@ impl ExistingChat {
             .await
             .unwrap();
         Self {
+            dir,
             address,
             alice,
             bob,
@@ -140,6 +151,51 @@ impl ExistingChat {
             .await
             .unwrap();
     }
+}
+
+fn stored_members(dir: &std::path::Path, person: &Person, group: &[u8]) -> Vec<String> {
+    let store = Store::open(&dir.join("client.db"), &person.identity).unwrap();
+    let device =
+        dyapp_messaging::mls::Device::open(&store.sealed_device().unwrap().unwrap(), &SEAL)
+            .unwrap();
+    store
+        .load_groups(&device)
+        .unwrap()
+        .into_iter()
+        .find(|(held, _)| held.id() == group)
+        .unwrap()
+        .0
+        .members()
+        .unwrap()
+}
+
+#[test]
+fn native_idle_refresh_removes_a_revoked_contact_without_new_mail() {
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let chat = runtime.block_on(ExistingChat::new());
+    drop(chat.sender);
+    let receiver = native_at(&chat.alice, &chat.address, &chat.dir);
+    receiver.receive().unwrap();
+    let peer = chat.bob.identity.peer_id();
+    assert!(stored_members(&chat.dir, &chat.alice, &chat.group).contains(&peer));
+    let mut bob = chat.bob;
+    runtime.block_on(async {
+        let revoked = Profile {
+            version: 2,
+            devices: vec![],
+            ..Default::default()
+        };
+        bob.node
+            .publish_profile(revoked.sign(&bob.identity))
+            .await
+            .unwrap();
+    });
+    // No incoming message or explicit contact confirmation supplies the newer authority.
+    receiver.receive().unwrap();
+    assert!(!stored_members(&chat.dir, &chat.alice, &chat.group).contains(&peer));
 }
 
 #[test]

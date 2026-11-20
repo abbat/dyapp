@@ -5,8 +5,11 @@ opens a linked device through public `ChatSession` calls against a real external
 pair chat contains pre-enrollment traffic; after completed membership maintenance and native mailbox
 processing, the new device has no previous messages and receives only subsequent traffic. The
 sender's maintenance uses an explicit clock; protocol completions order the phases without sleeps.
-This covers the native receiving adapter, not Android UI, idle contact revocation or a third own
-device joining an already established private own-device group.
+The companion `native_idle_refresh_removes_a_revoked_contact_without_new_mail` reopens the existing
+sender through FFI, publishes a contact device removal, and checks the durable MLS members before
+and after ordinary receive without new incoming traffic or explicit confirmation. These fixtures
+cover native receiving/maintenance adapters, not Android UI or a third own device joining an already
+established private own-device group.
 
 The shipped desktop sticker-controller paging check awaits its actual listing completion, then
 checks the localized Pack ID label, contiguous eight-digit prefix and accessible Remove target.
