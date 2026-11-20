@@ -111,7 +111,7 @@ private fun ShellRoutes(
             peers.chat = peer
         }
         ShellFrame(slots, opened, section, lockMode, act, open, feed, openChat, peers::show) {
-            SearchScreen(search, { open(StartTarget.NETWORK) }, peers::show)
+            SearchScreen(search, { open(StartTarget.NETWORK) }, peers::show, peers::showSaved)
         }
     }
 }

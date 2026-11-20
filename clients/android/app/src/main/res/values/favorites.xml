@@ -11,4 +11,12 @@
     <string name="favorites_blocked">This profile is blocked. Unblock it in Settings before saving.</string>
     <string name="favorites_saved">Profile saved privately.</string>
     <string name="favorites_removed">Profile removed from saved.</string>
+    <string name="favorites_show">Show saved profiles</string>
+    <string name="favorites_hide">Hide saved profiles</string>
+    <string name="favorites_list_hint">This private list loads from your device. A profile is fetched only when you open its row.</string>
+    <string name="favorites_list_loading">Loading saved profiles…</string>
+    <string name="favorites_list_failed">Saved profiles could not be loaded. Refresh to retry.</string>
+    <string name="favorites_empty">No saved profiles yet. Save one from its profile page.</string>
+    <string name="favorites_refresh">Refresh saved profiles</string>
+    <string name="favorites_remove_named">Remove %1$s from saved</string>
 </resources>

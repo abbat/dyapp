@@ -14,17 +14,26 @@ internal class ShellPeers(
     chat: MutableState<String?>,
     viewed: MutableState<String?>,
     found: MutableState<FoundProfile?>,
+    fromSaved: MutableState<Boolean> = mutableStateOf(false),
 ) {
     var chat by chat
     var viewed by viewed
     var found by found
+    var fromSaved by fromSaved
 
     fun close() {
         viewed = null
         found = null
     }
 
+    fun showSaved(peer: String) {
+        fromSaved = true
+        found = null
+        viewed = peer
+    }
+
     fun show(profile: FoundProfile) {
+        fromSaved = false
         found = profile
         viewed = profile.peerId
     }
@@ -37,7 +46,8 @@ internal fun rememberShellPeers(identity: String): ShellPeers {
     val viewed = rememberSaveable(identity) { mutableStateOf<String?>(null) }
     // The result already verified; after a recreation only the Peer ID is left and the page fetches.
     val found = remember(identity) { mutableStateOf<FoundProfile?>(null) }
-    return remember(identity) { ShellPeers(chat, viewed, found) }
+    val fromSaved = rememberSaveable(identity) { mutableStateOf(false) }
+    return remember(identity) { ShellPeers(chat, viewed, found, fromSaved) }
 }
 
 /** The viewed profile, including return-to-chat and block navigation. */
@@ -50,7 +60,11 @@ internal fun ShellPeers.Profile(
 ) {
     val peers = this
     val viewed = peers.viewed ?: return
-    val backLabel = if (peers.chat == null && section == StartTarget.SEARCH) R.string.view_back else R.string.lock_back
+    val backLabel = if (peers.chat == null && section == StartTarget.SEARCH && !peers.fromSaved) {
+        R.string.view_back
+    } else {
+        R.string.lock_back
+    }
     val toChats = { peer: String? ->
         peers.close()
         peers.chat = peer

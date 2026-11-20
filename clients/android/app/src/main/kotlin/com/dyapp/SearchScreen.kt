@@ -185,6 +185,8 @@ internal class SearchSession(private val opened: Opened.Ready, private val scope
     private var job: Job? = null
     var photos by mutableStateOf(PeerPhotos(null, opened))
         private set
+    val savedCalls = savedProfilesCalls(opened)
+    val savedOpen = mutableStateOf(false)
     val filters = SearchFilters(profileScales())
     var state by mutableStateOf<SearchState>(SearchState.Idle)
         private set
@@ -231,13 +233,19 @@ internal fun rememberSearchSession(opened: Opened.Ready): SearchSession {
  * runs the same query again. Cancel abandons the answer; the blocking call itself runs to its end.
  */
 @Composable
-internal fun SearchScreen(search: SearchSession, openNetwork: () -> Unit, openProfile: (FoundProfile) -> Unit) {
+internal fun SearchScreen(
+    search: SearchSession,
+    openNetwork: () -> Unit,
+    openProfile: (FoundProfile) -> Unit,
+    openSaved: (String) -> Unit,
+) {
     val state = search.state
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState())
             .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        SavedProfiles(search, search.savedOpen, search.savedCalls, openSaved)
         Caption(stringResource(R.string.search_sample))
         FormCard {
             SearchFilterFields(search.filters)

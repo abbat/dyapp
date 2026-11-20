@@ -5,6 +5,10 @@ completions: two captured callbacks in one UI turn admit one write; successful r
 the label; replacing an owner cancels its prior presentation; failed initial reads offer only read
 retry before any mutation. The existing JNI private-contact tests separately cover durable native
 state, typed policy failures and absence of public-profile/like/chat changes.
+`SavedProfilesTests` separately checks lazy local-list reads, navigation only after an explicit row
+press, captured Open callbacks during removal and after the row disappears, and cancellation on
+identity replacement. Only the ordinary profile route performs the later network fetch; expanding,
+refreshing or removing a saved row uses local native operations.
 
 The bootstrap protocol fixture `native_linked_receiver_joins_existing_chat_without_old_history`
 opens a linked device through public `ChatSession` calls against a real external node. Its existing
