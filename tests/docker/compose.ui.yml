@@ -161,6 +161,7 @@ services:
 
   prototype-shots:
     <<: *runtime
+    init: true
     build:
       context: ../..
       dockerfile: tests/docker/Dockerfile.prototype
@@ -187,6 +188,7 @@ services:
   # The Android prototype loads the desktop strings through ../../desktop, so both are mounted.
   prototype-shots-android:
     <<: *runtime
+    init: true
     image: dyapp:prototype
     profiles: [prototype, all]
     network_mode: none

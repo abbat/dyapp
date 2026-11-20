@@ -173,6 +173,9 @@ GTK snapshot and focus-pixel audits need the GI Cairo foreign converter (`python
 addition to `python3-gi`; the prototype image includes both. Use its manual CI capture for complete
 evidence, and retain full-document snapshots when content extends beyond the viewport. Changing
 only PNG serialization leaves the keyboard audit's snapshot conversion unresolved.
+Prototype services use Compose `init: true` for signal forwarding and child reaping; Xvfb stderr
+is retained in the bounded check log. Manual capture CI requires a small canonical snapshot pass
+before the full matrix, so display/Python startup failures do not consume its entire job budget.
 
 UniFFI callback/record member names must avoid target-language keywords. UniFFI 0.32.2 can
 leak Swift backtick escaping into C callback fields; regenerate the Swift header and compile

@@ -238,6 +238,7 @@ class CiOutputTests(unittest.TestCase):
     ) -> None:
         cases = [
             ("prepare existing capture image", "docker", "build"),
+            ("verify capture readiness", "ui-tests", "run"),
             ("capture", "ui-tests", "run"),
         ]
         for name, check, operation in cases:

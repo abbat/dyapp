@@ -1084,8 +1084,12 @@ read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID
 
 Run `.github/workflows/prototype-review.yml` manually from GitHub Actions for current desktop
 prototype review evidence without building WebKit tooling locally. The `docker - prototypes`
-job builds the existing capture image, runs the full desktop matrix and canonical layout/criteria
-checks in Docker, then retains `prototype-review` for seven days, including failed captures.
+job builds the existing capture image, then requires a real `stickers-ready` capture (light,
+100%, English including `en-XA`) to complete within a five-minute failure deadline before starting
+the full desktop matrix and canonical layout/criteria checks. The preflight uses the same capture
+script with a separate `build/prototype-preflight` output mount; a startup timeout fails the job,
+never admits the full matrix. The workflow retains `prototype-review` for seven days, including
+preflight images and failed-capture diagnostics.
 The image includes Git for the criteria baseline ratchet; checkout retains full history.
 The artifact includes screenshots, measured/expected criteria, layout, bounded diagnostic logs,
 source commit, tracked input hashes and image ID. A successful capture supplies evidence for

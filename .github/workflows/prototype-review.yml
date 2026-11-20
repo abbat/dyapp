@@ -29,6 +29,15 @@ jobs:
           python3 tools/scripts/run-check.py --log-dir "$DYAPP_CHECK_LOG_DIR" docker -- \
             docker compose -f tests/docker/compose.ui.yml --profile prototype build prototype-shots
           docker image inspect --format '{{.Id}}' dyapp:prototype > build/prototype-review/image-id.txt
+      - name: verify capture readiness
+        timeout-minutes: 5
+        run: |
+          mkdir -p build/prototype-preflight
+          DYAPP_UID="$(id -u)" DYAPP_GID="$(id -g)" \
+            DYAPP_PROTOTYPE_THEME=light DYAPP_PROTOTYPE_TEXT_SCALE=100 DYAPP_PROTOTYPE_LANGUAGE=en \
+            python3 tools/scripts/run-check.py --log-dir "$DYAPP_CHECK_LOG_DIR" ui-tests -- \
+              docker compose -f tests/docker/compose.ui.yml --profile prototype run --no-TTY --pull never \
+                -v "$PWD/build/prototype-preflight:/shots" prototype-shots bash /app/prototype-run.sh desktop stickers-ready
       - name: capture
         run: |
           mkdir -p build/ux-research/prototype
@@ -50,6 +59,7 @@ jobs:
           name: prototype-review
           path: |
             build/prototype-review/
+            build/prototype-preflight/
             build/ux-research/prototype/
           if-no-files-found: error
           retention-days: 7
