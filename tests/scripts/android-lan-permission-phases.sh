@@ -35,6 +35,19 @@ set_permission() {
     timeout 30 adb -s "$serial" shell pm "$1" com.dyapp "$permission"
 }
 
+foreground() (
+    # Permission changes may terminate the app: establish prompt state before this process starts.
+    trap 'set_permission grant' EXIT
+    set_permission revoke
+    timeout 30 adb -s "$serial" shell pm clear-permission-flags com.dyapp "$permission" user-set user-fixed
+    python3 "$(dirname "$checker")/android_instrumentation.py" \
+        --report "$report_dir/local-network-foreground.txt" --deadline 300 -- \
+        adb -s "$serial" shell am instrument -w -r \
+        -e localNetworkForeground true -e class com.dyapp.LocalNetworkDialogTests \
+        com.dyapp.test/androidx.test.runner.AndroidJUnitRunner
+    python3 "$checker" "$report_dir/local-network-foreground.txt" 1
+)
+
 case "$mode" in
     legacy) phase legacy ;;
     modern)
@@ -53,6 +66,7 @@ case "$mode" in
         phase revoked
         set_permission grant
         phase cleanup
+        foreground
         ;;
     *) echo "Unknown local-network permission mode: $mode" >&2; exit 2 ;;
 esac

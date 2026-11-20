@@ -6,6 +6,16 @@ completion, verifies unchanged selection/active settings, and completes a curren
 positive control. Invalid-address results avoid network timing. This controls callback delivery;
 real API 37 permission-controller dialogs remain separate device acceptance.
 
+The modern permission lane also runs `LocalNetworkDialogTests` after restored-profile cleanup.
+It revokes permission and clears decision flags before starting the instrumentation process, then
+restores the grant even if the foreground test fails. Two explicit requests from the actual
+`MainActivity` network form are denied and then allowed; each must reach the native invalid-address
+result without changing the original selection or active network. The one-shot auto-prompt marker
+is set before activity launch and restored afterward, so startup cannot race a system dialog. `PermissionDialog` observes
+accessibility events and the permission controller's resource IDs with fresh transition deadlines;
+it uses no translated labels or guessed geometry. The retained report is
+`local-network-foreground.txt`. Compilation alone does not establish actual dialog execution.
+
 Android publication callbacks admit one attempt synchronously before coroutine dispatch. Closed,
 busy and disposed owners cannot launch another attempt; native authorization remains unchanged.
 `PublicationAdmissionTests` invokes captured callbacks in one UI turn and gates completion with

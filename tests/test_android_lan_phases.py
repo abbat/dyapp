@@ -23,7 +23,8 @@ if "exec-out" in sys.argv:
     print(Path(os.environ["FAKE_RECEIPT"]).read_text())
     sys.exit(0)
 if "instrument" in sys.argv:
-    phase = sys.argv[sys.argv.index("localNetworkPermissionPhase") + 1]
+    phase = (sys.argv[sys.argv.index("localNetworkPermissionPhase") + 1]
+             if "localNetworkPermissionPhase" in sys.argv else "foreground")
     failed = phase == os.environ.get("FAIL_PHASE")
     if not failed and "localNetworkPublicNode" in sys.argv:
         public = sys.argv[sys.argv.index("localNetworkPublicNode") + 1]
@@ -39,7 +40,7 @@ if "instrument" in sys.argv:
     for code in (1, -2 if failed else 0):
         for key, value in {
             "id": "AndroidJUnitRunner", "current": "1",
-            "class": "com.dyapp.LocalNetworkPermissionPhaseTests",
+            "class": sys.argv[sys.argv.index("class") + 1],
             "test": phase,
         }.items():
             print(f"INSTRUMENTATION_STATUS: {key}={value}")
@@ -114,11 +115,17 @@ class AndroidLanPhases(unittest.TestCase):
                     continue
                 self.assertEqual(call[2], "shell")
                 if call[3] == "pm":
+                    flags = (
+                        ["user-set", "user-fixed"]
+                        if call[4] == "clear-permission-flags"
+                        else []
+                    )
                     self.assertEqual(
                         call[5:],
                         [
                             "com.dyapp",
                             "android.permission.ACCESS_LOCAL_NETWORK",
+                            *flags,
                         ],
                     )
                     events.append(call[4])
@@ -126,6 +133,17 @@ class AndroidLanPhases(unittest.TestCase):
                     self.assertEqual(
                         call[3:7], ["am", "instrument", "-w", "-r"]
                     )
+                    if "localNetworkForeground" in call:
+                        self.assertEqual(
+                            call[call.index("localNetworkForeground") + 1],
+                            "true",
+                        )
+                        self.assertEqual(
+                            call[call.index("class") + 1],
+                            "com.dyapp.LocalNetworkDialogTests",
+                        )
+                        events.append("foreground")
+                        continue
                     events.append(
                         call[call.index("localNetworkPermissionPhase") + 1]
                     )
@@ -165,6 +183,10 @@ class AndroidLanPhases(unittest.TestCase):
                 "revoked",
                 "grant",
                 "cleanup",
+                "revoke",
+                "clear-permission-flags",
+                "foreground",
+                "grant",
             ],
         )
 
@@ -181,6 +203,16 @@ class AndroidLanPhases(unittest.TestCase):
         code, events = self.run_phase("modern", fail="cleanup")
         self.assertNotEqual(code, 0)
         self.assertEqual(events[-2:], ["grant", "cleanup"])
+
+    def test_failed_foreground_restores_permission_and_stays_failed(
+        self,
+    ) -> None:
+        code, events = self.run_phase("modern", fail="foreground")
+        self.assertNotEqual(code, 0)
+        self.assertEqual(
+            events[-4:],
+            ["revoke", "clear-permission-flags", "foreground", "grant"],
+        )
 
     def test_missing_public_control_never_contacts_a_device(self) -> None:
         for public_node in ("", "10.0.2.2:33445"):
