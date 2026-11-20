@@ -279,6 +279,12 @@ the writable chat. The fixture shares the sender's own public profile to avoid a
 identity; production Share filtering and private-state/stale-fetch guards retain their separate
 native and controller tests. Execution of this added node scenario is CI-only.
 
+The native photo-protocol retry fixture keeps its established invitation records scheduled as
+accepted setup, so the photo is the only due operation. It finds the expected envelope's persisted
+due boundary through the public Store API, checks immediately before/at that boundary and retries
+once. No wall-clock offset window, global contact resume or arbitrary attempt count synchronizes
+this regression; the real responder records the envelope before completing its reply.
+
 ## Host client for Android incoming PNGs
 
 `cargo run --locked -p dyapp-client --example android_photo_fixture -- LOOPBACK_MULTIADDR ABSOLUTE_NEW_DATABASE PEER_ID`

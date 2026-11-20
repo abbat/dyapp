@@ -123,6 +123,7 @@ fn upload_full_and_too_large_replies_do_not_commit_through_the_public_native_exp
 #[test]
 fn acknowledged_upload_then_mailbox_full_retains_one_id_and_exact_bytes_after_reopen() {
     let (f, peer, server, photo) = setup(Mode::MailboxFull);
+    let invitation = snapshot(&f).1;
     let ChatSubmission::Queued { id, detail } = submit(&f, &peer, &photo).unwrap() else {
         panic!("mailbox refusal after upload must remain committed");
     };
@@ -130,6 +131,7 @@ fn acknowledged_upload_then_mailbox_full_retains_one_id_and_exact_bytes_after_re
     let trace = server.finish();
     assert_eq!(trace.steps, ["attach", "blob", "mailbox"]);
     only_photo(&f, &peer, &id, &trace, &photo.full);
+    accept_invitation_setup(&f, &invitation, &trace.writes[0]);
     let before = snapshot(&f);
     assert!(before.1.contains(&trace.writes[0]));
     let f = f.reopen();
@@ -138,6 +140,7 @@ fn acknowledged_upload_then_mailbox_full_retains_one_id_and_exact_bytes_after_re
     let retry_at = retry(&f, &retried, &trace.writes[0]);
     assert_eq!(snapshot(&f), before);
     let repeated = retried.finish();
+    assert_eq!(repeated.writes.len(), 1);
     assert!(
         repeated.writes.contains(&trace.writes[0]),
         "retry_at={retry_at}, steps={:?}, expected={:?}, repeated={:?}, before={:?}",
@@ -160,38 +163,56 @@ fn retry(f: &Fixture, server: &Responder, expected: &[u8]) -> i64 {
             )
             .await
             .unwrap();
-            let mut retry_at = 0;
-            for attempt in 0..4 {
-                let now = i64::try_from(dyapp_client::now().saturating_mul(1000)).unwrap();
-                retry_at = (0i64..=2)
-                    .map(|offset| now.saturating_add(offset.saturating_mul(1000)))
-                    .find(|now| {
-                        session
-                            .store()
-                            .due_outbound(*now)
-                            .unwrap()
-                            .iter()
-                            .any(|write| write.as_bytes() == expected)
-                    })
-                    .expect("queued photo must reach its persisted retry deadline");
-                session
-                    .retry_due(std::slice::from_mut(&mut node), retry_at, &f.chats.seal_key)
-                    .await
-                    .unwrap();
-                if server.trace().writes.iter().any(|write| write == expected) {
-                    break;
-                }
-                if attempt < 3 {
-                    dyapp_client::contact_verification::resume_all()
-                        .await
-                        .unwrap();
-                }
-            }
+            let retry_at = queued_deadline(session.store(), expected);
+            session
+                .retry_due(std::slice::from_mut(&mut node), retry_at, &f.chats.seal_key)
+                .await
+                .unwrap();
             retry_at
         });
         Ok(retry_at)
     })
     .unwrap()
+}
+
+fn accept_invitation_setup(f: &Fixture, invitation: &[Vec<u8>], photo: &[u8]) {
+    let mut store =
+        dyapp_client::store::Store::open(&Path::new(&f.dir).join("client.db"), &f.key.identity)
+            .unwrap();
+    let at = queued_deadline(&store, photo);
+    // Only known fixture invitation writes become accepted setup; all records remain.
+    for write in store.due_outbound(at).unwrap() {
+        if invitation.iter().any(|bytes| bytes == write.as_bytes()) {
+            store.accepted(&write, at, "fixture-establishment").unwrap();
+        }
+    }
+    let kept = store.due_outbound(i64::MAX).unwrap();
+    assert!(invitation
+        .iter()
+        .all(|bytes| kept.iter().any(|write| write.as_bytes() == bytes)));
+}
+
+fn queued_deadline(store: &dyapp_client::store::Store, expected: &[u8]) -> i64 {
+    let due = |at| {
+        store
+            .due_outbound(at)
+            .unwrap()
+            .iter()
+            .any(|write| write.as_bytes() == expected)
+    };
+    assert!(due(i64::MAX), "expected photo disappeared from the outbox");
+    let (mut before, mut at) = (0, i64::MAX);
+    while before < at {
+        let middle = before + (at - before) / 2;
+        if due(middle) {
+            at = middle;
+        } else {
+            before = middle + 1;
+        }
+    }
+    assert!(due(at));
+    assert!(!due(at - 1), "photo was due before its selected boundary");
+    at
 }
 
 #[test]
