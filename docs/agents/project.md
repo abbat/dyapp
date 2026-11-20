@@ -113,6 +113,12 @@ The same offline phases verify a previously fetched incoming JPEG through JNI an
 using a pair-bound full selector, SHA-256 and dimensions; they reuse the host-owned node stop
 rather than rewriting client network configuration. Runtime reboot/upgrade evidence and
 Doze/App Standby remain separate acceptance.
+Incoming PNG phases use the same actual native registry and public `WorkerMailRecord` proof;
+`incomingPngPhase` selects prepare, cold offline reopen and fixture cleanup in separate invocations.
+The host/node FIFO controllers acknowledge child exit before the offline read, and PNG lifecycle
+acknowledgements use `png-node-*` report names so worker phases cannot overwrite their evidence.
+Only preparation lowers fixture proof costs; reopening requires a new process and existing protected
+credentials. Preserve the previous identity inventory and logical selection through cleanup.
 Prepare and scheduled catch-up have a 15-minute outer process guard for multiple independent steps;
 individual proof, connection and delivery waits retain their own completion-based deadlines.
 The emulator test node is supervised through shared report FIFOs. One host client at a time runs
@@ -511,6 +517,9 @@ tag for recovery and do not remove caches or images without confirmation.
 Unused-public analysis includes tests. A new real API call in a regression can resolve an exact
 `hawk.toml` dead-public expectation; remove that stale marker in the same change instead of
 replacing it with an allow or weakening the analysis.
+
+`tests/scripts/rust-check.sh` dispatches one stage per invocation. Run separate commands for
+multiple stages: trailing stage names are currently ignored and do not establish those checks ran.
 
 ## Rules for agents
 

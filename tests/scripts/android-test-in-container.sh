@@ -173,20 +173,27 @@ case "${1:?suite required}" in
             fi
         done
         python3 /app/tests/scripts/check-flaky.py "${failed[@]}"
-        # One explicit invocation owns the real host peer; never retry an uncertain submission.
+        # Explicit phases own the real host peer; never retry an uncertain submission.
+        node_action() {
+            timeout 30 bash /app/tests/scripts/android-node-control.sh command /reports/node "$1" \
+                > "$report_dir/${2:-node}-$1.txt"
+        }
         sha256sum /app/build/debug/examples/android_photo_fixture > "$report_dir/photo-host-binary.sha256"
         stop_photo_host() {
             timeout 30 bash /app/tests/scripts/android-node-control.sh command /reports/node/photo-host stop \
                 > "$report_dir/photo-host-stop.txt"
         }
-        if (run_instrumentation "$report_dir/instrumentation-incoming-png.txt" 900 \
-                -e incomingPngHost 1 -e class com.dyapp.NativeIncomingPngPhaseTests) &&
-            python3 /app/tests/scripts/check-instrumentation-results.py "$report_dir/instrumentation-incoming-png.txt" 1; then
-            stop_photo_host
-        else
-            stop_photo_host || true
-            exit 1
-        fi
+        png_phase() {
+            local phase=$1 deadline=300 report
+            [[ $phase != prepare ]] || deadline=900
+            report="$report_dir/instrumentation-incoming-png-$phase.txt"
+            (run_instrumentation "$report" "$deadline" \
+                -e incomingPngPhase "$phase" -e class com.dyapp.NativeIncomingPngPhaseTests) || return
+            python3 /app/tests/scripts/check-instrumentation-results.py "$report" 1
+        }
+        # shellcheck source=tests/scripts/android-png-phases.sh
+        source /app/tests/scripts/android-png-phases.sh
+        run_png_phases
         # Separate invocations exercise isolated and actual-worker native registries.
         peer_phase() {
             local fixture=$1 phase=$2 argument test_class deadline=300
@@ -201,10 +208,6 @@ case "${1:?suite required}" in
             run_instrumentation "$report_dir/$fixture-peer-$phase.txt" "$deadline" \
                 -e "$argument" "$phase" -e class "com.dyapp.$test_class" || return
             python3 /app/tests/scripts/check-instrumentation-results.py "$report_dir/$fixture-peer-$phase.txt" 1
-        }
-        node_action() {
-            timeout 30 bash /app/tests/scripts/android-node-control.sh command /reports/node "$1" \
-                > "$report_dir/node-$1.txt"
         }
         reboot_worker() {
             python3 /app/tests/scripts/android_lifecycle.py \

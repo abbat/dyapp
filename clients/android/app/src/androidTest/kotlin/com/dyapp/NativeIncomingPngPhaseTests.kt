@@ -8,11 +8,15 @@ import org.junit.Test
 class NativeIncomingPngPhaseTests {
     @Test
     fun realPngKnownAndUnknownGeometryRevalidateHostileCacheAndDecodeExactPixels() {
-        assumeTrue(InstrumentationRegistry.getArguments().getString("incomingPngHost") == "1")
-        TestPeer("incoming-png").use { receiver ->
-            HostPhotoPeer(receiver.peerId).use { host ->
-                IncomingPngChecks(receiver.session, receiver.directory).run(host)
-            }
+        val phase = InstrumentationRegistry.getArguments().getString("incomingPngPhase")
+        assumeTrue(phase != null)
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val fixture = RetainedPngFixture(context)
+        when (phase) {
+            "prepare" -> fixture.prepare()
+            "reopenOffline" -> fixture.reopenOffline()
+            "cleanup" -> fixture.cleanup()
+            else -> error("Unknown incoming PNG phase: $phase")
         }
     }
 }

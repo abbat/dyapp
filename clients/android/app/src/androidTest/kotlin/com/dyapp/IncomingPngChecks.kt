@@ -25,13 +25,14 @@ internal class IncomingPngChecks(private val session: ChatSession, private val d
         val bytes = png()
         var saved: ChatPhoto? = null
         for ((width, height) in listOf(40u to 20u, 0u to 0u)) {
+            val before = originalCacheFiles()
             val result = host.photo(bytes, width, height)
             val photo = awaitPhoto(host, result.photoHostBytes("id", 16))
             assertArrayEquals(
                 MessageDigest.getInstance("SHA-256").digest(bytes),
                 result.photoHostBytes("sha256", 32)
             )
-            assertPhoto(host, photo, bytes)
+            assertPhoto(host, photo, bytes, before)
             saved = photo
         }
         rejectPhoto(host, bytes, 41u to 20u)
@@ -40,9 +41,9 @@ internal class IncomingPngChecks(private val session: ChatSession, private val d
     }
 
     private fun rejectPhoto(host: HostPhotoPeer, bytes: ByteArray, geometry: Pair<UInt, UInt>) {
+        val before = originalCacheFiles()
         val result = host.photo(bytes, geometry.first, geometry.second)
         val photo = awaitPhoto(host, result.photoHostBytes("id", 16))
-        val before = originalCacheFiles()
         val failure = assertThrows(CoreException::class.java) {
             session.chatPhotoOriginal(host.peerId, photo.groupId, photo.author, photo.id)
         }
@@ -114,11 +115,10 @@ internal class IncomingPngChecks(private val session: ChatSession, private val d
         created.writeBytes("invalid PNG cache".toByteArray())
     }
 
-    private fun assertPhoto(host: HostPhotoPeer, photo: ChatPhoto, expected: ByteArray) {
+    private fun assertPhoto(host: HostPhotoPeer, photo: ChatPhoto, expected: ByteArray, before: Set<File>) {
         assertEquals("image/png", photo.mime)
         assertEquals(expected.size.toULong(), photo.size)
         fun original() = session.chatPhotoOriginal(host.peerId, photo.groupId, photo.author, photo.id)
-        val before = originalCacheFiles()
         assertArrayEquals(expected, original())
         corruptCachedOriginal(before)
         val recovered = original()

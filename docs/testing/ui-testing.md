@@ -309,10 +309,11 @@ the Tokio driver thread, and Quit acknowledges `closed`. Invalid initialization/
 The example enables its guard tests in ordinary workspace test discovery.
 The Android build exports the host example alongside the APKs and daemon. The emulator container
 supervises it through the existing FIFO lifecycle controller. The UI runner invokes
-`NativeIncomingPngPhaseTests` once with `incomingPngHost=1`, records the binary SHA-256 and
-`instrumentation-incoming-png.txt`, and stops/waits for the host on success or failure. The general
-suite excludes this phase; no uncertain submission is retried. Source-bearing runtime evidence
-remains pending. `IncomingPngChecks` runs the same assertions against its caller-owned native session. The phase
+`NativeIncomingPngPhaseTests` with `incomingPngPhase=prepare|reopenOffline|cleanup`, records the
+binary SHA-256 and separate `instrumentation-incoming-png-<phase>.txt` files, and stops/waits for
+the host. The general suite excludes these phases; no uncertain submission is retried.
+Source-bearing runtime evidence remains pending. `IncomingPngChecks` runs the same assertions
+against its caller-owned native session. The phase
 pairs a normal Android client with the host, receives PNGs
 with known and zero claimed geometry, checks exact original bytes and ImageDecoder pixels, then
 damages the newly created sealed cache file and requires online recovery. A separate signed 41×20
@@ -326,7 +327,12 @@ incoming-PNG runtime acceptance and adds no production FFI API.
 `RetainedPngFixture` reuses the native worker registry and its public photo-proof checkpoint for
 cold offline reopening. Its preparation closes the admitted session before returning; reopening
 requires a distinct boot/PID/start marker and verifies the complete selector, SHA-256 and actual
-decoded dimensions. Host phase wiring and runtime execution of this retained path remain pending.
+decoded dimensions. The runner acknowledges host and external-node exit before the cold read,
+then restores the node and attempts fixture-only cleanup even when the read fails. An uncertain
+stop acknowledgement fails without issuing another node command. PNG node acknowledgements use
+`png-node-stop.txt`/`png-node-start.txt`, preserving evidence separately from later worker phases.
+Cache-file baselines are captured before host submission so an early native consumer cannot erase
+the observation window. Actual JNI/offline execution of this retained path remains pending CI.
 
 ## Linux sticker exchange
 

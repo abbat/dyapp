@@ -42,7 +42,6 @@ internal class TestPeer(name: String, photo: Boolean = false) : AutoCloseable {
     private val alias = "dyapp-test-peer:$name"
     private val key = IdentityKey.generate()
     private val device = IdentityKey.generate()
-    val directory: File get() = dir
     val peerId: String = key.peerId()
     val session: ChatSession
 
