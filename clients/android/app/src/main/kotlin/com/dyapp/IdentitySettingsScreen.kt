@@ -53,6 +53,7 @@ internal fun IdentitySettingsScreen(
 private fun PhotoSettings(active: Opened.Ready) {
     PhotoDownloadCard(active)
     MediaCacheCard(active)
+    SavedStickerManagerButton()
 }
 
 @Composable

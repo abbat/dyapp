@@ -81,7 +81,9 @@ internal fun AppShell(
         LocalSettingsPane provides settings,
         LocalActiveChatPeers provides feed.presence.peers
     ) {
-        ShellRoutes(slots, opened, section, lockMode, act, open, feed, search)
+        SavedStickerManagerHost(opened, remember(opened) { savedStickerCalls(opened) }) {
+            ShellRoutes(slots, opened, section, lockMode, act, open, feed, search)
+        }
     }
 }
 

@@ -8,6 +8,10 @@ caption with read-only recovery; all original quota/fresh/conflict/focus
 assertions remain. Native request-status integration tests also check controls on actual New/Waiting/Downloading/
 Fetch-failed/Saved transitions. These require native CI; formatting alone does not prove execution.
 
+Sticker request/status and manager/page snapshots use referential state policy because their
+object identity admits callbacks. An equal fresh native value must replace the old object;
+`SavedStickerSnapshotTests` verifies that an old page callback cannot trigger another read.
+
 Android `SavedStickerPresentationTests` controls cancel/duplicate removal, uncertain unlink
 readback, retired picker tickets and closing during noncancellable URI reads. Confirmation tokens
 are unique per opening: a callback captured before Cancel cannot confirm a reopened dialog for the
@@ -16,8 +20,12 @@ occurs only after the owning opening observes read completion; known pages remai
 not editable when readback fails. The native adapter uses registry-owned removal without opening
 a media key. The reusable manager dialog shows bounded pages and a selectable full-ID removal
 confirmation. `SavedStickerManagerViewTests` checks same-prefix IDs, Cancel/reopen retirement,
-exact core cursors and retired page callbacks via semantic completion signals. Production picker
-and navigation wiring remains planned; device execution remains required.
+exact core cursors and retired page callbacks via semantic completion signals. The production
+shell hosts Settings → Photos and a common manager route with per-opening picker registration.
+`SavedStickerManagerHostTests` drives the real OpenDocument registry contract, Android file-stream
+reading and native byte-budget export with controlled results: old/new openings have separate
+request codes, and only the current file bytes may reach the save adapter. It also checks retired
+identity navigation. Native TAR validation/storage and full rendered acceptance remain separate CI proof.
 
 Android `PickedInputTests` checks empty/exact limits, fragmented provider reads, partial-read
 failure propagation and oversized input rejection after at most one extra byte. The OS reader

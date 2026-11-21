@@ -29,7 +29,12 @@ Sticker rows render core-validated first-frame pixels with preserved aspect and 
 localized emoji/pack label. Core decides automatic retrieval; explicit image loading can retry
 on-tap, unavailable or failed results. The presentation is keyed by the actual opened identity,
 peer and full immutable message selection; retired requests and callbacks cannot update a successor.
-Pack requests, saved-pack management, picker/send and own-sticker Delete remain planned.
+Settings → Photos opens the shared saved-pack dialog. It reads bounded core pages, shows exact
+byte accounting and unreadable entries, imports an explicitly chosen TAR within the native byte
+budget and confirms removal against a selectable full PackID. Cancel/back preserve saved data;
+failed or uncertain changes require authoritative readback. Each manager opening owns its picker
+registration/ticket, so late results and reads cannot import through another opening or identity.
+Request controls in chat, picker/send and own-sticker Delete remain planned.
 
 Android implementation checkpoint: a loaded profile offers **Share profile…**.
 The native destination dialog lists open chats except the profile owner, using

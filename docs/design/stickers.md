@@ -172,8 +172,8 @@ no sticker-only cache is needed. Photo queries exclude sticker rows; merged hist
 Desktop and Android expose a localized emoji/name fallback without edit/forward actions and
 render bounded first-frame pixels. Android uses typed native on-tap/unavailable results and
 retains explicit image retry after failures; its Add-pack controls remain planned.
-Desktop chat-list previews include the newest sticker and count its unread state; mobile list
-previews remain separate platform work. At the Store boundary, tag-9 deletion of a
+Desktop and Android chat-list previews use newest-sticker metadata and shared unread projection;
+iOS list presentation remains separate platform work. At the Store boundary, tag-9 deletion of a
 stored sticker now removes its media row and leaves the shared terminal placeholder. Replays
 cannot restore it; an original arriving after deletion binds its digest/HLC and releases pending
 operation slots without restoring content. Edits to a stored sticker fail; early edits are discarded
@@ -257,7 +257,8 @@ Common `MobileIdentityOperation.remove_saved_sticker_pack` removes only an expli
 PackID through core storage. It needs identity admission but no chat/media sealing key, matching
 desktop recovery of unreadable packs. Missing is false; post-unlink failures require authoritative
 refresh and never imply rollback. Other packs, chat history and outbox remain untouched.
-Mobile picker/collection wiring remains planned.
+Android Settings → Photos wires the common collection/import/removal APIs through the owner-bound
+saved-pack dialog and bounded OS file picker. Mobile send-picker and iOS collection wiring remain planned.
 
 Shared `sticker_picker::page` and `thumbnail` own manifest-order eight-entry pages and
 proportional RGBA resizing within a 96px bounding box through the bounded core decoder. Wide and

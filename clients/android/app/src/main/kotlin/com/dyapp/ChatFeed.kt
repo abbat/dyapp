@@ -126,7 +126,7 @@ private suspend fun ChatFeed.poll() {
 @Composable
 internal fun rememberChatFeed(opened: Opened.Ready): ChatFeed {
     // Keyed so that a switch never shows the previous identity's chats, even for a frame.
-    val feed = remember(opened.slot.id) { ChatFeed(opened) }
+    val feed = remember(opened) { ChatFeed(opened) }
     val owner = checkNotNull(LocalView.current.findViewTreeLifecycleOwner()) { "Compose needs a lifecycle" }
     LaunchedEffect(feed, owner) {
         owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
