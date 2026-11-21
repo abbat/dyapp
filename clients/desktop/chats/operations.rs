@@ -17,13 +17,13 @@ use crate::profile;
 // Keep the original regression assertions connected to the common matcher.
 #[cfg(test)]
 fn target_matches(message: &ChatMessage, own: &str, group: &[u8], id: [u8; 16]) -> bool {
-    item_matches(ChatItem::Text(message.clone()), own, group, id, false)
+    item_matches(&ChatItem::Text(message.clone()), own, group, id, false)
 }
 
 #[cfg(test)]
-fn item_matches(item: ChatItem, own: &str, group: &[u8], id: [u8; 16], delete: bool) -> bool {
+fn item_matches(item: &ChatItem, own: &str, group: &[u8], id: [u8; 16], delete: bool) -> bool {
     message_actions::matches(
-        &item,
+        item,
         &MessageKey {
             group: group.to_vec(),
             author: own.to_owned(),
@@ -192,35 +192,35 @@ mod tests {
         let own = Identity::try_generate().unwrap().peer_id();
         let message = sticker_fixture(&own);
         assert!(item_matches(
-            ChatItem::Sticker(message.clone()),
+            &ChatItem::Sticker(message.clone()),
             &own,
             &[4],
             [2; 16],
             true
         ));
         assert!(!item_matches(
-            ChatItem::Sticker(message.clone()),
+            &ChatItem::Sticker(message.clone()),
             &own,
             &[4],
             [2; 16],
             false
         ));
         assert!(!item_matches(
-            ChatItem::Sticker(message.clone()),
+            &ChatItem::Sticker(message.clone()),
             &own,
             &[5],
             [2; 16],
             true
         ));
         assert!(!item_matches(
-            ChatItem::Sticker(message.clone()),
+            &ChatItem::Sticker(message.clone()),
             &own,
             &[4],
             [9; 16],
             true
         ));
         assert!(!item_matches(
-            ChatItem::Sticker(message),
+            &ChatItem::Sticker(message),
             "another author",
             &[4],
             [2; 16],

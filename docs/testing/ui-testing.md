@@ -23,7 +23,8 @@ prove no persistent media side effects; they do not measure network requests.
 
 Shared own-message preflight tests retain desktop full-key/live-text/delete-only sticker cases
 and real Store coverage for colliding authors, media kinds, blocking and cleared history. The
-original desktop test block remains and its argument helpers call the common matcher.
+original desktop regression assertions remain and their argument helpers borrow items for the
+common matcher, including all original author/group/ID/kind counterexamples.
 Native sticker-delete boundary tests check exact selection and no writes before transport,
 including a valid own selector reaching an intentionally absent network and unchanged text-only
 compatibility. `NativeStickerExchangeTests` reuses its real peer pair for own deletion, foreign and
