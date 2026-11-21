@@ -1,4 +1,5 @@
 //! Thin native ownership for common-core own-device directory operations.
+mod projection;
 mod revocation;
 use crate::profile_network::{active_network, connect, on_network_stack};
 use crate::slot_operation::SlotWorker;
@@ -10,6 +11,7 @@ use dyapp_client::{
     session::Session,
     store::Store,
 };
+pub use projection::{MobileDeviceReadState, MobileDeviceRowSource, MobileDeviceSnapshot};
 pub use revocation::MobileRevokedDevice;
 use std::sync::Arc;
 
@@ -88,6 +90,15 @@ impl MobileDeviceDirectory {
     /// # Errors
     /// Returns changed ownership, missing/replaced credentials or unreadable local state.
     pub fn devices(&self, live: bool) -> Result<Vec<MobileOwnDevice>, CoreError> {
+        self.snapshot(live).map(|snapshot| snapshot.devices)
+    }
+
+    /// Read shared directory rows with explicit cached, unavailable or verified readback status.
+    /// Call off the UI thread. Neither an empty list nor readback authorizes revocation.
+    ///
+    /// # Errors
+    /// Returns original-slot admission, missing credentials or local storage failures.
+    pub fn snapshot(&self, live: bool) -> Result<MobileDeviceSnapshot, CoreError> {
         on_network_stack(|| {
             let admitted = self.open()?;
             let draft = admitted
@@ -96,31 +107,35 @@ impl MobileDeviceDirectory {
                 .profile_draft()
                 .map_err(failed)?
                 .unwrap_or_default();
-            let remote = self.runtime.block_on(async {
-                let network = live
-                    .then(|| active_network(&admitted.operation.slot().dir).ok())
-                    .flatten()?;
-                let mut node = connect(&network).await.ok()?;
-                let scores =
-                    dyapp_client::contact_verification::scores(&admitted.operation.slot().dir)
-                        .ok()?;
-                let mut scores = scores.lock().await;
-                publish::newest_with_scores(&mut node, admitted.operation.identity(), &mut scores)
+            let remote = live.then(|| {
+                self.runtime.block_on(async {
+                    let network = active_network(&admitted.operation.slot().dir)?;
+                    let mut node = connect(&network).await?;
+                    let scores =
+                        dyapp_client::contact_verification::scores(&admitted.operation.slot().dir)
+                            .map_err(failed)?;
+                    let mut scores = scores.lock().await;
+                    publish::newest_with_scores(
+                        &mut node,
+                        admitted.operation.identity(),
+                        &mut scores,
+                    )
                     .await
-                    .ok()
-                    .flatten()
+                    .map_err(failed)
+                })
             });
-            Ok(device_directory::rows(
+            let readback = match remote.as_ref() {
+                None => device_directory::Readback::Cached,
+                Some(Err(_)) => device_directory::Readback::Unavailable,
+                Some(Ok(None)) => device_directory::Readback::NoProfile,
+                Some(Ok(Some(profile))) => device_directory::Readback::Verified(profile),
+            };
+            Ok(device_directory::snapshot(
                 &draft,
-                remote.as_ref(),
+                readback,
                 &admitted.operation.device().public_key(),
             )
-            .into_iter()
-            .map(|device| MobileOwnDevice {
-                key: device.key,
-                current: device.this,
-            })
-            .collect())
+            .into())
         })
     }
 

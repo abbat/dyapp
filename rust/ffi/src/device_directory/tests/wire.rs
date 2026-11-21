@@ -55,7 +55,7 @@ fn actual_profile_reply_retains_admission_and_never_overwrites_the_editor() {
     let worker = Arc::clone(&fixture.worker);
     let (completed, result) = mpsc::channel();
     let reader = std::thread::spawn(move || {
-        let result = worker.devices(true);
+        let result = worker.snapshot(true);
         drop(worker);
         completed.send(result).unwrap();
     });
@@ -76,7 +76,11 @@ fn actual_profile_reply_retains_admission_and_never_overwrites_the_editor() {
             .recv_timeout(Duration::from_secs(5))
             .unwrap()
             .unwrap(),
-        vec![]
+        MobileDeviceSnapshot {
+            devices: vec![],
+            state: MobileDeviceReadState::Verified,
+            source: MobileDeviceRowSource::Remote,
+        }
     );
     reader.join().unwrap();
     lock.try_lock().unwrap();
@@ -84,6 +88,27 @@ fn actual_profile_reply_retains_admission_and_never_overwrites_the_editor() {
     unchanged(&fixture, &server);
     // Keeping the idle worker alive must not retain admission after the completed network call.
     fixture.registry.create().unwrap();
+}
+
+#[test]
+fn verified_older_readback_keeps_saved_rows_with_explicit_source() {
+    let fixture = Fixture::new();
+    let server = live_server(&fixture);
+    *server.record.lock().unwrap() = Profile {
+        version: fixture.cached.version - 1,
+        ..Profile::default()
+    }
+    .sign(&fixture.slot.key.identity);
+    let saved = fixture.worker.snapshot(false).unwrap().devices;
+    assert_eq!(
+        fixture.worker.snapshot(true).unwrap(),
+        MobileDeviceSnapshot {
+            devices: saved,
+            state: MobileDeviceReadState::Verified,
+            source: MobileDeviceRowSource::Saved,
+        }
+    );
+    unchanged(&fixture, &server);
 }
 
 fn unchanged(fixture: &Fixture, server: &server::Server) {

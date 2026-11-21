@@ -877,14 +877,21 @@ The shared `device_directory::rows` projects public own-device keys and the curr
 without writing editor state. It places the current device first while preserving every other
 device's relative order; desktop and UniFFI consume that order directly. Verified ordinary remote
 readback is used only when strictly newer than the saved draft; absent, equal or older readback
-retains the cached directory.
+retains the cached directory. `device_directory::snapshot` additionally reports the read outcome
+(Cached, Unavailable, NoProfile or Verified) and the actual Saved/Remote row source. Successful
+older readback can therefore report Verified while preserving Saved rows; row count never implies
+freshness or permission to revoke. NoProfile means no verified same-owner profile was returned,
+not proof of account removal.
 A newer removed profile contributes its empty directory. Callers must verify remote owner/signature
 before projection.
 
 Common native `MobileDeviceDirectory(registry, id, expected_peer, store)` binds an initialized
-existing slot/device/sealing-key context. Idle handles retain no lease; each `devices(live)` or
-explicit `revoke(device_key)` reacquires and checks that original context through actual completion.
-Missing credentials/sessions are refused without bootstrap. `devices` delegates projection to core;
+existing slot/device/sealing-key context. Idle handles retain no lease; each `snapshot(live)`,
+compatibility `devices(live)` or explicit `revoke(device_key)` reacquires and checks that original
+context through actual completion.
+Missing credentials/sessions are refused without bootstrap. `snapshot` exposes the core read outcome
+and actual row source; `devices` returns the same projection's rows for existing callers. Live-read
+failures retain saved rows with Unavailable status, while local admission/storage failures remain errors.
 `revoke` delegates mailbox closure/publication to core `publish::revoke_device`, including partial
 success and retry authorization. A reported failure does not imply rollback. Calls block off the UI
 thread on the existing joined network worker. Android JNI list/revoke runtime acceptance and the
