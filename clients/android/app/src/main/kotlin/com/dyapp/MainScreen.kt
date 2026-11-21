@@ -100,6 +100,7 @@ private fun ObserveIdentityCleanup(actions: IdentityActions, slots: Slots, navig
 
 @Composable
 private fun IdentityContent(shown: Shown, slots: Slots, navigation: IdentityNavigation, lockMode: LockMode) {
+    IdentityDurabilityNotice(shown)
     val opened = shown.opened
     val open: (StartTarget?) -> Unit = { navigation.open(opened, it) }
     when {

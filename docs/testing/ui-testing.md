@@ -457,6 +457,12 @@ include the observed package/flags/resource IDs without copying dialog text. It 
 labels or guessed geometry. The retained report is
 `local-network-foreground.txt`. Compilation alone does not establish actual dialog execution.
 
+Android committed identity persistence uncertainty is acknowledged separately from operation failure.
+`IdentityDurabilityTests` checks EN/RU normal/enlarged dialog text, live-region semantics and current
+acknowledgement bounds, selected-route preservation and retired callbacks across equal replacement
+results. `IdentityActionsTests` retains committed selection, clears the notice on a synced successor
+and refuses a cancelled owner's unconfirmed completion. These tests use completion signals.
+
 Android publication callbacks admit one attempt synchronously before coroutine dispatch. Closed,
 busy and disposed owners cannot launch another attempt; native authorization remains unchanged.
 `PublicationAdmissionTests` invokes captured callbacks in one UI turn and gates completion with

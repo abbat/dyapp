@@ -177,7 +177,8 @@ missing versus unavailable credentials and recoverable Peer IDs. Creation and se
 `durability_detail` reports unconfirmed directory persistence after that commit, rather than
 a failed selection. Construction does not create an identity. Native `remove` returns an
 optional persistence diagnostic only after visible completion; after a failure, resolve again
-to show interrupted cleanup. Android uses this registry; migration of the Swift slot adapter remains planned.
+to show interrupted cleanup. Android uses this registry and acknowledges committed persistence
+uncertainty on the resulting route without retrying; migration of the Swift slot adapter remains planned.
 
 `Registry::operation` admits only a listed ready identity whose actual key matches the expected
 Peer ID. Its `IdentityOperation` retains a shared OS lock for the whole operation; create/select

@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
-private class GatedIdentityResolution {
+private class GatedIdentityResolution(private val detail: String? = null) {
     val entered = CompletableDeferred<Unit>()
     val calls = AtomicInteger()
     private val resume = CountDownLatch(1)
@@ -27,7 +27,7 @@ private class GatedIdentityResolution {
         calls.incrementAndGet()
         entered.complete(Unit)
         check(resume.await(5, TimeUnit.SECONDS)) { "Identity fixture was not released" }
-        return Shown(action())
+        return Shown(action(), durabilityDetail = detail)
     }
 
     fun release() = resume.countDown()
@@ -161,7 +161,7 @@ class IdentityActionsTests {
     fun aDisposedOwnerDoesNotPublishTheUninterruptibleWorkersCompletion() = runBlocking {
         val owner = SupervisorJob()
         val scope = CoroutineScope(coroutineContext + owner)
-        val fixture = GatedIdentityResolution()
+        val fixture = GatedIdentityResolution("unconfirmed")
         val controller = IdentityActions(scope, fixture::resolve)
         val callbacks = AtomicInteger()
         val job = controller.initialize({ Opened.Picker }) { callbacks.incrementAndGet() }

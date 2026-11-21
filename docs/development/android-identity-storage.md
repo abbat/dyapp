@@ -140,8 +140,9 @@ identity at once if that one key were lost.
 Creation and selection distinguish visible commit from directory persistence. A failed
 pre-commit write leaves the previous selection; an unconfirmed post-commit sync returns the
 committed identity with a separate diagnostic. Android retains that diagnostic in `Shown`
-and logs it as committed. A visible persistence notice remains planned; retrying creation is
-never suggested as if the first identity had not been created.
+and logs it as committed. The resulting route shows a localized, scrollable acknowledgement
+that persistence is unconfirmed and asks the user to check the selected identity after restarting.
+Acknowledgement never retries or rolls back the operation; a new result owns its own notice.
 
 ## Open and recover
 
