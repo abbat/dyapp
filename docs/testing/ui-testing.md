@@ -251,6 +251,11 @@ mailbox-revision status replacement. `StickerPackControlsTests` checks authorita
 retired-owner navigation, pending caption retention and read-only recovery. Button coroutines
 start undispatched to admit an operation before the next captured callback can run.
 Actual instrumentation execution is required independently of source lint.
+`SavedStickerStateGeometryTests` drives the production saved-pack manager in EN/RU at normal/doubled
+text, holding read/import completion explicitly. Busy controls, retained-page read failure and
+read-only recovery, added/already-saved and failed import notices use current layout/viewport bounds
+and external attempt counters. The controlled import bytes prove presentation only; real TAR and
+quota admission remain native-core/host tests.
 `ProfileShareOpeningTests` retains actual dialog callbacks across Cancel and equal-content reopening.
 Only the current opening admits a send once; retired Cancel, Open Chat and completion callbacks
 cannot alter a successor or unlock its pending request. Successful/queued commitment admits only

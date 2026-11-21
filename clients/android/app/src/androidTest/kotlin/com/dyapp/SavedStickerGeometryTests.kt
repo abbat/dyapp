@@ -37,6 +37,7 @@ class SavedStickerGeometryTests {
             requireAction("saved-sticker-close", R.string.sticker_manager_close, context, "saved-sticker-manager")
             requireConfirmation(fixture, context)
             assertEquals(0, fixture.removals.get())
+            assertEquals(0, fixture.imports.get())
         }
     }
 

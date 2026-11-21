@@ -15,6 +15,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
 import com.dyapp.ui.theme.DYAppTheme
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -23,9 +24,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import uniffi.dyapp.SavedStickerPackEntry
+import uniffi.dyapp.SavedStickerPackImport
 import uniffi.dyapp.SavedStickerPackPage
 import uniffi.dyapp.SavedStickerPackState
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
@@ -57,6 +60,7 @@ class SavedStickerManagerViewTests {
         assertArrayEquals(fixture.second.packId, fixture.removed.get())
         compose.onNodeWithTag("saved-sticker-manager").assertExists()
         compose.onNodeWithTag("saved-sticker-row-" + "00".repeat(31) + "01").assertExists()
+        assertEquals(0, fixture.imports.get())
     }
 
     @Test
@@ -72,6 +76,7 @@ class SavedStickerManagerViewTests {
         compose.onNodeWithTag("saved-sticker-refresh").performScrollTo().performClick()
         compose.awaitNode(hasTestTag("saved-sticker-row-" + "00".repeat(31) + "01"))
         assertEquals(3, fixture.reads.get())
+        assertEquals(0, fixture.imports.get())
     }
 }
 
@@ -82,11 +87,19 @@ internal class SavedStickerViewFixture(private val paged: Boolean = false) {
     val second = entry(2)
     val removals = AtomicInteger()
     val reads = AtomicInteger()
+    val imports = AtomicInteger()
+    val readGate = AtomicReference<CompletableDeferred<Unit>?>()
+    val importGate = AtomicReference<CompletableDeferred<Unit>?>()
+    val readFailure = AtomicBoolean()
+    val importFailure = AtomicBoolean()
+    val added = AtomicBoolean(true)
     val removed = AtomicReference<ByteArray?>()
     private val cursor = ByteArray(32) { 9 }
     private val calls = SavedStickerCalls(
         page = { after ->
             reads.incrementAndGet()
+            readGate.getAndSet(null)?.await()
+            check(!readFailure.get()) { "controlled manager read failure" }
             if (after != null) assertArrayEquals(cursor, after)
             val entries = if (paged) listOf(if (after == null) first else second) else listOf(first, second)
             SavedStickerPackPage(
@@ -96,7 +109,12 @@ internal class SavedStickerViewFixture(private val paged: Boolean = false) {
                 0uL
             )
         },
-        save = { error("unexpected import") },
+        save = {
+            imports.incrementAndGet()
+            importGate.getAndSet(null)?.await()
+            check(!importFailure.get()) { "controlled manager import failure" }
+            SavedStickerPackImport(first.packId, added.get())
+        },
         remove = { id ->
             removals.incrementAndGet()
             removed.set(id.copyOf())
@@ -136,7 +154,13 @@ internal class SavedStickerViewFixture(private val paged: Boolean = false) {
     private fun Manager() {
         val scope = rememberCoroutineScope()
         val actions = SavedStickerActions(
-            pick = {},
+            pick = {
+                state.requestFile()?.let { ticket ->
+                    scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                        state.importPicked(calls, ticket) { byteArrayOf(1) }
+                    }
+                }
+            },
             navigate = { after, shown ->
                 scope.launch(start = CoroutineStart.UNDISPATCHED) { state.refresh(calls, after, shown) }
             },
