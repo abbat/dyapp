@@ -541,7 +541,8 @@ current own sticker. Its session/identity lease covers selection, staging and ty
 foreign authors cannot rebind a colliding own ID. Text edit/delete retains its text-only contract.
 Android's deletion adapter keeps that typed commitment even if the subsequent feed refresh fails.
 Its confirmation model admits only the current opening and drops retired/late display results;
-own-sticker menu wiring remains planned.
+the own-sticker history menu offers only Delete and confirms that exact selection. Cancel/reopen
+uses a fresh confirmation token; an admitted native operation continues if its UI is closed.
 
 Common native `submit_text`, `submit_edit_text`, `submit_delete_text` and
 `submit_chat_photo` and `submit_saved_sticker` return `ChatSubmission::Accepted` or `Queued`

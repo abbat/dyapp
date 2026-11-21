@@ -14,7 +14,11 @@ internal fun ChatThreadItem(item: ChatItem, me: String, form: ChatForm, state: u
         is ChatItem.Sticker -> {
             val alignment = if (item.sticker.author == me) Alignment.CenterEnd else Alignment.CenterStart
             Box(Modifier.fillMaxWidth(), alignment) {
-                ChatStickerBubble(item.sticker)
+                if (item.sticker.author == me) {
+                    StickerMessageMenu(item.sticker, { form.busy }) { ChatStickerBubble(item.sticker) }
+                } else {
+                    ChatStickerBubble(item.sticker)
+                }
             }
         }
         is ChatItem.Photo -> {

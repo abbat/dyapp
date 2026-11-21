@@ -452,7 +452,9 @@ controls distinguish new, saved, pending and typed failures; they never expose a
 - Delete works through tag 9. The desktop delete command now accepts live own stickers only
   with the exact peer/group/message selection; edit remains restricted to text. Own stickers
   expose Delete under the same open-chat action policy as text; Edit and Forward remain hidden
-  and are refused by the codec.
+  and are refused by the codec. Android uses the same shared preflight through explicit-author
+  native deletion, a Delete-only long-press menu and a per-opening confirmation. Retired callbacks
+  cannot delete through another identity; typed commitment blocks repeat admission.
 - The desktop chat list shows emoji and pack fallback. Shared core notification Text content shows
   emoji plus localized Sticker for the latest unread sticker; a read media marker still suppresses
   older retained text. Generic/name-only, muted/blocked and non-open-chat rules stay unchanged.

@@ -39,7 +39,10 @@ open the same saved-pack manager. Status refresh follows mailbox revisions and m
 failed/uncertain applications require readback before another mutation. The composer picker opens
 native saved-pack and recent pages, keeps their cursors and thumbnail proportions, and sends one
 selected sticker without changing the text/edit draft. Cancel returns to the composer; Manage
-returns to a fresh picker opening after the saved-pack dialog closes. Own-sticker Delete remains planned.
+returns to a fresh picker opening after the saved-pack dialog closes. An own sticker's long-press
+menu offers only Delete, with explicit confirmation and the shared copy-preservation warning.
+Native selection retains the full author/group/ID; old confirmations cannot delete through another
+opening or identity. A committed result blocks repeats even before a history refresh succeeds.
 
 Android implementation checkpoint: a loaded profile offers **Share profile…**.
 The native destination dialog lists open chats except the profile owner, using

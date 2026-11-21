@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sticker_delete_pending">Удаление уже началось. Закрытие диалога не отзывает его.</string>
+    <string name="sticker_delete_applied">Удаление сохранено на этом устройстве.</string>
+</resources>

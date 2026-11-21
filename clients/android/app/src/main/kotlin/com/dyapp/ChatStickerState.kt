@@ -18,6 +18,7 @@ internal class ChatStickerSource(
     val revision: Int = 0,
     val pack: (ChatSticker) -> StickerPackTarget? = { null },
     val picker: StickerPickerCalls? = null,
+    val delete: ((ChatSticker) -> uniffi.dyapp.ChatSubmission)? = null,
     val read: (ChatSticker, Boolean) -> ChatStickerImage
 )
 
