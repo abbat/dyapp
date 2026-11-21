@@ -77,7 +77,12 @@ internal class ChatFeed(internal val opened: Opened.Ready) {
             it.chatItems(peer),
             { photo -> photos.original(peer, photo) },
             { photos.auto(peer) },
-            { photo -> photos.send(peer, photo) }
+            { photo -> photos.send(peer, photo) },
+            ChatStickerSource(opened to peer) { sticker, manual ->
+                RustBridge.withChats(opened) { session ->
+                    session.chatStickerImage(peer, sticker.groupId, sticker.author, sticker.id, manual)
+                }
+            }
         )
     }
 

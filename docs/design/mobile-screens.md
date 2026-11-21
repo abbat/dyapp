@@ -4,7 +4,8 @@ The Android prototype follows the category hub in
 [desktop screens](desktop-screens.md#settings-and-removal), with separate collection screens,
 immediate switches, a catalogue-driven language picker and a numeric media-cache budget.
 Native Android implements the category hub, download/cache controls and a wrapping, scrollable
-language-choice dialog. Searchable collection screens remain planned. The native language adapter reads
+language-choice dialog. Identity, blocked and passed collections use common-core bounded search
+and paging. The native language adapter reads
 only the app-owned `res/xml/app_languages.xml` registry, whose tags must match own translation
 resources in CI; dependency and generated pseudo-locales are not advertised. Saved legacy EN/RU
 names match tags without case sensitivity; missing/removed choices fall back to system without
@@ -19,11 +20,16 @@ and Download photo explicitly requests the original. Open conversations apply co
 auto-download permission again after network changes. Loading disables repeat taps;
 missing originals and retryable errors have separate messages. Layout uses clamped
 claims until a bounded original supplies real dimensions. The last-day retention
-hint is approximate and does not prevent opening a kept copy. Download-setting
-controls remain planned; these native states are not in the static prototype.
+hint is approximate and does not prevent opening a kept copy. Photos settings expose the shared
+three-choice download policy; these native states are not in the static prototype.
 Sending is now available in open chats through a system picker and explicit preview
 confirmation. Refused uploads retain prepared bytes for retry; queued sends clear
 them. Picker composition is keyed by identity and destination chat.
+Sticker rows render core-validated first-frame pixels with preserved aspect and an accessible
+localized emoji/pack label. Core decides automatic retrieval; explicit image loading can retry
+on-tap, unavailable or failed results. The presentation is keyed by the actual opened identity,
+peer and full immutable message selection; retired requests and callbacks cannot update a successor.
+Pack requests, saved-pack management, picker/send and own-sticker Delete remain planned.
 
 Android implementation checkpoint: a loaded profile offers **Share profile…**.
 The native destination dialog lists open chats except the profile owner, using

@@ -11,6 +11,7 @@ internal class ChatThreadSnapshot(
     val loadPhoto: ((ChatPhoto) -> ByteArray)? = null,
     val autoPhoto: (() -> Boolean)? = null,
     val sendPhoto: ((PreparedPhoto) -> Result<uniffi.dyapp.ChatSubmission>)? = null,
+    val stickers: ChatStickerSource? = null,
 )
 
 @androidx.compose.runtime.Composable
@@ -27,6 +28,7 @@ internal fun MediaChatContent(
         LocalChatPhotoLoader provides snapshot?.loadPhoto,
         LocalChatPhotoAuto provides snapshot?.autoPhoto,
         LocalChatPhotoSender provides snapshot?.sendPhoto,
+        LocalChatStickerSource provides snapshot?.stickers,
     ) {
         androidx.compose.runtime.key(me, peer) {
             ChatContent(peer, me, snapshot?.history, form, actions)

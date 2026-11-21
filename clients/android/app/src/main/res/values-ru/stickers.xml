@@ -1,0 +1,7 @@
+<resources>
+    <string name="sticker_image_load">Загрузить изображение стикера</string>
+    <string name="sticker_image_loading">Загрузка изображения стикера…</string>
+    <string name="sticker_image_tap">Нажмите, чтобы загрузить изображение стикера.</string>
+    <string name="sticker_image_unavailable">Изображение стикера недоступно.</string>
+    <string name="sticker_image_failed">Не удалось загрузить изображение стикера. Повторите попытку.</string>
+</resources>

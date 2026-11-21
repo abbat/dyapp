@@ -565,7 +565,9 @@ retrieval admission. Native `chat_sticker_image` exposes typed `Ready`, `OnTap` 
 outcomes; transport and validation failures remain errors. The compatibility `chat_sticker_frame`
 API preserves its `onTap`/`notFound` errors. No descriptor or compressed image crosses either API.
 The native call retains session/identity ownership through blocking completion; UI cancellation
-still requires the caller's presentation generation guard.
+still requires the caller's presentation generation guard. Android keys image presentation by
+actual opened owner, peer and full immutable selection, reads off UI and rejects cancelled results;
+its Bitmap adapter converts validated straight-alpha pixels rather than decoding compressed media.
 Network connection, desktop cancellation checks between async stages and binary/record projection
 remain in the adapter.
 

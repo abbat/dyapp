@@ -1,5 +1,12 @@
 # UI Testing: Practical Guide
 
+Android `ChatStickerImageTests` checks actual Bitmap alpha/channel conversion, rendered aspect and
+localized accessibility labels. Controlled native-like completion gates cover duplicate manual
+requests, replacement owners, retired callbacks and failure/retry. These tests retain complete
+message keys and observe semantic outcomes with per-transition deadlines; SDK/device execution
+is required separately from strict source lint. Pack-management and background-notice acceptance
+remain separate required slices.
+
 Android `SlotsTests` checks fail-closed presentation and projection labels; removal lifecycle
 eligibility cases live in the common `identity_slots::removal_policy` table test. Core registry
 review tests retain a real shared lock during key reads and cover denied/missing keys, stale Peer

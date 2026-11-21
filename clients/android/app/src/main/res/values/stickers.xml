@@ -1,0 +1,7 @@
+<resources>
+    <string name="sticker_image_load">Load sticker image</string>
+    <string name="sticker_image_loading">Loading sticker image…</string>
+    <string name="sticker_image_tap">Tap to load the sticker image.</string>
+    <string name="sticker_image_unavailable">The sticker image is unavailable.</string>
+    <string name="sticker_image_failed">Could not load the sticker image. Try again.</string>
+</resources>

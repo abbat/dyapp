@@ -169,8 +169,9 @@ sticker payloads with optional descriptors, checks verified context and cross-ki
 and preserves unread state on replay/restart. Clear chat removes their rows and prevents replay
 from restoring them. Common originals references include only hash-matching descriptors, so
 no sticker-only cache is needed. Photo queries exclude sticker rows; merged history includes typed stickers. Desktop/UniFFI metadata omit transport secrets;
-Desktop and Android expose a localized emoji/name fallback without edit/forward actions. Desktop
-also renders bounded pixels and Add-pack controls; Android retains the fallback-only path.
+Desktop and Android expose a localized emoji/name fallback without edit/forward actions and
+render bounded first-frame pixels. Android uses typed native on-tap/unavailable results and
+retains explicit image retry after failures; its Add-pack controls remain planned.
 Desktop chat-list previews include the newest sticker and count its unread state; mobile list
 previews remain separate platform work. At the Store boundary, tag-9 deletion of a
 stored sticker now removes its media row and leaves the shared terminal placeholder. Replays
@@ -279,8 +280,9 @@ is required and an explicit tap supplies manual download permission. Core `Snaps
 checks local pixels before descriptor availability and automatic-download eligibility. The native
 `chat_sticker_image` API returns typed ready/on-tap/unavailable outcomes, including origin NotFound;
 transport and validation failures remain errors. The older frame API keeps its error-code contract.
-OS network reports, connection transport and display projection stay in adapters. Mobile chat
-rendering remains planned.
+OS network reports, connection transport and display projection stay in adapters. Android chat
+rendering consumes typed results off UI, converts straight-alpha RGBA through Android color APIs,
+and drops cancelled presentation results. Compressed WebP and retrieval descriptors stay in Rust.
 
 ### Receive
 
