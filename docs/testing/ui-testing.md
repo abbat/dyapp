@@ -578,7 +578,9 @@ reader supplies presentation data only, while native target/mutation tests cover
 retained application callbacks after the reader opening is replaced. `ChatClearGeometryTests` checks
 EN/RU at normal and doubled font scale: current bounds preserve name/ID/copy/consequence order,
 scrolling reveals every complete text layout, and both actions remain reachable. These checks require
-execution in Android CI before runtime acceptance.
+execution in Android CI before runtime acceptance. The real-node `NativePhotoExchangeTests` also
+checks the generated Clear target's owner/peer, own-ID refusal and unchanged complete photo selectors
+before its existing cached-original Clear check; the conversation remains open after local cleanup.
 
 Android Clear target checks preserve name, labelled full raw-copy ID and consequence order, including
 wrong/missing target, markup, label, order and chunk counterexamples. Tall-dialog checks require

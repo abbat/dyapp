@@ -51,6 +51,7 @@ class NativePhotoExchangeTests {
         refused(receiver, sender, photo.copy(groupId = different(photo.groupId)), "notFound")
         refused(receiver, sender, photo.copy(author = receiver.peerId), "notFound")
         refused(receiver, sender, photo.copy(id = different(photo.id)), "notFound")
+        verifyTarget(receiver, sender)
         receiver.session.block(sender.peerId)
         assertTrue(sender.peerId in receiver.session.blockedPeers())
         refused(receiver, sender, photo, "blocked")
@@ -58,7 +59,23 @@ class NativePhotoExchangeTests {
         assertArrayEquals(prepared.full, original(receiver, sender, photo))
         assertTrue(receiver.session.clearChat(sender.peerId) > 0u)
         assertTrue(receiver.session.chatPhotos(sender.peerId).isEmpty())
+        assertEquals(ChatState.OPEN, receiver.session.state(sender.peerId))
         refused(receiver, sender, photo, "notFound")
+    }
+
+    private fun verifyTarget(receiver: TestPeer, sender: TestPeer) {
+        val before = receiver.session.chatPhotos(sender.peerId).map {
+            Triple(it.author, it.groupId.toList(), it.id.toList())
+        }
+        val target = receiver.session.clearTarget(sender.peerId)
+        assertEquals(receiver.peerId, target.ownerPeerId)
+        assertEquals(sender.peerId, target.peerId)
+        val after = receiver.session.chatPhotos(sender.peerId).map {
+            Triple(it.author, it.groupId.toList(), it.id.toList())
+        }
+        assertEquals(before, after)
+        val failure = assertThrows(CoreException::class.java) { receiver.session.clearTarget(receiver.peerId) }
+        assertTrue(failure.toString(), failure.message.orEmpty().contains("ownPeer"))
     }
 
     private fun establish(sender: TestPeer, receiver: TestPeer) {
