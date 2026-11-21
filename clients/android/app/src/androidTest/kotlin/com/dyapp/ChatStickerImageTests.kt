@@ -80,7 +80,9 @@ class ChatStickerImageTests {
     fun repeatedManualRequestsAndRetiredCallbacksCannotCrossOwners() {
         val gate = StickerImageReadGate(frame())
         var owner by mutableStateOf("first")
+        val successorCalls = AtomicInteger()
         val second = ChatStickerSource("second") { _, manual ->
+            successorCalls.incrementAndGet()
             check(!manual) { "retired action reached the successor" }
             ChatStickerImage.Unavailable
         }
@@ -97,11 +99,17 @@ class ChatStickerImageTests {
             status(R.string.sticker_image_unavailable)
             compose.runOnIdle { action() }
             gate.finish.complete(Unit)
-            compose.waitUntil(10_000) { gate.returned.isDone }
-            compose.waitForIdle()
-            compose.onNodeWithTag("chat-sticker-image").assertDoesNotExist()
-            assertEquals(1, gate.calls.get())
+            requireRetiredReads(gate, successorCalls)
         } finally { gate.finish.complete(Unit) }
+    }
+
+    private fun requireRetiredReads(gate: StickerImageReadGate, successorCalls: AtomicInteger) {
+        compose.waitUntil(10_000) { gate.returned.isDone }
+        compose.waitForIdle()
+        compose.onNodeWithTag("chat-sticker-image").assertDoesNotExist()
+        assertEquals(1, gate.calls.get())
+        assertEquals(1, successorCalls.get())
+        status(R.string.sticker_image_unavailable)
     }
 
     @Test

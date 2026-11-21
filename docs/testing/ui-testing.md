@@ -246,7 +246,8 @@ proves backend pack authentication, send, recents and hidden controls.
 
 Android `ChatStickerImageTests` checks actual Bitmap alpha/channel conversion, rendered aspect and
 localized accessibility labels. Controlled native-like completion gates cover duplicate manual
-requests, replacement owners, retired callbacks and failure/retry. These tests retain complete
+requests, replacement owners, retired callbacks and failure/retry. Both old and successor reads
+have external call-count assertions, so caught callback failures cannot hide redirected work. These tests retain complete
 message keys and observe semantic outcomes with per-transition deadlines; SDK/device execution
 is required separately from strict source lint. Pack-management and background-notice acceptance
 remain separate required slices.
