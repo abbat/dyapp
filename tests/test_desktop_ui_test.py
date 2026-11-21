@@ -110,12 +110,14 @@ class SmokeInventoryTest(unittest.TestCase):
         self.assertTrue(includes)
         for name in includes:
             self.assertTrue((directory / name).is_file(), name)
+        fixtures = "prototype_keyboard_fixtures.py"
         prototype_helpers = {
             "criteria.js": "prototype-shots.py",
             "criteria-text.js": "prototype-shots.py",
             "prototype-keyboard.js": "prototype_keyboard.py",
-            "prototype-popups.js": "prototype_keyboard_fixtures.py",
-            "prototype-collections.js": "prototype_keyboard_fixtures.py",
+            "prototype-popups.js": fixtures,
+            "prototype-collections.js": fixtures,
+            "prototype-navigation-calibration.js": fixtures,
         }
         scripts = UI.parents[1] / "tests/scripts"
         for name, consumer in prototype_helpers.items():
