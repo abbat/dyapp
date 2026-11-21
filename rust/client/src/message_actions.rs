@@ -43,7 +43,10 @@ pub enum Error {
     Store(#[from] crate::store::Error),
 }
 
-fn matches(item: &ChatItem, key: &MessageKey, kind: Kind) -> bool {
+/// Match an already-read item's complete key and media kind, including live text state.
+/// This does not authorize ownership or peer visibility; operations must still call [`prepare`].
+#[must_use]
+pub fn matches(item: &ChatItem, key: &MessageKey, kind: Kind) -> bool {
     match item {
         ChatItem::Text(message) => {
             kind != Kind::Sticker && message.key == *key && !message.current.deleted

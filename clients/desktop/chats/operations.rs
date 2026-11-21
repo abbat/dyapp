@@ -4,32 +4,37 @@ use std::path::Path;
 use std::sync::Arc;
 
 use dyapp_client::chat::MAX_TEXT_BYTES;
+use dyapp_client::message_actions::{self, Kind, Source};
 use dyapp_client::session::Session;
-use dyapp_client::store::messages::{ChatItem, ChatMessage};
+#[cfg(test)]
+use dyapp_client::store::messages::{ChatItem, ChatMessage, MessageKey};
 use dyapp_client::store::Store;
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
 
 use crate::profile;
 
-fn target_matches(message: &ChatMessage, own: &str, group_id: &[u8], id: [u8; 16]) -> bool {
-    message.key.group.as_slice() == group_id
-        && message.key.id == id
-        && message.key.author == own
-        && !message.current.deleted
+// Keep the original regression assertions connected to the common matcher.
+#[cfg(test)]
+fn target_matches(message: &ChatMessage, own: &str, group: &[u8], id: [u8; 16]) -> bool {
+    item_matches(ChatItem::Text(message.clone()), own, group, id, false)
 }
 
+#[cfg(test)]
 fn item_matches(item: ChatItem, own: &str, group: &[u8], id: [u8; 16], delete: bool) -> bool {
-    match item {
-        ChatItem::Text(message) => target_matches(&message, own, group, id),
-        ChatItem::Sticker(message) => {
-            delete
-                && message.key.author == own
-                && message.key.group == group
-                && message.key.id == id
-        }
-        ChatItem::Attachment(_) => false,
-    }
+    message_actions::matches(
+        &item,
+        &MessageKey {
+            group: group.to_vec(),
+            author: own.to_owned(),
+            id,
+        },
+        if delete {
+            Kind::TextOrSticker
+        } else {
+            Kind::Text
+        },
+    )
 }
 
 fn validate_target(
@@ -40,31 +45,22 @@ fn validate_target(
     message_id: [u8; 16],
     delete: bool,
 ) -> Result<(), String> {
-    if peer_id == identity.peer_id() {
-        return Err("ownPeer".into());
-    }
-    if store.blocked(peer_id).map_err(|e| e.to_string())? {
-        return Err("blocked".into());
-    }
-    let own = identity.peer_id();
-    let mut found = store
-        .current_chat_messages(peer_id)
-        .map_err(|e| e.to_string())?
-        .into_iter()
-        .any(|message| item_matches(ChatItem::Text(message), &own, group_id, message_id, delete));
-    if !found && delete {
-        found = store
-            .current_chat_stickers(peer_id)
-            .map_err(|e| e.to_string())?
-            .into_iter()
-            .any(|message| {
-                item_matches(ChatItem::Sticker(message), &own, group_id, message_id, true)
-            });
-    }
-    if !found {
-        return Err("unknownMessage".into());
-    }
-    Ok(())
+    message_actions::prepare(
+        store,
+        Source {
+            peer: peer_id,
+            group: group_id,
+            author: &identity.peer_id(),
+            id: &message_id,
+        },
+        if delete {
+            Kind::TextOrSticker
+        } else {
+            Kind::Text
+        },
+    )
+    .map(|_| ())
+    .map_err(|error| error.to_string())
 }
 
 #[expect(
