@@ -13,14 +13,20 @@ read-only retry, committed-but-unconfirmed receipts, and pending typing with own
 Counters are checked outside caught callbacks; controlled completion signals avoid guessed delays.
 The existing production-Activity receipt persistence/recreation test remains unchanged.
 `NativePrivacyPreferenceTests` crosses the actual registry/Keystore/generated JNI boundary through
-production preference adapters: independent changes preserve presence/notices, another selected
+production preference adapters and an independent direct native field snapshot, so a paired
+getter/setter swap cannot pass. Independent changes preserve presence/notices, another selected
 identity retains its defaults/selection, and reopening restores the edited values. Each native
 read/write gets its own failure deadline; no node or Activity is needed. Device CI must execute it.
 `NativePresenceDeliveryTests` separately uses two actual clients on the suite-owned node: mutual likes,
 hidden sender refusal before first disclosure, explicit send and authenticated receive, retained
 incoming marks while hidden, no automatic reciprocity from receive, and explicit reverse send.
 Receipt advances only on completed native mailbox passes; common injected-clock tests retain
-throttle/expiry boundary coverage. This does not replace real foreground-lifecycle or rendered UI acceptance.
+throttle/expiry boundary coverage. Foreground-lifecycle and rendered UI acceptance remain separate.
+`PrivacyPreferenceGeometryTests` renders the actual three preference components in the production
+theme at EN/RU normal/doubled font scale. It measures complete labels/hints against live row and
+viewport bounds, then controlled read failures and retry-button text/bounds. Every retry must
+restore a known enabled row without any write call. Component geometry requires device CI;
+full Settings navigation/Activity review remains a separate acceptance scope.
 
 Debug-only `MailNoticeProbeService` observes actual framework start/stop/completion and attempts
 at OS notification posting without replacing registry selection, native receive or posting.

@@ -1,6 +1,8 @@
 package com.dyapp
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -48,9 +50,18 @@ class NativePrivacyPreferenceTests {
     }
 
     private fun read(active: Opened.Ready) = runBlocking {
-        PrivacyPreferenceKind.entries.map { kind ->
+        val projected = PrivacyPreferenceKind.entries.map { kind ->
             withTimeout(PEER_WAIT_MS) { privacyPreferenceCalls(active, kind).resolve(null).getOrThrow() }
         }
+        val stored = withTimeout(PEER_WAIT_MS) {
+            withContext(Dispatchers.IO) {
+                RustBridge.withChats(active) {
+                    listOf(it.profileViewsEnabled(), it.readReceipts(), it.typingEnabled())
+                }
+            }
+        }
+        assertEquals("UI preference mapping must match independent native fields", stored, projected)
+        stored
     }
 
     private fun write(active: Opened.Ready, kind: PrivacyPreferenceKind, wanted: Boolean) = runBlocking {
