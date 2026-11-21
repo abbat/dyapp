@@ -417,6 +417,8 @@ const STRINGS = {
     'devices.code.next': 'Continue',
     'devices.code.expired': 'This code expired. Show a new one on the new device.',
     'devices.code.bad': 'This is not a link code. Copy the whole code from the new device.',
+    'devices.code.offline':
+      'Sending could not be confirmed. Some encrypted data may already have been sent. Check the new device before trying again.',
     'devices.confirm.title': 'Give this device full control?',
     'devices.confirm.text':
       'It gets the key of this identity. It can read new chats, write as you, change your profile and disconnect your other devices, and you cannot take the key back.',
@@ -873,6 +875,8 @@ const STRINGS = {
     'devices.code.next': 'Продолжить',
     'devices.code.expired': 'Срок этого кода истёк. Покажите новый на новом устройстве.',
     'devices.code.bad': 'Это не код привязки. Скопируйте код с нового устройства целиком.',
+    'devices.code.offline':
+      'Отправка не подтверждена. Часть зашифрованных данных уже могла уйти. Проверьте новое устройство перед повторной попыткой.',
     'devices.confirm.title': 'Дать этому устройству полный контроль?',
     'devices.confirm.text':
       'Оно получит ключ этой идентичности. Сможет читать новые чаты, писать от вашего имени, менять профиль и отключать другие ваши устройства, а забрать ключ обратно нельзя.',

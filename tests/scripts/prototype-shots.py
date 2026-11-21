@@ -375,6 +375,7 @@ DESKTOP = [
     "devices-sent",
     "device-code-dialog",
     "device-code-error",
+    "device-send-error",
     "device-code-bad",
     "device-confirm-dialog",
     "disconnect-dialog",

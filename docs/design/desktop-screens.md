@@ -516,6 +516,11 @@ The identity the wizard made is erased at this point, and it was never published
 | Not accepted yet | `link-pending` | `link-done-pending` only |
 | Open identity | `link-open` | Primary |
 
+Owner-side delivery failure is also uncertain: earlier encrypted parts may already be in the new
+device mailbox. The existing full-control confirmation is required before sending. `device-send-error`
+returns to the original code, asks the owner to check the new device and offers a new explicit attempt;
+it never promises nothing was sent or that received data was rolled back.
+
 ## Settings and removal
 
 The desktop prototype's `settings` root is a seven-category hub: Appearance, Privacy,

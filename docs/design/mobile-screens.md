@@ -265,6 +265,9 @@ The IDs inside each section are the desktop ones; only the frame differs.
   names the immutable original key before its consequences; admitted work disables Cancel/Back.
   Acknowledged revoke and subsequent cache-read failure remain separate visible results. Generated
   bindings, real JNI and full native EN/RU visual acceptance still require CI.
+  Owner-side approval remains planned. Its generic send failure must disclose potentially partial
+  encrypted delivery and preserve explicit confirmation of the original code; it must never promise
+  that nothing was sent or that closing the result recalls delivered data.
 - Account links to `settings-identities-screen`. Its `settings-identities` list preserves
   `settings-remove`, `settings-remove-2` and `settings-create`. Blocked and passed have
   `blocked-list` and `passed-list` in the `blocked` and `passed` cards:
