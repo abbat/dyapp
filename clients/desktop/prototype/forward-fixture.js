@@ -1,8 +1,5 @@
-import { byId } from '../../desktop/ui/dom.js';
-import {
-  renderCollectionView,
-  bindCollectionNavigation,
-} from '../../desktop/ui/settings-collection-view.js';
+import { byId } from '../ui/dom.js';
+import { renderCollectionView, bindCollectionNavigation } from '../ui/settings-collection-view.js';
 
 export const forwardScreens = [
   'chat-forward-dialog',
