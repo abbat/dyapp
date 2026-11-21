@@ -1,5 +1,6 @@
 package com.dyapp
 
+import android.app.Notification
 import android.app.job.JobInfo
 import android.app.job.JobParameters
 import android.app.job.JobScheduler
@@ -43,7 +44,13 @@ open class MailJob : JobService() {
         var completionRequested = false
         var retryRequested = false
         try {
-            val received = if (isSearchJob(params)) true else receiveMail(applicationContext)
+            val received = if (isSearchJob(params)) {
+                true
+            } else {
+                receiveMail(applicationContext) { slot, peer, notice ->
+                    noticeAttempted(params, slot, peer, notice.clone())
+                }
+            }
             if (!completion.isActive()) return
             val wake = searchPass(params)
             completion.complete {
@@ -63,6 +70,16 @@ open class MailJob : JobService() {
     /** The framework adapter can be observed by a debug-only service without replacing its lifecycle. */
     protected open fun workerFinished(params: JobParameters, completionRequested: Boolean, retryRequested: Boolean) {
         // The release service has no observer.
+    }
+
+    /** Read-only observation after platform gates; the registered release service does not observe posts. */
+    protected open fun noticeAttempted(
+        params: JobParameters,
+        slotId: String,
+        peerId: String,
+        notice: Notification
+    ) {
+        // Debug observers cannot replace the native receive pass or the OS posting implementation.
     }
 
     protected open fun isSearchJob(params: JobParameters): Boolean = params.jobId == SEARCH_OUTBOX_JOB_ID
@@ -85,12 +102,19 @@ internal fun JobParameters.scopedJobId(): Pair<String?, Int> {
  * One receive for the active ready identity, then a notice when it left more to read; none, a
  * recovery state or a failure stays quiet. Returns whether the framework should consider it done.
  */
-internal fun receiveMail(context: Context): Boolean = runCatching {
+internal fun receiveMail(
+    context: Context,
+    beforePost: (String, String, Notification) -> Unit = { _, _, _ -> }
+): Boolean = runCatching {
     val opened = RustBridge.slots(context).open() as? Opened.Ready ?: return true
     runCatching {
         RustBridge.withChats(opened) {
             val notice = it.receiveWithNotice(context.getString(R.string.notice_sticker)).notice
-            if (notice != null) postMailNotice(context, noticeLines(notice))
+            if (notice != null) {
+                postMailNotice(context, noticeLines(notice)) { posting ->
+                    beforePost(opened.slot.id, opened.peerId, posting)
+                }
+            }
         }
     }.onFailure {
         if (completeRevokedDevice(opened) == null) throw it

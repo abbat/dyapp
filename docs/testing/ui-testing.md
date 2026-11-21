@@ -1,5 +1,13 @@
 # UI Testing: Practical Guide
 
+Debug-only `MailNoticeProbeService` observes actual framework start/stop/completion and attempts
+at OS notification posting without replacing registry selection, native receive or posting.
+The attempt carries the original admitted slot/peer and a notification copy, after foreground and
+OS-permission gates. Observers must only record signals/data: they run inside native ownership and
+must not reenter RustBridge. A zero attempt count is meaningful only after verified job completion;
+an expired deadline never proves that no notification was attempted. Actual OS-post integration
+acceptance remains separate from these observer hooks.
+
 Shared own-message preflight tests retain desktop full-key/live-text/delete-only sticker cases
 and real Store coverage for colliding authors, media kinds, blocking and cleared history. The
 original desktop test block remains and its argument helpers call the common matcher.
