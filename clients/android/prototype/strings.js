@@ -1,6 +1,16 @@
 // Android wording over the desktop prototype strings (loaded first); the shipped strings live in
 // app/src/main/res. Only keys that differ on Android or exist only here.
 Object.assign(STRINGS.en, {
+  'forward.action': 'Forward',
+  'forward.actions': 'Message actions',
+  'forward.title': 'Forward message',
+  'forward.empty': 'No other open chats are available.',
+  'forward.readFailed': 'The source message or destination chats could not be verified.',
+  'forward.sendFailed': 'The message could not be forwarded.',
+  'forward.loading': 'Loading…',
+  'forward.sending': 'Sending…',
+  'forward.queued': 'Queued',
+  'forward.marker': 'Forwarded',
   'language.name': 'English',
   'privacy.hint': 'These settings stay on this device and apply to this identity only.',
   'nav.back': 'Back',
@@ -36,6 +46,16 @@ Object.assign(STRINGS.en, {
     'A block hides someone from your search and chats and revokes their network tokens. They are not told. Retry the revocation if it is still pending.',
 });
 Object.assign(STRINGS.ru, {
+  'forward.action': 'Переслать',
+  'forward.actions': 'Действия с сообщением',
+  'forward.title': 'Переслать сообщение',
+  'forward.empty': 'Других открытых переписок нет.',
+  'forward.readFailed': 'Не удалось проверить исходное сообщение или переписки для пересылки.',
+  'forward.sendFailed': 'Не удалось переслать сообщение.',
+  'forward.loading': 'Загрузка…',
+  'forward.sending': 'Отправка…',
+  'forward.queued': 'В очереди',
+  'forward.marker': 'Переслано',
   'language.name': 'Русский',
   'privacy.hint': 'Эти настройки хранятся на этом устройстве и действуют только для этой личности.',
   'nav.back': 'Назад',

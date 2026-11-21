@@ -2,7 +2,7 @@ import { all as domAll, find as domFind } from './dom.js';
 /**
  * @typedef {keyof typeof collectionIds} CollectionName
  * @typedef {{ find: () => string, row: (index: number) => HTMLElement }} DeferredRow
- * @typedef {{ name: CollectionName, list: HTMLElement, search: HTMLInputElement,
+ * @typedef {{ name: CollectionName | 'forward', list: HTMLElement, search: HTMLInputElement,
  *   status: HTMLParagraphElement, previous: HTMLButtonElement, next: HTMLButtonElement,
  *   refresh: HTMLButtonElement, items: DeferredRow[] | null, page: number,
  *   reload?: () => void | Promise<unknown> }} CollectionState

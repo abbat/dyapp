@@ -621,6 +621,7 @@ pre {
   margin: 0;
   overflow-wrap: anywhere;
 }
+#chat-forward-selected-name,
 #chat-clear-name {
   overflow-wrap: anywhere;
 }

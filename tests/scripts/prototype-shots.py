@@ -399,6 +399,15 @@ ANDROID = [
     "chat-first",
     "chat-request",
     "chat-menu",
+    "chat-forward-dialog",
+    "chat-forward-loading",
+    "chat-forward-empty",
+    "chat-forward-error",
+    "chat-forward-send-error",
+    "chat-forward-pending",
+    "chat-forward-sent",
+    "chat-forward-queued",
+    "chat-forward-received-menu",
     "chat-rename-dialog",
     "chat-clear-dialog",
     "chat-cleared",
@@ -718,8 +727,29 @@ def saved(_view: WebKit2.WebView, result: Gio.AsyncResult) -> None:
             KeyboardFixtures(
                 view, keyboard_calibrated, keyboard_progress
             ).start()
+    elif PLATFORM == "android" and jobs[0][0] == "chat-forward-dialog":
+        phase("forward fixture")
+        view.call_async_javascript_function(
+            "await (await import("
+            "'/desktop/ui-tests/android-forward-fixture.js'"
+            ")).checkForwardFixture()",
+            -1,
+            None,
+            None,
+            None,
+            None,
+            forward_checked,
+        )
     else:
         finish_job()
+
+
+def forward_checked(_view: WebKit2.WebView, result: Gio.AsyncResult) -> None:
+    try:
+        view.call_async_javascript_function_finish(result)
+    except GLib.Error as error:
+        failed.append(f"{shot_name()} forward fixture: {error.message}")
+    finish_job()
 
 
 def finish_job() -> None:

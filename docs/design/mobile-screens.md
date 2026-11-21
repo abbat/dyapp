@@ -303,8 +303,11 @@ submission and cancellation; errors offer read refresh or explicit send retry. A
 terminal for that opening and navigate to the destination, whose persisted delivery state remains
 the authority for pending/node-accepted feedback. Draft/edit state is not consumed by forwarding.
 The scope belongs to the actual identity opening and source chat; retired callbacks/completions
-cannot navigate in a replacement. Prototype states and actual JNI/UI runtime acceptance remain
-required before release.
+cannot navigate in a replacement. The static prototype includes ready/loading/empty/read-error,
+send-error/pending/sent/queued and received-message-menu states. Its 40 illustrative destinations
+use the shared 32-row pager and full-ID search; they authorize no native operation. The sent/queued
+fixtures replace the source history with the destination's forwarded text and do not imply Read.
+Rendered prototype review and actual JNI/UI runtime acceptance remain required before release.
 
 Android screens may be reviewed and implemented individually against the frozen criteria and the
 corresponding desktop behavior. The complete prototype review and per-client impact review remain
