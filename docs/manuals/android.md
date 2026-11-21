@@ -15,6 +15,11 @@ one complete tag. Case and Unicode normalization follow the common core; commas 
 remain part of that tag. Blank input means any interest. Invalid input must be corrected before
 searching; a filter hidden by a later sample does not constrain that query.
 
+Removing a published identity first tries to withdraw its profile. If withdrawal cannot be
+confirmed, you can retry, cancel or explicitly remove it anyway. Local removal does not guarantee
+immediate disappearance from search or a fixed expiry date: nodes expire records under their
+retention policy and another device can keep the profile published.
+
 Who can see what about you: [Your privacy in dyapp](privacy.md).
 
 **Settings → Privacy** saves profile-view, read-receipt and typing choices independently.

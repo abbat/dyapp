@@ -263,8 +263,11 @@ The IDs inside each section are the desktop ones; only the frame differs.
 - `remove-dialog` and `remove-offline` use the identities screen as their background.
   `remove-title`, `remove-peer`, `remove-confirm`, `remove-cancel`, `remove-action`,
   `remove-cancel-offline`, `remove-retry` and `remove-anyway` retain the removal contract.
-  A published profile is withdrawn before the key goes; if no node accepts it, offer Retry,
-  Remove anyway and Cancel. A key that cannot open cannot sign the withdrawal and skips it.
+  A published profile is withdrawn before the key goes; if withdrawal cannot be confirmed, offer
+  Retry, Remove anyway and Cancel. The native warning promises no fixed remote-expiry deadline:
+  nodes retain the profile until expiry and another device may renew publication. It does not
+  assert that no node accepted a request merely because native completion failed. A key that
+  cannot open cannot sign the withdrawal and skips it.
 
 Android screens may be reviewed and implemented individually against the frozen criteria and the
 corresponding desktop behavior. The complete prototype review and per-client impact review remain

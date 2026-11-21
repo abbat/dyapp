@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.RuleChain
@@ -72,7 +73,10 @@ class ProfileRemovalTests {
             forgetNetworks()
             askToRemove()
             awaitOffline()
-            compose.onNodeWithTag("remove-offline").assertExists()
+            val warning = compose.onNodeWithTag("remove-offline").performScrollTo()
+                .assertTextEquals(string(R.string.remove_offline))
+            assertTrue("The complete withdrawal warning must fit", warning.textLayout().textFitsLayout())
+            compose.onNodeWithTag("remove-anyway").assertExists()
 
             // Retry finds no node either, and Cancel keeps the identity.
             compose.onNodeWithTag("remove-retry").performClick()

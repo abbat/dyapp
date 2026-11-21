@@ -1,5 +1,11 @@
 # UI Testing: Practical Guide
 
+The native profile-removal journey checks the complete unconfirmed-withdrawal warning and its
+text layout before exercising Retry/Cancel, then verifies normal removal after network recovery.
+The separate Remove anyway path retains explicit local key/data-removal acceptance. Resource copy
+must not promise a fixed remote expiry or claim that an unconfirmed completion proves no node
+accepted the withdrawal.
+
 The native linked-media protocol regression first establishes a matched chat containing a valid
 JPEG and decoded WebP sticker, verifies both protected node blobs and recipient mixed-history
 rows, and only then enrolls the extra device. The public native receiver must join, receive
