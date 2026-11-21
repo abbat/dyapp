@@ -4,6 +4,8 @@ Android stale-callback checks capture the installed `applicationClickKey` action
 Compose `SemanticsActions.OnClick` wrapper: modifier nodes may reuse that wrapper for a new opening
 or require attachment before invoking it. Profile sharing exposes the same application action used
 by each real control; cancellation, duplicate admission and retired completion assertions remain.
+The real foreground LAN-permission journey closes the IME with Espresso's acknowledged action after
+text replacement, then scrolls to the check button using current layout bounds before clicking.
 
 Received-message prototype actions use the existing spacing token separately from compact message
 metadata. Empty received-menu holders are hidden; the normal/enlarged layout validator checks the

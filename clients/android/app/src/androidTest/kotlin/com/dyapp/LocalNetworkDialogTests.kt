@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
+import androidx.test.espresso.Espresso.closeSoftKeyboard
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
@@ -75,7 +76,8 @@ class LocalNetworkDialogTests {
     private fun request(seed: String) {
         compose.awaitNode(hasTestTag("check-and-connect") and isEnabled())
         compose.onNodeWithTag("network-seeds").performScrollTo().performTextReplacement(seed)
-        // Completed rows and the IME can move the button below the current viewport.
+        // Hide through Espresso's acknowledged IME action before measuring the scroll viewport.
+        closeSoftKeyboard()
         compose.onNodeWithTag("check-and-connect").performScrollTo().assertIsDisplayed().performClick()
     }
 
