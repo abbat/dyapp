@@ -51,8 +51,9 @@ internal fun ChatClearDialog(form: ChatForm, name: ContactNameView?, clear: () -
 private fun ClearDialogView(view: ClearView, clear: () -> Unit) {
     val shown = view.result?.getOrNull()
     val confirm = { view.opening.confirm(shown, clear) }
+    val cancel = view.opening::cancel
     AlertDialog(
-        onDismissRequest = view.opening::cancel,
+        onDismissRequest = cancel,
         modifier = Modifier.testTag("chat-clear-dialog"),
         title = { Text(stringResource(R.string.clear_title)) },
         text = { ClearDialogBody(view) },
@@ -64,7 +65,7 @@ private fun ClearDialogView(view: ClearView, clear: () -> Unit) {
             ) { Text(stringResource(R.string.clear_action)) }
         },
         dismissButton = {
-            TextButton(view.opening::cancel, Modifier.testTag("chat-clear-cancel")) {
+            TextButton(cancel, Modifier.testTag("chat-clear-cancel").applicationClick(cancel)) {
                 Text(stringResource(R.string.remove_cancel))
             }
         }

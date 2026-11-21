@@ -75,10 +75,7 @@ class ChatMenuTests {
         compose.onNodeWithTag("chat-clear-dialog").assertDoesNotExist()
         compose.onNodeWithTag("chat-more").performClick()
         compose.onNodeWithTag("chat-clear").performClick()
-        compose.waitUntil {
-            compose.onAllNodes(hasTestTag("chat-clear-confirm") and isEnabled()).fetchSemanticsNodes().size == 1
-        }
-        compose.onNodeWithTag("chat-clear-confirm").performClick()
+        compose.awaitNode(hasTestTag("chat-clear-confirm") and isEnabled()).performClick()
         compose.runOnIdle {
             assertEquals(1, clears)
             form.cleared = true

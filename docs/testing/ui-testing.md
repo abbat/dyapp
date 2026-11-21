@@ -574,7 +574,11 @@ child nodes, since node counts alone cannot distinguish a formatted chunk from a
 cancel/reopen retirement, disposal and a different active dialog without elapsed-time assertions.
 `ChatMenuTests` waits for the actual verified/enabled Clear control before confirming; its injected
 reader supplies presentation data only, while native target/mutation tests cover real admission.
-These source checks require execution in Android CI before runtime acceptance.
+`ChatClearDialogTests` reads the actual clipboard, retries a controlled failed target read and invokes
+retained application callbacks after the reader opening is replaced. `ChatClearGeometryTests` checks
+EN/RU at normal and doubled font scale: current bounds preserve name/ID/copy/consequence order,
+scrolling reveals every complete text layout, and both actions remain reachable. These checks require
+execution in Android CI before runtime acceptance.
 
 Android Clear target checks preserve name, labelled full raw-copy ID and consequence order, including
 wrong/missing target, markup, label, order and chunk counterexamples. Tall-dialog checks require
