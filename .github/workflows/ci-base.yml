@@ -82,7 +82,7 @@ jobs:
           fetch-depth: 0 # changed-line coverage diffs against the push or PR base
       - name: setup
         run: bash tools/scripts/ci-setup.sh rust
-      - uses: taiki-e/install-action@1919c4a95903d2c33e4a221102edca87309fc14b # v2.89.0
+      - uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
         with:
           tool: cargo-llvm-cov@0.9.1,cargo-deny@0.20.2,cargo-nextest@0.9.148
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
@@ -129,7 +129,7 @@ jobs:
           fetch-depth: 0 # the mutants come from the diff against the push or PR base
       - name: setup
         run: bash tools/scripts/ci-setup.sh rust
-      - uses: taiki-e/install-action@1919c4a95903d2c33e4a221102edca87309fc14b # v2.89.0
+      - uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
         with:
           tool: cargo-mutants@27.1.0
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
@@ -161,7 +161,7 @@ jobs:
           persist-credentials: false
       - name: setup
         run: bash tools/scripts/ci-setup.sh rust-build
-      - uses: taiki-e/install-action@1919c4a95903d2c33e4a221102edca87309fc14b # v2.89.0
+      - uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
         with:
           tool: cargo-fuzz@0.13.2
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
