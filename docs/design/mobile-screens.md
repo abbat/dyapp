@@ -36,8 +36,10 @@ failed or uncertain changes require authoritative readback. Each manager opening
 registration/ticket, so late results and reads cannot import through another opening or identity.
 Received sticker rows render the core-projected Request/Retry/Fresh/Stop waiting controls and
 open the same saved-pack manager. Status refresh follows mailbox revisions and manager closure;
-failed/uncertain applications require readback before another mutation. Picker/send and own-sticker
-Delete remain planned.
+failed/uncertain applications require readback before another mutation. The composer picker opens
+native saved-pack and recent pages, keeps their cursors and thumbnail proportions, and sends one
+selected sticker without changing the text/edit draft. Cancel returns to the composer; Manage
+returns to a fresh picker opening after the saved-pack dialog closes. Own-sticker Delete remains planned.
 
 Android implementation checkpoint: a loaded profile offers **Share profile…**.
 The native destination dialog lists open chats except the profile owner, using

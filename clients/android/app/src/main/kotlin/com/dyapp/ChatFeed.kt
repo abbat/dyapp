@@ -81,7 +81,8 @@ internal class ChatFeed(internal val opened: Opened.Ready) {
             ChatStickerSource(
                 opened to peer,
                 version,
-                { receivedStickerPackTarget(opened, peer, it, version) }
+                { receivedStickerPackTarget(opened, peer, it, version) },
+                stickerPickerCalls(opened, peer, ::read)
             ) { sticker, manual ->
                 RustBridge.withChats(opened) { session ->
                     session.chatStickerImage(peer, sticker.groupId, sticker.author, sticker.id, manual)

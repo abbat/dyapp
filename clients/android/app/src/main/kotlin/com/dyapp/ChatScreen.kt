@@ -284,6 +284,7 @@ private fun ChatStatusLine(form: ChatForm) {
 private fun ChatComposer(state: ChatState?, form: ChatForm, ready: Boolean, onSend: () -> Unit) {
     val text = form.draft.value
     ChatPhotoPicker(state == ChatState.OPEN && !form.busy)
+    ChatStickerPicker(state == ChatState.OPEN && !form.busy && !form.sending)
     Row(Modifier.fillMaxWidth().padding(16.dp), Arrangement.spacedBy(8.dp), Alignment.CenterVertically) {
         // Read-only rather than disabled while sending, so the keyboard stays for the next text.
         OutlinedTextField(

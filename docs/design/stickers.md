@@ -261,7 +261,8 @@ Android Settings → Photos wires the common collection/import/removal APIs thro
 saved-pack dialog and bounded OS file picker. Received chat sticker rows render the common pack
 controls with exact message selection and generation; Manage opens that same dialog. Mailbox refreshes
 and manager closure reread the local pack status; success still means local staging, not delivery.
-Kotlin does not calculate retry eligibility or deadlines. Mobile send-picker and iOS collection wiring remain planned.
+Kotlin does not calculate retry eligibility or deadlines. Android also wires the composer picker to
+native saved/recent pages and standalone typed submission. iOS collection/picker wiring remains planned.
 
 Shared `sticker_picker::page` and `thumbnail` own manifest-order eight-entry pages and
 proportional RGBA resizing within a 96px bounding box through the bounded core decoder. Wide and
@@ -276,7 +277,9 @@ existing session/identity lifetime, with checked 32-bit offsets and safe labels/
 They perform no networking or state mutation. Android has an owner-bound adapter and presentation
 model that retain exact shown choices, native cursors and local Back history. A committed typed send
 blocks repeat admission; retiring the picker drops late display results without interrupting native
-work or changing the text draft. Its production picker UI remains planned; full saved-frame
+work or changing the text draft. Its composer dialog shows native pack/recent choices, proportional
+thumbnails, Back/Next and explicit refresh. Manage returns to a fresh opening after the shared manager
+closes. A feed-refresh failure cannot turn an already committed send into a retry. Full saved-frame
 and collection exports are separate APIs.
 
 Common `sticker_requests::Status::controls` supplies the ordered Request/Retry/Fresh/StopWaiting/

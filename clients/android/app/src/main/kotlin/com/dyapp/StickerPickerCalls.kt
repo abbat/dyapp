@@ -25,10 +25,11 @@ internal class StickerPickerCalls(
 )
 
 /** Native operation ownership outlives a cancelled view; no text draft is passed to this adapter. */
-internal fun stickerPickerCalls(opened: Opened.Ready, peer: String) = StickerPickerCalls(
+internal fun stickerPickerCalls(opened: Opened.Ready, peer: String, changed: () -> Unit = {}) = StickerPickerCalls(
     read = { query -> RustBridge.withChats(opened) { readStickerPicker(it, query) } },
     send = { choice ->
         RustBridge.withChats(opened) { it.submitSavedSticker(peer, choice.packId, choice.sticker.index) }
+            .also { runCatching(changed) } // Refresh failure cannot turn a committed send into a retry.
     }
 )
 

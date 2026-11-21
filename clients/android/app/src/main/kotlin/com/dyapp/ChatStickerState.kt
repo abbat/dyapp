@@ -17,6 +17,7 @@ internal class ChatStickerSource(
     val owner: Any,
     val revision: Int = 0,
     val pack: (ChatSticker) -> StickerPackTarget? = { null },
+    val picker: StickerPickerCalls? = null,
     val read: (ChatSticker, Boolean) -> ChatStickerImage
 )
 

@@ -41,8 +41,11 @@ pack asks you to confirm its full Pack ID. Chat history and other-device copies 
 unconfirmed changes require refreshing the list before retrying. Received sticker messages offer
 pack requests and the retries currently allowed by the core. Stop waiting stops local acceptance;
 already queued requests cannot be recalled. Manage opens the saved-pack list. A successful request
-means local queuing, not delivery; mailbox refresh updates its status. Choosing/sending stickers
-and own-sticker deletion remain planned.
+means local queuing, not delivery; mailbox refresh updates its status. **Stickers** in an open chat
+opens saved packs and recent choices. Back and Next navigate bounded pages; Refresh retries reads.
+Choose a thumbnail to send one sticker while keeping your text draft. Cancel returns to the composer;
+Manage packs returns to a fresh picker when closed. Closing a pending send cannot recall it.
+Own-sticker deletion remains planned.
 
 Chat photo messages appear in core history order. Incoming previews from people without an open conversation stay blurred until **Show preview**; showing a preview does not download the original. **Download photo** explicitly fetches the original, including on metered networks. Accepted chats also apply the core automatic-download policy and reevaluate it after network changes. Missing originals show an unavailable message; other failures keep retry available. The last-day retention hint is an estimate; a sealed local copy may remain available. In an open chat, **Attach photo…** uses the system picker. The app prepares a bare JPEG and shows its preview for confirmation. Cancel sends nothing; upload refusal retains the prepared photo for retry, while a saved queued send clears it to avoid duplicate delivery. Settings → Photos offers three immediate download choices for accepted contacts: unmetered networks, any network, or only after a tap. The common core still requires explicit requests for strangers. Unknown settings remain disabled until a successful read/retry; pending saves reject repeated changes and identity replacement cancels the old presentation. Photos also offers original retention, an exact numeric MiB cache limit, measured byte usage, refresh and cache clear. Turning retention off remembers the saved limit. Changes that may erase originals require confirmation; Cancel changes nothing. History and saved sticker packs remain separate. Invalid input keeps the draft editable; unconfirmed storage results disable changes until refresh succeeds.
 
