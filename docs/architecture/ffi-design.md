@@ -1094,6 +1094,12 @@ choices and append range conditions separately. Choice conditions use canonical 
 then country, interest and place. Android restores selected UInt32 IDs from the picker's Int
 storage with `toUInt`, preserving all bits. Desktop adoption remains planned. Interest input
 is supported by the shared API; the native forms currently pass blank interest text.
+The additive `SearchChoiceInputs::checked_conditions` and thin native
+`search_checked_choice_conditions` additionally validate an offered, nonblank canonical interest
+against the common profile-tag admission policy. Invalid input refuses the whole query with
+`invalid search interest`; hidden or canonical-blank text does not constrain it. The original
+infallible adapter remains available for existing callers. Android checked-path adoption and
+its interest field are planned; no iOS UI adoption is implied.
 
 ## Identity registry core
 

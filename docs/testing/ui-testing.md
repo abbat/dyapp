@@ -1,5 +1,11 @@
 # UI Testing: Practical Guide
 
+Checked shared-search tests match canonical Unicode interest conditions against actual profile
+tags, preserve punctuation, reject invalid nonblank offered tags without a partial query, and
+ignore invalid hidden fields. Native adapter tests retain condition ordering/payloads and map
+only offered invalid interest input to the field-specific failure. Android query/UI acceptance
+requires its own checked-path integration and device execution.
+
 Shared multiline-interest tests cover CRLF/blank lines, punctuation, canonical Unicode, preserved
 duplicates, exact count limits and invalid-tag refusal without partial output. Native adapter tests
 compare advertised limits against actual parser admission at each boundary and distinguish clear

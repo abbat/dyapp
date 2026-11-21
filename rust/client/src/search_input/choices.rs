@@ -17,6 +17,26 @@ pub struct SearchChoiceInputs {
 }
 
 impl SearchChoiceInputs {
+    /// Build offered choices while refusing an interest no canonical profile can publish.
+    ///
+    /// Blank or hidden interests do not constrain search. Invalid offered text rejects the
+    /// whole query rather than silently removing its requested condition.
+    ///
+    /// # Errors
+    /// Returns the common interest admission error for an invalid nonblank offered tag.
+    pub fn checked_conditions(
+        &self,
+        offered: &[u32],
+    ) -> Result<Vec<proto::Condition>, crate::profile_editor::DraftError> {
+        if offered.contains(&19) {
+            let interest = dyapp_profile::normalize_interest(super::trim(&self.interest));
+            if !interest.is_empty() {
+                crate::profile_editor::normalize_interests(&[interest])?;
+            }
+        }
+        Ok(self.conditions(offered))
+    }
+
     /// Build equality conditions only for offered fields, in canonical scale order.
     ///
     /// Country, interest and place are independent offered fields. The caller's picker
@@ -61,5 +81,7 @@ fn append_text(out: &mut Vec<proto::Condition>, offered: &[u32], field: u32, raw
     }
 }
 
+#[cfg(test)]
+mod checked_tests;
 #[cfg(test)]
 mod tests;
