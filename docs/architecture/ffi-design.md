@@ -953,8 +953,10 @@ visibility, trust observations and actor/HLC metadata; unknown wire fields also 
 Any difference returns `LinkStateReviewRequired`, preserving both snapshots and credentials.
 `Store.prepare_link_state_review` now freezes the owner, database path, exact pending bytes and current
 private snapshot in one read transaction. Its read-only differences cover block/mute/favorite/name/note,
-pass, visibility and the owner's outgoing like; incoming likes, trust/device observations and historical
-actor/clock/event metadata are never offered as editable preferences. A separate protected-difference
+pass and visibility; all Like/Unlike events, trust/device observations and historical
+actor/clock/event metadata are never offered as editable preferences. Recovery must merge existing
+interaction events through the normal authenticated event ordering; a new Like/Unlike is a separate
+explicit ordinary action, never a side effect of choosing a recovery snapshot. A separate protected-difference
 signal also detects unknown/noncanonical pending wire data. Duplicate peer/like/pass keys are refused.
 `LinkStateReview.is_current` checks the same pending operation, absent import progress and current
 private bytes; it holds no keys or identity lease and authorizes no writes. Confirmation must revalidate
