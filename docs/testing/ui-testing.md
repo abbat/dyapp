@@ -1,5 +1,11 @@
 # UI Testing: Practical Guide
 
+Shared visible-chat admission tests keep the existing own/blocked/unknown error order, all known
+conversation phases, exact owner/peer projection, no writes and propagated storage failure.
+Native Clear-target tests cross the public export, reopen its store and recheck refusal after the
+peer is blocked; the earlier target record never authorizes a later Clear. These tests do not
+replace Android target/consequence rendering and stale-dialog callback acceptance.
+
 The native profile-removal journey checks the complete unconfirmed-withdrawal warning and its
 text layout before exercising Retry/Cancel, then verifies normal removal after network recovery.
 The separate Remove anyway path retains explicit local key/data-removal acceptance. Resource copy

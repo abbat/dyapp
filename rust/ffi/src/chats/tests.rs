@@ -2,6 +2,8 @@ use dyapp_client::chat::MAX_TEXT_BYTES;
 
 use super::*;
 use crate::WrapError;
+#[path = "tests/clear_target.rs"]
+mod clear_target;
 #[path = "tests/contact_notes.rs"]
 mod contact_notes;
 #[path = "tests/favorites.rs"]

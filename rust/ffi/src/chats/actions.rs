@@ -6,7 +6,6 @@ use crate::CoreError;
 use dyapp_client::chat::{PeerChange, MAX_TEXT_BYTES};
 use dyapp_client::message_actions::{self, Kind, Source};
 use dyapp_client::session::Session;
-use dyapp_client::store::Conversation;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Whether the tokens a blocked peer holds are revoked on the node.
@@ -53,18 +52,8 @@ fn code(code: &str) -> CoreError {
 
 impl ChatSession {
     /// Refuse a chat the screen cannot show: `ownPeer`, `blocked` or `unknownPeer`.
-    pub(super) fn check_visible(&self, session: &Session, peer_id: &str) -> Result<(), CoreError> {
-        if peer_id == self.key.identity.peer_id() {
-            return Err(code("ownPeer"));
-        }
-        let store = session.store();
-        if store.blocked(peer_id).map_err(failed)? {
-            return Err(code("blocked"));
-        }
-        if store.conversation(peer_id).map_err(failed)? == Conversation::None {
-            return Err(code("unknownPeer"));
-        }
-        Ok(())
+    pub(super) fn check_visible(session: &Session, peer_id: &str) -> Result<(), CoreError> {
+        dyapp_client::chat_access::check_visible(session.store(), peer_id).map_err(failed)
     }
 }
 
@@ -83,7 +72,7 @@ impl ChatSession {
     )]
     pub fn clear_chat(&self, peer_id: String) -> Result<u32, CoreError> {
         let mut session = self.session.lock().map_err(failed)?;
-        self.check_visible(&session, &peer_id)?;
+        Self::check_visible(&session, &peer_id)?;
         let cleared = session.clear_chat_pair(&peer_id).map_err(failed)?;
         session.store().sweep_originals(&self.dir).map_err(failed)?;
         u32::try_from(cleared).map_err(failed)
@@ -102,7 +91,7 @@ impl ChatSession {
     )]
     pub fn mark_read(&self, peer_id: String) -> Result<u32, CoreError> {
         let mut session = self.session.lock().map_err(failed)?;
-        self.check_visible(&session, &peer_id)?;
+        Self::check_visible(&session, &peer_id)?;
         let read = session.mark_chat_read(&peer_id).map_err(failed)?;
         u32::try_from(read).map_err(failed)
     }
@@ -292,7 +281,7 @@ impl ChatSession {
     )]
     pub fn set_contact_name(&self, peer_id: String, name: String) -> Result<(), CoreError> {
         // `&*` keeps `?` from expecting a `Session`; the guard drops before `change_own` locks.
-        self.check_visible(&*self.session.lock().map_err(failed)?, &peer_id)?;
+        Self::check_visible(&*self.session.lock().map_err(failed)?, &peer_id)?;
         let change = PeerChange::Name(name.trim().to_owned());
         if !change.valid(&peer_id) {
             return Err(code("invalidName"));

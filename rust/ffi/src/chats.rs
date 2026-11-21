@@ -37,12 +37,14 @@ mod media_cache_control;
 pub use media_cache_control::{
     ChatMediaCacheEdit, ChatMediaCacheError, ChatMediaCacheResult, ChatMediaCacheSettings,
 };
+mod clear_target;
 mod notices;
 mod original;
 mod own_receive;
 mod photo_settings;
 mod presence;
 mod privacy;
+pub use clear_target::ChatClearTarget;
 pub use media_cache::ChatMediaCache;
 pub use photo_settings::ChatPhotoDownload;
 mod photo_view;

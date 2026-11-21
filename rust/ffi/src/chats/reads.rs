@@ -106,7 +106,7 @@ impl ChatSession {
         let mut guard = self.session.lock().map_err(failed)?;
         // The guard stays on this thread; the session it lends moves to the network thread.
         let session: &mut Session = &mut guard;
-        self.check_visible(session, &peer_id)?;
+        Self::check_visible(session, &peer_id)?;
         let due = due_reads(session.store(), &peer_id)?;
         if due.is_empty() {
             return Ok(0);
