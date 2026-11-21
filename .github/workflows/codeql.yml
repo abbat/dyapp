@@ -94,7 +94,7 @@ jobs:
         working-directory: clients/android
         run: |
           python3 ../../tools/scripts/run-check.py --log-dir ../../build/check-output android-build -- \
-            ./gradlew --no-daemon :app:dependencies --configuration debugCompileClasspath \
+            ./gradlew --no-daemon --info --stacktrace :app:dependencies --configuration debugCompileClasspath \
             "-Pdyapp.jnaNativeDir=$GITHUB_WORKSPACE/build/codeql-jna-native"
       - name: init
         uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1

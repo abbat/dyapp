@@ -72,6 +72,10 @@ produces release artifacts or a standalone browser client release. See [build.md
 
 ## Other workflows
 
+Kotlin CodeQL resolves dependencies before compiler tracing. That preflight keeps Gradle `--info`
+and `--stacktrace` in its captured raw log so cold repository, metadata and plugin-resolution
+failures retain their causes; the existing quiet wrapper still emits concise console output.
+
 These are separate workflows, not part of `ci.yml`.
 
 | Workflow | Triggers | Jobs | Notes |
