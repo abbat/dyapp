@@ -27,7 +27,7 @@ internal fun ComposeTestRule.settingsRoot() {
             val parent = parents.entries.firstOrNull {
                 onAllNodesWithTag(it.key).fetchSemanticsNodes().isNotEmpty()
             }?.value ?: "settings-root"
-            onNodeWithTag("settings-back").performClick()
+            onNodeWithTag("settings-back").performScrollTo().performClick()
             awaitNode(hasTestTag(parent))
         }
     }

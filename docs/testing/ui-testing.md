@@ -570,6 +570,13 @@ outside sibling. Each replacement awaits its actual mutation signal with a fresh
 The smoke also replaces a short one-chunk ID with the same text: formatting must restore the chunk
 even when the replacement has the same raw value and child count. Cache reuse requires the same
 child nodes, since node counts alone cannot distinguish a formatted chunk from a new text node.
+Settings return helpers scroll the actual Back control into view before clicking, then await each
+parent route. `SettingsBackReadinessTests` starts collection pages at their end with content sized
+from the current viewport and requires Back to begin above the viewport; the helper must restore
+root through both route levels. Network draft persistence invokes the enabled Save control's real
+semantic action, then waits for saved status before recreating the Activity; moving IME/pointer
+geometry is covered separately from persistence.
+
 Interest editor/search regressions compare the exact `EditableText` semantic value. A labelled
 Material text field also merges its title and supporting hint into `Text`; treating that combined
 list as the editable value rejects correct input. Keep separate label/hint geometry checks and

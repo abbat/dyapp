@@ -1,5 +1,6 @@
 package com.dyapp
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsEnabled
@@ -7,12 +8,14 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.platform.app.InstrumentationRegistry
@@ -148,7 +151,8 @@ class NetworkDraftTests {
         val seeds = listOf("not an address", "10.0.2.2:1", "$LOCAL_NODE/$OTHER_PEER")
         try {
             enter(seeds.joinToString("\n"), "city")
-            compose.onNodeWithTag("network-save").performScrollTo().performClick()
+            compose.awaitNode(hasTestTag("network-save") and isEnabled())
+                .performSemanticsAction(SemanticsActions.OnClick)
             compose.waitForText("network-status", R.string.network_saved)
 
             reopensDraft(peerId, seeds.joinToString("\n"), "city")
