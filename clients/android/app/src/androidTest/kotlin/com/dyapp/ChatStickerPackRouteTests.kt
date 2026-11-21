@@ -42,9 +42,9 @@ class ChatStickerPackRouteTests {
         byteArrayOf(1), "sender", ByteArray(16), 1uL, 1uL, ByteArray(32), ByteArray(32), ":)", "Pack", false, null
     )
     private val calls = StickerPackCalls({ current.get() }, { shown, control ->
+        writes.incrementAndGet()
         assertSame(current.get(), shown)
         assertEquals(StickerPackSaveControl.STOP_WAITING, control)
-        writes.incrementAndGet()
         current.set(status(StickerPackSaveState.NEW, StickerPackSaveControl.MANAGE))
         StickerPackSaveAttempt.Ready(current.get())
     })

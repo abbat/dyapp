@@ -33,8 +33,8 @@ class StickerPickerPresentationTests {
         var data = page(first)
         val sends = AtomicInteger()
         val calls = StickerPickerCalls({ data }, {
-            assertSame(next, it)
             sends.incrementAndGet()
+            assertSame(next, it)
             ChatSubmission.Queued(byteArrayOf(1), "offline")
         })
         val state = StickerPickerPresentation()
@@ -81,16 +81,22 @@ class StickerPickerPresentationTests {
         assertFalse(state.busy)
     }
 
+    private fun forbiddenSend(sends: AtomicInteger): ChatSubmission {
+        sends.incrementAndGet()
+        error("unexpected send")
+    }
+
     @Test
     fun nativeCursorsAndBackHistorySurviveReadFailureWithoutReenablingOldChoices() = runBlocking {
         val entry = choice()
         val seen = mutableListOf<StickerPickerQuery>()
+        val sends = AtomicInteger()
         var fail = false
         val calls = StickerPickerCalls({
             seen += it
             check(!fail) { "controlled page read failure" }
             page(entry)
-        }, { error("unexpected send") })
+        }, { forbiddenSend(sends) })
         val state = StickerPickerPresentation()
         state.refresh(calls)
         val initial = checkNotNull(state.view)
@@ -101,6 +107,7 @@ class StickerPickerPresentationTests {
         assertNull(failed.data)
         assertTrue(state.hasPrevious)
         state.send(calls, initial, entry)
+        assertEquals(0, sends.get())
         fail = false
         state.refresh(calls)
         assertSame(next, seen.last())

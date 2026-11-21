@@ -45,6 +45,9 @@ These rules apply to every new or modified test:
   reads its modifier node before calling application code: a detached node can throw, and a
   disabled node can mask the admission guard under test. Ordinary attached UI clicks still use
   the standard semantic action.
+- In forbidden-call tests, observe the attempted call before any callback assertion or thrown error
+  and assert its count/result outside the application pipeline. If the application catches callback
+  failures, `error("unexpected")` alone cannot prove that the callback was never invoked.
 - Cover meaningful failure and cancellation paths. Explain any unavoidable dependence on external
   timing and bound it with a diagnostic deadline rather than a guessed wait.
 

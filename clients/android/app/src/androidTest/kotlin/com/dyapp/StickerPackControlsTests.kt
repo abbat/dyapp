@@ -45,7 +45,11 @@ class StickerPackControlsTests {
         var owner by mutableStateOf("first")
         val opens = AtomicInteger()
         val native = status(StickerPackSaveState.NEW, StickerPackSaveControl.MANAGE)
-        val calls = StickerPackCalls({ native }, { _, _ -> error("unexpected mutation") })
+        val writes = AtomicInteger()
+        val calls = StickerPackCalls({ native }, { _, _ ->
+            writes.incrementAndGet()
+            error("unexpected mutation")
+        })
         show({ StickerPackTarget(owner, owner, calls) }, { opens.incrementAndGet() })
         text(R.string.sticker_pack_new, "first")
         compose.onNodeWithTag("sticker-pack-REQUEST").assertDoesNotExist()
@@ -59,6 +63,7 @@ class StickerPackControlsTests {
         assertEquals(1, opens.get())
         compose.onNodeWithTag("sticker-pack-MANAGE").performClick()
         assertEquals(2, opens.get())
+        assertEquals(0, writes.get())
     }
 
     @Test
