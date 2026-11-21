@@ -30,6 +30,12 @@ internal class PermissionDialog : AutoCloseable {
     fun deny() = click("permission_deny_button")
     fun allow() = click("permission_allow_button")
 
+    fun awaitRequest() = awaitReady("pending system permission request") {
+        val root = controllerRoot()
+        val controller = root?.packageName?.toString()
+        root != null && controller != null && buttons(root, controller, "permission_allow_button").size == 1
+    }
+
     private fun click(button: String) {
         awaitReady("system permission controller / $button") {
             val root = controllerRoot()

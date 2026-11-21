@@ -63,7 +63,8 @@ class LocalNetworkDialogTests {
             compose.onNodeWithTag("nav-network").performClick()
             checkWith("not an address", dialog::deny)
             assertPermission(granted = false)
-            checkWith("another invalid address", dialog::allow)
+            recreateDuringRequest(original, dialog)
+            checkWith("another invalid address") {}
             assertPermission(granted = true)
             assertEquals(original.peerId, (slots.open() as Opened.Ready).peerId)
             assertEquals(active, RustBridge.loadNetwork(original, NetworkFile.ACTIVE))
@@ -71,11 +72,30 @@ class LocalNetworkDialogTests {
         }
     }
 
-    private fun checkWith(seed: String, answer: () -> Unit) {
+    private fun request(seed: String) {
         compose.awaitNode(hasTestTag("check-and-connect") and isEnabled())
         compose.onNodeWithTag("network-seeds").performScrollTo().performTextReplacement(seed)
         // Completed rows and the IME can move the button below the current viewport.
         compose.onNodeWithTag("check-and-connect").performScrollTo().assertIsDisplayed().performClick()
+    }
+
+    private fun recreateDuringRequest(original: Opened.Ready, dialog: PermissionDialog) {
+        val activity = compose.activity
+        val before = RustBridge.loadNetwork(original, NetworkFile.DRAFT)
+        request("retired request must not run")
+        dialog.awaitRequest()
+        recreateWithPendingPermission(activity)
+        dialog.allow()
+        assertPermission(granted = true)
+        compose.skipNetworkEntry()
+        compose.onNodeWithTag("nav-network").performClick()
+        compose.awaitNode(hasTestTag("check-and-connect") and isEnabled())
+        compose.onNodeWithTag("network-check-status").assertDoesNotExist()
+        assertEquals(before, RustBridge.loadNetwork(original, NetworkFile.DRAFT))
+    }
+
+    private fun checkWith(seed: String, answer: () -> Unit) {
+        request(seed)
         answer()
         val invalid = context.getString(R.string.network_invalid_address)
         compose.awaitNode(hasTestTag("seed-rows") and hasAnyDescendant(hasText(seed)))

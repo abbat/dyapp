@@ -398,9 +398,14 @@ The modern permission lane also runs `LocalNetworkDialogTests` after restored-pr
 AndroidX Test `SdkSuppress(minSdkVersion = 37)` gates the test class; setup separately requires target
 API 37. Setup and restoration retain checked synchronous preference commits, not unchecked KTX writes.
 It revokes permission and clears decision flags before starting the instrumentation process, then
-restores the grant even if the foreground test fails. Two explicit requests from the actual
-`MainActivity` network form are denied and then allowed; each must reach the native invalid-address
-result without changing the original selection or active network. Each edit and check-button tap
+restores the grant even if the foreground test fails. The actual `MainActivity` network form first
+requires a denied request to complete with a native invalid-address result. A second OS request stays
+pending while the activity is recreated; lifecycle callbacks acknowledge old destruction and new
+creation before permission is allowed. Its retired continuation must leave the persisted draft and
+replacement form untouched. A fresh request after the grant must complete normally, with the original
+selection and active network preserved. This uses direct main-thread recreation because
+`ActivityScenario.recreate()` first requires RESUMED, which a pending system dialog can prevent.
+Each edit and check-button tap
 scrolls its target into the current viewport; completion requires the result row for that attempt's
 address as well as the invalid-address summary. The one-shot auto-prompt marker
 is set before activity launch and restored afterward, so startup cannot race a system dialog. `PermissionDialog` observes
