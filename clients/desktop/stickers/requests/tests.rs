@@ -32,7 +32,10 @@ fn new_saved_and_missing_sticker_expose_ordered_core_controls() {
     });
     let json = serde_json::to_value(value).unwrap();
     assert_eq!(json["failure"], "stickerMissing");
-    assert_eq!(json["controls"], serde_json::json!(["stopWaiting", "manage"]));
+    assert_eq!(
+        json["controls"],
+        serde_json::json!(["stopWaiting", "manage"])
+    );
     assert_eq!(json["generation"], serde_json::json!(token));
 }
 
@@ -81,6 +84,9 @@ fn local_status_exposes_only_typed_retry_metadata_and_generation() {
             .map(String::as_str)
             .collect();
         fields.sort_unstable();
-        assert_eq!(fields, ["controls", "failure", "generation", "retryAtMs", "state"]);
+        assert_eq!(
+            fields,
+            ["controls", "failure", "generation", "retryAtMs", "state"]
+        );
     }
 }

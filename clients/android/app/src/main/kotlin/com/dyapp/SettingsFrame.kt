@@ -38,9 +38,10 @@ private val categories = listOf(
 
 @Composable
 internal fun SettingsLink(pane: SettingsPane, route: MutableState<SettingsPane>) {
+    val open = { route.value = pane }
     TextButton(
-        onClick = { route.value = pane },
-        Modifier.fillMaxWidth().testTag("open-" + pane.tag)
+        onClick = open,
+        Modifier.fillMaxWidth().testTag("open-" + pane.tag).applicationClick(open)
     ) { Text(stringResource(pane.title)) }
 }
 

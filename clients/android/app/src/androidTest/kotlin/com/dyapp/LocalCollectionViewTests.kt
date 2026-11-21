@@ -8,7 +8,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasText
@@ -68,10 +67,7 @@ class LocalCollectionViewTests {
     fun retiredNavigationCannotChangeTheReplacementOpening() {
         show()
         compose.awaitNode(hasText("peer-000-complete-target"))
-        val oldNext = checkNotNull(
-            compose.onNodeWithTag("collection-next").fetchSemanticsNode()
-                .config[SemanticsActions.OnClick].action
-        )
+        val oldNext = compose.onNodeWithTag("collection-next").fetchSemanticsNode().config[applicationClickKey]
         compose.runOnIdle {
             owner.value = "replacement"
             entries.value = listOf(LocalCollectionEntry("new-owner-target", "New"))

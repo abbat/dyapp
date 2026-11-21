@@ -4,7 +4,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isEnabled
@@ -63,16 +62,19 @@ class SavedProfilesTests {
         })
         compose.setContent { MaterialTheme { SavedProfiles("owner", expanded, calls, opened::add) } }
         ready()
-        val oldOpen = compose.onNodeWithTag("saved-open-$peer").fetchSemanticsNode().config[SemanticsActions.OnClick]
-        compose.onNodeWithTag("saved-remove-$peer").performClick()
-        compose.waitUntil(timeoutMillis = 10_000) { started.isCompleted }
-        compose.onNodeWithTag("saved-open-$peer").assertIsNotEnabled()
-        compose.runOnIdle { oldOpen.action?.invoke() }
-        compose.runOnIdle { assertEquals(emptyList<String>(), opened) }
-        release.complete(Unit)
+        val oldOpen = compose.onNodeWithTag("saved-open-$peer").fetchSemanticsNode().config[applicationClickKey]
+        try {
+            compose.onNodeWithTag("saved-remove-$peer").performClick()
+            compose.waitUntil(timeoutMillis = 10_000) { started.isCompleted }
+            compose.onNodeWithTag("saved-open-$peer").assertIsNotEnabled()
+            compose.runOnIdle { oldOpen() }
+            compose.runOnIdle { assertEquals(emptyList<String>(), opened) }
+        } finally {
+            release.complete(Unit)
+        }
         ready()
         compose.onNodeWithTag("saved-open-$peer").assertDoesNotExist()
-        compose.runOnIdle { oldOpen.action?.invoke() }
+        compose.runOnIdle { oldOpen() }
         compose.runOnIdle { assertEquals(emptyList<String>(), opened) }
     }
 

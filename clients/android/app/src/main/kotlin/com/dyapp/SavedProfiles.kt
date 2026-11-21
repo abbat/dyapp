@@ -118,10 +118,11 @@ private fun SavedProfileRows(state: SavedPresentation, open: (String) -> Unit, r
         for (peer in peers) key(peer) {
             val label = contactLabel(peer, names[peer])
             val removeLabel = stringResource(R.string.favorites_remove_named, label)
+            val openPeer = { if (state.admits(peer)) open(peer) }
             Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(8.dp)) {
                 TextButton(
-                    { if (state.admits(peer)) open(peer) },
-                    Modifier.weight(1f).testTag("saved-open-$peer"),
+                    openPeer,
+                    Modifier.weight(1f).testTag("saved-open-$peer").applicationClick(openPeer),
                     enabled = !state.busy
                 ) { Text(label) }
                 TextButton(

@@ -14,6 +14,7 @@ import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.core.graphics.get
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -56,8 +57,8 @@ class ChatStickerImageTests {
         val bitmap = stickerBitmap(frame()).asAndroidBitmap()
         assertEquals(2, bitmap.width)
         assertEquals(1, bitmap.height)
-        assertEquals(Color.RED, bitmap.getPixel(0, 0))
-        assertEquals(Color.argb(128, 0, 255, 0), bitmap.getPixel(1, 0))
+        assertEquals(Color.RED, bitmap[0, 0])
+        assertEquals(Color.argb(128, 0, 255, 0), bitmap[1, 0])
     }
 
     @Test

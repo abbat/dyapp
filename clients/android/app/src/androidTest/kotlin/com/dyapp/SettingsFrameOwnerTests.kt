@@ -5,7 +5,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -38,10 +37,10 @@ class SettingsFrameOwnerTests {
         click("open-settings-account")
         val stale = compose.onNodeWithTag("open-settings-identities-screen")
             .fetchSemanticsNode()
-            .config[SemanticsActions.OnClick]
+            .config[applicationClickKey]
         compose.runOnIdle { owner = "second" }
         compose.awaitNode(hasTestTag("settings-root"))
-        compose.runOnIdle { stale.action?.invoke() }
+        compose.runOnIdle { stale() }
         compose.onNodeWithTag("settings-root").assertExists()
         compose.onNodeWithTag("settings-identities-screen").assertDoesNotExist()
         click("open-settings-account")

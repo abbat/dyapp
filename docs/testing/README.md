@@ -40,6 +40,11 @@ These rules apply to every new or modified test:
   explicitly and keep unrelated properties out of the readiness condition.
   Keep load completion distinct from control enablement: a completed read can legitimately leave
   a control disabled. Expose the completed model state when permission or editability differs.
+- Android tests that retain a click across recomposition or disposal use `applicationClickKey`
+  for the exact callback passed to the control. Foundation's `SemanticsActions.OnClick` wrapper
+  reads its modifier node before calling application code: a detached node can throw, and a
+  disabled node can mask the admission guard under test. Ordinary attached UI clicks still use
+  the standard semantic action.
 - Cover meaningful failure and cancellation paths. Explain any unavoidable dependence on external
   timing and bound it with a diagnostic deadline rather than a guessed wait.
 

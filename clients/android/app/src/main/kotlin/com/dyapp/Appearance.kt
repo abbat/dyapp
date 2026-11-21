@@ -107,7 +107,7 @@ internal fun AppearanceCard() {
 @Composable
 @Suppress("LongParameterList") // A radio row needs its tag, label, both states and the pick.
 internal fun ChoiceRow(tag: String, label: Int, selected: Boolean, enabled: Boolean = true, onPick: () -> Unit) = Row(
-    Modifier.fillMaxWidth().testTag(tag)
+    Modifier.fillMaxWidth().testTag(tag).applicationClick(onPick)
         .selectable(selected, enabled = enabled, role = Role.RadioButton, onClick = onPick)
         .padding(vertical = 8.dp),
     Arrangement.spacedBy(12.dp),

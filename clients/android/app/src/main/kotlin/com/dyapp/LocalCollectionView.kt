@@ -92,6 +92,7 @@ private fun CollectionSearch(state: CollectionViewState, refresh: (() -> Unit)?)
 
 @Composable
 private fun CollectionNavigation(state: CollectionViewState, page: LocalCollectionPage) {
+    val next = { state.navigate(page.next) }
     Column {
         Caption(
             stringResource(R.string.collection_count, page.matched.toLong(), page.total.toLong()),
@@ -107,8 +108,8 @@ private fun CollectionNavigation(state: CollectionViewState, page: LocalCollecti
             enabled = page.previous != null
         ) { Text(stringResource(R.string.collection_previous)) }
         TextButton(
-            onClick = { state.navigate(page.next) },
-            Modifier.testTag("collection-next"),
+            onClick = next,
+            Modifier.testTag("collection-next").applicationClick(next),
             enabled = page.next != null
         ) { Text(stringResource(R.string.collection_next)) }
     }
