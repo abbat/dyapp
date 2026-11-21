@@ -123,8 +123,11 @@
     <string name="delete_title">Delete this message?</string>
     <string name="delete_text">It disappears here, and the peer\'s app is asked to delete it too. A copy saved elsewhere may stay.</string>
     <string name="clear_title">Clear this chat?</string>
-    <string name="clear_text">All messages in this chat are deleted from this device. The other person keeps their copy.</string>
-    <string name="clear_later">Cleared messages do not come back, even if delivered again. Unsent messages are cancelled. The match stays.</string>
+    <string name="clear_text">Messages and their kept originals will be removed from this device only. The other person keeps their copy.</string>
+    <string name="clear_pending">Unsent messages and pending sticker-pack requests are cancelled. Saved packs stay.</string>
+    <string name="clear_later">Cleared messages do not come back, even if delivered again. The match stays.</string>
+    <string name="chat_clear_target_failed">The conversation could not be verified. Nothing has been cleared.</string>
+    <string name="chat_clear_retry">Retry verification</string>
     <string name="clear_action">Clear chat</string>
     <string name="block_title">Block this person?</string>
     <string name="block_text">They are hidden from search and chats on your devices and are not told. Texts they send while blocked are dropped.</string>

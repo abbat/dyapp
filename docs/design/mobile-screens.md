@@ -274,6 +274,14 @@ or reopening the same slot/Peer ID creates fresh draft, edit, confirmation and p
 state; it cannot inherit a different conversation's Clear confirmation. Native operations already
 admitted retain their existing lease lifetime.
 
+Native Android Clear reads its owner/peer target through the common native admission check before
+it enables confirmation. The scrollable warning shows the contact label and complete copyable Peer ID
+before consequences: local messages and kept originals go, the other person keeps their copy,
+unsent messages and pending sticker-pack requests are cancelled, saved packs and the match remain,
+and cleared messages do not return on redelivery. A failed target read offers verification retry;
+unknown targets cannot authorize Clear. Closing the dialog retires its callbacks. The mutation
+rechecks admission under its native lease; a previously displayed target is not authority.
+
 Android screens may be reviewed and implemented individually against the frozen criteria and the
 corresponding desktop behavior. The complete prototype review and per-client impact review remain
 v0.0.1 release requirements; this delivery order does not waive criteria or native verification.

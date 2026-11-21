@@ -125,7 +125,9 @@ internal fun ChatScreen(
             history?.messages.orEmpty().byKey(form.deleting.value)?.let { scope.deleteMessage(form, feed, peer, it) }
         },
     )
-    MediaChatContent(snapshot, peer, opened.peerId, form, actions)
+    ChatClearScope(opened, peer) {
+        MediaChatContent(snapshot, peer, opened.peerId, form, actions)
+    }
 }
 
 /**
@@ -154,7 +156,7 @@ internal fun ChatContent(peer: String, me: String, history: ChatHistory?, form: 
         }
         ChatComposer(state, form, ready, actions.onSend)
     }
-    ChatConfirm(form, actions)
+    ChatConfirm(form, actions, name)
 }
 
 @Composable

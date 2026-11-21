@@ -85,8 +85,8 @@ internal fun ChatMoreMenu(form: ChatForm, history: ChatHistory?, name: ContactNa
 
 /** The open confirmation: clearing is local only, and a block closes the chat; Unblock sits in Settings. */
 @Composable
-internal fun ChatConfirm(form: ChatForm, actions: ChatActions) {
-    ClearOrBlockConfirm(form, actions)
+internal fun ChatConfirm(form: ChatForm, actions: ChatActions, name: ContactNameView?) {
+    ClearOrBlockConfirm(form, actions, name)
     if (form.renaming.value != null) RenameDialog(form, actions.onRename)
     if (form.deleting.value != null) {
         val cancelDelete = { form.deleting.value = null }

@@ -570,6 +570,12 @@ outside sibling. Each replacement awaits its actual mutation signal with a fresh
 The smoke also replaces a short one-chunk ID with the same text: formatting must restore the chunk
 even when the replacement has the same raw value and child count. Cache reuse requires the same
 child nodes, since node counts alone cannot distinguish a formatted chunk from a new text node.
+`ChatClearOpeningTests` exercise unknown/busy admission, exact-target replacement on retry,
+cancel/reopen retirement, disposal and a different active dialog without elapsed-time assertions.
+`ChatMenuTests` waits for the actual verified/enabled Clear control before confirming; its injected
+reader supplies presentation data only, while native target/mutation tests cover real admission.
+These source checks require execution in Android CI before runtime acceptance.
+
 Android Clear target checks preserve name, labelled full raw-copy ID and consequence order, including
 wrong/missing target, markup, label, order and chunk counterexamples. Tall-dialog checks require
 supported safe centering and reachable text/control bounds at real enlarged text sizes.
