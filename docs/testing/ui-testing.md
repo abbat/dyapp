@@ -241,6 +241,11 @@ mailbox-revision status replacement. `StickerPackControlsTests` checks authorita
 retired-owner navigation, pending caption retention and read-only recovery. Button coroutines
 start undispatched to admit an operation before the next captured callback can run.
 Actual instrumentation execution is required independently of source lint.
+`ChatPhotoGeometryTests` exercises the production photo bubble in EN/RU at normal/doubled font
+scale: explicit stranger reveal, held download, failure/retry and actual PNG decoding. Completion
+signals and external request counters separate phases; complete label layouts, current viewport
+bounds and decoded image aspect are checked after scrolling. This presentation fixture does not
+replace the independent native photo transport/cache tests.
 `StickerPackGeometryTests` renders the production request widget in EN/RU at normal/doubled font
 scale with long literal pack names. A controlled held read checks the disabled checking presentation
 before releasing it and awaiting loaded UI completion. Loaded cases check complete status/warning
