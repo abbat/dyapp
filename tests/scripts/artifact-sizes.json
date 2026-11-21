@@ -34,10 +34,10 @@
     "evidence": "https://github.com/abbat/dyapp/actions/runs/44094122354"
   },
   "android-apk-release-unsigned": {
-    "bytes": 71867816,
-    "environment": "dyapp:android-test; AGP 9.4.1; NDK 29.0.14206865; rustc 1.99.0; arm64-v8a+x86_64 release JNI; unsigned APK",
-    "revision": "47c17300df5146e5b16673615efad2c64da83315",
-    "evidence": "https://github.com/abbat/dyapp/actions/runs/41191895390"
+    "bytes": 75581915,
+    "environment": "dyapp:android-test; AGP 9.5.1; NDK 29.0.14206865; rustc 1.99.0; arm64-v8a+x86_64 release JNI; unsigned APK",
+    "revision": "432df82e7cc6ca0bae2bc527fa625108ff9a3d94",
+    "evidence": "https://github.com/abbat/dyapp/actions/runs/44888433545"
   },
   "android-aab-release-unsigned": {
     "bytes": 30160837,
