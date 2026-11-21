@@ -10,6 +10,13 @@ visibility, activation prerequisites and busy disposition are checked before foc
 calibration. Canonical Android capture validates layout and these browser contracts; it does not
 run the desktop-only criteria audit or prove native transfer/enrollment.
 
+Comparison prototype captures also run `clients/android/prototype/review-fixture-tests.js`: all
+31 offered groups retain full source values; initial comparisons have no checked answers; photo
+reference disclosure does not select a source. Explicit choices survive read-only preview and return,
+partial choices cannot save, confirmation admits one transition, and retired editable owners cannot
+change an equal replacement. These controlled browser fixtures do not establish native profile
+validation, photo availability, device authorization or persistence.
+
 Android stale-callback checks capture the installed `applicationClickKey` action, rather than a
 Compose `SemanticsActions.OnClick` wrapper: modifier nodes may reuse that wrapper for a new opening
 or require attachment before invoking it. Identity durability acknowledgement uses that same exact

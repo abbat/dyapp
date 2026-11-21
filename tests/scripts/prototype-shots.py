@@ -381,6 +381,15 @@ DESKTOP = [
     "disconnect-offline",
 ]
 ANDROID = [
+    "link-review-loading",
+    "link-review-comparison",
+    "link-review-ready",
+    "link-review-preview",
+    "link-review-saving",
+    "link-review-saved",
+    "link-review-validation",
+    "link-review-error",
+    "link-review-equal",
     "link-receive-intro",
     "link-receive-wizard-intro",
     "link-receive-start-error",
@@ -741,6 +750,8 @@ def audited(_view: WebKit2.WebView, result: Gio.AsyncResult) -> None:
 
 
 def android_fixture(screen: str) -> tuple[str, str] | None:
+    if screen.startswith("link-review-"):
+        return "review", "checkReviewFixture"
     if screen.startswith(("link-receive-", "link-setup-", "receive-network")):
         return "receive", "checkReceiveFixture"
     if screen == "identity-durability-dialog":

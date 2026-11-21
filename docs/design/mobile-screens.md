@@ -329,8 +329,12 @@ the wizard may be cleaned after success. Field/private-state recovery screens, o
 device-list screens remain planned; native runtime and screen review are still required. Code lifetime,
 installation receipts and authorization stay in shared Rust. The static Android prototype now includes
 explicit receiving, typed failure and separate setup states, plus first-run network activation without
-Skip. Its QR is a layout stand-in; the APK uses the core matrix. Manual field comparison remains
-planned in both presentations.
+Skip. Its QR is a layout stand-in; the APK uses the core matrix. The static field comparison covers
+all 31 core field groups, explicit source choices, full values and photo-reference disclosure, read-only
+preview, saving, saved and recovery states. It starts without selected answers and preserves choices
+when returning from preview. Its sample values and photos prove no native authorization or write.
+The native comparison presentation remains planned; its retained worker and common-core preview
+already require the original review and separate explicit confirmation.
 
 Android screens may be reviewed and implemented individually against the frozen criteria and the
 corresponding desktop behavior. The complete prototype review and per-client impact review remain

@@ -879,6 +879,44 @@ legend {
   padding: 0;
 }
 
+/* Complete compared values remain readable in each source group. */
+.review-card {
+  min-inline-size: 0;
+}
+.review-card .choice {
+  min-block-size: 48px;
+}
+.review-card > legend {
+  max-inline-size: 100%;
+  color: var(--text);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.review-option,
+.review-value {
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-wrap: anywhere;
+}
+.review-value p {
+  white-space: pre-wrap;
+}
+.review-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.review-photo {
+  inline-size: 96px;
+  block-size: 96px;
+  max-inline-size: 100%;
+  border-radius: 8px;
+}
+
 /* Hidden state overrides presentation specificity, including formatted IDs. */
 [hidden] {
   /* biome-ignore lint/complexity/noImportantStyles: hidden must override identifier presentation */

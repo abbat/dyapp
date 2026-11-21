@@ -160,6 +160,7 @@
       <div class="notice error" role="alert" data-on="link-setup-unlisted" data-t="setup.unlisted"></div>
       <div class="notice error" role="alert" data-on="link-setup-error" data-t="setup.error"></div>
       <button type="button" class="btn filled" id="link-setup-finish" data-on="link-receive-received link-receive-durability link-setup-error" data-go="link-setup-running" data-t="setup.finish"></button>
+      <button type="button" class="btn" id="link-setup-prepare" data-on="link-setup-review" data-go="link-review-comparison" data-t="review.refresh"></button>
       <button type="button" class="btn" id="link-receive-open" data-go="profile" data-disabled="link-setup-running" data-t="receive.open"></button>
     </div>
     <div class="actions">
@@ -168,6 +169,34 @@
       <p class="caption" data-t="receive.disposition"></p>
       <button type="button" class="btn text" id="link-receive-dismiss" data-go="settings-account" data-disabled="link-receive-starting link-receive-receiving link-receive-installing link-setup-running" data-t="receive.dismiss"></button>
     </div>
+  </div>
+</main>
+
+<!-- Owner choices apply to a frozen comparison, never to device authorization. -->
+<main class="page" data-on="link-review-loading link-review-comparison link-review-ready link-review-preview link-review-saving link-review-saved link-review-validation link-review-error link-review-equal">
+  <h1 data-t="review.title"></h1>
+  <code id="review-peer">a3f72c109d84e6b502cf7a491be8d53f60e17c829ba34d650f2a67c9e01b4583</code>
+  <p data-on="link-review-comparison link-review-ready link-review-validation link-review-preview link-review-equal" data-t="review.intro"></p>
+  <p class="caption" data-t="review.authority"></p>
+  <p class="caption" data-t="review.noPublish"></p>
+  <p role="status" data-on="link-review-loading" data-t="review.loading"></p>
+  <p role="status" data-on="link-review-saving" data-t="review.saving"></p>
+  <p role="status" data-on="link-review-saved" data-t="review.saved"></p>
+  <p role="status" data-on="link-review-equal" data-t="review.equal"></p>
+  <div class="notice error" role="alert" data-on="link-review-error" data-t="review.uncertain"></div>
+  <div class="notice error" role="alert" data-on="link-review-validation" data-t="review.invalid"></div>
+  <div id="review-fields" class="content" style="padding:0" data-on="link-review-comparison link-review-ready link-review-validation link-review-saving"></div>
+  <section id="review-preview-panel" class="content" style="padding:0" data-on="link-review-preview">
+    <h2 data-t="review.previewTitle"></h2>
+    <div id="review-preview-values" class="content" style="padding:0"></div>
+  </section>
+  <div class="actions">
+    <button type="button" class="btn" id="review-preview" data-on="link-review-comparison link-review-ready link-review-validation link-review-preview link-review-equal" data-t="review.preview"></button>
+    <button type="button" class="btn" id="review-edit" data-on="link-review-preview" data-t="review.edit"></button>
+    <button type="button" class="btn filled" id="review-confirm" data-on="link-review-comparison link-review-ready link-review-validation link-review-preview link-review-equal link-review-saving" data-t="review.save"></button>
+    <button type="button" class="btn" id="review-refresh" data-on="link-review-error" data-go="link-review-comparison" data-t="review.refresh"></button>
+    <button type="button" class="btn filled" id="review-finish" data-on="link-review-saved" data-go="link-setup-running" data-t="setup.finish"></button>
+    <button type="button" class="btn text" id="review-back" data-go="link-receive-received" data-disabled="link-review-saving" data-t="nav.back"></button>
   </div>
 </main>
 
@@ -795,6 +824,7 @@ search providers asked: 0 of 3</pre>
 
 <script src="../../desktop/prototype/strings.js"></script>
 <script src="strings.js"></script>
+<script src="review-strings.js"></script>
 <script>
 // Show the screen named by the hash in the language and theme named by the query; nothing else.
 const query = new URLSearchParams(location.search);
@@ -829,6 +859,7 @@ document.title = `${t['app.name']} — ${screen}`;
 </script>
 <script type="module">
 import { installIdentifiers } from '../../desktop/ui/identifiers.js';
+import { installReviewFixture } from './review-fixture.js';
 import { enhanceChoice } from '../../desktop/ui/profile-choice.js';
 import { installCollections } from '../../desktop/prototype/collection-fixture.js';
 import { installForwardFixture, forwardScreens } from '../../desktop/prototype/forward-fixture.js';
@@ -840,6 +871,7 @@ if (!contactName || !contact.dataset.peerId || !targetName || !targetPeer)
   throw new Error('Clear confirmation target is missing');
 targetName.textContent = contactName.textContent;
 targetPeer.textContent = contact.dataset.peerId;
+if (screen.startsWith('link-review-')) installReviewFixture(t, screen);
 installIdentifiers(t);
 installCollections(t, ['identities', 'blocked', 'passed']);
 if (screen.startsWith('chat') || forwardScreens.includes(screen)) installForwardFixture(t, screen);
