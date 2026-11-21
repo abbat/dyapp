@@ -29,6 +29,8 @@ internal class ChatForwardPresentation {
     var submitted by mutableStateOf<ForwardCompletion?>(null, referentialEqualityPolicy())
         private set
     private var active = true
+    private var sending by mutableStateOf(false)
+    val canCancel: Boolean get() = active && !sending && submitted == null
 
     fun ask(source: ChatForwardSource) {
         if (active && opening == null && !busy) {
@@ -48,12 +50,16 @@ internal class ChatForwardPresentation {
     }
 
     fun cancel(shown: ForwardSelection) {
-        if (admits(shown)) opening = null
+        if (canCancel && opening === shown) {
+            opening = null
+            busy = false
+        }
     }
 
     fun retire() {
         active = false
         opening = null
+        busy = false
     }
 
     suspend fun refresh(shown: ForwardSelection, calls: ChatForwardCalls) {
@@ -70,12 +76,16 @@ internal class ChatForwardPresentation {
                 chosen = targets?.firstOrNull()
                 failure = result.exceptionOrNull()
             }
-        } finally { busy = false }
+        } finally {
+            // Cancelled reads may finish after a replacement has started its own work.
+            if (opening === shown) busy = false
+        }
     }
 
     suspend fun send(shown: ForwardSelection, calls: ChatForwardCalls) {
         val target = chosen ?: return
         if (!admits(shown) || targets?.contains(target) != true) return
+        sending = true
         busy = true
         failure = null
         try {
@@ -85,7 +95,10 @@ internal class ChatForwardPresentation {
                 result.onSuccess { submitted = ForwardCompletion(shown, target, it) }
                     .onFailure { failure = it }
             }
-        } finally { busy = false }
+        } finally {
+            sending = false
+            if (opening === shown) busy = false
+        }
     }
 
     fun complete(shown: ForwardCompletion, open: (String) -> Unit) {

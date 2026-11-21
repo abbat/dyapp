@@ -25,7 +25,7 @@ internal fun ChatForwardDialog(state: ChatForwardPresentation, actions: ChatForw
             ConfirmAction("chat-forward-confirm", R.string.chat_forward, enabled && state.chosen != null, actions::send)
         },
         dismissButton = {
-            ConfirmAction("chat-forward-cancel", R.string.remove_cancel, enabled, actions::cancel)
+            ConfirmAction("chat-forward-cancel", R.string.remove_cancel, state.canCancel, actions::cancel)
         }
     )
 }

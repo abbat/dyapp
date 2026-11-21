@@ -293,8 +293,10 @@ Native Android text forwarding offers Forward on own and received live text, mat
 deleted texts, photos and stickers do not gain this action. The native layer projects validated
 other open destinations. The scrollable dialog uses the core-backed collection search/pages and
 keeps the chosen label and complete Peer ID visible independently of the current page. Forward
-requires explicit confirmation; Cancel before submission stages nothing. Controls wait during
-read/send work; errors offer read refresh or explicit send retry. Accepted and queued results are
+requires explicit confirmation; Cancel before submission stages nothing and can dismiss a target
+read without interrupting native work. A replacement opening owns its own loading state; an old read
+cannot publish its result/error or clear the new busy state. Actual send work disables duplicate
+submission and cancellation; errors offer read refresh or explicit send retry. Accepted and queued results are
 terminal for that opening and navigate to the destination, whose persisted delivery state remains
 the authority for pending/node-accepted feedback. Draft/edit state is not consumed by forwarding.
 The scope belongs to the actual identity opening and source chat; retired callbacks/completions

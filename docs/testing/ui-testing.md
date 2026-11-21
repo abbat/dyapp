@@ -582,6 +582,14 @@ Material text field also merges its title and supporting hint into `Text`; treat
 list as the editable value rejects correct input. Keep separate label/hint geometry checks and
 save/reopen/validation assertions.
 
+`ChatForwardReadCancellationTests` cancels one signalled native-style read, starts a replacement
+before releasing the old result and joins each actual outer read job. Both old success and old failure
+must leave the replacement busy, empty and error-free until its own completion; no submit is admitted.
+`ChatForwardCancelDialogTests` mounts the actual dialog/actions/state with an observable outer loader
+job: Cancel must close while the controlled read is still unfinished, and its retained application
+callback cannot close a fresh dialog. Release joins that original loader before checking the new state.
+This fixture isolates dialog cancellation; full shell/host and JNI forwarding remain separate acceptance.
+
 `ChatForwardPresentationTests` cover exact offered selection, read/pre-commit errors, explicit retry,
 terminal Accepted/Queued results and retired callback admission. `ChatForwardCompletionTests` holds
 the synchronous backend behind an entered/completion signal, creates the replacement before release,
