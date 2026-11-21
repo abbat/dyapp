@@ -125,7 +125,9 @@ checks the localized Pack ID label, contiguous eight-digit prefix and accessible
 The full removal confirmation retains the complete identifier. Controller readiness and focus
 come from completed callbacks and the current DOM, with no timing or positional assumptions.
 
-The iOS typed-profile journey awaits editable/hittable field readiness, performs native text entry,
+The iOS typed-profile journey awaits editable/hittable field readiness and measured containment
+above the current keyboard. A partially exposed hittable field is insufficient for native entry.
+It then performs native text entry,
 and then observes the exact seeking-age value in that field. It does not gate typing on a KVC focus
 flag; native entry failures and wrong-target values remain failures. Existing invalid-height,
 persistence, preview and relaunch checks stay part of the same journey.
