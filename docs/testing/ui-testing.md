@@ -1430,11 +1430,18 @@ retry is [flaky](README.md#flaky-tests): `xcodebuild test` retries a failed test
 run reruns up to twice, each time only the tests the failed run lists (`-e class`, checked
 with a minimum of one test), or the whole suite when it lists none. The tests listed by a
 failed run before a passing one are flaky (`android instrumentation` when a failed run lists
-none). All Android instrumentation invocations use `android_instrumentation.py` with raw
-status callbacks (`am instrument -w -r`). Startup, each completed named test and final ADB
-exit have fresh failure budgets (normally 300 seconds, 900 for the main suite and long worker
-phases); there is no total suite timer. Only matched start/completion records advance progress,
+none). The main suite and explicit peer/photo phase invocations use
+`android_instrumentation.py` with raw status callbacks (`am instrument -w -r`). Startup, each
+completed named test and final ADB exit have fresh failure budgets (normally 300 seconds, 900 for
+the main suite and long worker phases). The monitor has no aggregate suite timer; the CI lane still
+has its separate outer 30-minute command budget. Only matched start/completion records advance progress,
 including failed or skipped test outcomes; logs, repeated statuses and partial lines do not.
+Each monitored invocation flushes validated start/completion events with exact test identity,
+completed count, outcome code and monotonic elapsed seconds into its matching `.progress.jsonl`
+sidecar. Appending `runner_started`/`runner_finished` markers separates invocations and retains
+completed JUnit retry attempts. An outer deadline can stop a healthy long suite too: compare its
+last exact completion/start timings before diagnosing a stalled test. Timing events never establish
+a passing suite or relax the existing failure deadlines.
 The final JUnit checker rejects raw ignored/assumption statuses (-3/-4), even with an `OK`
 summary, and writes a success JSON only after all gates pass. The ordinary suite excludes the
 three phase-only permission/retained/worker classes and only the forged-search method using
@@ -1846,7 +1853,7 @@ Docker diagnostics; exported reports and application files keep their formats.
 | Suite | Exported files |
 |-------|----------------|
 | `android-unit-test` | `gradle-version.txt`, `test-results/` (JUnit XML), `hs_err*.log` on JVM crash |
-| `android-emulator-test` | `instrumentation.txt`/`.json`, `instrumentation-<n>.txt` of failed runs, `ready.png`, `logcat.txt`, on failure `failure.png`, `window.txt`; plus `app-debug.apk` |
+| `android-emulator-test` | `instrumentation.txt`/`.json`, `*.progress.jsonl`, `instrumentation-<n>.txt` of failed runs, `ready.png`, `logcat.txt`, on failure `failure.png`, `window.txt`; plus `app-debug.apk` |
 | `linux-test` | `desktop-ui-results.json`; plus the `dyapp-linux` binary |
 
 Both Android instrumentation runners write a fresh `android-artifacts.json` beside

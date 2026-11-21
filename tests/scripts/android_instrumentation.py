@@ -1,6 +1,7 @@
 """Stream am instrument results with completion-driven failure deadlines."""
 
 import argparse
+import json
 from collections.abc import Callable
 import math
 import os
@@ -8,12 +9,30 @@ from pathlib import Path
 import selectors
 import subprocess
 import time
-from typing import BinaryIO
+from typing import BinaryIO, TextIO, TypedDict
+
+
+class ProgressEvent(TypedDict):
+    event: str
+    elapsed_seconds: float
+    completed: int
+    current: str
+    test_class: str
+    test: str
+    code: str
+
+
+def write_event(output: TextIO, event: ProgressEvent) -> None:
+    output.write(json.dumps(event, sort_keys=True) + "\n")
+    output.flush()
 
 
 class Progress:
     def __init__(
-        self, timeout: float, now: Callable[[], float] = time.monotonic
+        self,
+        timeout: float,
+        now: Callable[[], float] = time.monotonic,
+        emit: Callable[[ProgressEvent], None] | None = None,
     ) -> None:
         if not math.isfinite(timeout) or timeout <= 0:
             raise ValueError(
@@ -21,7 +40,9 @@ class Progress:
             )
         self.timeout = timeout
         self.now = now
-        self.deadline = now() + timeout
+        self.started = now()
+        self.emit = emit or (lambda _event: None)
+        self.deadline = self.started + timeout
         self.phase = "runner startup"
         self.fields: dict[str, str] = {}
         self.active: tuple[str, str, str] | None = None
@@ -29,6 +50,25 @@ class Progress:
         self.finished = False
         self.buffer = b""
         self.discard = False
+        self._emit("runner_started")
+
+    def _emit(
+        self,
+        kind: str,
+        test: tuple[str, str, str] = ("", "", ""),
+        code: str = "",
+    ) -> None:
+        self.emit(
+            {
+                "event": kind,
+                "elapsed_seconds": self.now() - self.started,
+                "completed": self.completed,
+                "current": test[0],
+                "test_class": test[1],
+                "test": test[2],
+                "code": code,
+            }
+        )
 
     def remaining(self) -> float:
         remaining = self.deadline - self.now()
@@ -84,6 +124,7 @@ class Progress:
                 self.phase = f"{test[1]}#{test[2]}"
                 if not self.completed:
                     self.deadline = self.now() + self.timeout
+                self._emit("test_started", test, code)
             elif code in ("0", "-1", "-2", "-3", "-4") and test == self.active:
                 self.completed += 1
                 self.active = None
@@ -91,10 +132,15 @@ class Progress:
                     f"next test or final result after {test[1]}#{test[2]}"
                 )
                 self.deadline = self.now() + self.timeout
+                self._emit("test_completed", test, code)
         elif text.startswith("INSTRUMENTATION_CODE: "):
             self.finished = True
             self.phase = "ADB exit after final result"
             self.deadline = self.now() + self.timeout
+            self._emit(
+                "runner_finished",
+                code=text.removeprefix("INSTRUMENTATION_CODE: "),
+            )
 
 
 def capture(
@@ -117,8 +163,13 @@ def capture(
             progress.feed(chunk)
 
 
-def run(command: list[str], output: BinaryIO, timeout: float) -> int:
-    progress = Progress(timeout)
+def run(
+    command: list[str],
+    output: BinaryIO,
+    timeout: float,
+    emit: Callable[[ProgressEvent], None] | None = None,
+) -> int:
+    progress = Progress(timeout, emit=emit)
     with subprocess.Popen(
         command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
     ) as process:
@@ -156,8 +207,18 @@ def main() -> None:
         parser.error("An instrumentation command is required after --")
     try:
         Progress(args.deadline)
-        with args.report.open("wb") as output:
-            status = run(command, output, args.deadline)
+        with (
+            args.report.open("wb") as output,
+            args.report.with_suffix(".progress.jsonl").open(
+                "a", encoding="utf-8"
+            ) as timings,
+        ):
+            status = run(
+                command,
+                output,
+                args.deadline,
+                lambda event: write_event(timings, event),
+            )
     except TimeoutError as error:
         parser.exit(124, f"{error}; report: {args.report}\n")
     except RuntimeError as error:
