@@ -8,6 +8,7 @@
 
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_profile::{DeviceCertificate, VerifiedProfile};
+use openmls::framing::errors::{MessageDecryptionError, SecretTreeError};
 use openmls::prelude::tls_codec::{Deserialize as _, Serialize as _};
 use openmls::prelude::*;
 use openmls_basic_credential::SignatureKeyPair;
@@ -50,6 +51,9 @@ pub enum Error {
     /// The bytes are not the expected kind of MLS message.
     #[error("unexpected MLS message")]
     Unexpected,
+    /// The message's key was pruned after too many later messages were opened.
+    #[error("MLS message is past the out-of-order window")]
+    TooDistant,
     /// openmls rejected the message or failed; the text names the reason, never key bytes.
     #[error("MLS: {0}")]
     Mls(String),
@@ -482,6 +486,19 @@ pub struct Group {
     group: MlsGroup,
 }
 
+fn process_error<T: std::fmt::Display>(error: ProcessMessageError<T>) -> Error {
+    if matches!(
+        error,
+        ProcessMessageError::ValidationError(ValidationError::UnableToDecrypt(
+            MessageDecryptionError::SecretTreeError(SecretTreeError::TooDistantInThePast)
+        ))
+    ) {
+        Error::TooDistant
+    } else {
+        mls(error)
+    }
+}
+
 fn protocol_message(message: &[u8]) -> Result<ProtocolMessage, Error> {
     MlsMessageIn::tls_deserialize_exact(message)
         .map_err(mls)?
@@ -698,7 +715,7 @@ impl Group {
         let processed = self
             .group
             .process_message(&device.provider, message)
-            .map_err(mls)?;
+            .map_err(process_error)?;
         let sender = processed.sender().clone();
         match processed.into_content() {
             ProcessedMessageContent::ApplicationMessage(message) => {

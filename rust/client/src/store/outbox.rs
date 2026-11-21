@@ -1,6 +1,7 @@
 //! Outbox retry bookkeeping: back off a failed write, then hold an accepted one until the
 //! recipient's receipt, resending it at a slower pace.
 
+use super::messages::MessageKey;
 use super::{Error, Store};
 use crate::PreparedEnvelope;
 use rusqlite::{params, OptionalExtension};
@@ -10,6 +11,12 @@ const GIVE_UP_MS: i64 = 30 * 86_400_000;
 
 /// Replication lag allowed before a receipt for a later write proves an earlier one was dropped.
 const GRACE_MS: i64 = 60_000;
+type RecoveryText = (PreparedEnvelope, MessageKey, Option<u64>, Vec<u8>);
+type RecoveryRow = (Vec<u8>, Vec<u8>, Option<i64>, Vec<u8>);
+
+struct AcceptedWrite {
+    accepted_at: Option<i64>,
+}
 
 impl Store {
     /// Like [`Store::stage_outbound`], for a receipt: node acceptance is enough to drop it.
@@ -114,6 +121,47 @@ impl Store {
             .flatten())
     }
 
+    /// Current unchanged text that can be encrypted again after a recipient's negative receipt.
+    ///
+    /// # Errors
+    /// Returns an error if the stored write or text is malformed, cannot be read, or uses an
+    /// unrepresentable timestamp.
+    pub fn text_for_recovery(
+        &self,
+        mailbox: &[u8; 32],
+        group: &[u8],
+        id: &[u8; 16],
+    ) -> Result<Option<RecoveryText>, Error> {
+        let row: Option<RecoveryRow> = self
+            .db
+            .query_row(
+                "SELECT `o`.`signed_envelope`, `m`.`message_id`, `m`.`original_hlc`, `m`.`text`
+                 FROM `outbox` AS `o` JOIN `chat_messages` AS `m`
+                 ON `m`.`group_id` = `o`.`chat_group`
+                 AND `m`.`message_id` = `o`.`chat_message_id`
+                 WHERE `o`.`mailbox` = ?1 AND `o`.`envelope_id` = ?2 AND `o`.`chat_group` = ?3
+                 AND `m`.`author` = ?4 AND `m`.`deleted` = 0
+                 AND `m`.`delivery_generation` = `o`.`chat_generation_id`",
+                params![mailbox.as_slice(), id.as_slice(), group, self.owner_peer_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .optional()?;
+        row.map(|(bytes, message_id, hlc, text)| {
+            let id: [u8; 16] = message_id.try_into().map_err(|_| Error::OutboxConflict)?;
+            let hlc = hlc
+                .map(|value| u64::try_from(value).map_err(|_| Error::ClockRange))
+                .transpose()?;
+            let key = MessageKey {
+                group: group.to_vec(),
+                author: self.owner_peer_id.clone(),
+                id,
+            };
+            let old = PreparedEnvelope::from_bytes(bytes).map_err(|_| Error::OutboxConflict)?;
+            Ok((old, key, hlc, text))
+        })
+        .transpose()
+    }
+
     /// The owner of `mailbox` received writes `ids`: drop those still waiting. Returns how many,
     /// and the nodes that dropped earlier writes to `mailbox`: those writes still wait though
     /// their latest copy was accepted before the received ones. They become due at once.
@@ -128,20 +176,36 @@ impl Store {
         mailbox: &[u8; 32],
         ids: &[[u8; 16]],
     ) -> Result<(usize, Vec<String>), Error> {
+        self.receipted_inner(mailbox, ids, None)
+    }
+
+    /// Apply receipts only to writes from the MLS group that carried them.
+    ///
+    /// # Errors
+    /// Returns an error if stored delivery or outbox state cannot be read or updated.
+    pub fn receipted_in_group(
+        &mut self,
+        mailbox: &[u8; 32],
+        group: &[u8],
+        ids: &[[u8; 16]],
+    ) -> Result<(usize, Vec<String>), Error> {
+        self.receipted_inner(mailbox, ids, Some(group))
+    }
+
+    fn receipted_inner(
+        &mut self,
+        mailbox: &[u8; 32],
+        ids: &[[u8; 16]],
+        group: Option<&[u8]>,
+    ) -> Result<(usize, Vec<String>), Error> {
         let tx = self.db.transaction()?;
         let mut fetched_after: Option<i64> = None;
         let mut dropped = 0usize;
         for id in ids {
-            let at: Option<i64> = tx
-                .query_row(
-                    "SELECT `accepted_at_ms` FROM `outbox`
-                     WHERE `mailbox` = ?1 AND `envelope_id` = ?2 AND `awaits_receipt` = 1",
-                    params![mailbox.as_slice(), id.as_slice()],
-                    |row| row.get(0),
-                )
-                .optional()?
-                .flatten();
-            if let Some(at) = at {
+            let Some(write) = accepted_for_group(&tx, mailbox, id, group)? else {
+                continue;
+            };
+            if let Some(at) = write.accepted_at {
                 fetched_after = Some(fetched_after.map_or(at, |t| t.min(at)));
             }
             advance_chat_delivery(&tx, &self.owner_peer_id, mailbox, id, 2)?;
@@ -185,6 +249,29 @@ impl Store {
             [now_ms.saturating_sub(GIVE_UP_MS), now_ms],
         )?)
     }
+}
+
+fn accepted_for_group(
+    tx: &rusqlite::Transaction<'_>,
+    mailbox: &[u8; 32],
+    id: &[u8; 16],
+    group: Option<&[u8]>,
+) -> Result<Option<AcceptedWrite>, Error> {
+    let row: Option<(Option<i64>, Option<Vec<u8>>)> = tx
+        .query_row(
+            "SELECT `accepted_at_ms`, `chat_group` FROM `outbox`
+             WHERE `mailbox` = ?1 AND `envelope_id` = ?2 AND `awaits_receipt` = 1",
+            params![mailbox.as_slice(), id.as_slice()],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()?;
+    Ok(row.and_then(|(accepted, write_group)| {
+        group
+            .is_none_or(|expected| write_group.as_deref() == Some(expected))
+            .then_some(AcceptedWrite {
+                accepted_at: accepted,
+            })
+    }))
 }
 
 /// Advance only the still-current local generation; old text/operation receipts cannot repaint it.
@@ -234,6 +321,7 @@ mod tests {
     use super::{GIVE_UP_MS, GRACE_MS};
     use crate::prepare_put;
     use dyapp_identity::Identity;
+    use rusqlite::params;
 
     #[test]
     fn failed_writes_back_off_up_to_an_hour() {
@@ -350,6 +438,113 @@ mod tests {
         assert_eq!(
             blamed(&mut store, &[*later.id()]),
             (1, vec!["u".to_owned()])
+        );
+    }
+
+    #[test]
+    fn a_receipt_applies_only_to_its_mls_group() {
+        let mut store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
+        let write = prepare_put(&[1; 32], vec![9]).unwrap();
+        store
+            .stage_outbound(b"mls", std::slice::from_ref(&write))
+            .unwrap();
+        store
+            .db
+            .execute(
+                "UPDATE `outbox` SET `chat_group` = ?3 WHERE `mailbox` = ?1 AND `envelope_id` = ?2",
+                params![
+                    write.mailbox().as_slice(),
+                    write.id().as_slice(),
+                    [1u8].as_slice()
+                ],
+            )
+            .unwrap();
+        store.accepted(&write, 0, "node").unwrap();
+        assert_eq!(
+            store
+                .receipted_in_group(&[1; 32], &[2], &[*write.id()])
+                .unwrap()
+                .0,
+            0
+        );
+        assert_eq!(
+            store
+                .receipted_in_group(&[1; 32], &[1], &[*write.id()])
+                .unwrap()
+                .0,
+            1
+        );
+    }
+
+    #[test]
+    fn recovery_refuses_a_superseded_delivery_generation() {
+        use crate::store::messages::MessageKey;
+
+        let owner = Identity::try_generate().unwrap();
+        let mut store = Store::open(&temp_db_path(), &owner).unwrap();
+        let key = MessageKey {
+            group: vec![1],
+            author: owner.peer_id(),
+            id: [2; 16],
+        };
+        store.record_chat_text(&key, b"current").unwrap();
+        let write = prepare_put(&[3; 32], vec![9]).unwrap();
+        store
+            .stage_outbound(b"mls", std::slice::from_ref(&write))
+            .unwrap();
+        store
+            .db
+            .execute(
+                "UPDATE `outbox` SET `chat_group` = ?3, `chat_message_id` = ?4,
+                 `chat_generation_id` = ?4 WHERE `mailbox` = ?1 AND `envelope_id` = ?2",
+                params![
+                    write.mailbox().as_slice(),
+                    write.id().as_slice(),
+                    key.group.as_slice(),
+                    key.id.as_slice()
+                ],
+            )
+            .unwrap();
+        store
+            .db
+            .execute(
+                "UPDATE `chat_messages` SET `delivery_generation` = ?1, `delivery_state` = 0",
+                [key.id.as_slice()],
+            )
+            .unwrap();
+        assert!(store
+            .text_for_recovery(&[3; 32], &[1], write.id())
+            .unwrap()
+            .is_some());
+        store
+            .db
+            .execute(
+                "UPDATE `chat_messages` SET `delivery_generation` = zeroblob(16)",
+                [],
+            )
+            .unwrap();
+        assert!(store
+            .text_for_recovery(&[3; 32], &[1], write.id())
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn equal_retry_deadlines_keep_staging_order() {
+        let mut store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
+        let mailbox = [1; 32];
+        let writes = [
+            prepare_put(&mailbox, vec![1]).unwrap(),
+            prepare_put(&mailbox, vec![2]).unwrap(),
+            prepare_put(&mailbox, vec![3]).unwrap(),
+        ];
+        store.stage_outbound(b"mls", &writes).unwrap();
+        assert_eq!(
+            due_bytes(&store, 0),
+            writes
+                .iter()
+                .map(|write| write.as_bytes().to_vec())
+                .collect::<Vec<_>>()
         );
     }
 

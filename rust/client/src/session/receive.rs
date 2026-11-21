@@ -69,7 +69,7 @@ impl Session {
             let (Some(&at), Some(node)) = (peers.get(i), nodes.get_mut(i)) else {
                 continue;
             };
-            let cursor = self.store.mailbox_cursor_for(at)?;
+            let (cursor, mut unknown_owners) = self.mailbox_cursor(at, profiles)?;
             let started = std::time::Instant::now();
             let fetched = node
                 .fetch_page(device_key, cursor.as_deref(), PAGE_LIMIT)
@@ -101,10 +101,29 @@ impl Session {
                     page.envelopes,
                 )
                 .await?;
-            self.save_page_cursor(at, page.more, page.next_cursor.as_deref())?;
+            record_unknown_owners(&events, &mut unknown_owners);
+            self.save_page_cursor(at, page.more, page.next_cursor.as_deref(), &unknown_owners)?;
             return Ok((events, page.more));
         }
         Err(last.into())
+    }
+
+    fn mailbox_cursor(
+        &mut self,
+        node: libp2p::PeerId,
+        profiles: &[VerifiedProfile],
+    ) -> Result<(Option<Vec<u8>>, Vec<String>), Error> {
+        let Some((cursor, owners)) = self.store.mailbox_cursor_state(node)? else {
+            return Ok((None, Vec::new()));
+        };
+        let resolved = owners
+            .iter()
+            .any(|owner| profiles.iter().any(|profile| profile.peer_id == *owner));
+        if resolved {
+            self.store.clear_mailbox_cursor()?;
+            return Ok((None, Vec::new()));
+        }
+        Ok((Some(cursor), owners))
     }
 
     async fn mailbox_order(&mut self, nodes: &[Node], peers: &[libp2p::PeerId]) -> Vec<usize> {
@@ -118,10 +137,12 @@ impl Session {
         at: libp2p::PeerId,
         more: bool,
         next: Option<&[u8]>,
+        unknown_owners: &[String],
     ) -> Result<(), Error> {
         if more {
             let next = next.ok_or(crate::Error::Reply("missing mailbox cursor"))?;
-            self.store.save_mailbox_cursor(at, next)?;
+            self.store
+                .save_mailbox_cursor_with_unknown(at, next, unknown_owners)?;
         } else {
             self.store.clear_mailbox_cursor()?;
         }
@@ -230,6 +251,46 @@ impl Session {
         Ok(())
     }
 
+    async fn stage_incoming(
+        &mut self,
+        nodes: &mut [Node],
+        device_key: &Identity,
+        envelope: &crate::Envelope,
+        profiles: &[VerifiedProfile],
+        seal_key: &[u8; 32],
+        key: &InboxKey,
+    ) -> Result<Option<Event>, Error> {
+        let event = self.stage_envelope(key, &envelope.ciphertext, profiles, seal_key)?;
+        if matches!(event, Some(Event::Gap(_))) {
+            self.store.note_mailbox_gap()?;
+        }
+        if matches!(event, Some(Event::ResendRequired)) {
+            self.send_refusal(nodes, device_key, envelope, seal_key)
+                .await?;
+        }
+        Ok(event)
+    }
+
+    pub(super) async fn duplicate_envelope(
+        &mut self,
+        nodes: &mut [Node],
+        device_key: &Identity,
+        envelope: &crate::Envelope,
+        seal_key: &[u8; 32],
+        key: &InboxKey,
+        seen: &mut Vec<InboxKey>,
+    ) -> Result<bool, Error> {
+        if !self.store.has_inbox(key)? {
+            return Ok(false);
+        }
+        if self.store.needs_resend(key)? {
+            self.send_refusal(nodes, device_key, envelope, seal_key)
+                .await?;
+        }
+        seen.push(*key);
+        Ok(true)
+    }
+
     async fn process_page(
         &mut self,
         nodes: &mut [Node],
@@ -250,18 +311,17 @@ impl Session {
                 continue;
             };
             let key = InboxKey { mailbox, id };
-            if self.store.has_inbox(&key)? {
-                // Committed before: only the ACK can be missing, maybe lost after mark_acked.
-                seen.push(key);
+            if self
+                .duplicate_envelope(nodes, device_key, &envelope, seal_key, &key, &mut seen)
+                .await?
+            {
                 continue;
             }
             // A join's token request may have been dropped while the chat was pending.
-            if let Some(event) =
-                self.stage_envelope(&key, &envelope.ciphertext, profiles, seal_key)?
+            if let Some(event) = self
+                .stage_incoming(nodes, device_key, &envelope, profiles, seal_key, &key)
+                .await?
             {
-                if matches!(event, Event::Gap(_)) {
-                    self.store.note_mailbox_gap()?;
-                }
                 self.track_pending_join(&event, &mut pending)?;
                 let opened = self.newly_opened_group(&event, &pending)?;
                 if let Some(group) = receipted_group(&event) {
@@ -341,6 +401,30 @@ impl Session {
         Ok(())
     }
 
+    pub(super) async fn send_refusal(
+        &mut self,
+        nodes: &mut [Node],
+        device_key: &Identity,
+        envelope: &crate::Envelope,
+        seal_key: &[u8; 32],
+    ) -> Result<(), Error> {
+        let Some(group) = dyapp_messaging::mls::group_of(&envelope.ciphertext)? else {
+            return Ok(());
+        };
+        if self.partner(&group).is_none() {
+            return Ok(());
+        }
+        let body = Body::Receipt(Receipt {
+            mailbox: device_key.public_key().to_vec(),
+            ids: Vec::new(),
+            refused: vec![envelope.id.clone()],
+        });
+        match self.send_body(nodes, &group, &body, seal_key).await {
+            Err(Error::Client(_)) | Ok(()) => Ok(()),
+            Err(error) => Err(error),
+        }
+    }
+
     // shortcut: a duplicate is not receipted again, its group is unknown here, so a lost receipt
     // costs about 35 resends over 30 days; receipt duplicates once the inbox keeps their group.
     async fn send_receipts(
@@ -355,6 +439,7 @@ impl Session {
                 let receipt = Body::Receipt(Receipt {
                     mailbox: mailbox.to_vec(),
                     ids: ids.to_vec(),
+                    refused: Vec::new(),
                 });
                 // A receipt the node refused stays in the outbox for retry_due.
                 match self.send_body(nodes, &group, &receipt, seal_key).await {
@@ -565,6 +650,9 @@ impl Session {
         let event = match chat::apply(device, &mut self.groups, bytes, profiles) {
             Ok(None) => return Ok(None),
             Ok(Some(event)) => event,
+            Err(crate::Error::Mls(dyapp_messaging::mls::Error::TooDistant)) => {
+                Event::ResendRequired
+            }
             Err(error) => Event::Refused(error.to_string()),
         };
         if matches!(event, Event::UnknownOwner(_)) {
@@ -574,11 +662,20 @@ impl Session {
         Ok(Some(event))
     }
 
-    fn stage_refused(&mut self, key: &InboxKey, seal_key: &[u8; 32]) -> Result<bool, Error> {
+    fn stage_refused(
+        &mut self,
+        key: &InboxKey,
+        seal_key: &[u8; 32],
+        resend: bool,
+    ) -> Result<bool, Error> {
         // Keep the saved MLS state and reopen it: a refused envelope must change nothing.
         let sealed = self.store.sealed_device()?.ok_or(Error::MissingSnapshot)?;
-        self.store
-            .stage_inbound(&sealed, key, InboxKind::Refused, b"", None)?;
+        let kind = if resend {
+            InboxKind::ResendRequired
+        } else {
+            InboxKind::Refused
+        };
+        self.store.stage_inbound(&sealed, key, kind, b"", None)?;
         self.recover(seal_key).map(|()| true)
     }
 
@@ -681,8 +778,8 @@ impl Session {
         self.apply_presence_event(&mut event, blocked)?;
         self.apply_peer_change_event(&mut event, blocked)?;
         self.apply_read_event(&event, blocked)?;
-        let staged = if matches!(event, Event::Refused(_)) {
-            self.stage_refused(key, seal_key)
+        let staged = if matches!(event, Event::Refused(_) | Event::ResendRequired) {
+            self.stage_refused(key, seal_key, matches!(event, Event::ResendRequired))
         } else {
             self.stage_accepted(key, &event, peer.as_deref(), blocked, seal_key)
         };
@@ -714,6 +811,15 @@ mod pack_tests;
 #[cfg(test)]
 #[path = "receive/sticker_tests.rs"]
 mod sticker_tests;
+
+fn record_unknown_owners(events: &[Event], owners: &mut Vec<String>) {
+    owners.extend(events.iter().filter_map(|event| match event {
+        Event::UnknownOwner(owner) => Some(owner.clone()),
+        _ => None,
+    }));
+    owners.sort();
+    owners.dedup();
+}
 
 fn history_body(body: &Body) -> bool {
     body.attachment_message().is_some()

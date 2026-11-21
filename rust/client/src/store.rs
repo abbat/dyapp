@@ -125,6 +125,8 @@ pub enum InboxKind {
     StateChange = 2,
     /// An envelope no group accepted; only marks it processed so it is acknowledged once.
     Refused = 3,
+    /// A text whose old key was pruned; duplicates must repeat its negative receipt.
+    ResendRequired = 4,
 }
 
 fn create_schema(db: &mut Connection, identity: &Identity) -> Result<(), Error> {
@@ -489,15 +491,21 @@ impl Store {
             [sealed_device],
         )?;
         for write in writes {
+            let chat_group = group.map(|(group_id, _)| group_id.to_vec()).or_else(|| {
+                dyapp_messaging::mls::group_of(&write.envelope().ciphertext)
+                    .ok()
+                    .flatten()
+            });
             let inserted = tx.execute(
                 "INSERT INTO `outbox` (`mailbox`, `envelope_id`, `signed_envelope`,
-                 `retry_at_ms`, `attempts`, `awaits_receipt`) VALUES (?1, ?2, ?3, 0, 0, ?4)
+                 `retry_at_ms`, `attempts`, `awaits_receipt`, `chat_group`) VALUES (?1, ?2, ?3, 0, 0, ?4, ?5)
                  ON CONFLICT (`mailbox`, `envelope_id`) DO NOTHING",
                 params![
                     write.mailbox().as_slice(),
                     write.id().as_slice(),
                     write.as_bytes(),
-                    awaits_receipt
+                    awaits_receipt,
+                    chat_group
                 ],
             )?;
             if inserted == 0 {
@@ -537,7 +545,7 @@ impl Store {
     pub fn due_outbound(&self, now_ms: i64) -> Result<Vec<PreparedEnvelope>, Error> {
         let mut query = self.db.prepare(
             "SELECT `mailbox`, `envelope_id`, `signed_envelope` FROM `outbox`
-             WHERE `retry_at_ms` <= ?1 ORDER BY `retry_at_ms`, `mailbox`, `envelope_id`",
+             WHERE `retry_at_ms` <= ?1 ORDER BY `retry_at_ms`, `rowid`",
         )?;
         let rows = query.query_map([now_ms], |row| {
             Ok((

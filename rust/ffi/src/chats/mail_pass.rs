@@ -160,7 +160,9 @@ impl ChatSession {
             .filter(|event| {
                 !matches!(
                     event,
-                    dyapp_client::chat::Event::Gap(_) | dyapp_client::chat::Event::Refused(_)
+                    dyapp_client::chat::Event::Gap(_)
+                        | dyapp_client::chat::Event::Refused(_)
+                        | dyapp_client::chat::Event::ResendRequired
                 )
             })
             .count();

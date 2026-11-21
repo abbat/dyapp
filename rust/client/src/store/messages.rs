@@ -502,6 +502,40 @@ impl Store {
         Ok(())
     }
 
+    /// Replace a refused text write with its fresh encryption without changing the projection.
+    ///
+    /// # Errors
+    /// Returns an error if the body is invalid, staging or linking the new write fails, the old
+    /// write no longer matches, or the transaction cannot be committed.
+    pub fn replace_recovered_text(
+        &mut self,
+        old: &PreparedEnvelope,
+        writes: &[PreparedEnvelope],
+        sealed_device: &[u8],
+        group: &[u8],
+        body: &Body,
+        device: &[u8],
+    ) -> Result<(), Error> {
+        let sender = VerifiedChatSender {
+            group,
+            author: &self.owner_peer_id,
+            device,
+        };
+        let message = OutboundMessage::new(sender, body)?;
+        let tx = self.db.transaction()?;
+        Self::stage_outbound_tx(&tx, None, sealed_device, writes, true)?;
+        message.link_outbox(&tx, writes, group)?;
+        let deleted = tx.execute(
+            "DELETE FROM `outbox` WHERE `mailbox` = ?1 AND `envelope_id` = ?2 AND `signed_envelope` = ?3",
+            params![old.mailbox().as_slice(), old.id().as_slice(), old.as_bytes()],
+        )?;
+        if deleted != 1 {
+            return Err(Error::OutboxConflict);
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
     /// Catalog a new pair group and commit its Welcome writes with the first text in it, so a
     /// retry after a crash resends both with the same bytes.
     #[expect(
