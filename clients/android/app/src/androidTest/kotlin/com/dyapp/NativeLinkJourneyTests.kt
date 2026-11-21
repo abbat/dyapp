@@ -7,6 +7,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import uniffi.dyapp.IdentityKey
+import uniffi.dyapp.LinkReviewChoice
+import uniffi.dyapp.LinkReviewSource
 import uniffi.dyapp.MobileDeviceDirectory
 import uniffi.dyapp.MobileIdentityRegistry
 import uniffi.dyapp.MobileLinkApproval
@@ -138,6 +140,8 @@ class NativeLinkJourneyTests {
 
     private fun completeEnrollment(installed: Opened.Ready) {
         linkEnrollmentReview(installed.slot.owner(), installed.slot.id, installed.peerId).use { review ->
+            val choices = review.snapshot.differences.map { LinkReviewChoice(it, LinkReviewSource.REMOTE) }
+            assertEquals(review.snapshot.remote, review.preview(choices))
             assertTrue(review.resume())
             // A second completion proves that the original pending-link row was cleared.
             assertFalse(review.resume())

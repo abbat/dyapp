@@ -1,6 +1,7 @@
 package com.dyapp
 
 import uniffi.dyapp.LinkReviewChoice
+import uniffi.dyapp.LinkReviewProfile
 import uniffi.dyapp.LinkReviewSaved
 import uniffi.dyapp.LinkReviewSnapshot
 import uniffi.dyapp.MobileIdentityRegistry
@@ -11,6 +12,7 @@ internal class LinkEnrollmentReview(
     val snapshot: LinkReviewSnapshot,
     val resume: () -> Boolean,
     val confirm: (List<LinkReviewChoice>) -> LinkReviewSaved,
+    val preview: (List<LinkReviewChoice>) -> LinkReviewProfile,
     private val release: () -> Unit
 ) : AutoCloseable {
     override fun close() = release()
@@ -21,6 +23,6 @@ internal fun linkEnrollmentReview(registry: MobileIdentityRegistry, id: String, 
     MobileLinkRecovery(registry, id, peer, PlatformKeyStore.existing(identityAlias(id))).use { recovery ->
         val review = recovery.prepare()
         runCatching {
-            LinkEnrollmentReview(review.snapshot(), review::resumeLink, review::confirm, review::close)
+            LinkEnrollmentReview(review.snapshot(), review::resumeLink, review::confirm, review::preview, review::close)
         }.onFailure { review.close() }.getOrThrow()
     }

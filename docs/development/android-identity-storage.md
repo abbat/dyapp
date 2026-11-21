@@ -189,7 +189,10 @@ current setup opening. Saved source identifiers restore navigation, not native h
 authority. Network activation is reread before showing code creation; creating a code remains explicit.
 A cancelled creation owner cannot restore that intent from inventory differences or repeat creation;
 ordinary native resolution and the explicit Account receiving entry remain available. Only this
-explicit wizard route requests core-owned unused-wizard cleanup. Invitation expiry formatting observes
+explicit wizard route requests core-owned unused-wizard cleanup. The retained recovery adapter binds
+snapshot, read-only choice preview, confirmation and resumption to the same native review. Preview
+uses the shared core's frozen selection and grants no write or enrollment authority.
+Invitation expiry formatting observes
 Compose's current configuration locale, so a language change invalidates the displayed date.
 
 Root identity actions run on IO. The existing route shows loading until completion, rejects
