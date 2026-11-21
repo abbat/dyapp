@@ -15,7 +15,7 @@ load completes, before replacing their rows with pagination/error fixtures. Thes
 points run the existing text/accessibility checks on the synchronization hints in all desktop clients.
 The focused `settings-moderation` step runs independently in EN/RU on all three native desktops.
 Linux additionally retains the loaded panels at 440/1280 widths in a fresh `moderation-shots-*`
-directory; a receipt binds all eight required PNGs to their hashes and the executable hash.
+directory; a receipt binds all eight required PNG files to their hashes and the executable hash.
 Missing/empty captures fail the exposure. CI uploads this directory with native diagnostics;
 its Linux setup includes the same ImageMagick capture tool already used by the Docker test image.
 
