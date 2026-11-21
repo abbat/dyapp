@@ -87,6 +87,7 @@ private fun LinkReceiveButtons(snapshot: LinkReceiverSnapshot, actions: LinkRece
         }
     }
     if (snapshot.receipt is MobileLinkReceipt.Installed) {
+        LinkEnrollmentAction(snapshot, actions)
         Button(
             actions.openApp,
             Modifier.testTag("link-receive-open").applicationClick(actions.openApp),

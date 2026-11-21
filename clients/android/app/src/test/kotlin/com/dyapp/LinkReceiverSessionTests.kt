@@ -116,6 +116,7 @@ class LinkReceiverSessionTests {
         assertFalse(owner.state.value.busy)
         assertEquals(MobileLinkPhase.FAILED, owner.state.value.phase)
         assertSame(fixture.receipt, owner.state.value.receipt)
+        assertFalse(owner.finishEnrollment { error("Failed installation authorized enrollment") })
         assertNull(owner.state.value.error)
         assertFalse(owner.poll())
         assertFalse(owner.start())

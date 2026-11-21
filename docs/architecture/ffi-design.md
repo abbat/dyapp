@@ -1197,7 +1197,11 @@ retains the original receipt after screen retirement. Retirement requests native
 prevents further polling; it cannot assert rollback after admission. Explicit disposition refuses
 to close an in-flight handle. A process-owned `LinkReceiverStore` retains the exact source registry
 and opening across activity disposal, refuses replacement invitations while an outcome is unresolved,
-and releases only the explicitly disposed opening. Android screen integration remains planned.
+and releases only the explicitly disposed opening. Android Account receiving exposes explicit setup
+completion on the original installed receipt in that same worker. It retains the immutable adoption
+review across failures and closes it only after actual work completes and explicit disposition. Typed
+review/authorization refusals cannot become ordinary retry through diagnostic-string matching; first-run
+and complete recovery-screen integration remain planned.
 Core `LinkAdmission` serializes receiving and cancellation without a network mutex.
 A normal empty/transient completion explicitly resumes waiting; abandoned work is interrupted
 and cannot implicitly retry. After network completion and shared-lease release, its poll guard

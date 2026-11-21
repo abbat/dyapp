@@ -14,7 +14,8 @@ internal class LinkReceiveActions(
     val cancel: () -> Unit,
     val dismiss: () -> Unit,
     val openApp: () -> Unit,
-    val review: () -> Unit
+    val review: () -> Unit,
+    val finish: () -> Unit
 )
 
 internal class LinkReceiveNavigation(val back: () -> Unit, val openApp: () -> Unit, val review: () -> Unit)
@@ -36,6 +37,13 @@ private class LinkReceiveOwner(
         val original = opening ?: return
         if (!current) return
         if (store.release(original) && present) complete()
+    }
+    fun finish() {
+        val original = opening ?: return
+        if (!current) return
+        original.session.finishEnrollment { selection ->
+            linkEnrollmentReview(original.source.slot.owner(), selection.slot.id, selection.key.peerId())
+        }
     }
     fun retire() {
         present = false
@@ -59,6 +67,7 @@ internal fun rememberLinkReceiveActions(
         cancel = owner::cancel,
         dismiss = { scope.launch { owner.dispose { route.back() } } },
         openApp = { scope.launch { owner.dispose { route.openApp() } } },
-        review = { owner.review { route.review() } }
+        review = { owner.review { route.review() } },
+        finish = owner::finish
     )
 }

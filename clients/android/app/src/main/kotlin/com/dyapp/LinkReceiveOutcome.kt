@@ -12,6 +12,8 @@ import uniffi.dyapp.MobileLinkReceipt
 
 /** Presentation of typed native phases, never diagnostic-string authorization. */
 internal fun linkReceiveStatus(snapshot: LinkReceiverSnapshot, code: MobileLinkCodeStatus?): Int = when {
+    snapshot.enrollment.completed -> R.string.link_setup_complete
+    snapshot.busy && snapshot.receipt is MobileLinkReceipt.Installed -> R.string.link_setup_running
     code == MobileLinkCodeStatus.EXPIRED -> R.string.link_receive_expired
     snapshot.error != null -> R.string.link_receive_error
     else -> snapshot.phase?.let(::linkReceivePhaseStatus) ?: R.string.link_receive_starting
@@ -32,7 +34,9 @@ internal fun LinkReceiveOutcome(snapshot: LinkReceiverSnapshot) {
     when (val receipt = snapshot.receipt) {
         is MobileLinkReceipt.Installed -> {
             Text(receipt.selection.key.peerId(), Modifier.testTag("link-receive-peer"))
-            Text(stringResource(R.string.link_receive_pending))
+            if (!snapshot.enrollment.completed) Text(stringResource(R.string.link_receive_pending))
+            Caption(stringResource(R.string.link_setup_no_publish))
+            LinkEnrollmentNotice(snapshot.enrollment)
             if (receipt.selection.durabilityDetail != null) Text(stringResource(R.string.identity_persistence_notice))
         }
         is MobileLinkReceipt.Failed -> { LinkReceiveFailure(receipt.failure) }

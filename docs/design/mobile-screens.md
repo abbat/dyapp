@@ -318,9 +318,11 @@ Android Account settings includes Receive a profile for a configured phone. Crea
 the screen displays the original core QR, code and localized expiry, polls the same retained receiver,
 and uses non-blocking native phases during writes. Cancellation cannot claim rollback after admission.
 Original typed failure boundaries and reserved destination remain available until explicit disposition;
-returning to the app rereads current selection rather than selecting a stale receipt. Enrollment and
-private-data synchronization remain explicitly pending. First-run receiving entry, enrollment/review
-integration, owner approval and device-list screens remain planned; native runtime and screen review
+returning to the app rereads current selection rather than selecting a stale receipt. Finish device setup
+uses the original destination and retained native adoption review for enrollment/private synchronization,
+without publishing edits. Typed recovery/authorization refusals require their own review or owner approval;
+only backend failures offer ordinary explicit retry. First-run receiving entry, field/private-state recovery
+screens, owner approval and device-list screens remain planned; native runtime and screen review
 are still required. Code lifetime, installation receipts and authorization stay in shared Rust.
 
 Android screens may be reviewed and implemented individually against the frozen criteria and the

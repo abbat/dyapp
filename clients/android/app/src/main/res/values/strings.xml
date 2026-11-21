@@ -8,6 +8,17 @@
     <string name="nav_network">Network</string>
     <string name="nav_settings">Settings</string>
     <string name="link_receive_title">Receive a profile</string>
+    <string name="link_setup_finish">Finish device setup</string>
+    <string name="link_setup_running">Completing device enrollment and private-data synchronization…</string>
+    <string name="link_setup_complete">Pending device setup completed.</string>
+    <string name="link_setup_no_publish">Completing device setup does not publish profile edits.</string>
+    <string name="link_setup_review">The original profile or link context needs a fresh comparison. Review it before trying again.</string>
+    <string name="link_setup_private_review">Private data needs explicit recovery review. This action cannot choose how to restore it.</string>
+    <string name="link_setup_authorization">Earlier device enrollment is uncertain. New approval from an authorized device is required; retry cannot restore authorization.</string>
+    <string name="link_setup_revoked">This device was revoked. It cannot restore its own authorization.</string>
+    <string name="link_setup_unlisted">This device is absent from the verified device list. Approval from an authorized device is required.</string>
+    <string name="link_setup_selection">The selected fields need review. The original comparison is retained.</string>
+    <string name="link_setup_error">Device setup could not be confirmed. The original attempt is retained; earlier steps may already have completed.</string>
     <string name="link_receive_intro">Configure Network first. Show this code to a device with your profile, then approve linking there. Existing profiles on this phone are preserved.</string>
     <string name="link_receive_start">Create link code</string>
     <string name="link_receive_source">Started from identity</string>

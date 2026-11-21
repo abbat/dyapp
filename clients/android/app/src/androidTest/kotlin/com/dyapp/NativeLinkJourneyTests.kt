@@ -13,7 +13,6 @@ import uniffi.dyapp.MobileLinkApproval
 import uniffi.dyapp.MobileLinkPhase
 import uniffi.dyapp.MobileLinkReceipt
 import uniffi.dyapp.MobileLinkReceiver
-import uniffi.dyapp.MobileLinkRecovery
 import uniffi.dyapp.MobileSlotLayout
 import uniffi.dyapp.MobileSlotSelection
 
@@ -138,17 +137,10 @@ class NativeLinkJourneyTests {
     }
 
     private fun completeEnrollment(installed: Opened.Ready) {
-        MobileLinkRecovery(
-            installed.slot.owner(),
-            installed.slot.id,
-            installed.peerId,
-            PlatformKeyStore.existing(identityAlias(installed.slot.id))
-        ).use { recovery ->
-            recovery.prepare().use { review ->
-                assertTrue(review.resumeLink())
-                // A second completion proves that the original pending-link row was cleared.
-                assertFalse(review.resumeLink())
-            }
+        linkEnrollmentReview(installed.slot.owner(), installed.slot.id, installed.peerId).use { review ->
+            assertTrue(review.resume())
+            // A second completion proves that the original pending-link row was cleared.
+            assertFalse(review.resume())
         }
     }
 }

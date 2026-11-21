@@ -7,6 +7,17 @@
     <string name="nav_network">Сеть</string>
     <string name="nav_settings">Настройки</string>
     <string name="link_receive_title">Получить профиль</string>
+    <string name="link_setup_finish">Завершить настройку устройства</string>
+    <string name="link_setup_running">Завершение регистрации устройства и синхронизации личных данных…</string>
+    <string name="link_setup_complete">Ожидающая настройка устройства завершена.</string>
+    <string name="link_setup_no_publish">Завершение настройки устройства не публикует правки анкеты.</string>
+    <string name="link_setup_review">Исходный профиль или контекст привязки требуют нового сравнения. Проверьте его перед новой попыткой.</string>
+    <string name="link_setup_private_review">Личные данные требуют явной проверки восстановления. Это действие не выбирает способ их восстановления.</string>
+    <string name="link_setup_authorization">Результат прежней регистрации устройства неизвестен. Нужно новое подтверждение авторизованного устройства; повтор не восстанавливает авторизацию.</string>
+    <string name="link_setup_revoked">Это устройство отозвано. Оно не может восстановить собственную авторизацию.</string>
+    <string name="link_setup_unlisted">Устройства нет в проверенном списке. Требуется подтверждение авторизованного устройства.</string>
+    <string name="link_setup_selection">Выбранные поля требуют проверки. Исходное сравнение сохранено.</string>
+    <string name="link_setup_error">Настройка устройства не подтверждена. Исходная попытка сохранена; предыдущие шаги уже могли завершиться.</string>
     <string name="link_receive_intro">Сначала настройте сеть. Покажите код устройству с вашим профилем и подтвердите привязку на нём. Уже сохранённые профили этого телефона останутся.</string>
     <string name="link_receive_start">Создать код привязки</string>
     <string name="link_receive_source">Начато из профиля</string>
