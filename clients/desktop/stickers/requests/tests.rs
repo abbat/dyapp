@@ -4,10 +4,10 @@ use dyapp_client::store::sticker_packs::exchange::download::{
 };
 
 #[test]
-fn new_saved_and_missing_sticker_keep_the_existing_json_contract() {
-    for (state, name) in [
-        (pack_requests::State::New, "new"),
-        (pack_requests::State::Saved, "saved"),
+fn new_saved_and_missing_sticker_expose_ordered_core_controls() {
+    for (state, name, control) in [
+        (pack_requests::State::New, "new", "request"),
+        (pack_requests::State::Saved, "saved", "manage"),
     ] {
         let value = Status::from(pack_requests::Status {
             state,
@@ -19,6 +19,7 @@ fn new_saved_and_missing_sticker_keep_the_existing_json_contract() {
             serde_json::to_value(value).unwrap(),
             serde_json::json!({
                 "state":name, "generation":null, "failure":null, "retryAtMs":null,
+                "controls":[control],
             })
         );
     }
@@ -31,6 +32,7 @@ fn new_saved_and_missing_sticker_keep_the_existing_json_contract() {
     });
     let json = serde_json::to_value(value).unwrap();
     assert_eq!(json["failure"], "stickerMissing");
+    assert_eq!(json["controls"], serde_json::json!(["stopWaiting", "manage"]));
     assert_eq!(json["generation"], serde_json::json!(token));
 }
 
@@ -49,6 +51,7 @@ fn local_status_exposes_only_typed_retry_metadata_and_generation() {
     .into();
     let json = serde_json::to_value(waiting).unwrap();
     assert_eq!(json["state"], "waiting");
+    assert_eq!(json["controls"], serde_json::json!(["stopWaiting"]));
     assert!(json["retryAtMs"].is_null() && json["failure"].is_null());
     for (failure, name) in [
         (None, "downloading"),
@@ -78,6 +81,6 @@ fn local_status_exposes_only_typed_retry_metadata_and_generation() {
             .map(String::as_str)
             .collect();
         fields.sort_unstable();
-        assert_eq!(fields, ["failure", "generation", "retryAtMs", "state"]);
+        assert_eq!(fields, ["controls", "failure", "generation", "retryAtMs", "state"]);
     }
 }

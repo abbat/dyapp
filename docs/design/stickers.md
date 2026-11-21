@@ -274,8 +274,10 @@ and collection exports are separate APIs.
 
 Common `sticker_requests::Status::controls` supplies the ordered Request/Retry/Fresh/StopWaiting/
 Refresh/Manage display choices, independent of client clocks. Native status includes this typed
-list; actual mutations still recheck full selection, stored generation and authorization. Android
-and Tauri widget adoption of this shared projection remains in progress.
+list; actual mutations still recheck full selection, stored generation and authorization. Tauri
+renders the projected controls directly and refuses callbacks from replaced buttons. A failed
+read retains the last known caption and offers only read/management recovery. Android
+widget adoption of this shared projection remains in progress.
 
 Shared `sticker_media` owns current full-key selection, identity/content revalidation,
 authenticated local-source lookup, automatic-download admission and decoded completion/cache

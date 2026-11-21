@@ -2,7 +2,10 @@
 
 Common received-pack control table tests cover current phases and failures, both retained and
 absent generations for failures, exact order and unchanged controls across zero/maximum retry deadlines.
-Native request-status integration tests also check controls on actual New/Waiting/Downloading/
+The desktop controller test deliberately supplies controls that disagree with its former state
+rule, retires an old button and rejects an unknown control while retaining the known pending
+caption with read-only recovery; all original quota/fresh/conflict/focus
+assertions remain. Native request-status integration tests also check controls on actual New/Waiting/Downloading/
 Fetch-failed/Saved transitions. These require native CI; formatting alone does not prove execution.
 
 Android `ChatStickerImageTests` checks actual Bitmap alpha/channel conversion, rendered aspect and

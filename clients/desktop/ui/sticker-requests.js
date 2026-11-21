@@ -13,7 +13,7 @@ controller.stickerRequestDelivered = undefined;
 // Read status only for visible received stickers; actions carry the observed local generation.
 /**
  * @typedef {Exclude<import('./ipc.js').StickerPackStatus['failure'], null>} PackFailure
- * @typedef {{ generation: number[] | null } & (
+ * @typedef {{ generation: number[] | null, controls: import('./ipc.js').StickerPackControl[] } & (
  *   { state: 'failed', failure: PackFailure } |
  *   { state: Exclude<import('./ipc.js').StickerPackStatus['state'], 'failed'>,
  *     failure: PackFailure | null })} PackStatus
@@ -36,6 +36,15 @@ const args = (target) => ({ identityId: target.identityId, selection: target.sel
 const checked = (value) => {
   if (!['new', 'saved', 'waiting', 'downloading', 'failed'].includes(value?.state))
     throw Error('Invalid pack status');
+  if (
+    !Array.isArray(value.controls) ||
+    new Set(value.controls).size !== value.controls.length ||
+    value.controls.some(
+      (item) => !['request', 'retry', 'fresh', 'stopWaiting', 'refresh', 'manage'].includes(item),
+    )
+  )
+    throw Error('Invalid pack controls');
+  const controls = [...value.controls];
   const token = value.generation;
   if (
     token !== null &&
@@ -53,9 +62,9 @@ const checked = (value) => {
       !['fetch', 'invalid', 'quota', 'storage', 'stickerMissing'].includes(failure)
     )
       throw Error('Invalid pack failure');
-    return { state: value.state, generation: token, failure };
+    return { state: value.state, generation: token, failure, controls };
   }
-  return { state: value.state, generation: token, failure: value.failure };
+  return { state: value.state, generation: token, failure: value.failure, controls };
 };
 /** @param {RequestTarget} target */
 const focusHere = (target) =>
@@ -86,21 +95,23 @@ const add = (target, key, action) => {
   button.textContent = text(key);
   button.dataset.action = key;
   button.addEventListener('click', () => {
-    if (active(target) && !target.busy) controller.stickerRequestChanged = action();
+    if (active(target) && !target.busy && target.actions.contains(button))
+      controller.stickerRequestChanged = action();
   });
   target.actions.append(button);
 };
 /** @param {RequestTarget} target */
 const manage = (target) => stickersController.stickerCollection.open(target.call);
-/**
- * @param {(key: string, kind: import('./ipc.js').StickerPackAction['kind']) => void} action
- * @param {RequestTarget} target
- * @param {PackStatus} value
- */
-const failedActions = (target, value, action) => {
-  if (value.generation && value.failure !== 'stickerMissing') action('retry', 'retry');
-  else if (value.failure !== 'stickerMissing') add(target, 'refresh', () => read(target));
-  if (value.generation && value.failure === 'invalid') action('fresh', 'fresh');
+/** @param {RequestTarget} target @param {import('./ipc.js').StickerPackControl} control */
+const renderControl = (target, control) => {
+  /** @param {string} key @param {import('./ipc.js').StickerPackAction['kind']} kind */
+  const action = (key, kind) => add(target, key, () => change(target, kind));
+  if (control === 'request') action('add', 'request');
+  else if (control === 'retry') action('retry', 'retry');
+  else if (control === 'fresh') action('fresh', 'fresh');
+  else if (control === 'stopWaiting') action('stop', 'stopWaiting');
+  else if (control === 'refresh') add(target, 'refresh', () => read(target));
+  else if (control === 'manage') add(target, 'manage', () => manage(target));
 };
 /** @param {RequestTarget} target @param {PackStatus} value */
 const render = (target, value) => {
@@ -115,23 +126,16 @@ const render = (target, value) => {
     '{name}',
     () => target.name,
   );
-  /** @param {string} key @param {import('./ipc.js').StickerPackAction['kind']} kind */
-  const action = (key, kind) => add(target, key, () => change(target, kind));
-  if (value.state === 'new') action('add', 'request');
-  if (value.state === 'failed') failedActions(target, value, action);
-  if (value.generation) action('stop', 'stopWaiting');
-  if (
-    value.state === 'saved' ||
-    (value.failure !== null && ['quota', 'storage', 'stickerMissing'].includes(value.failure))
-  )
-    add(target, 'manage', () => manage(target));
+  for (const control of value.controls) renderControl(target, control);
 };
 /** @param {RequestTarget} target */
 const failedRead = (target) => {
-  target.value = null;
   target.signature = null;
-  target.caption.className = 'notice error';
-  target.caption.textContent = text('readFailed');
+  if (target.value) target.error.textContent = text('readFailed');
+  else {
+    target.caption.className = 'notice error';
+    target.caption.textContent = text('readFailed');
+  }
   target.actions.replaceChildren();
   add(target, 'refresh', () => read(target));
   add(target, 'manage', () => manage(target));

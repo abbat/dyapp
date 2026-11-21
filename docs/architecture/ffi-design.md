@@ -563,7 +563,9 @@ retention. Cache-write failure does not discard validated pixels. Desktop and co
 `chat_sticker_frame` use this boundary. Shared `Snapshot::access` orders local lookup before
 retrieval admission. Native received-pack status additionally projects ordered `StickerPackSaveControl` values from
 common `Status::controls`; clients must not reconstruct Retry/Fresh/StopWaiting eligibility from
-state, failure, tokens or local clocks. Display controls never replace mutation authorization.
+state, failure, tokens or local clocks. Tauri status serializes the same ordered `controls` names;
+the JavaScript controller validates and renders them without a separate eligibility table.
+Display controls never replace mutation authorization.
 Native `chat_sticker_image` exposes typed `Ready`, `OnTap` and `Unavailable`
 outcomes; transport and validation failures remain errors. The compatibility `chat_sticker_frame`
 API preserves its `onTap`/`notFound` errors. No descriptor or compressed image crosses either API.

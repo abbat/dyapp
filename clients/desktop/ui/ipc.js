@@ -67,9 +67,10 @@
  *   next: number | null }} RecentStickerPage
  * @typedef {{ peerId: string, groupId: number[], author: string, id: number[] }} ChatStickerSelection
  * @typedef {{ peerId: string, packId: number[], index: number }} SavedStickerSelection
+ * @typedef {'request' | 'retry' | 'fresh' | 'stopWaiting' | 'refresh' | 'manage'} StickerPackControl
  * @typedef {{ state: 'saved' | 'new' | 'failed' | 'waiting' | 'downloading',
  *   generation: number[] | null, failure: 'fetch' | 'invalid' | 'quota' | 'storage' | 'stickerMissing' | null,
- *   retryAtMs: number | null }} StickerPackStatus
+ *   retryAtMs: number | null, controls: StickerPackControl[] }} StickerPackStatus
  * @typedef {{ kind: 'request' | 'retry' | 'fresh' | 'stopWaiting',
  *   generation?: number[] | null }} StickerPackAction
  */

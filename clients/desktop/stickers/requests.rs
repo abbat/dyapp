@@ -11,9 +11,11 @@ pub(crate) struct Status {
     generation: Option<[u8; 16]>,
     failure: Option<&'static str>,
     retry_at_ms: Option<u64>,
+    controls: Vec<&'static str>,
 }
 impl From<pack_requests::Status> for Status {
     fn from(value: pack_requests::Status) -> Self {
+        let controls = value.controls().into_iter().map(control_name).collect();
         Self {
             state: match value.state {
                 pack_requests::State::New => "new",
@@ -31,7 +33,18 @@ impl From<pack_requests::Status> for Status {
                 pack_requests::Failure::StickerMissing => "stickerMissing",
             }),
             retry_at_ms: value.retry_at_ms,
+            controls,
         }
+    }
+}
+fn control_name(value: pack_requests::Control) -> &'static str {
+    match value {
+        pack_requests::Control::Request => "request",
+        pack_requests::Control::Retry => "retry",
+        pack_requests::Control::Fresh => "fresh",
+        pack_requests::Control::StopWaiting => "stopWaiting",
+        pack_requests::Control::Refresh => "refresh",
+        pack_requests::Control::Manage => "manage",
     }
 }
 fn status(store: &mut Store, key: &[u8; 32], selection: &Selection) -> Result<Status, String> {
