@@ -60,6 +60,9 @@ Search captures native conditions, employer choice and the offered mutual toggle
 admission, before waiting for backend readiness. Later edits cannot change that admitted request.
 The saved own profile for mutual eligibility is still read in IO through the common native parser;
 an incomplete own profile refuses mutual search instead of silently omitting its conditions.
+Run and Cancel actions capture their presentation revision. Admission, completion, cancellation
+and owner retirement invalidate older callbacks. Only the admitted operation may install its
+result and newly offered fields; cancelling presentation does not pretend native work completed.
 
 Android implementation checkpoint: a loaded profile offers **Share profile…**.
 The native destination dialog lists open chats except the profile owner, using

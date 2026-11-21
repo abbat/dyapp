@@ -4,7 +4,12 @@
 unchanged after every form field and offered list are edited. An admitted validation failure
 remains a failure after later correction; a captured mutual choice still requires the actual
 saved own gender and exact age. These snapshot tests do not establish callback/operation lifetime
-safety, which requires separate controlled backend completion tests.
+safety. `SearchPresentationTests` controls backend readiness and completion independently,
+including work that returns after cancellation. It checks duplicate Run admission, retained
+Run after equal-looking failure, old Cancel against a successor, late offered-field installation
+and retired-owner completion/admission. Assertions wait for the actual coroutine job completion,
+not just a callback-internal finally block. Native lifetime and real query acceptance remain
+separate from this presentation-controller scope.
 
 Checked shared-search tests match canonical Unicode interest conditions against actual profile
 tags, preserve punctuation, reject invalid nonblank offered tags without a partial query, and

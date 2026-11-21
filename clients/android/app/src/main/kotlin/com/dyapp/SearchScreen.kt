@@ -36,7 +36,6 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -186,14 +185,15 @@ private suspend fun sample(
 internal class SearchSession(private val opened: Opened.Ready, private val scope: CoroutineScope) {
     // The owned searcher keeps verified versions across pages and successive samples.
     private val searcher = CompletableDeferred<Result<ProfileSearcher>>()
-    private var job: Job? = null
     var photos by mutableStateOf(PeerPhotos(null, opened))
         private set
     val savedCalls = savedProfilesCalls(opened)
     val savedOpen = mutableStateOf(false)
     val filters = SearchFilters(profileScales())
-    var state by mutableStateOf<SearchState>(SearchState.Idle)
-        private set
+    private val presentation = SearchPresentation(scope, filters) { admitted ->
+        sample(opened, searcher.await(), admitted)
+    }
+    val state get() = presentation.state
     private val owner = scope.launch {
         runCatching {
             withNativeResource(opened::profileSearcher) { ready ->
@@ -207,23 +207,12 @@ internal class SearchSession(private val opened: Opened.Ready, private val scope
         }
     }
 
-    fun run() {
-        state = SearchState.Loading
-        val admitted = filters.captureIntent()
-        job = scope.launch {
-            val result = sample(opened, searcher.await(), admitted)
-            if (result is SearchState.Done) filters.offered = result.result.offered
-            state = result
-        }
-    }
+    fun runAction(): () -> Unit = presentation.runAction()
 
-    fun cancel() {
-        job?.cancel()
-        state = SearchState.Idle
-    }
+    fun cancelAction(): () -> Unit = presentation.cancelAction()
 
     fun close() {
-        job?.cancel()
+        presentation.close()
         owner.cancel()
     }
 }
@@ -248,7 +237,7 @@ internal fun SearchScreen(
     openProfile: (FoundProfile) -> Unit,
     openSaved: (String) -> Unit,
 ) {
-    val state = search.state
+    val run = search.runAction()
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState())
             .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 24.dp),
@@ -259,19 +248,19 @@ internal fun SearchScreen(
         FormCard {
             SearchFilterFields(search.filters)
             Button(
-                onClick = search::run,
-                enabled = state != SearchState.Loading,
+                onClick = run,
+                enabled = search.state != SearchState.Loading,
                 modifier = Modifier.fillMaxWidth().testTag("run-search")
             ) {
                 Text(stringResource(R.string.search_run))
             }
         }
-        when (val shown = state) {
+        when (val shown = search.state) {
             SearchState.Idle -> Caption(stringResource(R.string.search_idle), STATUS)
-            SearchState.Loading -> SearchLoading(search::cancel)
-            is SearchState.Failed -> SearchFailed(shown, search::run, openNetwork)
+            SearchState.Loading -> SearchLoading(search.cancelAction())
+            is SearchState.Failed -> SearchFailed(shown, run, openNetwork)
             is SearchState.Done -> shown.result.let {
-                if (it.profiles.isEmpty()) SearchEmpty(it) else SearchFound(it, search::run, openProfile)
+                if (it.profiles.isEmpty()) SearchEmpty(it) else SearchFound(it, run, openProfile)
             }
         }
     }

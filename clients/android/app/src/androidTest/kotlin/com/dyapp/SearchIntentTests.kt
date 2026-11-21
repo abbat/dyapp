@@ -27,8 +27,9 @@ class SearchIntentTests {
     @Test
     fun everyFormValueIsFrozenBeforeLaterEditsAndOfferedFieldChanges() {
         val filters = filters()
-        val expected = filters.conditions()
         val admitted = filters.captureIntent().getOrThrow()
+        // Copy the admitted payload once; a second age parse could cross UTC midnight.
+        val expected = admitted.choices.map { it.copy(ints = it.ints.toList(), strings = it.strings.toList()) }
         filters.offered = emptyList()
         filters.picked["gender"] = 2
         filters.place.pickCountry("US")

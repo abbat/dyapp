@@ -1106,7 +1106,10 @@ conditions. No iOS UI adoption is implied.
 Android captures the returned conditions, parsed employer choice and offered mutual toggle as one
 immutable presentation intent before waiting for the searcher. IO reads the saved own profile only
 for that captured mutual request and delegates eligibility to `search_mutual_conditions`; missing
-own gender/exact age remains an explicit refusal. Form values are not reread in the IO callback.
+own gender/exact age remains an explicit refusal. Form values are not reread in the IO callback. A referential presentation revision binds Run,
+Cancel and completion to the admitted operation; retirement or replacement prevents late state
+and offered-field installation. Native creation, slot admission and IO release retain their
+existing resource ownership rather than being replaced with presentation-only completion.
 
 ## Identity registry core
 
