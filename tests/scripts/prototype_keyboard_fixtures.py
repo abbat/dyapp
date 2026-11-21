@@ -29,6 +29,7 @@ class KeyboardFixtures:
                 ("focus", "focus indicator #keyboard-fixture-first"),
                 ("escape", "Escape did not close/restore focus"),
                 ("rename-initial", ""),
+                ("switcher-visibility", ""),
                 *[
                     (f"popup:{name}", "")
                     for name in (
@@ -83,6 +84,11 @@ class KeyboardFixtures:
                 ".runPopupCase(window.dyappPrototypeAudit, "
                 f"{json.dumps(name)})",
                 self.start,
+            )
+            return
+        if mode == "switcher-visibility":
+            self.evaluate(
+                "await keys.checkSwitcherVisibilityGuard()", self.start
             )
             return
         if mode == "rename-initial":

@@ -227,6 +227,26 @@ export const checkRenameInitialFocus = async () => {
     endFixture();
   }
 };
+export const checkSwitcherVisibilityGuard = async () => {
+  await beginFixture('switcher-visibility');
+  const sidebar = element('.sidebar');
+  const visibility = sidebar.style.visibility;
+  try {
+    controller.showState('switcher');
+    await frames();
+    const missing = () =>
+      plan().problems.filter((problem) => problem.startsWith('switcher state is missing visible'));
+    if (missing().length) throw new Error('Visible switcher actions were rejected');
+    // Reproduce the old narrow selector omission without a guessed viewport offset.
+    sidebar.style.visibility = 'hidden';
+    await frames();
+    if (missing().length !== 3) throw new Error('Hidden requested switcher escaped the audit');
+  } finally {
+    sidebar.style.visibility = visibility;
+    endFixture();
+  }
+};
+
 export const restoreRadios = (group) => {
   group.names.forEach((name, index) => {
     element(name).checked = index === group.checked;

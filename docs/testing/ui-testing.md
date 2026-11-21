@@ -1,5 +1,9 @@
 # UI Testing: Practical Guide
 
+The prototype keyboard fixture calibrates requested switcher visibility against both the real
+visible menu and a controlled hidden sidebar. It must reject all three missing identity actions;
+frame readiness and current hit testing establish exposure without fixed positions or delays.
+
 Offline native chat fixtures that establish several conversations must pass distinct interaction
 event IDs per author. Reusing an author/event pair for a different peer correctly fails with
 `InteractionConflict`; `establish_with_event` makes the fixture's distinct events explicit.
