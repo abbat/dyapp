@@ -214,6 +214,14 @@ Actual binding/runtime and full screen acceptance remain required.
 Invitation expiry formatting observes
 Compose's current configuration locale, so a language change invalidates the displayed date.
 
+`DeviceDirectorySession` provides the device screen's presentation worker; the screen route remains
+planned. It freezes public target bytes from the common snapshot and uses reference-identity
+confirmation openings. Refresh invalidates old confirmations. Native read/revoke calls run on its
+independent IO scope; retiring a view rejects further callbacks and closes the handle only after an
+admitted call and its cached reconciliation finish. A cancelled UI waiter cannot cancel that call.
+The actual revoke result stays separate from a later cache-read failure and remains attached to its
+original target. Neither a missing row nor read freshness creates revocation authority.
+
 Root identity actions run on IO. The existing route shows loading until completion, rejects
 duplicate actions and never publishes a cancelled screen owner's late result. Its completed revision
 advances after each actual result, even when the visible screen stays the same; test semantics

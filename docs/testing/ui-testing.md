@@ -1179,6 +1179,12 @@ then completes verified cleanup through the same Kotlin adapter used by both rec
 second adapter call has no authority to recreate the removed context. Only the linked slot disappears;
 the other selected identity still opens. Native package tests separately retain duplicate/concurrent
 capability outcomes. This cleanup extension needs its own actual CI runtime proof.
+`DeviceDirectoryWorkerTests` and `DeviceDirectoryFailureTests` exercise the presentation adapter with
+controlled native-shaped completions. They retain original public targets across mutable DTO input,
+reject stale/forged confirmation openings, retire a view during an admitted call, cancel its UI waiter
+and require exactly-once close after completion. A successor view remains unchanged. Partial write
+failure, acknowledged success and later cached-read failure remain distinct, without automatic retry.
+These controlled cases do not prove the planned device screen or its real network authorization.
 `NativePrivateContactTests` separately invokes the actual JNI favorite/note APIs without a profile
 fetch or counterpart mailbox. It reopens native storage, checks identity isolation and exact Unicode
 text, and requires private-only mutations to leave public draft, likes and chat state unchanged.
