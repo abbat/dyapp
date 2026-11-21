@@ -428,7 +428,7 @@ const STRINGS = {
       'It stops getting your chats. Copies already stored on that device may remain. Your contacts see that the device left.',
     'disconnect.action': 'Disconnect',
     'disconnect.offline':
-      'No node answered, so the device stays connected. Check the network and retry.',
+      'Disconnection could not be confirmed. Some changes may already have taken effect. Check the network and retry for this device.',
     'chat.linked':
       'This device reads this chat from the moment it joined. Earlier messages stay on your other devices.',
     'profile.status.hidden': 'Hidden from search. Version 3 stays saved as your draft.',
@@ -884,7 +884,7 @@ const STRINGS = {
       'Оно перестанет получать ваши чаты. Уже сохранённые на нём копии могут остаться. Контакты увидят, что устройство ушло.',
     'disconnect.action': 'Отключить',
     'disconnect.offline':
-      'Ни один узел не ответил, устройство осталось подключённым. Проверьте сеть и повторите.',
+      'Отключение не подтверждено. Часть изменений могла уже вступить в силу. Проверьте сеть и повторите для этого устройства.',
     'chat.linked':
       'Это устройство читает чат с момента привязки. Прежние сообщения остаются на других ваших устройствах.',
     'profile.status.hidden': 'Скрыт из поиска. Версия 3 сохранена как черновик.',

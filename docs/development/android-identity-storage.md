@@ -220,7 +220,10 @@ confirmation openings. Refresh invalidates old confirmations. Native read/revoke
 independent IO scope; retiring a view rejects further callbacks and closes the handle only after an
 admitted call and its cached reconciliation finish. A cancelled UI waiter cannot cancel that call.
 The actual revoke result stays separate from a later cache-read failure and remains attached to its
-original target. Neither a missing row nor read freshness creates revocation authority.
+original target. Neither a missing row nor read freshness creates revocation authority. The planned
+screen must describe a failed revoke as unconfirmed, possibly partial completion: mailbox closure
+can precede a later error. It must never promise the device stayed connected or that changes rolled
+back; retry remains a new explicit action for the original target.
 
 Root identity actions run on IO. The existing route shows loading until completion, rejects
 duplicate actions and never publishes a cancelled screen owner's late result. Its completed revision

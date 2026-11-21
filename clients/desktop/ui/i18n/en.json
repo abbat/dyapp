@@ -705,7 +705,7 @@
   "disconnect.title": "Disconnect this device?",
   "disconnect.text": "It stops getting your chats. Copies already stored on that device may remain. Your contacts see that the device left.",
   "disconnect.action": "Disconnect",
-  "disconnect.offline": "No node answered, so the device stays connected. Check the network and retry.",
+  "disconnect.offline": "Disconnection could not be confirmed. Some changes may already have taken effect. Check the network and retry for this device.",
   "devices.gone": "Device disconnected.",
   "devices.link": "Link a new device…",
   "devices.sent": "Sent. The new device appears here once it finishes.",

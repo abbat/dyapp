@@ -126,8 +126,7 @@ const showDevices = async (call = invoke) => {
     devicesCard.hidden = rows.length === 0;
   }
 };
-// A repeat closes the mailbox again, which is harmless, and a draft another device moved on is
-// already replaced, so Retry is enough after any failure.
+// A failure may follow mailbox closure or publication; keep the original target for explicit retry.
 const disconnectNow = async (call = invoke) => {
   const device = disconnecting;
   if (!device) return;

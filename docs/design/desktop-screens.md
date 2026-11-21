@@ -621,6 +621,10 @@ a replacement. Cancel and Escape wait for admitted submission to complete, match
 the keyboard audit uses a controlled completion signal before its ordinary focus/restore walk.
 No original-author verification or attachment/sticker forwarding is implied.
 
+A failed disconnect can follow mailbox closure or profile publication: it does not mean rollback.
+The dialog reports unconfirmed, possibly partial completion and offers explicit retry for the same
+device. Only an acknowledged revoke reports success; an absent list row is not that acknowledgement.
+
 `remove-dialog` names the identity by avatar, short Peer ID and kind, then the full ID, withdraws
 the profile with a tombstone and deletes the key with this identity's chats, matches and likes on
 this computer. `remove-offline`:
