@@ -5,7 +5,10 @@ and real Store coverage for colliding authors, media kinds, blocking and cleared
 original desktop test block remains and its argument helpers call the common matcher.
 Native sticker-delete boundary tests check exact selection and no writes before transport,
 including a valid own selector reaching an intentionally absent network and unchanged text-only
-compatibility. Actual successful native deletion remains separate runtime proof.
+compatibility. `NativeStickerExchangeTests` reuses its real peer pair for own deletion, foreign and
+duplicate refusal, remote removal after native receive completion, and retained original sticker/packs.
+`StickerDeletePresentationTests` controls Cancel/reopen tokens, duplicate admission, precommit refusal
+and noncancellable completion after retirement. Actual JNI/UI execution remains required CI proof.
 
 Common received-pack control table tests cover current phases and failures, both retained and
 absent generations for failures, exact order and unchanged controls across zero/maximum retry deadlines.

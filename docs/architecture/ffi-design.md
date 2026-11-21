@@ -539,6 +539,9 @@ cannot discover remote revocations it has not received.
 Common native `submit_delete_sticker` accepts an explicit peer/group/author/logical-ID and only a
 current own sticker. Its session/identity lease covers selection, staging and typed commitment;
 foreign authors cannot rebind a colliding own ID. Text edit/delete retains its text-only contract.
+Android's deletion adapter keeps that typed commitment even if the subsequent feed refresh fails.
+Its confirmation model admits only the current opening and drops retired/late display results;
+own-sticker menu wiring remains planned.
 
 Common native `submit_text`, `submit_edit_text`, `submit_delete_text` and
 `submit_chat_photo` and `submit_saved_sticker` return `ChatSubmission::Accepted` or `Queued`

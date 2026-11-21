@@ -39,6 +39,7 @@ class NativeStickerExchangeTests {
                 assertArrayEquals(sticker.packId, returned.packId)
                 assertArrayEquals(sticker.sha256, returned.sha256)
                 assertEquals(sticker.emoji, returned.emoji)
+                NativeStickerDeletion(receiver, sender, returned).delete()
             }
         }
     }
