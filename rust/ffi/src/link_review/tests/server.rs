@@ -1,4 +1,5 @@
 //! Replies expose actual request boundaries for deterministic recovery tests.
+mod media;
 use dyapp_identity::SignedRecord;
 use dyapp_p2p_net::{build_configured_swarm, proto, Behaviour, BehaviourEvent, SwarmOptions};
 use libp2p::{
@@ -41,6 +42,7 @@ struct Replies {
     on_read: Callback,
     packages: Arc<Packages>,
     profile_writes: Arc<AtomicUsize>,
+    media: Arc<media::Media>,
 }
 pub(crate) struct Server {
     pub(crate) network: dyapp_identity::network::Network,
@@ -48,6 +50,7 @@ pub(crate) struct Server {
     pub(crate) on_read: Callback,
     pub(crate) packages: Arc<Packages>,
     pub(crate) profile_writes: Arc<AtomicUsize>,
+    pub(crate) media: Arc<media::Media>,
     stop: Option<tokio::sync::oneshot::Sender<()>>,
     thread: Option<std::thread::JoinHandle<()>>,
 }
@@ -58,6 +61,7 @@ impl Server {
             on_read: Arc::default(),
             packages: Arc::default(),
             profile_writes: Arc::default(),
+            media: Arc::default(),
         };
         let (ready, listening) = mpsc::channel();
         let (stop, stopped) = tokio::sync::oneshot::channel();
@@ -75,6 +79,7 @@ impl Server {
             on_read: replies.on_read,
             packages: replies.packages,
             profile_writes: replies.profile_writes,
+            media: replies.media,
             stop: Some(stop),
             thread: Some(thread),
         }
@@ -164,6 +169,18 @@ fn reply(swarm: &mut Swarm<Behaviour>, event: BehaviourEvent, replies: &Replies)
                 .behaviour_mut()
                 .key_package
                 .send_response(channel, response)
+                .unwrap();
+        }
+        BehaviourEvent::Media(Event::Message {
+            message: Message::Request {
+                request, channel, ..
+            },
+            ..
+        }) => {
+            swarm
+                .behaviour_mut()
+                .media
+                .send_response(channel, replies.media.reply(request))
                 .unwrap();
         }
         _ => {}

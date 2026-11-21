@@ -1009,6 +1009,11 @@ and remote values, all original photo chunks, visibility and typed differing fie
 read-only projection of the frozen result, without credentials, storage or network access. Missing,
 duplicate and unoffered choices retain typed selection errors. Preview does not establish current
 admission or profile validity and does not save, publish or complete enrollment.
+`photo_thumbnail(source, index)` instead reopens and admits the original slot/certificate/network,
+resolves only that frozen source's ordered photo, and delegates hash checking and bounded JPEG
+thumbnail decoding to the shared core. Valid stored thumbnails work offline; missing or invalid
+cached bytes can be fetched from the admitted network without a disk cache. Context is checked again
+before pixels return. Unavailable bytes never remove photo references or select a source.
 `confirm(choices)` reacquires existing-only admission, checks the original session certificate and
 local context and core `ChatBinding` (slot/owner/device plus sealing-key digest), rejects an already
 changed active network, and delegates all field selection and atomic completion to core. Typed errors

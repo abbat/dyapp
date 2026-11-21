@@ -198,7 +198,10 @@ save requires a fresh comparison instead of repeating the write. These operation
 receipt and native review through actual completion, including UI retirement. Each comparison exposes
 a reference-identity presentation opening, so equal fresh snapshots do not preserve old UI choices.
 Its pure native preview checks that exact opening under the receiver monitor and refuses busy, closed
-or replaced owners before using the retained review. Full field-choice presentation remains planned.
+or replaced owners before using the retained review. Native `photo_thumbnail` resolves frozen source
+and index through shared core validation, admits the original slot/network before reading and after
+fetching, and returns bounded pixels without persisting remote blobs. It does not borrow the active
+shell's photo cache. Full field-choice and photo presentation remains planned.
 Invitation expiry formatting observes
 Compose's current configuration locale, so a language change invalidates the displayed date.
 
