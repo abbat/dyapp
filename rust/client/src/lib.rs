@@ -27,6 +27,7 @@ pub mod link;
 pub mod local_collection;
 pub mod mail_notices;
 pub mod media_ownership;
+pub mod message_actions;
 pub mod network_check;
 pub mod peer_photo_cache;
 pub mod photo;

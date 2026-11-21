@@ -511,6 +511,12 @@ The session staging path separates preflight context, MLS preparation and atomic
 failures after MLS advancement invalidate the in-memory device/groups. Delivery retains token
 fallback replacements across ranked nodes, propagates local failures immediately, and records
 node acceptance separately from peer receipts.
+Common `message_actions::prepare` provides read-only own-message selection from the admitted
+Store owner, viewed peer and exact group/author/logical-ID. Its media kind preserves text-only
+edit/delete contracts separately from sticker-only or desktop text-or-sticker deletion. It refuses
+blocked, foreign, wrong-key and cleared targets before transport; session staging still validates
+the current group/target. Adapter adoption of this common preflight is in progress.
+
 `Session::submit_text_to`, `submit_edit` and `submit_delete` return a committed `Submission`:
 `Accepted` or `Queued`, both with the logical message/operation ID; queued also retains the
 immediate delivery error. Profile/key-package/staging errors remain errors before successful
