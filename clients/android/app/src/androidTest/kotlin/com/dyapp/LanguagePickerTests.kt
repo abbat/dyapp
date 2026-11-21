@@ -2,7 +2,6 @@ package com.dyapp
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isFocused
@@ -38,9 +37,9 @@ class LanguagePickerTests {
         compose.awaitNode(hasTestTag("language-" + tag) and isFocused())
     }
 
-    private fun action(tag: String): () -> Boolean {
+    private fun action(tag: String): () -> Unit {
         val node = compose.onNodeWithTag(tag).performScrollTo().fetchSemanticsNode()
-        return checkNotNull(node.config[SemanticsActions.OnClick].action)
+        return node.config[applicationClickKey]
     }
 
     private fun closed() = compose.waitUntil(10_000) {
@@ -92,9 +91,9 @@ class LanguagePickerTests {
         show()
         open()
         val retiredChoice = action("language-fr")
-        val retiredCancel = checkNotNull(
-            compose.onNodeWithTag("language-picker-cancel").fetchSemanticsNode().config[SemanticsActions.OnClick].action
-        )
+        val retiredCancel = compose.onNodeWithTag("language-picker-cancel")
+            .fetchSemanticsNode()
+            .config[applicationClickKey]
         compose.runOnIdle { owner.value = "second" }
         closed()
         open("ru")

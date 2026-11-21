@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
@@ -39,7 +40,7 @@ internal fun LanguageDialog(
         text = { LanguageOptions(options, selected, choose) },
         confirmButton = {},
         dismissButton = {
-            TextButton(cancel, Modifier.testTag("language-picker-cancel")) {
+            TextButton(cancel, Modifier.testTag("language-picker-cancel").applicationClick(cancel)) {
                 Text(stringResource(R.string.language_cancel))
             }
         }
@@ -62,6 +63,9 @@ private fun LanguageOptionRow(option: LanguageOption, selected: Boolean, focus: 
     Row(
         Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("language-" + tag)
             .then(if (selected) Modifier.focusRequester(focus) else Modifier)
+            // Explicit dialog focus also applies in the platform default Touch input mode.
+            .focusProperties { canFocus = true }
+            .applicationClick(choose)
             .selectable(selected, role = Role.RadioButton, onClick = choose),
         verticalAlignment = Alignment.CenterVertically
     ) {

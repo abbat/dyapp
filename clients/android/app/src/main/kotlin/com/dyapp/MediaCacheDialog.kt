@@ -17,7 +17,8 @@ internal fun MediaCacheDialog(state: MediaCachePresentation, confirm: (ChatMedia
             title = { Text(stringResource(R.string.cache_confirm_title)) },
             text = { Text(stringResource(R.string.cache_confirm_body, cacheEditLabel(edit))) },
             confirmButton = {
-                TextButton({ confirm(edit) }, Modifier.testTag("cache-confirm"), enabled = !state.busy) {
+                val action = { confirm(edit) }
+                TextButton(action, Modifier.testTag("cache-confirm").applicationClick(action), enabled = !state.busy) {
                     Text(stringResource(R.string.cache_confirm))
                 }
             },

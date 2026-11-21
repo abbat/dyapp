@@ -15,6 +15,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
@@ -74,5 +75,8 @@ private fun LanguageOpener(state: LanguagePickerPresentation, label: String) {
             state.restoreFocus = false
         }
     }
-    TextButton(state::open, Modifier.fillMaxWidth().testTag("language-choice").focusRequester(focus)) { Text(label) }
+    TextButton(
+        state::open,
+        Modifier.fillMaxWidth().testTag("language-choice").focusRequester(focus).focusProperties { canFocus = true }
+    ) { Text(label) }
 }

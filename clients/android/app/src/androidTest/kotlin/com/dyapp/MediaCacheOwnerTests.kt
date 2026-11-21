@@ -3,7 +3,6 @@ package com.dyapp
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -61,11 +60,11 @@ class MediaCacheOwnerTests {
         compose.setContent { MediaCacheTestHost("owner", calls) }
         compose.cacheClick("cache-enabled")
         compose.cacheReady("cache-confirm")
-        val stale = compose.onNodeWithTag("cache-confirm").fetchSemanticsNode().config[SemanticsActions.OnClick]
+        val stale = compose.onNodeWithTag("cache-confirm").fetchSemanticsNode().config[applicationClickKey]
         compose.cacheReady("cache-cancel").performClick()
         compose.cacheClick("cache-enabled")
         compose.cacheReady("cache-confirm")
-        compose.runOnIdle { stale.action?.invoke() }
+        compose.runOnIdle { stale() }
         compose.onNodeWithTag("cache-confirm").assertIsEnabled()
         assertEquals(0, confirmed.get())
         compose.cacheReady("cache-confirm").performClick()
@@ -89,8 +88,8 @@ class MediaCacheOwnerTests {
             compose.setContent { MediaCacheTestHost(owner, if (owner == "first") first else second) }
             compose.cacheClick("cache-enabled")
             compose.cacheReady("cache-confirm")
-            val action = compose.onNodeWithTag("cache-confirm").fetchSemanticsNode().config[SemanticsActions.OnClick]
-            compose.runOnIdle { repeat(2) { action.action?.invoke() } }
+            val action = compose.onNodeWithTag("cache-confirm").fetchSemanticsNode().config[applicationClickKey]
+            compose.runOnIdle { repeat(2) { action() } }
             compose.waitUntil(timeoutMillis = 10_000) { started.isCompleted }
             compose.onNodeWithTag("cache-cancel").assertIsNotEnabled()
             assertEquals(1, writes.get())

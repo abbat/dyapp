@@ -36,7 +36,13 @@ internal fun ComposeTestRule.settingsRoot() {
 internal fun ComposeTestRule.openSettingsPane(vararg tags: String) {
     settingsRoot()
     awaitNode(hasTestTag("nav-settings")).performClick()
-    tags.forEach { awaitNode(hasTestTag("open-" + it)).performScrollTo().performClick() }
+    // Entering the tab can restore its detail route after Activity recreation.
+    awaitNode(hasTestTag("settings-root") or hasTestTag("settings-back"))
+    settingsRoot()
+    tags.forEach {
+        awaitNode(hasTestTag("open-" + it)).performScrollTo().performClick()
+        awaitNode(hasTestTag(it))
+    }
 }
 
 internal fun ComposeTestRule.openProfileEditor() {

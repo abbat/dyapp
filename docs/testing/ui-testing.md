@@ -40,7 +40,11 @@ do not prove native resource selection or recreation.
 older opening or owner, arbitrary option count and single admission of captured repeated selection.
 `LanguagePickerGeometryTests` checks complete long-label text and current unclipped dialog bounds
 at normal/doubled font scale, with Cancel still visible. Initial/return focus readiness uses actual
-window-focus signals. `AppearanceTests` enters the dialog and preserves its existing native
+window-focus signals. The selected option and returning opener explicitly allow focus in touch mode.
+Retirement tests capture the same application closure supplied to the control through
+`applicationClickKey`; Foundation's retained `OnClick` wrapper requires an attached Modifier node
+and cannot represent delivery after disposal. Ordinary interaction tests still click the real control.
+`AppearanceTests` enters the dialog and preserves its existing native
 language/theme persistence and Activity recreation assertions. Actual CI execution remains required.
 
 `ChatListPreviewTests` drives actual conversation rows for all six typed bodies and forwarded states,
@@ -74,6 +78,8 @@ isolation; these cases require actual CI execution rather than binding/lint-only
 `SettingsHubTests` checks the native category root has no collection/removal actions, detail panes
 hide shell bars, collection Back returns to its category, and system Back restores the root.
 Existing settings tests enter explicit categories and await native values/rows after navigation.
+After Activity recreation, the helper enters Settings before returning a restored detail route to
+its category root; tests do not assume that selecting the tab resets its remembered route.
 `SettingsFrameOwnerTests` captures an old collection callback, replaces its identity and invokes
 that callback to prove it cannot navigate the successor. The route-only owner survives the app-lock
 settings overlay without retaining native handles or loaded values.

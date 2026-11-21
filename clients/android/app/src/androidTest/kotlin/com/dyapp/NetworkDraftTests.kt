@@ -80,8 +80,10 @@ internal fun ComposeTestRule.activateLocalNode() {
     setTestNodeIdPowBits(8u)
     // Its profile minimum is lowered too, and search drops hits below this process's value.
     setTestProfilePowBits(4u)
-    onNodeWithTag("nav-network").performClick()
-    onNodeWithTag("network-seeds").performScrollTo().performTextClearance()
+    // Settings details intentionally hide bottom navigation, including after a cancelled removal.
+    settingsRoot()
+    awaitNode(hasTestTag("nav-network")).performClick()
+    awaitNode(hasTestTag("network-seeds")).performScrollTo().performTextClearance()
     onNodeWithTag("network-seeds").performTextInput(LOCAL_NODE)
     checkNetwork(retryUnreachable = true, button = "check-and-connect")
     waitForText("network-check-status", R.string.network_active)
