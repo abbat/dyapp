@@ -471,6 +471,18 @@ ANDROID = [
     "settings-identities-screen",
     "settings-blocked",
     "settings-passed",
+    "devices-loading",
+    "devices-saved",
+    "devices-ready",
+    "devices-verified-saved",
+    "devices-offline",
+    "devices-no-profile",
+    "devices-empty",
+    "devices-error",
+    "devices-confirm",
+    "devices-revoking",
+    "devices-uncertain",
+    "devices-gone",
     "lock-settings",
     "switcher",
     "remove-dialog",
@@ -750,6 +762,8 @@ def audited(_view: WebKit2.WebView, result: Gio.AsyncResult) -> None:
 
 
 def android_fixture(screen: str) -> tuple[str, str] | None:
+    if screen.startswith("devices-"):
+        return "devices", "checkDevicesFixture"
     if screen.startswith("link-review-"):
         return "review", "checkReviewFixture"
     if screen.startswith(("link-receive-", "link-setup-", "receive-network")):

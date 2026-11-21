@@ -251,6 +251,16 @@ The IDs inside each section are the desktop ones; only the frame differs.
   Native Android now implements the download-mode radio group through the common core API;
   retention, exact numeric MiB budget, byte usage, refresh and confirmed cache clear use shared core
   input and current-state edit policy. Native runtime and visual acceptance remain separate.
+- Account also opens the own-device prototype through `settings-devices-open`.
+  Its states cover `devices-loading`, `devices-saved`, `devices-ready`,
+  `devices-verified-saved`, `devices-offline`, `devices-no-profile`, `devices-empty`
+  and `devices-error`. Saved rows remain distinct from a verified reply; an absent network
+  profile or empty list never acknowledges revocation. `devices-confirm`, `devices-revoking`,
+  `devices-uncertain` and `devices-gone` show explicit confirmation, admitted work,
+  unconfirmed partial completion and acknowledged completion. The current device is first and
+  cannot be disconnected here. Retry retains the displayed original target; copied-key and
+  local-copy warnings remain. Search and paging use the existing prototype collection component.
+  Native screen routing/widgets remain planned; the retained native presentation worker exists.
 - Account links to `settings-identities-screen`. Its `settings-identities` list preserves
   `settings-remove`, `settings-remove-2` and `settings-create`. Blocked and passed have
   `blocked-list` and `passed-list` in the `blocked` and `passed` cards:
