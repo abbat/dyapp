@@ -1,8 +1,28 @@
 // Resolve artifacts without compilation, packaging, native code generation or tests.
+def resolveAndroidTool = { project ->
+    def plugin = project.plugins.findPlugin('com.android.application')
+    if (plugin == null) return
+    def loader = plugin.class.classLoader
+    def versionClass = loader.loadClass('com.android.Version')
+    def agpVersion = versionClass.getField('ANDROID_GRADLE_PLUGIN_VERSION').get(null)
+    // AGP's detached AAPT2 configuration is absent from project.configurations.
+    def resource = loader.getResourceAsStream('com/android/build/gradle/internal/res/aapt2_version.properties')
+    if (resource == null) throw new GradleException('AGP AAPT2 version resource is missing')
+    def properties = new Properties()
+    resource.withCloseable { properties.load(it) }
+    def buildNumber = properties.getProperty('aapt2Version')
+    if (!buildNumber) throw new GradleException('AGP AAPT2 build number is missing')
+    def version = "${agpVersion}-${buildNumber}"
+    // The generation workflow runs in the project's Linux Android toolchain.
+    project.configurations.detachedConfiguration(
+        project.dependencies.create("com.android.tools.build:aapt2:${version}:linux")
+    ).resolve()
+}
 gradle.projectsEvaluated {
     gradle.rootProject.tasks.register('resolveVerificationArtifacts') {
         doLast {
             gradle.rootProject.allprojects.each { project ->
+                resolveAndroidTool(project)
                 project.configurations.findAll { it.canBeResolved }.each { configuration ->
                     logger.lifecycle("Resolving ${project.path}:${configuration.name}")
                     // Project outputs are built artifacts, not Maven checksum inputs.

@@ -68,8 +68,14 @@ jobs:
             -v "$PWD/tests/fixtures/gradle-verification:/fixture:ro" \
             -v "$PWD/tools/scripts/gradle-verification.init.gradle:/verification.init.gradle:ro" \
             --workdir /app/clients/android dyapp:verification-tools bash -c \
-            'cp -r /fixture /app/build/verification-fixture &&
-             ./gradlew --offline --no-daemon --project-dir /app/build/verification-fixture --init-script /verification.init.gradle resolveVerificationArtifacts' \
+            'set -euo pipefail
+             cp -r /fixture /app/build/verification-fixture
+             ./gradlew --offline --no-daemon --project-dir /app/build/verification-fixture --init-script /verification.init.gradle resolveVerificationArtifacts
+             if DYAPP_FIXTURE_MISSING_AAPT2=1 ./gradlew --offline --no-daemon --project-dir /app/build/verification-fixture --init-script /verification.init.gradle resolveVerificationArtifacts > /app/build/missing-aapt2.log 2>&1; then
+               echo "Missing AGP tool metadata unexpectedly passed" >&2
+               exit 1
+             fi
+             grep -Fq "AGP AAPT2 version resource is missing" /app/build/missing-aapt2.log' \
             > "$report_dir/fixture.log" 2>&1
       - name: candidate and diagnostics
         if: always()
