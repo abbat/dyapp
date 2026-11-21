@@ -28,6 +28,8 @@ The static controller lives with shared HTML-prototype assets at
 `clients/desktop/prototype/forward-fixture.js`; Android browser tests remain beside Android.
 The static forward opening owns abortable listeners, including collection navigation; retirement
 removes those bindings. A controlled browser check requires navigation before abort and no work after it.
+Desktop outcome-to-source navigation restores the original peer, header/avatar and presence visibility;
+its reopening calibration checks both sent and queued outcomes before exercising retired callbacks.
 Run the on-demand `prototype-review` workflow with `platform=android` for the complete Android
 inventory and layout checks; its default `platform=desktop` retains desktop capture and criteria.
 The artifact records the selected platform, exact source and input hashes. Ordinary APK CI does

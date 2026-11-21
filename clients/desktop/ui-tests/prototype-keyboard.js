@@ -269,10 +269,32 @@ export const checkSwitcherVisibilityGuard = async () => {
   }
 };
 
+const checkForwardSourceRestoration = async () => {
+  controller.showState('chat');
+  await frames();
+  const profile = element('#chat-profile');
+  const presence = element('#chat-presence');
+  const source = [profile.dataset.peerId, profile.textContent, presence.hidden];
+  for (const outcome of ['chat-forward-sent', 'chat-forward-queued']) {
+    controller.showState(outcome);
+    await frames();
+    if (!presence.hidden) throw new Error('Forward destination retained source presence');
+    controller.showState('chat');
+    await frames();
+    if (
+      profile.dataset.peerId !== source[0] ||
+      profile.textContent !== source[1] ||
+      presence.hidden !== source[2]
+    )
+      throw new Error('Forward outcome navigation did not restore the source header');
+  }
+};
+
 export const checkForwardReopening = async () => {
   await beginFixture('forward-opening');
   try {
     const fixture = await import('../prototype/forward-state.js');
+    await checkForwardSourceRestoration();
     controller.showState('chat-forward-dialog');
     await frames();
     const old = fixture.forwardOpening;

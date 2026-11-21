@@ -11,6 +11,7 @@ const source = {
   name: heading.textContent,
   avatarClass: avatar.className,
   avatarText: avatar.textContent,
+  presenceHidden: byId('chat-presence', HTMLElement).hidden,
   home: menu.parentElement,
 };
 export let forwardOpening;
@@ -20,6 +21,7 @@ const restoreSource = () => {
   heading.textContent = source.name;
   avatar.className = source.avatarClass;
   avatar.textContent = source.avatarText;
+  byId('chat-presence', HTMLElement).hidden = source.presenceHidden;
   source.home.append(menu);
   byId('msg-edit', HTMLButtonElement).hidden = false;
   byId('msg-delete', HTMLButtonElement).hidden = false;
