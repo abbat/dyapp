@@ -1,4 +1,5 @@
 import { bindCollectionNavigation } from '../../desktop/ui/settings-collection-view.js';
+import { checkForwardReachability } from './forward-reachability.js';
 
 const check = (value, reason) => {
   if (!value) throw new Error(reason);
@@ -129,7 +130,9 @@ const checkBindingRetirement = () => {
 };
 
 // Runs after the static snapshot; retiring the opening cannot alter the captured state.
-export const checkForwardFixture = () => {
+export const checkForwardFixture = async () => {
   checkBindingRetirement();
-  if (checkState()) checkSelection();
+  const ready = checkState();
+  await checkForwardReachability();
+  if (ready) checkSelection();
 };

@@ -37,7 +37,12 @@ not execute the HTML-prototype capture. After capture, browser checks verify
 state-specific admission, received-menu permissions and destination-only history/avatar. Each ready
 dialog snapshot also checks the actual 32+8 pagination, full-ID search, retained selection across
 pages and rejection of callbacks after a synchronous leave-and-return transition. These checks
-use DOM actions and completion callbacks; they do not stage native messages. Native forwarding
+use DOM actions and completion callbacks; they do not stage native messages. After capture, each
+applicable Forward/Cancel/read-retry control must accept focus, scroll into the current viewport and
+pass center hit testing with its full live bounds inside the viewport. Intersection/scroll/resize
+signals and a fresh per-control failure deadline establish readiness. Controlled hidden, covered and
+fixed-offscreen mutations calibrate rejection, then restore the original node and presentation before
+selection/retirement checks. Synthetic `.click()` alone is not evidence of physical reachability. Native forwarding
 and receiver-history evidence remain separate requirements. The registered-shell JNI forwarding test
 reads the clickable chat header in the unmerged semantics tree, preserving its exact target assertion.
 It observes either target readiness or the existing refusal notice; refusals expand that dialog's
