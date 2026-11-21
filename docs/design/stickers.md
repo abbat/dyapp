@@ -273,15 +273,18 @@ files and preserves original-list cursor offsets. Transition cancellation or sto
 returns no partial page. Desktop only projects its unchanged flattened JSON. Common
 `ChatSession.saved_sticker_page` and `recent_sticker_page` project these core pages under the
 existing session/identity lifetime, with checked 32-bit offsets and safe labels/selectors/RGBA only.
-They perform no networking or state mutation. Mobile picker UI remains planned; full saved-frame
+They perform no networking or state mutation. Android has an owner-bound adapter and presentation
+model that retain exact shown choices, native cursors and local Back history. A committed typed send
+blocks repeat admission; retiring the picker drops late display results without interrupting native
+work or changing the text draft. Its production picker UI remains planned; full saved-frame
 and collection exports are separate APIs.
 
 Common `sticker_requests::Status::controls` supplies the ordered Request/Retry/Fresh/StopWaiting/
 Refresh/Manage display choices, independent of client clocks. Native status includes this typed
 list; actual mutations still recheck full selection, stored generation and authorization. Tauri
 renders the projected controls directly and refuses callbacks from replaced buttons. A failed
-read retains the last known caption and offers only read/management recovery. Android
-widget adoption of this shared projection remains in progress.
+read retains the last known caption and offers only read/management recovery. Android received
+sticker rows consume this projection directly through the shared native status/actions.
 
 Shared `sticker_media` owns current full-key selection, identity/content revalidation,
 authenticated local-source lookup, automatic-download admission and decoded completion/cache
