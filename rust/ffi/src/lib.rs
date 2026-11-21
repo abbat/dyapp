@@ -78,6 +78,8 @@ mod slot_removal;
 pub use slot_removal::{identity_removal_allowed, MobileIdentityRemovalReview};
 mod slot_link;
 pub use slot_link::MobileLinkReceiver;
+mod qr_matrix;
+pub use qr_matrix::MobileQrMatrix;
 mod slot_operation;
 mod slot_stickers;
 pub use slot_operation::MobileIdentityOperation;

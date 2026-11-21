@@ -44,6 +44,7 @@ pub mod profile_editor;
 pub mod profiles;
 mod providers;
 pub mod publish;
+pub mod qr;
 mod replicas;
 pub use replicas::ReplicaSet;
 pub mod scores;

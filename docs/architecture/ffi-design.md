@@ -1182,6 +1182,10 @@ The worker must own the future until actual completion when its UI caller is can
 Profile-view generation and cancellation admission remain separate requirements before installation;
 `MobileLinkReceiver::start` captures the source and generation under the same view guard.
 Its `code` and `expires_at` expose public presentation data; `phase` and `cancel` are non-blocking.
+`qr_matrix` projects that original code through the common core encoder at medium correction level.
+`MobileQrMatrix` contains a positive square side and row-major dark modules without a quiet zone;
+renderers add the standard four-module margin and never re-encode the code. Desktop safety/link
+commands delegate to the same encoder, retaining their existing matrix shape and failure text.
 `poll` runs off the UI thread through the existing network-stack worker and connection adapter,
 retaining the actual call through completion. Kotlin must keep that worker alive after cancelling
 its UI continuation. The common native adapter starts no node host or installation-node operation.

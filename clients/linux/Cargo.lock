@@ -1445,6 +1445,7 @@ dependencies = [
  "libp2p",
  "miniz_oxide 0.9.1",
  "prost",
+ "qrcodegen",
  "rusqlite",
  "serde",
  "serde_json",
