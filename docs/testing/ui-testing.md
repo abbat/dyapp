@@ -8,6 +8,12 @@ caption with read-only recovery; all original quota/fresh/conflict/focus
 assertions remain. Native request-status integration tests also check controls on actual New/Waiting/Downloading/
 Fetch-failed/Saved transitions. These require native CI; formatting alone does not prove execution.
 
+Android `SavedStickerPresentationTests` controls cancel/duplicate removal, uncertain unlink
+readback, retired picker tickets and closing during noncancellable URI reads. Import admission
+occurs only after the owning opening observes read completion; known pages remain visible but
+not editable when readback fails. The native adapter uses registry-owned removal without opening
+a media key. Manager view/picker/navigation wiring is still planned; device execution remains required.
+
 Android `PickedInputTests` checks empty/exact limits, fragmented provider reads, partial-read
 failure propagation and oversized input rejection after at most one extra byte. The OS reader
 uses core-provided budgets; it performs no archive, image or quota validation. Photos reuse this
