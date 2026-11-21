@@ -191,7 +191,12 @@ A cancelled creation owner cannot restore that intent from inventory differences
 ordinary native resolution and the explicit Account receiving entry remain available. Only this
 explicit wizard route requests core-owned unused-wizard cleanup. The retained recovery adapter binds
 snapshot, read-only choice preview, confirmation and resumption to the same native review. Preview
-uses the shared core's frozen selection and grants no write or enrollment authority.
+uses the shared core's frozen selection and grants no write or enrollment authority. The receiving
+worker supports explicit fresh comparison and confirmation against that exact snapshot, freezing each
+submitted choice before IO. A saved draft enables separate enrollment continuation; an indeterminate
+save requires a fresh comparison instead of repeating the write. These operations retain the original
+receipt and native review through actual completion, including UI retirement. Full field-choice
+presentation remains planned.
 Invitation expiry formatting observes
 Compose's current configuration locale, so a language change invalidates the displayed date.
 

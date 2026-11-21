@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import uniffi.dyapp.LinkReviewChoice
+import uniffi.dyapp.LinkReviewSnapshot
 import uniffi.dyapp.MobileLinkPhase
 import uniffi.dyapp.MobileLinkReceipt
 import uniffi.dyapp.MobileSlotSelection
@@ -35,7 +37,7 @@ internal class LinkReceiverSession(private val create: () -> LinkReceiverCalls) 
     val state = current.asStateFlow()
     private var calls: LinkReceiverCalls? = null
     private var started = false
-    private var adoption: LinkEnrollmentReview? = null
+    private val enrollment = LinkEnrollmentWorker(current, monitor, worker)
 
     fun start(): Boolean = synchronized(monitor) {
         if (started || current.value.closed || current.value.retired) return@synchronized false
@@ -81,32 +83,15 @@ internal class LinkReceiverSession(private val create: () -> LinkReceiverCalls) 
         )
     }
 
-    /** Explicit continuation of the original installed receipt, also after the receiving view retired. */
-    fun finishEnrollment(create: (MobileSlotSelection) -> LinkEnrollmentReview): Boolean = synchronized(monitor) {
-        val before = current.value
-        val receipt = before.receipt as? MobileLinkReceipt.Installed ?: return@synchronized false
-        if (before.busy || before.closed || !before.enrollment.canFinish) return@synchronized false
-        current.value = before.copy(busy = true, enrollment = before.enrollment.copy(failure = null))
-        worker.launch { finishEnrollmentWorker(receipt.selection, create) }
-        true
-    }
+    /** Explicit continuation retains the original installed destination across UI retirement. */
+    fun finishEnrollment(create: (MobileSlotSelection) -> LinkEnrollmentReview): Boolean = enrollment.finish(create)
 
-    private fun finishEnrollmentWorker(
-        selection: MobileSlotSelection,
-        create: (MobileSlotSelection) -> LinkEnrollmentReview
-    ) {
-        val outcome = runCatching {
-            val review = adoption ?: create(selection).also { adoption = it }
-            // A normal false return confirms no pending link remains; never create another attempt.
-            review.resume()
-        }
-        synchronized(monitor) {
-            current.value = current.value.copy(
-                enrollment = LinkEnrollmentSnapshot(outcome.isSuccess, adoption?.snapshot, outcome.exceptionOrNull()),
-                busy = false
-            )
-        }
-    }
+    fun prepareEnrollmentReview(create: (MobileSlotSelection) -> LinkEnrollmentReview): Boolean = enrollment.prepare(
+        create
+    )
+
+    fun confirmEnrollmentReview(expected: LinkReviewSnapshot, choices: List<LinkReviewChoice>): Boolean =
+        enrollment.confirm(expected, choices)
 
     /** Observe non-blocking progress without reading a receipt locked by an active writer. */
     fun refreshPhase() = synchronized(monitor) {
@@ -133,15 +118,6 @@ internal class LinkReceiverSession(private val create: () -> LinkReceiverCalls) 
         }
     }
 
-    private fun closeHandles(receiver: LinkReceiverCalls?) {
-        try {
-            adoption?.close()
-            adoption = null
-        } finally {
-            receiver?.close?.invoke()
-        }
-    }
-
     /** Explicit disposition only; refuses an in-flight factory/poll and closes exactly once on IO. */
     suspend fun close(): Boolean = withContext(NonCancellable + Dispatchers.IO) {
         val receiver = synchronized(monitor) {
@@ -150,7 +126,11 @@ internal class LinkReceiverSession(private val create: () -> LinkReceiverCalls) 
             calls.also { calls = null }
         }
         try {
-            closeHandles(receiver)
+            try {
+                enrollment.close()
+            } finally {
+                receiver?.close?.invoke()
+            }
         } finally {
             worker.cancel()
         }

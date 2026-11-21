@@ -24,6 +24,21 @@ class LinkEnrollmentTests {
     }
 
     @Test
+    fun anIndeterminateChoiceSaveRequiresFreshReviewInsteadOfOrdinaryRetry() {
+        val state = LinkEnrollmentSnapshot(
+            offered = true,
+            confirmationAttempted = true,
+            failure = LinkReviewException.Failed("possibly committed")
+        )
+        assertFalse(state.canFinish)
+        assertFalse(state.canConfirm)
+        assertTrue(state.canPrepare)
+        val preparingFailed = state.copy(confirmationAttempted = false)
+        assertFalse(preparingFailed.canFinish)
+        assertTrue(preparingFailed.canPrepare)
+    }
+
+    @Test
     fun explicitBackendRetryUsesTheTypedBoundaryRatherThanDiagnosticWords() {
         assertTrue(LinkEnrollmentSnapshot().canFinish)
         for (detail in listOf("offline", "revoked", "fresh review required")) {
