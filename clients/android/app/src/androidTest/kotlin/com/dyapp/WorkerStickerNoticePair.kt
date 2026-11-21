@@ -22,6 +22,7 @@ internal class WorkerStickerNoticePair(context: Context) : AutoCloseable {
     lateinit var owner: Opened.Ready
         private set
     private lateinit var other: Opened.Ready
+    val senderId: String get() = other.peerId
     private lateinit var pack: ByteArray
 
     fun prepare() {
@@ -68,8 +69,27 @@ internal class WorkerStickerNoticePair(context: Context) : AutoCloseable {
         check(stickers.count { it.sticker.id.contentEquals(id) && it.sticker.author == other.peerId } == 1) {
             "The completed framework pass did not store this sender's exact sticker"
         }
-        check(RustBridge.withChats(owner) { it.savedStickerPacks(null).entries.isEmpty() }) {
-            "Notification receipt unexpectedly saved the sender's pack"
+        RustBridge.withChats(owner) {
+            check(it.savedStickerPacks(null).entries.isEmpty()) { "Notification receipt saved the sender's pack" }
+            check(it.mediaCache().usedBytes == 0uL) { "Notification receipt retained an image original" }
+        }
+    }
+
+    fun closeChat() {
+        RustBridge.withChats(owner) { it.like(other.peerId, false) }
+        check(RustBridge.withChats(owner) { it.state(other.peerId) } != ChatState.OPEN)
+        check(RustBridge.withChats(other) { it.state(owner.peerId) } == ChatState.OPEN) {
+            "The sender must still be able to submit before learning the withdrawal"
+        }
+    }
+
+    fun requireRejected(id: ByteArray) {
+        RustBridge.withChats(owner) { session ->
+            check(session.state(other.peerId) != ChatState.OPEN) { "The receive pass reopened the closed chat" }
+            val stickers = session.chatItems(other.peerId).filterIsInstance<uniffi.dyapp.ChatItem.Sticker>()
+            check(stickers.none { it.sticker.id.contentEquals(id) }) { "A closed chat admitted a sticker" }
+            check(session.savedStickerPacks(null).entries.isEmpty()) { "A closed chat saved a pack" }
+            check(session.mediaCache().usedBytes == 0uL) { "A closed chat retained image media" }
         }
     }
 

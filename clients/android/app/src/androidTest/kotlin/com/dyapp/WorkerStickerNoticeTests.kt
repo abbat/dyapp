@@ -23,12 +23,28 @@ class WorkerStickerNoticeTests {
         WorkerStickerNoticePair(context).use { pair ->
             pair.prepare()
             pair.retainPrivateText()
-            requirePrivateOsPost(pair)
+            requirePrivateOsPost(pair, ChatNotice.TEXT)
+            requirePrivateOsPost(pair, ChatNotice.NAME)
+            requirePrivateOsPost(pair, ChatNotice.FIXED)
             pair.setMuted(true)
             requireQuietReceipt(pair, pair.sendSticker())
             pair.setMuted(false)
             RustBridge.withChats(pair.owner) { it.setNotice(ChatNotice.OFF) }
             requireQuietReceipt(pair, pair.sendSticker())
+            requireClosedChatRefusal(pair)
+        }
+    }
+
+    private fun requireClosedChatRefusal(pair: WorkerStickerNoticePair) {
+        pair.closeChat()
+        RustBridge.withChats(pair.owner) { it.setNotice(ChatNotice.TEXT) }
+        val sent = pair.sendSticker()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        ScheduledMailNotice(context).use { job ->
+            job.schedule()
+            job.awaitCompletion()
+            assertEquals(0, job.attempts.size)
+            pair.requireRejected(sent)
         }
     }
 
@@ -42,21 +58,22 @@ class WorkerStickerNoticeTests {
         }
     }
 
-    private fun requirePrivateOsPost(pair: WorkerStickerNoticePair) {
+    private fun requirePrivateOsPost(pair: WorkerStickerNoticePair, mode: ChatNotice) {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val notifications = context.getSystemService(NotificationManager::class.java)
-        val body = "\uD83D\uDE3A " + context.getString(R.string.notice_sticker)
+        RustBridge.withChats(pair.owner) { it.setNotice(mode) }
+        val expected = expectedNotice(pair.senderId, mode)
+        val body = expected?.text
         val sent = pair.sendSticker()
         val job = ScheduledMailNotice(context)
         try {
             job.use {
                 val actual = it.awaitOsPost(body)
-                it.awaitCompletion()
                 val attempt = it.attempts.single()
                 assertEquals(pair.owner.slot.id, attempt.slot)
                 assertEquals(pair.owner.peerId, attempt.peer)
                 assertEquals(body, attempt.notice.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString())
-                requirePrivatePayload(actual, body)
+                requirePrivatePayload(actual, expected)
                 assertTrue(notifications.activeNotifications.any { posted -> posted.id == MAIL_NOTICE_ID })
                 pair.requireReceived(sent)
             }
@@ -67,9 +84,25 @@ class WorkerStickerNoticeTests {
         }
     }
 
-    private fun requirePrivatePayload(actual: Notification, body: String) {
+    private fun expectedNotice(sender: String, mode: ChatNotice): NoticeLines? {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals(body, actual.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString())
+        val fixed = context.getString(R.string.notice_new_message)
+        return when (mode) {
+            ChatNotice.TEXT -> NoticeLines(
+                shortPeerId(sender),
+                "\uD83D\uDE3A " + context.getString(R.string.notice_sticker)
+            )
+            ChatNotice.NAME -> NoticeLines(shortPeerId(sender), fixed)
+            ChatNotice.FIXED -> null
+            ChatNotice.OFF -> error("Off has no positive OS-post expectation")
+        }
+    }
+
+    private fun requirePrivatePayload(actual: Notification, expected: NoticeLines?) {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val title = expected?.sender ?: context.getString(R.string.notice_new_message)
+        assertEquals(title, actual.extras.getString(Notification.EXTRA_TITLE))
+        assertEquals(expected?.text, actual.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString())
         assertEquals(Notification.VISIBILITY_PRIVATE, actual.visibility)
         val public = checkNotNull(actual.publicVersion)
         assertEquals(context.getString(R.string.app_name), public.extras.getString(Notification.EXTRA_TITLE))

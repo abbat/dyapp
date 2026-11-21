@@ -9,11 +9,17 @@ an expired deadline never proves that no notification was attempted. Actual OS-p
 acceptance remains separate from these observer hooks.
 `WorkerStickerNoticeTests` uses owned registry slots and an independent native sender on the suite's
 real node. It registers an accessibility notification-event listener before scheduling the debug
-service, checks the actual private/public OS payload and original slot/peer, then verifies exact
-sticker receipt without saving a pack. Muted and notification-off cases require native job completion,
-zero observed post attempts and the exact received sticker; an absence timeout cannot pass them.
+service, checks the actual private/public OS payload in Text/Name/Fixed modes and original slot/peer,
+then verifies exact sticker receipt without saving a pack or retaining an image original.
+Muted and notification-off cases require native job completion, zero observed post attempts and
+the exact received sticker; an absence timeout cannot pass them. After the recipient withdraws its
+like, the still-unaware sender submits a sticker accepted by the node; the completed worker must
+keep the chat non-open, reject that exact sticker and attempt no notification or media retention.
+Unlike an eligible text request (which may produce a fixed notice), non-open sticker bodies are
+acked and dropped by the core; the core receive tests separately assert inbox consumption.
 The fixture restores the previous identity inventory. It requires CI/device execution, notification
-permission and no live Activities; periodic/Doze scheduling and non-open-chat coverage remain separate.
+permission and no live Activities; periodic/Doze scheduling remains separate. Cache/no-save checks
+prove no persistent media side effects; they do not measure network requests.
 
 Shared own-message preflight tests retain desktop full-key/live-text/delete-only sticker cases
 and real Store coverage for colliding authors, media kinds, blocking and cleared history. The

@@ -44,14 +44,18 @@ internal class ScheduledMailNotice(private val context: Context) : MailNoticeJob
     }
 
     /** Register the OS event listener before triggering the job, so fast posts cannot be missed. */
-    fun awaitOsPost(body: String): Notification {
+    fun awaitOsPost(body: String?): Notification {
         val event = InstrumentationRegistry.getInstrumentation().uiAutomation.executeAndWaitForEvent(
-            { schedule() },
             {
-                val notice = it.parcelableData as? Notification
+                schedule()
+                // Events are collected during the command; the OS-event deadline starts after it returns.
+                awaitCompletion()
+            },
+            filter@{
+                val notice = it.parcelableData as? Notification ?: return@filter false
                 it.eventType == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED &&
                     it.packageName?.toString() == context.packageName &&
-                    notice?.extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString() == body
+                    notice.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() == body
             },
             TimeUnit.SECONDS.toMillis(NETWORK_STEP_SECONDS)
         )
