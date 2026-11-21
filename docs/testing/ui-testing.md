@@ -582,6 +582,14 @@ Material text field also merges its title and supporting hint into `Text`; treat
 list as the editable value rejects correct input. Keep separate label/hint geometry checks and
 save/reopen/validation assertions.
 
+`ChatMessageSelectionTests` checks different-author collisions, exact lookup in either row order,
+regenerated binding records and refusal of old incomplete selectors. `ChatSelectionRestorationTests`
+restores actual saveable form state within the same owner opening and requires both edit/delete keys
+to select the same full native author/group/ID. The existing missing-edit dispatch regression retains
+its empty-history case and also tests the legacy key against a colliding two-author history: no task,
+sending/status change or draft loss is permitted. Activity replacement with a new owner remains a
+separate lifecycle contract.
+
 `NativeForwardUiTests` prepares two conversations through the actual registered application owner and
 the suite's external node/TestPeer clients. Activity recreation reloads durable rows without a guessed
 mail-poll delay; the real shell then exercises received-text Forward, Cancel, exact full-ID selection,

@@ -272,7 +272,10 @@ The IDs inside each section are the desktop ones; only the frame differs.
 The native chat form belongs to the actual opened identity object and peer. Changing the peer
 or reopening the same slot/Peer ID creates fresh draft, edit, confirmation and pending presentation
 state; it cannot inherit a different conversation's Clear confirmation. Native operations already
-admitted retain their existing lease lifetime.
+admitted retain their existing lease lifetime. Saved edit/delete selectors include the complete native
+author, group and message ID; different authors cannot alias when group/ID coincide. Old incomplete
+saved selectors refuse lookup and an unresolved edit cannot become a new send. This is transient UI
+selection formatting; stored messages, wire bytes and native authorization remain unchanged.
 
 Native Android Clear reads its owner/peer target through the common native admission check before
 it enables confirmation. The scrollable warning shows the contact label and complete copyable Peer ID
