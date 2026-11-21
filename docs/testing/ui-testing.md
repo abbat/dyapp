@@ -14,7 +14,10 @@ are unique per opening: a callback captured before Cancel cannot confirm a reope
 same entry. Import admission
 occurs only after the owning opening observes read completion; known pages remain visible but
 not editable when readback fails. The native adapter uses registry-owned removal without opening
-a media key. Manager view/picker/navigation wiring is still planned; device execution remains required.
+a media key. The reusable manager dialog shows bounded pages and a selectable full-ID removal
+confirmation. `SavedStickerManagerViewTests` checks same-prefix IDs, Cancel/reopen retirement,
+exact core cursors and retired page callbacks via semantic completion signals. Production picker
+and navigation wiring remains planned; device execution remains required.
 
 Android `PickedInputTests` checks empty/exact limits, fragmented provider reads, partial-read
 failure propagation and oversized input rejection after at most one extra byte. The OS reader
