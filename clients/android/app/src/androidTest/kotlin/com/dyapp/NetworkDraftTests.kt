@@ -35,9 +35,10 @@ private fun text(id: Int) = InstrumentationRegistry.getInstrumentation().targetC
 internal fun ComposeTestRule.texts(tag: String) = onAllNodes(hasTestTag(tag)).fetchSemanticsNodes()
     .map { it.config.getOrNull(SemanticsProperties.Text)?.joinToString() }
 
-/** The text of each node inside the [tag] container. */
-internal fun ComposeTestRule.textsIn(tag: String) = onAllNodes(hasAnyAncestor(hasTestTag(tag))).fetchSemanticsNodes()
-    .map { it.config.getOrNull(SemanticsProperties.Text)?.joinToString() }
+/** The text inside [tag]; clickable containers require their unmerged descendants. */
+internal fun ComposeTestRule.textsIn(tag: String, unmerged: Boolean = false) =
+    onAllNodes(hasAnyAncestor(hasTestTag(tag)), useUnmergedTree = unmerged).fetchSemanticsNodes()
+        .map { it.config.getOrNull(SemanticsProperties.Text)?.joinToString() }
 
 // A timeout names what the tag and the network check rows showed instead.
 internal fun ComposeTestRule.waitForText(tag: String, id: Int) = runCatching {

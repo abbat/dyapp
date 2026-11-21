@@ -93,10 +93,31 @@ class NativeForwardUiTests {
         compose.onNodeWithTag("chat-forward-confirm")
             .assertIsEnabled()
             .performSemanticsAction(SemanticsActions.OnClick)
-        val heading = hasText(shortPeerId(target.peerId)) and hasAnyAncestor(hasTestTag("chat-profile"))
-        compose.awaitNode(heading)
+        awaitDestination(target)
         compose.awaitOpenChatSnapshot()
     }
+
+    private fun awaitDestination(target: TestPeer) {
+        val heading = hasText(shortPeerId(target.peerId)) and hasAnyAncestor(hasTestTag("chat-profile"))
+        try {
+            compose.waitUntil(60_000) {
+                compose.onAllNodes(heading, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() ||
+                    compose.shown(hasTestTag("forward-failed"))
+            }
+        } catch (failure: androidx.compose.ui.test.ComposeTimeoutException) {
+            throw AssertionError("Forward did not complete: " + forwardState(), failure)
+        }
+        if (compose.shown(hasTestTag("forward-failed"))) {
+            val details = hasText(compose.activity.getString(R.string.details)) and
+                hasAnyAncestor(hasTestTag("chat-forward-dialog"))
+            compose.onNode(details).performScrollTo().performClick()
+            throw AssertionError("Native forward refused: " + forwardState())
+        }
+        compose.onNode(heading, useUnmergedTree = true).assertExists()
+    }
+
+    private fun forwardState() =
+        "dialog=${compose.textsIn("chat-forward-dialog")}; header=${compose.textsIn("chat-profile", unmerged = true)}"
 
     private fun verifyDestination(conversations: NativeForwardConversations, target: TestPeer) {
         val forwarded = compose.activity.getString(R.string.chats_forwarded, FORWARD_SOURCE_TEXT)

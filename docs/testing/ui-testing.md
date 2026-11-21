@@ -38,7 +38,11 @@ state-specific admission, received-menu permissions and destination-only history
 dialog snapshot also checks the actual 32+8 pagination, full-ID search, retained selection across
 pages and rejection of callbacks after a synchronous leave-and-return transition. These checks
 use DOM actions and completion callbacks; they do not stage native messages. Native forwarding
-and receiver-history evidence remain separate requirements. The production-dialog Compose test
+and receiver-history evidence remain separate requirements. The registered-shell JNI forwarding test
+reads the clickable chat header in the unmerged semantics tree, preserving its exact target assertion.
+It observes either target readiness or the existing refusal notice; refusals expand that dialog's
+native details immediately, and noncompletion retains scoped header/dialog text. The original
+transition deadline and actual receiver checks remain. The production-dialog Compose test
 also requires a controlled precommit send failure to retain its selected destination and draft,
 then allows exactly one additional forwarding-call attempt after an explicit retry.
 
