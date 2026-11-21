@@ -1,6 +1,8 @@
 use super::*;
 use crate::store::messages::{CurrentMessage, MessageKey};
 
+mod target_choices;
+
 fn message() -> ChatMessage {
     ChatMessage {
         key: MessageKey {
@@ -85,6 +87,7 @@ pub(crate) fn open_chat(store: &mut Store, peer: &str) {
 
 struct Fixture {
     store: Store,
+    db: rusqlite::Connection,
     source: String,
     target: String,
     key: MessageKey,
@@ -92,7 +95,9 @@ struct Fixture {
 impl Fixture {
     fn new() -> Self {
         let owner = dyapp_identity::Identity::try_generate().unwrap();
-        let mut store = Store::open(&crate::store::tests::temp_db_path(), &owner).unwrap();
+        let path = crate::store::tests::temp_db_path();
+        let mut store = Store::open(&path, &owner).unwrap();
+        let db = rusqlite::Connection::open(path).unwrap();
         let source = "ab".repeat(32);
         let target = "cd".repeat(32);
         crate::store::tests::catalog_group(&mut store, &[1], &source);
@@ -106,6 +111,7 @@ impl Fixture {
         open_chat(&mut store, &target);
         Self {
             store,
+            db,
             source,
             target,
             key,

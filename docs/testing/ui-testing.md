@@ -582,6 +582,12 @@ Material text field also merges its title and supporting hint into `Text`; treat
 list as the editable value rejects correct input. Keep separate label/hint geometry checks and
 save/reopen/validation assertions.
 
+Common forwarding target tests use real SQLite state to cover request/open/closed targets, exact
+source selectors with no available destination, blocked/own/unknown sources and local Clear. An
+unreadable conversation table must fail instead of becoming an empty picker. Native forwarding tests
+compare sealed-device/outbox snapshots around the read and recheck a held choice after blocking;
+these fixtures are local-store admission coverage, not network delivery or Android picker proof.
+
 `ChatConfirmOwnershipTests` invokes the actual installed Block/Delete confirm and cancel callbacks:
 cancel/reopen, a replacement message, an equal selection under a new form, and busy admission before
 recomposition all refuse stale authority. The current callback still acts once and observes the selected
