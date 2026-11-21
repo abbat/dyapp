@@ -620,6 +620,10 @@ discovery and run nothing; regression tests must cover discovery errors and empt
   versions and identity mismatches. Revisit compatibility when a client is released.
 - Commit and push only when the user has authorised it (for the session or in their
   instructions). End commits with the Co-Authored-By line for your model (see AGENTS.md).
+- Before another delivery push, observe the current branch CI within the agreed polling cadence.
+  Let required active jobs finish and harvest their results first; retain local commits while waiting.
+  The main CI workflow cancels an older push run on the same ref. Replace that run only when the
+  maintainer explicitly asks for replacement; a new commit does not make pending acceptance useless.
 - Before pushing or merging, run the local [A6 delivery gate](quorum.md#a6-delivery-gate)
   on the exact delivery range. Check-only tightening needs an explicit classification;
   other triggers need a matching closed quorum. A direct push to `main` may print
