@@ -11,7 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit
 /** Receiving is explicit; an old operation remains visible until its exact outcome is disposed. */
 @Composable
 internal fun LinkReceiveScreen(
-    source: Opened.Ready,
+    source: LinkReceiveSource,
     navigation: LinkReceiveNavigation,
     store: LinkReceiverStore = pendingLinkReceiver,
     classify: suspend (String) -> MobileLinkCodeStatus? = ::readLinkCodeStatus
@@ -36,7 +36,7 @@ internal fun LinkReceiveScreen(
     val actions = rememberLinkReceiveActions(source, opening, navigation, store)
     val active = opening
     if (active == null) {
-        LinkReceiveIntro(actions)
+        LinkReceiveIntro(actions, source.wizard)
         return
     }
     key(active) {
@@ -56,8 +56,8 @@ internal fun LinkReceiveScreen(
 }
 
 @Composable
-private fun LinkReceiveIntro(actions: LinkReceiveActions) {
-    Text(stringResource(R.string.link_receive_intro))
+private fun LinkReceiveIntro(actions: LinkReceiveActions, wizard: Boolean) {
+    Text(stringResource(if (wizard) R.string.link_receive_wizard_intro else R.string.link_receive_intro))
     Button(actions.start, Modifier.fillMaxWidth().testTag("link-receive-start").applicationClick(actions.start)) {
         Text(stringResource(R.string.link_receive_start))
     }
@@ -68,7 +68,7 @@ private fun LinkReceiveInvitation(snapshot: LinkReceiverSnapshot, status: Mobile
     val display = snapshot.display ?: return
     val waiting = snapshot.phase in setOf(MobileLinkPhase.WAITING, MobileLinkPhase.RECEIVING)
     if (status != MobileLinkCodeStatus.VALID || !waiting) return
-    val locale = LocalContext.current.resources.configuration.locales[0]
+    val locale = LocalConfiguration.current.locales[0]
     val expiry = remember(display.expiresAt, locale) {
         DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, locale)
             .format(Date(TimeUnit.SECONDS.toMillis(display.expiresAt.toLong())))

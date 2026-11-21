@@ -1,5 +1,6 @@
 package com.dyapp
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,7 +28,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 
 private const val STATUS_TAG = "network-status"
@@ -39,17 +39,23 @@ private const val CANCEL_TAG = "cancel-check"
  * steps; the section does both with one action, and a failed check leaves the active network alone.
  */
 @Composable
-internal fun NetworkDraftScreen(opened: Opened.Ready, onBack: (() -> Unit)?) {
+internal fun NetworkDraftScreen(opened: Opened.Ready, onBack: (() -> Unit)?) =
+    NetworkDraftContent(opened, onBack?.let { NetworkWizardNavigation(it) })
+
+@Composable
+internal fun NetworkDraftContent(opened: Opened.Ready, navigation: NetworkWizardNavigation?) {
     val state = remember(opened) { NetworkDraftState() }
     val scope = rememberCoroutineScope()
     LaunchedEffect(opened) { loadDraft(opened, state) }
-    val actions = draftActions(opened, state, scope, activateOnConnect = onBack == null)
+    val actions = draftActions(opened, state, scope, activateOnConnect = navigation == null)
     val permitted = permittedDraftActions(state, actions)
-    if (onBack != null) {
+    val cancel = navigation?.cancel
+    if (cancel != null) BackHandler { if (state.checkStatus != R.string.network_activating) cancel() }
+    if (navigation != null) {
         WizardNetworkPage(
             opened,
             state,
-            onBack,
+            navigation,
             permitted
         )
     } else {
@@ -79,15 +85,11 @@ private fun permittedDraftActions(state: NetworkDraftState, actions: DraftAction
 private fun WizardNetworkPage(
     opened: Opened.Ready,
     state: NetworkDraftState,
-    onBack: () -> Unit,
+    navigation: NetworkWizardNavigation,
     actions: DraftActions,
 ) {
-    Page(actions = { WizardNetworkActions(state, onBack, actions) }) {
-        Caption(stringResource(R.string.wizard_step2))
-        PageTitle(R.string.wizard_network_title)
-        Caption(stringResource(R.string.storage_peer_id))
-        Text(opened.peerId, Modifier.testTag("peer-id"), fontFamily = FontFamily.Monospace)
-        CopyButton(opened.peerId, "copy-peer-id")
+    Page(actions = { WizardNetworkActions(state, navigation, actions) }) {
+        WizardNetworkHeading(opened, navigation)
         NetworkDraftFields(state, wizard = true)
         Caption(stringResource(networkStatusText(state.status)), Modifier.testTag(STATUS_TAG))
         NetworkCheckResults(state.checkStatus, state.checkRows)
@@ -163,7 +165,7 @@ private fun SectionCheckStatus(state: NetworkDraftState) {
 
 // One primary action at a time: check, activate what the check connected, then leave.
 @Composable
-private fun WizardNetworkActions(state: NetworkDraftState, onBack: () -> Unit, actions: DraftActions) {
+private fun WizardNetworkActions(state: NetworkDraftState, navigation: NetworkWizardNavigation, actions: DraftActions) {
     val checked = state.checkStatus
     val wide = Modifier.fillMaxWidth()
     when (checked) {
@@ -173,7 +175,8 @@ private fun WizardNetworkActions(state: NetworkDraftState, onBack: () -> Unit, a
             }
         }
         R.string.network_active -> {
-            Button(onClick = onBack, wide.testTag("network-done")) {
+            val done = { if (state.checkStatus == R.string.network_active) navigation.done() }
+            Button(onClick = done, wide.testTag("network-done").applicationClick(done)) {
                 Text(stringResource(R.string.network_continue))
             }
         }
@@ -185,9 +188,7 @@ private fun WizardNetworkActions(state: NetworkDraftState, onBack: () -> Unit, a
         TextButton(onClick = actions.save, wide.testTag("network-save"), state.editable) {
             Text(stringResource(R.string.network_save))
         }
-        TextButton(onClick = onBack, wide.testTag("skip-network"), checked != R.string.network_activating) {
-            Text(stringResource(R.string.wizard_skip))
-        }
+        WizardNetworkExit(state, navigation)
     }
 }
 

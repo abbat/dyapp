@@ -69,7 +69,7 @@ internal class LinkReceiveFixture(private val compose: ComposeContentTestRule) {
         SettingsFrame(route) {
             if (it == SettingsPane.RECEIVE) {
                 LinkReceiveScreen(
-                    source,
+                    LinkReceiveSource(source),
                     LinkReceiveNavigation(
                         { route.value = SettingsPane.ACCOUNT },
                         { returned++ },

@@ -184,6 +184,14 @@ registry-owned `ChatSession`, whose identity and chat locks last through actual 
 It uses only the slot's existing wrapping credential. Kotlin does not generate or write
 `device.key` or `chat-state.key`, and initialized chats never regenerate a missing key.
 
+First-run receiving records navigation intent only from the actual creation result delivered to its
+current setup opening. Saved source identifiers restore navigation, not native handles or cleanup
+authority. Network activation is reread before showing code creation; creating a code remains explicit.
+A cancelled creation owner cannot restore that intent from inventory differences or repeat creation;
+ordinary native resolution and the explicit Account receiving entry remain available. Only this
+explicit wizard route requests core-owned unused-wizard cleanup. Invitation expiry formatting observes
+Compose's current configuration locale, so a language change invalidates the displayed date.
+
 Root identity actions run on IO. The existing route shows loading until completion, rejects
 duplicate actions and never publishes a cancelled screen owner's late result. Its completed revision
 advances after each actual result, even when the visible screen stays the same; test semantics

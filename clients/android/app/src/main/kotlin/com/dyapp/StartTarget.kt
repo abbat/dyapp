@@ -29,11 +29,16 @@ internal enum class StartTarget { REMOVE, PROFILE, SEARCH, CHATS, NETWORK, SETTI
 
 /** First-run step 1: explains the key and creates nothing until [onCreate]. */
 @Composable
-internal fun WizardIdentity(onCreate: () -> Unit) {
+internal fun WizardIdentity(onReceive: (() -> Unit)? = null, onCreate: () -> Unit) {
     Page(
         actions = {
-            Button(onClick = onCreate, Modifier.fillMaxWidth().testTag("create-identity")) {
+            Button(onClick = onCreate, Modifier.fillMaxWidth().testTag("create-identity").applicationClick(onCreate)) {
                 Text(stringResource(R.string.wizard_create))
+            }
+            onReceive?.let { receive ->
+                OutlinedButton(receive, Modifier.fillMaxWidth().testTag("receive-identity").applicationClick(receive)) {
+                    Text(stringResource(R.string.wizard_receive))
+                }
             }
         },
     ) {

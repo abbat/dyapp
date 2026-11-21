@@ -321,9 +321,13 @@ Original typed failure boundaries and reserved destination remain available unti
 returning to the app rereads current selection rather than selecting a stale receipt. Finish device setup
 uses the original destination and retained native adoption review for enrollment/private synchronization,
 without publishing edits. Typed recovery/authorization refusals require their own review or owner approval;
-only backend failures offer ordinary explicit retry. First-run receiving entry, field/private-state recovery
-screens, owner approval and device-list screens remain planned; native runtime and screen review
-are still required. Code lifetime, installation receipts and authorization stay in shared Rust.
+only backend failures offer ordinary explicit retry. First run also offers Receive my existing profile:
+only an explicit choice creates its wizard identity, then the shared network form checks and activates
+before the QR step. Cancel preserves that identity and saved network draft. Navigation restoration
+stores only the source identifiers and requires another explicit code creation; core checks whether
+the wizard may be cleaned after success. Field/private-state recovery screens, owner approval and
+device-list screens remain planned; native runtime and screen review are still required. Code lifetime,
+installation receipts and authorization stay in shared Rust.
 
 Android screens may be reviewed and implemented individually against the frozen criteria and the
 corresponding desktop behavior. The complete prototype review and per-client impact review remain

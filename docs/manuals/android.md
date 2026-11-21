@@ -1,5 +1,12 @@
 # Android client
 
+On first run, **Receive my existing profile** explicitly creates this phone’s initial identity,
+then opens network setup. Check and activate the same network as the other device; this step cannot
+be skipped for receiving. Cancel keeps the created identity and any saved network draft.
+After network activation the receiving screen waits for **Create link code**. Restoring the page
+does not create another identity or code. After successful linking, the core removes only an unused
+wizard identity; other saved identities stay.
+
 **Settings → Account → Receive a profile** starts a code only after **Create link code**.
 Configure the network first and approve the code on the device that already has the profile.
 The receiving screen retains its original attempt across leaving the page or activity recreation.
@@ -9,8 +16,8 @@ closing the result. **Return to app** rereads the current selection. Receiving a
 device enrollment or private-data synchronization: **Finish device setup** explicitly completes the
 original pending link through the core without publishing edits. Review, revocation and uncertain
 authorization are distinct refusals; they do not offer ordinary retry. Backend failures retain the
-original review for explicit retry. First-run receiving entry and full recovery-screen integration
-remain planned and runtime/visual acceptance is still required.
+original review for explicit retry. Full recovery-screen integration remains planned and
+runtime/visual acceptance is still required.
 
 **Settings → Account → Identities** and **Settings → Privacy → Blocked / Passed** lists have
 local search, entry counts, page navigation and **Refresh list**. Search checks complete local

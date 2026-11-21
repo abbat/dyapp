@@ -66,7 +66,7 @@ private fun SettingsCollection(
     when (route.value) {
         SettingsPane.IDENTITIES -> IdentityCollection(slots, active, act)
         SettingsPane.RECEIVE -> LinkReceiveScreen(
-            active,
+            LinkReceiveSource(active),
             LinkReceiveNavigation(
                 { route.value = SettingsPane.ACCOUNT },
                 {

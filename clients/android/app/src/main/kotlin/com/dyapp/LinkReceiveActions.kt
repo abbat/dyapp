@@ -21,14 +21,14 @@ internal class LinkReceiveActions(
 internal class LinkReceiveNavigation(val back: () -> Unit, val openApp: () -> Unit, val review: () -> Unit)
 
 private class LinkReceiveOwner(
-    private val source: Opened.Ready,
+    private val source: LinkReceiveSource,
     private val opening: LinkReceiverOpening?,
     private val store: LinkReceiverStore
 ) {
     private var present = true
     private val current get() = present && store.state.value === opening
 
-    fun start() { if (current && opening == null) store.begin(source, false) }
+    fun start() { if (current && opening == null) store.begin(source.opened, source.wizard) }
     fun cancel() { if (current) opening?.session?.retire() }
     fun review(complete: () -> Unit) {
         if (current && opening?.session?.state?.value?.busy != true) complete()
@@ -53,7 +53,7 @@ private class LinkReceiveOwner(
 
 @Composable
 internal fun rememberLinkReceiveActions(
-    source: Opened.Ready,
+    source: LinkReceiveSource,
     opening: LinkReceiverOpening?,
     navigation: LinkReceiveNavigation,
     store: LinkReceiverStore = pendingLinkReceiver

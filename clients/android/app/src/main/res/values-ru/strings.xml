@@ -7,6 +7,10 @@
     <string name="nav_network">Сеть</string>
     <string name="nav_settings">Настройки</string>
     <string name="link_receive_title">Получить профиль</string>
+    <string name="link_receive_wizard_intro">Покажите код устройству с вашим профилем и подтвердите привязку на нём. Другие сохранённые профили останутся на этом телефоне.</string>
+    <string name="link_receive_network_title">Подключитесь для получения профиля</string>
+    <string name="link_receive_network_intro">Используйте ту же сеть, что и на другом устройстве. Проверьте и активируйте подключение перед созданием кода привязки.</string>
+    <string name="wizard_receive">Получить существующий профиль</string>
     <string name="link_setup_finish">Завершить настройку устройства</string>
     <string name="link_setup_running">Завершение регистрации устройства и синхронизации личных данных…</string>
     <string name="link_setup_complete">Ожидающая настройка устройства завершена.</string>
