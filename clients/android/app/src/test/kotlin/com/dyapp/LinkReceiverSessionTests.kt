@@ -43,7 +43,10 @@ private class GatedLinkReceiver {
             phase.set(MobileLinkPhase.FAILED)
             phase.get()
         },
-        { if (phase.get() == MobileLinkPhase.FAILED) receipt else null },
+        {
+            check(phase.get() != MobileLinkPhase.INSTALLING) { "Receipt read during blocked installation" }
+            if (phase.get() == MobileLinkPhase.FAILED) receipt else null
+        },
         { closes.incrementAndGet() }
     )
 }
@@ -89,6 +92,8 @@ class LinkReceiverSessionTests {
         assertTrue(owner.poll())
         try {
             withTimeout(5_000) { fixture.entered.await() }
+            owner.refreshPhase()
+            assertEquals(MobileLinkPhase.INSTALLING, owner.state.value.phase)
             assertFalse(owner.poll())
             assertFalse(owner.close())
             owner.retire()

@@ -1,5 +1,14 @@
 # Android client
 
+**Settings → Account → Receive a profile** starts a code only after **Create link code**.
+Configure the network first and approve the code on the device that already has the profile.
+The receiving screen retains its original attempt across leaving the page or activity recreation.
+**Stop waiting** cannot undo an installation already admitted by the core. A failed or unknown
+installation shows its original boundary and, when known, destination; review stored profiles before
+closing the result. **Return to app** rereads the current selection. Receiving alone does not confirm
+device enrollment or private-data synchronization. First-run receiving entry and enrollment/recovery
+screen integration remain planned and runtime/visual acceptance is still required.
+
 **Settings → Account → Identities** and **Settings → Privacy → Blocked / Passed** lists have
 local search, entry counts, page navigation and **Refresh list**. Search checks complete local
 identifiers and identity Peer IDs without downloading profiles. A page

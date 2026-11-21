@@ -1,5 +1,11 @@
 # UI Testing: Practical Guide
 
+Android receiving-screen checks use the real Settings frame, controls and retained-operation store
+with controlled native completion. They preserve the exact reserved destination, require explicit
+creation and disposition, and invoke captured application callbacks after disposal/equal reopening.
+These checks establish presentation ownership; actual owner approval, enrollment, QR and runtime
+acceptance require the separate real JNI journey and screen review.
+
 Android stale-callback checks capture the installed `applicationClickKey` action, rather than a
 Compose `SemanticsActions.OnClick` wrapper: modifier nodes may reuse that wrapper for a new opening
 or require attachment before invoking it. Profile sharing exposes the same application action used

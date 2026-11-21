@@ -78,6 +78,18 @@ internal class LinkReceiverSession(private val create: () -> LinkReceiverCalls) 
         )
     }
 
+    /** Observe non-blocking progress without reading a receipt locked by an active writer. */
+    fun refreshPhase() = synchronized(monitor) {
+        if (current.value.closed) return@synchronized
+        calls?.let { receiver ->
+            val phase = runCatching { receiver.phase() }
+            current.value = current.value.copy(
+                phase = phase.getOrNull() ?: current.value.phase,
+                error = phase.exceptionOrNull() ?: current.value.error
+            )
+        }
+    }
+
     /** Stop further UI polling; cancellation still reports core's actual admission boundary. */
     fun retire() = synchronized(monitor) {
         if (current.value.closed || current.value.retired) return@synchronized

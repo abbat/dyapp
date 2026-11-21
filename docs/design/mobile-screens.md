@@ -314,9 +314,14 @@ use the shared 32-row pager and full-ID search; they authorize no native operati
 fixtures replace the source history with the destination's forwarded text and do not imply Read.
 Rendered prototype review and actual JNI/UI runtime acceptance remain required before release.
 
-The receiving-phone native API supplies the public invitation QR matrix from the same core encoder
-as desktop. Android rendering and the receiving/owner-approval/device-list screens remain planned;
-code lifetime, installation receipts and authorization stay in shared Rust.
+Android Account settings includes Receive a profile for a configured phone. Creation is explicit;
+the screen displays the original core QR, code and localized expiry, polls the same retained receiver,
+and uses non-blocking native phases during writes. Cancellation cannot claim rollback after admission.
+Original typed failure boundaries and reserved destination remain available until explicit disposition;
+returning to the app rereads current selection rather than selecting a stale receipt. Enrollment and
+private-data synchronization remain explicitly pending. First-run receiving entry, enrollment/review
+integration, owner approval and device-list screens remain planned; native runtime and screen review
+are still required. Code lifetime, installation receipts and authorization stay in shared Rust.
 
 Android screens may be reviewed and implemented individually against the frozen criteria and the
 corresponding desktop behavior. The complete prototype review and per-client impact review remain

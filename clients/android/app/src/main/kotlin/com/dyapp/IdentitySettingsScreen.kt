@@ -44,7 +44,7 @@ internal fun IdentitySettingsScreen(
             SettingsPane.PHOTOS -> PhotoSettings(active)
             SettingsPane.ACCOUNT -> AccountSettings(lockMode, route, onLock)
             SettingsPane.ABOUT -> AboutSettings()
-            else -> SettingsCollection(pane, slots, active, act)
+            else -> SettingsCollection(route, slots, active, act)
         }
     }
 }
@@ -57,9 +57,25 @@ private fun PhotoSettings(active: Opened.Ready) {
 }
 
 @Composable
-private fun SettingsCollection(pane: SettingsPane, slots: Slots, active: Opened.Ready, act: (() -> Opened) -> Unit) {
-    when (pane) {
+private fun SettingsCollection(
+    route: androidx.compose.runtime.MutableState<SettingsPane>,
+    slots: Slots,
+    active: Opened.Ready,
+    act: (() -> Opened) -> Unit
+) {
+    when (route.value) {
         SettingsPane.IDENTITIES -> IdentityCollection(slots, active, act)
+        SettingsPane.RECEIVE -> LinkReceiveScreen(
+            active,
+            LinkReceiveNavigation(
+                { route.value = SettingsPane.ACCOUNT },
+                {
+                    route.value = SettingsPane.ACCOUNT
+                    act(slots::open)
+                },
+                { route.value = SettingsPane.IDENTITIES }
+            )
+        )
         SettingsPane.BLOCKED -> BlockedCard(active)
         SettingsPane.PASSED -> PassedCard(active)
         else -> Unit
@@ -83,6 +99,7 @@ private fun AccountSettings(
     onLock: () -> Unit
 ) {
     SettingsLink(SettingsPane.IDENTITIES, route)
+    SettingsLink(SettingsPane.RECEIVE, route)
     LockRow(mode, onLock)
 }
 
