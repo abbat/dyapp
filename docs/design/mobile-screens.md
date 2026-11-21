@@ -44,6 +44,11 @@ menu offers only Delete, with explicit confirmation and the shared copy-preserva
 Native selection retains the full author/group/ID; old confirmations cannot delete through another
 opening or identity. A committed result blocks repeats even before a history refresh succeeds.
 
+The Android profile-draft adapter carries optional canonical interests through JNI: an absent
+edit preserves stored tags, an explicit empty list clears them, and loaded drafts expose the
+stored list. The interest editor and public display are still planned; this storage adapter
+alone does not provide editable interests on screen.
+
 Android implementation checkpoint: a loaded profile offers **Share profile…**.
 The native destination dialog lists open chats except the profile owner, using
 contact names where available. It explains an empty list, prevents repeat sends
