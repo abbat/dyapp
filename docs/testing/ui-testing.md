@@ -241,6 +241,12 @@ mailbox-revision status replacement. `StickerPackControlsTests` checks authorita
 retired-owner navigation, pending caption retention and read-only recovery. Button coroutines
 start undispatched to admit an operation before the next captured callback can run.
 Actual instrumentation execution is required independently of source lint.
+`StickerPackGeometryTests` renders the production request widget in EN/RU at normal/doubled font
+scale with long literal pack names. A controlled held read checks the disabled checking presentation
+before releasing it and awaiting loaded UI completion. Loaded cases check complete status/warning
+layouts and current width, and scrolls actions fully into the current viewport. A supplied full
+control list exercises every label without duplicating native eligibility; failed readback retains
+the known caption and leaves only read-only recovery. External write counters stay zero.
 
 Android `StickerPickerPresentationTests` controls equal-content choice replacement, duplicate and
 late sends, typed Queued commitment, native cursors and Back through a failed read.
