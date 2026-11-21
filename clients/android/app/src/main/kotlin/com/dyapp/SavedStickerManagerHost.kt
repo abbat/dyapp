@@ -6,6 +6,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -16,6 +17,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 internal val LocalSavedStickerManager = staticCompositionLocalOf<(() -> Unit)?> { null }
+internal val LocalSavedStickerRevision = staticCompositionLocalOf { 0 }
 
 /** The manager is shared by Settings/chat routes, with a fresh owner for every opening. */
 @Composable
@@ -26,11 +28,21 @@ internal fun SavedStickerManagerHost(
 ) {
     key(owner) {
         var opening by remember { mutableStateOf<Any?>(null) }
+        var revision by remember { mutableIntStateOf(0) }
         val scope = rememberCoroutineScope()
         val open: () -> Unit = { if (scope.isActive && opening == null) opening = Any() }
-        CompositionLocalProvider(LocalSavedStickerManager provides open, content = content)
+        CompositionLocalProvider(
+            LocalSavedStickerManager provides open,
+            LocalSavedStickerRevision provides revision,
+            content = content
+        )
         opening?.let { token ->
-            SavedStickerDialog(token, calls) { if (scope.isActive && opening === token) opening = null }
+            SavedStickerDialog(token, calls) {
+                if (scope.isActive && opening === token) {
+                    opening = null
+                    revision += 1
+                }
+            }
         }
     }
 }

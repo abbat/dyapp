@@ -13,7 +13,12 @@ import uniffi.dyapp.ChatSticker
 import uniffi.dyapp.ChatStickerImage
 
 /** The owner includes the actual opened identity and peer, never only the displayed Peer ID. */
-internal class ChatStickerSource(val owner: Any, val read: (ChatSticker, Boolean) -> ChatStickerImage)
+internal class ChatStickerSource(
+    val owner: Any,
+    val revision: Int = 0,
+    val pack: (ChatSticker) -> StickerPackTarget? = { null },
+    val read: (ChatSticker, Boolean) -> ChatStickerImage
+)
 
 internal val LocalChatStickerSource = staticCompositionLocalOf<ChatStickerSource?> { null }
 

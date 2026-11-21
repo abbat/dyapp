@@ -29,7 +29,7 @@ internal fun StickerPackControls(target: StickerPackTarget, manage: () -> Unit) 
     val scope = rememberCoroutineScope()
     val current by rememberUpdatedState(target)
     DisposableEffect(state) { onDispose { state.retire() } }
-    LaunchedEffect(target.revision) { state.refresh(current.calls) }
+    LaunchedEffect(target.revision, LocalSavedStickerRevision.current) { state.refresh(current.calls) }
     PackControlsContent(target.name, state) { control, shown ->
         if (scope.isActive) {
             when (control) {

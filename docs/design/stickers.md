@@ -258,7 +258,10 @@ PackID through core storage. It needs identity admission but no chat/media seali
 desktop recovery of unreadable packs. Missing is false; post-unlink failures require authoritative
 refresh and never imply rollback. Other packs, chat history and outbox remain untouched.
 Android Settings → Photos wires the common collection/import/removal APIs through the owner-bound
-saved-pack dialog and bounded OS file picker. Mobile send-picker and iOS collection wiring remain planned.
+saved-pack dialog and bounded OS file picker. Received chat sticker rows render the common pack
+controls with exact message selection and generation; Manage opens that same dialog. Mailbox refreshes
+and manager closure reread the local pack status; success still means local staging, not delivery.
+Kotlin does not calculate retry eligibility or deadlines. Mobile send-picker and iOS collection wiring remain planned.
 
 Shared `sticker_picker::page` and `thumbnail` own manifest-order eight-entry pages and
 proportional RGBA resizing within a 96px bounding box through the bounded core decoder. Wide and

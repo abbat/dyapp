@@ -34,7 +34,10 @@ byte accounting and unreadable entries, imports an explicitly chosen TAR within 
 budget and confirms removal against a selectable full PackID. Cancel/back preserve saved data;
 failed or uncertain changes require authoritative readback. Each manager opening owns its picker
 registration/ticket, so late results and reads cannot import through another opening or identity.
-Request controls in chat, picker/send and own-sticker Delete remain planned.
+Received sticker rows render the core-projected Request/Retry/Fresh/Stop waiting controls and
+open the same saved-pack manager. Status refresh follows mailbox revisions and manager closure;
+failed/uncertain applications require readback before another mutation. Picker/send and own-sticker
+Delete remain planned.
 
 Android implementation checkpoint: a loaded profile offers **Share profile…**.
 The native destination dialog lists open chats except the profile owner, using

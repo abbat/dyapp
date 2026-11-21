@@ -26,7 +26,7 @@ internal fun ChatStickerBubble(sticker: ChatSticker) {
     val source = LocalChatStickerSource.current
     key(source?.owner, stickerKey(sticker)) {
         val state = remember { ChatStickerState() }
-        LaunchedEffect(NetworkType.version) {
+        LaunchedEffect(NetworkType.version, source?.revision, LocalSavedStickerRevision.current) {
             if (source != null && state.image == null) state.load(false) { source.read(sticker, it) }
         }
         Column(Modifier.testTag("chat-sticker")) {
@@ -44,6 +44,8 @@ internal fun ChatStickerBubble(sticker: ChatSticker) {
                 )
             }
             if (source != null) StickerImageControls(state) { source.read(sticker, it) }
+            val manage = LocalSavedStickerManager.current
+            if (manage != null) source?.pack?.invoke(sticker)?.let { StickerPackControls(it, manage) }
         }
     }
 }
