@@ -1,5 +1,9 @@
 # UI Testing: Practical Guide
 
+Native desktop Settings smoke captures the actual blocked and passed panels after their initial
+load completes, before replacing their rows with pagination/error fixtures. These named capture
+points run the existing text/accessibility checks on the synchronization hints in all desktop clients.
+
 The prototype keyboard fixture calibrates requested switcher visibility against both the real
 visible menu and a controlled hidden sidebar. It must reject all three missing identity actions;
 frame readiness and current hit testing establish exposure without fixed positions or delays.
