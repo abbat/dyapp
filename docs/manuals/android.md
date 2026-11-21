@@ -7,6 +7,10 @@ contains at most 32 entries. Changing identity or reopening the list clears its 
 Failed refreshes retain the last known list; unblock, revocation retry and undo-pass keep their
 existing meanings.
 
+The profile editor accepts one **Interest** per line. The hint shows the limits supplied by the
+common core. Save validates the whole list; a blank edited field clears saved interests. Changing
+another field leaves untouched interests in storage. Public display and interest search remain planned.
+
 Who can see what about you: [Your privacy in dyapp](privacy.md).
 
 **Settings → Privacy** saves profile-view, read-receipt and typing choices independently.

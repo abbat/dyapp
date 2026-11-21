@@ -4,6 +4,13 @@ Shared multiline-interest tests cover CRLF/blank lines, punctuation, canonical U
 duplicates, exact count limits and invalid-tag refusal without partial output. Native adapter tests
 compare advertised limits against actual parser admission at each boundary and distinguish clear
 from invalid input. Native parsing alone does not establish Android editor/persistence/search acceptance.
+`NativeProfileInterestDraftTests` checks optional JNI record roundtrips, unrelated-save preservation,
+explicit clear after reopen and another owner's retained tags. `ProfileInterestEditorTests` checks
+native canonicalization, blank clear, untouched-field omission and whole-save refusal. Its controlled
+late-save case retains newer input and then persists an explicit undo of the completed older write.
+`ProfileInterestUiTests` exercises actual editor save/reopen/clear and invalid-input recovery through
+MainActivity. These device tests require CI execution; normal/enlarged layout and search acceptance
+remain separate.
 
 Native privacy preference tests use real offline ChatSession/Store fixtures for default values,
 per-field independence, reopen durability and another identity's defaults. Unsupported flag formats,

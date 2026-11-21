@@ -46,8 +46,11 @@ opening or identity. A committed result blocks repeats even before a history ref
 
 The Android profile-draft adapter carries optional canonical interests through JNI: an absent
 edit preserves stored tags, an explicit empty list clears them, and loaded drafts expose the
-stored list. The interest editor and public display are still planned; this storage adapter
-alone does not provide editable interests on screen.
+stored list. The native editor provides one interest per line, with authoritative limits and
+canonicalization from the core. Blank edited input explicitly clears the list; untouched tags
+remain unmentioned on unrelated saves. A late save retains newer input and updates the accepted
+baseline so a subsequent explicit undo is persisted. Public interest display and rendered/native
+editor acceptance are still planned.
 
 Android implementation checkpoint: a loaded profile offers **Share profile…**.
 The native destination dialog lists open chats except the profile owner, using
