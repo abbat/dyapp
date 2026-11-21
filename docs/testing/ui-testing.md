@@ -582,6 +582,16 @@ Material text field also merges its title and supporting hint into `Text`; treat
 list as the editable value rejects correct input. Keep separate label/hint geometry checks and
 save/reopen/validation assertions.
 
+`NativeForwardUiTests` prepares two conversations through the actual registered application owner and
+the suite's external node/TestPeer clients. Activity recreation reloads durable rows without a guessed
+mail-poll delay; the real shell then exercises received-text Forward, Cancel, exact full-ID selection,
+confirmation and loaded destination navigation. The receiver must store the app identity as forwarder
+with matching group/message IDs. The sender history and an isolated production `ChatContent` rendering
+of the receiver's unmodified JNI history must show Forwarded. The latter is renderer coverage, not a
+second registered Activity or OS-background proof. Native/Compose transitions retain existing deadlines;
+selection/confirm use installed semantic actions to avoid IME pointer races. This scenario requires actual
+Android CI execution before its delivery acceptance is closed.
+
 `ChatForwardUiTests` mounts the production forwarding boundary, host, menu and dialog over a
 controlled native seam. It checks received text has Forward without own edit/delete actions, searches
 for an off-page full target ID, retains the complete native source selector, admits queued submission
