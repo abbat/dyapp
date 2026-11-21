@@ -2,8 +2,6 @@ pluginManagement {
     repositories {
         google()
         mavenCentral()
-        // Same Central authority: retain a canonical endpoint when the default host reports a miss.
-        maven { name = 'CentralFallback'; url = uri('https://repo1.maven.org/maven2') }
         gradlePluginPortal()
     }
 }
@@ -32,7 +30,6 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { name = 'CentralFallback'; url = uri('https://repo1.maven.org/maven2') }
     }
 }
 

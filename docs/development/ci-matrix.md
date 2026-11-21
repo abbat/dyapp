@@ -75,9 +75,6 @@ produces release artifacts or a standalone browser client release. See [build.md
 Kotlin CodeQL resolves dependencies before compiler tracing. That preflight keeps Gradle `--info`
 and `--stacktrace` in its captured raw log so cold repository, metadata and plugin-resolution
 failures retain their causes; the existing quiet wrapper still emits concise console output.
-Android retains the default Maven Central endpoint first and the canonical Central HTTPS endpoint
-`https://repo1.maven.org/maven2` as fallback for plugins and dependencies. Pins, strict artifact
-verification and security substitutions apply equally to either endpoint.
 
 These are separate workflows, not part of `ci.yml`.
 
