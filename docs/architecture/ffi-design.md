@@ -1103,6 +1103,10 @@ infallible adapter remains available for existing callers. Android uses the chec
 its interest input only when field 19 is offered, and maps its failure to field-correction advice.
 It retains raw input if a later sample hides the field, while the common core excludes it from
 conditions. No iOS UI adoption is implied.
+Android captures the returned conditions, parsed employer choice and offered mutual toggle as one
+immutable presentation intent before waiting for the searcher. IO reads the saved own profile only
+for that captured mutual request and delegates eligibility to `search_mutual_conditions`; missing
+own gender/exact age remains an explicit refusal. Form values are not reread in the IO callback.
 
 ## Identity registry core
 

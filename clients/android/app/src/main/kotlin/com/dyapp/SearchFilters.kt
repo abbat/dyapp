@@ -34,7 +34,6 @@ import uniffi.dyapp.SearchChoiceInputs
 import uniffi.dyapp.SearchCondition
 import uniffi.dyapp.SearchRangeInputs
 import uniffi.dyapp.searchCheckedChoiceConditions
-import uniffi.dyapp.searchMutualConditions
 import uniffi.dyapp.searchRangeConditions
 
 // Node field numbers, as the desktop page uses them.
@@ -62,16 +61,6 @@ internal class SearchFilters(private val scales: List<ProfileScale>) {
     val interestOffered get() = INTEREST_FIELD in offered
     val shownScales get() = scales.filter { it.field in offered }
     val mutualOffered get() = SEEKING_GENDERS_FIELD in offered && SEEKING_AGE_FIELD in offered
-
-    /**
-     * The ticked mutual search from the saved profile; one without the owner's gender or exact age fails as
-     * `mutual unavailable`, since running without the conditions would show people who never asked to be found.
-     */
-    fun mutualConditions(opened: Opened.Ready): List<SearchCondition> {
-        if (!mutual || !mutualOffered) return emptyList()
-        return searchMutualConditions(loadDraft(opened).record())
-            .ifEmpty { throw IllegalArgumentException("mutual unavailable") }
-    }
 
     /**
      * Node conditions; an age that is no whole number or fits no birth date fails as `invalid search age`,

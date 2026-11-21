@@ -56,6 +56,10 @@ acceptance remains open. Search offers a single exact-interest input only when t
 nodes advertise field 19. Raw text survives a later hidden-field sample without contributing
 conditions while hidden. The checked common parser canonicalizes valid input and refuses the
 whole query for invalid offered text; the error asks for field correction rather than a retry.
+Search captures native conditions, employer choice and the offered mutual toggle together at UI
+admission, before waiting for backend readiness. Later edits cannot change that admitted request.
+The saved own profile for mutual eligibility is still read in IO through the common native parser;
+an incomplete own profile refuses mutual search instead of silently omitting its conditions.
 
 Android implementation checkpoint: a loaded profile offers **Share profile…**.
 The native destination dialog lists open chats except the profile owner, using

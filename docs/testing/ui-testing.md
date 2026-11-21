@@ -1,5 +1,11 @@
 # UI Testing: Practical Guide
 
+`SearchIntentTests` verifies that admitted native conditions, employer and mutual choice remain
+unchanged after every form field and offered list are edited. An admitted validation failure
+remains a failure after later correction; a captured mutual choice still requires the actual
+saved own gender and exact age. These snapshot tests do not establish callback/operation lifetime
+safety, which requires separate controlled backend completion tests.
+
 Checked shared-search tests match canonical Unicode interest conditions against actual profile
 tags, preserve punctuation, reject invalid nonblank offered tags without a partial query, and
 ignore invalid hidden fields. Native adapter tests retain condition ordering/payloads and map

@@ -171,16 +171,14 @@ private fun SearchFound(result: ProfileSearchResult, run: () -> Unit, openProfil
 private suspend fun sample(
     opened: Opened.Ready,
     searcher: Result<ProfileSearcher>,
-    filters: SearchFilters,
+    admitted: Result<SearchIntent>,
 ): SearchState {
-    val conditions = runCatching { filters.conditions() }
     val result = withContext(Dispatchers.IO) {
         runCatching {
-            val query = conditions.getOrThrow() + filters.mutualConditions(opened)
-            searcher.getOrThrow().searchSlot(query, filters.employer.employer(), 0u)
+            val intent = admitted.getOrThrow()
+            searcher.getOrThrow().searchSlot(intent.conditions(opened), intent.employer, 0u)
         }
     }
-    result.onSuccess { filters.offered = it.offered }
     return result.fold({ SearchState.Done(it) }, { SearchState.Failed(searchError(it), it.toString()) })
 }
 
@@ -211,7 +209,12 @@ internal class SearchSession(private val opened: Opened.Ready, private val scope
 
     fun run() {
         state = SearchState.Loading
-        job = scope.launch { state = sample(opened, searcher.await(), filters) }
+        val admitted = filters.captureIntent()
+        job = scope.launch {
+            val result = sample(opened, searcher.await(), admitted)
+            if (result is SearchState.Done) filters.offered = result.result.offered
+            state = result
+        }
     }
 
     fun cancel() {
