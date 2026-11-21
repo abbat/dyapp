@@ -155,6 +155,13 @@ extension functions. `ChatFeedActions.shareProfile` uses `history(peer)` and `se
 without a receiver. `make lint-android` does not resolve method signatures; native Android CI
 must compile the changed callers and generated bindings.
 
+When a native status/page object is a callback-admission token, use Compose
+`referentialEqualityPolicy` (or a separate explicit token). Default structural policy discards
+an equal fresh object, retaining the old reference and making stale callbacks appear current.
+Use actual `Opened.Ready` objects for operation-owning chat feeds; slot-ID equality alone does
+not identify an opening. File-picker registration belongs to component initialization, and its
+read/import job must outlive clearing the picker ticket while staying within the manager opening.
+
 Compose `produceState` restart keys do not recreate its remembered initial state. Profile loading
 uses an outer keyed composition for peer/feed ownership and verifies coroutine activity before
 publishing a fetch result; preserve both guards when changing retries or data sources.

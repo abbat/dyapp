@@ -2,6 +2,7 @@ package com.dyapp
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.referentialEqualityPolicy
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -13,7 +14,7 @@ import uniffi.dyapp.SavedStickerPackPage
 
 /** This opening owns selection/confirmation only; current pages and all pack policy come from core. */
 internal class SavedStickerPresentation {
-    var page by mutableStateOf<SavedStickerPackPage?>(null)
+    var page by mutableStateOf<SavedStickerPackPage?>(null, referentialEqualityPolicy())
         private set
     var busy by mutableStateOf(false)
         private set

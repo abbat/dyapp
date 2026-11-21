@@ -2,6 +2,7 @@ package com.dyapp
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.referentialEqualityPolicy
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -19,7 +20,7 @@ internal class StickerPackCalls(
 
 /** Only presentation admission and recovery; the core supplies controls and authorizes mutation. */
 internal class StickerPackPresentation {
-    var status by mutableStateOf<StickerPackSaveStatus?>(null)
+    var status by mutableStateOf<StickerPackSaveStatus?>(null, referentialEqualityPolicy())
         private set
     var busy by mutableStateOf(false)
         private set
