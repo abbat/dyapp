@@ -25,6 +25,7 @@ class KeyboardFixtures:
         self.view, self.done = view, done
         self.cases = deque(
             [
+                ("navigation-history", ""),
                 ("trap", "expected #keyboard-fixture-second"),
                 ("focus", "focus indicator #keyboard-fixture-first"),
                 ("escape", "Escape did not close/restore focus"),
@@ -84,6 +85,14 @@ class KeyboardFixtures:
                 "location.href).href))"
                 ".runPopupCase(window.dyappPrototypeAudit, "
                 f"{json.dumps(name)})",
+                self.start,
+            )
+            return
+        if mode == "navigation-history":
+            self.evaluate(
+                "await (await import("
+                "'/desktop/ui-tests/prototype-navigation-calibration.js'"
+                ")).checkTransientNavigation()",
                 self.start,
             )
             return

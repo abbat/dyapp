@@ -101,6 +101,13 @@ const modalInertness = () => {
   for (const child of document.querySelectorAll('.shell > .content, .shell > .topbar'))
     child.inert = menuOpen;
 };
+const transientScopes = new Set();
+// Counterexamples change presentation, not the browser's navigation history.
+export const suspendUrlUpdates = () => {
+  const scope = {};
+  transientScopes.add(scope);
+  return () => transientScopes.delete(scope);
+};
 export const showState = (state) => {
   const shown =
     state === 'chat-draft' ||
@@ -121,7 +128,7 @@ export const showState = (state) => {
   document.documentElement.dataset.screen = state;
   const url = new URL(location.href);
   url.hash = state;
-  history.replaceState(null, '', url);
+  if (!transientScopes.size) history.replaceState(null, '', url);
   document.title = `${window.strings['app.name']} — ${state}`;
   modalInertness();
   focusHints.get(activeDialog())?.focus();

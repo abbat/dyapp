@@ -17,6 +17,11 @@ points run the existing text/accessibility checks on the synchronization hints i
 The prototype keyboard fixture calibrates requested switcher visibility against both the real
 visible menu and a controlled hidden sidebar. It must reject all three missing identity actions;
 frame readiness and current hit testing establish exposure without fixed positions or delays.
+Calibration fixtures temporarily suspend prototype URL updates while retaining the real DOM/focus
+transitions; WebKit limits rapid history writes independently of UI readiness. A 128-transition
+counterexample checks that the URL stays unchanged and ordinary URL navigation resumes after a
+controlled rejection. Fixture cleanup always releases this scope, including setup failures; normal
+keyboard walks and prototype navigation keep their URL updates.
 
 Offline native chat fixtures that establish several conversations must pass distinct interaction
 event IDs per author. Reusing an author/event pair for a different peer correctly fails with

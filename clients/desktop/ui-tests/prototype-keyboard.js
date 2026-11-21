@@ -191,7 +191,18 @@ export const focus = async (name) => {
 let fixtureState;
 let fixtureFocus;
 let fixtureDialog;
+let resumeUrlUpdates;
 export const beginFixture = async (mode) => {
+  if (resumeUrlUpdates) throw new Error('Keyboard fixture is already active');
+  resumeUrlUpdates = controller.suspendUrlUpdates();
+  try {
+    await mountFixture(mode);
+  } catch (error) {
+    endFixture();
+    throw error;
+  }
+};
+const mountFixture = async (mode) => {
   fixtureState = document.documentElement.dataset.screen;
   fixtureFocus = document.activeElement;
   fixtureDialog = document.querySelector('dialog[open]');
@@ -227,11 +238,16 @@ export const beginFixture = async (mode) => {
   await frames();
 };
 export const endFixture = () => {
-  document.getElementById('keyboard-fixture')?.remove();
-  controller.showState(fixtureState);
-  if (fixtureDialog?.isConnected) fixtureDialog.showModal();
-  fixtureDialog = null;
-  if (fixtureFocus?.isConnected) fixtureFocus.focus();
+  try {
+    document.getElementById('keyboard-fixture')?.remove();
+    controller.showState(fixtureState);
+    if (fixtureDialog?.isConnected) fixtureDialog.showModal();
+    fixtureDialog = null;
+    if (fixtureFocus?.isConnected) fixtureFocus.focus();
+  } finally {
+    resumeUrlUpdates?.();
+    resumeUrlUpdates = null;
+  }
 };
 export const checkRenameInitialFocus = async () => {
   await beginFixture('initial-focus');
