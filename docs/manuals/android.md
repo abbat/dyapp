@@ -1,18 +1,126 @@
 # Android client
 
+On first run, **Receive my existing profile** explicitly creates this phone’s initial identity,
+then opens network setup. Check and activate the same network as the other device; this step cannot
+be skipped for receiving. Cancel keeps the created identity and any saved network draft.
+After network activation the receiving screen waits for **Create link code**. Restoring the page
+does not create another identity or code. After successful linking, the core removes only an unused
+wizard identity; other saved identities stay.
+
+**Settings → Account → Receive a profile** starts a code only after **Create link code**.
+Configure the network first and approve the code on the device that already has the profile.
+The receiving screen retains its original attempt across leaving the page or activity recreation.
+**Stop waiting** cannot undo an installation already admitted by the core. A failed or unknown
+installation shows its original boundary and, when known, destination; review stored profiles before
+closing the result. **Return to app** rereads the current selection. Receiving alone does not confirm
+device enrollment or private-data synchronization: **Finish device setup** explicitly completes the
+original pending link through the core without publishing edits. Review, revocation and uncertain
+authorization are distinct refusals; they do not offer ordinary retry. Backend failures retain the
+original review for explicit retry. Full recovery-screen integration remains planned and
+runtime/visual acceptance is still required.
+
+**Settings → Account → Identities** and **Settings → Privacy → Blocked / Passed** lists have
+local search, entry counts, page navigation and **Refresh list**. Search checks complete local
+identifiers and identity Peer IDs without downloading profiles. A page
+contains at most 32 entries. Changing identity or reopening the list clears its search/navigation.
+Failed refreshes retain the last known list; unblock, revocation retry and undo-pass keep their
+existing meanings.
+
+The profile editor accepts one **Interest** per line. The hint shows the limits supplied by the
+common core. Save validates the whole list; a blank edited field clears saved interests. Changing
+another field leaves untouched interests in storage. Saved publication previews and loaded profiles
+show the canonical list. When reached nodes offer it, Search shows an **Interest** filter for
+one complete tag. Case and Unicode normalization follow the common core; commas and semicolons
+remain part of that tag. Blank input means any interest. Invalid input must be corrected before
+searching; a filter hidden by a later sample does not constrain that query.
+
+Removing a published identity first tries to withdraw its profile. If withdrawal cannot be
+confirmed, you can retry, cancel or explicitly remove it anyway. Local removal does not guarantee
+immediate disappearance from search or a fixed expiry date: nodes expire records under their
+retention policy and another device can keep the profile published.
+
+If an identity change completes but its persistence cannot be confirmed, **Result** explains
+that result. **Continue** keeps the current route and does not repeat the operation. After restarting,
+check which identity is selected.
+
 Who can see what about you: [Your privacy in dyapp](privacy.md).
 
-Sticker history is prepared to show emoji and pack name without downloading media.
-Image display, chat delivery and Add pack remain planned.
+**Settings → Privacy** saves profile-view, read-receipt and typing choices independently.
+Unknown or pending values cannot be changed; after an unconfirmed result, **Read setting again**
+rereads storage before allowing another change. Switching identity retires the old controls.
+Profile-view delivery remains planned. Typing is deferred until a direct client path exists;
+its saved preference does not send typing through mailboxes.
 
-Chat photo messages appear in core history order. Incoming previews from people without an open conversation stay blurred until **Show preview**; showing a preview does not download the original. **Download photo** explicitly fetches the original, including on metered networks. Accepted chats also apply the core automatic-download policy and reevaluate it after network changes. Missing originals show an unavailable message; other failures keep retry available. The last-day retention hint is an estimate; a sealed local copy may remain available. In an open chat, **Attach photo…** uses the system picker. The app prepares a bare JPEG and shows its preview for confirmation. Cancel sends nothing; upload refusal retains the prepared photo for retry, while a saved queued send clears it to avoid duplicate delivery. Download-setting controls are still planned.
+A chat's **Name this contact** sets a private contact name for this identity. The name is shared
+with your linked devices when they synchronize, and is not shown to the contact. An empty name
+removes it; Cancel changes nothing.
+
+Other people's profile pages offer **Save privately** and **Remove from saved**. The mark is stored
+for the active identity and shared only with its own devices; it sends no like or notification to
+the profile owner. While loading or saving, the action waits for native completion. A read failure
+offers Retry before any change. Your own profile has no save action.
+
+In **Search**, **Show saved profiles** opens the private list using local IDs and cached names.
+Opening a row then fetches that profile through the ordinary profile page, with its loading and
+retry states. **Remove from saved** removes only the private mark and works without fetching the
+profile. **Refresh saved profiles** rereads the local list; a failure is shown instead of an empty
+list. Pending removal disables row actions, and identity replacement discards the old presentation.
+
+Chat rows and the open chat heading show **Active recently** only for matches with a fresh
+received presence signal according to the common core. Refresh removes expired marks; a failed
+read hides them. There is no exact last-seen time. The unlocked app announces recent activity to
+allowed matches when resumed or an identity opens, subject to the core hourly limit. Mail refresh
+never announces activity. **Settings → Privacy → Show recent activity to** selects **Matches**
+or **Nobody** for this identity on this device. Nobody stops new signals; already sent marks may
+remain for up to two hours. Received activity remains visible. Enabling takes effect on the next
+foreground opening. Failed settings reads or saves require retry before another change.
+
+Long-press a live text, your own or received, and choose **Forward**. Pick another open chat;
+search and page controls keep the list bounded, and the chosen complete Peer ID stays visible.
+Confirm **Forward**, or Cancel without sending. Photos, stickers and deleted texts cannot be
+forwarded. A successful or locally queued forward opens the destination chat; its message status
+distinguishes pending delivery from node acceptance. It never claims the peer has read it. A refusal
+keeps retry available and does not consume your composer draft. Sent and received forwards carry
+the Forwarded marker and show the forwarding person as sender, without an original-author claim.
+
+Sticker history shows the first image frame with its original proportions and an accessible
+emoji/pack label. Automatic image loading follows the shared download policy. **Load sticker image**
+requests it explicitly; unavailable images and retryable errors are distinguished. **Settings → Photos → Saved sticker packs** opens the collection. Import a TAR explicitly,
+refresh from the first page or move to the next page. Unreadable packs remain visible; removing a
+pack asks you to confirm its full Pack ID. Chat history and other-device copies stay. Failed or
+unconfirmed changes require refreshing the list before retrying. Received sticker messages offer
+pack requests and the retries currently allowed by the core. Stop waiting stops local acceptance;
+already queued requests cannot be recalled. Manage opens the saved-pack list. A successful request
+means local queuing, not delivery; mailbox refresh updates its status. **Stickers** in an open chat
+opens saved packs and recent choices. Back and Next navigate bounded pages; Refresh retries reads.
+Choose a thumbnail to send one sticker while keeping your text draft. Cancel returns to the composer;
+Manage packs returns to a fresh picker when closed. Closing a pending send cannot recall it.
+Long-press your own sticker, choose **Delete** and confirm. It disappears here and asks the peer
+app to delete its copy; copies saved elsewhere may remain. Saved packs stay. Cancel before
+confirmation changes nothing; closing an already started deletion cannot recall it.
+
+Chat photo messages appear in core history order. Incoming previews from people without an open conversation stay blurred until **Show preview**; showing a preview does not download the original. **Download photo** explicitly fetches the original, including on metered networks. Accepted chats also apply the core automatic-download policy and reevaluate it after network changes. Missing originals show an unavailable message; other failures keep retry available. The last-day retention hint is an estimate; a sealed local copy may remain available. In an open chat, **Attach photo…** uses the system picker. The app prepares a bare JPEG and shows its preview for confirmation. Cancel sends nothing; upload refusal retains the prepared photo for retry, while a saved queued send clears it to avoid duplicate delivery. Settings → Photos offers three immediate download choices for accepted contacts: unmetered networks, any network, or only after a tap. The common core still requires explicit requests for strangers. Unknown settings remain disabled until a successful read/retry; pending saves reject repeated changes and identity replacement cancels the old presentation. Photos also offers original retention, an exact numeric MiB cache limit, measured byte usage, refresh and cache clear. Turning retention off remembers the saved limit. Changes that may erase originals require confirmation; Cancel changes nothing. History and saved sticker packs remain separate. Invalid input keeps the draft editable; unconfirmed storage results disable changes until refresh succeeds.
 
 The Android app requires Android 12 or later. There is no Google developer account or Play Store listing. Users download the release APK directly from [GitHub Releases](https://github.com/abbat/dyapp/releases) and choose whether to install it on their own device. The first app version is still a minimal client; see [platform status](../architecture/overview.md).
 
 The tagged release workflow builds an unsigned APK without secrets, then signs it in a separate GitHub Actions job using the `android-release` environment. It verifies the APK signature, includes the signed `dyapp-X.Y.Z-android.apk` in `SHA256SUMS` and the release provenance attestation, and publishes it only if signing succeeds. Manual workflow runs build but do not publish or sign. No signed APK is available until the release key and CI secrets below are provisioned and the first tag succeeds.
 
+## Private contact notes
+
+Other people's profile pages include a **Private note** editor, even when public profile loading
+fails. It reads and writes only the
+active identity's private storage and own-device sync, including for blocked contacts. Notes do not
+appear in public profiles, search, likes or chat messages. Loading failure keeps editing disabled
+until Retry succeeds; it is not treated as an empty note. Saving waits for native readback. A failed
+save retains the exact draft for retry; **Clear private note** clears the saved text only after a
+successful native operation. Changing identity or profile opening discards that private draft and
+its old presentation continuations. Text validation remains in the common core.
+
 ## Release hardening
 
+The offline unsigned Release runner first checks the already-built APK with the same ELF profile
+and SDK ZIP-alignment command before exporting packages; failure stops the unsigned producer too.
+This early check needs no signing key and does not replace verification of the final signed bytes.
 After signing, the release job runs
 `python3 -B tools/scripts/check-hardening.py --android-apk SIGNED.apk`.
 Both `arm64-v8a` and `x86_64` must contain the core. Every packaged JNI library,
@@ -75,7 +183,7 @@ policy's device verification is planned after v0.0.1. Foreground use remains ava
 
 ## Share a profile
 
-On a loaded profile page, **Share profile…** offers existing open chats, excluding the profile owner. Choosing a chat sends a profile link; it never creates a message request. The dialog distinguishes a sent link from one saved locally pending network delivery. After success, **Message** opens the destination chat. Cancel before choosing a chat sends nothing. An exact profile link in a live message appears as a profile button. Press it to load the verified profile; no linked profile is fetched before that press. If unavailable, the profile page offers retry. Back returns to the original chat.
+On a loaded profile page, **Share profile…** offers existing open chats, excluding the profile owner. Choosing a chat sends a profile link; it never creates a message request. The dialog distinguishes a sent link from one saved locally pending network delivery. After success, **Message** opens the destination chat. Cancel before choosing a chat sends nothing. Reopening starts a new choice; actions or completions retained from a cancelled or closed page cannot send or change the new dialog. An exact profile link in a live message appears as a profile button. Press it to load the verified profile; no linked profile is fetched before that press. If unavailable, the profile page offers retry. Back returns to the original chat.
 
 ## Install
 

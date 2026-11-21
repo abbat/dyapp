@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_privacy_title">Privacy</string>
+    <string name="settings_notifications_title">Notifications</string>
+    <string name="settings_photos_title">Photos</string>
+    <string name="settings_account_title">Account</string>
+    <string name="settings_about_title">About</string>
+</resources>

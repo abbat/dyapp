@@ -1,0 +1,23 @@
+<resources>
+    <string name="sticker_manager_title">Saved sticker packs</string>
+    <string name="sticker_manager_close">Close</string>
+    <string name="sticker_manager_hint">Import a TAR pack. Saved packs stay on this device until you remove them.</string>
+    <string name="sticker_manager_loading">Reading saved packs…</string>
+    <string name="sticker_manager_read_failed">Could not read saved packs. Refresh before changing them.</string>
+    <string name="sticker_manager_action_failed">Could not confirm the change. Refresh before retrying; check the TAR file and saved-pack space.</string>
+    <string name="sticker_manager_added">Pack saved.</string>
+    <string name="sticker_manager_already">This pack was already saved.</string>
+    <string name="sticker_manager_usage">Bytes used: %1$s. Unrecognized files: %2$s.</string>
+    <string name="sticker_manager_empty">No saved packs on this page.</string>
+    <string name="sticker_manager_import">Import TAR…</string>
+    <string name="sticker_manager_refresh">Refresh from first page</string>
+    <string name="sticker_manager_next">Next page</string>
+    <string name="sticker_manager_unreadable">Unreadable pack</string>
+    <string name="sticker_manager_id">Pack ID: %1$s</string>
+    <string name="sticker_manager_bytes">Bytes: %1$s</string>
+    <string name="sticker_manager_count">Stickers: %1$d</string>
+    <string name="sticker_manager_remove">Remove %1$s (%2$s)</string>
+    <string name="sticker_manager_remove_title">Remove saved pack?</string>
+    <string name="sticker_manager_remove_body">Remove this pack from this device? Chat history and copies on other devices remain. To restore the pack, import or request it again if available. Check the full Pack ID below.</string>
+    <string name="sticker_manager_confirm">Remove pack</string>
+</resources>

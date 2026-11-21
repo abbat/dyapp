@@ -223,6 +223,13 @@ sockets to make the check pass.
 
 ## Troubleshooting
 
+Quiet remote-cache image builds recover once from the exact BuildKit `ERROR: blob sha256:…: not found`
+diagnostic, after the first build process exits. The recovery omits cache import and adds
+`--no-cache`; build arguments, context, environment and permitted cache export stay unchanged.
+Both raw logs are retained and an `INFO` line identifies the first failure. A compiler/configuration
+error, interruption or second failure remains fatal. Verbose streaming builds retain their direct
+behavior. Recovery deletes no cache or application data and uses no delay-based retry.
+
 The network-test image builds the current Rust tree in a fresh `/build-src` directory while
 writing binaries to `/workspace/build`. This prevents renamed binary targets left in the
 prepared base image from appearing alongside current sources during Cargo discovery.

@@ -1,6 +1,6 @@
 //! Thin native conversion of categorical and selected-location search input.
 
-use crate::{SearchCondition, SearchOp};
+use crate::{CoreError, SearchCondition, SearchOp};
 use std::collections::HashMap;
 
 /// Form choices interpreted by the common client core.
@@ -27,13 +27,42 @@ pub fn search_choice_conditions(
     offered: Vec<u32>,
     inputs: SearchChoiceInputs,
 ) -> Vec<SearchCondition> {
-    let raw = dyapp_client::search_input::SearchChoiceInputs {
-        picked: inputs.picked.into_iter().collect(),
-        country: inputs.country,
-        interest: inputs.interest,
-        place: inputs.place,
-    };
-    raw.conditions(&offered)
+    let raw = dyapp_client::search_input::SearchChoiceInputs::from(inputs);
+    lift_conditions(raw.conditions(&offered))
+}
+
+/// Build offered choices and reject invalid interest input before starting a search.
+///
+/// # Errors
+/// Returns a field-specific failure when an offered nonblank interest cannot be published.
+#[uniffi::export]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "UniFFI lifts owned records and sequences across the native boundary"
+)]
+pub fn search_checked_choice_conditions(
+    offered: Vec<u32>,
+    inputs: SearchChoiceInputs,
+) -> Result<Vec<SearchCondition>, CoreError> {
+    let raw = dyapp_client::search_input::SearchChoiceInputs::from(inputs);
+    raw.checked_conditions(&offered)
+        .map(lift_conditions)
+        .map_err(|_| CoreError::Failed("invalid search interest".into()))
+}
+
+impl From<SearchChoiceInputs> for dyapp_client::search_input::SearchChoiceInputs {
+    fn from(inputs: SearchChoiceInputs) -> Self {
+        Self {
+            picked: inputs.picked.into_iter().collect(),
+            country: inputs.country,
+            interest: inputs.interest,
+            place: inputs.place,
+        }
+    }
+}
+
+fn lift_conditions(conditions: Vec<dyapp_p2p_net::proto::Condition>) -> Vec<SearchCondition> {
+    conditions
         .into_iter()
         .map(|condition| SearchCondition {
             field: condition.field,
@@ -43,6 +72,10 @@ pub fn search_choice_conditions(
         })
         .collect()
 }
+
+#[cfg(test)]
+#[path = "search_choices/checked_tests.rs"]
+mod checked_tests;
 
 #[cfg(test)]
 mod tests {

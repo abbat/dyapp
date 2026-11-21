@@ -51,6 +51,17 @@ impl MobileLinkReceiver {
         self.receiver.code().text()
     }
 
+    /// QR modules of the original public code, for display while waiting or receiving.
+    /// Rendering adds a four-module quiet zone; no platform QR encoder is needed.
+    ///
+    /// # Errors
+    /// Returns an error if the public code exceeds the shared encoder capacity.
+    pub fn qr_matrix(&self) -> Result<crate::MobileQrMatrix, CoreError> {
+        dyapp_client::qr::matrix(self.code().as_bytes())
+            .map(Into::into)
+            .ok_or_else(|| CoreError::Failed("could not encode device link QR".into()))
+    }
+
     /// Original expiry in Unix seconds; Kotlin does not calculate the protocol lifetime.
     #[must_use]
     pub fn expires_at(&self) -> u64 {

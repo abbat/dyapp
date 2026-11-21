@@ -204,11 +204,24 @@ const coveredModalBranches = (modal) => {
     covered.push(...[...branch.parentElement.children].filter((child) => child !== branch));
   return covered;
 };
+const auditModal = () => {
+  const selector = 'dialog:modal, [role="dialog"][aria-modal="true"]';
+  const focused = document.activeElement?.closest(selector);
+  const root = focused?.matches('dialog:modal') ? focused : document;
+  const visible = [...root.querySelectorAll(selector)].filter(
+    (modal) =>
+      modal.getClientRects().length &&
+      getComputedStyle(modal).visibility === 'visible' &&
+      !modal.closest('[inert]'),
+  );
+  // Busy ARIA dialogs can disable every control, leaving focus outside their opaque surface.
+  return visible.length === 1 ? visible[0] : focused;
+};
 // Keep layout while hiding paint behind opaque native or ARIA modals during the audit.
 const runAccessibilityAudit = async () => {
   const options = smoke.accessibilityOptions();
   const restorePosition = captureAuditPosition();
-  const modal = document.activeElement?.closest('dialog:modal, [role="dialog"][aria-modal="true"]');
+  const modal = auditModal();
   const hidden = [];
   if (modal) {
     const style = getComputedStyle(modal);
@@ -371,6 +384,50 @@ const calibrateScrollableContrast = async (oversized = false) => {
   }
 };
 
+const calibrateFocuslessModal = async () => {
+  const previous = document.activeElement;
+  const host = document.createElement('dialog');
+  host.setAttribute('aria-label', 'Focusless modal calibration host');
+  host.style.cssText = 'background:white;color:black';
+  host.innerHTML =
+    '<p>Background text behind the busy dialog.</p><section role="dialog" aria-modal="true" aria-label="Busy calibration" style="position:absolute;inset:0;background:white;color:black"><p>Readable busy dialog heading</p><button disabled>Pending</button></section><button>Outside focus</button>';
+  document.body.append(host);
+  host.showModal();
+  const modal = host.querySelector('section');
+  const text = modal.querySelector('p');
+  const anchor = host.querySelector(':scope > button');
+  const background = host.querySelector(':scope > p');
+  try {
+    anchor.focus({ preventScroll: true });
+    for (const [color, expected] of [
+      ['#000', 'passes'],
+      ['#eee', 'violations'],
+    ]) {
+      text.style.color = color;
+      if (document.activeElement !== anchor || modal.contains(document.activeElement))
+        throw Error('focusless modal calibration acquired dialog focus');
+      if (auditModal() !== modal) throw Error('focusless modal surface was not identified');
+      const result = await runAccessibilityAudit();
+      if (
+        !result[expected].some(
+          (rule) =>
+            rule.id === 'color-contrast' &&
+            rule.nodes.some((node) => contrastElement(node) === text),
+        )
+      )
+        throw Error(`focusless modal contrast expected ${expected}`);
+      if (document.activeElement !== anchor || background.hasAttribute('style'))
+        throw Error('focusless modal audit changed focus or background visibility');
+    }
+  } finally {
+    const finished = closed(host);
+    host.close();
+    await finished;
+    host.remove();
+    previous?.focus({ preventScroll: true });
+  }
+};
+
 smoke.accessibilitySelfCheck = async () => {
   const previous = document.activeElement;
   const restore = calibrationBackground();
@@ -409,4 +466,5 @@ smoke.accessibilitySelfCheck = async () => {
   }
   smoke.popupPaintSelfCheck();
   for (const oversized of [false, true]) await calibrateScrollableContrast(oversized);
+  await calibrateFocuslessModal();
 };

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_views_toggle">Tell people when I view their profile</string>
+    <string name="profile_views_hint">At most once a day per profile. You still see who viewed yours.</string>
+    <string name="typing_toggle">Show when I am typing</string>
+    <string name="privacy_preference_failed">The setting could not be confirmed. Read it again before changing it.</string>
+    <string name="privacy_preference_loading">Reading or saving setting…</string>
+    <string name="privacy_preference_retry">Read setting again</string>
+    <string name="privacy_preference_unknown">Setting not confirmed</string>
+</resources>

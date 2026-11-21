@@ -11,6 +11,8 @@ mod registry;
 pub use registry::{resume_all, scores, shared};
 mod fetch;
 pub use fetch::{fetch, FetchError};
+mod maintenance;
+pub use maintenance::refresh_target;
 
 /// Why a comparison cannot become a verified-contact mark.
 #[derive(Debug, thiserror::Error)]

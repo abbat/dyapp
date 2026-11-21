@@ -2,6 +2,8 @@ use dyapp_client::chat::MAX_TEXT_BYTES;
 
 use super::*;
 use crate::WrapError;
+#[path = "tests/clear_target.rs"]
+mod clear_target;
 #[path = "tests/contact_notes.rs"]
 mod contact_notes;
 #[path = "tests/favorites.rs"]
@@ -10,6 +12,10 @@ mod favorites;
 mod forwarding;
 #[path = "tests/mail_pass.rs"]
 mod mail_pass;
+#[path = "tests/mailbox.rs"]
+mod mailbox;
+#[path = "tests/media_cache_control.rs"]
+mod media_cache_control;
 #[path = "tests/offline.rs"]
 mod offline;
 #[path = "tests/photo_original.rs"]
@@ -18,12 +24,17 @@ mod photo_original;
 mod photo_protocol;
 #[path = "tests/photo_submission.rs"]
 mod photo_submission;
+#[path = "tests/presence.rs"]
+mod presence;
+#[path = "tests/privacy.rs"]
+mod privacy;
 #[path = "tests/profile_share.rs"]
 mod profile_share;
 #[path = "tests/saved_sticker.rs"]
 mod saved_sticker;
 #[path = "tests/sticker_collection.rs"]
 mod sticker_collection;
+mod sticker_delete;
 #[path = "tests/sticker_download.rs"]
 mod sticker_download;
 #[path = "tests/sticker_exchange.rs"]
@@ -117,6 +128,7 @@ fn check_offline_defaults(chats: &ChatSession) {
     assert_eq!(chats.state("ab".repeat(32)).unwrap(), ChatState::None);
     assert_eq!(chats.receive().unwrap_err().to_string(), "notConnected");
     assert_eq!(chats.chat_rows().unwrap().len(), 0);
+    assert_eq!(chats.active_chat_peers().unwrap().len(), 0);
     assert_eq!(
         chats.photo_download().unwrap(),
         ChatPhotoDownload::ByNetwork

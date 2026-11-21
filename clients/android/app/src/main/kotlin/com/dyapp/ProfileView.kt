@@ -71,6 +71,8 @@ internal fun ProfileViewScreen(
     val onBlock = { scope.sendBlock(form, feed, peer, actions.blocked) }
     ProfileViewContent(
         peer, peer == opened.peerId, load, form, actions, onLike, onPass, onBlock,
+        favorite = { FavoriteAction(form, favoriteCalls(opened, peer)) },
+        note = { ContactNote(form, contactNoteCalls(opened, peer)) },
         share = { ProfileShareButton(peer, feed, onShared) }
     ) { attempt += 1 }
 }
@@ -87,6 +89,8 @@ internal fun ProfileViewContent(
     onLike: (Boolean) -> Unit,
     onPass: (Boolean) -> Unit,
     onBlock: () -> Unit,
+    favorite: @Composable () -> Unit = {},
+    note: @Composable () -> Unit = {},
     share: @Composable () -> Unit = {},
     onRetry: () -> Unit,
 ) {
@@ -104,6 +108,10 @@ internal fun ProfileViewContent(
             CopyButton(peer, "copy-view-peer")
             if (!own) ProfileLikes(form, actions.message, onLike)
             ProfileBody(load, onRetry)
+            if (!own) {
+                favorite()
+                note()
+            }
             if (load is ProfileLoad.Shown) share()
             if (!own) QuietActions(form, onPass)
         }

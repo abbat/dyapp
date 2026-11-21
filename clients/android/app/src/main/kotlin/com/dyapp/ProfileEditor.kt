@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import uniffi.dyapp.ProfilePublished
+import uniffi.dyapp.parseProfileInterests
 
 /** One screen owner's typed inputs and the exact input snapshot last persisted. UI thread only. */
 internal class ProfileEditor(saved: ProfileDraft, lang: String) {
@@ -12,7 +13,9 @@ internal class ProfileEditor(saved: ProfileDraft, lang: String) {
     val birth = BirthInputs(saved.values, saved.about, saved.seeking)
     val name = mutableStateOf(saved.name)
     val place = PlaceInputs(saved.country, saved.values[PLACE], placeText(saved.country, saved.values[PLACE], lang))
-    private val edits get() = inputs(values, birth, place) + name.value
+    val interests = mutableStateOf(saved.interests.orEmpty().joinToString("\n"))
+    private var savedInterestInput = interests.value
+    private val edits get() = inputs(values, birth, place) + name.value + interests.value
     private var savedEdits by mutableStateOf(edits)
     val unsaved get() = edits != savedEdits
 
@@ -22,8 +25,15 @@ internal class ProfileEditor(saved: ProfileDraft, lang: String) {
 
     suspend fun save(persist: (ProfileDraft) -> Unit): Int {
         val submitted = edits
-        val result = saveEdits(ProfileDraft(values.toMap(), name = name.value), birth, place, persist)
+        val typedInterests = interests.value
+        val changedInterests = typedInterests != savedInterestInput
+        val tags = if (changedInterests) parseProfileInterests(typedInterests) else null
+        if (changedInterests && tags == null) return R.string.profile_interests_invalid
+        val draft = ProfileDraft(values.toMap(), name = name.value, interests = tags)
+        val result = saveEdits(draft, birth, place, persist)
         if (result.status == R.string.profile_saved) {
+            // Even a late success changes what a subsequent explicit undo must replace.
+            savedInterestInput = typedInterests
             if (edits == submitted) {
                 birth.seeking.showSaved(checkNotNull(result.seeking))
                 savedEdits = edits

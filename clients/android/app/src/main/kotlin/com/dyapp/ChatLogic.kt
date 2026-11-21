@@ -33,8 +33,8 @@ internal fun sendStatus(
     },
 )
 
-/** A message's saveable key: its group and ID, as a rotation must keep the edit and delete targets. */
-internal fun messageKey(message: ChatMessage) = listOf(message.groupId, message.id)
+/** A saveable UI selector keeps the complete author/group/ID; native actions still revalidate it. */
+internal fun messageKey(message: ChatMessage) = message.author + ":" + listOf(message.groupId, message.id)
     .joinToString(":") { bytes -> bytes.joinToString("") { "%02x".format(it) } }
 
 internal fun List<ChatMessage>.byKey(key: String?) = key?.let { find { message -> messageKey(message) == it } }

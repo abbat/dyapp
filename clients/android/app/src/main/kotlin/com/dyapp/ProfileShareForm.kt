@@ -7,6 +7,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -22,19 +23,56 @@ import kotlinx.coroutines.withContext
 internal const val PROFILE_SHARE_OPEN_CHAT_TAG = "profile-share-open-chat"
 
 internal class ProfileShareForm {
-    var shown by mutableStateOf(false)
+    private var visible by mutableStateOf(false)
+    var opening by mutableStateOf(Any())
+        private set
+    var shown: Boolean
+        get() = visible
+        set(value) {
+            if (value && !visible) {
+                opening = Any()
+                sending = false
+                status = null
+                sentTo = null
+            }
+            visible = value
+        }
     var sending by mutableStateOf(false)
     var status by mutableStateOf<ChatStatus?>(null)
     var sentTo by mutableStateOf<String?>(null)
 
-    suspend fun send(feed: ChatFeed, target: String, peer: String) {
+    private fun current(expected: Any) = shown && opening === expected
+
+    fun admit(expected: Any): Boolean {
+        if (!current(expected) || sending || sentTo != null) return false
         sending = true
-        val result = withContext(Dispatchers.IO) { feed.shareProfile(target, peer) }
-        sending = false
-        completeSubmission(result, target)
+        status = null
+        return true
     }
 
-    fun completeSubmission(result: Result<uniffi.dyapp.ChatSubmission>, target: String) {
+    fun cancel(expected: Any) {
+        if (current(expected) && !sending) shown = false
+    }
+
+    fun navigate(expected: Any, target: String, openChat: (String) -> Unit) {
+        if (!current(expected) || sending || sentTo != target) return
+        shown = false
+        openChat(target)
+    }
+
+    suspend fun send(feed: ChatFeed, target: String, peer: String, expected: Any) {
+        if (!current(expected) || !sending) return
+        val result = try {
+            withContext(Dispatchers.IO) { feed.shareProfile(target, peer) }
+        } finally {
+            if (current(expected)) sending = false
+        }
+        completeSubmission(result, target, expected)
+    }
+
+    fun completeSubmission(result: Result<uniffi.dyapp.ChatSubmission>, target: String, expected: Any) {
+        if (!current(expected)) return
+        sending = false
         status = sendStatus(result)
         if (result.isSuccess) {
             sentTo = target
@@ -48,17 +86,11 @@ internal class ProfileShareForm {
 internal fun ProfileShareButton(peer: String, feed: ChatFeed, openChat: (String) -> Unit) {
     val form = remember(peer, feed) { ProfileShareForm() }
     val scope = rememberCoroutineScope()
-    TextButton({
-        form.shown = true
-        form.status = null
-        form.sentTo = null
-    }, Modifier.testTag("view-share")) { Text(stringResource(R.string.profile_share)) }
+    TextButton({ form.shown = true }, Modifier.testTag("view-share")) { Text(stringResource(R.string.profile_share)) }
     if (!form.shown) return
+    val opening = form.opening
     ProfileShareDialog(form, profileShareTargets(feed.rows, peer), openChat) { target ->
-        if (!form.sending) {
-            form.sending = true
-            scope.launch { form.send(feed, target, peer) }
-        }
+        scope.launch { form.send(feed, target, peer, opening) }
     }
 }
 
@@ -69,20 +101,26 @@ internal fun ProfileShareDialog(
     openChat: (String) -> Unit,
     send: (String) -> Unit,
 ) {
+    val opening = form.opening
+    val cancel = { form.cancel(opening) }
+    DisposableEffect(form, opening) {
+        onDispose { if (form.opening === opening) form.shown = false }
+    }
     AlertDialog(
-        onDismissRequest = { if (!form.sending) form.shown = false },
+        onDismissRequest = cancel,
         title = { Text(stringResource(R.string.profile_share)) },
-        text = { ProfileShareChoices(form, targets, send) },
+        text = { ProfileShareChoices(form, targets) { if (form.admit(opening)) send(it) } },
         confirmButton = {
             form.sentTo?.let { target ->
-                TextButton({
-                    form.shown = false
-                    openChat(target)
-                }, Modifier.testTag(PROFILE_SHARE_OPEN_CHAT_TAG)) { Text(stringResource(R.string.view_message)) }
+                val navigate = { form.navigate(opening, target, openChat) }
+                TextButton(
+                    navigate,
+                    Modifier.testTag(PROFILE_SHARE_OPEN_CHAT_TAG).applicationClick(navigate)
+                ) { Text(stringResource(R.string.view_message)) }
             }
         },
         dismissButton = {
-            TextButton({ form.shown = false }, enabled = !form.sending) {
+            TextButton(cancel, Modifier.applicationClick(cancel), enabled = !form.sending) {
                 Text(stringResource(R.string.search_cancel))
             }
         },
@@ -99,7 +137,8 @@ private fun ProfileShareChoices(form: ProfileShareForm, targets: List<uniffi.dya
             form.sentTo != null -> Unit
             targets.isEmpty() -> Text(stringResource(R.string.profile_share_empty))
             else -> targets.forEach { row ->
-                TextButton({ send(row.peerId) }, Modifier.testTag("profile-share-${row.peerId}")) {
+                val choose = { send(row.peerId) }
+                TextButton(choose, Modifier.testTag("profile-share-${row.peerId}").applicationClick(choose)) {
                     Text(contactLabel(row.peerId, names[row.peerId]))
                 }
             }

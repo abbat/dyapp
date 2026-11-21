@@ -199,7 +199,7 @@ Add photo after an add or a removal. Status line states are in
 
 | Control | ID | Notes |
 | --- | --- | --- |
-| Public fields | `profile-public-fields` | Exactly what is published |
+| Public fields | `profile-public-fields` | Exactly what is published, including the photo count; prototype fixture count matches its editor tiles |
 | I am 18 or older | `profile-attested` | Required |
 | Public fields may be copied | `profile-disclosure` | Required |
 | Cancel | `profile-cancel` | Left, focused |
@@ -615,11 +615,18 @@ sending off never stops receiving.
 | What a notice shows | `notice-content` | Three immediate radio choices: "New message" only, sender name, or name and text. Disabling notices disables the group and preserves its choice. Requests and likes stay fixed |
 | Run a node | `node-enabled` | Off |
 
+The prototype includes nine forwarding states for text-only selection, loading, empty/error,
+admitted submission and sent/queued outcomes. Source selectors and retired openings cannot act on
+a replacement. Cancel and Escape wait for admitted submission to complete, matching the native UI;
+the keyboard audit uses a controlled completion signal before its ordinary focus/restore walk.
+No original-author verification or attachment/sticker forwarding is implied.
+
 `remove-dialog` names the identity by avatar, short Peer ID and kind, then the full ID, withdraws
 the profile with a tombstone and deletes the key with this identity's chats, matches and likes on
 this computer. `remove-offline`:
-no node accepted the tombstone, so the dialog says the profile expires by itself within the
-nodes' profile lifetime and offers Retry or Remove anyway.
+withdrawal has not been confirmed, so the dialog offers Retry or Remove anyway and warns that the
+profile may remain searchable until nodes expire it. Retention is operator-configured and another
+device can renew publication; local removal never guarantees disappearance within a fixed deadline.
 
 | Control | ID | Notes |
 | --- | --- | --- |
@@ -658,8 +665,11 @@ finishes. A send that fails returns to `device-code-dialog` with the code kept a
 | Cancel | `device-confirm-cancel` | Left, focused |
 | Give full control | `device-confirm-action` | Right |
 
-`disconnect-dialog` names the device by short key. `disconnect-offline`: no node took the update,
-so nothing changed and the action reads Retry.
+`disconnect-dialog` names the device by short key. It explains chat revocation and contact-visible
+departure without promising deletion of copies already held by that device. In particular, legacy
+root identities retain local data; remote erasure is never a guarantee against a copied key or a
+modified client. `disconnect-offline`: no node took the update, so nothing changed and the action
+reads Retry.
 
 | Control | ID | Notes |
 | --- | --- | --- |

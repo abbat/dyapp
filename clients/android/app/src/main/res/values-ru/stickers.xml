@@ -1,0 +1,26 @@
+<resources>
+    <string name="sticker_image_load">Загрузить изображение стикера</string>
+    <string name="sticker_image_loading">Загрузка изображения стикера…</string>
+    <string name="sticker_image_tap">Нажмите, чтобы загрузить изображение стикера.</string>
+    <string name="sticker_image_unavailable">Изображение стикера недоступно.</string>
+    <string name="sticker_image_failed">Не удалось загрузить изображение стикера. Повторите попытку.</string>
+    <string name="sticker_pack_checking">Проверка сохранённого набора…</string>
+    <string name="sticker_pack_new">Набор «%1$s» не сохранён.</string>
+    <string name="sticker_pack_saved">Набор «%1$s» сохранён на этом устройстве.</string>
+    <string name="sticker_pack_waiting">Ожидание набора «%1$s». Запрос отправится после подключения.</string>
+    <string name="sticker_pack_downloading">Ожидание загрузки набора «%1$s».</string>
+    <string name="sticker_pack_fetch">Не удалось загрузить набор. Повторите попытку или проверьте статус.</string>
+    <string name="sticker_pack_invalid">Получен некорректный набор. Повторите попытку или запросите новую копию.</string>
+    <string name="sticker_pack_quota">Хранилище наборов заполнено. Проверьте сохранённые наборы перед повтором.</string>
+    <string name="sticker_pack_storage">Не удалось прочитать или сохранить набор. Проверьте наборы или обновите статус перед повтором.</string>
+    <string name="sticker_pack_missing">В сохранённом наборе нет этого стикера. Проверьте сохранённые наборы.</string>
+    <string name="sticker_pack_read_failed">Текущий статус неизвестен. Обновите его перед изменением запроса.</string>
+    <string name="sticker_pack_action_failed">Действие не удалось подтвердить. Проверьте текущий статус.</string>
+    <string name="sticker_pack_warning">Для запроса нужны опубликованный профиль и устройство в его списке. Очередь не означает доставку. Отмена ожидания не отзывает пакеты из очереди. Сохранение набора не сохраняет историю чата.</string>
+    <string name="sticker_pack_request">Добавить набор</string>
+    <string name="sticker_pack_retry">Повторить сохранение</string>
+    <string name="sticker_pack_fresh">Запросить новую копию</string>
+    <string name="sticker_pack_stop">Отменить ожидание</string>
+    <string name="sticker_pack_refresh">Обновить статус</string>
+    <string name="sticker_pack_manage">Управление наборами</string>
+</resources>

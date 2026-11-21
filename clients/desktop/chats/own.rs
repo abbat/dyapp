@@ -80,14 +80,10 @@ pub async fn refresh_contact(
     cached: &mut Profiles,
     now: u64,
 ) {
-    let owner = store.owner_peer_id();
-    let mut peers: Vec<_> = store.known_groups().unwrap_or_default();
-    peers.retain(|(_, peer)| peer != owner);
-    let turn = usize::try_from(now / 60).unwrap_or_default();
-    let Some((_, peer)) = peers.get(turn.checked_rem(peers.len()).unwrap_or_default()) else {
+    let Ok(Some(peer)) = dyapp_client::contact_verification::refresh_target(store, now) else {
         return;
     };
-    if let Ok(verified) = node.get_profile(peer).await {
+    if let Ok(verified) = node.get_profile(&peer).await {
         if let Ok(mut shared) = cache.lock() {
             if let Ok(true) = shared.accept_if_current(epoch, verified.clone()) {
                 let _ = cached.accept(verified);

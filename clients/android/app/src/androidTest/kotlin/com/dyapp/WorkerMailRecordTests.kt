@@ -89,6 +89,30 @@ class WorkerMailRecordTests {
     }
 
     @Test
+    fun retainedDeviceKeysCannotBeReplacedOrSwapped() {
+        val file = file()
+        val record = WorkerMailRecord(file, "owner", "other")
+        val owner = ByteArray(32) { 1 }
+        val other = ByteArray(32) { 2 }
+        record.begin()
+        assertThrows(JSONException::class.java) { record.requireDevices(owner, other) }
+        assertThrows(IllegalStateException::class.java) { record.recordDevices(byteArrayOf(), other) }
+        record.recordDevices(owner, other)
+        val reopened = WorkerMailRecord(file, "owner", "other")
+        reopened.requireDevices(owner, other)
+        assertThrows(IllegalStateException::class.java) { reopened.requireDevices(other, other) }
+        assertThrows(IllegalStateException::class.java) { reopened.requireDevices(owner, owner) }
+        assertThrows(IllegalStateException::class.java) { reopened.recordDevices(other, owner) }
+        assertThrows(IllegalStateException::class.java) {
+            WorkerMailRecord(file, "other", "owner").requireDevices(other, owner)
+        }
+        reopened.requireDevices(owner, other)
+        val checkpoint = PeerCheckpoint(file)
+        checkpoint.write(checkpoint.read().put("ownerDevice", "malformed"))
+        assertThrows(IllegalStateException::class.java) { reopened.requireDevices(owner, other) }
+    }
+
+    @Test
     fun aMissingRecordFailsWithoutInitializingIt() {
         val file = file()
         val record = WorkerMailRecord(file, "owner", "other")

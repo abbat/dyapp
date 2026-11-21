@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_privacy_title">Приватность</string>
+    <string name="settings_notifications_title">Уведомления</string>
+    <string name="settings_photos_title">Фото</string>
+    <string name="settings_account_title">Аккаунт</string>
+    <string name="settings_about_title">О приложении</string>
+</resources>

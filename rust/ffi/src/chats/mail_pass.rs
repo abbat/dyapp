@@ -1,12 +1,11 @@
 //! Mail progress and optional core-admitted notification content share one native session owner.
-use super::{failed, own_profile, refill_if_due, ChatSession};
+use super::{failed, refill_if_due, ChatSession};
 use crate::profile_network::{active_network, connect, on_network_stack};
 use crate::CoreError;
 use dyapp_client::{
     contact_verification::Generation, mail_notices, session::Session, store::Store, Node,
 };
 use dyapp_identity::network::Network;
-use dyapp_profile::VerifiedProfile;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// Safe core-admitted content; no sender means the localized fixed new-message notice.
@@ -73,7 +72,6 @@ impl ChatSession {
         let mut guard = self.session.lock().map_err(failed)?;
         let session: &mut Session = &mut guard;
         let before = sticker_label.and_then(|_| mail_notices::capture(session.store()).ok());
-        let own = own_profile(session.store(), &self.key.identity)?;
         let generation = self.contact_context.lock().map_err(failed)?.generation();
         let network = active_network(&self.dir)?;
         let now = SystemTime::now()
@@ -84,7 +82,7 @@ impl ChatSession {
             self.runtime.block_on(async {
                 let mut node = connect(&network).await?;
                 let changed = self
-                    .receive_connected(session, &network, &mut node, &generation, own, now)
+                    .receive_connected(session, &network, &mut node, &generation, now)
                     .await?;
                 let notice =
                     sticker_label.and_then(|label| notice_after(before, session.store(), label));
@@ -99,16 +97,11 @@ impl ChatSession {
         network: &Network,
         node: &mut Node,
         generation: &Generation,
-        own: Option<VerifiedProfile>,
         now: Duration,
     ) -> Result<u32, CoreError> {
-        let fresh = self
-            .receive_owner_profiles(session, node, generation, now.as_secs())
+        let fresh_owner = self
+            .receive_owner_profile(session, node, generation, now.as_secs())
             .await?;
-        let own = fresh
-            .as_ref()
-            .and_then(|profiles| profiles.get(&self.key.identity.peer_id()).cloned())
-            .or(own);
         let protocols =
             std::sync::Arc::new(dyapp_p2p_net::Protocols::new(&network.name).map_err(failed)?);
         let mailbox = dyapp_client::mailbox(&self.device_key.identity.public_key());
@@ -119,12 +112,19 @@ impl ChatSession {
             .await
             .map_err(failed)?;
         let changed = self
-            .receive_mailbox(session, node, replicas.nodes_mut(), own.clone())
+            .receive_mailbox(
+                session,
+                node,
+                replicas.nodes_mut(),
+                generation,
+                now.as_secs(),
+            )
             .await?;
-        let profiles = fresh.as_ref().map_or_else(
-            || own.into_iter().collect::<Vec<_>>(),
-            |held| held.all().to_vec(),
-        );
+        let held = self
+            .receive_contact_profiles(session, node, generation, now.as_secs())
+            .await?;
+        let profiles = held.all().to_vec();
+        let fresh = fresh_owner.then_some(held);
         let checked = self
             .receive_cross_check(session, &mut replicas, &profiles, now.as_secs())
             .await?;

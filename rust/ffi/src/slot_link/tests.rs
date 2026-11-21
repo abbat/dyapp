@@ -51,6 +51,10 @@ fn idle_native_receiver_holds_no_mutation_lease_and_cancellation_prevents_pollin
     let receiver = fixture.receiver();
     let parsed = dyapp_client::link::Code::parse(&receiver.code(), dyapp_client::now()).unwrap();
     assert_eq!(parsed.expires_at, receiver.expires_at());
+    let projected = receiver.qr_matrix().unwrap();
+    let expected =
+        crate::MobileQrMatrix::from(dyapp_client::qr::matrix(receiver.code().as_bytes()).unwrap());
+    assert_eq!(projected, expected);
     assert_eq!(receiver.phase(), MobileLinkPhase::Waiting);
     assert!(receiver.result().unwrap().is_none());
     fixture.registry.create().unwrap();

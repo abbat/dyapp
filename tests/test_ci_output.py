@@ -91,6 +91,7 @@ def execute(
     prepare: bool = False,
     require_jna: bool = False,
     workflow_name: str = "codeql.yml",
+    platform: str = "desktop",
 ) -> subprocess.CompletedProcess[str]:
     binaries = root / "bin"
     binaries.mkdir()
@@ -106,6 +107,11 @@ def execute(
         tool.chmod(0o755)
     (root / "build/prototype-review").mkdir(parents=True)
     command, directory = step(job, name, workflow_name)
+    if workflow_name == "prototype-review.yml":
+        selection, _ = step(job, "select platform", workflow_name)
+        command = "\n".join(
+            [selection, 'set -a; source "$GITHUB_ENV"; set +a', command]
+        )
     if prepare:
         preparation, _ = step("kotlin", "prepare JNA")
         command = "\n".join(
@@ -125,6 +131,8 @@ def execute(
             FIXTURE_STATUS=str(status),
             FIXTURE_ARGS=str(root / "arguments.json"),
             GITHUB_WORKSPACE=str(root),
+            GITHUB_ENV=str(root / "github-env"),
+            PROTOTYPE_PLATFORM=platform,
             DYAPP_CHECK_LOG_DIR=str(root / "build/check-output"),
             FIXTURE_REQUIRE_JNA="1" if require_jna else "0",
         ),
@@ -194,6 +202,32 @@ class CiOutputTests(unittest.TestCase):
                                 json.dumps(expected) + "\n",
                             )
                             self.assertNotIn('"reason"', result.stdout)
+
+    def test_kotlin_dependency_setup_precedes_tracing_without_compiling(
+        self,
+    ) -> None:
+        workflow = yaml.safe_load((WORKFLOWS / "codeql.yml").read_text())
+        names = [
+            item.get("name") for item in workflow["jobs"]["kotlin"]["steps"]
+        ]
+        self.assertLess(
+            names.index("prepare JNA"),
+            names.index("resolve kotlin dependencies"),
+        )
+        self.assertLess(
+            names.index("resolve kotlin dependencies"), names.index("init")
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            result = execute(root, "kotlin", "resolve kotlin dependencies", 0)
+            self.assertEqual(
+                result.returncode, 0, result.stdout + result.stderr
+            )
+            arguments = json.loads((root / "arguments.json").read_text())
+            self.assertIn(":app:dependencies", arguments)
+            self.assertIn("debugCompileClasspath", arguments)
+            self.assertNotIn(":app:compileDebugKotlin", arguments)
+            self.assertNotIn("assembleDebug", arguments)
 
     def test_kotlin_build_requires_the_exported_jna_directory(self) -> None:
         workflow = yaml.safe_load((WORKFLOWS / "codeql.yml").read_text())
@@ -271,6 +305,68 @@ class CiOutputTests(unittest.TestCase):
                     )
                     self.assertIn("compose", arguments)
                     self.assertIn(operation, arguments)
+
+    def test_android_prototype_uses_its_mounts_and_inventory(self) -> None:
+        for name in ("verify capture readiness", "capture"):
+            for status in (0, 7):
+                with (
+                    self.subTest(step=name, status=status),
+                    tempfile.TemporaryDirectory(dir=ROOT / "build") as folder,
+                ):
+                    root = Path(folder)
+                    result = execute(
+                        root,
+                        "capture",
+                        name,
+                        status,
+                        workflow_name="prototype-review.yml",
+                        platform="android",
+                    )
+                    self.assertEqual(result.returncode, status, result.stdout)
+                    arguments = json.loads(
+                        (root / "arguments.json").read_text()
+                    )
+                    self.assertIn("prototype-shots-android", arguments)
+                    self.assertIn("android", arguments)
+                    self.assertNotIn("stickers-ready", arguments)
+                    if name == "verify capture readiness":
+                        self.assertEqual(arguments[-1], "chat-forward-dialog")
+                    else:
+                        self.assertEqual(arguments[-1], "android")
+
+    def test_prototype_validates_the_selected_capture_outputs(self) -> None:
+        expected = {
+            "desktop": "build/ux-research/prototype/criteria.json",
+            "android": "build/ux-research/prototype-android/layout.json",
+        }
+        for platform, output in expected.items():
+            with tempfile.TemporaryDirectory(dir=ROOT / "build") as folder:
+                root = Path(folder)
+                result = execute(
+                    root,
+                    "capture",
+                    "validate in capture image",
+                    0,
+                    workflow_name="prototype-review.yml",
+                    platform=platform,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                arguments = json.loads((root / "arguments.json").read_text())
+                self.assertEqual(arguments[-1], output)
+
+    def test_prototype_rejects_an_unknown_platform_before_docker(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT / "build") as folder:
+            root = Path(folder)
+            result = execute(
+                root,
+                "capture",
+                "capture",
+                0,
+                workflow_name="prototype-review.yml",
+                platform="unknown",
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertFalse((root / "arguments.json").exists())
 
     def test_every_declared_frontend_has_a_diagnostic_policy(self) -> None:
         policies = json.loads(

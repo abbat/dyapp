@@ -5,16 +5,21 @@ import XCTest
 @discardableResult
 func reveal(
     _ element: XCUIElement, in app: XCUIApplication, timeout: TimeInterval = 30,
-    above: Bool = false
+    above: Bool = false, fullyVisible: Bool = false
 ) -> XCUIElement {
     let row = element.firstMatch
     var deadline = Date().addingTimeInterval(timeout)
     var visited = Set<String>()
     while Date() < deadline {
-        // Native hit testing already accounts for clipped rows and in-flight navigation geometry.
-        if row.exists && row.isHittable { return element }
         let visible = revealViewport(app)
         let frame = try? row.snapshot().frame
+        // Hittability may describe only an exposed fragment. Editable controls must also
+        // expose their actual tap area above the current keyboard before native entry.
+        if row.exists && row.isHittable
+            && (!fullyVisible || frame.map { revealFits($0, in: visible) } == true)
+        {
+            return element
+        }
         if let frame, revealFits(frame, in: visible) {
             _ = ready(row, timeout: max(0, deadline.timeIntervalSinceNow))
             return element
@@ -67,9 +72,9 @@ private func ready(_ control: XCUIElement, timeout: TimeInterval = 10) -> Bool {
 /// Draft loading, scrolling and focus readiness are independent completed transitions.
 @MainActor
 func revealEditable(_ field: XCUIElement, in app: XCUIApplication) {
-    reveal(field, in: app)
+    reveal(field, in: app, fullyVisible: true)
     guard ready(field, timeout: 30) else { return }
-    reveal(field, in: app)
+    reveal(field, in: app, fullyVisible: true)
 }
 
 /// Tap the actual native switch once; never retry a toggle that might hide a real state reset.

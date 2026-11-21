@@ -49,6 +49,7 @@ internal class ChatFeed(internal val opened: Opened.Ready) {
         private set
 
     val lists = ChatsLists()
+    val presence = ChatPresence()
     private val photos = ChatPhotoFeed(opened, ::read)
 
     /** Counts the reads, so an open chat reloads for a change the rows do not show. */
@@ -57,11 +58,12 @@ internal class ChatFeed(internal val opened: Opened.Ready) {
 
     // Failures stay quiet and keep the last rows: no network and an unpublished profile are normal.
     internal fun read() {
-        runCatching {
+        presence.read {
             RustBridge.withChats(opened) {
                 rows = it.chatRows()
                 version += 1
                 liked = it.likedYou()
+                it.activeChatPeers()
             }
         }
     }
@@ -75,7 +77,18 @@ internal class ChatFeed(internal val opened: Opened.Ready) {
             it.chatItems(peer),
             { photo -> photos.original(peer, photo) },
             { photos.auto(peer) },
-            { photo -> photos.send(peer, photo) }
+            { photo -> photos.send(peer, photo) },
+            ChatStickerSource(
+                opened to peer,
+                version,
+                { receivedStickerPackTarget(opened, peer, it, version) },
+                stickerPickerCalls(opened, peer, ::read),
+                stickerDeleteCalls(opened, peer, ::read)
+            ) { sticker, manual ->
+                RustBridge.withChats(opened) { session ->
+                    session.chatStickerImage(peer, sticker.groupId, sticker.author, sticker.id, manual)
+                }
+            }
         )
     }
 
@@ -119,7 +132,7 @@ private suspend fun ChatFeed.poll() {
 @Composable
 internal fun rememberChatFeed(opened: Opened.Ready): ChatFeed {
     // Keyed so that a switch never shows the previous identity's chats, even for a frame.
-    val feed = remember(opened.slot.id) { ChatFeed(opened) }
+    val feed = remember(opened) { ChatFeed(opened) }
     val owner = checkNotNull(LocalView.current.findViewTreeLifecycleOwner()) { "Compose needs a lifecycle" }
     LaunchedEffect(feed, owner) {
         owner.repeatOnLifecycle(Lifecycle.State.STARTED) {

@@ -30,7 +30,8 @@ internal fun Conversations(rows: List<ChatRow>, names: Map<String, ContactNameVi
                 ChatListRow(
                     row,
                     names[row.peerId],
-                    Modifier.testTag("chat-${index + 1}").clickable { onOpen(row.peerId) }
+                    Modifier.testTag("chat-${index + 1}").clickable { onOpen(row.peerId) },
+                    row.sharedProfilePeer()?.let(names::get)
                 )
             }
         }

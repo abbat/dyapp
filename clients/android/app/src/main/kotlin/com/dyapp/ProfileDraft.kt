@@ -29,6 +29,8 @@ internal data class ProfileDraft(
     val name: String = "",
     val about: String = "",
     val seeking: ProfileSeeking = ProfileSeeking(),
+    // Null preserves stored tags; an empty list explicitly clears them.
+    val interests: List<String>? = null,
 )
 
 /** The shared core parses and checks height; an empty map clears it and null rejects it. */
@@ -48,6 +50,7 @@ internal fun ProfileDraft.record(): PublicProfileDraft {
         about = about, smoking = code(SMOKING), drinking = code(DRINKING), tattoos = code(TATTOOS),
         maritalStatus = code(MARITAL_STATUS), pets = code(PETS), seekingGenders = seeking.genders,
         seekingAgeFrom = seeking.ageFrom, seekingAgeTo = seeking.ageTo, notLooking = seeking.notLooking,
+        interests = interests,
     )
 }
 
@@ -73,7 +76,8 @@ internal fun PublicProfileDraft.draft(): ProfileDraft {
         country,
         name,
         about,
-        ProfileSeeking(seekingGenders, seekingAgeFrom, seekingAgeTo, notLooking)
+        ProfileSeeking(seekingGenders, seekingAgeFrom, seekingAgeTo, notLooking),
+        interests
     )
 }
 

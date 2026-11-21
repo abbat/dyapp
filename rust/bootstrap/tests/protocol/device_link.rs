@@ -18,6 +18,8 @@ use std::slice::from_mut;
 mod finish;
 #[path = "device_link/maintenance.rs"]
 mod maintenance;
+#[path = "device_link/native.rs"]
+mod native;
 #[path = "device_link/offline.rs"]
 mod offline;
 #[path = "device_link/registry.rs"]

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notes_title">Private note</string>
+    <string name="notes_hint">Only your devices share this note. It never appears in your public profile, search, likes or messages.</string>
+    <string name="notes_loading">Loading private note…</string>
+    <string name="notes_saving">Saving private note…</string>
+    <string name="notes_load_failed">The note could not be read. Retry before editing it.</string>
+    <string name="notes_save_failed">The saved note could not be confirmed. Your draft remains; try again.</string>
+    <string name="notes_invalid">Shorten the note or remove unsupported characters, then try again.</string>
+    <string name="notes_saved">Private note saved.</string>
+    <string name="notes_cleared">Private note cleared.</string>
+    <string name="notes_retry">Retry private note</string>
+    <string name="notes_save">Save private note</string>
+    <string name="notes_clear">Clear private note</string>
+</resources>

@@ -1,9 +1,445 @@
 # UI Testing: Practical Guide
 
+Android receiving-screen checks use the real Settings frame, controls and retained-operation store
+with controlled native completion. They preserve the exact reserved destination, require explicit
+creation and disposition, and invoke captured application callbacks after disposal/equal reopening.
+These checks establish presentation ownership; actual owner approval, enrollment, QR and runtime
+acceptance require the separate real JNI journey and screen review. Receiving prototype states run
+`clients/android/prototype/receive-fixture-tests.js` after capture: typed refusal actions, code
+visibility, activation prerequisites and busy disposition are checked before focus/reachability
+calibration. Canonical Android capture validates layout and these browser contracts; it does not
+run the desktop-only criteria audit or prove native transfer/enrollment.
+
+Android stale-callback checks capture the installed `applicationClickKey` action, rather than a
+Compose `SemanticsActions.OnClick` wrapper: modifier nodes may reuse that wrapper for a new opening
+or require attachment before invoking it. Identity durability acknowledgement uses that same exact
+callback contract for replacement results and disposal. Profile sharing exposes the same application action used
+by each real control; cancellation, duplicate admission and retired completion assertions remain.
+The real foreground LAN-permission journey closes the IME with Espresso's acknowledged action after
+text replacement, then scrolls to the check button using current layout bounds before clicking.
+
+Received-message prototype actions use the existing spacing token separately from compact message
+metadata. Empty received-menu holders are hidden; the normal/enlarged layout validator checks the
+actual control separation without allowances.
+
+Desktop forwarding adds nine families beyond the original 99-family matrix. Keyboard calibration
+reopens the real static picker and requires a fresh owner, ignored retired choice and unbound old
+pagination. The admitted-send frame checks disabled actions and Escape refusal, then acknowledges
+a controlled failed completion before the normal GDK focus/radio/Escape-restoration audit. It never
+cancels backend work or exempts the ready state from existing keyboard checks.
+
+Native desktop Settings smoke captures the actual blocked and passed panels after their initial
+load completes, before replacing their rows with pagination/error fixtures. These named capture
+points run the existing text/accessibility checks on the synchronization hints in all desktop clients.
+The focused `settings-moderation` step runs independently in EN/RU on all three native desktops.
+Linux additionally retains the loaded panels at 440/1280 widths in a fresh `moderation-shots-*`
+directory; a receipt binds all eight required PNG files to their hashes and the executable hash.
+Missing/empty captures fail the exposure. CI uploads this directory with native diagnostics;
+its Linux setup includes the same ImageMagick capture tool already used by the Docker test image.
+
+The prototype keyboard fixture calibrates requested switcher visibility against both the real
+visible menu and a controlled hidden sidebar. It must reject all three missing identity actions;
+frame readiness and current hit testing establish exposure without fixed positions or delays.
+Calibration fixtures temporarily suspend prototype URL updates while retaining the real DOM/focus
+transitions; WebKit limits rapid history writes independently of UI readiness. A 128-transition
+counterexample checks that the URL stays unchanged and ordinary URL navigation resumes after a
+controlled rejection. Fixture cleanup always releases this scope, including setup failures; normal
+keyboard walks and prototype navigation keep their URL updates.
+
+Offline native chat fixtures that establish several conversations must pass distinct interaction
+event IDs per author. Reusing an author/event pair for a different peer correctly fails with
+`InteractionConflict`; `establish_with_event` makes the fixture's distinct events explicit.
+
+Android prototype snapshots include nine forwarding states. Their browser checks live beside the
+prototype in `clients/android/prototype/forward-fixture-tests.js` and are not packaged in the APK.
+The static controller lives with shared HTML-prototype assets at
+`clients/desktop/prototype/forward-fixture.js`; Android browser tests remain beside Android.
+The static forward opening owns abortable listeners, including collection navigation; retirement
+removes those bindings. A controlled browser check requires navigation before abort and no work after it.
+Desktop outcome-to-source navigation restores the original peer, header/avatar and presence visibility;
+its reopening calibration checks both sent and queued outcomes before exercising retired callbacks.
+Run the on-demand `prototype-review` workflow with `platform=android` for the complete Android
+inventory and layout checks; its default `platform=desktop` retains desktop capture and criteria.
+The artifact records the selected platform, exact source and input hashes. Ordinary APK CI does
+not execute the HTML-prototype capture. After capture, browser checks verify
+state-specific admission, received-menu permissions and destination-only history/avatar. Each ready
+dialog snapshot also checks the actual 32+8 pagination, full-ID search, retained selection across
+pages and rejection of callbacks after a synchronous leave-and-return transition. These checks
+use DOM actions and completion callbacks; they do not stage native messages. After capture, each
+applicable Forward/Cancel/read-retry control must accept focus, scroll into the current viewport and
+pass center hit testing with its full live bounds inside the viewport. Intersection/scroll/resize
+signals and a fresh per-control failure deadline establish readiness. Controlled hidden, covered and
+fixed-offscreen mutations calibrate rejection, then restore the original node and presentation before
+selection/retirement checks. Synthetic `.click()` alone is not evidence of physical reachability. Native forwarding
+and receiver-history evidence remain separate requirements. The registered-shell JNI forwarding test
+reads the clickable chat header in the unmerged semantics tree, preserving its exact target assertion.
+It observes either target readiness or the existing refusal notice; refusals expand that dialog's
+native details immediately, and noncompletion retains scoped header/dialog text. The original
+transition deadline and actual receiver checks remain. The production-dialog Compose test
+also requires a controlled precommit send failure to retain its selected destination and draft,
+then allows exactly one additional forwarding-call attempt after an explicit retry.
+
+`ChatFormOwnershipTests` renders the production remembered form and replaces either its peer or
+the actual opened identity while retaining equal slot/owner identifiers. It requires a fresh form
+with no carried draft, edit, deletion, rename, confirmation or pending flags. Recomposition and
+SideEffect completion, rather than a delay, establish the new owner before assertions.
+
+Shared visible-chat admission tests keep the existing own/blocked/unknown error order, all known
+conversation phases, exact owner/peer projection, no writes and propagated storage failure.
+Native Clear-target tests cross the public export, reopen its store and recheck refusal after the
+peer is blocked; the earlier target record never authorizes a later Clear. These tests do not
+replace Android target/consequence rendering and stale-dialog callback acceptance.
+
+Desktop and inherited prototype withdrawal warnings use the same unconfirmed wording as Android;
+a missing acknowledgement cannot establish that no node accepted a remote write.
+The native profile-removal journey checks the complete unconfirmed-withdrawal warning and its
+text layout before exercising Retry/Cancel, then verifies normal removal after network recovery.
+The separate Remove anyway path retains explicit local key/data-removal acceptance. Resource copy
+must not promise a fixed remote expiry or claim that an unconfirmed completion proves no node
+accepted the withdrawal.
+
+The native linked-media protocol regression first establishes a matched chat containing a valid
+JPEG and decoded WebP sticker, verifies both protected node blobs and recipient mixed-history
+rows, and only then enrolls the extra device. The public native receiver must join, receive
+subsequent text and reopen with no earlier photo/sticker rows or cached originals. Original
+protected blobs are checked again after enrollment and reopening so data disappearance cannot
+make the absence assertions pass. Existing linked-text, idle-revocation and third-own-group
+protocol cases remain separate. The test requires core protocol CI; source checks alone do not
+establish its runtime acceptance.
+
+Localized Android Compose fixtures use `LocalizedTestContext`: provide the selected context,
+configuration and `LocalResources` together, plus the desired current density/font scale.
+Capture the real Activity's `LocalActivityResultRegistryOwner` before replacing its context and
+provide that same registry inside; a configuration context alone is not an Activity registry owner.
+Keep locale-specific text/description assertions and actual geometry checks; do not turn a missing
+localized node into a timing retry or accept a different language. This helper also covers
+localized full-screen fixtures that can open a system picker.
+
+`SearchIntentTests` verifies that admitted native conditions, employer and mutual choice remain
+unchanged after every form field and offered list are edited. An admitted validation failure
+remains a failure after later correction; a captured mutual choice still requires the actual
+saved own gender and exact age. These snapshot tests do not establish callback/operation lifetime
+safety. `SearchPresentationTests` controls backend readiness and completion independently,
+including work that returns after cancellation. It checks duplicate Run admission, retained
+Run after equal-looking failure, old Cancel against a successor, late offered-field installation
+and retired-owner completion/admission. Assertions wait for the actual coroutine job completion,
+not just a callback-internal finally block. Native lifetime and real query acceptance remain
+separate from this presentation-controller scope.
+
+Checked shared-search tests match canonical Unicode interest conditions against actual profile
+tags, preserve punctuation, reject invalid nonblank offered tags without a partial query, and
+ignore invalid hidden fields. Native adapter tests retain condition ordering/payloads and map
+only offered invalid interest input to the field-specific failure. Android query/UI acceptance
+requires device execution. `SearchInterestTests` crosses generated JNI for canonical Unicode,
+punctuation, offered-invalid refusal and blank/hidden omission, and renders the actual filter form
+to verify offered visibility changes retain raw input without applying hidden conditions.
+`NativeInterestSearchTests` publishes actual slot-owned profiles through the existing suite node,
+obtains its offered fields and queries a unique canonical tag using decomposed/uppercase input.
+The verified result must contain only the expected peer and its complete saved tag list. A distinct
+nonmatching tag is accepted as empty only after a complete, nonpartial, failure-free native search;
+expired deadlines never establish absence. Each transition advances on a real completed search.
+This test requires device CI and the existing suite node; it does not make Android a network node.
+
+Shared multiline-interest tests cover CRLF/blank lines, punctuation, canonical Unicode, preserved
+duplicates, exact count limits and invalid-tag refusal without partial output. Native adapter tests
+compare advertised limits against actual parser admission at each boundary and distinguish clear
+from invalid input. Native parsing alone does not establish Android editor/persistence/search acceptance.
+`NativeProfileInterestDraftTests` checks optional JNI record roundtrips, unrelated-save preservation,
+explicit clear after reopen and another owner's retained tags. `ProfileInterestEditorTests` checks
+native canonicalization, blank clear, untouched-field omission and whole-save refusal. Its controlled
+late-save case retains newer input and then persists an explicit undo of the completed older write.
+`ProfileInterestUiTests` exercises actual editor save/reopen/clear and invalid-input recovery through
+MainActivity. `ProfileInterestRowsTests` exercises the actual shared public/preview rows, preserving
+punctuation and duplicate order and distinguishing an interest-only profile from an empty one.
+`InterestGeometryTests` renders the actual editor/search fields and public rows in the production
+theme at EN/RU normal/doubled font scale. It checks full labels, native-limit hints, a long multiline
+input and public tag list using current text layouts and viewport bounds. Device CI execution is
+required; component geometry does not replace full screen/keyboard/owner review or network search
+acceptance.
+
+Native privacy preference tests use real offline ChatSession/Store fixtures for default values,
+per-field independence, reopen durability and another identity's defaults. Unsupported flag formats,
+invalid values/lengths and a database-triggered write refusal must propagate errors without
+repairing the stored value or changing adjacent preferences. Generated bindings, Android controls
+and real governed signal delivery require their own CI/runtime evidence.
+`PrivacyPreferenceStateTests` covers unknown/read-retry, pending duplicate admission, unconfirmed
+write/readback, disposed-owner completion and equal fresh read revisions. Presence uses this shared
+presentation guard; its existing controlled Compose scenarios retain their original assertions.
+`PrivacyPreferenceSwitchTests` invokes the actual application callback to test unknown views and
+read-only retry, committed-but-unconfirmed receipts, and pending typing with owner replacement.
+Counters are checked outside caught callbacks; controlled completion signals avoid guessed delays.
+The existing production-Activity receipt persistence/recreation test remains unchanged.
+`NativePrivacyPreferenceTests` crosses the actual registry/Keystore/generated JNI boundary through
+production preference adapters and an independent direct native field snapshot, so a paired
+getter/setter swap cannot pass. Independent changes preserve presence/notices, another selected
+identity retains its defaults/selection, and reopening restores the edited values. Each native
+read/write gets its own failure deadline; no node or Activity is needed. Device CI must execute it.
+`NativePresenceDeliveryTests` separately uses two actual clients on the suite-owned node: mutual likes,
+hidden sender refusal before first disclosure, explicit send and authenticated receive, retained
+incoming marks while hidden, no automatic reciprocity from receive, and explicit reverse send.
+Receipt advances only on completed native mailbox passes; common injected-clock tests retain
+throttle/expiry boundary coverage. Foreground-lifecycle and rendered UI acceptance remain separate.
+`PrivacyPreferenceGeometryTests` renders the actual three preference components in the production
+theme at EN/RU normal/doubled font scale. It measures complete labels/hints against live row and
+viewport bounds, then controlled read failures and retry-button text/bounds. Every retry must
+restore a known enabled row without any write call. Component geometry requires device CI;
+full Settings navigation/Activity review remains a separate acceptance scope.
+
+Debug-only `MailNoticeProbeService` observes actual framework start/stop/completion and attempts
+at OS notification posting without replacing registry selection, native receive or posting.
+The attempt carries the original admitted slot/peer and a notification copy, after foreground and
+OS-permission gates. Observers must only record signals/data: they run inside native ownership and
+must not reenter RustBridge. A zero attempt count is meaningful only after verified job completion;
+an expired deadline never proves that no notification was attempted. Actual OS-post integration
+acceptance remains separate from these observer hooks.
+`WorkerStickerNoticeTests` uses owned registry slots and an independent native sender on the suite's
+real node. It registers an accessibility notification-event listener before scheduling the debug
+service, checks the actual private/public OS payload in Text/Name/Fixed modes and original slot/peer,
+then verifies exact sticker receipt without saving a pack or retaining an image original.
+Muted and notification-off cases require native job completion, zero observed post attempts and
+the exact received sticker; an absence timeout cannot pass them. After the recipient withdraws its
+like, the still-unaware sender submits a sticker accepted by the node; the completed worker must
+keep the chat non-open, reject that exact sticker and attempt no notification or media retention.
+Unlike an eligible text request (which may produce a fixed notice), non-open sticker bodies are
+acked and dropped by the core; the core receive tests separately assert inbox consumption.
+The fixture restores the previous identity inventory. It requires CI/device execution, notification
+permission and no live Activities; periodic/Doze scheduling remains separate. Cache/no-save checks
+prove no persistent media side effects; they do not measure network requests.
+
+Shared own-message preflight tests retain desktop full-key/live-text/delete-only sticker cases
+and real Store coverage for colliding authors, media kinds, blocking and cleared history. The
+original desktop regression assertions remain and their argument helpers borrow items for the
+common matcher, including all original author/group/ID/kind counterexamples.
+Native sticker-delete boundary tests check exact selection and no writes before transport,
+including a valid own selector reaching an intentionally absent network and unchanged text-only
+compatibility. `NativeStickerExchangeTests` reuses its real peer pair for own deletion, foreign and
+duplicate refusal, remote removal after native receive completion, and retained original sticker/packs.
+`StickerDeletePresentationTests` controls Cancel/reopen tokens, duplicate admission, precommit refusal
+and noncancellable completion after retirement. `StickerDeleteUiTests` drives actual own/foreign
+history rows, the Delete-only menu, Cancel/reopen and identity retirement, exact selected keys and
+committed duplicate rejection with an unchanged composer draft. `StickerDeleteGeometryTests`
+renders that same history/confirmation with long literal pack names in EN/RU at normal/doubled
+font scale, scrolls the complete explanatory text, and checks full action labels and live dialog
+bounds. Cancel must leave both the delete-call counter and composer unchanged. Actual JNI/UI
+execution remains required CI proof.
+
+Common received-pack control table tests cover current phases and failures, both retained and
+absent generations for failures, exact order and unchanged controls across zero/maximum retry deadlines.
+The desktop controller test deliberately supplies controls that disagree with its former state
+rule, retires an old button and rejects an unknown control while retaining the known pending
+caption with read-only recovery; all original quota/fresh/conflict/focus
+assertions remain. Native request-status integration tests also check controls on actual New/Waiting/Downloading/
+Fetch-failed/Saved transitions. These require native CI; formatting alone does not prove execution.
+
+Sticker request/status and manager/page snapshots use referential state policy because their
+object identity admits callbacks. An equal fresh native value must replace the old object;
+`SavedStickerSnapshotTests` verifies that an old page callback cannot trigger another read.
+
+Android `SavedStickerPresentationTests` controls cancel/duplicate removal, uncertain unlink
+readback, retired picker tickets and closing during noncancellable URI reads. Confirmation tokens
+are unique per opening: a callback captured before Cancel cannot confirm a reopened dialog for the
+same entry. Import admission
+occurs only after the owning opening observes read completion; known pages remain visible but
+not editable when readback fails. The native adapter uses registry-owned removal without opening
+a media key. The reusable manager dialog shows bounded pages and a selectable full-ID removal
+confirmation. `SavedStickerManagerViewTests` checks same-prefix IDs, Cancel/reopen retirement,
+exact core cursors and retired page callbacks via semantic completion signals. The production
+shell hosts Settings → Photos and a common manager route with per-opening picker registration.
+`SavedStickerManagerHostTests` drives the real OpenDocument registry contract, Android file-stream
+reading and native byte-budget export with controlled results: old/new openings have separate
+request codes, and only the current file bytes may reach the save adapter. It also checks retired
+identity navigation. `SavedStickerGeometryTests` reuses the actual manager fixture in the production
+theme, with long literal Ready names and unreadable entries at EN/RU normal/doubled text scale.
+It scrolls full explanatory text and the selectable complete PackID, checks current dialog-relative
+action geometry, and requires Cancel to preserve the selected pack with zero remove calls.
+Native TAR validation/storage and actual rendered/device execution remain separate CI proof.
+
+Android `PickedInputTests` checks empty/exact limits, fragmented provider reads, partial-read
+failure propagation and oversized input rejection after at most one extra byte. The OS reader
+uses core-provided budgets; it performs no archive, image or quota validation. Photos reuse this
+reader with their existing native budget and localized too-large/unsupported errors.
+
+Android `StickerPackPresentationTests` controls native-like request completion and readback:
+uncertain application followed by failed read retains the known intent and disables mutation;
+read-only retry installs the current generation; retired/same-token status callbacks and duplicate
+admission cannot submit. Explicit completion gates have separate failure deadlines. The request
+presentation controller and Compose controls are wired through production ChatFeed and the shared
+saved-pack manager. `ChatStickerPackRouteTests` drives chat-to-manager navigation, close/readback and
+mailbox-revision status replacement. `StickerPackControlsTests` checks authoritative projected actions,
+retired-owner navigation, pending caption retention and read-only recovery. Button coroutines
+start undispatched to admit an operation before the next captured callback can run.
+Actual instrumentation execution is required independently of source lint.
+`SavedStickerStateGeometryTests` drives the production saved-pack manager in EN/RU at normal/doubled
+text, holding read/import completion explicitly. Busy controls, retained-page read failure and
+read-only recovery, added/already-saved and failed import notices use current layout/viewport bounds
+and external attempt counters. The controlled import bytes prove presentation only; real TAR and
+quota admission remain native-core/host tests.
+`ProfileShareOpeningTests` retains actual dialog callbacks across Cancel and equal-content reopening.
+Only the current opening admits a send once; retired Cancel, Open Chat and completion callbacks
+cannot alter a successor or unlock its pending request. Successful/queued commitment admits only
+navigation to its exact destination, while current refusal permits an explicit retry.
+`ChatPhotoGeometryTests` exercises the production photo bubble in EN/RU at normal/doubled font
+scale: explicit stranger reveal, held download, failure/retry and actual PNG decoding. Completion
+signals and external request counters separate phases; complete label layouts, current viewport
+bounds and decoded image aspect are checked after scrolling. This presentation fixture does not
+replace the independent native photo transport/cache tests.
+`StickerPackGeometryTests` renders the production request widget in EN/RU at normal/doubled font
+scale with long literal pack names. A controlled held read checks the disabled checking presentation
+before releasing it and awaiting loaded UI completion. Loaded cases check complete status/warning
+layouts and current width, and scrolls actions fully into the current viewport. A supplied full
+control list exercises every label without duplicating native eligibility; failed readback retains
+the known caption and leaves only read-only recovery. External write counters stay zero.
+
+Android `StickerPickerPresentationTests` controls equal-content choice replacement, duplicate and
+late sends, typed Queued commitment, native cursors and Back through a failed read.
+`StickerPickerNavigationTests` covers exact-opening/manager-revision return and a chat that stopped
+allowing composition. `StickerPickerComposerTests` uses actual `MediaChatContent`, editable/held
+text drafts and the real saved-manager route with controlled native projections: sticker send stays
+standalone, old buttons cannot send after manager return or identity replacement.
+`StickerPickerGeometryTests` measures wide/tall thumbnails, full labels and current dialog bounds
+in EN/RU at normal/doubled font scale. It scrolls semantic targets and uses live bounds, without
+coordinate guesses. These require SDK/device CI; the real-node native sticker scenario separately
+proves backend pack authentication, send, recents and hidden controls.
+
+Android `ChatStickerImageTests` checks actual Bitmap alpha/channel conversion, rendered aspect and
+localized accessibility labels. Controlled native-like completion gates cover duplicate manual
+requests, replacement owners, retired callbacks and failure/retry. Both old and successor reads
+have external call-count assertions, so caught callback failures cannot hide redirected work. These tests retain complete
+message keys and observe semantic outcomes with per-transition deadlines; SDK/device execution
+is required separately from strict source lint. Pack-management and background-notice acceptance
+remain separate required slices.
+
+Android `SlotsTests` checks fail-closed presentation and projection labels; removal lifecycle
+eligibility cases live in the common `identity_slots::removal_policy` table test. Core registry
+review tests retain a real shared lock during key reads and cover denied/missing keys, stale Peer
+IDs, duplicate-key warnings and unchanged selection/files. The exported registry fixture and
+`NativeSlotsTests` cross the actual FFI/Keystore boundary for ready and cleanup hints and wrong-peer
+review refusal. Their SDK/device execution is required in CI; standalone pure-policy/conversion
+checks do not prove registry locking or native binding generation.
+
+`RenameDialogGeometryTests` renders the native private-name dialog in EN/RU at normal and doubled
+font scale, scrolls label/hint into their measured text slots and checks complete layouts/current
+dialog bounds. Save/Cancel remain outside the scrollable fields; cancellation invokes no save,
+and an empty name still reaches the save callback. Device execution is required separately from
+source lint and WebKit prototype captures.
+
+`LocalCollectionViewTests` exercises the actual shared-core FFI projection from Compose: 70 local
+entries mount as 32/32/6 rows, full-target search finds a last-page entry, clearing search returns
+to the first page, and a captured navigation callback cannot change a replacement opening.
+Controls scroll to their current bounds; row readiness uses semantic completion signals. These
+test sources require native CI execution; source lint does not establish device success.
+`CollectionRowGeometryTests` renders the production identity/people row controls in EN/RU at
+normal and doubled font scale. It checks complete identifier/action text layouts, actual current
+horizontal containment and action placement below the identifier, without fixed tap coordinates
+or guessed row heights. Execution on Android remains required.
+`IdentityCollectionStateTests` controls read admission/completion with a future and per-transition
+deadlines: failures preserve the known snapshot, successful retry replaces it, concurrent refresh
+admits one read, and a retired owner's completion or selection cannot publish. Existing
+`IdentitySettingsTests` still checks confirmed active/non-active removal through the real registry;
+its non-active row lookup now uses the complete displayed Peer ID.
+
+`LanguagePreferenceTests` covers arbitrary catalogue size, legacy enum-name matching and explicit
+system/removed-choice fallback. `LanguageCatalogTests` reads the actual packaged XML inventory and
+checks canonical tags, readable autonyms and exclusion of generated pseudo-locales. Python
+`test_android_language_catalog.py` compares registry tags with own application translations,
+including region/script qualifiers while excluding UI/night/density qualifiers and libraries.
+Kotlin test sources still require actual SDK/unit/device execution; Python inventory tests alone
+do not prove native resource selection or recreation.
+`LanguagePickerTests` checks Cancel/unchanged selection without writes, stale callbacks from an
+older opening or owner, arbitrary option count and single admission of captured repeated selection.
+`LanguagePickerGeometryTests` checks complete long-label text and current unclipped dialog bounds
+at normal/doubled font scale, with Cancel still visible. Initial/return focus readiness uses actual
+window-focus signals. The selected option and returning opener explicitly allow focus in touch mode.
+Retirement tests capture the same application closure supplied to the control through
+`applicationClickKey`; Foundation's retained `OnClick` wrapper requires an attached Modifier node
+and cannot represent delivery after disposal. Ordinary interaction tests still click the real control.
+`AppearanceTests` enters the dialog and preserves its existing native
+language/theme persistence and Activity recreation assertions. Actual CI execution remains required.
+
+`ChatListPreviewTests` drives actual conversation rows for all six typed bodies and forwarded states,
+with disagreeing legacy text/time, cached shared-profile labels, original navigation and a full-history
+sentinel. `ChatListPreviewGeometryTests` reads actual semantic text layouts and unclipped bounds at
+normal/doubled font scale; its narrow host derives from measured text and current window width.
+It requires wrapping, complete non-ellipsized content, timestamps below the preview and contained
+horizontal bounds, without guessed offsets or sleeps. These sources require actual SDK/device CI;
+static lint alone does not establish rendered acceptance.
+`ContactNameSnapshotTests` separately holds a replacement read pending and failing, completes a
+retired noncancellable read late, and fails a same-owner refresh. Each transition observes its
+completion signal; replacement snapshots must stay empty/current, while refresh may retain only
+that owner's last successful local names.
+
+`MediaCacheErrorTests` controls unknown-read retry without default writes, raw invalid input and
+indeterminate-write readback with draft retention. `MediaCacheOwnerTests` checks cancellation without
+a confirmed mutation, a cancelled dialog callback versus a newer opening, repeated captured Confirm
+admission, and late noncancellable completion after identity replacement. Gates are released in
+cleanup even if an assertion fails; transitions use actual completion/readiness signals.
+The widget leaves parsing, cache policy and confirmation decisions to common core through UniFFI.
+`NativeMediaCacheTests` separately exercises real JNI exact input, confirmation, preservation of
+independent fields, reopened identity isolation and actual cache clearing without losing private
+notes/favorites. Only actual instrumented execution establishes this native acceptance.
+
+Shared cache input tests cover integral-byte decimal/exponent conversion, exact non-whole MiB
+round trips, range/overflow refusal and destructive-change boundaries. Store-control tests require
+confirmation before mutation, reevaluate actual state and preserve the other preference and
+unrelated data. Native export tests check typed invalid input, confirmation, restart and identity
+isolation; these cases require actual CI execution rather than binding/lint-only acceptance.
+
+`SettingsHubTests` checks the native category root has no collection/removal actions, detail panes
+hide shell bars, collection Back returns to its category, and system Back restores the root.
+Existing settings tests enter explicit categories and await native values/rows after navigation.
+After Activity recreation, the helper enters Settings before returning a restored detail route to
+its category root; tests do not assume that selecting the tab resets its remembered route.
+`SettingsFrameOwnerTests` captures an old collection callback, replaces its identity and invokes
+that callback to prove it cannot navigate the successor. The route-only owner survives the app-lock
+settings overlay without retaining native handles or loaded values.
+
+`PhotoDownloadOwnerTests` controls the real three-choice native-settings presentation. Unknown reads
+leave every choice disabled and retry performs no write; repeated captured callbacks admit one
+change, and late completion of an old native-like operation cannot replace the next identity's
+selection. A write that commits and then fails disables choices until read-only retry reconciles
+the actual value. The widget delegates network/stranger policy and persistence to the existing core API.
+
+`ContactNoteOwnerTests` checks exact multiline/non-BMP draft retention after controlled save failure,
+retry and clear, unknown-note read retry without editable/Save controls, and an old noncancellable
+native-like completion after identity replacement. Signals order each transition with separate
+failure deadlines; no arbitrary delays or coordinate estimates are used. Native privacy, blocked
+contact access and persistence remain covered separately by `NativePrivateContactTests`.
+
+Android `FavoriteActionOwnerTests` drives the real private-save control with controlled native-call
+completions: two captured callbacks in one UI turn admit one write; successful readback determines
+the label; replacing an owner cancels its prior presentation; failed initial reads offer only read
+retry before any mutation. The existing JNI private-contact tests separately cover durable native
+state, typed policy failures and absence of public-profile/like/chat changes.
+`SavedProfilesTests` separately checks lazy local-list reads, navigation only after an explicit row
+press, captured Open callbacks during removal and after the row disappears, and cancellation on
+identity replacement. Only the ordinary profile route performs the later network fetch; expanding,
+refreshing or removing a saved row uses local native operations.
+
+The bootstrap protocol fixture `native_linked_receiver_joins_existing_chat_without_old_history`
+opens a linked device through public `ChatSession` calls against a real external node. Its existing
+pair chat contains pre-enrollment traffic; after completed membership maintenance and native mailbox
+processing, the new device has no previous messages and receives only subsequent traffic. The
+sender's maintenance uses an explicit clock; protocol completions order the phases without sleeps.
+The companion `native_idle_refresh_removes_a_revoked_contact_without_new_mail` reopens the existing
+sender through FFI, publishes a contact device removal, and checks the durable MLS members before
+and after ordinary receive without new incoming traffic or explicit confirmation. These fixtures
+cover native receiving/maintenance adapters, not Android UI. The separate common protocol fixture
+`a_third_own_device_reuses_the_private_group_and_syncs_both_directions` publishes a third own device,
+runs maintenance on both existing members at the same injected clock, and receives the Welcome before
+the new device performs maintenance. It checks the original group ID, bidirectional private changes
+and absence of chat rows; this common-core proof does not imply three-device JNI execution.
+
 The shipped desktop sticker-controller paging check awaits its actual listing completion, then
 checks the localized Pack ID label, contiguous eight-digit prefix and accessible Remove target.
 The full removal confirmation retains the complete identifier. Controller readiness and focus
 come from completed callbacks and the current DOM, with no timing or positional assumptions.
+
+The iOS typed-profile journey awaits editable/hittable field readiness and measured containment
+above the current keyboard. A partially exposed hittable field is insufficient for native entry.
+It then performs native text entry,
+and then observes the exact seeking-age value in that field. It does not gate typing on a KVC focus
+flag; native entry failures and wrong-target values remain failures. Existing invalid-height,
+persistence, preview and relaunch checks stay part of the same journey.
 
 Android v0.0.1 background acceptance retains exact-message ownership, offline reopen, reboot and
 APK-upgrade/job-restoration phases. Doze/App Standby policy verification is planned after v0.0.1;
@@ -20,9 +456,16 @@ The modern permission lane also runs `LocalNetworkDialogTests` after restored-pr
 AndroidX Test `SdkSuppress(minSdkVersion = 37)` gates the test class; setup separately requires target
 API 37. Setup and restoration retain checked synchronous preference commits, not unchecked KTX writes.
 It revokes permission and clears decision flags before starting the instrumentation process, then
-restores the grant even if the foreground test fails. Two explicit requests from the actual
-`MainActivity` network form are denied and then allowed; each must reach the native invalid-address
-result without changing the original selection or active network. The one-shot auto-prompt marker
+restores the grant even if the foreground test fails. The actual `MainActivity` network form first
+requires a denied request to complete with a native invalid-address result. A second OS request stays
+pending while the activity is recreated; lifecycle callbacks acknowledge old destruction and new
+creation before permission is allowed. Its retired continuation must leave the persisted draft and
+replacement form untouched. A fresh request after the grant must complete normally, with the original
+selection and active network preserved. This uses direct main-thread recreation because
+`ActivityScenario.recreate()` first requires RESUMED, which a pending system dialog can prevent.
+Each edit and check-button tap
+scrolls its target into the current viewport; completion requires the result row for that attempt's
+address as well as the invalid-address summary. The one-shot auto-prompt marker
 is set before activity launch and restored afterward, so startup cannot race a system dialog. `PermissionDialog` observes
 accessibility events and resource IDs scoped to the current system-owned window with fresh
 transition deadlines. It verifies that window's package through public PackageManager metadata;
@@ -31,6 +474,15 @@ package is also the resource namespace. Traversal is bounded, ambiguous controls
 include the observed package/flags/resource IDs without copying dialog text. It uses no translated
 labels or guessed geometry. The retained report is
 `local-network-foreground.txt`. Compilation alone does not establish actual dialog execution.
+
+Android committed identity persistence uncertainty is acknowledged separately from operation failure.
+`IdentityDurabilityTests` checks EN/RU/pseudo normal/enlarged dialog text, live-region semantics and current
+acknowledgement bounds, selected-route preservation and retired callbacks across equal replacement
+results. `IdentityActionsTests` retains committed selection, clears the notice on a synced successor
+and refuses a cancelled owner's unconfirmed completion. These tests use completion signals.
+The Android prototype inventory includes `identity-durability-dialog`; its awaited post-capture
+fixture checks acknowledgement-only navigation, polite notice semantics and the shared focus,
+scroll and hit-test calibrations, preserving the static screenshot.
 
 Android publication callbacks admit one attempt synchronously before coroutine dispatch. Closed,
 busy and disposed owners cannot launch another attempt; native authorization remains unchanged.
@@ -42,6 +494,9 @@ Profile facts use bounded label/value tracks and wrap long labels; safety action
 current panel. Contrast retries align the actual text start inside its scroller, then restore scroll
 and focus. The scroll calibration checks readable and deliberately low-contrast text both shorter
 and taller than its container, deriving the taller paragraph from current geometry.
+Opaque ARIA-modal contrast isolation also works when every action is disabled and focus stays
+outside. Its calibration retains readable and low-contrast controls and verifies that auditing
+restores the original focus and background visibility.
 
 The desktop report-path regression uses a fake executable callback that rejects explicit broken
 and unknown-step arguments. It checks that the report contains every actual invocation and both
@@ -91,9 +546,16 @@ and the shared `production-windows-smoke` action uses Windows UI Automation. A f
 must expose a visible setup heading and an enabled Create identity button from the same locale.
 Linux focuses the button and quits with Ctrl+Q; Windows closes the native window. Both require
 clean process exit. Windows uses `tests/scripts/production-windows-smoke.ps1`: UIA window,
-structure and relevant property events wake readiness checks; process exit also signals the wait.
+top-level window events wake startup; structure and relevant property events on the owned window
+wake rendered-control readiness, and process exit also signals the wait. Avoid subscribing to
+unrelated desktop subtrees. The original failure is flushed before provider diagnostics.
 Native-window and rendered-setup transitions have separate monotonic failure deadlines; unrelated
-events do not extend them. A failure records the process/window and a bounded UIA tree, while
+events do not extend them. Readiness observers are detached before Close destroys the app's UIA
+provider; shutdown uses the process completion signal and still requires a clean exit within its
+own deadline. Flushed phase markers distinguish observer initialization, process launch, window
+readiness, rendering, observer release, close, process completion and exit-code verification. If the child PowerShell host dies, the parent retains its
+failure code and reports at most five matching recent Windows crash events with bounded messages;
+absence of such events is diagnostic only, never success. A failure records the process/window and a bounded UIA tree, while
 retaining localized visible/enabled controls, missing-label countercheck and clean Close/exit.
 The artifact check rejects missing, empty or smoke-instrumented binaries.
 Debian package sessions also run real WebKit counterexamples for missing/hidden headings,
@@ -227,6 +689,84 @@ outside sibling. Each replacement awaits its actual mutation signal with a fresh
 The smoke also replaces a short one-chunk ID with the same text: formatting must restore the chunk
 even when the replacement has the same raw value and child count. Cache reuse requires the same
 child nodes, since node counts alone cannot distinguish a formatted chunk from a new text node.
+Settings return helpers scroll the actual Back control into view before clicking, then await each
+parent route. `SettingsBackReadinessTests` starts collection pages at their end with content sized
+from the current viewport and requires Back to begin above the viewport; the helper must restore
+root through both route levels. Network draft persistence invokes the enabled Save control's real
+semantic action, then waits for saved status before recreating the Activity; moving IME/pointer
+geometry is covered separately from persistence.
+
+Interest editor/search regressions compare the exact `EditableText` semantic value. A labelled
+Material text field also merges its title and supporting hint into `Text`; treating that combined
+list as the editable value rejects correct input. Keep separate label/hint geometry checks and
+save/reopen/validation assertions.
+
+`ChatMessageSelectionTests` checks different-author collisions, exact lookup in either row order,
+regenerated binding records and refusal of old incomplete selectors. `ChatSelectionRestorationTests`
+restores actual saveable form state within the same owner opening and requires both edit/delete keys
+to select the same full native author/group/ID. The existing missing-edit dispatch regression retains
+its empty-history case and also tests the legacy key against a colliding two-author history: no task,
+sending/status change or draft loss is permitted. Activity replacement with a new owner remains a
+separate lifecycle contract.
+
+`NativeForwardUiTests` prepares two conversations through the actual registered application owner and
+the suite's external node/TestPeer clients. Activity recreation reloads durable rows without a guessed
+mail-poll delay; the real shell then exercises received-text Forward, Cancel, exact full-ID selection,
+confirmation and loaded destination navigation. The receiver must store the app identity as forwarder
+with matching group/message IDs. The sender history and an isolated production `ChatContent` rendering
+of the receiver's unmodified JNI history must show Forwarded. The latter is renderer coverage, not a
+second registered Activity or OS-background proof. Native/Compose transitions retain existing deadlines;
+selection/confirm use installed semantic actions to avoid IME pointer races. This scenario requires actual
+Android CI execution before its delivery acceptance is closed.
+
+`ChatForwardUiTests` mounts the production forwarding boundary, host, menu and dialog over a
+controlled native seam. It checks received text has Forward without own edit/delete actions, searches
+for an off-page full target ID, retains the complete native source selector, admits queued submission
+once and preserves draft/held/edit state. Reopening an actual identity object with equal IDs retires
+an old installed confirm callback. Real JNI/network delivery and destination-history feedback are
+separate acceptance, not inferred from the controlled navigation callback.
+`ChatForwardGeometryTests` uses the same host fixture with matching localized resources and normal/
+doubled font scale. It scrolls actual selected/full-ID rows into view, checks complete measured text,
+and compares action-label bounds to their current buttons. No guessed pointer offsets or color checks.
+
+`ChatForwardReadCancellationTests` cancels one signalled native-style read, starts a replacement
+before releasing the old result and joins each actual outer read job. Both old success and old failure
+must leave the replacement busy, empty and error-free until its own completion; no submit is admitted.
+`ChatForwardCancelDialogTests` mounts the actual dialog/actions/state with an observable outer loader
+job: Cancel must close while the controlled read is still unfinished, and its retained application
+callback cannot close a fresh dialog. Release joins that original loader before checking the new state.
+This fixture isolates dialog cancellation; full shell/host and JNI forwarding remain separate acceptance.
+
+`ChatForwardPresentationTests` cover exact offered selection, read/pre-commit errors, explicit retry,
+terminal Accepted/Queued results and retired callback admission. `ChatForwardCompletionTests` holds
+the synchronous backend behind an entered/completion signal, creates the replacement before release,
+then joins the actual outer send job. Late success and caller cancellation cannot publish a committed
+result or failure into that replacement. These controlled callbacks do not prove JNI delivery or picker UI.
+
+Common forwarding target tests use real SQLite state to cover request/open/closed targets, exact
+source selectors with no available destination, blocked/own/unknown sources and local Clear. An
+unreadable conversation table must fail instead of becoming an empty picker. Native forwarding tests
+compare sealed-device/outbox snapshots around the read and recheck a held choice after blocking;
+these fixtures are local-store admission coverage, not network delivery or Android picker proof.
+
+`ChatConfirmOwnershipTests` invokes the actual installed Block/Delete confirm and cancel callbacks:
+cancel/reopen, a replacement message, an equal selection under a new form, and busy admission before
+recomposition all refuse stale authority. The current callback still acts once and observes the selected
+message before dismissal. Existing native operation/failure tests remain required; these UI callback
+tests do not substitute for core authorization.
+
+`ChatClearOpeningTests` exercise unknown/busy admission, exact-target replacement on retry,
+cancel/reopen retirement, disposal and a different active dialog without elapsed-time assertions.
+`ChatMenuTests` waits for the actual verified/enabled Clear control before confirming; its injected
+reader supplies presentation data only, while native target/mutation tests cover real admission.
+`ChatClearDialogTests` reads the actual clipboard, retries a controlled failed target read and invokes
+retained application callbacks after the reader opening is replaced. `ChatClearGeometryTests` checks
+EN/RU at normal and doubled font scale: current bounds preserve name/ID/copy/consequence order,
+scrolling reveals every complete text layout, and both actions remain reachable. These checks require
+execution in Android CI before runtime acceptance. The real-node `NativePhotoExchangeTests` also
+checks the generated Clear target's owner/peer, own-ID refusal and unchanged complete photo selectors
+before its existing cached-original Clear check; the conversation remains open after local cleanup.
+
 Android Clear target checks preserve name, labelled full raw-copy ID and consequence order, including
 wrong/missing target, markup, label, order and chunk counterexamples. Tall-dialog checks require
 supported safe centering and reachable text/control bounds at real enlarged text sizes.
@@ -514,10 +1054,13 @@ fetches it through JNI and decodes it with the production Android decoder. Its p
 atomic record keeps the full public selector, original SHA-256 and dimensions.
 Existing `reopenQueued` phases verify those exact bytes and dimensions while the host's
 external node is stopped, including after guest reboot and APK upgrade. The existing
-queued-text, identity/inventory and scheduled-worker checks remain. The external node key has the
-production 22-bit proof required by fresh-process receive phases, while the node and preparation
-phases accept 8-bit test traffic. Checkpoint tests reject swapped owners and malformed or
-overflowing dimensions. These assertions require actual instrumentation; they add no Android node
+queued-text, identity/inventory and scheduled-worker checks remain. After both peers initialize and
+publish, the record also captures their current public device keys through the offline native device
+directory. Every reopen compares both keys; absent, replaced or swapped proof fails without creating
+credentials or contacting a node. The external node key has a 22-bit proof, while node admission and
+preparation accept 8-bit test traffic; fresh receive phases preserve process defaults. This is not a
+claim that explicit-seed client mailbox dialing enforces discovery proof minima. Checkpoint tests
+reject replaced device keys, swapped owners and malformed or overflowing dimensions. These assertions require actual instrumentation; they add no Android node
 or separate emulator lane.
 
 Core lookup tests additionally distinguish equal author/ID values across two groups. Shared

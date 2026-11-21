@@ -8,5 +8,9 @@
             android:name="com.dyapp.SearchOutboxProbeService"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
+        <service
+            android:name="com.dyapp.MailNoticeProbeService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
     </application>
 </manifest>

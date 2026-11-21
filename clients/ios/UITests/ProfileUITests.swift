@@ -180,11 +180,12 @@ final class ProfileUITests: XCTestCase {
         let ageFrom = app.textFields["profile-seeking-age-from"]
         revealEditable(ageFrom, in: app)
         ageFrom.tap()
-        let focused = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "hasKeyboardFocus == true"), object: ageFrom)
-        XCTAssertEqual(
-            XCTWaiter.wait(for: [focused], timeout: 10), .completed, app.debugDescription)
+        // Native typing checks focus itself; prove entry in this field instead of a focus KVC flag.
         typeSlowly("30", into: ageFrom)
+        let entered = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "30"), object: ageFrom)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [entered], timeout: 10), .completed, app.debugDescription)
     }
 
     /// Relaunch, keep the saved month, and see a localized failure that clears the confirmations.

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_interests">Interests</string>
+    <string name="profile_interests_hint">One interest per line. Up to %1$s interests, %2$s characters each.</string>
+    <string name="profile_interests_invalid">Check your interests: use one per line and stay within the displayed limits.</string>
+</resources>

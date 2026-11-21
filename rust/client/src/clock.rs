@@ -67,7 +67,9 @@ pub fn now() -> u64 {
         .map_or(0, |since| since.as_secs())
 }
 
-pub(crate) fn now_ms() -> u64 {
+/// Local Unix milliseconds, rounded to whole seconds like signed core staging time.
+#[must_use]
+pub fn now_ms() -> u64 {
     now().saturating_mul(1000)
 }
 

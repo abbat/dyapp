@@ -2,6 +2,16 @@
 // biome-ignore lint/correctness/noUnusedVariables: a global read by the inline script of index.html
 const STRINGS = {
   en: {
+    'forward.action': 'Forward',
+    'forward.actions': 'Message actions',
+    'forward.title': 'Forward message',
+    'forward.empty': 'No other open chats are available.',
+    'forward.readFailed': 'The source message or destination chats could not be verified.',
+    'forward.sendFailed': 'The message could not be forwarded.',
+    'forward.loading': 'Loading…',
+    'forward.sending': 'Sending…',
+    'forward.queued': 'Queued',
+    'forward.marker': 'Forwarded',
     'settings.collection.search': 'Search this list',
     'settings.collection.previous': 'Previous page',
     'settings.collection.next': 'Next page',
@@ -135,8 +145,9 @@ const STRINGS = {
     'chat.rename': 'Name this contact',
     'chat.mute': 'Mute notifications',
     'chat.muted': 'Muted',
-    'rename.label': 'Name on this computer',
-    'rename.hint': 'Only you see this name. Leave it empty to remove it.',
+    'rename.label': 'Private contact name',
+    'rename.hint':
+      'Only you see this name. It is shared with your linked devices when they synchronize. Leave it empty to remove it.',
     'rename.save': 'Save name',
     'chat.clear': 'Clear chat',
     'chat.cleared': 'Chat cleared on this computer',
@@ -350,7 +361,7 @@ const STRINGS = {
     'remove.confirm': 'I understand this key cannot be recovered',
     'remove.action': 'Remove identity',
     'remove.offline':
-      'No node accepted the withdrawal. The profile disappears from search by itself within 30 days.',
+      'Profile withdrawal could not be confirmed. The profile may stay in search until nodes expire it. Another device can keep it published.',
     'remove.anyway': 'Remove anyway',
     'revoked.title': 'This computer was disconnected from the identity',
     'revoked.text':
@@ -414,7 +425,7 @@ const STRINGS = {
     'devices.confirm.action': 'Give full control',
     'disconnect.title': 'Disconnect this device?',
     'disconnect.text':
-      'It stops getting your chats and deletes this identity when it next connects. Your contacts see that the device left.',
+      'It stops getting your chats. Copies already stored on that device may remain. Your contacts see that the device left.',
     'disconnect.action': 'Disconnect',
     'disconnect.offline':
       'No node answered, so the device stays connected. Check the network and retry.',
@@ -437,6 +448,16 @@ const STRINGS = {
       'Its chats, matches and likes on this computer are deleted with it. Other identities stay.',
   },
   ru: {
+    'forward.action': 'Переслать',
+    'forward.actions': 'Действия с сообщением',
+    'forward.title': 'Переслать сообщение',
+    'forward.empty': 'Других открытых переписок нет.',
+    'forward.readFailed': 'Не удалось проверить исходное сообщение или переписки для пересылки.',
+    'forward.sendFailed': 'Не удалось переслать сообщение.',
+    'forward.loading': 'Загрузка…',
+    'forward.sending': 'Отправка…',
+    'forward.queued': 'В очереди',
+    'forward.marker': 'Переслано',
     'settings.collection.search': 'Поиск в списке',
     'settings.collection.previous': 'Предыдущая страница',
     'settings.collection.next': 'Следующая страница',
@@ -577,8 +598,9 @@ const STRINGS = {
     'chat.rename': 'Назвать контакт',
     'chat.mute': 'Отключить уведомления',
     'chat.muted': 'Без уведомлений',
-    'rename.label': 'Имя на этом компьютере',
-    'rename.hint': 'Это имя видите только вы. Оставьте поле пустым, чтобы убрать его.',
+    'rename.label': 'Личное имя контакта',
+    'rename.hint':
+      'Это имя видите только вы. Оно передаётся вашим связанным устройствам при синхронизации. Оставьте поле пустым, чтобы убрать его.',
     'rename.save': 'Сохранить имя',
     'chat.clear': 'Очистить переписку',
     'chat.cleared': 'Переписка очищена на этом компьютере',
@@ -795,7 +817,7 @@ const STRINGS = {
     'remove.confirm': 'Я понимаю, что этот ключ нельзя восстановить',
     'remove.action': 'Удалить идентичность',
     'remove.offline':
-      'Ни один узел не принял снятие профиля. Профиль сам исчезнет из поиска в течение 30 дней.',
+      'Снятие профиля с поиска не подтверждено. Он может оставаться в поиске, пока узлы его хранят. Другое устройство может продлевать публикацию.',
     'remove.anyway': 'Всё равно удалить',
     'revoked.title': 'Этот компьютер отключён от идентичности',
     'revoked.text':
@@ -859,7 +881,7 @@ const STRINGS = {
     'devices.confirm.action': 'Дать полный контроль',
     'disconnect.title': 'Отключить это устройство?',
     'disconnect.text':
-      'Оно перестанет получать ваши чаты и удалит эту идентичность при следующем подключении. Контакты увидят, что устройство ушло.',
+      'Оно перестанет получать ваши чаты. Уже сохранённые на нём копии могут остаться. Контакты увидят, что устройство ушло.',
     'disconnect.action': 'Отключить',
     'disconnect.offline':
       'Ни один узел не ответил, устройство осталось подключённым. Проверьте сеть и повторите.',

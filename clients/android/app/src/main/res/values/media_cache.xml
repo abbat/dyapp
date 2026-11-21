@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cache_title">Originals on this device</string>
+    <string name="cache_keep">Keep opened originals</string>
+    <string name="cache_limit">Cache limit (MiB)</string>
+    <string name="cache_saved_limit">Saved limit: %1$s MiB. Allowed: %2$s–%3$s MiB.</string>
+    <string name="cache_usage">Cached originals: %1$s bytes.</string>
+    <string name="cache_save">Save limit</string>
+    <string name="cache_clear">Clear cached originals</string>
+    <string name="cache_hint">The limit is remembered while retention is off. History and saved sticker packs are separate.</string>
+    <string name="cache_loading">Updating cache settings…</string>
+    <string name="cache_invalid">Enter a valid MiB quantity within the shown range, with no fraction of a byte.</string>
+    <string name="cache_failed">Cache state could not be confirmed. Your limit draft remains. Refresh before another change.</string>
+    <string name="cache_retry">Retry reading cache state</string>
+    <string name="cache_refresh">Refresh cache state</string>
+    <string name="cache_confirm_title">Remove cached originals?</string>
+    <string name="cache_confirm_body">%1$s. This may remove originals from this device. History and saved sticker packs stay. Some originals may no longer be available to download.</string>
+    <string name="cache_confirm">Apply change</string>
+    <string name="cache_cancel">Cancel</string>
+    <string name="cache_enable_request">Turn on retention</string>
+    <string name="cache_disable_request">Turn off retention</string>
+    <string name="cache_budget_request">Set the limit to %1$s MiB</string>
+</resources>

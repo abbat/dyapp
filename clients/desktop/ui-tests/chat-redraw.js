@@ -34,7 +34,7 @@
       return fixture.reply.promise;
     }
     if (command === 'chat_sticker_pack_status')
-      return { state: 'new', generation: null, failure: null };
+      return { state: 'new', generation: null, failure: null, controls: ['request'] };
     if (command === 'chat_rows' || command === 'contact_names') return [];
     return false;
   };

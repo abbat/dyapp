@@ -20,6 +20,8 @@ const MIB: u64 = 1024 * 1024;
 const CONTACT_LIMIT: u64 = 64 * MIB;
 const KEY_LABEL: &[u8] = b"dyapp-kept-original-v1";
 
+pub mod control;
+pub mod input;
 mod settings;
 #[cfg(test)]
 mod stickers;

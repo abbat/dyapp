@@ -83,12 +83,12 @@ class NoticeCardOwnerTests {
         NativeSlotFixture().use { fixture ->
             try {
                 show(fixture.slots.create())
-                val choice = compose.onNodeWithTag("notice-name").fetchSemanticsNode().config[SemanticsActions.OnClick]
+                val choice = compose.onNodeWithTag("notice-name").fetchSemanticsNode().config[applicationClickKey]
                 click("notice-name")
                 val first = pending(0)
                 assertPendingControls()
-                // Even a previously captured semantics action cannot bypass admission while pending.
-                compose.runOnIdle { choice.action?.invoke() }
+                // Invoke application admission directly; Foundation must not mask it while disabled.
+                compose.runOnIdle { choice() }
                 pending(0)
                 assertEquals(ChatNotice.NAME, first.content)
                 compose.runOnIdle { first.result.complete(false) }

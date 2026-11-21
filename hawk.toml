@@ -38,14 +38,6 @@ reason = "Currently unused; retained for future-use review under the no-deletion
 [[override]]
 lint = "hawk::dead_public"
 crate = "dyapp_client"
-item = "session::sticker::<impl session::Session>::send_sticker"
-kind = "inherent_method"
-level = "expect"
-reason = "Currently unused; retained for future-use review under the no-deletion policy."
-
-[[override]]
-lint = "hawk::dead_public"
-crate = "dyapp_client"
 item = "session::sticker::exchange::<impl session::Session>::send_sticker_pack_request"
 kind = "inherent_method"
 level = "expect"

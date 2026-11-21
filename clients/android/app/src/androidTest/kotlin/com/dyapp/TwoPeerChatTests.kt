@@ -48,7 +48,7 @@ private fun ComposeTestRule.taggedBounds() = runCatching {
     ).fetchSemanticsNodes().take(40).map { "${it.config[SemanticsProperties.TestTag]}:${it.boundsInRoot}" }
 }.getOrNull()
 
-private fun ComposeTestRule.awaitOpenChatSnapshot() {
+internal fun ComposeTestRule.awaitOpenChatSnapshot() {
     val thread = awaitNode(hasTestTag("chat-thread") and SemanticsMatcher.keyIsDefined(chatHistoryStateKey))
     val state = thread.fetchSemanticsNode().config[chatHistoryStateKey]
     check(state == uniffi.dyapp.ChatState.OPEN) { "Chat snapshot state is $state" }

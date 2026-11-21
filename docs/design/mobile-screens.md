@@ -3,7 +3,21 @@
 The Android prototype follows the category hub in
 [desktop screens](desktop-screens.md#settings-and-removal), with separate collection screens,
 immediate switches, a catalogue-driven language picker and a numeric media-cache budget.
-Native category/collection, language-menu and download-setting adoption remain planned.
+Native Android implements the category hub, download/cache controls and a wrapping, scrollable
+language-choice dialog. Identity, blocked and passed collections use common-core bounded search
+and paging. The native language adapter reads
+only the app-owned `res/xml/app_languages.xml` registry, whose tags must match own translation
+resources in CI; dependency and generated pseudo-locales are not advertised. Saved legacy EN/RU
+names match tags without case sensitivity; missing/removed choices fall back to system without
+rewriting preferences. Appearance lists every registered catalogue by its autonym plus system
+default; Cancel/Back do not write, unchanged selection does not recreate, and a deliberate new
+selection persists its tag and recreates the Activity on the same saved Settings route. Window-focus
+signals control initial/return focus; retired dialog openings or owners cannot apply choices.
+
+Android acknowledges committed identity persistence uncertainty in a scrollable, localized dialog
+on the resulting route. Its only action continues without repeating or rolling back the change;
+a fresh result owns a fresh acknowledgement. `identity-durability-dialog` mirrors this state in the
+static prototype over the selected profile. Native storage decisions stay in the common core.
 
 Android chat attachments now use core-ordered mixed history. Photo metadata remains
 visible while stranger previews are blurred; Show preview reveals only the preview,
@@ -11,11 +25,49 @@ and Download photo explicitly requests the original. Open conversations apply co
 auto-download permission again after network changes. Loading disables repeat taps;
 missing originals and retryable errors have separate messages. Layout uses clamped
 claims until a bounded original supplies real dimensions. The last-day retention
-hint is approximate and does not prevent opening a kept copy. Download-setting
-controls remain planned; these native states are not in the static prototype.
+hint is approximate and does not prevent opening a kept copy. Photos settings expose the shared
+three-choice download policy; these native states are not in the static prototype.
 Sending is now available in open chats through a system picker and explicit preview
 confirmation. Refused uploads retain prepared bytes for retry; queued sends clear
 them. Picker composition is keyed by identity and destination chat.
+Sticker rows render core-validated first-frame pixels with preserved aspect and an accessible
+localized emoji/pack label. Core decides automatic retrieval; explicit image loading can retry
+on-tap, unavailable or failed results. The presentation is keyed by the actual opened identity,
+peer and full immutable message selection; retired requests and callbacks cannot update a successor.
+Settings → Photos opens the shared saved-pack dialog. It reads bounded core pages, shows exact
+byte accounting and unreadable entries, imports an explicitly chosen TAR within the native byte
+budget and confirms removal against a selectable full PackID. Cancel/back preserve saved data;
+failed or uncertain changes require authoritative readback. Each manager opening owns its picker
+registration/ticket, so late results and reads cannot import through another opening or identity.
+Received sticker rows render the core-projected Request/Retry/Fresh/Stop waiting controls and
+open the same saved-pack manager. Status refresh follows mailbox revisions and manager closure;
+failed/uncertain applications require readback before another mutation. The composer picker opens
+native saved-pack and recent pages, keeps their cursors and thumbnail proportions, and sends one
+selected sticker without changing the text/edit draft. Cancel returns to the composer; Manage
+returns to a fresh picker opening after the saved-pack dialog closes. An own sticker's long-press
+menu offers only Delete, with explicit confirmation and the shared copy-preservation warning.
+Native selection retains the full author/group/ID; old confirmations cannot delete through another
+opening or identity. A committed result blocks repeats even before a history refresh succeeds.
+
+The Android profile-draft adapter carries optional canonical interests through JNI: an absent
+edit preserves stored tags, an explicit empty list clears them, and loaded drafts expose the
+stored list. The native editor provides one interest per line, with authoritative limits and
+canonicalization from the core. Blank edited input explicitly clears the list; untouched tags
+remain unmentioned on unrelated saves. A late save retains newer input and updates the accepted
+baseline so a subsequent explicit undo is persisted. Fetched profiles and the saved publication
+preview display all canonical tags in their original order, separated by semicolons like Linux;
+an interest-only profile does not show the empty-profile fallback. Rendered/native editor
+acceptance remains open. Search offers a single exact-interest input only when the reached
+nodes advertise field 19. Raw text survives a later hidden-field sample without contributing
+conditions while hidden. The checked common parser canonicalizes valid input and refuses the
+whole query for invalid offered text; the error asks for field correction rather than a retry.
+Search captures native conditions, employer choice and the offered mutual toggle together at UI
+admission, before waiting for backend readiness. Later edits cannot change that admitted request.
+The saved own profile for mutual eligibility is still read in IO through the common native parser;
+an incomplete own profile refuses mutual search instead of silently omitting its conditions.
+Run and Cancel actions capture their presentation revision. Admission, completion, cancellation
+and owner retirement invalidate older callbacks. Only the admitted operation may install its
+result and newly offered fields; cancelling presentation does not pretend native work completed.
 
 Android implementation checkpoint: a loaded profile offers **Share profile…**.
 The native destination dialog lists open chats except the profile owner, using
@@ -163,7 +215,11 @@ The IDs inside each section are the desktop ones; only the frame differs.
   chat. A chat row and the chat header name the peer by the desktop rule
   ([contact names](desktop-screens.md)): the local name; else the public name, Verified or Not
   verified and the short Peer ID; else the short Peer ID; with the main photo once fetched. The
-  row opens the chat. `chat-rename` in the chat menu names the peer on this device. On iOS and macOS
+  row opens the chat. Android uses the core-selected bounded typed preview and its original time,
+  including photo, sticker and shared-profile labels. It does not borrow older retained message text
+  or time, truncate again, or fetch linked profiles/media while formatting. Preview text wraps above
+  metadata so a timestamp cannot squeeze it out. Full messages stay in the conversation.
+  `chat-rename` in the chat menu names the peer on this device. On iOS and macOS
   the menu also opens a sheet with the safety number and QR code, without a copy, a scan or a
   verified mark. The app receives
   the mailbox every minute while it is in the foreground, on every section and in a chat, and a
@@ -182,12 +238,19 @@ The IDs inside each section are the desktop ones; only the frame differs.
   not change the page locale or persist the choice.
 - Privacy contains immediate switches `send-views`, `send-read-receipts`, `send-typing`
   and the `presence-audience` radios. Its hint scopes these preferences to this identity on
-  this device. Separate count links open `settings-blocked` and `settings-passed`.
+  this device. Native Android persists views/read-receipts/typing through independent common-core
+  preferences, with disabled unknown/busy switches, confirmed readback and read-only retry.
+  The presence audience also uses common-core foreground send policy. Profile-view send-path parity
+  and actual native runtime evidence remain separate; typing delivery stays planned for a
+  [future direct client path](read-receipts.md#typing-indicators).
+  Separate count links open `settings-blocked` and `settings-passed`.
   The distinct `lock-settings` row opens app lock, whose scope is the whole app.
   Notifications has `message-notifications` and `notice-content` (`notice-fixed`,
   `notice-name`, `notice-text`). Photos uses `photo-mode`, the `keep-photos` switch,
   numeric MiB `photo-cache-size`, a usage hint and `photo-cache-clear`.
-  These static media controls describe the approved presentation; native controls remain planned.
+  Native Android now implements the download-mode radio group through the common core API;
+  retention, exact numeric MiB budget, byte usage, refresh and confirmed cache clear use shared core
+  input and current-state edit policy. Native runtime and visual acceptance remain separate.
 - Account links to `settings-identities-screen`. Its `settings-identities` list preserves
   `settings-remove`, `settings-remove-2` and `settings-create`. Blocked and passed have
   `blocked-list` and `passed-list` in the `blocked` and `passed` cards:
@@ -205,17 +268,103 @@ The IDs inside each section are the desktop ones; only the frame differs.
 - `remove-dialog` and `remove-offline` use the identities screen as their background.
   `remove-title`, `remove-peer`, `remove-confirm`, `remove-cancel`, `remove-action`,
   `remove-cancel-offline`, `remove-retry` and `remove-anyway` retain the removal contract.
-  A published profile is withdrawn before the key goes; if no node accepts it, offer Retry,
-  Remove anyway and Cancel. A key that cannot open cannot sign the withdrawal and skips it.
+  A published profile is withdrawn before the key goes; if withdrawal cannot be confirmed, offer
+  Retry, Remove anyway and Cancel. The native warning promises no fixed remote-expiry deadline:
+  nodes retain the profile until expiry and another device may renew publication. It does not
+  assert that no node accepted a request merely because native completion failed. A key that
+  cannot open cannot sign the withdrawal and skips it.
 
-Native Android Settings still shows its original cards: identity/removal, app lock, blocked/passed,
-appearance, privacy/notifications, disabled updates and version. The receipt switch defaults off;
+The native chat form belongs to the actual opened identity object and peer. Changing the peer
+or reopening the same slot/Peer ID creates fresh draft, edit, confirmation and pending presentation
+state; it cannot inherit a different conversation's Clear confirmation. Native operations already
+admitted retain their existing lease lifetime. Saved edit/delete selectors include the complete native
+author, group and message ID; different authors cannot alias when group/ID coincide. Old incomplete
+saved selectors refuse lookup and an unresolved edit cannot become a new send. This is transient UI
+selection formatting; stored messages, wire bytes and native authorization remain unchanged.
+
+Native Android Clear reads its owner/peer target through the common native admission check before
+it enables confirmation. The scrollable warning shows the contact label and complete copyable Peer ID
+before consequences: local messages and kept originals go, the other person keeps their copy,
+unsent messages and pending sticker-pack requests are cancelled, saved packs and the match remain,
+and cleared messages do not return on redelivery. A failed target read offers verification retry;
+unknown targets cannot authorize Clear. Closing the dialog retires its callbacks. The mutation
+rechecks admission under its native lease; a previously displayed target is not authority.
+
+Shared native confirmation controls retire their installed callbacks when dismissed, confirmed or
+removed from composition. Chat Block additionally requires the current Block dialog and an idle form;
+message Delete requires the exact current selected message and an idle form. Changing that selection
+creates a new confirmation opening. Both controls disable while admission is unavailable; an old
+callback cannot cancel a replacement dialog or reuse its action. Native actions retain all existing
+validation and leases, and Delete captures the selected message before clearing its presentation.
+
+Native Android text forwarding offers Forward on own and received live text, matching desktop;
+deleted texts, photos and stickers do not gain this action. The native layer projects validated
+other open destinations. The scrollable dialog uses the core-backed collection search/pages and
+keeps the chosen label and complete Peer ID visible independently of the current page. Forward
+requires explicit confirmation; Cancel before submission stages nothing and can dismiss a target
+read without interrupting native work. A replacement opening owns its own loading state; an old read
+cannot publish its result/error or clear the new busy state. Actual send work disables duplicate
+submission and cancellation; errors offer read refresh or explicit send retry. Accepted and queued results are
+terminal for that opening and navigate to the destination, whose persisted delivery state remains
+the authority for pending/node-accepted feedback. Draft/edit state is not consumed by forwarding.
+The scope belongs to the actual identity opening and source chat; retired callbacks/completions
+cannot navigate in a replacement. The static prototype includes ready/loading/empty/read-error,
+send-error/pending/sent/queued and received-message-menu states. Its 40 illustrative destinations
+use the shared 32-row pager and full-ID search; they authorize no native operation. The sent/queued
+fixtures replace the source history with the destination's forwarded text and do not imply Read.
+Rendered prototype review and actual JNI/UI runtime acceptance remain required before release.
+
+Android Account settings includes Receive a profile for a configured phone. Creation is explicit;
+the screen displays the original core QR, code and localized expiry, polls the same retained receiver,
+and uses non-blocking native phases during writes. Cancellation cannot claim rollback after admission.
+Original typed failure boundaries and reserved destination remain available until explicit disposition;
+returning to the app rereads current selection rather than selecting a stale receipt. Finish device setup
+uses the original destination and retained native adoption review for enrollment/private synchronization,
+without publishing edits. Typed recovery/authorization refusals require their own review or owner approval;
+only backend failures offer ordinary explicit retry. First run also offers Receive my existing profile:
+only an explicit choice creates its wizard identity, then the shared network form checks and activates
+before the QR step. Cancel preserves that identity and saved network draft. Navigation restoration
+stores only the source identifiers and requires another explicit code creation; core checks whether
+the wizard may be cleaned after success. Field/private-state recovery screens, owner approval and
+device-list screens remain planned; native runtime and screen review are still required. Code lifetime,
+installation receipts and authorization stay in shared Rust. The static Android prototype now includes
+explicit receiving, typed failure and separate setup states, plus first-run network activation without
+Skip. Its QR is a layout stand-in; the APK uses the core matrix. Manual field comparison remains
+planned in both presentations.
+
+Android screens may be reviewed and implemented individually against the frozen criteria and the
+corresponding desktop behavior. The complete prototype review and per-client impact review remain
+v0.0.1 release requirements; this delivery order does not waive criteria or native verification.
+
+Native Android profile pages include a private Save/Remove action and a private note editor,
+scoped to the current identity and profile opening. Both use common-core local operations even if
+the public profile cannot be loaded. Search's saved-profile collection reads local IDs/cached labels;
+only an explicit row Open enters the ordinary verified profile-loading route. Note load failures
+stay distinct from empty text, failed saves retain the draft, and stale presentation completions
+cannot update another opening. Notes never enter public profile fields, likes or chat content.
+
+Native Android identity/blocked/passed collections use the common-core 32-row search/paging
+projection. Search checks complete local IDs without fetching profiles; refresh rereads native state
+and failed reads preserve known rows. Input, navigation and coroutine ownership retire with the
+collection opening. Rows show complete identifiers with wrapping; actions occupy their own line
+below the identifier so enlarged labels cannot consume its width. Identity removal retains the
+inventoried raw slot target and existing confirmation/active-selection behavior. Native
+runtime/visual acceptance remains separate.
+
+Native Android Settings uses the six-category hub. Detailed panes hide the shell bars and provide
+UI/system Back: identity collection returns to Account, blocked/passed return to Privacy, and
+categories return to the hub. Appearance, receipts, notices, photo download modes, identities,
+app lock, blocked/passed, disabled updates and version retain their existing native controls.
+Only the presentation route survives the app-lock settings overlay; changing identity creates
+a fresh route object, so callbacks from an old owner cannot navigate the next one.
+The receipt switch defaults off;
 notice delivery defaults on with fixed “New message” content. Turning delivery on requests
 notification permission on Android 13+; when blocked, Allow asks again or opens system settings.
 Content selection is disabled while off and retains its choice. Failed reads/writes preserve the
 last shown values/list and explain the failure. Token-revocation retry reports its outcome.
-The catalogue-driven menu, category hub, separate paged/searchable collections and media controls
-are not established as native behavior by these prototype captures.
+The remaining catalogue-driven menu, collection pagination/search and missing privacy/activity
+controls remain planned. Source implementation and prototype captures do not
+establish native runtime or visual acceptance; Settings still requires its owner visual review.
 
 The theme and language follow the system by default; the prototype shows the dark theme with
 `?theme=dark` instead of a separate state. On Android a picked theme applies at once. A picked

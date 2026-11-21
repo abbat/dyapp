@@ -40,6 +40,12 @@ const focusHints = new Map(
   ]),
 );
 const contracts = {
+  'chat-forward-dialog': ['chat', '#msg-forward'],
+  'chat-forward-loading': ['chat', '#msg-forward'],
+  'chat-forward-empty': ['chat', '#msg-forward'],
+  'chat-forward-error': ['chat', '#msg-forward'],
+  'chat-forward-send-error': ['chat', '#msg-forward'],
+  'chat-forward-pending': ['chat', '#msg-forward'],
   'publish-dialog': ['profile', '#profile-publish'],
   'publish-progress': ['profile', '#profile-publish'],
   'photo-remove-dialog': ['profile', '#profile-photos .photo-tools button:last-child'],
@@ -77,7 +83,11 @@ export const dialogContract = () => {
   if (!contract) throw new Error(`Dialog state has no opener contract: ${state}`);
   return {
     dialog: selector(dialog),
-    state: contract[0],
+    state:
+      state.startsWith('chat-forward-') &&
+      new URLSearchParams(location.search).get('forwardSource') === 'received'
+        ? 'chat-forward-received-menu'
+        : contract[0],
     opener: invokers.get(state)?.isConnected ? selector(invokers.get(state)) : contract[1],
     heading: Boolean(contract[2]),
   };
@@ -90,6 +100,13 @@ const modalInertness = () => {
     matchMedia('(max-width: 640px)').matches;
   for (const child of document.querySelectorAll('.shell > .content, .shell > .topbar'))
     child.inert = menuOpen;
+};
+const transientScopes = new Set();
+// Counterexamples change presentation, not the browser's navigation history.
+export const suspendUrlUpdates = () => {
+  const scope = {};
+  transientScopes.add(scope);
+  return () => transientScopes.delete(scope);
 };
 export const showState = (state) => {
   const shown =
@@ -111,7 +128,7 @@ export const showState = (state) => {
   document.documentElement.dataset.screen = state;
   const url = new URL(location.href);
   url.hash = state;
-  history.replaceState(null, '', url);
+  if (!transientScopes.size) history.replaceState(null, '', url);
   document.title = `${window.strings['app.name']} — ${state}`;
   modalInertness();
   focusHints.get(activeDialog())?.focus();
@@ -132,7 +149,7 @@ const keydown = (event) => {
   if (!activeDialog() || activeDialog().matches('dialog')) return;
   if (event.key === 'Escape') {
     event.preventDefault();
-    closeDialog();
+    if (document.documentElement.dataset.screen !== 'chat-forward-pending') closeDialog();
   } else if (event.key === 'Tab') {
     const stops = tabStops(event.shiftKey);
     const first = stops[0],
@@ -147,7 +164,7 @@ const keydown = (event) => {
 document.addEventListener('keydown', keydown);
 const boundOpeners = new Set();
 for (const [state, contract] of Object.entries(contracts)) {
-  if (contract[2] || contract[1] === '#chat-stickers') continue;
+  if (contract[2] || ['#chat-stickers', '#msg-forward'].includes(contract[1])) continue;
   for (const opener of document.querySelectorAll(contract[1])) {
     if (boundOpeners.has(opener)) continue;
     boundOpeners.add(opener);
@@ -160,7 +177,7 @@ for (const [state, contract] of Object.entries(contracts)) {
 for (const button of document.querySelectorAll('[role="dialog"] button')) {
   if (!/(?:^|-)cancel(?:-|$)/.test(button.id) && button.id !== 'revoked-ok') continue;
   button.addEventListener('click', () => {
-    if (button.closest('[role="dialog"]') === activeDialog()) closeDialog();
+    if (!button.disabled && button.closest('[role="dialog"]') === activeDialog()) closeDialog();
   });
 }
 const initial = [...document.querySelectorAll('.focus')].find(visible);

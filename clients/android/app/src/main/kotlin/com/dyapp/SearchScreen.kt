@@ -36,7 +36,6 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -62,6 +61,7 @@ private fun searchError(error: Throwable) = when {
     "notConnected" in error.toString() -> R.string.search_not_connected
     "invalid search age" in error.toString() -> R.string.search_age_invalid
     "invalid search height" in error.toString() -> R.string.search_height_invalid
+    "invalid search interest" in error.toString() -> R.string.search_interest_invalid
     "mutual unavailable" in error.toString() -> R.string.search_mutual_unavailable
     else -> R.string.search_failed
 }
@@ -106,7 +106,12 @@ private fun SearchLoading(cancel: () -> Unit) {
 }
 
 private val FIX_THE_FIELDS =
-    setOf(R.string.search_age_invalid, R.string.search_height_invalid, R.string.search_mutual_unavailable)
+    setOf(
+        R.string.search_age_invalid,
+        R.string.search_height_invalid,
+        R.string.search_interest_invalid,
+        R.string.search_mutual_unavailable
+    )
 
 @Composable
 private fun SearchFailed(failed: SearchState.Failed, run: () -> Unit, openNetwork: () -> Unit) {
@@ -165,16 +170,14 @@ private fun SearchFound(result: ProfileSearchResult, run: () -> Unit, openProfil
 private suspend fun sample(
     opened: Opened.Ready,
     searcher: Result<ProfileSearcher>,
-    filters: SearchFilters,
+    admitted: Result<SearchIntent>,
 ): SearchState {
-    val conditions = runCatching { filters.conditions() }
     val result = withContext(Dispatchers.IO) {
         runCatching {
-            val query = conditions.getOrThrow() + filters.mutualConditions(opened)
-            searcher.getOrThrow().searchSlot(query, filters.employer.employer(), 0u)
+            val intent = admitted.getOrThrow()
+            searcher.getOrThrow().searchSlot(intent.conditions(opened), intent.employer, 0u)
         }
     }
-    result.onSuccess { filters.offered = it.offered }
     return result.fold({ SearchState.Done(it) }, { SearchState.Failed(searchError(it), it.toString()) })
 }
 
@@ -182,12 +185,15 @@ private suspend fun sample(
 internal class SearchSession(private val opened: Opened.Ready, private val scope: CoroutineScope) {
     // The owned searcher keeps verified versions across pages and successive samples.
     private val searcher = CompletableDeferred<Result<ProfileSearcher>>()
-    private var job: Job? = null
     var photos by mutableStateOf(PeerPhotos(null, opened))
         private set
+    val savedCalls = savedProfilesCalls(opened)
+    val savedOpen = mutableStateOf(false)
     val filters = SearchFilters(profileScales())
-    var state by mutableStateOf<SearchState>(SearchState.Idle)
-        private set
+    private val presentation = SearchPresentation(scope, filters) { admitted ->
+        sample(opened, searcher.await(), admitted)
+    }
+    val state get() = presentation.state
     private val owner = scope.launch {
         runCatching {
             withNativeResource(opened::profileSearcher) { ready ->
@@ -201,18 +207,12 @@ internal class SearchSession(private val opened: Opened.Ready, private val scope
         }
     }
 
-    fun run() {
-        state = SearchState.Loading
-        job = scope.launch { state = sample(opened, searcher.await(), filters) }
-    }
+    fun runAction(): () -> Unit = presentation.runAction()
 
-    fun cancel() {
-        job?.cancel()
-        state = SearchState.Idle
-    }
+    fun cancelAction(): () -> Unit = presentation.cancelAction()
 
     fun close() {
-        job?.cancel()
+        presentation.close()
         owner.cancel()
     }
 }
@@ -231,30 +231,36 @@ internal fun rememberSearchSession(opened: Opened.Ready): SearchSession {
  * runs the same query again. Cancel abandons the answer; the blocking call itself runs to its end.
  */
 @Composable
-internal fun SearchScreen(search: SearchSession, openNetwork: () -> Unit, openProfile: (FoundProfile) -> Unit) {
-    val state = search.state
+internal fun SearchScreen(
+    search: SearchSession,
+    openNetwork: () -> Unit,
+    openProfile: (FoundProfile) -> Unit,
+    openSaved: (String) -> Unit,
+) {
+    val run = search.runAction()
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState())
             .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        SavedProfiles(search, search.savedOpen, search.savedCalls, openSaved)
         Caption(stringResource(R.string.search_sample))
         FormCard {
             SearchFilterFields(search.filters)
             Button(
-                onClick = search::run,
-                enabled = state != SearchState.Loading,
+                onClick = run,
+                enabled = search.state != SearchState.Loading,
                 modifier = Modifier.fillMaxWidth().testTag("run-search")
             ) {
                 Text(stringResource(R.string.search_run))
             }
         }
-        when (val shown = state) {
+        when (val shown = search.state) {
             SearchState.Idle -> Caption(stringResource(R.string.search_idle), STATUS)
-            SearchState.Loading -> SearchLoading(search::cancel)
-            is SearchState.Failed -> SearchFailed(shown, search::run, openNetwork)
+            SearchState.Loading -> SearchLoading(search.cancelAction())
+            is SearchState.Failed -> SearchFailed(shown, run, openNetwork)
             is SearchState.Done -> shown.result.let {
-                if (it.profiles.isEmpty()) SearchEmpty(it) else SearchFound(it, search::run, openProfile)
+                if (it.profiles.isEmpty()) SearchEmpty(it) else SearchFound(it, run, openProfile)
             }
         }
     }

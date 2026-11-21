@@ -34,7 +34,7 @@ async fn media_node() -> Multiaddr {
     media_node_at(10).await
 }
 
-async fn media_node_at(media_requests_per_second: u32) -> Multiaddr {
+pub(super) async fn media_node_at(media_requests_per_second: u32) -> Multiaddr {
     start_config(|config| {
         config.roles = vec![Role::Store, Role::Media];
         config.limits.requests_per_second = 1000;
@@ -300,7 +300,7 @@ async fn open_media_chat(
     (alice_session, bob_session, profiles, group_id)
 }
 
-async fn match_media_chat(
+pub(super) async fn match_media_chat(
     alice: &mut Person,
     bob: &mut Person,
     alice_session: &mut Session,

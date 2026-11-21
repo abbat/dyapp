@@ -4,8 +4,8 @@ use super::{failed, ChatLikes, ChatSession, ChatSubmission};
 use crate::profile_network::{active_network, connect, on_network_stack};
 use crate::CoreError;
 use dyapp_client::chat::{PeerChange, MAX_TEXT_BYTES};
+use dyapp_client::message_actions::{self, Kind, Source};
 use dyapp_client::session::Session;
-use dyapp_client::store::Conversation;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Whether the tokens a blocked peer holds are revoked on the node.
@@ -52,53 +52,8 @@ fn code(code: &str) -> CoreError {
 
 impl ChatSession {
     /// Refuse a chat the screen cannot show: `ownPeer`, `blocked` or `unknownPeer`.
-    pub(super) fn check_visible(&self, session: &Session, peer_id: &str) -> Result<(), CoreError> {
-        if peer_id == self.key.identity.peer_id() {
-            return Err(code("ownPeer"));
-        }
-        let store = session.store();
-        if store.blocked(peer_id).map_err(failed)? {
-            return Err(code("blocked"));
-        }
-        if store.conversation(peer_id).map_err(failed)? == Conversation::None {
-            return Err(code("unknownPeer"));
-        }
-        Ok(())
-    }
-
-    /// The live own text `message_id` in `group_id` of the chat with `peer_id`, or `ownPeer`,
-    /// `blocked` or `unknownMessage`.
-    fn own_target(
-        &self,
-        session: &Session,
-        peer_id: &str,
-        group_id: &[u8],
-        message_id: &[u8],
-    ) -> Result<[u8; 16], CoreError> {
-        let own = self.key.identity.peer_id();
-        if peer_id == own {
-            return Err(code("ownPeer"));
-        }
-        let store = session.store();
-        if store.blocked(peer_id).map_err(failed)? {
-            return Err(code("blocked"));
-        }
-        let id: [u8; 16] = message_id.try_into().map_err(|_| code("unknownMessage"))?;
-        let found = store
-            .current_chat_messages(peer_id)
-            .map_err(failed)?
-            .into_iter()
-            .any(|message| {
-                message.key.group.as_slice() == group_id
-                    && message.key.id == id
-                    && message.key.author == own
-                    && !message.current.deleted
-            });
-        if found {
-            Ok(id)
-        } else {
-            Err(code("unknownMessage"))
-        }
+    pub(super) fn check_visible(session: &Session, peer_id: &str) -> Result<(), CoreError> {
+        dyapp_client::chat_access::check_visible(session.store(), peer_id).map_err(failed)
     }
 }
 
@@ -117,7 +72,7 @@ impl ChatSession {
     )]
     pub fn clear_chat(&self, peer_id: String) -> Result<u32, CoreError> {
         let mut session = self.session.lock().map_err(failed)?;
-        self.check_visible(&session, &peer_id)?;
+        Self::check_visible(&session, &peer_id)?;
         let cleared = session.clear_chat_pair(&peer_id).map_err(failed)?;
         session.store().sweep_originals(&self.dir).map_err(failed)?;
         u32::try_from(cleared).map_err(failed)
@@ -136,7 +91,7 @@ impl ChatSession {
     )]
     pub fn mark_read(&self, peer_id: String) -> Result<u32, CoreError> {
         let mut session = self.session.lock().map_err(failed)?;
-        self.check_visible(&session, &peer_id)?;
+        Self::check_visible(&session, &peer_id)?;
         let read = session.mark_chat_read(&peer_id).map_err(failed)?;
         u32::try_from(read).map_err(failed)
     }
@@ -326,7 +281,7 @@ impl ChatSession {
     )]
     pub fn set_contact_name(&self, peer_id: String, name: String) -> Result<(), CoreError> {
         // `&*` keeps `?` from expecting a `Session`; the guard drops before `change_own` locks.
-        self.check_visible(&*self.session.lock().map_err(failed)?, &peer_id)?;
+        Self::check_visible(&*self.session.lock().map_err(failed)?, &peer_id)?;
         let change = PeerChange::Name(name.trim().to_owned());
         if !change.valid(&peer_id) {
             return Err(code("invalidName"));
@@ -392,10 +347,28 @@ impl ChatSession {
         message_id: &[u8],
         text: Option<&str>,
     ) -> Result<ChatSubmission, CoreError> {
+        self.operate_selected(
+            Source {
+                peer: peer_id,
+                group: group_id,
+                author: &self.key.identity.peer_id(),
+                id: message_id,
+            },
+            Kind::Text,
+            text,
+        )
+    }
+
+    pub(super) fn operate_selected(
+        &self,
+        source: Source<'_>,
+        kind: Kind,
+        text: Option<&str>,
+    ) -> Result<ChatSubmission, CoreError> {
         let mut guard = self.session.lock().map_err(failed)?;
         // The guard stays on this thread; the session it lends moves to the network thread.
         let session: &mut Session = &mut guard;
-        let target = self.own_target(session, peer_id, group_id, message_id)?;
+        let target = message_actions::prepare(session.store(), source, kind).map_err(failed)?;
         let network = active_network(&self.dir)?;
         on_network_stack(|| {
             self.runtime.block_on(async {
@@ -404,12 +377,18 @@ impl ChatSession {
                 let sent = match text {
                     Some(text) => {
                         session
-                            .submit_edit(nodes, group_id, target, text.as_bytes(), &self.seal_key)
+                            .submit_edit(
+                                nodes,
+                                source.group,
+                                target,
+                                text.as_bytes(),
+                                &self.seal_key,
+                            )
                             .await
                     }
                     None => {
                         session
-                            .submit_delete(nodes, group_id, target, &self.seal_key)
+                            .submit_delete(nodes, source.group, target, &self.seal_key)
                             .await
                     }
                 };

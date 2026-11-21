@@ -106,8 +106,8 @@ jobs:
             build/android-build/android/app/reports/lint-results-*
           if-no-files-found: error
 
+  # Default job-id naming also stays readable when GitHub skips the matrix before expansion.
   docker-emulators:
-    name: docker - android device tests (${{ matrix.lane }})
     needs: docker
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -215,6 +215,7 @@ jobs:
           path: |
             build/platform-check-output/
             ${{ runner.temp }}/desktop-ui-results.json
+            ${{ runner.temp }}/moderation-shots-*/
             build/complexity/linux/*/clippy.stderr
             build/complexity/linux/*/clippy.jsonl
             build/complexity/linux/*/report.json
@@ -293,6 +294,7 @@ jobs:
             build/platform-check-output/
             ${{ runner.temp }}/apple-results/
             ${{ runner.temp }}/desktop-ui-results.json
+            ${{ runner.temp }}/moderation-shots-*/
           if-no-files-found: error
 
   windows:
@@ -339,6 +341,7 @@ jobs:
             build/platform-check-output/
             build/debug/dyapp-windows.exe
             ${{ runner.temp }}/desktop-ui-results.json
+            ${{ runner.temp }}/moderation-shots-*/
           if-no-files-found: error
 
   summary:

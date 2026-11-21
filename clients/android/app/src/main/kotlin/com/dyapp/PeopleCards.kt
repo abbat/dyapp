@@ -10,6 +10,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -25,10 +26,13 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uniffi.dyapp.ChatRevocation
 import uniffi.dyapp.ChatSession
+import uniffi.dyapp.LocalCollectionEntry
 
 // What a people card shows: null peers while loading; [busy] while a change runs; [status] after a retry.
 private class PeopleState {
@@ -44,6 +48,7 @@ private suspend fun PeopleState.refresh(
     list: (ChatSession) -> List<String>,
     change: ((ChatSession) -> Unit)? = null
 ) {
+    if (busy) return
     busy = true
     val result = withContext(Dispatchers.IO) {
         runCatching {
@@ -53,6 +58,7 @@ private suspend fun PeopleState.refresh(
             }
         }
     }
+    currentCoroutineContext().ensureActive()
     busy = false
     failed = result.isFailure
     result.onSuccess { peers = it }
@@ -60,9 +66,11 @@ private suspend fun PeopleState.refresh(
 
 // Blocks [peer] again to repeat the token revocation and says what it came to, with the reason when it failed.
 private suspend fun PeopleState.retry(active: Opened.Ready, peer: String, text: (Int) -> String) {
+    if (busy) return
     busy = true
     status = null
     val result = withContext(Dispatchers.IO) { runCatching { RustBridge.withChats(active) { it.block(peer) } } }
+    currentCoroutineContext().ensureActive()
     busy = false
     status = result.fold(
         { listOfNotNull(text(revocationText(it.revocation)), it.detail).joinToString(" ") },
@@ -72,7 +80,7 @@ private suspend fun PeopleState.retry(active: Opened.Ready, peer: String, text: 
 
 /** The Settings card listing the people the active identity blocked, each with Unblock and a revocation retry. */
 @Composable
-internal fun BlockedCard(active: Opened.Ready) {
+internal fun BlockedCard(active: Opened.Ready) = key(active) {
     val scope = rememberCoroutineScope()
     val state = remember(active.slot.id) { PeopleState() }
     val list = { chats: ChatSession -> chats.blockedPeers() }
@@ -85,7 +93,7 @@ internal fun BlockedCard(active: Opened.Ready) {
     val resources = LocalResources.current
     val text = { id: Int -> resources.getString(id) }
     LaunchedEffect(state) { state.refresh(active, list) }
-    PeopleCard("blocked", state, texts) { peer, number ->
+    PeopleCard(state, texts, { scope.launch { state.refresh(active, list) } }) { peer, number ->
         BlockedActions(
             number,
             state.busy,
@@ -96,7 +104,7 @@ internal fun BlockedCard(active: Opened.Ready) {
 }
 
 @Composable
-private fun BlockedActions(number: Int, busy: Boolean, retry: () -> Unit, unblock: () -> Unit) {
+internal fun BlockedActions(number: Int, busy: Boolean, retry: () -> Unit, unblock: () -> Unit) {
     // Stacked: two long labels beside the Peer ID do not fit a 360 dp phone.
     Column(horizontalAlignment = Alignment.End) {
         TextButton(retry, Modifier.testTag("retry-revocation-$number"), enabled = !busy) {
@@ -110,7 +118,7 @@ private fun BlockedActions(number: Int, busy: Boolean, retry: () -> Unit, unbloc
 
 /** The Settings card listing the people the active identity passed on, each with Undo pass. */
 @Composable
-internal fun PassedCard(active: Opened.Ready) {
+internal fun PassedCard(active: Opened.Ready) = key(active) {
     val scope = rememberCoroutineScope()
     val state = remember(active.slot.id) { PeopleState() }
     val list = { chats: ChatSession -> chats.passedPeers() }
@@ -121,7 +129,7 @@ internal fun PassedCard(active: Opened.Ready) {
         R.string.settings_passed_hint
     )
     LaunchedEffect(state) { state.refresh(active, list) }
-    PeopleCard("passed", state, texts) { peer, number ->
+    PeopleCard(state, texts, { scope.launch { state.refresh(active, list) } }) { peer, number ->
         TextButton(
             { scope.launch { state.refresh(active, list) { it.setPassed(peer, false) } } },
             Modifier.testTag("unpass-$number"),
@@ -140,38 +148,64 @@ private class PeopleTexts(
     @StringRes val hint: Int
 )
 
-// A card tagged [tag] that gives each peer row the [actions] for that peer and its number.
+// Retain collection-specific status and actions around the shared local pager.
 @Composable
 private fun PeopleCard(
-    tag: String,
     state: PeopleState,
     texts: PeopleTexts,
+    refresh: () -> Unit,
     actions: @Composable (String, Int) -> Unit
 ) {
+    val tag = if (texts.title == R.string.settings_blocked) "blocked" else "passed"
     FormCard(Modifier.testTag(tag)) {
         CardTitle(texts.title)
-        val peers = state.peers
-        peers?.forEachIndexed { index, peer ->
-            Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
-                Avatar(peer)
-                Text(shortPeerId(peer), Modifier.weight(1f), fontFamily = FontFamily.Monospace)
-                actions(peer, index + 1)
-            }
-        }
-        if (peers?.isEmpty() == true) {
-            Caption(stringResource(texts.none), Modifier.testTag("$tag-none"))
-        }
-        if (state.failed) {
-            Caption(
-                stringResource(texts.failed),
-                Modifier.testTag("$tag-error").semantics { liveRegion = LiveRegionMode.Polite }
-            )
-        }
-        state.status?.let {
-            Caption(it, Modifier.testTag("$tag-revoke-status").semantics { liveRegion = LiveRegionMode.Polite })
-        }
-        Caption(stringResource(texts.hint))
+        PeopleRows(state, refresh, actions)
+        PeopleStatus(tag, state, texts)
     }
+}
+
+@Composable
+private fun PeopleRows(state: PeopleState, refresh: () -> Unit, actions: @Composable (String, Int) -> Unit) {
+    val peers = state.peers
+    val entries = remember(peers) { peers?.map { LocalCollectionEntry(it, "") } }
+    if (peers == null && state.failed) {
+        TextButton(refresh, Modifier.testTag("collection-refresh"), enabled = !state.busy) {
+            Text(stringResource(R.string.collection_refresh))
+        }
+    } else {
+        LocalCollectionView(state, entries, if (state.busy) null else refresh) { entry, number ->
+            PeopleCollectionRow(entry.target, number, actions)
+        }
+    }
+}
+
+/** Full identifiers and action labels each retain the current row width at enlarged text. */
+@Composable
+internal fun PeopleCollectionRow(peer: String, number: Int, actions: @Composable (String, Int) -> Unit) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
+            Avatar(peer)
+            Text(peer, Modifier.weight(1f), fontFamily = FontFamily.Monospace)
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { actions(peer, number) }
+    }
+}
+
+@Composable
+private fun PeopleStatus(tag: String, state: PeopleState, texts: PeopleTexts) {
+    if (state.peers?.isEmpty() == true) {
+        Caption(stringResource(texts.none), Modifier.testTag("$tag-none"))
+    }
+    if (state.failed) {
+        Caption(
+            stringResource(texts.failed),
+            Modifier.testTag("$tag-error").semantics { liveRegion = LiveRegionMode.Polite }
+        )
+    }
+    state.status?.let {
+        Caption(it, Modifier.testTag("$tag-revoke-status").semantics { liveRegion = LiveRegionMode.Polite })
+    }
+    Caption(stringResource(texts.hint))
 }
 
 /** What a block's token revocation came to, as Chats and the blocked people list say it. */

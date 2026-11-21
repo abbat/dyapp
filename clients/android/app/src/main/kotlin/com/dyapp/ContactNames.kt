@@ -2,8 +2,6 @@ package com.dyapp
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -27,11 +25,9 @@ internal fun FetchPeerProfiles(peers: List<String>) {
 @Composable
 internal fun rememberContactNames(peers: List<String>): Map<String, ContactNameView> {
     val photos = LocalPeerPhotos.current
-    val names by produceState(emptyMap<String, ContactNameView>(), photos, peers, photos?.fetched) {
-        val read = withContext(Dispatchers.IO) { runCatching { photos?.names(peers) }.getOrNull() }
-        if (read != null) value = read.associateBy { it.peerId }
+    return rememberContactNameSnapshot(photos to peers, photos?.fetched) {
+        withContext(Dispatchers.IO) { photos?.names(peers).orEmpty() }
     }
-    return names
 }
 
 /**

@@ -5,6 +5,7 @@ import fcntl
 import json
 import os
 import re
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -15,6 +16,7 @@ import uuid
 
 from capture import Capture
 from check_dispatch import CheckPolicy, load_runner
+from docker_build_cache import cache_recovery_command, read_build_log
 
 
 class ComposeBuild(TypedDict):
@@ -36,7 +38,10 @@ def stage_result(
     captured: Capture | None,
     message: str,
     log_file: str | os.PathLike[str] | None,
+    quiet_failure: bool = False,
 ) -> int:
+    if status and quiet_failure and captured is not None:
+        return 128 - status if status < 0 else status
     if not status:
         print(f"OK {label}", flush=True)
         return 0
@@ -80,6 +85,7 @@ def run_logged(
     label: str,
     cleanup: Sequence[str] | None = None,
     log_file: str | os.PathLike[str] | None = None,
+    quiet_failure: bool = False,
 ) -> int:
     """Capture quiet stages with retained logs and concise diagnostics."""
     verbose = environment.get("DYAPP_VERBOSE") == "1"
@@ -130,7 +136,9 @@ def run_logged(
         status = status or 1
     finally:
         close_capture(output, drain, captured)
-    return stage_result(status, label, verbose, captured, message, log_file)
+    return stage_result(
+        status, label, verbose, captured, message, log_file, quiet_failure
+    )
 
 
 def report_failure(
@@ -234,6 +242,47 @@ def image_build_command(
     return command, buildkit
 
 
+def build_image(
+    command: Sequence[str],
+    environment: Mapping[str, str],
+    label: str,
+    log_file: str | os.PathLike[str] | None = None,
+) -> int:
+    if (
+        "--cache-from" not in command
+        or environment.get("DYAPP_VERBOSE") == "1"
+    ):
+        return run_logged(command, environment, label, log_file=log_file)
+    directory = Path(
+        environment.get("DYAPP_CHECK_LOG_DIR", "build/check-output")
+    )
+    directory.mkdir(parents=True, exist_ok=True)
+    first = (
+        Path(log_file)
+        if log_file
+        else directory / f"docker-{uuid.uuid4().hex}.log"
+    )
+    status = run_logged(
+        command, environment, label, log_file=first, quiet_failure=True
+    )
+    if not status or not first.is_file():
+        return status
+    text = read_build_log(first)
+    fresh = cache_recovery_command(command, status, text)
+    if fresh is None:
+        return report_failure(label, status, text, first)
+    if log_file is not None:
+        retained = directory / f"docker-cache-failure-{uuid.uuid4().hex}.log"
+        shutil.copyfile(first, retained)
+        first = retained
+    recovery = directory / f"docker-cache-recovery-{uuid.uuid4().hex}.log"
+    print(
+        f"INFO {label}: rebuilding without remote cache; first log: {first}",
+        flush=True,
+    )
+    return run_logged(fresh, environment, label, log_file=recovery)
+
+
 def build_images(
     arguments: Sequence[str],
     environment: Mapping[str, str],
@@ -297,7 +346,7 @@ def build_images(
                 log_file,
             )
         command, buildkit = image_build_command(build, service, environment)
-        status = run_logged(
+        status = build_image(
             command,
             {**environment, "DOCKER_BUILDKIT": buildkit},
             service["image"],

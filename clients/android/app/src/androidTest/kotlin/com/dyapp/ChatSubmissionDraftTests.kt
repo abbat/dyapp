@@ -11,6 +11,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import uniffi.dyapp.ChatMessage
 import uniffi.dyapp.ChatSubmission
 import java.io.File
 import kotlin.coroutines.CoroutineContext
@@ -18,8 +19,13 @@ import kotlin.coroutines.CoroutineContext
 class ChatSubmissionDraftTests {
     @Test
     fun missingEditTargetNeverDispatchesANewMessageOrChangesTheDrafts() {
+        verifyMissingTarget("missing target", emptyList())
+        verifyMissingTarget("00:01", listOf(message("me", "original"), message("peer", "collision")))
+    }
+
+    private fun verifyMissingTarget(target: String, before: List<ChatMessage>) {
         val form = ChatForm(mutableStateOf("edited text"))
-        form.editing.value = "missing target"
+        form.editing.value = target
         form.held.value = "held draft"
         val previousStatus = ChatStatus(R.string.chat_edit_failed, "previous failure")
         form.status = previousStatus
@@ -34,13 +40,13 @@ class ChatSubmissionDraftTests {
         val slot = Slot("stale-edit", File("build/unopened-stale-edit"), SlotState.READY)
         val feed = ChatFeed(Opened.Ready(slot, "me"))
         try {
-            scope.sendDraft(form, feed, "peer", emptyList())
+            scope.sendDraft(form, feed, "peer", before)
             assertTrue("A missing edit target dispatched a submission", pending.isEmpty())
             assertFalse(form.sending)
             assertSame(previousStatus, form.status)
             assertEquals("edited text", form.draft.value)
             assertEquals("held draft", form.held.value)
-            assertEquals("missing target", form.editing.value)
+            assertEquals(target, form.editing.value)
         } finally {
             scope.cancel()
             // Cancellation drains a mistakenly dispatched task without running native IO.

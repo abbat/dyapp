@@ -2,6 +2,12 @@ name: prototype-review
 
 on:
   workflow_dispatch:
+    inputs:
+      platform:
+        description: Prototype platform
+        type: choice
+        options: [desktop, android]
+        default: desktop
 
 permissions:
   contents: read
@@ -13,16 +19,31 @@ jobs:
     timeout-minutes: 120
     env:
       DYAPP_CHECK_LOG_DIR: build/prototype-review/check-output
+      PROTOTYPE_PLATFORM: ${{ inputs.platform || 'desktop' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: select platform
+        run: |
+          case "$PROTOTYPE_PLATFORM" in
+            desktop)
+              echo 'CAPTURE_SERVICE=prototype-shots' >> "$GITHUB_ENV"
+              echo 'PREFLIGHT_SCREEN=stickers-ready' >> "$GITHUB_ENV"
+              echo 'CAPTURE_PATH=build/ux-research/prototype' >> "$GITHUB_ENV" ;;
+            android)
+              echo 'CAPTURE_SERVICE=prototype-shots-android' >> "$GITHUB_ENV"
+              echo 'PREFLIGHT_SCREEN=chat-forward-dialog' >> "$GITHUB_ENV"
+              echo 'CAPTURE_PATH=build/ux-research/prototype-android' >> "$GITHUB_ENV" ;;
+            *) echo 'Unsupported prototype platform' >&2; exit 2 ;;
+          esac
       - name: record inputs
         run: |
           mkdir -p build/prototype-review
           git rev-parse HEAD > build/prototype-review/source-head.txt
-          git ls-files -z clients/desktop tests/scripts tests/docker tools/scripts |
+          printf '%s\n' "$PROTOTYPE_PLATFORM" > build/prototype-review/platform.txt
+          git ls-files -z clients/desktop clients/android/prototype tests/scripts tests/docker tools/scripts |
             xargs -0 sha256sum > build/prototype-review/inputs.sha256
       - name: prepare existing capture image
         run: |
@@ -37,21 +58,25 @@ jobs:
             DYAPP_PROTOTYPE_THEME=light DYAPP_PROTOTYPE_TEXT_SCALE=100 DYAPP_PROTOTYPE_LANGUAGE=en \
             python3 tools/scripts/run-check.py --log-dir "$DYAPP_CHECK_LOG_DIR" ui-tests -- \
               docker compose -f tests/docker/compose.ui.yml --profile prototype run --no-TTY --pull never \
-                -v "$PWD/build/prototype-preflight:/shots" prototype-shots bash /app/prototype-run.sh desktop stickers-ready
+                -v "$PWD/build/prototype-preflight:/shots" "$CAPTURE_SERVICE" \
+                  bash /app/prototype-run.sh "$PROTOTYPE_PLATFORM" "$PREFLIGHT_SCREEN"
       - name: capture
         run: |
-          mkdir -p build/ux-research/prototype
+          mkdir -p "$CAPTURE_PATH"
           DYAPP_UID="$(id -u)" DYAPP_GID="$(id -g)" \
             python3 tools/scripts/run-check.py --log-dir "$DYAPP_CHECK_LOG_DIR" ui-tests -- \
-              docker compose -f tests/docker/compose.ui.yml --profile prototype run --no-TTY --pull never prototype-shots
+              docker compose -f tests/docker/compose.ui.yml --profile prototype run --no-TTY --pull never \
+                "$CAPTURE_SERVICE" bash /app/prototype-run.sh "$PROTOTYPE_PLATFORM"
       - name: validate in capture image
         run: |
           validator=(docker run --pull never --network none --read-only
             --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges
             -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/app
             -v "$PWD:/app:ro" --workdir /app dyapp:prototype python3 -B)
-          "${validator[@]}" tests/scripts/check-layout.py desktop build/ux-research/prototype/layout.json
-          "${validator[@]}" tests/scripts/check-ui-criteria.py build/ux-research/prototype/criteria.json
+          "${validator[@]}" tests/scripts/check-layout.py "$PROTOTYPE_PLATFORM" "$CAPTURE_PATH/layout.json"
+          if [[ "$PROTOTYPE_PLATFORM" == desktop ]]; then
+            "${validator[@]}" tests/scripts/check-ui-criteria.py "$CAPTURE_PATH/criteria.json"
+          fi
       - name: screenshots and diagnostics
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -61,5 +86,6 @@ jobs:
             build/prototype-review/
             build/prototype-preflight/
             build/ux-research/prototype/
+            build/ux-research/prototype-android/
           if-no-files-found: error
           retention-days: 7

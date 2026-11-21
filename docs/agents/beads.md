@@ -51,6 +51,7 @@ Use only the labels below; add a new one only after the user agrees, and list it
 | `feature` | New user-visible or API functionality. |
 | `bug` | Wrong behaviour of existing code. |
 | `infra` | CI, Docker, build, toolchains, dependencies, repository tooling, tests and test infrastructure. |
+| `wait-ci` | Implementation and local verification are complete; only green CI remains before closure. |
 | `audit` | Review or check without a planned behaviour change: code, security, versions, docs. |
 | `design` | Design work before implementation: architecture, API, protocol, UI/UX, ADR. |
 | `docs` | Work whose only output is documentation. |
@@ -64,6 +65,23 @@ Each bead gets one kind label (`feature`, `bug`, `infra`, `audit`, `design` or `
 that is platform-independent (the shared Rust crates, CI as a whole) gets no platform label.
 There is no `test` label: tests are `infra`. `quorum` is added on top of the kind label and is
 inherited by every bead under the quorum epic.
+
+### Awaiting CI
+
+Use `wait-ci` only when implementation and local verification are complete, the commit is
+pushed, and no development remains. Keep the bead open and record the exact commit SHA, completed
+local checks and the name of the required CI check in its notes. A particular run URL is optional
+transient evidence: a later run on a descendant commit can satisfy the same check. Exclude these
+beads from the development queue:
+
+```bash
+bd ready --exclude-label wait-ci
+```
+
+Close the bead with a run as evidence after the named check passes on the recorded SHA or its
+descendant. If that check fails and the bead needs further development, remove `wait-ci` and record
+the failure. An unrelated CI failure does not change the bead's state. List beads awaiting closure
+with `bd list --label wait-ci`.
 
 ## CI failures
 

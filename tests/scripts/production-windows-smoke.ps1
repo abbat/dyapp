@@ -1,8 +1,14 @@
 param([Parameter(Mandatory = $true)][string]$Executable)
 $ErrorActionPreference = 'Stop'
+function Mark-Stage([string]$stage) {
+    [Console]::Out.WriteLine("Production UI stage: $stage")
+    [Console]::Out.Flush()
+}
+Mark-Stage 'load UIA assemblies'
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 # UIA invokes callbacks on its own threads; C# signals a handle without a PowerShell runspace.
+Mark-Stage 'compile UIA observers'
 Add-Type -ReferencedAssemblies @(
     [System.Windows.Automation.AutomationElement].Assembly.Location,
     [System.Windows.Automation.AutomationProperty].Assembly.Location
@@ -20,14 +26,18 @@ public sealed class ProductionUiChanges : IDisposable {
     private readonly AutomationPropertyChangedEventHandler property;
     private readonly EventHandler exited;
     private Process process;
+    private AutomationElement window;
     public ProductionUiChanges() {
         opened = (s, e) => Signal();
         structure = (s, e) => Signal();
         property = (s, e) => Signal();
         exited = (s, e) => Signal();
-        Automation.AddAutomationEventHandler(WindowPattern.WindowOpenedEvent, root, TreeScope.Subtree, opened);
-        Automation.AddStructureChangedEventHandler(root, TreeScope.Subtree, structure);
-        Automation.AddAutomationPropertyChangedEventHandler(root, TreeScope.Subtree, property,
+        Automation.AddAutomationEventHandler(WindowPattern.WindowOpenedEvent, root, TreeScope.Children, opened);
+    }
+    public void WatchWindow(AutomationElement target) {
+        window = target;
+        Automation.AddStructureChangedEventHandler(window, TreeScope.Subtree, structure);
+        Automation.AddAutomationPropertyChangedEventHandler(window, TreeScope.Subtree, property,
             AutomationElement.NameProperty, AutomationElement.IsEnabledProperty, AutomationElement.IsOffscreenProperty);
     }
     private void Signal() {
@@ -41,14 +51,17 @@ public sealed class ProductionUiChanges : IDisposable {
     public void Wait(int milliseconds) { changed.WaitOne(milliseconds); }
     public void Dispose() {
         Automation.RemoveAutomationEventHandler(WindowPattern.WindowOpenedEvent, root, opened);
-        Automation.RemoveStructureChangedEventHandler(root, structure);
-        Automation.RemoveAutomationPropertyChangedEventHandler(root, property);
+        if (window != null) {
+            Automation.RemoveStructureChangedEventHandler(window, structure);
+            Automation.RemoveAutomationPropertyChangedEventHandler(window, property);
+        }
         if (process != null) process.Exited -= exited;
         changed.Dispose();
     }
 }
 '@
 
+Mark-Stage 'load locale catalogues'
 $labels = Get-ChildItem clients/desktop/ui/i18n/*.json | ForEach-Object {
     $catalogue = Get-Content -Raw -Encoding UTF8 $_.FullName | ConvertFrom-Json
     @{ heading = $catalogue.'setup.title'; button = $catalogue.'setup.create' }
@@ -80,6 +93,7 @@ function Get-AppWindow {
 }
 
 function Await-Ready([string]$stage, [scriptblock]$probe) {
+    Mark-Stage $stage
     $clock = [System.Diagnostics.Stopwatch]::StartNew()
     while ($true) {
         $appProcess.Refresh()
@@ -126,12 +140,16 @@ $profileDir = Join-Path $env:RUNNER_TEMP ('production-desktop-' + [guid]::NewGui
 $env:APPDATA = Join-Path $profileDir 'roaming'
 $env:LOCALAPPDATA = Join-Path $profileDir 'local'
 New-Item -ItemType Directory -Force $env:APPDATA, $env:LOCALAPPDATA | Out-Null
+Mark-Stage 'register UIA observers'
 $changes = [ProductionUiChanges]::new()
 $appProcess = $null
 try {
+    Mark-Stage 'launch production executable'
     $appProcess = Start-Process -FilePath (Resolve-Path $Executable) -PassThru
     $changes.Watch($appProcess)
-    $null = Await-Ready 'native window' { Get-AppWindow }
+    $nativeWindow = Await-Ready 'native window' { Get-AppWindow }
+    Mark-Stage 'observe owned window changes'
+    $changes.WatchWindow($nativeWindow)
     # A successful window transition starts a fresh render deadline; unrelated events do not extend it.
     $window = Await-Ready 'visible setup heading and enabled create button' {
         $currentWindow = Get-AppWindow
@@ -139,16 +157,29 @@ try {
     }
     $missingLabels = @(@{ heading = 'Missing smoke heading'; button = 'Missing smoke button' })
     if (Find-Setup $window $missingLabels) { throw 'Accessibility check accepted absent controls' }
+    # Readiness is complete. Detach UIA before destroying the provider it observes.
+    Mark-Stage 'release readiness observers'
+    $changes.Dispose()
+    $changes = $null
+    Mark-Stage 'close production window'
     if (-not $appProcess.CloseMainWindow()) { throw 'Could not close production window' }
+    Mark-Stage 'await production process exit'
     if (-not $appProcess.WaitForExit(15000)) { throw 'Production app did not exit after Close' }
+    Mark-Stage 'verify production exit code'
     if ($appProcess.ExitCode -ne 0) { throw 'Production app exited with an error' }
     Write-Output 'Production desktop rendered setup and closed without injected hooks'
 } catch {
+    # Flush the original error before any provider diagnostics can fail or hang.
+    [Console]::Error.WriteLine("Error: production UI smoke: " + $_.Exception.ToString())
+    [Console]::Error.Flush()
     if ($appProcess) {
         try { Show-ObservedTree } catch { Write-Warning "Production UI diagnostics failed: $_" }
     }
     throw
 } finally {
-    $changes.Dispose()
+    if ($changes) {
+        Mark-Stage 'release remaining readiness observers'
+        $changes.Dispose()
+    }
     if ($appProcess -and -not $appProcess.HasExited) { $appProcess.Kill(); $appProcess.WaitForExit() }
 }

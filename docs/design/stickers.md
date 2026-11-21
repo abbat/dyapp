@@ -169,10 +169,11 @@ sticker payloads with optional descriptors, checks verified context and cross-ki
 and preserves unread state on replay/restart. Clear chat removes their rows and prevents replay
 from restoring them. Common originals references include only hash-matching descriptors, so
 no sticker-only cache is needed. Photo queries exclude sticker rows; merged history includes typed stickers. Desktop/UniFFI metadata omit transport secrets;
-Desktop and Android expose a localized emoji/name fallback without edit/forward actions. Desktop
-also renders bounded pixels and Add-pack controls; Android retains the fallback-only path.
-Desktop chat-list previews include the newest sticker and count its unread state; mobile list
-previews remain separate platform work. At the Store boundary, tag-9 deletion of a
+Desktop and Android expose a localized emoji/name fallback without edit/forward actions and
+render bounded first-frame pixels. Android uses typed native on-tap/unavailable results and
+retains explicit image retry after failures; its Add-pack controls remain planned.
+Desktop and Android chat-list previews use newest-sticker metadata and shared unread projection;
+iOS list presentation remains separate platform work. At the Store boundary, tag-9 deletion of a
 stored sticker now removes its media row and leaves the shared terminal placeholder. Replays
 cannot restore it; an original arriving after deletion binds its digest/HLC and releases pending
 operation slots without restoring content. Edits to a stored sticker fail; early edits are discarded
@@ -256,7 +257,12 @@ Common `MobileIdentityOperation.remove_saved_sticker_pack` removes only an expli
 PackID through core storage. It needs identity admission but no chat/media sealing key, matching
 desktop recovery of unreadable packs. Missing is false; post-unlink failures require authoritative
 refresh and never imply rollback. Other packs, chat history and outbox remain untouched.
-Mobile picker/collection wiring remains planned.
+Android Settings → Photos wires the common collection/import/removal APIs through the owner-bound
+saved-pack dialog and bounded OS file picker. Received chat sticker rows render the common pack
+controls with exact message selection and generation; Manage opens that same dialog. Mailbox refreshes
+and manager closure reread the local pack status; success still means local staging, not delivery.
+Kotlin does not calculate retry eligibility or deadlines. Android also wires the composer picker to
+native saved/recent pages and standalone typed submission. iOS collection/picker wiring remains planned.
 
 Shared `sticker_picker::page` and `thumbnail` own manifest-order eight-entry pages and
 proportional RGBA resizing within a 96px bounding box through the bounded core decoder. Wide and
@@ -268,15 +274,32 @@ files and preserves original-list cursor offsets. Transition cancellation or sto
 returns no partial page. Desktop only projects its unchanged flattened JSON. Common
 `ChatSession.saved_sticker_page` and `recent_sticker_page` project these core pages under the
 existing session/identity lifetime, with checked 32-bit offsets and safe labels/selectors/RGBA only.
-They perform no networking or state mutation. Mobile picker UI remains planned; full saved-frame
+They perform no networking or state mutation. Android has an owner-bound adapter and presentation
+model that retain exact shown choices, native cursors and local Back history. A committed typed send
+blocks repeat admission; retiring the picker drops late display results without interrupting native
+work or changing the text draft. Its composer dialog shows native pack/recent choices, proportional
+thumbnails, Back/Next and explicit refresh. Manage returns to a fresh opening after the shared manager
+closes. A feed-refresh failure cannot turn an already committed send into a retry. Full saved-frame
 and collection exports are separate APIs.
+
+Common `sticker_requests::Status::controls` supplies the ordered Request/Retry/Fresh/StopWaiting/
+Refresh/Manage display choices, independent of client clocks. Native status includes this typed
+list; actual mutations still recheck full selection, stored generation and authorization. Tauri
+renders the projected controls directly and refuses callbacks from replaced buttons. A failed
+read retains the last known caption and offers only read/management recovery. Android received
+sticker rows consume this projection directly through the shared native status/actions.
 
 Shared `sticker_media` owns current full-key selection, identity/content revalidation,
 authenticated local-source lookup, automatic-download admission and decoded completion/cache
 retention. Desktop and common native `ChatSession.chat_sticker_frame` delegate these rules
 to core. Native results contain actual dimensions and RGBA8 only; full stored message identity
-is required and an explicit tap supplies manual download permission. OS network reports,
-connection transport and display projection stay in adapters. Mobile chat rendering remains planned.
+is required and an explicit tap supplies manual download permission. Core `Snapshot::access`
+checks local pixels before descriptor availability and automatic-download eligibility. The native
+`chat_sticker_image` API returns typed ready/on-tap/unavailable outcomes, including origin NotFound;
+transport and validation failures remain errors. The older frame API keeps its error-code contract.
+OS network reports, connection transport and display projection stay in adapters. Android chat
+rendering consumes typed results off UI, converts straight-alpha RGBA through Android color APIs,
+and drops cancelled presentation results. Compressed WebP and retrieval descriptors stay in Rust.
 
 ### Receive
 
@@ -429,7 +452,9 @@ controls distinguish new, saved, pending and typed failures; they never expose a
 - Delete works through tag 9. The desktop delete command now accepts live own stickers only
   with the exact peer/group/message selection; edit remains restricted to text. Own stickers
   expose Delete under the same open-chat action policy as text; Edit and Forward remain hidden
-  and are refused by the codec.
+  and are refused by the codec. Android uses the same shared preflight through explicit-author
+  native deletion, a Delete-only long-press menu and a per-opening confirmation. Retired callbacks
+  cannot delete through another identity; typed commitment blocks repeat admission.
 - The desktop chat list shows emoji and pack fallback. Shared core notification Text content shows
   emoji plus localized Sticker for the latest unread sticker; a read media marker still suppresses
   older retained text. Generic/name-only, muted/blocked and non-open-chat rules stay unchanged.

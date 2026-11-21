@@ -29,11 +29,12 @@
     const kind = args.action.kind;
     fixture.value =
       kind === 'stopWaiting'
-        ? { state: 'new', generation: null, failure: null }
+        ? { state: 'new', generation: null, failure: null, controls: ['request'] }
         : {
             state: kind === 'retry' ? 'downloading' : 'waiting',
             generation: token(fixture.changes),
             failure: null,
+            controls: ['stopWaiting'],
           };
     return fixture.value;
   };
@@ -47,7 +48,7 @@
     const fixture = {
       ui: appApi.stickerRequests,
       holder,
-      value: { state: 'new', generation: null, failure: null },
+      value: { state: 'new', generation: null, failure: null, controls: ['request'] },
       changes: 0,
       reject: false,
       started: deferred(),
@@ -113,11 +114,43 @@
       throw error;
     }
   };
+  const checkProjectedControls = async (fixture, controls) => {
+    const retired = controls.button('add');
+    const before = fixture.changes;
+    // Deliberately disagree with the old state-derived rule: the native projection owns the menu.
+    fixture.value = { state: 'new', generation: null, failure: null, controls: ['refresh'] };
+    await fixture.ui.refresh(0, true);
+    check(controls.button('refresh') && !controls.button('add'), 'Ignored projected controls');
+    retired.click();
+    check(fixture.changes === before, 'Retired control acted through a replacement status');
+    fixture.value = {
+      state: 'waiting',
+      generation: token(55),
+      failure: null,
+      controls: ['stopWaiting'],
+    };
+    await fixture.ui.refresh(0, true);
+    const known = controls.root.querySelector('.caption').textContent;
+    fixture.value.controls = ['unknown'];
+    await fixture.ui.refresh(0, true);
+    check(
+      controls.button('refresh') &&
+        controls.button('manage') &&
+        !controls.button('stop') &&
+        controls.root.querySelector('.caption').textContent === known,
+      'Unknown projected controls enabled a mutation or hid the known pending state',
+    );
+  };
   const checkRequestRecovery = async (fixture, controls) => {
     try {
       const { ui } = fixture;
       const { button } = controls;
-      fixture.value = { state: 'failed', failure: 'quota', generation: token(7) };
+      fixture.value = {
+        state: 'failed',
+        failure: 'quota',
+        generation: token(7),
+        controls: ['retry', 'stopWaiting', 'manage'],
+      };
       await ui.refresh(0, true);
       check(
         button('retry') && button('manage') && !button('fresh'),
@@ -138,7 +171,12 @@
           fixture.actions.at(-1).action.generation[0] === 7,
         'Retry lost current generation',
       );
-      fixture.value = { state: 'failed', failure: 'invalid', generation: token(8) };
+      fixture.value = {
+        state: 'failed',
+        failure: 'invalid',
+        generation: token(8),
+        controls: ['retry', 'fresh', 'stopWaiting'],
+      };
       await ui.refresh(0, true);
       button('fresh').click();
       await appApi.stickerRequestChanged;
@@ -155,7 +193,12 @@
   const checkRequestConflict = async (fixture, controls) => {
     try {
       const { root, button } = controls;
-      fixture.value = { state: 'waiting', generation: token(99), failure: null };
+      fixture.value = {
+        state: 'waiting',
+        generation: token(99),
+        failure: null,
+        controls: ['stopWaiting'],
+      };
       fixture.reject = true;
       const beforeConflict = fixture.changes;
       button('stop').click();
@@ -178,7 +221,7 @@
       ui.clear();
       holder.replaceChildren();
       fixture.started = deferred();
-      fixture.value = { state: 'saved', generation: null, failure: null };
+      fixture.value = { state: 'saved', generation: null, failure: null, controls: ['manage'] };
       const name = 'X'.repeat(120);
       const named = ui.controls({ ...message, sticker: { packName: name } }, 'fixture-peer', call);
       holder.append(named);
@@ -208,14 +251,14 @@
       await fixture.started.promise;
       const oldRead = appApi.stickerRequestsUpdated;
       ui.clear();
-      old.resolve({ state: 'new', generation: null, failure: null });
+      old.resolve({ state: 'new', generation: null, failure: null, controls: ['request'] });
       await oldRead;
       check(!stale.querySelector('button'), 'Old status enabled an action after Clear');
       holder.replaceChildren();
       fixture.started = deferred();
       const malformed = ui.controls(message, 'fixture-peer', async () => {
         fixture.started.resolve();
-        return { state: 'waiting', generation: null, failure: null };
+        return { state: 'waiting', generation: null, failure: null, controls: ['stopWaiting'] };
       });
       holder.append(malformed);
       await fixture.started.promise;
@@ -234,6 +277,7 @@
     const fixture = createRequestFixture();
     try {
       const controls = await checkInitialRequest(fixture);
+      await checkProjectedControls(fixture, controls);
       await checkRequestRecovery(fixture, controls);
       await checkRequestConflict(fixture, controls);
       await checkSavedRequestName(fixture);

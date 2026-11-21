@@ -1,11 +1,7 @@
 package com.dyapp
 
 import android.content.res.Configuration
-import androidx.activity.compose.LocalActivityResultRegistryOwner
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -53,12 +49,7 @@ class ChatStickerHistoryTests {
         )
         val snapshot = ChatThreadSnapshot(ChatHistory(ChatState.OPEN, texts, false), items)
         compose.setContent {
-            val registry = checkNotNull(LocalActivityResultRegistryOwner.current)
-            CompositionLocalProvider(
-                LocalContext provides localized,
-                LocalConfiguration provides configuration,
-                LocalActivityResultRegistryOwner provides registry,
-            ) {
+            LocalizedTestContext(localized) {
                 DYAppTheme {
                     MediaChatContent(snapshot, "peer", "me", form, ChatActions({}, {}, {}, {}, {}))
                 }

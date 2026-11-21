@@ -1,5 +1,6 @@
 package com.dyapp
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsEnabled
@@ -7,12 +8,14 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.platform.app.InstrumentationRegistry
@@ -32,9 +35,10 @@ private fun text(id: Int) = InstrumentationRegistry.getInstrumentation().targetC
 internal fun ComposeTestRule.texts(tag: String) = onAllNodes(hasTestTag(tag)).fetchSemanticsNodes()
     .map { it.config.getOrNull(SemanticsProperties.Text)?.joinToString() }
 
-/** The text of each node inside the [tag] container. */
-internal fun ComposeTestRule.textsIn(tag: String) = onAllNodes(hasAnyAncestor(hasTestTag(tag))).fetchSemanticsNodes()
-    .map { it.config.getOrNull(SemanticsProperties.Text)?.joinToString() }
+/** The text inside [tag]; clickable containers require their unmerged descendants. */
+internal fun ComposeTestRule.textsIn(tag: String, unmerged: Boolean = false) =
+    onAllNodes(hasAnyAncestor(hasTestTag(tag)), useUnmergedTree = unmerged).fetchSemanticsNodes()
+        .map { it.config.getOrNull(SemanticsProperties.Text)?.joinToString() }
 
 // A timeout names what the tag and the network check rows showed instead.
 internal fun ComposeTestRule.waitForText(tag: String, id: Int) = runCatching {
@@ -80,8 +84,10 @@ internal fun ComposeTestRule.activateLocalNode() {
     setTestNodeIdPowBits(8u)
     // Its profile minimum is lowered too, and search drops hits below this process's value.
     setTestProfilePowBits(4u)
-    onNodeWithTag("nav-network").performClick()
-    onNodeWithTag("network-seeds").performScrollTo().performTextClearance()
+    // Settings details intentionally hide bottom navigation, including after a cancelled removal.
+    settingsRoot()
+    awaitNode(hasTestTag("nav-network")).performClick()
+    awaitNode(hasTestTag("network-seeds")).performScrollTo().performTextClearance()
     onNodeWithTag("network-seeds").performTextInput(LOCAL_NODE)
     checkNetwork(retryUnreachable = true, button = "check-and-connect")
     waitForText("network-check-status", R.string.network_active)
@@ -146,7 +152,8 @@ class NetworkDraftTests {
         val seeds = listOf("not an address", "10.0.2.2:1", "$LOCAL_NODE/$OTHER_PEER")
         try {
             enter(seeds.joinToString("\n"), "city")
-            compose.onNodeWithTag("network-save").performScrollTo().performClick()
+            compose.awaitNode(hasTestTag("network-save") and isEnabled())
+                .performSemanticsAction(SemanticsActions.OnClick)
             compose.waitForText("network-status", R.string.network_saved)
 
             reopensDraft(peerId, seeds.joinToString("\n"), "city")

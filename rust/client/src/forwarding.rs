@@ -61,21 +61,59 @@ pub fn prepare(store: &Store, source: Source<'_>, target: &str) -> Result<Vec<u8
     if source.peer == target || crate::private_peer::check(store, target).is_err() {
         return Err(Error::InvalidTarget);
     }
-    crate::private_peer::check(store, source.peer).map_err(|error| match error {
-        crate::private_peer::TargetError::Invalid => Error::UnknownPeer,
-        crate::private_peer::TargetError::Own => Error::OwnPeer,
-    })?;
+    source_identity(store, source.peer)?;
     if store.blocked(source.peer)? || store.blocked(target)? {
         return Err(Error::Blocked);
     }
-    if store.conversation(source.peer)? == Conversation::None {
-        return Err(Error::UnknownPeer);
-    }
+    source_conversation(store, source.peer)?;
     if store.conversation(target)? != Conversation::Open {
         return Err(Error::InvalidTarget);
     }
+    selected_text(store, source)
+}
+
+fn source_identity(store: &Store, peer: &str) -> Result<(), Error> {
+    crate::private_peer::check(store, peer).map_err(|error| match error {
+        crate::private_peer::TargetError::Invalid => Error::UnknownPeer,
+        crate::private_peer::TargetError::Own => Error::OwnPeer,
+    })
+}
+
+fn source_conversation(store: &Store, peer: &str) -> Result<(), Error> {
+    if store.conversation(peer)? == Conversation::None {
+        return Err(Error::UnknownPeer);
+    }
+    Ok(())
+}
+
+fn selected_text(store: &Store, source: Source<'_>) -> Result<Vec<u8>, Error> {
     let id = source.id.try_into().map_err(|_| Error::UnknownMessage)?;
     text(&store.current_chat_messages(source.peer)?, source, id).ok_or(Error::UnknownMessage)
+}
+
+/// Project other open destinations for a current local text without staging any message.
+/// The returned IDs are presentation choices, not authority for a later submission.
+///
+/// # Errors
+/// Returns the existing source/block/selection errors or a persistent-state read failure.
+pub fn targets(store: &Store, source: Source<'_>) -> Result<Vec<String>, Error> {
+    source_identity(store, source.peer)?;
+    if store.blocked(source.peer)? {
+        return Err(Error::Blocked);
+    }
+    source_conversation(store, source.peer)?;
+    selected_text(store, source)?;
+    let mut targets = Vec::new();
+    for row in store.chat_rows()? {
+        if row.peer_id != source.peer
+            && row.state == Conversation::Open
+            && crate::private_peer::check(store, &row.peer_id).is_ok()
+            && !store.blocked(&row.peer_id)?
+        {
+            targets.push(row.peer_id);
+        }
+    }
+    Ok(targets)
 }
 
 #[cfg(test)]

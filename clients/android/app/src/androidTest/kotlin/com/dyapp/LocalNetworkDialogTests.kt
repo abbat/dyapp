@@ -4,13 +4,17 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
+import androidx.test.espresso.Espresso.closeSoftKeyboard
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
@@ -60,7 +64,8 @@ class LocalNetworkDialogTests {
             compose.onNodeWithTag("nav-network").performClick()
             checkWith("not an address", dialog::deny)
             assertPermission(granted = false)
-            checkWith("another invalid address", dialog::allow)
+            recreateDuringRequest(original, dialog)
+            checkWith("another invalid address") {}
             assertPermission(granted = true)
             assertEquals(original.peerId, (slots.open() as Opened.Ready).peerId)
             assertEquals(active, RustBridge.loadNetwork(original, NetworkFile.ACTIVE))
@@ -68,12 +73,34 @@ class LocalNetworkDialogTests {
         }
     }
 
-    private fun checkWith(seed: String, answer: () -> Unit) {
+    private fun request(seed: String) {
         compose.awaitNode(hasTestTag("check-and-connect") and isEnabled())
-        compose.onNodeWithTag("network-seeds").performTextReplacement(seed)
-        compose.onNodeWithTag("check-and-connect").performClick()
+        compose.onNodeWithTag("network-seeds").performScrollTo().performTextReplacement(seed)
+        // Hide through Espresso's acknowledged IME action before measuring the scroll viewport.
+        closeSoftKeyboard()
+        compose.onNodeWithTag("check-and-connect").performScrollTo().assertIsDisplayed().performClick()
+    }
+
+    private fun recreateDuringRequest(original: Opened.Ready, dialog: PermissionDialog) {
+        val activity = compose.activity
+        val before = RustBridge.loadNetwork(original, NetworkFile.DRAFT)
+        request("retired request must not run")
+        dialog.awaitRequest()
+        recreateWithPendingPermission(activity)
+        dialog.allow()
+        assertPermission(granted = true)
+        compose.skipNetworkEntry()
+        compose.onNodeWithTag("nav-network").performClick()
+        compose.awaitNode(hasTestTag("check-and-connect") and isEnabled())
+        compose.onNodeWithTag("network-check-status").assertDoesNotExist()
+        assertEquals(before, RustBridge.loadNetwork(original, NetworkFile.DRAFT))
+    }
+
+    private fun checkWith(seed: String, answer: () -> Unit) {
+        request(seed)
         answer()
         val invalid = context.getString(R.string.network_invalid_address)
+        compose.awaitNode(hasTestTag("seed-rows") and hasAnyDescendant(hasText(seed)))
         compose.awaitNode(hasTestTag("network-check-status") and hasText(invalid))
     }
 

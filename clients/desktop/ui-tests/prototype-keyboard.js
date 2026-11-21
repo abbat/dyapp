@@ -19,6 +19,26 @@ const checkPhotoQuestion = (problems) => {
   if (!legend?.textContent.trim() || !exposed(legend))
     problems.push('photo download choices lack a visible group question');
 };
+const checkPhotoDisclosure = (problems) => {
+  if (!['publish-dialog', 'publish-progress'].includes(document.documentElement.dataset.screen))
+    return;
+  const tiles = document.querySelectorAll('#profile-photos > .photo-tile');
+  const count = document.getElementById('profile-public-photo-count');
+  const label = count?.previousElementSibling;
+  const expectedLabel = document.querySelector('#profile-photos')?.previousElementSibling;
+  if (
+    !tiles.length ||
+    !count ||
+    !exposed(count) ||
+    !label ||
+    !exposed(label) ||
+    !expectedLabel?.textContent.trim() ||
+    label.textContent.trim() !== expectedLabel.textContent.trim() ||
+    !/^\d+$/.test(count.textContent.trim()) ||
+    Number(count.textContent.trim()) !== tiles.length
+  )
+    problems.push('publication summary does not disclose the fixture photo count');
+};
 export const plan = () => {
   const enabled = controller.enabledControls();
   const problems = enabled
@@ -36,6 +56,7 @@ export const plan = () => {
     }
   }
   checkPhotoQuestion(problems);
+  checkPhotoDisclosure(problems);
   const dialog = controller.activeDialog();
   const expected = dialog?.dataset.initialFocus;
   if (expected) {
@@ -122,6 +143,28 @@ export const focused = async (name) => {
   };
 };
 let escapeClosed;
+export const prepareAdmittedPhase = async () => {
+  if (document.documentElement.dataset.screen !== 'chat-forward-pending') return null;
+  const unavailable = () =>
+    element('#chat-forward-cancel').disabled && element('#chat-forward-confirm').disabled;
+  if (!unavailable()) throw new Error('Admitted forwarding still has enabled actions');
+  document.dispatchEvent(
+    new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
+  await frames();
+  if (document.documentElement.dataset.screen !== 'chat-forward-pending' || !unavailable())
+    throw new Error('Escape dismissed an admitted forward');
+  const fixture = await import('../prototype/forward-state.js');
+  await fixture.completePendingForKeyboard();
+  if (element('#chat-forward-confirm').disabled)
+    throw new Error('Controlled forward completion did not enable retry');
+  return null;
+};
+
 export const prepareEscape = (contract) => {
   const dialog = element(contract.dialog);
   escapeClosed =
@@ -148,7 +191,18 @@ export const focus = async (name) => {
 let fixtureState;
 let fixtureFocus;
 let fixtureDialog;
+let resumeUrlUpdates;
 export const beginFixture = async (mode) => {
+  if (resumeUrlUpdates) throw new Error('Keyboard fixture is already active');
+  resumeUrlUpdates = controller.suspendUrlUpdates();
+  try {
+    await mountFixture(mode);
+  } catch (error) {
+    endFixture();
+    throw error;
+  }
+};
+const mountFixture = async (mode) => {
   fixtureState = document.documentElement.dataset.screen;
   fixtureFocus = document.activeElement;
   fixtureDialog = document.querySelector('dialog[open]');
@@ -184,11 +238,16 @@ export const beginFixture = async (mode) => {
   await frames();
 };
 export const endFixture = () => {
-  document.getElementById('keyboard-fixture')?.remove();
-  controller.showState(fixtureState);
-  if (fixtureDialog?.isConnected) fixtureDialog.showModal();
-  fixtureDialog = null;
-  if (fixtureFocus?.isConnected) fixtureFocus.focus();
+  try {
+    document.getElementById('keyboard-fixture')?.remove();
+    controller.showState(fixtureState);
+    if (fixtureDialog?.isConnected) fixtureDialog.showModal();
+    fixtureDialog = null;
+    if (fixtureFocus?.isConnected) fixtureFocus.focus();
+  } finally {
+    resumeUrlUpdates?.();
+    resumeUrlUpdates = null;
+  }
 };
 export const checkRenameInitialFocus = async () => {
   await beginFixture('initial-focus');
@@ -206,6 +265,74 @@ export const checkRenameInitialFocus = async () => {
     endFixture();
   }
 };
+export const checkSwitcherVisibilityGuard = async () => {
+  await beginFixture('switcher-visibility');
+  const sidebar = element('.sidebar');
+  const visibility = sidebar.style.visibility;
+  try {
+    controller.showState('switcher');
+    await frames();
+    const missing = () =>
+      plan().problems.filter((problem) => problem.startsWith('switcher state is missing visible'));
+    if (missing().length) throw new Error('Visible switcher actions were rejected');
+    // Reproduce the old narrow selector omission without a guessed viewport offset.
+    sidebar.style.visibility = 'hidden';
+    await frames();
+    if (missing().length !== 3) throw new Error('Hidden requested switcher escaped the audit');
+  } finally {
+    sidebar.style.visibility = visibility;
+    endFixture();
+  }
+};
+
+const checkForwardSourceRestoration = async () => {
+  controller.showState('chat');
+  await frames();
+  const profile = element('#chat-profile');
+  const presence = element('#chat-presence');
+  const source = [profile.dataset.peerId, profile.textContent, presence.hidden];
+  for (const outcome of ['chat-forward-sent', 'chat-forward-queued']) {
+    controller.showState(outcome);
+    await frames();
+    if (!presence.hidden) throw new Error('Forward destination retained source presence');
+    controller.showState('chat');
+    await frames();
+    if (
+      profile.dataset.peerId !== source[0] ||
+      profile.textContent !== source[1] ||
+      presence.hidden !== source[2]
+    )
+      throw new Error('Forward outcome navigation did not restore the source header');
+  }
+};
+
+export const checkForwardReopening = async () => {
+  await beginFixture('forward-opening');
+  try {
+    const fixture = await import('../prototype/forward-state.js');
+    await checkForwardSourceRestoration();
+    controller.showState('chat-forward-dialog');
+    await frames();
+    const old = fixture.forwardOpening;
+    controller.showState('chat');
+    controller.showState('chat-forward-dialog');
+    await frames();
+    const current = fixture.forwardOpening;
+    if (old === current || old.current() || !current.current())
+      throw new Error('Forward opening was reused across navigation');
+    const peer = '2'.padStart(64, '0');
+    current.choose(peer, 'Robin 2');
+    old.choose('3'.padStart(64, '0'), 'Retired choice');
+    if (element('#chat-forward-selected-peer').textContent !== peer)
+      throw new Error('Retired forward choice changed the new opening');
+    current.state.next.click();
+    if (current.state.page !== 1 || old.state.page !== 0)
+      throw new Error('Retired forward pagination still receives events');
+  } finally {
+    endFixture();
+  }
+};
+
 export const restoreRadios = (group) => {
   group.names.forEach((name, index) => {
     element(name).checked = index === group.checked;

@@ -144,7 +144,7 @@ fn known_revocation_remains_refused_and_older_authority_fails_after_reopen() {
         reopened.admit_own_profile(&mut empty, listed, 13),
         Err(Error::Client(crate::Error::Rollback))
     ));
-    assert!(empty.all().is_empty());
+    assert_eq!(empty.all().len(), 0);
     assert_eq!(reopened.store().own_profile_seen().unwrap(), 4);
     assert_eq!(reopened.store().device_listed().unwrap(), 3);
 }
@@ -165,7 +165,7 @@ fn foreign_owner_cannot_enter_cache_or_advance_listing_clocks() {
         fixture.admit(profile, 10),
         Err(Error::Store(crate::store::Error::WrongIdentity))
     ));
-    assert!(fixture.known.all().is_empty());
+    assert_eq!(fixture.known.all().len(), 0);
     assert_eq!(fixture.session.store().own_profile_seen().unwrap(), 0);
     assert_eq!(fixture.session.store().device_listed().unwrap(), 0);
 }
@@ -179,7 +179,7 @@ fn obsolete_network_generation_cannot_admit_even_a_newer_owner_profile() {
     assert!(context
         .accept_own(&previous, &fixture.session, fixture.profile(3, true), 10)
         .is_err());
-    assert!(context.profiles().all().is_empty());
+    assert_eq!(context.profiles().all().len(), 0);
     assert_eq!(fixture.session.store().own_profile_seen().unwrap(), 0);
     let current = context.generation();
     assert_eq!(

@@ -77,6 +77,7 @@ private fun ProfileDraftForm(
         key(editor) { PhotosCard(opened) }
         BasicsCard(basics, editor.values, editor.birth, editor.name)
         PlaceCard(editor.place)
+        ProfileInterestField(editor.interests)
         MoreScales(more, editor.values)
         SaveAndPublish(opened, visibility, editorState, persist)
     }

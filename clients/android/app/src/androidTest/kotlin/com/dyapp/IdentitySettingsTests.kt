@@ -40,11 +40,12 @@ class IdentitySettingsTests {
     @Test
     fun createSwitchAndConfirmedRemoveChangeTheActiveIdentity() {
         val first = compose.shownPeerId()
-        compose.onNodeWithTag("nav-settings").performClick()
+        compose.openSettingsPane("settings-account", "settings-identities-screen")
         val rows = compose.identityRows()
         compose.identityAction { click("settings-create") }
         val second = active()
         check(second.peerId != first) { "Create kept the previous identity active" }
+        compose.openSettingsPane("settings-account", "settings-identities-screen")
         compose.identityRows(rows + 1)
         compose.switchIdentity(first)
         check(active().peerId == first) { "Switch did not activate the chosen identity" }
@@ -53,16 +54,10 @@ class IdentitySettingsTests {
         check(compose.shownPeerId() == first) { "The identity chosen in Settings was lost on relaunch" }
         compose.onNodeWithTag("nav-settings").performClick()
         compose.switchIdentity(second.peerId)
+        compose.openSettingsPane("settings-account", "settings-identities-screen")
         check(active().peerId == second.peerId) { "Switch did not return to the new identity" }
-        // Cancel returns to Settings with the identity intact.
-        click("settings-remove")
-        compose.awaitNode(hasTestTag("remove-action")).assertIsNotEnabled()
-        compose.onNodeWithTag("remove-cancel").performClick()
-        compose.onNodeWithTag("settings-create").assertExists()
-        check(active().peerId == second.peerId) { "Cancel changed the active identity" }
-        click("settings-remove")
-        click("remove-confirm")
-        compose.identityAction { compose.onNodeWithTag("remove-action").performClick() }
+        cancelRemovalKeeping(second.peerId)
+        confirmActiveRemoval()
         compose.onNodeWithTag("app-ready").assertTextEquals(compose.activity.getString(R.string.status_pick))
         check(!PlatformKeyStore.exists(identityAlias(second.slot.id))) { "The removed identity kept its key" }
         // Later tests start from the active identity, not the picker.
@@ -70,18 +65,33 @@ class IdentitySettingsTests {
         check(compose.shownPeerId() == first) { "The remaining identity did not open" }
     }
 
+    private fun cancelRemovalKeeping(peer: String) {
+        click("settings-remove")
+        compose.awaitNode(hasTestTag("remove-action")).assertIsNotEnabled()
+        compose.onNodeWithTag("remove-cancel").performClick()
+        compose.onNodeWithTag("settings-create").assertExists()
+        check(active().peerId == peer) { "Cancel changed the active identity" }
+    }
+
+    private fun confirmActiveRemoval() {
+        click("settings-remove")
+        click("remove-confirm")
+        compose.identityAction { compose.onNodeWithTag("remove-action").performClick() }
+    }
+
     @Test
     fun removingAnotherIdentityStaysInSettings() {
         val first = compose.shownPeerId()
-        compose.onNodeWithTag("nav-settings").performClick()
+        compose.openSettingsPane("settings-account", "settings-identities-screen")
         val rows = compose.identityRows()
         compose.identityAction { click("settings-create") }
         val other = active()
         compose.switchIdentity(first)
+        compose.openSettingsPane("settings-account", "settings-identities-screen")
         compose.identityRows(rows + 1)
         compose.onNode(
             hasText(compose.activity.getString(R.string.identity_remove)) and hasAnyAncestor(
-                hasTestTag("settings-identity") and hasAnyDescendant(hasText(shortPeerId(other.peerId)))
+                hasTestTag("settings-identity") and hasAnyDescendant(hasText(other.peerId))
             )
         ).performScrollTo().performClick()
         click("remove-confirm")
@@ -95,7 +105,7 @@ class IdentitySettingsTests {
     @Test
     fun theNoticeSwitchIsStoredPerIdentity() {
         compose.shownPeerId()
-        compose.onNodeWithTag("nav-settings").performClick()
+        compose.openSettingsPane("settings-notifications")
         val switch = compose.onNodeWithTag("message-notifications").performScrollTo()
 
         // On by default; the emulator allows notices, so nothing asks for them.
@@ -112,7 +122,7 @@ class IdentitySettingsTests {
         check(stored() == ChatNotice.OFF) { "Off was not stored" }
         compose.activityRule.scenario.recreate()
         compose.skipNetworkEntry()
-        compose.onNodeWithTag("nav-settings").performClick()
+        compose.openSettingsPane("settings-notifications")
         waitNotice(false)
         // Off keeps the choice, disabled, and a turn-on brings it back.
         compose.onNodeWithTag("notice-text").performScrollTo().assertIsSelected().assertIsNotEnabled()
@@ -136,7 +146,7 @@ class IdentitySettingsTests {
         compose.shownPeerId()
         val peer = "ab".repeat(32)
         RustBridge.withChats(active()) { it.setPassed(peer, true) }
-        compose.onNodeWithTag("nav-settings").performClick()
+        compose.openSettingsPane("settings-privacy", "settings-passed")
         compose.onNodeWithTag("passed-none").assertDoesNotExist()
         click("unpass-1")
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("passed-none").fetchSemanticsNodes().isNotEmpty() }
@@ -149,7 +159,7 @@ class IdentitySettingsTests {
         compose.shownPeerId()
         val peer = "cd".repeat(32)
         RustBridge.withChats(active()) { it.block(peer) }
-        compose.onNodeWithTag("nav-settings").performClick()
+        compose.openSettingsPane("settings-privacy", "settings-blocked")
         compose.onNodeWithTag("blocked-none").assertDoesNotExist()
         // No token was issued to the peer, so the retry has nothing to revoke.
         click("retry-revocation-1")
@@ -170,6 +180,6 @@ class IdentitySettingsTests {
         compose.onNodeWithTag("network-seeds").assertExists()
         compose.onNodeWithTag("skip-network").assertDoesNotExist()
         compose.onNodeWithTag("nav-settings").performClick()
-        compose.onNodeWithTag("settings-create").assertExists()
+        compose.onNodeWithTag("open-settings-account").assertExists()
     }
 }

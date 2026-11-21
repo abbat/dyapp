@@ -30,6 +30,9 @@ internal fun MobileSlot.view(registry: MobileIdentityRegistry) = Slot(id, File(d
 
 /** Existing identity state projected for the start screen. */
 sealed class Opened {
+    /** Native presentation hint; unprojected fixtures default to no removal, never an authorization. */
+    internal var removalOffered = false
+
     /** No identity exists; creation still requires an explicit action. */
     object Setup : Opened()
 
@@ -83,13 +86,8 @@ internal fun Slots.retry(opened: Opened.Recovery): Opened = opened.slot?.let { i
 /** Reject presentation-only locations before any identity data is accessed. */
 internal fun Slot.owner(): MobileIdentityRegistry = checkNotNull(registry) { "Identity location has no registry" }
 
-// Removal refuses the legacy slot and damaged or unreadable ones.
-internal fun removable(opened: Opened) = when (opened) {
-    is Opened.Ready -> opened.slot.id != Slots.LEGACY
-    is Opened.Recovery ->
-        opened.slot?.let {
-            it.id != Slots.LEGACY &&
-                opened.reason in setOf(MISSING_REASON, INCOMPLETE_REASON, DELETING_REASON)
-        } ?: false
-    else -> false
-}
+/** Read guidance through this inventoried location's actual registry, never a derived directory. */
+internal fun Slot.removalReview(peerId: String?) = owner().removalReview(id, peerId)
+
+// The typed native projection owns eligibility; actual removal always rechecks its target.
+internal fun removable(opened: Opened) = opened.removalOffered

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="photos_download_question">Когда загружать полные фото от принятых контактов?</string>
+    <string name="photos_download_network">Только в безлимитной сети</string>
+    <string name="photos_download_always">В любой сети</string>
+    <string name="photos_download_tap">Только после нажатия</string>
+    <string name="photos_download_hint">Оригиналы от непринятых контактов загружаются только по нажатию. Узлы хранят оригинал 7 дней, затем остаётся превью; локальная копия в кэше может сохраниться.</string>
+    <string name="photos_download_loading">Обновляем настройку загрузки фото…</string>
+    <string name="photos_download_failed">Не удалось подтвердить настройку загрузки фото. Повторите чтение перед изменением.</string>
+    <string name="photos_download_retry">Повторить чтение настройки фото</string>
+</resources>

@@ -91,8 +91,8 @@ A normal suite skips phase-only tests without their arguments. Worker phases pub
 record an anchor ID, stop the real node, queue and reopen the exact offline ID, reboot the guest,
 verify that ID again, then restart the node
 and check incoming/outgoing IDs through a JobScheduler-dispatched `MailJob`. Only the counterpart advances
-its mailbox directly. The message checkpoint is bound to both native Peer IDs; reopen never republishes
-profiles. Only preparation lowers test PoW; receive phases use a fresh process with production defaults
+its mailbox directly. The message checkpoint is bound to both native Peer IDs and the initialized current public device
+keys read through the offline core directory; reopen compares both keys and never republishes profiles. Only preparation lowers test PoW; receive phases use a fresh process with production defaults
 and reject the preparation process by boot count, PID and process start timestamp. Native explicit-seed
 mail uses the client swarm without the node dial guard, and direct profile verification checks content
 and signatures rather than search PoW. This does not establish default-policy search/discovery coverage.
@@ -150,10 +150,30 @@ Swift-format replaces changed files atomically: a writable file bind alone canno
 rename in a read-only parent. Bind the affected source directory writable and pass only the
 exact intended file paths to the formatter; keep the rest of the checkout read-only.
 
+FFI tests that directly inject SQLite fixtures declare `rusqlite` as a dev dependency, matching
+the client's existing version/features; transitive client dependencies are not importable by tests.
+Regenerate its root lock edge through offline Docker metadata; no new production dependency is needed.
+
 When changing Kotlin member APIs, search both qualified calls and unqualified calls inside
 extension functions. `ChatFeedActions.shareProfile` uses `history(peer)` and `send(peer, text)`
 without a receiver. `make lint-android` does not resolve method signatures; native Android CI
-must compile the changed callers and generated bindings.
+must compile the changed callers and generated bindings. Fixture helpers that call `setContent`
+take `ComposeContentTestRule`; base `ComposeTestRule` supports synchronization/input only.
+Raw `onNode`/`onAllNodes` are receiver members: call `compose.onNode(...)`/
+`compose.onAllNodes(...)` without importing top-level functions. Named helpers such as
+`onNodeWithTag` remain extensions requiring imports.
+Localized instrumentation content uses `LocalizedTestContext` so context/configuration/resources
+agree and the actual Activity picker registry survives the configuration-context substitution.
+Use its font-scale argument for geometry cases; retain the original locale and text-layout assertions.
+Create fixture locales with `Locale.forLanguageTag(language)`: the current SDK deprecates the
+single-string constructor and Android test compilation treats that warning as an error.
+
+When a native status/page object is a callback-admission token, use Compose
+`referentialEqualityPolicy` (or a separate explicit token). Default structural policy discards
+an equal fresh object, retaining the old reference and making stale callbacks appear current.
+Use actual `Opened.Ready` objects for operation-owning chat feeds; slot-ID equality alone does
+not identify an opening. File-picker registration belongs to component initialization, and its
+read/import job must outlive clearing the picker ticket while staying within the manager opening.
 
 Compose `produceState` restart keys do not recreate its remembered initial state. Profile loading
 uses an outer keyed composition for peer/feed ownership and verifies coroutine activity before
@@ -180,6 +200,10 @@ Prototype services use Compose `init: true` for signal forwarding and child reap
 is retained in the bounded check log. Manual capture CI requires a small canonical snapshot pass
 before the full matrix, so display/Python startup failures do not consume its entire job budget.
 
+Android prototype capture validates layout and browser fixtures; it does not run the desktop-only
+criteria audit. Keep native runtime and full screen review as separate acceptance evidence; see
+[UI testing](../testing/ui-testing.md).
+
 UniFFI callback/record member names must avoid target-language keywords. UniFFI 0.32.2 can
 leak Swift backtick escaping into C callback fields; regenerate the Swift header and compile
 it as C with Clang after callback changes. Binding generation alone does not validate it.
@@ -201,7 +225,10 @@ retrying into another destination.
 
 `Registry::list`, `inspect` and `resolve` acquire shared admission themselves. In controlled
 storage tests, release an explicit exclusive registry guard before those public read APIs;
-module-level inventory reads have a different locking contract.
+module-level inventory reads have a different locking contract. A composite registry review uses
+one shared admission and one inventory snapshot, then `open_slot` on those candidates; do not
+re-enter public locking reads for each candidate. Removal guidance is only a snapshot: actual
+removal must independently recheck the confirmed key and owned files.
 
 Shared identity operations retain `IdentityOperation` through actual worker completion, including
 caller cancellation. Keep installation node work outside that lease and never upgrade its shared
@@ -217,6 +244,10 @@ when fast operations are conflated. Start a fresh readiness check after Activity
 Likewise, a temporary loading state is not a disposal guarantee: key identity-owned coroutine and
 activity-result-launcher subtrees by their owner. Cancel stale presentation continuations without
 interrupting admitted core work or transferring its completion to a newly selected identity.
+Compose semantic assertions such as `assertDoesNotExist` are members of the interaction object,
+not package-level extensions: call them without an import. Detekt alone does not resolve SDK APIs;
+require actual Android compile/instrumentation CI before accepting new UI tests.
+
 Settings navigation/title readiness does not complete its separate native identity-list read. Tests
 asserting identity rows must await those rows (for example `settings-active`) through semantic readiness,
 then check their content; use the localized context for expected strings.
@@ -294,6 +325,9 @@ for an unrelated completion deadline.
 
 Dialog `close()` clears `open` before its queued close event updates other visibility state.
 Tests must await close completion before reopening and require open plus visible readiness.
+WebKit can retain nonzero client rectangles for descendants of closed `details`. Check the closed
+ancestor's disclosure state before treating geometry as visibility; separately open the disclosure
+and await real focus/hit-test readiness, then restore it. Longer deadlines do not expose hidden controls.
 Close handlers must check the current open state before hiding a modal: an older queued event can
 otherwise hide a newer opening. Use callbacks with transition deadlines rather than sleeps.
 
@@ -623,6 +657,12 @@ discovery and run nothing; regression tests must cover discovery errors and empt
   them under the ignored `build/`, with `TMPDIR` there too, since `gh` stages the zip in it.
   A download takes 15 minutes or far longer; for logs and other single files use
   `tools/scripts/artifact-member.py`, which takes seconds (any artifact, not only Apple).
+  A terminal job's log can be read before the whole run finishes with
+  `gh api --allow-escape-sequences repos/{owner}/{repo}/actions/jobs/JOB/logs > build/JOB.log`;
+  the escape flag belongs after `api`. Keep raw terminal sequences in the file and inspect only
+  failure windows. Clippy's compact job log may show only the final compilation summary: its
+  `analysis-check-output` artifact contains `clippy.json` compiler diagnostics with primary spans
+  and fixes. Download it by name with `TMPDIR` under `build/`, rather than the large native bundles.
 - A sudden Apple IPA/ZIP size jump: grep the release-sizes `build.log` artifact for embedded
   `libswift_*.dylib`. Swift 6 mode with a deployment target below iOS 15 / macOS 12 embeds the
   back-deployed concurrency runtime. Download artifacts with `gh run download <id> -n <name>`.

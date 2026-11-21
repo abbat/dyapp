@@ -159,9 +159,14 @@ sizes ([producer details](build.md#unsigned-apple-release-packages)).
 The Android job builds the `dyapp:android-test` image (service `android-release`), runs the
 [offline Release runner](build.md#unsigned-android-release) in it without network,
 and gates the verified unsigned APK and AAB against baselines measured in the same
-image. The APK and AAB baselines come from the same 2026-10-20 run on `9e6c832`, after the MLS core
-grew them by about 17% and 19%, respectively. It archives the build log, `packages.json`,
-`release-size-android-<kind>.json` and `artifact-size-android-<kind>.json`.
+image. The unsigned two-ABI APK baseline is 75,581,915 bytes, measured on `432df82e` with
+AGP 9.5.1, NDK 29 and Rust 1.99 in the
+[2026-11-21 release-size run](https://github.com/abbat/dyapp/actions/runs/44888433545).
+It uses the exact measured size without headroom; the 5% rule remains unchanged. The AAB keeps its
+30,160,837-byte baseline from `47c17300` in the
+[2026-10-31 run](https://github.com/abbat/dyapp/actions/runs/41191895390).
+The job archives the build log, `packages.json`, `release-size-android-<kind>.json` and
+`artifact-size-android-<kind>.json`.
 
 Auxiliary Python lint, dependency audit, advisory Rust analysis and Windows
 release compilation also use the shared concise runner. Their full logs are

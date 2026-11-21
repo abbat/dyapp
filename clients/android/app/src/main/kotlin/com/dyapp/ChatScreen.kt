@@ -107,7 +107,7 @@ internal fun ChatScreen(
     onProfile: () -> Unit,
     onBack: () -> Unit,
 ) {
-    val form = rememberChatForm()
+    val form = rememberOwnedChatForm(opened, peer)
     val snapshot = rememberChatSnapshot(feed, peer, form)
     val history = snapshot?.history
     val scope = rememberCoroutineScope()
@@ -125,7 +125,9 @@ internal fun ChatScreen(
             history?.messages.orEmpty().byKey(form.deleting.value)?.let { scope.deleteMessage(form, feed, peer, it) }
         },
     )
-    MediaChatContent(snapshot, peer, opened.peerId, form, actions)
+    ChatClearScope(opened, peer) {
+        MediaChatContent(snapshot, peer, opened.peerId, form, actions)
+    }
 }
 
 /**
@@ -154,7 +156,7 @@ internal fun ChatContent(peer: String, me: String, history: ChatHistory?, form: 
         }
         ChatComposer(state, form, ready, actions.onSend)
     }
-    ChatConfirm(form, actions)
+    ChatConfirm(form, actions, name)
 }
 
 @Composable
@@ -169,11 +171,14 @@ private fun ChatBackBar(peer: String, name: ContactNameView?, actions: ChatActio
             Alignment.CenterVertically
         ) {
             PeerAvatar(peer, name)
-            Text(
-                contactLabel(peer, name),
-                Modifier.semantics { heading() },
-                style = MaterialTheme.typography.titleMedium
-            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    contactLabel(peer, name),
+                    Modifier.semantics { heading() },
+                    style = MaterialTheme.typography.titleMedium
+                )
+                ChatPresenceLabel(peer)
+            }
         }
         menu()
     }
@@ -281,6 +286,7 @@ private fun ChatStatusLine(form: ChatForm) {
 private fun ChatComposer(state: ChatState?, form: ChatForm, ready: Boolean, onSend: () -> Unit) {
     val text = form.draft.value
     ChatPhotoPicker(state == ChatState.OPEN && !form.busy)
+    ChatStickerPicker(state == ChatState.OPEN && !form.busy && !form.sending)
     Row(Modifier.fillMaxWidth().padding(16.dp), Arrangement.spacedBy(8.dp), Alignment.CenterVertically) {
         // Read-only rather than disabled while sending, so the keyboard stays for the next text.
         OutlinedTextField(

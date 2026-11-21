@@ -3,7 +3,7 @@ use super::favorites::Fixture;
 use super::offline::{establish, snapshot};
 use super::saved_sticker::{pack, save};
 use super::*;
-use crate::{ChatSticker, ChatStickerFrame};
+use crate::{ChatSticker, ChatStickerFrame, ChatStickerImage};
 
 fn stage(f: &Fixture, peer: &str, attached: bool) -> ChatSticker {
     stage_download(f, peer, attached).0
@@ -65,6 +65,21 @@ fn read(
     )
 }
 
+fn read_image(
+    f: &Fixture,
+    peer: &str,
+    item: &ChatSticker,
+    manual: bool,
+) -> Result<ChatStickerImage, CoreError> {
+    f.chats.chat_sticker_image(
+        peer.into(),
+        item.group_id.clone(),
+        item.author.clone(),
+        item.id.clone(),
+        manual,
+    )
+}
+
 #[test]
 fn saved_message_fallback_returns_exact_core_pixels_without_network_or_new_mail() {
     let f = Fixture::new();
@@ -84,6 +99,10 @@ fn saved_message_fallback_returns_exact_core_pixels_without_network_or_new_mail(
         (expected.width, expected.height)
     );
     assert_eq!(frame.pixels, expected.pixels);
+    assert_eq!(
+        read_image(&f, &peer, &item, false).unwrap(),
+        ChatStickerImage::Ready { frame }
+    );
     assert_eq!(snapshot(&f), before);
 }
 
@@ -155,6 +174,10 @@ fn automatic_refusal_manual_network_failure_and_missing_descriptor_stay_distinct
         "onTap"
     );
     assert_eq!(
+        read_image(&f, &peer, &item, false).unwrap(),
+        ChatStickerImage::OnTap
+    );
+    assert_eq!(
         read(&f, &peer, &item, true).unwrap_err().to_string(),
         "notConnected"
     );
@@ -166,6 +189,10 @@ fn automatic_refusal_manual_network_failure_and_missing_descriptor_stay_distinct
     );
     assert_eq!(snapshot(&f), before);
     let missing = stage(&f, &peer, false);
+    assert_eq!(
+        read_image(&f, &peer, &missing, true).unwrap(),
+        ChatStickerImage::Unavailable
+    );
     assert_eq!(
         read(&f, &peer, &missing, true).unwrap_err().to_string(),
         "notFound"

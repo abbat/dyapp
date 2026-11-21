@@ -11,7 +11,6 @@ use dyapp_client::store::Store;
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
 use dyapp_profile::VerifiedProfile;
-use qrcodegen::{QrCode, QrCodeEcc};
 
 #[cfg(target_os = "linux")]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
@@ -31,12 +30,7 @@ pub fn camera_permission(
     }
 }
 
-#[derive(serde::Serialize)]
-#[expect(unreachable_pub, reason = "Retained module API visibility")]
-pub struct QrMatrix {
-    size: i32,
-    modules: Vec<bool>,
-}
+pub use dyapp_client::qr::QrMatrix;
 
 fn matrix_for_peer_ids(mine: &str, theirs: &str) -> Result<QrMatrix, String> {
     let payload = dyapp_identity::safety::qr_payload_for_peer_ids(mine, theirs)
@@ -46,14 +40,7 @@ fn matrix_for_peer_ids(mine: &str, theirs: &str) -> Result<QrMatrix, String> {
 
 /// The QR matrix of `payload`.
 pub(crate) fn matrix(payload: &[u8]) -> Result<QrMatrix, String> {
-    let qr = QrCode::encode_binary(payload, QrCodeEcc::Medium)
-        .map_err(|_| "could not encode contact QR".to_owned())?;
-    let size = qr.size();
-    let qr = &qr;
-    let modules = (0..size)
-        .flat_map(|y| (0..size).map(move |x| qr.get_module(x, y)))
-        .collect();
-    Ok(QrMatrix { size, modules })
+    dyapp_client::qr::matrix(payload).ok_or_else(|| "could not encode contact QR".to_owned())
 }
 
 /// Returns a QR matrix for the active identity and selected contact.

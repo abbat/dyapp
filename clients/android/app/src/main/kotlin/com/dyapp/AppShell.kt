@@ -73,9 +73,17 @@ internal fun AppShell(
     if (showNetworkWizard(opened, section)) return
     // Above the chat branch: the mailbox poll goes on while a chat is open.
     val feed = rememberChatFeed(opened)
+    ChatPresenceForeground(opened)
     val search = rememberSearchSession(opened)
-    CompositionLocalProvider(LocalPeerPhotos provides search.photos) {
-        ShellRoutes(slots, opened, section, lockMode, act, open, feed, search)
+    val settings = rememberSettingsPane(opened.slot.id)
+    CompositionLocalProvider(
+        LocalPeerPhotos provides search.photos,
+        LocalSettingsPane provides settings,
+        LocalActiveChatPeers provides feed.presence.peers
+    ) {
+        SavedStickerManagerHost(opened, remember(opened) { savedStickerCalls(opened) }) {
+            ShellRoutes(slots, opened, section, lockMode, act, open, feed, search)
+        }
     }
 }
 
@@ -103,7 +111,9 @@ private fun ShellRoutes(
                 peers.viewed = peer
             }
         ) {
-            ChatScreen(opened, chat, feed, { peers.viewed = chat }) { peers.chat = null }
+            ChatForwardScope(feed, chat, { target -> peers.chat = target }) {
+                ChatScreen(opened, chat, feed, { peers.viewed = chat }) { peers.chat = null }
+            }
         }
     } else {
         val openChat = { peer: String ->
@@ -111,7 +121,7 @@ private fun ShellRoutes(
             peers.chat = peer
         }
         ShellFrame(slots, opened, section, lockMode, act, open, feed, openChat, peers::show) {
-            SearchScreen(search, { open(StartTarget.NETWORK) }, peers::show)
+            SearchScreen(search, { open(StartTarget.NETWORK) }, peers::show, peers::showSaved)
         }
     }
 }
@@ -133,9 +143,10 @@ private fun ShellFrame(
 ) {
     var switcher by remember { mutableStateOf(false) }
     val current = sections.firstOrNull { it.target == section } ?: sections.first()
+    val detail = current.target == StartTarget.SETTINGS && LocalSettingsPane.current?.value != SettingsPane.ROOT
     Scaffold(
-        topBar = { ShellTopBar(opened, current, open) { switcher = true } },
-        bottomBar = { ShellNavigationBar(current, chatsBadge(feed.rows), open) },
+        topBar = { if (!detail) ShellTopBar(opened, current, open) { switcher = true } },
+        bottomBar = { if (!detail) ShellNavigationBar(current, chatsBadge(feed.rows), open) },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             if (current.target == StartTarget.CHATS) {

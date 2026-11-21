@@ -130,7 +130,7 @@ internal fun NoticeCard(
     LaunchedEffect(active.slot.id) {
         state.completeLoad(read(active))
     }
-    NoticeCardContent(state, allow, { ReadReceiptsRow(active) }) { on, content ->
+    NoticeCardContent(state, allow) { on, content ->
         if (state.on != null && !state.saving) {
             state.saving = true
             scope.launch {
@@ -164,12 +164,10 @@ private fun NoticeContentChoice(chosen: ChatNotice, enabled: Boolean, pick: (Cha
 private fun NoticeCardContent(
     state: NoticeState,
     allow: () -> Unit,
-    receipts: @Composable () -> Unit,
     save: (Boolean, ChatNotice) -> Unit,
 ) =
     FormCard(Modifier.testTag("privacy")) {
-        CardTitle(R.string.settings_notices)
-        receipts()
+        CardTitle(R.string.settings_notifications_title)
         val checked = state.on == true
         Row(
             Modifier.fillMaxWidth().testTag("message-notifications").toggleable(

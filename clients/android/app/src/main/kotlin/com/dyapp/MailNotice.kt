@@ -59,9 +59,15 @@ internal fun noticesAllowed(context: Context) =
  * Shows [mailNotice] unless the app is on screen. While Android blocks notices nothing shows; the
  * Settings notice card asks for them.
  */
-internal fun postMailNotice(context: Context, lines: NoticeLines?) {
+internal fun postMailNotice(
+    context: Context,
+    lines: NoticeLines?,
+    beforePost: (Notification) -> Unit = {}
+) {
     val state = ActivityManager.RunningAppProcessInfo().also { ActivityManager.getMyMemoryState(it) }
     if (state.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) return
     if (!noticesAllowed(context)) return
-    context.getSystemService(NotificationManager::class.java).notify(MAIL_NOTICE_ID, mailNotice(context, lines))
+    val notice = mailNotice(context, lines)
+    beforePost(notice)
+    context.getSystemService(NotificationManager::class.java).notify(MAIL_NOTICE_ID, notice)
 }

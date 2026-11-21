@@ -28,6 +28,7 @@ ndk-context = "0.1"
 
 [dev-dependencies]
 libp2p = "0.57"
+rusqlite = { version = "0.41", features = ["bundled", "limits"] }
 
 [build-dependencies]
 uniffi = { version = "0.32", features = ["build"] }

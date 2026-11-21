@@ -18,9 +18,14 @@ Native iOS CI compiles and runs these tests. macOS uses the shared Rust desktop 
 These rules apply to every new or modified test:
 
 - Make results reproducible with controlled inputs, fixtures and clocks when timing is involved.
+  Rate-limit fixtures inject the same clock into the service and independent peer limiter; sign
+  fixture metadata and start jobs on that clock too. Exhaustion must not expire while unrelated
+  setup (such as swarm construction) runs against real time.
   Set the process-global node-ID PoW requirement explicitly in every protocol fixture using
   no-PoW nodes; dependency crates do not inherit the integration test's `cfg(test)`, and parallel
-  tests cannot rely on another fixture changing that global.
+  tests cannot rely on another fixture changing that global. The native linked-device fixture
+  initializes this explicitly before creating clients; a mismatch rejects replica candidates and
+  can look like an unrelated mailbox `NotFound` error.
 - Advance steps on actual completion callbacks, readiness signals or state transitions. Register
   listeners before triggering the action. Do not use `sleep`, arbitrary delays, extra retries or
   larger timeouts to hide races; add an observable readiness signal when one is missing.
@@ -38,6 +43,14 @@ These rules apply to every new or modified test:
   explicitly and keep unrelated properties out of the readiness condition.
   Keep load completion distinct from control enablement: a completed read can legitimately leave
   a control disabled. Expose the completed model state when permission or editability differs.
+- Android tests that retain a click across recomposition or disposal use `applicationClickKey`
+  for the exact callback passed to the control. Foundation's `SemanticsActions.OnClick` wrapper
+  reads its modifier node before calling application code: a detached node can throw, and a
+  disabled node can mask the admission guard under test. Ordinary attached UI clicks still use
+  the standard semantic action.
+- In forbidden-call tests, observe the attempted call before any callback assertion or thrown error
+  and assert its count/result outside the application pipeline. If the application catches callback
+  failures, `error("unexpected")` alone cannot prove that the callback was never invoked.
 - Cover meaningful failure and cancellation paths. Explain any unavoidable dependence on external
   timing and bound it with a diagnostic deadline rather than a guessed wait.
 

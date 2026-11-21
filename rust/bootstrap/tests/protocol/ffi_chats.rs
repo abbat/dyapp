@@ -10,7 +10,7 @@ use libp2p::multiaddr::Protocol;
 use std::sync::Arc;
 
 /// XOR with a fixed byte: stands in for the platform keystore.
-struct TestStore;
+pub(super) struct TestStore;
 
 impl KeyStore for TestStore {
     fn wrap(&self, secret: Vec<u8>) -> Result<Vec<u8>, WrapError> {
@@ -23,7 +23,7 @@ impl KeyStore for TestStore {
 }
 
 /// The `host:port/<peer ID>` row of a node's loopback TCP address.
-fn seed_row(address: &Multiaddr) -> String {
+pub(super) fn seed_row(address: &Multiaddr) -> String {
     let (mut port, mut peer) = (None, None);
     for part in address {
         match part {

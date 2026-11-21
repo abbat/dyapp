@@ -6,7 +6,21 @@ used the app recently, and the user can hide it. Implemented in the Rust client:
 (`Body::Presence` in `rust/client/src/chat.rs`, sent with the signal class), the store rules
 (`rust/client/src/store/presence.rs`: audience setting, hourly throttle, drop and expiry rules),
 `Session::announce_presence` for the foreground send, the apply on receive and the outbox
-expiry. The desktop sends it and shows the mark; planned: the same on the other clients.
+expiry. The desktop sends it and shows the mark. Android shows received marks in chat rows and the open
+chat heading, refreshing after mailbox passes and hiding marks after a failed read or identity
+change. The shared native API exposes explicit foreground announcement and the matches/nobody
+setting, using the same core preflight and staging. Android's unlocked identity shell attempts
+announcement on RESUMED transitions and identity opening, never recomposition, mail refresh or timers.
+Pause, lock or identity replacement cancels queued work; a call waiting for native session admission
+checks cancellation again before sending. Already admitted core operations finish with their original
+identity lease. Android Privacy exposes matches/nobody radios for this identity on this device.
+Unknown state cannot authorize a write; a failed save requires native readback before another choice.
+Changing the audience does not itself announce presence.
+The common `presence::due_at` preflight avoids opening a node connection when no known chat is
+eligible; actual staging still rechecks the audience and hourly throttle. `presence::active_peers_at`
+projects fresh authenticated match marks. Both accept local wall time so tests exercise the same
+public production functions at controlled boundaries; native adapters use `clock::now_ms`. Client UI must not duplicate
+expiry or infer that hiding its own presence hides received marks.
 
 ## What a peer learns
 

@@ -90,6 +90,10 @@ If the active identity cannot be opened, the window says why in plain words. **D
 holds the state code and the identity's folder and storage for a bug report, with **Copy**; below are
 **Remove this identity…** (where removal is safe), **Switch or add an identity** and **Retry**.
 
+A chat's **Name this contact** sets a private name for the active identity. It is shared with
+that identity's linked devices when they synchronize, and is not shown to the contact. Leaving
+the name empty removes it; Cancel changes nothing.
+
 ## Window layout
 
 An open identity shows a sidebar with the identity on top and five areas: **Profile**, **Search**,

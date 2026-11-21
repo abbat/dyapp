@@ -2,6 +2,7 @@
 
 mod chats;
 mod link_keys;
+mod removal;
 mod stickers;
 mod view;
 pub(crate) mod workers;

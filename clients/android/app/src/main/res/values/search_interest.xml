@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_interest">Interest</string>
+    <string name="search_interest_hint">Match one complete interest, up to %1$s characters. Leave blank for any interest.</string>
+    <string name="search_interest_invalid">Check the interest: enter one complete tag within the displayed limit.</string>
+</resources>

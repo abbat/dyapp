@@ -303,6 +303,15 @@ DESKTOP = [
     "chat-request",
     "chat-new-device",
     "chat-menu",
+    "chat-forward-dialog",
+    "chat-forward-loading",
+    "chat-forward-empty",
+    "chat-forward-error",
+    "chat-forward-send-error",
+    "chat-forward-pending",
+    "chat-forward-sent",
+    "chat-forward-queued",
+    "chat-forward-received-menu",
     "chat-rename-dialog",
     "chat-clear-dialog",
     "chat-cleared",
@@ -372,6 +381,36 @@ DESKTOP = [
     "disconnect-offline",
 ]
 ANDROID = [
+    "link-receive-intro",
+    "link-receive-wizard-intro",
+    "link-receive-start-error",
+    "link-receive-poll-error",
+    "link-receive-starting",
+    "link-receive-waiting",
+    "link-receive-receiving",
+    "link-receive-installing",
+    "link-receive-cancelled",
+    "link-receive-expired",
+    "link-receive-invalidated",
+    "link-receive-failed-admission",
+    "link-receive-failed-reservation",
+    "link-receive-failed-destination",
+    "link-receive-failed-unconfirmed",
+    "link-receive-received",
+    "link-receive-durability",
+    "link-setup-running",
+    "link-setup-complete",
+    "link-setup-review",
+    "link-setup-private-review",
+    "link-setup-authorization",
+    "link-setup-revoked",
+    "link-setup-unlisted",
+    "link-setup-error",
+    "receive-network",
+    "receive-network-ready",
+    "receive-network-activating",
+    "receive-network-active",
+    "identity-durability-dialog",
     "lock-setup",
     "lock-unlock",
     "wizard-identity",
@@ -399,6 +438,15 @@ ANDROID = [
     "chat-first",
     "chat-request",
     "chat-menu",
+    "chat-forward-dialog",
+    "chat-forward-loading",
+    "chat-forward-empty",
+    "chat-forward-error",
+    "chat-forward-send-error",
+    "chat-forward-pending",
+    "chat-forward-sent",
+    "chat-forward-queued",
+    "chat-forward-received-menu",
     "chat-rename-dialog",
     "chat-clear-dialog",
     "chat-cleared",
@@ -692,6 +740,16 @@ def audited(_view: WebKit2.WebView, result: Gio.AsyncResult) -> None:
     snapshot()
 
 
+def android_fixture(screen: str) -> tuple[str, str] | None:
+    if screen.startswith(("link-receive-", "link-setup-", "receive-network")):
+        return "receive", "checkReceiveFixture"
+    if screen == "identity-durability-dialog":
+        return "identity-notice", "checkIdentityNotice"
+    if screen.startswith("chat-forward-"):
+        return "forward", "checkForwardFixture"
+    return None
+
+
 def saved(_view: WebKit2.WebView, result: Gio.AsyncResult) -> None:
     global saved_count
     name = f"{OUT}/{shot_name()}.png"
@@ -718,8 +776,35 @@ def saved(_view: WebKit2.WebView, result: Gio.AsyncResult) -> None:
             KeyboardFixtures(
                 view, keyboard_calibrated, keyboard_progress
             ).start()
+    elif (
+        PLATFORM == "android"
+        and (fixture := android_fixture(jobs[0][0])) is not None
+    ):
+        module, method = fixture
+        phase(f"{module} fixture")
+        view.call_async_javascript_function(
+            "await (await import("
+            f"'/android/prototype/{module}-fixture-tests.js'"
+            f")).{method}()",
+            -1,
+            None,
+            None,
+            None,
+            None,
+            android_fixture_checked,
+        )
     else:
         finish_job()
+
+
+def android_fixture_checked(
+    _view: WebKit2.WebView, result: Gio.AsyncResult
+) -> None:
+    try:
+        view.call_async_javascript_function_finish(result)
+    except GLib.Error as error:
+        failed.append(f"{shot_name()} Android fixture: {error.message}")
+    finish_job()
 
 
 def finish_job() -> None:

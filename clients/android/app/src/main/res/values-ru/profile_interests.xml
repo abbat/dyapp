@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_interests">Интересы</string>
+    <string name="profile_interests_hint">Один интерес на строку. Не более %1$s интересов, до %2$s символов каждый.</string>
+    <string name="profile_interests_invalid">Проверьте интересы: один на строку, в пределах указанных ограничений.</string>
+</resources>

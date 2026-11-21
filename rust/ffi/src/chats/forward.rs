@@ -98,6 +98,23 @@ fn stage_error(error: dyapp_client::session::Error) -> ChatForwardError {
 
 #[uniffi::export]
 impl ChatSession {
+    /// List other open chats eligible to receive the selected current local text.
+    /// Read-only; a later forward still validates its source and destination again.
+    ///
+    /// # Errors
+    /// Returns typed source/selection refusals or a session/storage failure.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
+    pub fn forward_targets(
+        &self,
+        source: ChatForwardSource,
+    ) -> Result<Vec<String>, ChatForwardError> {
+        let session = self.session.lock().map_err(failed)?;
+        forwarding::targets(session.store(), source.borrowed()).map_err(ChatForwardError::from)
+    }
+
     /// Forward a selected current local text as this identity into another open chat.
     /// Queued delivery retains its committed ID: do not submit a second copy.
     ///

@@ -225,7 +225,12 @@ mod tests {
         config.storage.dir = dir.clone().into();
         config.limits.bytes_per_second = 10_000;
         config.limits.min_free_mb = 0;
-        let mut service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config).unwrap();
+        let mut service = Service::with_clock(
+            crate::BootstrapStore::new(&dir).unwrap(),
+            config,
+            crate::clock::Manual::new().clock(),
+        )
+        .unwrap();
         service.media = Some(crate::media::MediaStore::open(&service.config.storage.dir).unwrap());
         service
     }
@@ -238,7 +243,7 @@ mod tests {
             proto::MediaKeep {
                 version: 1,
                 hashes: vec![hash.clone()],
-                time: crate::clock::Clock::system().timestamp().unsigned_abs(),
+                time: service.clock.timestamp().unsigned_abs(),
             }
             .encode_to_vec(),
         );
@@ -260,7 +265,8 @@ mod tests {
 
     fn repair_write(service: &Service, to: PeerId) -> (MediaRepair, usize) {
         let (record, hash) = store_repair_media(service);
-        let mut repair = MediaRepair::new(service, record, vec![hash], Instant::now()).unwrap();
+        let mut repair =
+            MediaRepair::new(service, record, vec![hash], service.clock.instant()).unwrap();
         for index in repair.keys(0) {
             repair.holder(0, index, Some(to));
         }
@@ -314,7 +320,7 @@ mod tests {
     #[test]
     fn stale_media_jobs_and_exhausted_repair_caps_are_refused() {
         let mut replicas = Replicas {
-            cap: ReplicaCap::new(1),
+            cap: ReplicaCap::with_clock(1, crate::clock::Manual::new().clock()),
             ..Default::default()
         };
         for job in [
@@ -338,7 +344,8 @@ mod tests {
             let to = PeerId::random();
             let (repair, job) = repair_write(&service, to);
             let mut replicas = Replicas {
-                cap: ReplicaCap::new(1),
+                // Keep both refusal budgets fixed while constructing the real swarm.
+                cap: ReplicaCap::with_clock(1, service.clock.clone()),
                 ..Default::default()
             };
             replicas.media_repairs.insert(1, (repair, None));
@@ -378,7 +385,12 @@ mod tests {
         let mut replicas = Replicas::default();
         replicas.puts.insert(
             7,
-            PendingPut::new(PutRecord::Media(replica), None, false, Instant::now()),
+            PendingPut::new(
+                PutRecord::Media(replica),
+                None,
+                false,
+                service.clock.instant(),
+            ),
         );
         let before = service.traffic.charged_bytes();
         replicas.send_media(
@@ -386,7 +398,7 @@ mod tests {
             &service,
             PeerId::random(),
             MediaJob::Put(7),
-            Instant::now(),
+            service.clock.instant(),
         );
         assert_eq!(
             replicas.media_puts.values().copied().collect::<Vec<_>>(),

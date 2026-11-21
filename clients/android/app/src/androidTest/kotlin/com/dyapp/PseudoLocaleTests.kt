@@ -2,10 +2,6 @@ package com.dyapp
 
 import android.content.Context
 import android.content.res.Configuration
-import androidx.activity.compose.LocalActivityResultRegistryOwner
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
@@ -31,13 +27,7 @@ class PseudoLocaleTests {
         configuration.setLocale(Locale.forLanguageTag(language))
         val localized = base.createConfigurationContext(configuration)
         compose.setContent {
-            // The localized context is no Activity, so keep the test Activity's photo picker registry.
-            val registry = checkNotNull(LocalActivityResultRegistryOwner.current)
-            CompositionLocalProvider(
-                LocalActivityResultRegistryOwner provides registry,
-                LocalContext provides localized,
-                LocalConfiguration provides configuration
-            ) { MainScreen() }
+            LocalizedTestContext(localized) { MainScreen() }
         }
         compose.skipNetworkEntry()
         return localized
@@ -58,12 +48,12 @@ class PseudoLocaleTests {
         check(none != base.getString(R.string.status_no_network)) { "Russian translation missing: $none" }
         compose.onNodeWithTag("nav-settings").performClick()
         compose.awaitNode(hasTestTag("app-ready") and hasText(russian.getString(R.string.nav_settings)))
-        // The section title precedes the asynchronous native identity list.
+        // Check the shell before entering detail panes, which hide its bars.
+        compose.awaitNode(hasTestTag("connection-status") and hasText(none))
+        compose.openSettingsPane("settings-account", "settings-identities-screen")
         compose.awaitNode(hasTestTag("settings-active"))
             .assertTextEquals(russian.getString(R.string.settings_active_key))
         compose.onNodeWithTag("settings-create").assertTextEquals(russian.getString(R.string.identity_add))
-        // Other tests leave no active network.
-        compose.awaitNode(hasTestTag("connection-status") and hasText(none))
     }
 
     @Test

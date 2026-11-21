@@ -26,7 +26,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.expand
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -67,7 +66,8 @@ internal fun ChatsContent(
     onProfile: (FoundProfile) -> Unit,
 ) {
     val (requests, conversations) = rows.partition { it.state == ChatState.REQUEST_RECEIVED }
-    val names = rememberContactNames(rows.map { it.peerId }.sorted())
+    val peers = rows.flatMap { listOfNotNull(it.peerId, it.sharedProfilePeer()) }.distinct().sorted()
+    val names = rememberContactNames(peers)
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("chats")) {
         lists.blocked?.let { BlockedNote(it) }
         ExpandableRow("chats-liked", R.string.chats_liked, R.string.chats_liked_text, liked.size, lists.likedOpen) {
@@ -155,14 +155,20 @@ private fun RequestList(requests: List<ChatRow>, names: Map<String, ContactNameV
             ChatListRow(
                 row,
                 names[row.peerId],
-                Modifier.testTag("request-${index + 1}").clickable { onOpen(row.peerId) }
+                Modifier.testTag("request-${index + 1}").clickable { onOpen(row.peerId) },
+                row.sharedProfilePeer()?.let(names::get)
             )
         }
     }
 }
 
 @Composable
-internal fun ChatListRow(row: ChatRow, name: ContactNameView?, modifier: Modifier) {
+internal fun ChatListRow(
+    row: ChatRow,
+    name: ContactNameView?,
+    modifier: Modifier,
+    sharedName: ContactNameView? = null
+) {
     Row(
         modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
         Arrangement.spacedBy(12.dp),
@@ -171,17 +177,13 @@ internal fun ChatListRow(row: ChatRow, name: ContactNameView?, modifier: Modifie
         PeerAvatar(row.peerId, name)
         Column(Modifier.weight(1f)) {
             Text(contactLabel(row.peerId, name), style = MaterialTheme.typography.titleSmall)
+            ChatPresenceLabel(row.peerId)
             Text(
-                chatPreview(row.lastMessage),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                chatListPreview(row.preview, sharedName),
+                Modifier.testTag("chat-preview"),
                 style = MaterialTheme.typography.bodyMedium
             )
-        }
-        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            chatTime(row.lastMessage?.sentAtMs)?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
-            if (row.unreadCount > 0uL) UnreadBadge(row.unreadCount, Modifier)
-            if (row.muted) Caption(stringResource(R.string.chats_muted), Modifier.testTag("chat-muted"))
+            ChatListMetadata(row)
         }
     }
 }

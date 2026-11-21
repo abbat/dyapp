@@ -1,5 +1,47 @@
 # FFI Contract
 
+`local_collection_page` delegates local collection presentation to
+`dyapp_client::local_collection`: input-order-preserving pages of at most 32 rows, complete raw-target
+or local-label substring search using shared input trimming and Unicode lowercase, total/matched
+counts and current/total page numbers. Targets are returned unchanged. Navigation cursors bind the
+normalized query; changing it resets the page, and refresh/removal clamps stale offsets. Empty
+results have one empty page. This pure projection performs no reads, network access or authorization;
+callers must bind the input snapshot, cursor, completions and actions to the current authenticated
+collection opening. Android identity/blocked/passed Settings lists use this projection off the UI
+thread, reset input/navigation on owner replacement and retain known native rows after a refresh
+failure. Identity rows map unchanged slot IDs back to their inventoried removal candidates; paging
+never selects a candidate. Native screen acceptance remains separate.
+
+`ChatSession.profile_views_enabled` / `set_profile_views_enabled` and
+`typing_enabled` / `set_typing_enabled` expose existing common Store preferences under the
+native session lock. Views default off and typing defaults on; defaulting, stored-flag validation
+and the `hide_typing` inversion remain in Store. Each setter writes only its own preference and
+sends no signal. Database/unsupported-value failures remain errors rather than guessed values.
+Android Privacy switches use these per-field exports and the existing read-receipt exports, with
+confirmed readback and read-only retry after errors. Profile-view send-path parity still needs
+verification. Typing delivery is deferred until a direct client path exists; its saved preference
+never authorizes mailbox typing ([contract](../design/read-receipts.md#typing-indicators)).
+
+`ChatSession.active_chat_peers` is a read-only common-core projection of fresh authenticated
+match presence. A failed read stays an error; the native UI must not infer expiry or a fresh mark
+from missing data. It never sends presence, including during mailbox/expiry refresh. Native
+foreground announcement is exposed through an explicit `ChatSession.announce_presence` call:
+common `presence::due_at` returns false before active-network lookup when nothing is due, and
+`Session::announce_presence` rechecks audience/throttle while staging. `presence_enabled` and
+`set_presence_enabled` persist the core matches/nobody choice without sending or hiding received marks.
+Android's unlocked identity shell calls the sender once per RESUMED transition or identity opening,
+not recomposition or mail refresh. Retiring that event cancels queued presentation work; after native
+session admission, Kotlin checks cancellation again before invoking the sender. Admitted core work
+retains its operation through completion. Android Privacy offers immediate matches/nobody radios,
+with native readback after writes, disabled unknown/busy states and read-only retry after any
+unconfirmed outcome. The shared Kotlin privacy-preference presentation admits one operation
+against the exact displayed revision. Even an equal fresh read retires old callbacks; disposing
+the original `Opened.Ready` presentation rejects both old actions and late completions.
+Changing the setting itself sends no activity.
+Android shows received marks in chat rows and the open
+chat heading, refreshes them after mailbox passes, and hides them on failed reads or identity changes.
+Kotlin performs only ID membership checks; freshness and match eligibility stay in the core.
+
 `ChatSession.media_cache`, `set_media_cache(enabled, limit_bytes)` and
 `clear_media_cache` expose the device-local encrypted originals cache. The record contains
 only enabled state, remembered byte budget and used bytes. Calls hold the same session
@@ -7,6 +49,23 @@ mutex as media retrieval, use no network and preserve history and saved sticker 
 Desktop exposes the same three commands with the viewed identity ID and a lease retained
 through background filesystem work. A fetch already in flight may retain a new copy after
 a desktop clear; the returned usage is measured from disk.
+
+The common `store::originals::input` helpers parse exact decimal/exponent MiB without floating-point
+rounding, preserve exact integral-byte budgets in displayed MiB text and classify destructive edits.
+`Store::change_media_cache` targets retention or budget independently, rereads current configuration
+and validated usage under the caller's media/session guard, and returns confirmation-required
+without mutation. Confirmed clear preserves settings and unrelated data. Storage/eviction/readback
+failure can follow a committed change, so native UI must reconcile before another edit.
+`ChatSession.media_cache_settings` projects actual state plus exact/minimum/maximum MiB text.
+`change_media_cache(ChatMediaCacheEdit, confirmed)` holds the ordinary session lock through core
+planning, mutation and readback. Retention edits preserve the actual budget; budget edits preserve
+actual retention. Its result carries measured settings and `confirmation_required`; `InvalidLimit`
+is distinct from a backend failure. Native UI must request first without confirmation, show a
+warning if required, and only resubmit that owner-bound intent after explicit confirmation.
+The original byte-based exports remain available. Android Photos uses these targeted exports for
+retention, numeric MiB input, usage, refresh and confirmed clear. Its presentation stores raw input
+and an owner-bound pending intent; it does not parse budgets or decide whether changes erase data.
+Native compilation, runtime and visual acceptance are tracked separately.
 
 > ⚠️ **Prototype.** This page is the single source of truth for the Rust ↔ native
 > boundary, checked against `rust/ffi/src/lib.rs` (UniFFI 0.32.2). Kotlin bindings are
@@ -57,7 +116,16 @@ the bounded text; they must not implement another truncation algorithm.
 
 The shared Tauri chat list renders `preview` and its timestamp directly, localizing body kinds
 without inspecting `lastMessage`. Its text wraps without CSS ellipsis; the complete message stays
-in history. Android and iOS list adoption remains planned behind the screen review gate.
+in history. Android also renders the typed body and original preview timestamp, using local cached
+names for shared-profile labels without fetching the target or media. Its bounded text wraps and
+metadata occupies separate lines, preserving preview width at narrow/large-font layouts. Full
+conversation text remains separate. Android native runtime/visual acceptance and iOS adoption
+remain pending behind their respective screen gates.
+
+Android's local contact-name snapshot is keyed by both photo-cache owner and requested peers.
+A replacement starts empty while its own read is pending or fails; late retired reads cannot
+populate it. Refreshing the same owner may retain its own last successful names after a read
+failure. These are presentation snapshots; the cache/storage authority remains native.
 
 ## Network attempt ownership
 
@@ -72,6 +140,19 @@ its presentation rechecks cancellation before publishing an IO result and closes
 on non-cancellable IO after actual completion, including disposal.
 
 ## Shared mobile identity registry
+
+The common core `identity_slots::removal_allowed` classifies the existing inventoried resolution
+for presentation: legacy roots, absent inventory and unavailable/damaged keys do not offer removal;
+missing keys and interrupted creation/removal retain explicit cleanup. `Registry::removal_review`
+reads one inventory under shared admission, verifies its key matches the displayed optional Peer ID
+and checks for another ready readable local copy. A failure or unavailable other key never proves a
+surviving copy. This guidance cannot authorize deletion: `Registry::remove` independently validates
+the current target, key, credentials and owned files. `identity_removal_allowed` projects this
+policy from the typed native resolution; `MobileIdentityRegistry.removal_review` returns
+`MobileIdentityRemovalReview`. Android stores the resulting presentation hint on `Opened`, defaults
+unprojected views to no removal, and reads confirmation guidance through the inventoried `Slot`'s
+actual registry. It no longer compares lifecycle labels or enumerates keys for duplicate-copy
+warnings. Actual SDK/device verification remains separate.
 
 `MobileIdentityRegistry` exposes core inventory, resolution, candidate inspection, explicit
 creation, verified selection and confirmed removal for Android and iOS wrapped-key layouts. `MobileSlotKeys` callbacks implement only
@@ -96,7 +177,8 @@ missing versus unavailable credentials and recoverable Peer IDs. Creation and se
 `durability_detail` reports unconfirmed directory persistence after that commit, rather than
 a failed selection. Construction does not create an identity. Native `remove` returns an
 optional persistence diagnostic only after visible completion; after a failure, resolve again
-to show interrupted cleanup. Android uses this registry; migration of the Swift slot adapter remains planned.
+to show interrupted cleanup. Android uses this registry and acknowledges committed persistence
+uncertainty on the resulting route without retrying; migration of the Swift slot adapter remains planned.
 
 `Registry::operation` admits only a listed ready identity whose actual key matches the expected
 Peer ID. Its `IdentityOperation` retains a shared OS lock for the whole operation; create/select
@@ -442,6 +524,14 @@ The session staging path separates preflight context, MLS preparation and atomic
 failures after MLS advancement invalidate the in-memory device/groups. Delivery retains token
 fallback replacements across ranked nodes, propagates local failures immediately, and records
 node acceptance separately from peer receipts.
+Common `message_actions::prepare` provides read-only own-message selection from the admitted
+Store owner, viewed peer and exact group/author/logical-ID. Its media kind preserves text-only
+edit/delete contracts separately from sticker-only or desktop text-or-sticker deletion. It refuses
+blocked, foreign, wrong-key and cleared targets before transport; session staging still validates
+the current group/target. Tauri edit/delete and native text/sticker operations use this preflight.
+The shared key/kind matcher also serves the preserved desktop regression tests; matching alone
+does not authorize ownership or peer visibility.
+
 `Session::submit_text_to`, `submit_edit` and `submit_delete` return a committed `Submission`:
 `Accepted` or `Queued`, both with the logical message/operation ID; queued also retains the
 immediate delivery error. Profile/key-package/staging errors remain errors before successful
@@ -458,6 +548,14 @@ then commits through the same durable staging path. Own-device listing admission
 Only an absent local group may fall through to online first-contact admission; a staging refusal never
 triggers another submission. The connected path still verifies the peer profile. Offline operation
 cannot discover remote revocations it has not received.
+
+Common native `submit_delete_sticker` accepts an explicit peer/group/author/logical-ID and only a
+current own sticker. Its session/identity lease covers selection, staging and typed commitment;
+foreign authors cannot rebind a colliding own ID. Text edit/delete retains its text-only contract.
+Android's deletion adapter keeps that typed commitment even if the subsequent feed refresh fails.
+Its confirmation model admits only the current opening and drops retired/late display results;
+the own-sticker history menu offers only Delete and confirms that exact selection. Cancel/reopen
+uses a fresh confirmation token; an admitted native operation continues if its UI is closed.
 
 Common native `submit_text`, `submit_edit_text`, `submit_delete_text` and
 `submit_chat_photo` and `submit_saved_sticker` return `ChatSubmission::Accepted` or `Queued`
@@ -491,8 +589,19 @@ Shared `sticker_media::select` binds the complete stored message key to its iden
 Its snapshot reads authenticated local originals/saved packs, applies automatic-download policy
 using the adapter's OS network report, and revalidates current metadata before decoding/cache
 retention. Cache-write failure does not discard validated pixels. Desktop and common native
-`chat_sticker_frame` use this boundary. The native call retains session/identity ownership through
-blocking completion; UI cancellation still requires the caller's presentation generation guard.
+`chat_sticker_frame` use this boundary. Shared `Snapshot::access` orders local lookup before
+retrieval admission. Native received-pack status additionally projects ordered `StickerPackSaveControl` values from
+common `Status::controls`; clients must not reconstruct Retry/Fresh/StopWaiting eligibility from
+state, failure, tokens or local clocks. Tauri status serializes the same ordered `controls` names;
+the JavaScript controller validates and renders them without a separate eligibility table.
+Display controls never replace mutation authorization.
+Native `chat_sticker_image` exposes typed `Ready`, `OnTap` and `Unavailable`
+outcomes; transport and validation failures remain errors. The compatibility `chat_sticker_frame`
+API preserves its `onTap`/`notFound` errors. No descriptor or compressed image crosses either API.
+The native call retains session/identity ownership through blocking completion; UI cancellation
+still requires the caller's presentation generation guard. Android keys image presentation by
+actual opened owner, peer and full immutable selection, reads off UI and rejects cancelled results;
+its Bitmap adapter converts validated straight-alpha pixels rather than decoding compressed media.
 Network connection, desktop cancellation checks between async stages and binary/record projection
 remain in the adapter.
 
@@ -560,7 +669,13 @@ projections; persistence callers must validate first. `profile_editor::normalize
 interest-list limits and NFC/trim/lowercase normalization; Tauri and native saves use it. Native
 `PublicProfileDraft.interests` is an optional edit: None preserves stored tags, Some(empty) clears,
 and loaded drafts return Some with the actual tags. This keeps unrelated edits by older callers from
-erasing interests. Mobile interest controls remain planned behind the UI review gate.
+erasing interests. `profile_editor::parse_interest_lines` additionally accepts one tag per nonempty
+line, preserving punctuation/duplicates and delegating canonicalization/validation to that same
+boundary. It allocates at most one excess nonempty tag before refusing the count.
+Native `parse_profile_interests` returns None for invalid input and a successful empty list for clear;
+`profile_interest_limits` exposes authoritative count/canonical-character limits for presentation.
+Android interest controls are being developed one screen at a time; full native/release review
+remains required, and iOS interest UI is still planned.
 The common native draft adapter converts
 records and errors, validates through this API before opening storage, and delegates save and
 eligibility/search projections to the same normalized application. Editable saves use the core
@@ -890,6 +1005,10 @@ The common native `MobileLinkRecovery(registry, id, expected_peer, store)` binds
 without opening them. Its blocking `prepare` returns an opaque `ProfileAdoptionReview`; no key,
 session or operation lease stays in either idle handle. `snapshot` includes complete editable local
 and remote values, all original photo chunks, visibility and typed differing field groups.
+`preview(choices)` delegates complete explicit source selection to the shared core and returns a
+read-only projection of the frozen result, without credentials, storage or network access. Missing,
+duplicate and unoffered choices retain typed selection errors. Preview does not establish current
+admission or profile validity and does not save, publish or complete enrollment.
 `confirm(choices)` reacquires existing-only admission, checks the original session certificate and
 local context and core `ChatBinding` (slot/owner/device plus sealing-key digest), rejects an already
 changed active network, and delegates all field selection and atomic completion to core. Typed errors
@@ -975,11 +1094,27 @@ its domain normalization also removes NEL at the edges. Country and employer ret
 separate raw-input whitespace contracts. Selected place IDs are
 independent of country-field availability; pickers must invalidate a selection when its source
 country/text changes. Free-form place labels are never wire conditions. The common native
-`search_choice_conditions` adapter converts records only; Android and iOS use it for these
-choices and append range conditions separately. Choice conditions use canonical scale order,
+`search_choice_conditions` adapter converts records only. iOS retains this entry point; Android
+uses the checked variant described below and both append range conditions separately. Choice conditions use canonical scale order,
 then country, interest and place. Android restores selected UInt32 IDs from the picker's Int
 storage with `toUInt`, preserving all bits. Desktop adoption remains planned. Interest input
-is supported by the shared API; the native forms currently pass blank interest text.
+is supported by the shared API. Android passes the raw offered interest field; the iOS form
+still passes blank text.
+The additive `SearchChoiceInputs::checked_conditions` and thin native
+`search_checked_choice_conditions` additionally validate an offered, nonblank canonical interest
+against the common profile-tag admission policy. Invalid input refuses the whole query with
+`invalid search interest`; hidden or canonical-blank text does not constrain it. The original
+infallible adapter remains available for existing callers. Android uses the checked path, renders
+its interest input only when field 19 is offered, and maps its failure to field-correction advice.
+It retains raw input if a later sample hides the field, while the common core excludes it from
+conditions. No iOS UI adoption is implied.
+Android captures the returned conditions, parsed employer choice and offered mutual toggle as one
+immutable presentation intent before waiting for the searcher. IO reads the saved own profile only
+for that captured mutual request and delegates eligibility to `search_mutual_conditions`; missing
+own gender/exact age remains an explicit refusal. Form values are not reread in the IO callback. A referential presentation revision binds Run,
+Cancel and completion to the admitted operation; retirement or replacement prevents late state
+and offered-field installation. Native creation, slot admission and IO release retain their
+existing resource ownership rather than being replaced with presentation-only completion.
 
 ## Identity registry core
 
@@ -1051,12 +1186,26 @@ The worker must own the future until actual completion when its UI caller is can
 Profile-view generation and cancellation admission remain separate requirements before installation;
 `MobileLinkReceiver::start` captures the source and generation under the same view guard.
 Its `code` and `expires_at` expose public presentation data; `phase` and `cancel` are non-blocking.
+`qr_matrix` projects that original code through the common core encoder at medium correction level.
+`MobileQrMatrix` contains a positive square side and row-major dark modules without a quiet zone;
+renderers add the standard four-module margin and never re-encode the code. Desktop safety/link
+commands delegate to the same encoder, retaining their existing matrix shape and failure text.
 `poll` runs off the UI thread through the existing network-stack worker and connection adapter,
 retaining the actual call through completion. Kotlin must keep that worker alive after cancelling
 its UI continuation. The common native adapter starts no node host or installation-node operation.
 `result` returns the original typed installation receipt with an opaque verified identity key and
 selection durability, or the exact failure boundary/destination. Cloning receipts clones the opaque
-key handle, never foreign plaintext identity bytes. Android screen integration remains planned.
+key handle, never foreign plaintext identity bytes. Android's `LinkReceiverSession` owns factory and
+poll work in its own IO scope, exposes completion snapshots rather than cancellable worker jobs, and
+retains the original receipt after screen retirement. Retirement requests native cancellation and
+prevents further polling; it cannot assert rollback after admission. Explicit disposition refuses
+to close an in-flight handle. A process-owned `LinkReceiverStore` retains the exact source registry
+and opening across activity disposal, refuses replacement invitations while an outcome is unresolved,
+and releases only the explicitly disposed opening. Android Account receiving exposes explicit setup
+completion on the original installed receipt in that same worker. It retains the immutable adoption
+review across failures and closes it only after actual work completes and explicit disposition. Typed
+review/authorization refusals cannot become ordinary retry through diagnostic-string matching; first-run
+and complete recovery-screen integration remain planned.
 Core `LinkAdmission` serializes receiving and cancellation without a network mutex.
 A normal empty/transient completion explicitly resumes waiting; abandoned work is interrupted
 and cannot implicitly retry. After network completion and shared-lease release, its poll guard
@@ -1156,6 +1305,7 @@ or returns constants.
 | | method | `change_sticker_pack_request(peer_id: String, group_id: Vec<u8>, author: String, id: Vec<u8>, action: StickerPackSaveAction) -> Result<StickerPackSaveAttempt, CoreError>` | Apply a core received-pack action offline; preserve completion if later status is unavailable. |
 | | method | `chat_sticker_pack_status(peer_id: String, group_id: Vec<u8>, author: String, id: Vec<u8>) -> Result<StickerPackSaveStatus, CoreError>` | Full-key received-pack status from shared core. Typed state/failure, current intent generation and exact retry deadline; no descriptor, key or raw peer text. Can reconcile an already-saved intent under the native session lease; call off the UI thread. Own-authored/invalid/blocked sources refuse, unreadable content stays explicit Failed/Storage, and a failed lookup is never New. |
 | | method | `chat_sticker_frame(peer_id: String, group_id: Vec<u8>, author: String, id: Vec<u8>, manual: bool) -> Result<ChatStickerFrame, CoreError>` | Full-key current-message retrieval through shared media snapshots. Authenticated local originals/saved packs precede network access; automatic download obeys core policy and the current OS report, while manual means an explicit tap. Returns actual dimensions and bounded RGBA8 only, with no compressed peer media or transport descriptor. Core revalidates current identity/content before completion/cache retention. Keep the UI generation guard after cancellation. Errors distinguish onTap, notFound, current-message refusals and network failure. |
+| | method | `chat_sticker_image(peer_id: String, group_id: Vec<u8>, author: String, id: Vec<u8>, manual: bool) -> Result<ChatStickerImage, CoreError>` | Same core read and lifetime as `chat_sticker_frame`, with typed `Ready { frame }`, `OnTap` and `Unavailable` outcomes. No error-string parsing for UI decisions; other current-message, validation and transport failures remain errors. |
 | | method | `chat_photo_auto(peer_id: String) -> Result<bool, CoreError>` | Whether full chat originals may load without a tap now: shared download setting, current platform network report and an open conversation are required. Strangers never auto-download, even with Always; blocked peers err `blocked`. Original retrieval uses the separate method below. |
 | | method | `receive_with_notice(sticker_label: String) -> Result<ChatMailPass, CoreError>` | Same mail work with core-admitted optional sender/plain body under one session owner; OS posting stays in the client. |
 | | method | `receive() -> Result<u32, CoreError>` | Over the active network: resends due staged writes, applies this device's mailbox, runs bounded core pack responses/admitted downloads (completed saves add to refresh count) and refills tokens when due, then, best effort as on the desktop, keeps the last-resort key package and runs the daily photo keep refresh. Returns how many events changed a chat. Senders' profiles are fetched from the node on each call; an envelope whose owner has none there waits in the mailbox for the next call. |
@@ -1167,11 +1317,13 @@ or returns constants.
 | | method | `recent_sticker_page(after: u32) -> Result<RecentStickerPickerPage, CoreError>` | Core-filtered recent choices and original-list cursor, without state writes. |
 | | method | `saved_sticker_frame(pack_id: Vec<u8>, index: u32) -> Result<SavedStickerFrame, CoreError>` | One authenticated saved entry, decoded by core to actual width/height and row-major RGBA8. Retains PackID, manifest index, emoji and compressed-content hash without compressed bytes, keys or release capability. No networking or file mutation; invalid/missing selections and unreadable files refuse. Call off the UI thread; scale the returned pixels for presentation. |
 | | method | `submit_saved_sticker(peer_id: String, pack_id: Vec<u8>, index: u32) -> Result<ChatSubmission, CoreError>` | Send an authenticated saved-pack entry through core upload and open-chat submission. A queued result retains its committed ID; never resubmit it. Pre-commit failures remain errors, even if an upload reservation was persisted. Invalid hash length, missing pack and invalid index fail before network access; foreign or corrupt saved files are preserved. Call off the UI thread. |
+| | method | `forward_targets(source: ChatForwardSource) -> Result<Vec<String>, ChatForwardError>` | Read-only, offline core projection of other valid unblocked open chats for a complete current live text selector. Source errors still refuse when no destination exists; failed storage reads are errors, not an empty picker. Returns public Peer IDs in existing chat-row order and does not stage or change MLS state. A displayed target never bypasses submission revalidation. |
 | | method | `forward_text(source: ChatForwardSource, target_peer_id: String) -> Result<ChatSubmission, ChatForwardError>` | Forward current local text into another open chat, as on Linux. Source carries peer, group, stored author and logical message ID; core verifies the full live key, source visibility and target eligibility. UI never supplies the forwarded body or a verified original-author claim. The new message is authored by this identity and carries the existing forwarded marker. Typed errors are pre-commit refusals/backend failure. `Queued` is already committed with its stable ID and exact retry bytes; do not submit a second copy. |
 | | method | `contact_note(peer_id: String) -> Result<String, ContactNoteError>`, `set_contact_note(peer_id: String, note: String) -> Result<(), ContactNoteError>` | Identity-bound private notes without a profile fetch or peer signal. Core preserves clean NFC text, case and LF lines up to 2000 code points, and stages own-device sync. Empty text explicitly clears; blocked contacts retain read/write access. Typed errors are `InvalidPeer`, `OwnPeer`, `InvalidText` or `Failed { reason }`; a failed read is never empty. Notes and favorites require canonical lowercase peer IDs at the shared core application boundary; signed wire validation and existing stored rows are unchanged. |
 | | method | `favorite_peers() -> Result<Vec<String>, FavoriteError>`, `favorite_state(peer_id: String) -> Result<bool, FavoriteError>`, `set_favorite(peer_id: String, saving: bool) -> Result<(), FavoriteError>` | Private identity-bound favorites. The shared client core validates peer IDs, rejects self and blocked saves, and stages own-device sync without contacting the peer. Listing hides blocked peers; state reads and removal remain offline and work for them. Typed errors are `InvalidPeer`, `OwnPeer`, `Blocked` or `Failed { reason }`; storage failure is never an empty list or false flag. Tauri uses the same core policy. |
 | | method | `likes(peer_id: String) -> Result<ChatLikes, CoreError>`, `liked_you() -> Result<Vec<String>, CoreError>` | Local. `ChatLikes` is `ours`, `matched` and `passed`. `liked_you` lists the peers who like this profile, not liked back, not blocked and not passed, as Peer IDs: the screen fetches their profiles. |
 | | method | `like(peer_id: String, liked: bool) -> Result<ChatLikes, CoreError>` | Fetches the peer's verified profile from the active network and sends a like or an unlike in the pair group; the first like invites the peer, an unlike with no group sends nothing, a match opens the chat. A failed send stays staged. Errs `unpublished` (the own profile does not list this device), `notConnected` or a node or storage message. |
+| | method | `clear_target(peer_id: String) -> Result<ChatClearTarget, CoreError>` | Read-only owner/peer projection for the Clear warning under the native session lock. Common `dyapp_client::chat_access` owns the existing own/blocked/unknown visibility checks and their error order. Empty/unknown targets refuse, and storage failure is never an empty target. This record is not mutation authority: Clear revalidates visibility under its own operation lease. Android target/consequence dialog adoption is still planned. |
 | | method | `clear_chat(peer_id: String)`, `mark_read(peer_id: String)`, both `-> Result<u32, CoreError>` | Local. Clear chat removes every message with the peer on this device and returns how many went; mark read marks the peer's texts read and returns how many were unread; `send_reads` sends the receipts. Both err `ownPeer`, `blocked` or `unknownPeer` (no chat state). |
 | | method | `edit_text(peer_id, group_id: Vec<u8>, message_id: Vec<u8>, text: String)`, `delete_text(peer_id, group_id, message_id)`, both `-> Result<Vec<u8>, CoreError>` | Over the active network: edits or deletes a live text this identity wrote in that group, and returns the edit's or delete's 16-byte ID. A failed send stays staged. Err `invalidText` (edit only), `ownPeer`, `blocked`, `unknownMessage`, `notConnected` or a node or storage message. |
 | | method | `block(peer_id: String) -> Result<ChatBlock, CoreError>`, `unblock(peer_id: String) -> Result<(), CoreError>`, `blocked_peers() -> Result<Vec<String>, CoreError>` | Blocks or unblocks here and stages the change for the owner's other devices. A block then revokes the write tokens the peer holds; `ChatBlock` is `revocation` (`NotNeeded`, `Pending` or `Confirmed`) and `detail`, why it is pending. The block stays whatever the revocation does, and blocking again repeats it. `blocked_peers` lists the blocked peers in Peer ID order. Err `invalidPeer` (not a Peer ID, or the own one) or a storage message. |
@@ -1180,6 +1332,7 @@ or returns constants.
 | | method | `set_passed(peer_id: String, passed: bool) -> Result<ChatLikes, CoreError>`, `passed_peers() -> Result<Vec<String>, CoreError>` | Passes on the peer or undoes that, here and staged for the owner's other devices, and returns the like state after it; no signal goes to the peer. A passed peer leaves search results and Liked you. `passed_peers` lists them in Peer ID order. Errs as `unblock`. |
 | | method | `notice() -> Result<ChatNotice, CoreError>`, `notice_content() -> Result<ChatNotice, CoreError>`, `set_notice(notice: ChatNotice) -> Result<(), CoreError>` | Local. The new-mail notice setting in the same `client.db` keys as the desktop privacy screen: `Off`, `Fixed` (the default, "New message" only), `Name` or `Text` (name and message text). `Off` keeps the chosen content for a later turn-on, and `notice_content()` reads it even while off (never `Off`). |
 | | method | `read_receipts() -> Result<bool, CoreError>`, `set_read_receipts(enabled: bool) -> Result<(), CoreError>`, `send_reads(peer_id: String) -> Result<u32, CoreError>` | The opt-in read receipt setting, off by default, in the same `client.db` key as the desktop. `send_reads` sends what the shown chat owes in an accepted conversation (the latest partner text of each group) and returns how many went out; with nothing due, always the case while off, it opens no node connection. Errs as `mark_read`, then `notConnected` or a node or storage message. |
+| `ChatClearTarget` | Record | `owner_peer_id`, `peer_id` | Exact admitted store/peer identifiers for presentation; carries no deletion authorization or active-identity lookup. |
 | `ChatRow` | Record | `peer_id`, `state: ChatState`, `last_message: Option<ChatMessage>`, `unread_count: u64` | One Chats row; no last message after Clear chat. |
 | `ChatHistory` | Record | `state: ChatState`, `messages: Vec<ChatMessage>` | One peer's current conversation, possibly empty. |
 | `ChatMessage` | Record | `group_id`, `author`, `id: Vec<u8>`, `text: Option<String>`, `edited`, `deleted`, `unread`, `forwarded`, `delivery: Option<ChatDelivery>`, `sent_at_ms: Option<u64>` | Current text or deletion marker in the Store's pair-wide order. `delivery` is `Pending`, `NodeAccepted` or `DeviceReceived` on an own message; node acceptance alone is not recipient delivery. |

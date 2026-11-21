@@ -3,6 +3,8 @@ package com.dyapp
 import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -35,12 +37,24 @@ class AppearanceTests {
 
     private fun openSettings() {
         compose.shownPeerId()
-        compose.onNodeWithTag("nav-settings").performClick()
+        compose.openSettingsPane("settings-appearance")
     }
 
     private fun click(tag: String) = compose.onNodeWithTag(tag).performScrollTo().performClick()
 
     private fun assertPicked(tag: String) = compose.onNodeWithTag(tag).performScrollTo().assertIsSelected()
+
+    private fun pickLanguage(tag: String) {
+        click("language-choice")
+        compose.awaitNode(hasTestTag(tag)).performScrollTo().performClick()
+    }
+
+    private fun assertLanguage(tag: String) {
+        click("language-choice")
+        assertPicked(tag)
+        compose.onNodeWithTag("language-picker-cancel").performClick()
+        compose.awaitNode(hasTestTag("language-choice") and isFocused())
+    }
 
     private fun lightBars() = compose.runOnIdle {
         val window = compose.activity.window
@@ -80,15 +94,15 @@ class AppearanceTests {
     @Test
     fun aPickedLanguageReturnsToSettingsAndSurvivesARelaunch() {
         openSettings()
-        click("language-ru")
+        pickLanguage("language-ru")
         waitForSettingsIn("ru")
-        assertPicked("language-ru")
+        assertLanguage("language-ru")
         compose.activityRule.scenario.recreate()
         openSettings()
         waitForSettingsIn("ru")
-        assertPicked("language-ru")
-        click("language-en")
+        assertLanguage("language-ru")
+        pickLanguage("language-en")
         waitForSettingsIn("en")
-        assertPicked("language-en")
+        assertLanguage("language-en")
     }
 }

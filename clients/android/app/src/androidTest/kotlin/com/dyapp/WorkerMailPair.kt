@@ -23,6 +23,7 @@ internal class WorkerMailPair(private val context: Context) {
         record.begin()
         publishWorkerPeer(owner)
         publishWorkerPeer(other)
+        record.recordDevices(workerDeviceKey(owner), workerDeviceKey(other))
         match(owner, other)
         val sent = RustBridge.withChats(owner) { it.submitText(other.peerId, WORKER_ANCHOR) }
         check(sent is ChatSubmission.Accepted) { "Online anchor was not accepted" }
@@ -36,7 +37,9 @@ internal class WorkerMailPair(private val context: Context) {
     fun reopen(): Opened.Ready {
         val owner = worker.reopen()
         val other = counterpart.reopen()
-        val id = record(owner, other).id(WORKER_ANCHOR)
+        val record = record(owner, other)
+        record.requireDevices(workerDeviceKey(owner), workerDeviceKey(other))
+        val id = record.id(WORKER_ANCHOR)
         check(workerMessagePresent(owner, other.peerId, id, WORKER_ANCHOR)) { "Owner lost the anchor" }
         check(workerMessagePresent(other, owner.peerId, id, WORKER_ANCHOR)) { "Counterpart lost the anchor" }
         return owner

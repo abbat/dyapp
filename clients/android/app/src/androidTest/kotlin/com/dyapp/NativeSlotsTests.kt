@@ -18,6 +18,8 @@ class NativeSlotsTests {
             val first = fixture.slots.create()
             val second = fixture.slots.create()
             assertTrue(first.peerId != second.peerId)
+            assertTrue(removable(first))
+            assertTrue(removable(Slots(fixture.root).open()))
             assertEquals(second.peerId, (fixture.slots.open() as Opened.Ready).peerId)
             assertEquals(first.peerId, (fixture.slots.choose(first.slot.id) as Opened.Ready).peerId)
             assertEquals(first.peerId, (Slots(fixture.root).open() as Opened.Ready).peerId)
@@ -34,7 +36,10 @@ class NativeSlotsTests {
             File(dir, "state").writeText("pending\n")
             val recovery = fixture.slots.choose(id) as Opened.Recovery
             assertEquals("incomplete", recovery.reason)
-            assertEquals(dir, recovery.slot?.dir)
+            assertTrue(removable(recovery))
+            val candidate = checkNotNull(recovery.slot)
+            assertTrue(candidate.removalReview(null).allowed)
+            assertEquals(dir, candidate.dir)
             assertTrue(fixture.slots.retry(recovery) is Opened.Recovery)
             assertEquals(first.peerId, (fixture.slots.open() as Opened.Ready).peerId)
             assertFalse(PlatformKeyStore.exists(identityAlias(id)))
@@ -61,6 +66,10 @@ class NativeSlotsTests {
             val first = fixture.slots.create()
             val second = fixture.slots.create()
             assertThrows(CoreException::class.java) { fixture.slots.remove(second.slot.id, first.peerId) }
+            assertThrows(CoreException::class.java) { second.slot.removalReview(first.peerId) }
+            val review = second.slot.removalReview(second.peerId)
+            assertTrue(review.allowed)
+            assertFalse(review.hasOtherCopy)
             fixture.slots.remove(second.slot.id, second.peerId)
             assertEquals(listOf(first.slot.id), fixture.slots.list().map { it.id })
             assertTrue(PlatformKeyStore.exists(identityAlias(first.slot.id)))
@@ -75,6 +84,8 @@ class NativeSlotsTests {
             PlatformKeyStore.delete(identityAlias(ready.slot.id))
             val recovery = fixture.slots.open() as Opened.Recovery
             assertEquals("missing", recovery.reason)
+            assertTrue(removable(recovery))
+            assertTrue(ready.slot.removalReview(null).allowed)
             assertFalse(PlatformKeyStore.exists(identityAlias(ready.slot.id)))
             fixture.slots.remove(ready.slot.id, null)
             assertTrue(fixture.slots.list().isEmpty())

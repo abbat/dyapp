@@ -36,7 +36,7 @@ class ProfileDraftLoadTests {
     @Test
     fun savedCoreDraftWinsAndLegacyFileStaysUntouched() {
         val opened = ready()
-        val expected = ProfileDraft(values = mapOf(GENDER to 1), name = "Current")
+        val expected = ProfileDraft(values = mapOf(GENDER to 1), name = "Current", interests = emptyList())
         saveDraft(opened, expected)
         val legacy = File(opened.slot.dir, "profile-draft.json").apply { writeText("not JSON") }
         assertEquals(expected, loadDraft(opened))

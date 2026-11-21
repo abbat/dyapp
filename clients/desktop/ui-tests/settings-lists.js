@@ -138,9 +138,16 @@
       'Read error is not visible on list',
     );
   };
-  smoke.checkSettingsLists = async () => {
+  smoke.checkModerationHints = async () => {
     await openArea('settings');
     await Promise.all([appApi.devicesShown, appApi.blockedShown, appApi.passedShown]);
+    for (const name of ['blocked', 'passed']) {
+      openSettings(name);
+      await smoke.shot(`settings-${name}`);
+    }
+  };
+  smoke.checkSettingsLists = async () => {
+    await smoke.checkModerationHints();
     const check = (ok, reason) => {
       if (!ok) throw Error(reason);
     };

@@ -12,16 +12,16 @@ import uniffi.dyapp.ChatSubmission
 class ProfileShareTests {
     @Test
     fun sharingCompletionUsesNativeCommitmentRatherThanStatusDetails() {
-        val refused = ProfileShareForm()
-        refused.completeSubmission(Result.failure(IllegalStateException("Queued")), "target")
+        val refused = ProfileShareForm().apply { shown = true }
+        refused.completeSubmission(Result.failure(IllegalStateException("Queued")), "target", refused.opening)
         assertNull(refused.sentTo)
         assertEquals(R.string.chat_send_failed, refused.status?.text)
         for ((outcome, status) in listOf(
             ChatSubmission.Accepted(byteArrayOf(1)) to R.string.profile_shared,
             ChatSubmission.Queued(byteArrayOf(2), "disk") to R.string.chat_queued,
         )) {
-            val form = ProfileShareForm()
-            form.completeSubmission(Result.success(outcome), "target")
+            val form = ProfileShareForm().apply { shown = true }
+            form.completeSubmission(Result.success(outcome), "target", form.opening)
             assertEquals("target", form.sentTo)
             assertEquals(status, form.status?.text)
             assertNull(form.status?.details)

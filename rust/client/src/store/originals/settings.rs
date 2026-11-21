@@ -28,7 +28,7 @@ impl MediaCacheConfig {
     /// Largest accepted byte budget.
     pub const MAX_LIMIT_BYTES: u64 = 10 * 1024 * MIB;
 
-    fn validate(self) -> Result<Self, Error> {
+    pub(super) fn validate(self) -> Result<Self, Error> {
         if !(Self::MIN_LIMIT_BYTES..=Self::MAX_LIMIT_BYTES).contains(&self.limit_bytes) {
             return Err(Error::InvalidSetting);
         }

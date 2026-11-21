@@ -116,7 +116,12 @@ scanning `profiles/` plus the root legacy file; there is no second index. The co
 cross-process `profiles.lock`: reads/operations retain shared admission, while creation,
 selection and removal take exclusive admission. Pending/deleting/broken state, credential
 absence and access failures are classified in Rust. Kotlin never validates marker files,
-chooses a UUID, generates an identity key or implements cleanup ownership.
+chooses a UUID, generates an identity key or implements cleanup ownership. The adapter projects
+`identity_removal_allowed` from the typed native resolution into `Opened.removalOffered`; raw
+presentation-only `Opened` instances default to false. The removal dialog calls the inventoried
+`Slot`'s `removal_review` with its displayed optional Peer ID before showing confirmation. Rust
+checks a consistent inventory/key snapshot and the local duplicate-copy warning; this result does
+not replace execution-time removal confirmation.
 
 A per-slot alias means removing an identity deletes its wrapping key, so any leftover copy of
 the blob is useless, and a damaged or deleted Keystore entry affects one identity only. A
@@ -135,8 +140,9 @@ identity at once if that one key were lost.
 Creation and selection distinguish visible commit from directory persistence. A failed
 pre-commit write leaves the previous selection; an unconfirmed post-commit sync returns the
 committed identity with a separate diagnostic. Android retains that diagnostic in `Shown`
-and logs it as committed. A visible persistence notice remains planned; retrying creation is
-never suggested as if the first identity had not been created.
+and logs it as committed. The resulting route shows a localized, scrollable acknowledgement
+that persistence is unconfirmed and asks the user to check the selected identity after restarting.
+Acknowledgement never retries or rolls back the operation; a new result owns its own notice.
 
 ## Open and recover
 
@@ -177,6 +183,22 @@ Chat bootstrap and ancillary-key persistence belong to the core. `withChats` dir
 registry-owned `ChatSession`, whose identity and chat locks last through actual completion.
 It uses only the slot's existing wrapping credential. Kotlin does not generate or write
 `device.key` or `chat-state.key`, and initialized chats never regenerate a missing key.
+
+First-run receiving records navigation intent only from the actual creation result delivered to its
+current setup opening. Saved source identifiers restore navigation, not native handles or cleanup
+authority. Network activation is reread before showing code creation; creating a code remains explicit.
+A cancelled creation owner cannot restore that intent from inventory differences or repeat creation;
+ordinary native resolution and the explicit Account receiving entry remain available. Only this
+explicit wizard route requests core-owned unused-wizard cleanup. The retained recovery adapter binds
+snapshot, read-only choice preview, confirmation and resumption to the same native review. Preview
+uses the shared core's frozen selection and grants no write or enrollment authority. The receiving
+worker supports explicit fresh comparison and confirmation against that exact snapshot, freezing each
+submitted choice before IO. A saved draft enables separate enrollment continuation; an indeterminate
+save requires a fresh comparison instead of repeating the write. These operations retain the original
+receipt and native review through actual completion, including UI retirement. Full field-choice
+presentation remains planned.
+Invitation expiry formatting observes
+Compose's current configuration locale, so a language change invalidates the displayed date.
 
 Root identity actions run on IO. The existing route shows loading until completion, rejects
 duplicate actions and never publishes a cancelled screen owner's late result. Its completed revision

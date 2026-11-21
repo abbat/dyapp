@@ -4,22 +4,50 @@ use crate::CoreError;
 use dyapp_client::{contact_verification::Generation, profiles::Profiles, session::Session, Node};
 
 impl ChatSession {
-    pub(super) async fn receive_owner_profiles(
+    pub(super) async fn receive_owner_profile(
         &self,
         session: &Session,
         node: &mut Node,
         generation: &Generation,
         now: u64,
-    ) -> Result<Option<Profiles>, CoreError> {
+    ) -> Result<bool, CoreError> {
         let Ok(remote) = node.get_profile(&self.key.identity.peer_id()).await else {
-            // Preserve mailbox fallback, but never grant new membership from an unavailable read.
-            return Ok(None);
+            // Retain held mailbox authority; an unavailable read cannot admit new membership.
+            return Ok(false);
         };
         let mut context = self.contact_context.lock().map_err(failed)?;
         context
             .accept_own(generation, session, remote, now)
             .map_err(failed)?;
-        Ok(Some(context.profiles().clone()))
+        Ok(true)
+    }
+
+    pub(super) async fn receive_contact_profiles(
+        &self,
+        session: &Session,
+        node: &mut Node,
+        generation: &Generation,
+        now: u64,
+    ) -> Result<Profiles, CoreError> {
+        if let Ok(Some(peer)) =
+            dyapp_client::contact_verification::refresh_target(session.store(), now)
+        {
+            if let Ok(remote) = node.get_profile(&peer).await {
+                let mut context = self.contact_context.lock().map_err(failed)?;
+                // Read failures/older authority remain best-effort; obsolete generations cannot commit.
+                let _ =
+                    context.accept_contact_if_current(generation, session.store(), &peer, remote);
+            }
+        }
+        self.receive_profiles(generation)
+    }
+
+    pub(super) fn receive_profiles(&self, generation: &Generation) -> Result<Profiles, CoreError> {
+        let context = self.contact_context.lock().map_err(failed)?;
+        if !context.is_current(generation) {
+            return Err(failed("notConnected"));
+        }
+        Ok(context.profiles().clone())
     }
 
     pub(super) async fn maintain_received_own(

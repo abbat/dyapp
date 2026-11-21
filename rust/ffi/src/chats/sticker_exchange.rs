@@ -1,9 +1,8 @@
 //! Bounded core pack work completes after native mailbox application, without visible controls.
-use super::{apply_mailbox, failed, ChatSession};
+use super::{failed, ChatSession};
 use crate::CoreError;
-use dyapp_client::{session::Session, Node};
+use dyapp_client::{contact_verification::Generation, session::Session, Node};
 use dyapp_identity::Identity;
-use dyapp_profile::VerifiedProfile;
 
 pub(super) async fn run(
     session: &mut Session,
@@ -29,17 +28,12 @@ impl ChatSession {
         session: &mut Session,
         node: &mut Node,
         nodes: &mut [Node],
-        own: Option<VerifiedProfile>,
+        generation: &Generation,
+        now: u64,
     ) -> Result<u32, CoreError> {
-        let changed = apply_mailbox(
-            session,
-            node,
-            nodes,
-            own,
-            &self.device_key.identity,
-            &self.seal_key,
-        )
-        .await?;
+        let changed = self
+            .apply_mailbox(session, node, nodes, generation, now)
+            .await?;
         let saved = run(session, nodes, &self.key.identity, &self.seal_key).await?;
         changed
             .checked_add(saved)

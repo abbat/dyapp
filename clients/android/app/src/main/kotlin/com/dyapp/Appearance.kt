@@ -15,6 +15,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
@@ -35,13 +36,6 @@ internal enum class ThemeChoice(val label: Int) {
     DARK(R.string.settings_theme_dark),
 }
 
-/** Named by the language tag in lowercase, except [SYSTEM]. */
-internal enum class LanguageChoice(val label: Int) {
-    SYSTEM(R.string.settings_follow_system),
-    EN(R.string.settings_language_en),
-    RU(R.string.settings_language_ru),
-}
-
 // Compose state, so picking a theme recolours the app without a relaunch.
 private val chosenTheme = mutableStateOf(ThemeChoice.SYSTEM)
 
@@ -51,7 +45,7 @@ private var relaunchTarget: StartTarget? = null
 private val Context.appearance get() = getSharedPreferences(APPEARANCE_STORE, Context.MODE_PRIVATE)
 
 private fun Context.savedLanguage() =
-    LanguageChoice.values().find { it.name == appearance.getString(LANGUAGE, null) } ?: LanguageChoice.SYSTEM
+    selectedLanguage(appearance.getString(LANGUAGE, null), packagedLanguages())
 
 /** Reads the saved theme into the state the app colours follow. */
 internal fun Context.loadTheme() {
@@ -69,9 +63,9 @@ internal fun chosenDarkTheme() = when (chosenTheme.value) {
 /** This context in the saved language; following the system leaves it as it is. */
 internal fun Context.inChosenLanguage(): Context {
     val language = savedLanguage()
-    if (language == LanguageChoice.SYSTEM) return this
+    if (language == null) return this
     val config = Configuration(resources.configuration)
-    config.setLocale(Locale.forLanguageTag(language.name.lowercase()))
+    config.setLocale(Locale.forLanguageTag(language))
     return createConfigurationContext(config)
 }
 
@@ -79,8 +73,8 @@ internal fun Context.inChosenLanguage(): Context {
 internal fun takeRelaunchTarget() = relaunchTarget.also { relaunchTarget = null }
 
 // Resources are fixed when the activity attaches, so a new language needs a new activity.
-private fun Activity.pickLanguage(language: LanguageChoice) {
-    appearance.edit { putString(LANGUAGE, language.name) }
+private fun Activity.pickLanguage(language: String?) {
+    appearance.edit { putString(LANGUAGE, language ?: "SYSTEM") }
     relaunchTarget = StartTarget.SETTINGS
     recreate()
 }
@@ -90,7 +84,10 @@ private fun Activity.pickLanguage(language: LanguageChoice) {
 internal fun AppearanceCard() {
     // The view keeps the activity even where a test overrides LocalContext.
     val activity = LocalView.current.context as Activity
-    val language = activity.savedLanguage()
+    val languages = remember(activity) { activity.packagedLanguages() }
+    val language = selectedLanguage(activity.appearance.getString(LANGUAGE, null), languages)
+    val options = listOf(LanguageOption(null, stringResource(R.string.settings_follow_system))) +
+        languages.map { LanguageOption(it, languageName(it)) }
     FormCard {
         CardTitle(R.string.settings_appearance)
         Column(Modifier.selectableGroup().testTag(THEME)) {
@@ -102,14 +99,7 @@ internal fun AppearanceCard() {
                 }
             }
         }
-        Column(Modifier.selectableGroup().testTag(LANGUAGE)) {
-            Text(stringResource(R.string.settings_language))
-            LanguageChoice.values().forEach { choice ->
-                ChoiceRow("language-${choice.name.lowercase()}", choice.label, choice == language) {
-                    if (choice != language) activity.pickLanguage(choice)
-                }
-            }
-        }
+        LanguagePicker(activity, language, options, activity::pickLanguage)
     }
 }
 
@@ -117,7 +107,7 @@ internal fun AppearanceCard() {
 @Composable
 @Suppress("LongParameterList") // A radio row needs its tag, label, both states and the pick.
 internal fun ChoiceRow(tag: String, label: Int, selected: Boolean, enabled: Boolean = true, onPick: () -> Unit) = Row(
-    Modifier.fillMaxWidth().testTag(tag)
+    Modifier.fillMaxWidth().testTag(tag).applicationClick(onPick)
         .selectable(selected, enabled = enabled, role = Role.RadioButton, onClick = onPick)
         .padding(vertical = 8.dp),
     Arrangement.spacedBy(12.dp),

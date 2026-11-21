@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -85,15 +86,11 @@ internal fun ChatMoreMenu(form: ChatForm, history: ChatHistory?, name: ContactNa
 
 /** The open confirmation: clearing is local only, and a block closes the chat; Unblock sits in Settings. */
 @Composable
-internal fun ChatConfirm(form: ChatForm, actions: ChatActions) {
-    ClearOrBlockConfirm(form, actions)
-    if (form.renaming.value != null) RenameDialog(form, actions.onRename)
-    if (form.deleting.value != null) {
-        val cancelDelete = { form.deleting.value = null }
-        Confirm("delete", R.string.delete_title, listOf(R.string.delete_text), R.string.chat_delete, cancelDelete) {
-            actions.onDelete()
-            cancelDelete()
-        }
+internal fun ChatConfirm(form: ChatForm, actions: ChatActions, name: ContactNameView?) {
+    key(form) {
+        ClearOrBlockConfirm(form, actions, name)
+        if (form.renaming.value != null) RenameDialog(form, actions.onRename)
+        ChatDeleteConfirm(form, actions)
     }
 }
 
@@ -143,10 +140,12 @@ internal fun Confirm(
     texts: List<Int>,
     action: Int,
     onCancel: () -> Unit,
+    admitted: () -> Boolean = { true },
     onConfirm: () -> Unit,
 ) {
+    val guarded = rememberConfirmation(admitted, onCancel, onConfirm)
     AlertDialog(
-        onDismissRequest = onCancel,
+        onDismissRequest = guarded.cancel,
         modifier = Modifier.testTag("$tag-dialog"),
         title = { Text(stringResource(title)) },
         text = {
@@ -155,10 +154,10 @@ internal fun Confirm(
             }
         },
         confirmButton = {
-            TextButton(onConfirm, Modifier.testTag("$tag-confirm")) { Text(stringResource(action)) }
+            ConfirmAction("$tag-confirm", action, guarded.enabled, guarded.confirm)
         },
         dismissButton = {
-            TextButton(onCancel, Modifier.testTag("$tag-cancel")) { Text(stringResource(R.string.remove_cancel)) }
+            ConfirmAction("$tag-cancel", R.string.remove_cancel, guarded.enabled, guarded.cancel)
         },
     )
 }

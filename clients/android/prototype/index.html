@@ -65,26 +65,109 @@
   <p class="caption" id="key-store" data-t="storage.android"></p>
   <p class="caption" id="no-backup" data-t="backup.none"></p>
   <div class="grow"></div>
-  <div class="actions"><button type="button" class="btn filled" id="create-identity" data-t="wizard.create"></button></div>
+  <div class="actions"><button type="button" class="btn filled" id="create-identity" data-t="wizard.create"></button>
+    <button type="button" class="btn" id="receive-identity" data-go="receive-network" data-t="wizard.receive"></button></div>
 </main>
 
-<main class="page" data-on="wizard-network">
-  <div class="steps" data-t="wizard.step2"></div>
-  <h1 data-t="wizard.network.title"></h1>
-  <p class="caption"><span data-t="identity.peer"></span>
+<main class="page" data-on="wizard-network receive-network receive-network-ready receive-network-activating receive-network-active">
+  <div class="steps" data-on="wizard-network" data-t="wizard.step2"></div>
+  <h1 data-on="wizard-network" data-t="wizard.network.title"></h1>
+  <h1 data-off="wizard-network" data-t="receive.network_title"></h1>
+  <p data-off="wizard-network" data-t="receive.network_intro"></p>
+  <p class="caption" data-on="wizard-network"><span data-t="identity.peer"></span>
     <code id="peer-id">2efa429a891a14eb7c79d3f55845ff59cfe53f70da52d61e1e0982fb683f9c2a</code></p>
-  <div class="actions"><button type="button" class="btn text" id="copy-peer-id" data-t="action.copy"></button></div>
+  <div class="actions" data-on="wizard-network"><button type="button" class="btn text" id="copy-peer-id" data-t="action.copy"></button></div>
   <div class="field"><label for="network-name" data-t="network.name"></label>
-    <input type="text" id="network-name" data-tp="network.name.public">
+    <input type="text" id="network-name" data-disabled="receive-network-activating" data-tp="network.name.public">
     <p class="caption" data-t="network.name.hint"></p></div>
   <div class="field"><label for="seeds" data-t="network.seeds"></label>
-    <textarea id="seeds">node1.example.org:33445
+    <textarea id="seeds" data-disabled="receive-network-activating">node1.example.org:33445
 [2001:db8::7]:33445</textarea>
     <p class="caption" data-t="network.seeds.hint"></p></div>
   <div class="grow"></div>
   <div class="actions">
-    <button type="button" class="btn filled" id="check-connection" data-t="network.check"></button>
-    <button type="button" class="btn text" id="skip-network" data-t="wizard.skip"></button>
+    <button type="button" class="btn filled" id="check-connection" data-on="wizard-network receive-network" data-t="network.check"></button>
+    <button type="button" class="btn filled" id="activate-receive-network" data-on="receive-network-ready" data-go="receive-network-active" data-t="network.activate"></button>
+    <p role="status" data-on="receive-network-activating" data-t="network.activating"></p>
+    <button type="button" class="btn filled" id="network-done" data-on="receive-network-active" data-go="link-receive-wizard-intro" data-t="network.continue"></button>
+    <button type="button" class="btn text" id="network-save" data-disabled="receive-network-activating" data-t="network.save"></button>
+    <button type="button" class="btn text" id="skip-network" data-on="wizard-network" data-t="wizard.skip"></button>
+    <button type="button" class="btn text" id="cancel-receive-network" data-off="wizard-network" data-go="profile" data-disabled="receive-network-activating" data-t="action.cancel"></button>
+  </div>
+</main>
+
+<!-- Receiving result stays separate from enrollment and publication; fixtures contain no keys. -->
+<main class="page" data-on="link-receive-intro link-receive-starting link-receive-waiting link-receive-receiving link-receive-installing link-receive-cancelled link-receive-expired link-receive-invalidated link-receive-failed-admission link-receive-failed-reservation link-receive-failed-destination link-receive-failed-unconfirmed link-receive-received link-setup-running link-setup-complete link-setup-review link-setup-private-review link-setup-authorization link-setup-revoked link-setup-unlisted link-setup-error link-receive-durability link-receive-wizard-intro link-receive-start-error link-receive-poll-error">
+  <h1 data-t="receive.title"></h1>
+  <div data-on="link-receive-intro link-receive-wizard-intro" class="content" style="padding:0">
+    <p data-on="link-receive-intro" data-t="receive.intro"></p>
+    <p data-on="link-receive-wizard-intro" data-t="receive.wizard_intro"></p>
+    <button type="button" class="btn filled" id="link-receive-start" data-go="link-receive-waiting" data-t="receive.start"></button>
+    <button type="button" class="btn text" id="link-receive-back" data-go="settings-account" data-t="nav.back"></button>
+  </div>
+  <div data-off="link-receive-intro link-receive-wizard-intro" class="content" style="padding:0">
+    <p class="caption" data-t="receive.source"></p>
+    <code id="link-receive-source">2efa429a891a14eb7c79d3f55845ff59cfe53f70da52d61e1e0982fb683f9c2a</code>
+    <p id="link-receive-status" role="status" aria-live="polite">
+      <span data-on="link-receive-start-error link-receive-poll-error" data-t="receive.error"></span>
+      <span data-on="link-receive-starting" data-t="receive.starting"></span>
+      <span data-on="link-receive-waiting" data-t="receive.waiting"></span>
+      <span data-on="link-receive-receiving" data-t="receive.receiving"></span>
+      <span data-on="link-receive-installing" data-t="receive.installing"></span>
+      <span data-on="link-receive-cancelled" data-t="receive.cancelled"></span>
+      <span data-on="link-receive-expired" data-t="receive.expired"></span>
+      <span data-on="link-receive-invalidated" data-t="receive.invalidated"></span>
+      <span data-on="link-receive-failed-admission" data-t="receive.reconcile"></span>
+      <span data-on="link-receive-failed-reservation" data-t="receive.reconcile"></span>
+      <span data-on="link-receive-failed-destination" data-t="receive.reconcile"></span>
+      <span data-on="link-receive-failed-unconfirmed" data-t="receive.reconcile"></span>
+      <span data-on="link-receive-received link-receive-durability" data-t="receive.received"></span>
+      <span data-on="link-setup-running" data-t="setup.running"></span>
+      <span data-on="link-setup-complete" data-t="setup.complete"></span>
+      <span data-on="link-setup-review" data-t="receive.received"></span>
+      <span data-on="link-setup-private-review" data-t="receive.received"></span>
+      <span data-on="link-setup-authorization" data-t="receive.received"></span>
+      <span data-on="link-setup-revoked" data-t="receive.received"></span>
+      <span data-on="link-setup-unlisted" data-t="receive.received"></span>
+      <span data-on="link-setup-error" data-t="receive.received"></span>
+    </p>
+    <div class="progress" role="progressbar" data-on="link-receive-starting link-receive-receiving link-receive-installing link-setup-running" data-ta="receive.receiving"></div>
+    <div data-on="link-receive-waiting link-receive-receiving link-receive-poll-error" class="content" style="padding:0">
+      <div class="receive-qr" id="link-receive-qr" role="img" data-ta="receive.qr"></div>
+      <code id="link-receive-code">dyapp-link:1:9f2c41d07be3a65e18c4f07d2ba96e3150c8d7f4a1e62b90d3f75c18ae406b72:2efa429a891a14eb7c79d3f55845ff59cfe53f70da52d61e1e0982fb683f9c2a:1798765432</code>
+      <button type="button" class="btn text" id="link-receive-copy" data-t="action.copy"></button>
+      <p class="caption" data-t="receive.expiry"></p>
+    </div>
+    <div class="notice error" data-on="link-receive-failed-admission" role="alert" data-t="receive.admission"></div>
+    <div class="notice error" data-on="link-receive-failed-reservation" role="alert" data-t="receive.reservation"></div>
+    <div class="notice error" data-on="link-receive-failed-destination" role="alert" data-t="receive.destination"></div>
+    <div class="notice error" data-on="link-receive-failed-unconfirmed" role="alert" data-t="receive.unconfirmed"></div>
+    <div class="notice error" role="alert" data-on="link-receive-start-error link-receive-poll-error">
+      <p data-t="receive.error"></p>
+      <details><summary data-t="details"></summary><pre id="link-receive-details">native.transport: operation failed; original attempt retained</pre>
+        <button type="button" class="btn text" id="link-receive-copy-details" data-t="action.copy"></button></details>
+    </div>
+    <code id="link-receive-destination" data-on="link-receive-failed-destination">linked-8f406b72</code>
+    <div data-on="link-receive-received link-setup-running link-setup-complete link-setup-review link-setup-private-review link-setup-authorization link-setup-revoked link-setup-unlisted link-setup-error link-receive-durability" class="content" style="padding:0">
+      <code id="link-receive-peer">a3f72c109d84e6b502cf7a491be8d53f60e17c829ba34d650f2a67c9e01b4583</code>
+      <p data-off="link-setup-complete" data-t="receive.pending"></p>
+      <p class="caption" data-t="setup.no_publish"></p>
+      <p class="notice warn" data-on="link-receive-durability" data-t="identity.persistence.notice"></p>
+      <div class="notice error" role="alert" data-on="link-setup-review" data-t="setup.review"></div>
+      <div class="notice error" role="alert" data-on="link-setup-private-review" data-t="setup.private_review"></div>
+      <div class="notice error" role="alert" data-on="link-setup-authorization" data-t="setup.authorization"></div>
+      <div class="notice error" role="alert" data-on="link-setup-revoked" data-t="setup.revoked"></div>
+      <div class="notice error" role="alert" data-on="link-setup-unlisted" data-t="setup.unlisted"></div>
+      <div class="notice error" role="alert" data-on="link-setup-error" data-t="setup.error"></div>
+      <button type="button" class="btn filled" id="link-setup-finish" data-on="link-receive-received link-receive-durability link-setup-error" data-go="link-setup-running" data-t="setup.finish"></button>
+      <button type="button" class="btn" id="link-receive-open" data-go="profile" data-disabled="link-setup-running" data-t="receive.open"></button>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn text" id="link-receive-cancel" data-on="link-receive-starting link-receive-waiting link-receive-receiving link-receive-expired link-receive-start-error link-receive-poll-error" data-go="link-receive-cancelled" data-t="receive.cancel"></button>
+      <button type="button" class="btn text" id="link-receive-review" data-go="settings-identities-screen" data-disabled="link-receive-starting link-receive-receiving link-receive-installing link-setup-running" data-t="receive.review"></button>
+      <p class="caption" data-t="receive.disposition"></p>
+      <button type="button" class="btn text" id="link-receive-dismiss" data-go="settings-account" data-disabled="link-receive-starting link-receive-receiving link-receive-installing link-setup-running" data-t="receive.dismiss"></button>
+    </div>
   </div>
 </main>
 
@@ -123,8 +206,8 @@
 
 <!-- App shell: every screen after first run. Detail screens (a found profile, a chat, the app
      lock settings) bring their own back bar and hide the navigation bar. -->
-<div class="app" data-on="profile profile-hidden profile-goal-dialog publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error profile-view profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog settings settings-language-dialog switcher remove-dialog remove-offline lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed">
-  <header class="appbar" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-language-dialog remove-dialog remove-offline">
+<div class="app" data-on="profile profile-hidden profile-goal-dialog publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error profile-view profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu settings settings-language-dialog switcher remove-dialog remove-offline lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed">
+  <header class="appbar" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-language-dialog remove-dialog remove-offline">
     <span class="title"><span data-on="profile profile-hidden profile-goal-dialog publish-dialog publish-progress switcher" data-t="nav.profile"></span>
       <span data-on="search search-loading search-empty search-error" data-t="nav.search"></span>
       <span data-on="chats" data-t="nav.chats"></span>
@@ -329,16 +412,16 @@ search providers asked: 0 of 3</pre>
     </section>
 
     <!-- Chat: one conversation; the first message to a non-match, an incoming request. -->
-    <section id="chat" class="chat" data-on="chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog">
+    <section id="chat" class="chat" data-on="chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu">
       <div class="backbar">
         <button type="button" class="icon-btn" id="chat-back" data-ta="nav.chats"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button>
         <!-- The peer itself opens the profile. -->
         <button type="button" class="list-item peer" id="chat-profile" data-peer-id="a3f72c109d84e6b502cf7a491be8d53f60e17c829ba34d650f2a67c9e01b4583">
-          <span class="avatar photo p2" aria-hidden="true" data-on="chat chat-closed chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog"></span>
+          <span class="avatar photo p2" aria-hidden="true" data-on="chat chat-closed chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu"></span>
           <span class="avatar photo p3" aria-hidden="true" data-on="chat-first"></span>
           <span class="avatar photo p4" aria-hidden="true" data-on="chat-request"></span>
-          <span class="grow"><b class="ellipsis" data-on="chat chat-closed chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog" data-t="view.name"></b><code data-on="chat-first">@b8e0f3</code><code data-on="chat-request">@5d2a91</code>
-            <span class="caption ellipsis" id="chat-presence" data-on="chat chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog" data-t="chat.active"></span></span></button>
+          <span class="grow"><b class="ellipsis" data-on="chat chat-closed chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu" data-t="view.name"></b><code data-on="chat-first">@b8e0f3</code><code data-on="chat-request">@5d2a91</code>
+            <span class="caption ellipsis" id="chat-presence" data-on="chat chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu" data-t="chat.active"></span></span></button>
         <button type="button" class="icon-btn" id="chat-more" aria-haspopup="menu" data-ta="chat.more"><svg aria-hidden="true" class="icon"><use href="#i-more"/></svg></button>
         <div class="menu" id="chat-menu" role="menu" data-on="chat-menu">
           <button type="button" role="menuitem" id="chat-rename" data-t="chat.rename"></button>
@@ -354,16 +437,17 @@ search providers asked: 0 of 3</pre>
       <div class="thread" id="chat-thread">
         <span class="day caption" data-off="chat-cleared" data-t="chat.today"></span>
         <p class="caption day" id="chat-cleared-note" data-on="chat-cleared" data-t="chat.cleared"></p>
-        <div class="msg out" data-on="chat chat-closed chat-menu chat-clear-dialog chat-rename-dialog delete-dialog"><span data-t="chat.m1"></span><span class="meta">14:05</span></div>
-        <div class="msg in" data-on="chat chat-closed chat-menu chat-clear-dialog chat-rename-dialog delete-dialog"><span data-t="chat.m2"></span><span class="meta">14:11</span></div>
-        <div class="msg in deleted" data-on="chat chat-closed chat-menu chat-clear-dialog chat-rename-dialog delete-dialog"><span data-t="chat.deleted"></span></div>
-        <!-- A long press on an own message offers Edit and Delete. -->
-        <div class="msg out" data-on="chat chat-closed chat-menu chat-clear-dialog chat-rename-dialog delete-dialog"><span data-t="chat.m3"></span><span class="meta"><span data-t="chat.edited"></span> · 14:20 · <span data-t="chat.delivered"></span></span>
-          <span class="msg-menu" id="msg-menu" data-off="chat-closed"><button type="button" class="btn text" data-t="chat.edit"></button><button type="button" class="btn text" id="msg-delete" data-t="chat.delete"></button></span></div>
-        <div class="msg in" data-on="chat chat-closed chat-menu chat-clear-dialog chat-rename-dialog delete-dialog"><span data-t="chat.m4"></span><span class="meta">14:32</span></div>
-        <span class="caption" id="chat-typing" data-on="chat chat-menu chat-clear-dialog chat-rename-dialog delete-dialog" data-t="chat.typing"></span>
+        <div class="msg out" data-on="chat chat-closed chat-menu chat-clear-dialog chat-rename-dialog delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-received-menu"><span data-t="chat.m1"></span><span class="meta">14:05</span></div>
+        <div class="msg in" data-on="chat chat-closed chat-menu chat-clear-dialog chat-rename-dialog delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-received-menu"><span data-t="chat.m2"></span><span class="meta">14:11</span><button type="button" class="btn text" id="received-actions" data-go="chat-forward-received-menu" data-off="chat-closed" data-t="forward.actions"></button><span id="forward-received-menu"></span></div>
+        <div class="msg in deleted" data-on="chat chat-closed chat-menu chat-clear-dialog chat-rename-dialog delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-received-menu"><span data-t="chat.deleted"></span></div>
+        <!-- Own live text offers Edit, Delete and Forward; received text offers Forward. -->
+        <div class="msg out" data-on="chat chat-closed chat-menu chat-clear-dialog chat-rename-dialog delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-received-menu"><span data-t="chat.m3"></span><span class="meta"><span data-t="chat.edited"></span> · 14:20 · <span data-t="chat.delivered"></span></span>
+          <span class="msg-menu" id="msg-menu" data-off="chat-closed"><button type="button" class="btn text" id="msg-edit" data-t="chat.edit"></button><button type="button" class="btn text" id="msg-delete" data-t="chat.delete"></button><button type="button" class="btn text" id="msg-forward" data-t="forward.action"></button></span></div>
+        <div class="msg in" data-on="chat chat-closed chat-menu chat-clear-dialog chat-rename-dialog delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-received-menu"><span data-t="chat.m4"></span><span class="meta">14:32</span></div>
+        <span class="caption" id="chat-typing" data-on="chat chat-menu chat-clear-dialog chat-rename-dialog delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-received-menu" data-t="chat.typing"></span>
         <div class="msg out" data-on="chat-first"><span data-t="chat.first.m1"></span><span class="meta">18:47 · <span data-t="chat.sent"></span></span></div>
         <div class="msg in" data-on="chat-request"><span data-t="chat.request.m1"></span><span class="meta">9:41</span></div>
+        <div class="msg out" data-on="chat-forward-sent chat-forward-queued"><span id="chat-forward-body"></span><span class="meta" data-on="chat-forward-sent" data-t="chat.sent"></span><span class="meta" data-on="chat-forward-queued" data-t="forward.queued"></span></div>
       </div>
       <p class="caption" style="padding:0 16px" data-on="chat-first" data-t="chat.first.wait"></p>
       <div class="composer">
@@ -447,6 +531,7 @@ search providers asked: 0 of 3</pre>
       <div class="backbar"><button type="button" class="icon-btn" data-go="settings" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button><h1 class="title" data-t="settings.account"></h1></div>
       <div class="settings-hub">
 <a class="btn" href="#settings-identities-screen" data-settings-open="identities"><span data-t="settings.identities">Identities</span> <span class="settings-count"></span></a>
+<a class="btn" id="settings-receive" href="#link-receive-intro"><span data-t="receive.title">Receive a profile</span></a>
 </div>
     </section>
     <section id="settings-about" class="content" style="padding:0" data-on="settings-about">
@@ -530,7 +615,7 @@ search providers asked: 0 of 3</pre>
     </section>
   </main>
 
-  <nav class="navbar" aria-label="Main" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-language-dialog remove-dialog remove-offline">
+  <nav class="navbar" aria-label="Main" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-language-dialog remove-dialog remove-offline">
     <button type="button" class="nav-item" id="nav-profile" data-current="profile profile-hidden profile-goal-dialog publish-dialog publish-progress switcher">
       <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-profile"/></svg></span><span data-t="nav.profile"></span></button>
     <button type="button" class="nav-item" id="nav-search" data-current="search search-loading search-empty search-error">
@@ -554,6 +639,45 @@ search providers asked: 0 of 3</pre>
         <span class="grow"><code>@7a2e5b</code><span class="caption" data-t="storage.kind.system"></span></span></button>
       <button type="button" class="list-item" id="add-identity-menu"><span class="avatar" aria-hidden="true"><svg aria-hidden="true" class="icon"><use href="#i-plus"/></svg></span>
         <span class="grow" data-t="identity.add"></span></button>
+    </div>
+  </div>
+
+  <!-- Static forward fixtures share the bounded collection renderer, never the native backend. -->
+  <div class="scrim" data-on="chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending">
+    <div class="dialog" id="chat-forward-dialog" role="dialog" aria-modal="true" aria-labelledby="chat-forward-title">
+      <h2 id="chat-forward-title" data-t="forward.title"></h2>
+      <p role="status" data-on="chat-forward-loading" data-t="forward.loading"></p>
+      <p role="status" data-on="chat-forward-pending" data-t="forward.sending"></p>
+      <p id="forward-no-targets" data-on="chat-forward-empty" data-t="forward.empty"></p>
+      <p id="forward-failed" role="alert" data-on="chat-forward-error" data-t="forward.readFailed"></p>
+      <p role="alert" data-on="chat-forward-send-error" data-t="forward.sendFailed"></p>
+      <div data-on="chat-forward-dialog chat-forward-send-error">
+        <p><b id="chat-forward-selected-name"></b><br><code id="chat-forward-selected-peer"></code></p>
+        <div class="field"><label for="chat-forward-query" data-t="settings.collection.search"></label><input id="chat-forward-query" type="search"></div>
+        <table><tbody id="chat-forward-list"></tbody></table>
+        <p id="chat-forward-count" class="caption" role="status"></p>
+        <div class="actions">
+          <button type="button" class="btn" id="chat-forward-previous" data-t="settings.collection.previous"></button>
+          <button type="button" class="btn" id="chat-forward-next" data-t="settings.collection.next"></button>
+          <button type="button" class="btn" id="chat-forward-refresh" data-t="settings.collection.refresh"></button>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn" id="chat-forward-retry" data-on="chat-forward-error" data-t="action.retry"></button>
+        <button type="button" class="btn" id="chat-forward-cancel" data-t="action.cancel"></button>
+        <button type="button" class="btn primary" id="chat-forward-confirm" data-t="forward.action"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- A committed result is acknowledged; no storage operation is repeated. -->
+  <div class="scrim" data-on="identity-durability-dialog">
+    <div class="dialog" id="identity-durability-dialog" role="dialog" aria-modal="true" aria-labelledby="identity-durability-title">
+      <h2 id="identity-durability-title" data-t="identity.persistence.title"></h2>
+      <p id="identity-durability-notice" aria-live="polite" data-t="identity.persistence.notice"></p>
+      <div class="actions">
+        <button type="button" class="btn text" id="identity-durability-ack" data-go="profile" data-t="identity.persistence.ack"></button>
+      </div>
     </div>
   </div>
 
@@ -603,7 +727,7 @@ search providers asked: 0 of 3</pre>
     </div>
   </div>
 
-  <!-- Rename dialog: a name only this device shows; empty removes it. -->
+  <!-- Rename dialog: a private name shared with this identity's own devices; empty removes it. -->
   <div class="scrim" data-on="chat-rename-dialog">
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="rename-title">
       <h2 id="rename-title" data-t="chat.rename"></h2>
@@ -677,7 +801,8 @@ const query = new URLSearchParams(location.search);
 const screen = location.hash.slice(1) || 'profile';
 const lang = query.get('lang') === 'ru' ? 'ru' : 'en';
 const t = STRINGS[lang];
-const has = (el, name) => el.dataset[name].split(' ').includes(screen);
+const shown = screen === 'identity-durability-dialog' ? 'profile' : screen;
+const has = (el, name) => el.dataset[name].split(' ').some((state) => state === screen || state === shown);
 document.documentElement.lang = lang;
 document.documentElement.dataset.screen = screen;
 document.documentElement.dataset.theme = query.get('theme') === 'dark' ? 'dark' : 'light';
@@ -693,6 +818,10 @@ for (const el of document.querySelectorAll('[data-ta]')) el.setAttribute('aria-l
 for (const el of document.querySelectorAll('[data-tp]')) el.placeholder = t[el.dataset.tp];
 for (const control of document.querySelectorAll('[role="switch"]'))
   control.addEventListener('change', () => control.setAttribute('aria-checked', String(control.checked)));
+if (screen === 'receive-network')
+  document.getElementById('check-connection').dataset.go = 'receive-network-ready';
+if (screen === 'link-receive-wizard-intro')
+  document.getElementById('link-receive-back').dataset.go = 'profile';
 for (const control of document.querySelectorAll('[data-go]'))
   control.addEventListener('click', () => { location.hash = control.dataset.go; });
 window.addEventListener('hashchange', () => location.reload());
@@ -702,6 +831,7 @@ document.title = `${t['app.name']} — ${screen}`;
 import { installIdentifiers } from '../../desktop/ui/identifiers.js';
 import { enhanceChoice } from '../../desktop/ui/profile-choice.js';
 import { installCollections } from '../../desktop/prototype/collection-fixture.js';
+import { installForwardFixture, forwardScreens } from '../../desktop/prototype/forward-fixture.js';
 const contact = document.getElementById('chat-profile');
 const contactName = contact?.querySelector('.grow > b');
 const targetName = document.getElementById('chat-clear-name');
@@ -712,6 +842,7 @@ targetName.textContent = contactName.textContent;
 targetPeer.textContent = contact.dataset.peerId;
 installIdentifiers(t);
 installCollections(t, ['identities', 'blocked', 'passed']);
+if (screen.startsWith('chat') || forwardScreens.includes(screen)) installForwardFixture(t, screen);
 enhanceChoice(
   document.querySelector('select[data-choice-picker]'),
   document.querySelector('label[for="profile-goal"]'),
