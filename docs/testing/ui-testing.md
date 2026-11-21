@@ -62,7 +62,11 @@ shell hosts Settings → Photos and a common manager route with per-opening pick
 `SavedStickerManagerHostTests` drives the real OpenDocument registry contract, Android file-stream
 reading and native byte-budget export with controlled results: old/new openings have separate
 request codes, and only the current file bytes may reach the save adapter. It also checks retired
-identity navigation. Native TAR validation/storage and full rendered acceptance remain separate CI proof.
+identity navigation. `SavedStickerGeometryTests` reuses the actual manager fixture in the production
+theme, with long literal Ready names and unreadable entries at EN/RU normal/doubled text scale.
+It scrolls full explanatory text and the selectable complete PackID, checks current dialog-relative
+action geometry, and requires Cancel to preserve the selected pack with zero remove calls.
+Native TAR validation/storage and actual rendered/device execution remain separate CI proof.
 
 Android `PickedInputTests` checks empty/exact limits, fragmented provider reads, partial-read
 failure propagation and oversized input rejection after at most one extra byte. The OS reader

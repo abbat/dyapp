@@ -22,6 +22,7 @@ internal fun SavedStickerRemoveDialog(
 ) {
     AlertDialog(
         onDismissRequest = state::cancelRemove,
+        modifier = Modifier.testTag("saved-sticker-remove-dialog"),
         title = { Text(stringResource(R.string.sticker_manager_remove_title)) },
         text = { SavedStickerRemoveBody(entry) },
         confirmButton = {

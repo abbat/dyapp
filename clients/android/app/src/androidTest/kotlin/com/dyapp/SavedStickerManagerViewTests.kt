@@ -1,7 +1,14 @@
 package com.dyapp
 
-import androidx.compose.material3.MaterialTheme
+import android.content.Context
+import android.content.res.Configuration
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
@@ -10,6 +17,9 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.Density
+import androidx.test.platform.app.InstrumentationRegistry
+import com.dyapp.ui.theme.DYAppTheme
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -20,6 +30,7 @@ import org.junit.Test
 import uniffi.dyapp.SavedStickerPackEntry
 import uniffi.dyapp.SavedStickerPackPage
 import uniffi.dyapp.SavedStickerPackState
+import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
@@ -69,7 +80,9 @@ class SavedStickerManagerViewTests {
     }
 }
 
-private class SavedStickerViewFixture(private val paged: Boolean = false) {
+internal class SavedStickerViewFixture(private val paged: Boolean = false) {
+    val scale = mutableStateOf(1f)
+    val name = "Saved pack <plain text> & long name ".repeat(4)
     private val first = entry(1)
     val second = entry(2)
     val removals = AtomicInteger()
@@ -100,23 +113,48 @@ private class SavedStickerViewFixture(private val paged: Boolean = false) {
     private fun entry(last: Byte) = SavedStickerPackEntry(
         ByteArray(32).also { it[it.lastIndex] = last },
         19uL,
-        SavedStickerPackState.Unreadable("not a display label")
+        if (last == 1.toByte()) {
+            SavedStickerPackState.Ready(name, 1u)
+        } else {
+            SavedStickerPackState.Unreadable("not a display label")
+        }
     )
 
-    fun show(compose: ComposeContentTestRule) {
-        compose.setContent {
-            val scope = rememberCoroutineScope()
-            val actions = SavedStickerActions(
-                pick = {},
-                navigate = { after, shown ->
-                    scope.launch(start = CoroutineStart.UNDISPATCHED) { state.refresh(calls, after, shown) }
-                },
-                confirm = { shown ->
-                    scope.launch(start = CoroutineStart.UNDISPATCHED) { state.confirmRemove(calls, shown) }
-                },
-                close = {}
-            )
-            MaterialTheme { SavedStickerManagerView(state, actions) }
+    fun show(compose: ComposeContentTestRule, language: String = "en"): Context {
+        val base = InstrumentationRegistry.getInstrumentation().targetContext
+        val configuration = Configuration(base.resources.configuration).apply {
+            setLocale(Locale.forLanguageTag(language))
         }
+        val context = base.createConfigurationContext(configuration)
+        compose.setContent { Content(context, configuration) }
+        return context
+    }
+
+    @Composable
+    private fun Content(context: Context, configuration: Configuration) {
+        val density = LocalDensity.current
+        CompositionLocalProvider(
+            LocalContext provides context,
+            LocalConfiguration provides configuration,
+            LocalDensity provides Density(density.density, scale.value)
+        ) {
+            Manager()
+        }
+    }
+
+    @Composable
+    private fun Manager() {
+        val scope = rememberCoroutineScope()
+        val actions = SavedStickerActions(
+            pick = {},
+            navigate = { after, shown ->
+                scope.launch(start = CoroutineStart.UNDISPATCHED) { state.refresh(calls, after, shown) }
+            },
+            confirm = { shown ->
+                scope.launch(start = CoroutineStart.UNDISPATCHED) { state.confirmRemove(calls, shown) }
+            },
+            close = {}
+        )
+        DYAppTheme { SavedStickerManagerView(state, actions) }
     }
 }
