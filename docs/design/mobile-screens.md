@@ -260,7 +260,11 @@ The IDs inside each section are the desktop ones; only the frame differs.
   unconfirmed partial completion and acknowledged completion. The current device is first and
   cannot be disconnected here. Retry retains the displayed original target; copied-key and
   local-copy warnings remain. Search and paging use the existing prototype collection component.
-  Native screen routing/widgets remain planned; the retained native presentation worker exists.
+  Native Account → Devices routing and widgets now use the retained IO presentation worker and
+  common device snapshot. Local collection search/count/page bounds remain in Rust. The confirmation
+  names the immutable original key before its consequences; admitted work disables Cancel/Back.
+  Acknowledged revoke and subsequent cache-read failure remain separate visible results. Generated
+  bindings, real JNI and full native EN/RU visual acceptance still require CI.
 - Account links to `settings-identities-screen`. Its `settings-identities` list preserves
   `settings-remove`, `settings-remove-2` and `settings-create`. Blocked and passed have
   `blocked-list` and `passed-list` in the `blocked` and `passed` cards:

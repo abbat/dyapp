@@ -84,7 +84,12 @@ private fun IdentityContent(shown: Shown, slots: Slots, navigation: IdentityNavi
                 { navigation.leaveReceiving(receiving) { Opened.Picker } }
             )
         )
-        opened is Opened.Ready -> AppShell(slots, opened, navigation.editor, lockMode, navigation::act, open)
+        opened is Opened.Ready -> AppShell(
+            slots,
+            opened,
+            navigation.editor,
+            ShellControls(lockMode, navigation::act, open)
+        )
         opened == Opened.Setup -> WizardIdentity(
             onReceive = { navigation.createFromSetup(shown, slots::create, receive = true) },
             onCreate = { navigation.createFromSetup(shown, slots::create, receive = false) }

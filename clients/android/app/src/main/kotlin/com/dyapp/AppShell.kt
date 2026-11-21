@@ -43,6 +43,15 @@ import kotlinx.coroutines.withContext
 import uniffi.dyapp.FoundProfile
 import uniffi.dyapp.NetworkFile
 
+private class ShellContext(
+    val slots: Slots,
+    val opened: Opened.Ready,
+    val section: StartTarget?,
+    val controls: ShellControls
+)
+
+private class ShellChatActions(val open: (String) -> Unit, val found: (FoundProfile) -> Unit)
+
 /** A bottom bar section: its target, test tag, label and icon. */
 private class Section(val target: StartTarget, val tag: String, val label: Int, val icon: Int)
 
@@ -57,19 +66,16 @@ private val sections = listOf(
 /**
  * The first-run network wizard while it applies, otherwise the ready identity's frame: a top bar
  * with the section title (`app-ready`), the active network and the identity avatar, the [section]
- * content and the bottom navigation bar. [open] switches
- * sections and opens the lock screen; [act] changes the active identity.
+ * content and the bottom navigation bar. [controls] routes sections, lock and identity changes.
  */
 @Composable
-@Suppress("LongParameterList") // Sections and identity actions both route through the shell.
 internal fun AppShell(
     slots: Slots,
     opened: Opened.Ready,
     section: StartTarget?,
-    lockMode: LockMode,
-    act: (() -> Opened) -> Unit,
-    open: (StartTarget?) -> Unit,
+    controls: ShellControls,
 ) {
+    val context = ShellContext(slots, opened, section, controls)
     if (showNetworkWizard(opened, section)) return
     // Above the chat branch: the mailbox poll goes on while a chat is open.
     val feed = rememberChatFeed(opened)
@@ -82,28 +88,20 @@ internal fun AppShell(
         LocalActiveChatPeers provides feed.presence.peers
     ) {
         SavedStickerManagerHost(opened, remember(opened) { savedStickerCalls(opened) }) {
-            ShellRoutes(slots, opened, section, lockMode, act, open, feed, search)
+            ShellRoutes(context, feed, search)
         }
     }
 }
 
 // Profile pages over chats over the sections, each with the peer photos of the identity's searcher.
 @Composable
-@Suppress("LongParameterList") // The routes pass the shell's state on to the page shown.
-private fun ShellRoutes(
-    slots: Slots,
-    opened: Opened.Ready,
-    section: StartTarget?,
-    lockMode: LockMode,
-    act: (() -> Opened) -> Unit,
-    open: (StartTarget?) -> Unit,
-    feed: ChatFeed,
-    search: SearchSession,
-) {
+private fun ShellRoutes(context: ShellContext, feed: ChatFeed, search: SearchSession) {
+    val opened = context.opened
+    val open = context.controls.open
     val peers = rememberShellPeers(opened.slot.id)
     val chat = peers.chat
     if (peers.viewed != null) {
-        peers.Profile(opened, section, feed, open)
+        peers.Profile(opened, context.section, feed, open)
     } else if (chat != null) {
         CompositionLocalProvider(
             LocalSharedProfile provides { peer ->
@@ -120,48 +118,44 @@ private fun ShellRoutes(
             feed.lists.blocked = null
             peers.chat = peer
         }
-        ShellFrame(slots, opened, section, lockMode, act, open, feed, openChat, peers::show) {
+        ShellFrame(context, feed, ShellChatActions(openChat, peers::show)) {
             SearchScreen(search, { open(StartTarget.NETWORK) }, peers::show, peers::showSaved)
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-@Suppress("LongParameterList") // The frame routes the shell's sections and identity actions.
 private fun ShellFrame(
-    slots: Slots,
-    opened: Opened.Ready,
-    section: StartTarget?,
-    lockMode: LockMode,
-    act: (() -> Opened) -> Unit,
-    open: (StartTarget?) -> Unit,
+    context: ShellContext,
     feed: ChatFeed,
-    openChat: (String) -> Unit,
-    openFound: (FoundProfile) -> Unit,
+    chat: ShellChatActions,
     search: @Composable () -> Unit,
 ) {
     var switcher by remember { mutableStateOf(false) }
-    val current = sections.firstOrNull { it.target == section } ?: sections.first()
+    val current = sections.firstOrNull { it.target == context.section } ?: sections.first()
     val detail = current.target == StartTarget.SETTINGS && LocalSettingsPane.current?.value != SettingsPane.ROOT
     Scaffold(
-        topBar = { if (!detail) ShellTopBar(opened, current, open) { switcher = true } },
-        bottomBar = { if (!detail) ShellNavigationBar(current, chatsBadge(feed.rows), open) },
+        topBar = { if (!detail) ShellTopBar(context.opened, current, context.controls.open) { switcher = true } },
+        bottomBar = { if (!detail) ShellNavigationBar(current, chatsBadge(feed.rows), context.controls.open) },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             if (current.target == StartTarget.CHATS) {
-                ChatsScreen(feed, openChat, openFound)
+                ChatsScreen(feed, chat.open, chat.found)
             } else {
-                SectionContent(slots, opened, current.target, lockMode, act, open, search)
+                SectionContent(context, current.target, search)
             }
         }
     }
-    if (switcher) {
-        ModalBottomSheet(onDismissRequest = { switcher = false }, Modifier.testTag("identity-menu")) {
-            IdentityMenu(slots, opened) { action ->
-                switcher = false
-                act(action)
-            }
+    if (switcher) ShellIdentitySheet(context) { switcher = false }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ShellIdentitySheet(context: ShellContext, dismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = dismiss, Modifier.testTag("identity-menu")) {
+        IdentityMenu(context.slots, context.opened) { action ->
+            dismiss()
+            context.controls.act(action)
         }
     }
 }
@@ -208,20 +202,18 @@ private fun ShellNavigationBar(current: Section, chatsBadge: ULong, open: (Start
 }
 
 @Composable
-@Suppress("LongParameterList") // Settings needs both identity actions and section routing.
-private fun SectionContent(
-    slots: Slots,
-    opened: Opened.Ready,
-    target: StartTarget,
-    lockMode: LockMode,
-    act: (() -> Opened) -> Unit,
-    open: (StartTarget?) -> Unit,
-    search: @Composable () -> Unit,
-) {
+private fun SectionContent(context: ShellContext, target: StartTarget, search: @Composable () -> Unit) {
+    val opened = context.opened
+    val controls = context.controls
     when (target) {
         StartTarget.SEARCH -> search()
         StartTarget.NETWORK -> NetworkDraftScreen(opened, null)
-        StartTarget.SETTINGS -> IdentitySettingsScreen(slots, opened, lockMode, act) { open(StartTarget.LOCK) }
+        StartTarget.SETTINGS -> IdentitySettingsScreen(
+            context.slots,
+            opened,
+            controls.lockMode,
+            IdentitySettingsActions(controls.act) { controls.open(StartTarget.LOCK) }
+        )
         else -> Column {
             Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp)) {
                 Text(stringResource(R.string.storage_peer_id), style = MaterialTheme.typography.labelMedium)

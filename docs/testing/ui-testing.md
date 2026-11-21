@@ -1184,7 +1184,12 @@ controlled native-shaped completions. They retain original public targets across
 reject stale/forged confirmation openings, retire a view during an admitted call, cancel its UI waiter
 and require exactly-once close after completion. A successor view remains unchanged. Partial write
 failure, acknowledged success and later cached-read failure remain distinct, without automatic retry.
-These controlled cases do not prove the planned device screen or its real network authorization.
+`DeviceDirectoryUITests` additionally drives the actual Compose controls around controlled native-shaped
+calls and the real common collection pager. It checks the immutable displayed target, no current-row
+Disconnect, partial-failure Retry, acknowledged success alongside cache failure and an old dialog
+callback after an equal successor screen replaces its owner. Native writes are held by explicit
+completion gates; observer deadlines reset per transition, and row clicks use current scroll geometry.
+These controlled cases do not prove real network authorization or full native visual acceptance.
 `NativePrivateContactTests` separately invokes the actual JNI favorite/note APIs without a profile
 fetch or counterpart mailbox. It reopens native storage, checks identity isolation and exact Unicode
 text, and requires private-only mutations to leave public draft, likes and chat state unchanged.

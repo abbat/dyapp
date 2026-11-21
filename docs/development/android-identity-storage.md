@@ -214,16 +214,20 @@ Actual binding/runtime and full screen acceptance remain required.
 Invitation expiry formatting observes
 Compose's current configuration locale, so a language change invalidates the displayed date.
 
-`DeviceDirectorySession` provides the device screen's presentation worker; the screen route remains
-planned. It freezes public target bytes from the common snapshot and uses reference-identity
+Account → Devices uses `DeviceDirectorySession` as its presentation worker, with one session per
+actual opened identity/view. Cached rows appear before a live refresh; query/count/page bounds use
+`LocalCollectionView` and the common core. The worker freezes public target bytes from the common snapshot and uses reference-identity
 confirmation openings. Refresh invalidates old confirmations. Native read/revoke calls run on its
 independent IO scope; retiring a view rejects further callbacks and closes the handle only after an
 admitted call and its cached reconciliation finish. A cancelled UI waiter cannot cancel that call.
 The actual revoke result stays separate from a later cache-read failure and remains attached to its
-original target. Neither a missing row nor read freshness creates revocation authority. The planned
-screen must describe a failed revoke as unconfirmed, possibly partial completion: mailbox closure
-can precede a later error. It must never promise the device stayed connected or that changes rolled
-back; retry remains a new explicit action for the original target.
+original target. Neither a missing row nor read freshness creates revocation authority. The screen
+describes a failed revoke as unconfirmed, possibly partial completion: mailbox closure can precede
+a later error. It never promises the device stayed connected or that changes rolled back; retry
+remains a new explicit action for the original target. The current row has no Disconnect action.
+The scrollable dialog names the raw key before consequences and disables Cancel/Back while the
+worker owns a revoke. Displayed key groups preserve the raw semantics and explicit copy payload.
+The Account row counts only the saved directory and never performs a network refresh.
 
 Root identity actions run on IO. The existing route shows loading until completion, rejects
 duplicate actions and never publishes a cancelled screen owner's late result. Its completed revision
