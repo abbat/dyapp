@@ -52,6 +52,14 @@ or **Nobody** for this identity on this device. Nobody stops new signals; alread
 remain for up to two hours. Received activity remains visible. Enabling takes effect on the next
 foreground opening. Failed settings reads or saves require retry before another change.
 
+Long-press a live text, your own or received, and choose **Forward**. Pick another open chat;
+search and page controls keep the list bounded, and the chosen complete Peer ID stays visible.
+Confirm **Forward**, or Cancel without sending. Photos, stickers and deleted texts cannot be
+forwarded. A successful or locally queued forward opens the destination chat; its message status
+distinguishes pending delivery from node acceptance. It never claims the peer has read it. A refusal
+keeps retry available and does not consume your composer draft. Sent and received forwards carry
+the Forwarded marker and show the forwarding person as sender, without an original-author claim.
+
 Sticker history shows the first image frame with its original proportions and an accessible
 emoji/pack label. Automatic image loading follows the shared download policy. **Load sticker image**
 requests it explicitly; unavailable images and retryable errors are distinguished. **Settings → Photos → Saved sticker packs** opens the collection. Import a TAR explicitly,

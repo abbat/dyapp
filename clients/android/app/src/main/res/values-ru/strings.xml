@@ -121,6 +121,11 @@
     <string name="chat_delete_queued">Удалено здесь. Просьба собеседнику ещё не доставлена.</string>
     <string name="delete_title">Удалить сообщение?</string>
     <string name="delete_text">Оно исчезнет здесь, а приложение собеседника получит просьбу удалить его. Копия, сохранённая где-то ещё, может остаться.</string>
+    <string name="chat_forward">Переслать</string>
+    <string name="chat_forward_title">Переслать сообщение</string>
+    <string name="chat_forward_empty">Других открытых переписок нет.</string>
+    <string name="chat_forward_load_failed">Не удалось проверить исходное сообщение или переписки для пересылки.</string>
+    <string name="chat_forward_failed">Не удалось переслать сообщение.</string>
     <string name="clear_title">Очистить переписку?</string>
     <string name="clear_text">Сообщения и сохранённые оригиналы будут удалены только с этого устройства. У собеседника останется его копия.</string>
     <string name="clear_pending">Неотправленные сообщения и ожидающие запросы наборов стикеров отменяются. Сохранённые наборы остаются.</string>

@@ -289,11 +289,17 @@ creates a new confirmation opening. Both controls disable while admission is una
 callback cannot cancel a replacement dialog or reuse its action. Native actions retain all existing
 validation and leases, and Delete captures the selected message before clearing its presentation.
 
-Android text-forward delivery is in progress. The native layer now provides validated destination
-IDs; the presentation state keeps only the exact source opening, selected offered ID, busy/error
-state and typed committed result. Accepted and queued results are terminal for that opening;
-retired/cancelled UI cannot navigate on a late result. The message action, bounded destination picker
-and actual native/UI runtime acceptance remain planned until their integration is delivered.
+Native Android text forwarding offers Forward on own and received live text, matching desktop;
+deleted texts, photos and stickers do not gain this action. The native layer projects validated
+other open destinations. The scrollable dialog uses the core-backed collection search/pages and
+keeps the chosen label and complete Peer ID visible independently of the current page. Forward
+requires explicit confirmation; Cancel before submission stages nothing. Controls wait during
+read/send work; errors offer read refresh or explicit send retry. Accepted and queued results are
+terminal for that opening and navigate to the destination, whose persisted delivery state remains
+the authority for pending/node-accepted feedback. Draft/edit state is not consumed by forwarding.
+The scope belongs to the actual identity opening and source chat; retired callbacks/completions
+cannot navigate in a replacement. Prototype states and actual JNI/UI runtime acceptance remain
+required before release.
 
 Android screens may be reviewed and implemented individually against the frozen criteria and the
 corresponding desktop behavior. The complete prototype review and per-client impact review remain

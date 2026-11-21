@@ -122,6 +122,11 @@
     <string name="chat_delete_queued">Deleted here. The request to the peer is pending.</string>
     <string name="delete_title">Delete this message?</string>
     <string name="delete_text">It disappears here, and the peer\'s app is asked to delete it too. A copy saved elsewhere may stay.</string>
+    <string name="chat_forward">Forward</string>
+    <string name="chat_forward_title">Forward message</string>
+    <string name="chat_forward_empty">No other open chats are available.</string>
+    <string name="chat_forward_load_failed">The source message or destination chats could not be verified.</string>
+    <string name="chat_forward_failed">The message could not be forwarded.</string>
     <string name="clear_title">Clear this chat?</string>
     <string name="clear_text">Messages and their kept originals will be removed from this device only. The other person keeps their copy.</string>
     <string name="clear_pending">Unsent messages and pending sticker-pack requests are cancelled. Saved packs stay.</string>

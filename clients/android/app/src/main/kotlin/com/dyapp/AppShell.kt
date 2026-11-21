@@ -111,7 +111,9 @@ private fun ShellRoutes(
                 peers.viewed = peer
             }
         ) {
-            ChatScreen(opened, chat, feed, { peers.viewed = chat }) { peers.chat = null }
+            ChatForwardScope(feed, chat, { target -> peers.chat = target }) {
+                ChatScreen(opened, chat, feed, { peers.viewed = chat }) { peers.chat = null }
+            }
         }
     } else {
         val openChat = { peer: String ->
