@@ -1274,6 +1274,7 @@ dependencies = [
  "libp2p",
  "ndk-context",
  "prost",
+ "rusqlite",
  "thiserror 2.0.21",
  "tokio",
  "uniffi",

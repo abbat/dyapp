@@ -60,7 +60,10 @@ mod tests {
             parse_interest_lines(" Music, Art; Books \r\n \nE\u{301}COLE\nmusic, art; books\n")
                 .unwrap();
         assert_eq!(tags, ["music, art; books", "école", "music, art; books"]);
-        assert!(parse_interest_lines(" \r\n\t\n").unwrap().is_empty());
+        assert_eq!(
+            parse_interest_lines(" \r\n\t\n").unwrap(),
+            Vec::<String>::new()
+        );
     }
 
     #[test]

@@ -570,6 +570,11 @@ outside sibling. Each replacement awaits its actual mutation signal with a fresh
 The smoke also replaces a short one-chunk ID with the same text: formatting must restore the chunk
 even when the replacement has the same raw value and child count. Cache reuse requires the same
 child nodes, since node counts alone cannot distinguish a formatted chunk from a new text node.
+Interest editor/search regressions compare the exact `EditableText` semantic value. A labelled
+Material text field also merges its title and supporting hint into `Text`; treating that combined
+list as the editable value rejects correct input. Keep separate label/hint geometry checks and
+save/reopen/validation assertions.
+
 `ChatClearOpeningTests` exercise unknown/busy admission, exact-target replacement on retry,
 cancel/reopen retirement, disposal and a different active dialog without elapsed-time assertions.
 `ChatMenuTests` waits for the actual verified/enabled Clear control before confirming; its injected

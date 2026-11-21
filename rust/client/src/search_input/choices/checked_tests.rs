@@ -60,7 +60,7 @@ fn canonical_blank_and_punctuation_keep_existing_query_semantics() {
             interest: typed.into(),
             ..SearchChoiceInputs::default()
         };
-        assert!(inputs.checked_conditions(&[19]).unwrap().is_empty());
+        assert_eq!(inputs.checked_conditions(&[19]).unwrap().len(), 0);
     }
     let inputs = SearchChoiceInputs {
         interest: " Tea, Coffee; Music ".into(),

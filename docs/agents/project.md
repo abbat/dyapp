@@ -150,6 +150,10 @@ Swift-format replaces changed files atomically: a writable file bind alone canno
 rename in a read-only parent. Bind the affected source directory writable and pass only the
 exact intended file paths to the formatter; keep the rest of the checkout read-only.
 
+FFI tests that directly inject SQLite fixtures declare `rusqlite` as a dev dependency, matching
+the client's existing version/features; transitive client dependencies are not importable by tests.
+Regenerate its root lock edge through offline Docker metadata; no new production dependency is needed.
+
 When changing Kotlin member APIs, search both qualified calls and unqualified calls inside
 extension functions. `ChatFeedActions.shareProfile` uses `history(peer)` and `send(peer, text)`
 without a receiver. `make lint-android` does not resolve method signatures; native Android CI

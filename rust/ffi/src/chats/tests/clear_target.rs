@@ -18,16 +18,18 @@ fn native_clear_target_is_read_only_owner_bound_and_stable_after_reopen() {
     let target = f.chats.clear_target(peer.clone()).unwrap();
     assert_eq!(target.owner_peer_id, f.key.peer_id());
     assert_eq!(target.peer_id, peer);
-    assert!(f.chats.chat_items(peer.clone()).unwrap().is_empty());
-    assert!(f
-        .chats
-        .session
-        .lock()
-        .unwrap()
-        .store()
-        .due_outbound(0)
-        .unwrap()
-        .is_empty());
+    assert_eq!(f.chats.chat_items(peer.clone()).unwrap().len(), 0);
+    assert_eq!(
+        f.chats
+            .session
+            .lock()
+            .unwrap()
+            .store()
+            .due_outbound(0)
+            .unwrap()
+            .len(),
+        0
+    );
     let f = f.reopen();
     assert_eq!(f.chats.clear_target(peer.clone()).unwrap(), target);
     assert_eq!(f.chats.clear_chat(peer).unwrap(), 0);

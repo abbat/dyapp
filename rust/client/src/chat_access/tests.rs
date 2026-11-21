@@ -48,7 +48,7 @@ fn target_binds_the_actual_owner_and_all_existing_conversation_phases_without_wr
         );
         assert_eq!(f.store.conversation(&f.peer).unwrap(), phase);
         assert_eq!(f.store.profile_draft().unwrap(), draft);
-        assert!(f.store.due_outbound(0).unwrap().is_empty());
+        assert_eq!(f.store.due_outbound(0).unwrap().len(), 0);
     }
 }
 

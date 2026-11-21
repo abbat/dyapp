@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performScrollTo
@@ -77,6 +77,9 @@ class SearchInterestTests {
             assertTrue(filters.conditions().isEmpty())
             filters.offered = listOf(19u)
         }
-        compose.onNodeWithTag("search-interest").performScrollTo().assertTextEquals(" MUSIC ")
+        val draft = compose.onNodeWithTag("search-interest").performScrollTo()
+            .fetchSemanticsNode()
+            .config[SemanticsProperties.EditableText].text
+        assertEquals(" MUSIC ", draft)
     }
 }

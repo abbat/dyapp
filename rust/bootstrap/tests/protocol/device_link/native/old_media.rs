@@ -141,7 +141,7 @@ fn native_linked_receiver_excludes_old_photo_and_sticker_but_receives_new_traffi
     let peer = chat.bob.identity.peer_id();
     let receiver = native_at(&laptop, &chat.address, &dir);
     assert!(receiver.receive().unwrap() > 0);
-    assert!(receiver.chat_items(peer.clone()).unwrap().is_empty());
+    assert_eq!(receiver.chat_items(peer.clone()).unwrap().len(), 0);
     assert_eq!(receiver.media_cache().unwrap().used_bytes, 0);
     runtime.block_on(chat.deliver_new_message());
     receiver.receive().unwrap();

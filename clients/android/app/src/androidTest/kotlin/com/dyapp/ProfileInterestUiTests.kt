@@ -1,11 +1,13 @@
 package com.dyapp
 
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.RuleChain
@@ -21,6 +23,13 @@ class ProfileInterestUiTests {
         compose.onNodeWithTag("profile-interests").performScrollTo().performTextReplacement(typed)
     }
 
+    private fun assertInput(expected: String) {
+        val actual = compose.onNodeWithTag("profile-interests").performScrollTo()
+            .fetchSemanticsNode()
+            .config[SemanticsProperties.EditableText].text
+        assertEquals(expected, actual)
+    }
+
     private fun reopen() {
         compose.onNodeWithTag("nav-search").performClick()
         compose.openProfileEditor()
@@ -33,11 +42,11 @@ class ProfileInterestUiTests {
         replace(" MUSIC \nTea, Coffee\nmusic")
         compose.saveProfile()
         reopen()
-        compose.onNodeWithTag("profile-interests").performScrollTo().assertTextEquals("music\ntea, coffee\nmusic")
+        assertInput("music\ntea, coffee\nmusic")
         replace("")
         compose.saveProfile()
         reopen()
-        compose.onNodeWithTag("profile-interests").performScrollTo().assertTextEquals("")
+        assertInput("")
     }
 
     @Test
@@ -50,7 +59,7 @@ class ProfileInterestUiTests {
         compose.onNodeWithTag("profile-status").assertTextEquals(
             compose.activity.getString(R.string.profile_interests_invalid)
         )
-        compose.onNodeWithTag("profile-interests").performScrollTo().assertTextEquals(invalid)
+        assertInput(invalid)
         replace("recovered")
         compose.saveProfile()
         compose.onNodeWithTag("profile-status").assertTextEquals(compose.activity.getString(R.string.profile_saved))
