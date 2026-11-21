@@ -1,5 +1,8 @@
 package com.dyapp
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -12,6 +15,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import uniffi.dyapp.LocalCollectionEntry
 import uniffi.dyapp.MobileDeviceReadState
 import uniffi.dyapp.MobileDeviceRowSource
@@ -87,6 +94,9 @@ private fun DeviceDirectoryRowView(
     number: Int,
     busy: Boolean,
     session: DeviceDirectorySession
+) = Column(
+    Modifier.fillMaxWidth().testTag("device-row-" + row.identifier),
+    Arrangement.spacedBy(12.dp)
 ) {
     val request: () -> Unit = { session.request(row) }
     DeviceIdentifier(row.identifier, "device-key-$number")
@@ -102,6 +112,9 @@ private fun DeviceDirectoryRowView(
 private fun DeviceDirectoryCompletion(completion: DeviceDisconnectCompletion?) {
     if (completion == null) return
     val text = if (completion.result.isSuccess) R.string.devices_gone else R.string.devices_uncertain
-    Text(stringResource(text), Modifier.testTag("devices-completion"))
+    Text(
+        stringResource(text),
+        Modifier.testTag("devices-completion").semantics { liveRegion = LiveRegionMode.Polite }
+    )
     DeviceIdentifier(completion.target.identifier, "devices-completion-target")
 }

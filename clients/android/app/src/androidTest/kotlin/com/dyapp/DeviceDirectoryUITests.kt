@@ -7,7 +7,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -80,15 +84,20 @@ class DeviceDirectoryUITests {
             fixture.writes.set {}
             fixture.reads.set { error("cache unavailable after write acknowledgement") }
             compose.onNodeWithTag("disconnect-retry").performClick()
-            compose.awaitNode(hasTestTag("devices-completion") and hasText(text(R.string.devices_gone)))
-                .assertTextEquals(text(R.string.devices_gone))
-            compose.awaitNode(hasTestTag("devices-read-error"))
-            compose.onNodeWithTag("devices-completion-target").assertTextEquals(target)
-            compose.onNodeWithTag("disconnect-dialog").assertDoesNotExist()
+            assertAcknowledged(target)
             assertEquals(2, fixture.writeCount.get())
         } finally {
             runBlocking { fixture.close() }
         }
+    }
+
+    private fun assertAcknowledged(target: String) {
+        compose.awaitNode(hasTestTag("devices-completion") and hasText(text(R.string.devices_gone)))
+            .assertTextEquals(text(R.string.devices_gone))
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
+        compose.awaitNode(hasTestTag("devices-read-error"))
+        compose.onNodeWithTag("devices-completion-target").assertTextEquals(target)
+        compose.onNodeWithTag("disconnect-dialog").assertDoesNotExist()
     }
 
     private fun holdWrite(

@@ -2,6 +2,7 @@ package com.dyapp
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -31,7 +32,7 @@ internal fun DeviceDirectoryMenu(opened: Opened.Ready, route: MutableState<Setti
     val open = { route.value = SettingsPane.DEVICES }
     val label = count?.getOrNull()?.let { stringResource(R.string.devices_count, it) }
         ?: stringResource(if (count == null) R.string.devices_count_loading else R.string.devices_count_unknown)
-    TextButton(open, Modifier.testTag("settings-devices-open").applicationClick(open)) { Text(label) }
+    TextButton(open, Modifier.fillMaxWidth().testTag("settings-devices-open").applicationClick(open)) { Text(label) }
 }
 
 /** Group display characters only; the dedicated copy action always receives the unchanged raw key. */

@@ -1184,6 +1184,13 @@ controlled native-shaped completions. They retain original public targets across
 reject stale/forged confirmation openings, retire a view during an admitted call, cancel its UI waiter
 and require exactly-once close after completion. A successor view remains unchanged. Partial write
 failure, acknowledged success and later cached-read failure remain distinct, without automatic retry.
+The same real link journey now confirms revocation through the production Account Devices menu,
+retained native screen session and scrollable target dialog instead of calling revoke directly. It
+checks the saved menu count independently of the verified remote list, current-row refusal, exact
+raw-key display/copy and a matching completion signal, then retains all prior remote-directory,
+mailbox cleanup and unrelated-profile checks. Row lookup uses the immutable raw key and current
+semantics/scroll geometry. Each StateFlow phase has its own failure deadline; no extra link setup or
+remote-submission retry is added. This widget extension requires fresh actual CI runtime evidence.
 `DeviceDirectoryUITests` additionally drives the actual Compose controls around controlled native-shaped
 calls and the real common collection pager. It checks the immutable displayed target, no current-row
 Disconnect, partial-failure Retry, acknowledged success alongside cache failure and an old dialog

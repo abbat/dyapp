@@ -1,10 +1,12 @@
 package com.dyapp
 
+import androidx.compose.ui.test.junit4.createComposeRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import uniffi.dyapp.IdentityKey
 import uniffi.dyapp.LinkReviewChoice
@@ -20,6 +22,9 @@ import uniffi.dyapp.MobileSlotSelection
 
 /** Both phones are clients of the existing CI node; neither hosts a node. */
 class NativeLinkJourneyTests {
+    @get:Rule
+    val compose = createComposeRule()
+
     @Test
     fun confirmedOwnerTransfersPrivateStateAndReceiverCompletesEnrollment() {
         workerTestPolicy()
@@ -112,7 +117,7 @@ class NativeLinkJourneyTests {
                 assertTrue(before.any { it.key.contentEquals(linkedKey) })
                 assertNull(owner.revokedDevice())
                 assertNull(completeRevokedDevice(installed))
-                owner.revoke(linkedKey)
+                NativeDeviceScreenJourney(compose).revoke(original, linkedKey)
                 val remaining = owner.devices(true)
                 assertEquals(1, remaining.size)
                 assertTrue(remaining.single().current)
