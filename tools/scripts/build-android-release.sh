@@ -30,7 +30,13 @@ if python3 "$root/tools/scripts/android_release_environment.py" "$root" \
     aab="$root/build/android/app/outputs/bundle/release/app-release.aab"
     python3 "$root/tools/scripts/check-android-release.py" --apk "$apk" --aab "$aab" \
         --report "$reports/packages.json"
-    # Verified packages leave the container with the reports for the size gate.
+    python3 "$root/tools/scripts/check-hardening.py" --android-apk "$apk"
+    zipalign=$(find "${ANDROID_SDK_ROOT:?}/build-tools" -mindepth 2 -maxdepth 2 \
+        -type f -name zipalign | sort -V | tail -n 1)
+    test -x "$zipalign"
+    "$zipalign" -c -P 16 4 "$apk"
+    echo 'OK android ZIP alignment'
+    # Only fully verified packages leave the container for the size/signing gates.
     cp -f "$apk" "$aab" "$reports/"
 else
     code=$?

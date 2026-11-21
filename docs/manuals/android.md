@@ -95,6 +95,9 @@ its old presentation continuations. Text validation remains in the common core.
 
 ## Release hardening
 
+The offline unsigned Release runner first checks the already-built APK with the same ELF profile
+and SDK ZIP-alignment command before exporting packages; failure stops the unsigned producer too.
+This early check needs no signing key and does not replace verification of the final signed bytes.
 After signing, the release job runs
 `python3 -B tools/scripts/check-hardening.py --android-apk SIGNED.apk`.
 Both `arm64-v8a` and `x86_64` must contain the core. Every packaged JNI library,

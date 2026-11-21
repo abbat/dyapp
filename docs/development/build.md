@@ -222,7 +222,11 @@ bytes, SHA-256 and the required arm64-v8a/x86_64 entries. The verifier requires
 nonempty manifest/dex/library members, rejects duplicate ZIP names and native ABIs
 outside arm64-v8a/x86_64, and checks 64-bit little-endian ELF machine identifiers
 for every native library, including dependency AAR payloads. This is
-structural verification, not a signature, full executable or installation test.
+structural verification, not a signature or installation test. Before exporting the unsigned APK,
+the runner additionally checks every packaged JNI library with the unchanged Android ELF hardening
+profile and runs the installed SDK's `zipalign -c -P 16 4`. A missing/non-executable alignment tool
+or either failed check stops both package exports. These checks reuse the already-built APK; they
+perform no signing or additional compilation. The final signed APK is checked again independently.
 The runner expects `app-release-unsigned.apk` and `app-release.aab` and copies
 both verified packages into the report directory. `release-sizes.yml` runs it on
 schedule and gates both unsigned packages ([size policy](ci-base.md#artifact-size-budgets)).
