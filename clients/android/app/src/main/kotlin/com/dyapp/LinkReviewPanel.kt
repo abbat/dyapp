@@ -96,7 +96,7 @@ private fun rememberReviewControls(
 @Composable
 private fun LinkReviewContent(form: LinkReviewFormState, photos: LinkReviewPhotoState, controls: LinkReviewControls) {
     val scales = remember { profileScales() }
-    Heading(R.string.link_review_title)
+    CardTitle(R.string.link_review_title)
     Text(stringResource(R.string.link_review_intro))
     Caption(stringResource(R.string.link_review_authority))
     Caption(stringResource(R.string.link_review_no_publish))
@@ -111,7 +111,7 @@ private fun LinkReviewContent(form: LinkReviewFormState, photos: LinkReviewPhoto
     }
     if (form.opening.snapshot.differences.isEmpty()) Text(stringResource(R.string.link_review_equal))
     val preview = form.preview
-    if (preview != null) Heading(R.string.link_review_preview_title)
+    if (preview != null) CardTitle(R.string.link_review_preview_title)
     for (field in form.opening.snapshot.differences) {
         if (preview == null) {
             LinkReviewChoiceCard(form, field, photos, scales)

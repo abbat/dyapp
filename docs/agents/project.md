@@ -447,6 +447,10 @@ with its exit code; retain that line when investigating provider errors such as 
 | Rust API docs | `make doc` | output stays in the Docker volume, see [documentation.md](../development/documentation.md) |
 | UI tests | `make ui-test`, `ui-test-android`, `ui-test-android-emulator`, `ui-test-linux` | see [ui-testing.md](../testing/ui-testing.md) |
 
+Android's shared text components in `Page.kt` are `PageTitle` for a page and `CardTitle` for a
+semantic group heading. Kotlin lint does not compile callers: it cannot prove that a helper name or
+generated FFI member exists; the Android/CodeQL compilation jobs supply that evidence.
+
 Hawk includes test and other non-production consumers. New regression tests can make an old
 `hawk::dead_public` expectation stale; remove the stale marker instead of relaxing the audit.
 On failure, inspect only the `diagnostics` list in the container's `build/unused-public.json`.
