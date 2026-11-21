@@ -70,14 +70,17 @@ inherited by every bead under the quorum epic.
 
 Use `wait-ci` only when implementation and local verification are complete, the commit is
 pushed, and no development remains. Keep the bead open and record the exact commit SHA, completed
-local checks and pending CI run URL in its notes. Exclude these beads from the development queue:
+local checks and the name of the required CI check in its notes. A particular run URL is optional
+transient evidence: a later run on a descendant commit can satisfy the same check. Exclude these
+beads from the development queue:
 
 ```bash
 bd ready --exclude-label wait-ci
 ```
 
-Close the bead with the run as evidence after CI passes on the recorded SHA. If CI fails, remove
-`wait-ci`, record the failure and return the bead to development. List beads awaiting closure
+Close the bead with a run as evidence after the named check passes on the recorded SHA or its
+descendant. If that check fails and the bead needs further development, remove `wait-ci` and record
+the failure. An unrelated CI failure does not change the bead's state. List beads awaiting closure
 with `bd list --label wait-ci`.
 
 ## CI failures
