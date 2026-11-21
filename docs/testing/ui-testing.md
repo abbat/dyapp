@@ -849,7 +849,8 @@ planned. Host SDK compilation does not execute them.
 `LocalNetworkPermissionPhaseTests` uses an isolated native identity and real Rust connection checks.
 The ordinary API 31 runner explicitly executes its `legacy` phase before the UI suite. Native
 connection completion admits the suite; a failed phase stops immediately with the guest-to-node
-address and retained report path, without bulk-suite retries or emulator restart guesses. The helper
+address, last native connection result and retained report path, without bulk-suite retries or emulator
+restart guesses. The helper
 `android-lan-permission-phases.sh modern` brackets separate instrumentation processes with shell
 permission grant/revoke, checking granted, denied, regranted and revoked states against an owned LAN
 node. The first granted phase activates one retained native identity in an isolated

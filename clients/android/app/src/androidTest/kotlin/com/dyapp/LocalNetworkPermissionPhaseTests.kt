@@ -149,10 +149,14 @@ class LocalNetworkPermissionPhaseTests {
     private fun checkConnection(checker: ConnectionCheck, settings: NetworkSettings, allowed: Boolean): SeedRow {
         var rows = emptyList<SeedRow>()
         if (allowed) {
-            PeerTransition("native permission fixture ${settings.seeds.single()} readiness").await(
-                ready = { rows.singleOrNull() is SeedRow.Connected },
-                advance = { rows = checker.run(settings, LAN_PROBE_WAIT_MS) }
-            )
+            try {
+                PeerTransition("native permission fixture ${settings.seeds.single()} readiness").await(
+                    ready = { rows.singleOrNull() is SeedRow.Connected },
+                    advance = { rows = checker.run(settings, LAN_PROBE_WAIT_MS) }
+                )
+            } catch (failure: IllegalStateException) {
+                throw AssertionError("${failure.message}; last native connection result: $rows", failure)
+            }
         } else {
             rows = checker.run(settings, LAN_PROBE_WAIT_MS)
         }
