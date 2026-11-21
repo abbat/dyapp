@@ -196,7 +196,10 @@ pinned SHA-256 remain mandatory; exhausted retries fail the image build.
 The crates are fetched into the images. Containers run as the host user and write only to
 bind-mounted directories under `build/` (`workspace`, `linux`, `*-reports`, `android-build`,
 `android-avd`), so `rm -rf build/workspace` clears the Rust build cache and
-`rm -rf build/android-build` the Android build, Gradle and cargo caches.
+`rm -rf build/android-build` the Android build, Gradle and cargo caches. The `workspace` bind mount
+also keeps compiler and complexity diagnostics readable in the same checkout or linked worktree.
+For a linked worktree, the Docker launcher mounts the main checkout's git metadata read-only at the
+path referenced by `.git`; standard Make targets need no manual Compose override.
 
 ### Use `--rm` Flag
 
