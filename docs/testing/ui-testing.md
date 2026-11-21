@@ -9,7 +9,9 @@ explicit clear after reopen and another owner's retained tags. `ProfileInterestE
 native canonicalization, blank clear, untouched-field omission and whole-save refusal. Its controlled
 late-save case retains newer input and then persists an explicit undo of the completed older write.
 `ProfileInterestUiTests` exercises actual editor save/reopen/clear and invalid-input recovery through
-MainActivity. These device tests require CI execution; normal/enlarged layout and search acceptance
+MainActivity. `ProfileInterestRowsTests` exercises the actual shared public/preview rows, preserving
+punctuation and duplicate order and distinguishing an interest-only profile from an empty one.
+These device tests require CI execution; normal/enlarged layout and search acceptance
 remain separate.
 
 Native privacy preference tests use real offline ChatSession/Store fixtures for default values,

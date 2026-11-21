@@ -49,8 +49,10 @@ edit preserves stored tags, an explicit empty list clears them, and loaded draft
 stored list. The native editor provides one interest per line, with authoritative limits and
 canonicalization from the core. Blank edited input explicitly clears the list; untouched tags
 remain unmentioned on unrelated saves. A late save retains newer input and updates the accepted
-baseline so a subsequent explicit undo is persisted. Public interest display and rendered/native
-editor acceptance are still planned.
+baseline so a subsequent explicit undo is persisted. Fetched profiles and the saved publication
+preview display all canonical tags in their original order, separated by semicolons like Linux;
+an interest-only profile does not show the empty-profile fallback. Rendered/native editor
+acceptance and interest search remain open.
 
 Android implementation checkpoint: a loaded profile offers **Share profile…**.
 The native destination dialog lists open chats except the profile owner, using

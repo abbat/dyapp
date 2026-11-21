@@ -12,6 +12,8 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import java.util.Locale
 
+private const val PREVIEW_PREFIX = "preview-"
+
 internal fun possibleAgeOnUtcToday(saved: Map<String, Int>): String? {
     val today = LocalDate.now(ZoneOffset.UTC).toEpochDay().toULong()
     val ages = runCatching {
@@ -56,7 +58,7 @@ private fun NameRow(name: String, nothingElse: Boolean) {
     }
 }
 
-/** The public rows of [draft]: name, scales, place, height, birth parts, who it seeks, about, the possible age. */
+/** Public profile and preview share all saved fields, including canonical interests. */
 @Composable
 internal fun ProfileRows(draft: ProfileDraft, scales: List<ProfileScale>) {
     val saved = draft.values
@@ -65,26 +67,37 @@ internal fun ProfileRows(draft: ProfileDraft, scales: List<ProfileScale>) {
     val numbers = numberRows(saved)
     NameRow(
         draft.name,
-        draft.about.isEmpty() && draft.seeking == ProfileSeeking() &&
+        draft.about.isEmpty() && draft.seeking == ProfileSeeking() && draft.interests.isNullOrEmpty() &&
             listOf(fields, places, numbers).all { it.isEmpty() }
     )
     ScaleRows(fields)
     for ((key, name, value) in places) {
         Text(
             stringResource(R.string.profile_preview_row, stringResource(name), value),
-            Modifier.testTag("preview-$key")
+            Modifier.testTag(PREVIEW_PREFIX + key)
         )
     }
     for ((name, value) in numbers) Text(stringResource(R.string.profile_preview_row, stringResource(name), "$value"))
     SeekingRows(draft.seeking, scales)
-    if (draft.about.isNotEmpty()) {
-        Text(
-            stringResource(R.string.profile_preview_row, stringResource(R.string.profile_about), draft.about),
-            Modifier.testTag("preview-about")
-        )
-    }
+    ProfileTextRows(draft)
     val age = possibleAgeOnUtcToday(saved) ?: stringResource(R.string.profile_age_unknown)
     Text(stringResource(R.string.profile_age, age), Modifier.testTag("profile-preview-age"))
+}
+
+@Composable
+private fun ProfileTextRows(draft: ProfileDraft) {
+    val rows = listOf(
+        Triple("about", R.string.profile_about, draft.about),
+        Triple("interests", R.string.profile_interests, draft.interests.orEmpty().joinToString("; "))
+    )
+    for ((key, label, value) in rows) {
+        if (value.isNotEmpty()) {
+            Text(
+                stringResource(R.string.profile_preview_row, stringResource(label), value),
+                Modifier.testTag(PREVIEW_PREFIX + key)
+            )
+        }
+    }
 }
 
 @Composable
