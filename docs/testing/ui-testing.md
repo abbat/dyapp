@@ -36,11 +36,23 @@ Android `StickerPackPresentationTests` controls native-like request completion a
 uncertain application followed by failed read retains the known intent and disables mutation;
 read-only retry installs the current generation; retired/same-token status callbacks and duplicate
 admission cannot submit. Explicit completion gates have separate failure deadlines. The request
-presentation controller and reusable Compose controls are implemented; production ChatFeed/manager
-navigation remains planned. `StickerPackControlsTests` checks authoritative projected actions,
+presentation controller and Compose controls are wired through production ChatFeed and the shared
+saved-pack manager. `ChatStickerPackRouteTests` drives chat-to-manager navigation, close/readback and
+mailbox-revision status replacement. `StickerPackControlsTests` checks authoritative projected actions,
 retired-owner navigation, pending caption retention and read-only recovery. Button coroutines
 start undispatched to admit an operation before the next captured callback can run.
 Actual instrumentation execution is required independently of source lint.
+
+Android `StickerPickerPresentationTests` controls equal-content choice replacement, duplicate and
+late sends, typed Queued commitment, native cursors and Back through a failed read.
+`StickerPickerNavigationTests` covers exact-opening/manager-revision return and a chat that stopped
+allowing composition. `StickerPickerComposerTests` uses actual `MediaChatContent`, editable/held
+text drafts and the real saved-manager route with controlled native projections: sticker send stays
+standalone, old buttons cannot send after manager return or identity replacement.
+`StickerPickerGeometryTests` measures wide/tall thumbnails, full labels and current dialog bounds
+in EN/RU at normal/doubled font scale. It scrolls semantic targets and uses live bounds, without
+coordinate guesses. These require SDK/device CI; the real-node native sticker scenario separately
+proves backend pack authentication, send, recents and hidden controls.
 
 Android `ChatStickerImageTests` checks actual Bitmap alpha/channel conversion, rendered aspect and
 localized accessibility labels. Controlled native-like completion gates cover duplicate manual
