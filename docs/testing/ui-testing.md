@@ -16,6 +16,11 @@ The existing production-Activity receipt persistence/recreation test remains unc
 production preference adapters: independent changes preserve presence/notices, another selected
 identity retains its defaults/selection, and reopening restores the edited values. Each native
 read/write gets its own failure deadline; no node or Activity is needed. Device CI must execute it.
+`NativePresenceDeliveryTests` separately uses two actual clients on the suite-owned node: mutual likes,
+hidden sender refusal before first disclosure, explicit send and authenticated receive, retained
+incoming marks while hidden, no automatic reciprocity from receive, and explicit reverse send.
+Receipt advances only on completed native mailbox passes; common injected-clock tests retain
+throttle/expiry boundary coverage. This does not replace real foreground-lifecycle or rendered UI acceptance.
 
 Debug-only `MailNoticeProbeService` observes actual framework start/stop/completion and attempts
 at OS notification posting without replacing registry selection, native receive or posting.
