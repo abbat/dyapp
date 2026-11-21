@@ -9,7 +9,9 @@ assertions remain. Native request-status integration tests also check controls o
 Fetch-failed/Saved transitions. These require native CI; formatting alone does not prove execution.
 
 Android `SavedStickerPresentationTests` controls cancel/duplicate removal, uncertain unlink
-readback, retired picker tickets and closing during noncancellable URI reads. Import admission
+readback, retired picker tickets and closing during noncancellable URI reads. Confirmation tokens
+are unique per opening: a callback captured before Cancel cannot confirm a reopened dialog for the
+same entry. Import admission
 occurs only after the owning opening observes read completion; known pages remain visible but
 not editable when readback fails. The native adapter uses registry-owned removal without opening
 a media key. Manager view/picker/navigation wiring is still planned; device execution remains required.

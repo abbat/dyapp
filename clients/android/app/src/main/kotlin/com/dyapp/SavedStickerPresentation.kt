@@ -23,7 +23,7 @@ internal class SavedStickerPresentation {
         private set
     var imported by mutableStateOf<SavedStickerPackImport?>(null)
         private set
-    var pending by mutableStateOf<SavedStickerPackEntry?>(null)
+    var pending by mutableStateOf<SavedStickerRemoval?>(null)
         private set
     var pickerTicket by mutableStateOf<Any?>(null)
         private set
@@ -74,20 +74,20 @@ internal class SavedStickerPresentation {
     }
 
     fun askRemove(entry: SavedStickerPackEntry) {
-        if (editable && page?.entries?.any { it === entry } == true) pending = entry
+        if (editable && page?.entries?.any { it === entry } == true) pending = SavedStickerRemoval(entry)
     }
 
     fun cancelRemove() { if (!busy) pending = null }
 
-    suspend fun confirmRemove(calls: SavedStickerCalls, entry: SavedStickerPackEntry) {
+    suspend fun confirmRemove(calls: SavedStickerCalls, confirmation: SavedStickerRemoval) {
         if (!active || busy) return
-        if (!known || pending !== entry) return
+        if (!known || pending !== confirmation) return
         busy = true
         operationFailed = false
         imported = null
         try {
             mutate(calls) {
-                calls.remove(entry.packId)
+                calls.remove(confirmation.entry.packId)
                 null
             }
         } finally { busy = false }
