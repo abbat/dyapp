@@ -11,12 +11,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
@@ -28,7 +24,6 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.width
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertTrue
@@ -57,12 +52,7 @@ class CollectionRowGeometryTests {
     @Composable
     private fun Content() {
         val localized = context()
-        val density = LocalDensity.current
-        CompositionLocalProvider(
-            LocalContext provides localized,
-            LocalConfiguration provides localized.resources.configuration,
-            LocalDensity provides Density(density.density, scale.value)
-        ) {
+        LocalizedTestContext(localized, scale.value) {
             MaterialTheme {
                 BoxWithConstraints(Modifier.fillMaxSize()) {
                     Column(

@@ -158,6 +158,9 @@ take `ComposeContentTestRule`; base `ComposeTestRule` supports synchronization/i
 Raw `onNode`/`onAllNodes` are receiver members: call `compose.onNode(...)`/
 `compose.onAllNodes(...)` without importing top-level functions. Named helpers such as
 `onNodeWithTag` remain extensions requiring imports.
+Localized instrumentation content uses `LocalizedTestContext` so context/configuration/resources
+agree and the actual Activity picker registry survives the configuration-context substitution.
+Use its font-scale argument for geometry cases; retain the original locale and text-layout assertions.
 
 When a native status/page object is a callback-admission token, use Compose
 `referentialEqualityPolicy` (or a separate explicit token). Default structural policy discards

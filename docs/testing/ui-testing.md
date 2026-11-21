@@ -1,5 +1,13 @@
 # UI Testing: Practical Guide
 
+Localized Android Compose fixtures use `LocalizedTestContext`: provide the selected context,
+configuration and `LocalResources` together, plus the desired current density/font scale.
+Capture the real Activity's `LocalActivityResultRegistryOwner` before replacing its context and
+provide that same registry inside; a configuration context alone is not an Activity registry owner.
+Keep locale-specific text/description assertions and actual geometry checks; do not turn a missing
+localized node into a timing retry or accept a different language. This helper also covers
+localized full-screen fixtures that can open a system picker.
+
 `SearchIntentTests` verifies that admitted native conditions, employer and mutual choice remain
 unchanged after every form field and offered list are edited. An admitted validation failure
 remains a failure after later correction; a captured mutual choice still requires the actual

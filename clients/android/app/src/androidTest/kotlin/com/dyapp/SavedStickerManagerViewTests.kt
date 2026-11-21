@@ -3,12 +3,8 @@ package com.dyapp
 import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
@@ -17,7 +13,6 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.unit.Density
 import androidx.test.platform.app.InstrumentationRegistry
 import com.dyapp.ui.theme.DYAppTheme
 import kotlinx.coroutines.CoroutineStart
@@ -126,18 +121,13 @@ internal class SavedStickerViewFixture(private val paged: Boolean = false) {
             setLocale(Locale.forLanguageTag(language))
         }
         val context = base.createConfigurationContext(configuration)
-        compose.setContent { Content(context, configuration) }
+        compose.setContent { Content(context) }
         return context
     }
 
     @Composable
-    private fun Content(context: Context, configuration: Configuration) {
-        val density = LocalDensity.current
-        CompositionLocalProvider(
-            LocalContext provides context,
-            LocalConfiguration provides configuration,
-            LocalDensity provides Density(density.density, scale.value)
-        ) {
+    private fun Content(context: Context) {
+        LocalizedTestContext(context, scale.value) {
             Manager()
         }
     }

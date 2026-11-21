@@ -2,11 +2,7 @@ package com.dyapp
 
 import android.content.res.Configuration
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
@@ -15,7 +11,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.width
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
@@ -41,12 +36,7 @@ class RenameDialogGeometryTests {
 
     private fun show() = compose.setContent {
         val localized = context()
-        val density = LocalDensity.current
-        CompositionLocalProvider(
-            LocalContext provides localized,
-            LocalConfiguration provides localized.resources.configuration,
-            LocalDensity provides Density(density.density, scale.value)
-        ) {
+        LocalizedTestContext(localized, scale.value) {
             MaterialTheme {
                 if (form.renaming.value != null) RenameDialog(form) { saves++ }
             }

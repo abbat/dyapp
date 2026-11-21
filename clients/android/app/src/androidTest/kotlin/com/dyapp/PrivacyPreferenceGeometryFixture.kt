@@ -7,15 +7,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
-import androidx.compose.ui.unit.Density
 import androidx.test.platform.app.InstrumentationRegistry
 import com.dyapp.ui.theme.DYAppTheme
 import java.util.Locale
@@ -41,18 +36,13 @@ internal class PrivacyPreferenceGeometryFixture(private val compose: ComposeCont
             setLocale(Locale.forLanguageTag(language))
         }
         val context = base.createConfigurationContext(configuration)
-        compose.setContent { Content(context, configuration) }
+        compose.setContent { Content(context) }
         return context
     }
 
     @Composable
-    private fun Content(context: Context, configuration: Configuration) {
-        val density = LocalDensity.current
-        CompositionLocalProvider(
-            LocalContext provides context,
-            LocalConfiguration provides configuration,
-            LocalDensity provides Density(density.density, scale.value)
-        ) {
+    private fun Content(context: Context) {
+        LocalizedTestContext(context, scale.value) {
             DYAppTheme { Controls() }
         }
     }
