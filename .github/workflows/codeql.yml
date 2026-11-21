@@ -88,6 +88,12 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
+          cache-dependency-path: |
+            clients/android/**/*.gradle
+            clients/android/gradle.properties
+            clients/android/gradle/wrapper/gradle-wrapper.properties
+            clients/android/gradle/verification-metadata.xml
       # Resolve only dependencies before tracing; no app compiler or native build runs here.
       # Keep cold repository failures separate from extraction and avoid tracing dependency setup.
       - name: resolve kotlin dependencies
@@ -104,10 +110,10 @@ jobs:
           queries: security-and-quality
       - name: build
         working-directory: clients/android
-        # Kotlin compilation needs the bindings, not the NDK-built JNI libraries.
+        # Trace real compilation even with restored Gradle caches; only JNI generation is skipped.
         run: |
           python3 ../../tools/scripts/run-check.py --log-dir ../../build/check-output android-build -- \
-            ./gradlew --no-daemon :app:compileDebugKotlin -x cargoNdkDebug \
+            ./gradlew --no-daemon --no-build-cache --rerun-tasks :app:compileDebugKotlin -x cargoNdkDebug \
             "-Pdyapp.jnaNativeDir=$GITHUB_WORKSPACE/build/codeql-jna-native"
       - name: analyze
         uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1

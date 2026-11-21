@@ -75,6 +75,9 @@ produces release artifacts or a standalone browser client release. See [build.md
 Kotlin CodeQL resolves dependencies before compiler tracing. That preflight keeps Gradle `--info`
 and `--stacktrace` in its captured raw log so cold repository, metadata and plugin-resolution
 failures retain their causes; the existing quiet wrapper still emits concise console output.
+The pinned Java setup caches Gradle dependencies across jobs using build-script, wrapper and
+verification-metadata inputs. Traced compilation disables build-cache reuse and reruns tasks; cache
+restoration cannot replace real compiler extraction or bypass strict dependency verification.
 
 These are separate workflows, not part of `ci.yml`.
 
