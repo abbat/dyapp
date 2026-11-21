@@ -29,6 +29,8 @@ Native Clear-target tests cross the public export, reopen its store and recheck 
 peer is blocked; the earlier target record never authorizes a later Clear. These tests do not
 replace Android target/consequence rendering and stale-dialog callback acceptance.
 
+Desktop and inherited prototype withdrawal warnings use the same unconfirmed wording as Android;
+a missing acknowledgement cannot establish that no node accepted a remote write.
 The native profile-removal journey checks the complete unconfirmed-withdrawal warning and its
 text layout before exercising Retry/Cancel, then verifies normal removal after network recovery.
 The separate Remove anyway path retains explicit local key/data-removal acceptance. Resource copy
