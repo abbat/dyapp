@@ -630,6 +630,12 @@ discovery and run nothing; regression tests must cover discovery errors and empt
   them under the ignored `build/`, with `TMPDIR` there too, since `gh` stages the zip in it.
   A download takes 15 minutes or far longer; for logs and other single files use
   `tools/scripts/artifact-member.py`, which takes seconds (any artifact, not only Apple).
+  A terminal job's log can be read before the whole run finishes with
+  `gh api --allow-escape-sequences repos/{owner}/{repo}/actions/jobs/JOB/logs > build/JOB.log`;
+  the escape flag belongs after `api`. Keep raw terminal sequences in the file and inspect only
+  failure windows. Clippy's compact job log may show only the final compilation summary: its
+  `analysis-check-output` artifact contains `clippy.json` compiler diagnostics with primary spans
+  and fixes. Download it by name with `TMPDIR` under `build/`, rather than the large native bundles.
 - A sudden Apple IPA/ZIP size jump: grep the release-sizes `build.log` artifact for embedded
   `libswift_*.dylib`. Swift 6 mode with a deployment target below iOS 15 / macOS 12 embeds the
   back-deployed concurrency runtime. Download artifacts with `gh run download <id> -n <name>`.

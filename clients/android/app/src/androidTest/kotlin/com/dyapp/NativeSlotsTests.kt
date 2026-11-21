@@ -37,8 +37,9 @@ class NativeSlotsTests {
             val recovery = fixture.slots.choose(id) as Opened.Recovery
             assertEquals("incomplete", recovery.reason)
             assertTrue(removable(recovery))
-            assertTrue(checkNotNull(recovery.slot).removalReview(null).allowed)
-            assertEquals(dir, recovery.slot?.dir)
+            val candidate = checkNotNull(recovery.slot)
+            assertTrue(candidate.removalReview(null).allowed)
+            assertEquals(dir, candidate.dir)
             assertTrue(fixture.slots.retry(recovery) is Opened.Recovery)
             assertEquals(first.peerId, (fixture.slots.open() as Opened.Ready).peerId)
             assertFalse(PlatformKeyStore.exists(identityAlias(id)))

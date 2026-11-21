@@ -149,6 +149,10 @@ fn current_completion_refuses_block_clear_wrong_identity_and_corrupt_pixels() {
         Err(Error::Blocked)
     ));
     f.store.set_blocked(&f.peer, false).unwrap();
+    assert_foreign_and_cleared(&mut f, &snapshot);
+}
+
+fn assert_foreign_and_cleared(f: &mut Fixture, snapshot: &Snapshot) {
     let foreign = Fixture::new(true, true);
     assert!(matches!(
         snapshot.finish(&foreign.store, &foreign.dir, &SEAL, &f.bytes),
@@ -258,6 +262,10 @@ fn automatic_download_respects_strangers_metering_and_explicit_off() {
         snapshot.access(&f.store, &f.dir, &SEAL, false, false),
         Ok(Access::OnTap)
     ));
+    assert_stranger_and_missing_access();
+}
+
+fn assert_stranger_and_missing_access() {
     let stranger = Fixture::new(false, true);
     stranger
         .store

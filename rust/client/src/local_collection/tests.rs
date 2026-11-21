@@ -53,7 +53,7 @@ fn search_matches_full_raw_targets_and_unicode_labels_without_changing_them() {
     assert_eq!((target.total, target.matched), (70, 1));
     let missing = page(&entries, "not present", first.next.as_ref());
     assert_eq!((missing.total, missing.matched, missing.offset), (70, 0, 0));
-    assert!(missing.entries.is_empty());
+    assert_eq!(missing.entries, Vec::<Entry>::new());
     assert!(missing.previous.is_none() && missing.next.is_none());
 }
 
@@ -62,7 +62,7 @@ fn empty_and_exact_page_boundaries_have_no_phantom_navigation() {
     let empty = page(&[], "", None);
     assert_eq!((empty.total, empty.matched, empty.offset), (0, 0, 0));
     assert_eq!((empty.number, empty.pages), (1, 1));
-    assert!(empty.entries.is_empty());
+    assert_eq!(empty.entries, Vec::<Entry>::new());
     assert!(empty.previous.is_none() && empty.next.is_none());
     let entries = entries();
     let exact = page(&entries[..32], "", None);
