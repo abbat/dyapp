@@ -23,7 +23,13 @@ internal fun linkEnrollmentFailureText(failure: Throwable): Int = when (failure)
 internal fun LinkEnrollmentNotice(state: LinkEnrollmentSnapshot) {
     state.failure?.let { failure ->
         ErrorNotice(
-            stringResource(linkEnrollmentFailureText(failure)),
+            stringResource(
+                if (state.offered && state.saved == null && failure is LinkReviewException.Failed) {
+                    R.string.link_review_uncertain
+                } else {
+                    linkEnrollmentFailureText(failure)
+                }
+            ),
             "link-setup-failure",
             failure.toString(),
             "link-setup-details",
@@ -34,8 +40,16 @@ internal fun LinkEnrollmentNotice(state: LinkEnrollmentSnapshot) {
 
 @Composable
 internal fun LinkEnrollmentAction(snapshot: LinkReceiverSnapshot, actions: LinkReceiveActions) {
-    if (!snapshot.enrollment.canFinish) return
-    Button(actions.finish, Modifier.testTag("link-setup-finish").applicationClick(actions.finish), !snapshot.busy) {
-        Text(stringResource(R.string.link_setup_finish))
+    if (snapshot.enrollment.canFinish) {
+        val finish = actions.enrollment.finish
+        Button(finish, Modifier.testTag("link-setup-finish").applicationClick(finish), !snapshot.busy) {
+            Text(stringResource(R.string.link_setup_finish))
+        }
+    }
+    if (snapshot.enrollment.canPrepare) {
+        val prepare = actions.enrollment.prepare
+        Button(prepare, Modifier.testTag("link-setup-prepare").applicationClick(prepare), !snapshot.busy) {
+            Text(stringResource(R.string.link_review_refresh))
+        }
     }
 }

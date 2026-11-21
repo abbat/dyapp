@@ -7,6 +7,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import kotlinx.coroutines.launch
+import uniffi.dyapp.LinkReviewChoice
+import uniffi.dyapp.MobileSlotSelection
 
 /** Opening-bound presentation callbacks; none selects a receipt's possibly obsolete destination. */
 internal class LinkReceiveActions(
@@ -15,7 +17,7 @@ internal class LinkReceiveActions(
     val dismiss: () -> Unit,
     val openApp: () -> Unit,
     val review: () -> Unit,
-    val finish: () -> Unit
+    val enrollment: LinkEnrollmentActions
 )
 
 internal class LinkReceiveNavigation(val back: () -> Unit, val openApp: () -> Unit, val review: () -> Unit)
@@ -41,9 +43,17 @@ private class LinkReceiveOwner(
     fun finish() {
         val original = opening ?: return
         if (!current) return
-        original.session.finishEnrollment { selection ->
-            linkEnrollmentReview(original.source.slot.owner(), selection.slot.id, selection.key.peerId())
-        }
+        original.session.finishEnrollment(::nativeReview)
+    }
+    fun prepare() {
+        val original = opening ?: return
+        if (current) original.session.prepareEnrollmentReview(::nativeReview)
+    }
+    fun confirm(expected: LinkReviewOpening, choices: List<LinkReviewChoice>) =
+        if (current) opening?.session?.confirmEnrollmentReview(expected, choices) else null
+    private fun nativeReview(selection: MobileSlotSelection): LinkEnrollmentReview {
+        val original = checkNotNull(opening)
+        return linkEnrollmentReview(original.source.slot.owner(), selection.slot.id, selection.key.peerId())
     }
     fun retire() {
         present = false
@@ -68,6 +78,6 @@ internal fun rememberLinkReceiveActions(
         dismiss = { scope.launch { owner.dispose { route.back() } } },
         openApp = { scope.launch { owner.dispose { route.openApp() } } },
         review = { owner.review { route.review() } },
-        finish = owner::finish
+        enrollment = LinkEnrollmentActions(owner::finish, owner::prepare, owner::confirm)
     )
 }

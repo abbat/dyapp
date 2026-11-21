@@ -16,8 +16,13 @@ closing the result. **Return to app** rereads the current selection. Receiving a
 device enrollment or private-data synchronization: **Finish device setup** explicitly completes the
 original pending link through the core without publishing edits. Review, revocation and uncertain
 authorization are distinct refusals; they do not offer ordinary retry. Backend failures retain the
-original review for explicit retry. Full recovery-screen integration remains planned and
-runtime/visual acceptance is still required.
+original review for explicit retry. When field review is required, **Load a fresh comparison** shows
+complete local and verified-network values. Choose each differing group explicitly; nothing is
+preselected. Photo thumbnails have inspectable original references and a retry for unavailable
+pixels. **Preview chosen values** does not save; returning preserves the choices. **Save chosen fields**
+saves a local draft, then **Finish device setup** remains a separate action. An unconfirmed save
+requires another fresh comparison. Private-state recovery and owner-authorization screens remain
+planned; runtime/visual acceptance is still required.
 
 **Settings → Account → Identities** and **Settings → Privacy → Blocked / Passed** lists have
 local search, entry counts, page navigation and **Refresh list**. Search checks complete local

@@ -1,6 +1,7 @@
 package com.dyapp
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
@@ -10,6 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uniffi.dyapp.LinkReviewChoice
+import uniffi.dyapp.LinkReviewSaved
 import uniffi.dyapp.MobileLinkPhase
 import uniffi.dyapp.MobileLinkReceipt
 import uniffi.dyapp.MobileSlotSelection
@@ -89,7 +91,10 @@ internal class LinkReceiverSession(private val create: () -> LinkReceiverCalls) 
         create
     )
 
-    fun confirmEnrollmentReview(expected: LinkReviewOpening, choices: List<LinkReviewChoice>): Boolean =
+    fun confirmEnrollmentReview(
+        expected: LinkReviewOpening,
+        choices: List<LinkReviewChoice>
+    ): Deferred<Result<LinkReviewSaved>>? =
         enrollment.confirm(expected, choices)
 
     /** Observe non-blocking progress without reading a receipt locked by an active writer. */

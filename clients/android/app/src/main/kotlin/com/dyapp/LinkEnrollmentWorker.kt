@@ -68,18 +68,26 @@ internal class LinkEnrollmentWorker(
         true
     }
 
-    fun confirm(expected: LinkReviewOpening, choices: List<LinkReviewChoice>): Boolean = synchronized(monitor) {
+    fun confirm(
+        expected: LinkReviewOpening,
+        choices: List<LinkReviewChoice>
+    ): Deferred<Result<LinkReviewSaved>>? = synchronized(monitor) {
         val before = current.value
-        val review = adoption ?: return@synchronized false
-        if (before.busy || before.closed || !before.enrollment.canConfirm) return@synchronized false
-        if (before.enrollment.comparison !== expected) return@synchronized false
-        if (review.snapshot !== expected.snapshot) return@synchronized false
+        val review = adoption ?: return@synchronized null
+        if (before.busy || before.closed || !before.enrollment.canConfirm) return@synchronized null
+        if (before.enrollment.comparison !== expected) return@synchronized null
+        if (review.snapshot !== expected.snapshot) return@synchronized null
         val submitted = choices.map { LinkReviewChoice(it.field, it.source) }
+        val result = CompletableDeferred<Result<LinkReviewSaved>>()
         current.value = before.copy(
             busy = true, enrollment = before.enrollment.copy(operation = LinkEnrollmentOperation.CONFIRM)
         )
-        worker.launch { confirmed(runCatching { review.confirm(submitted) }) }
-        true
+        worker.launch {
+            val outcome = runCatching { review.confirm(submitted) }
+            confirmed(outcome)
+            result.complete(outcome)
+        }
+        result
     }
 
     private fun confirmed(outcome: Result<LinkReviewSaved>) = synchronized(monitor) {

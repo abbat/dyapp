@@ -4,6 +4,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
@@ -31,7 +32,7 @@ class LinkEnrollmentWorkerTests {
             idle(receiver)
             val opening = checkNotNull(receiver.state.value.enrollment.comparison)
             val other = LinkReviewOpening(next.snapshot, { _, choices -> next.preview(choices) }, { _, _, _ -> null })
-            assertFalse(receiver.confirmEnrollmentReview(other, choices()))
+            assertNull(receiver.confirmEnrollmentReview(other, choices()))
             assertSame(next.snapshot.remote, opening.preview(choices()))
             confirmAcrossRetirement(receiver, pending)
             assertFalse(receiver.state.value.enrollment.completed)
@@ -57,9 +58,9 @@ class LinkEnrollmentWorkerTests {
             assertTrue(receiver.prepareEnrollmentReview { compared })
             idle(receiver)
             val oldOpening = checkNotNull(receiver.state.value.enrollment.comparison)
-            assertTrue(receiver.confirmEnrollmentReview(oldOpening, choices()))
+            assertNotNull(receiver.confirmEnrollmentReview(oldOpening, choices()))
             idle(receiver)
-            assertFalse(receiver.confirmEnrollmentReview(oldOpening, choices()))
+            assertNull(receiver.confirmEnrollmentReview(oldOpening, choices()))
             assertFalse(receiver.finishEnrollment { error("Unknown write outcome retried") })
             assertTrue(receiver.state.value.enrollment.canPrepare)
             assertEquals(1, writes.get())
@@ -71,21 +72,21 @@ class LinkEnrollmentWorkerTests {
             assertSame(refreshed.snapshot.remote, fresh.preview(choices()))
             assertThrows(IllegalStateException::class.java) { oldOpening.preview(choices()) }
             assertNull(oldOpening.thumbnail(LinkReviewSource.LOCAL, 0u))
-            assertFalse(receiver.confirmEnrollmentReview(oldOpening, choices()))
+            assertNull(receiver.confirmEnrollmentReview(oldOpening, choices()))
         }
     }
 
     private suspend fun confirmAcrossRetirement(receiver: LinkReceiverSession, pending: GatedLinkReview) {
         val selected = choices().toMutableList()
         val opening = checkNotNull(receiver.state.value.enrollment.comparison)
-        assertTrue(receiver.confirmEnrollmentReview(opening, selected))
+        assertNotNull(receiver.confirmEnrollmentReview(opening, selected))
         try {
             withTimeout(5_000) { pending.entered.await() }
             assertThrows(IllegalStateException::class.java) { opening.preview(choices()) }
             selected.clear()
             receiver.retire()
             assertFalse(receiver.close())
-            assertFalse(receiver.confirmEnrollmentReview(opening, choices()))
+            assertNull(receiver.confirmEnrollmentReview(opening, choices()))
         } finally {
             pending.release.countDown()
             idle(receiver)

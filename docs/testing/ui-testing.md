@@ -17,6 +17,16 @@ partial choices cannot save, confirmation admits one transition, and retired edi
 change an equal replacement. These controlled browser fixtures do not establish native profile
 validation, photo availability, device authorization or persistence.
 
+The native comparison form has independent Compose checks for complete EN/RU values at normal and
+200% text, unsigned-code/income preservation, partial/coupled groups and current viewport geometry.
+Its actual application callbacks are replayed after an equal fresh opening. Confirmation uses its
+completion promise with no required busy frame; preview/edit focus follows composition, window and
+control readiness. Controlled photo completion after form retirement cannot publish old pixels.
+These presentation checks complement the real two-phone JNI journey, which prepares an actual core
+JPEG, transfers its references and invokes the original review thumbnail binding before unchanged
+separate enrollment, private-sync and revocation assertions. They do not substitute for full screen
+review or all recovery-policy branches.
+
 Android stale-callback checks capture the installed `applicationClickKey` action, rather than a
 Compose `SemanticsActions.OnClick` wrapper: modifier nodes may reuse that wrapper for a new opening
 or require attachment before invoking it. Identity durability acknowledgement uses that same exact

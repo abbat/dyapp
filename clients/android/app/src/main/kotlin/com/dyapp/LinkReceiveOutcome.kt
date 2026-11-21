@@ -13,10 +13,18 @@ import uniffi.dyapp.MobileLinkReceipt
 /** Presentation of typed native phases, never diagnostic-string authorization. */
 internal fun linkReceiveStatus(snapshot: LinkReceiverSnapshot, code: MobileLinkCodeStatus?): Int = when {
     snapshot.enrollment.completed -> R.string.link_setup_complete
-    snapshot.busy && snapshot.receipt is MobileLinkReceipt.Installed -> R.string.link_setup_running
+    snapshot.busy && snapshot.receipt is MobileLinkReceipt.Installed ->
+        linkEnrollmentOperationText(snapshot.enrollment.operation)
     code == MobileLinkCodeStatus.EXPIRED -> R.string.link_receive_expired
     snapshot.error != null -> R.string.link_receive_error
     else -> snapshot.phase?.let(::linkReceivePhaseStatus) ?: R.string.link_receive_starting
+}
+
+internal fun linkEnrollmentOperationText(operation: LinkEnrollmentOperation?): Int = when (operation) {
+    LinkEnrollmentOperation.PREPARE -> R.string.link_review_loading
+    LinkEnrollmentOperation.CONFIRM -> R.string.link_review_saving
+    LinkEnrollmentOperation.PHOTO -> R.string.link_review_photo_loading
+    LinkEnrollmentOperation.FINISH, null -> R.string.link_setup_running
 }
 
 private fun linkReceivePhaseStatus(phase: MobileLinkPhase): Int = when (phase) {

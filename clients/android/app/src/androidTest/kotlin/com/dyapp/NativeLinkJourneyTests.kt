@@ -26,6 +26,7 @@ class NativeLinkJourneyTests {
         withPhones { owner, recipient ->
             val original = createReady(owner)
             val destination = createReady(recipient)
+            prepareNativeLinkPhoto(original)
             publishWorkerPeer(original)
             activateWorkerPeer(destination)
             val contact = IdentityKey.generate().use { it.peerId() }
@@ -141,7 +142,8 @@ class NativeLinkJourneyTests {
     private fun completeEnrollment(installed: Opened.Ready) {
         linkEnrollmentReview(installed.slot.owner(), installed.slot.id, installed.peerId).use { review ->
             val choices = review.snapshot.differences.map { LinkReviewChoice(it, LinkReviewSource.REMOTE) }
-            assertEquals(review.snapshot.remote, review.preview(choices))
+            assertNativeReviewProjection(review.snapshot.remote, review.preview(choices))
+            assertNativeLinkThumbnail(review)
             assertTrue(review.resume())
             // A second completion proves that the original pending-link row was cleared.
             assertFalse(review.resume())

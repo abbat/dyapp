@@ -205,7 +205,12 @@ shell's photo cache. The Android adapter admits each thumbnail read to the retai
 exposes only an independent result promise. Cancelling its UI waiter cannot cancel the actual native
 read or close its handle; busy state clears only after native completion. A changed-context refusal
 requires a fresh comparison, while an ordinary unavailable photo does not change field choices or
-setup policy. Full field-choice and photo presentation remains planned.
+setup policy. The native field form keeps explicit choices only for its reference-identity opening,
+uses complete frozen values without narrowing unsigned codes, and displays original photo references
+alongside available bounded thumbnails. Core preview is read-only. Confirmation returns its own
+completion result, so validation-error retries do not depend on seeing an intermediate busy frame.
+Retiring the form refuses old callbacks and late pixel publication without cancelling native work.
+Actual binding/runtime and full screen acceptance remain required.
 Invitation expiry formatting observes
 Compose's current configuration locale, so a language change invalidates the displayed date.
 
