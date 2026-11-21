@@ -63,7 +63,7 @@ impl ExistingChat {
     async fn new() -> Self {
         // The dependency is not cfg(test): align native replica admission with this no-PoW node.
         dyapp_p2p_net::set_id_pow_bits(0);
-        Self::at(link_node().await).await
+        Box::pin(Self::at(link_node().await)).await
     }
 
     async fn at(address: Multiaddr) -> Self {

@@ -58,7 +58,9 @@ internal class ChatForwardUiFixture(private val compose: ComposeContentTestRule)
 
     fun show(language: String = "en"): Context {
         val base = InstrumentationRegistry.getInstrumentation().targetContext
-        val configuration = Configuration(base.resources.configuration).apply { setLocale(Locale(language)) }
+        val configuration = Configuration(base.resources.configuration).apply {
+            setLocale(Locale.forLanguageTag(language))
+        }
         val localized = base.createConfigurationContext(configuration)
         compose.setContent { LocalizedTestContext(localized, scale.floatValue) { Render() } }
         return localized

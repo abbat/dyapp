@@ -31,7 +31,9 @@ internal class ChatClearFixture(private val compose: ComposeContentTestRule) {
 
     fun show(language: String = "en"): Context {
         val base = InstrumentationRegistry.getInstrumentation().targetContext
-        val configuration = Configuration(base.resources.configuration).apply { setLocale(Locale(language)) }
+        val configuration = Configuration(base.resources.configuration).apply {
+            setLocale(Locale.forLanguageTag(language))
+        }
         val context = base.createConfigurationContext(configuration)
         compose.setContent {
             LocalizedTestContext(context, scale.floatValue) {

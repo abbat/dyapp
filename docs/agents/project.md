@@ -165,6 +165,8 @@ Raw `onNode`/`onAllNodes` are receiver members: call `compose.onNode(...)`/
 Localized instrumentation content uses `LocalizedTestContext` so context/configuration/resources
 agree and the actual Activity picker registry survives the configuration-context substitution.
 Use its font-scale argument for geometry cases; retain the original locale and text-layout assertions.
+Create fixture locales with `Locale.forLanguageTag(language)`: the current SDK deprecates the
+single-string constructor and Android test compilation treats that warning as an error.
 
 When a native status/page object is a callback-admission token, use Compose
 `referentialEqualityPolicy` (or a separate explicit token). Default structural policy discards
