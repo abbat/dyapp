@@ -467,6 +467,9 @@ Profile facts use bounded label/value tracks and wrap long labels; safety action
 current panel. Contrast retries align the actual text start inside its scroller, then restore scroll
 and focus. The scroll calibration checks readable and deliberately low-contrast text both shorter
 and taller than its container, deriving the taller paragraph from current geometry.
+Opaque ARIA-modal contrast isolation also works when every action is disabled and focus stays
+outside. Its calibration retains readable and low-contrast controls and verifies that auditing
+restores the original focus and background visibility.
 
 The desktop report-path regression uses a fake executable callback that rejects explicit broken
 and unknown-step arguments. It checks that the report contains every actual invocation and both
