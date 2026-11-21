@@ -9,6 +9,11 @@ existing meanings.
 
 Who can see what about you: [Your privacy in dyapp](privacy.md).
 
+**Settings → Privacy** saves profile-view, read-receipt and typing choices independently.
+Unknown or pending values cannot be changed; after an unconfirmed result, **Read setting again**
+rereads storage before allowing another change. Switching identity retires the old controls.
+Android profile-view and typing delivery is still planned; saving these choices alone does not send signals.
+
 A chat's **Name this contact** sets a private contact name for this identity. The name is shared
 with your linked devices when they synchronize, and is not shown to the contact. An empty name
 removes it; Cancel changes nothing.

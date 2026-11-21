@@ -12,6 +12,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -102,12 +104,9 @@ class PresenceCardTests {
         returned: CompletableDeferred<Unit>
     ) = PrivacyPreferenceCalls(read = { true }, write = {
         writes.incrementAndGet()
+        currentCoroutineContext().job.invokeOnCompletion { returned.complete(Unit) }
         started.complete(Unit)
-        try {
-            withContext(NonCancellable) { release.await() }
-        } finally {
-            returned.complete(Unit)
-        }
+        withContext(NonCancellable) { release.await() }
     })
 
     private fun showOwners(

@@ -8,6 +8,10 @@ and real governed signal delivery require their own CI/runtime evidence.
 `PrivacyPreferenceStateTests` covers unknown/read-retry, pending duplicate admission, unconfirmed
 write/readback, disposed-owner completion and equal fresh read revisions. Presence uses this shared
 presentation guard; its existing controlled Compose scenarios retain their original assertions.
+`PrivacyPreferenceSwitchTests` invokes the actual application callback to test unknown views and
+read-only retry, committed-but-unconfirmed receipts, and pending typing with owner replacement.
+Counters are checked outside caught callbacks; controlled completion signals avoid guessed delays.
+The existing production-Activity receipt persistence/recreation test remains unchanged.
 
 Debug-only `MailNoticeProbeService` observes actual framework start/stop/completion and attempts
 at OS notification posting without replacing registry selection, native receive or posting.

@@ -17,7 +17,9 @@ never selects a candidate. Native screen acceptance remains separate.
 native session lock. Views default off and typing defaults on; defaulting, stored-flag validation
 and the `hide_typing` inversion remain in Store. Each setter writes only its own preference and
 sends no signal. Database/unsupported-value failures remain errors rather than guessed values.
-These exports alone do not implement the Android switches or the optional outgoing signal paths.
+Android Privacy switches use these per-field exports and the existing read-receipt exports, with
+confirmed readback and read-only retry after errors. Optional outgoing profile-view/typing paths
+still require separate Android implementation and signal-delivery acceptance.
 
 `ChatSession.active_chat_peers` is a read-only common-core projection of fresh authenticated
 match presence. A failed read stays an error; the native UI must not infer expiry or a fresh mark
