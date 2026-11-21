@@ -107,7 +107,7 @@ internal fun ChatScreen(
     onProfile: () -> Unit,
     onBack: () -> Unit,
 ) {
-    val form = rememberChatForm()
+    val form = rememberOwnedChatForm(opened, peer)
     val snapshot = rememberChatSnapshot(feed, peer, form)
     val history = snapshot?.history
     val scope = rememberCoroutineScope()

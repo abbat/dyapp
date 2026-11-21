@@ -269,6 +269,11 @@ The IDs inside each section are the desktop ones; only the frame differs.
   assert that no node accepted a request merely because native completion failed. A key that
   cannot open cannot sign the withdrawal and skips it.
 
+The native chat form belongs to the actual opened identity object and peer. Changing the peer
+or reopening the same slot/Peer ID creates fresh draft, edit, confirmation and pending presentation
+state; it cannot inherit a different conversation's Clear confirmation. Native operations already
+admitted retain their existing lease lifetime.
+
 Android screens may be reviewed and implemented individually against the frozen criteria and the
 corresponding desktop behavior. The complete prototype review and per-client impact review remain
 v0.0.1 release requirements; this delivery order does not waive criteria or native verification.

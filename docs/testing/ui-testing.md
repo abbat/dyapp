@@ -1,5 +1,10 @@
 # UI Testing: Practical Guide
 
+`ChatFormOwnershipTests` renders the production remembered form and replaces either its peer or
+the actual opened identity while retaining equal slot/owner identifiers. It requires a fresh form
+with no carried draft, edit, deletion, rename, confirmation or pending flags. Recomposition and
+SideEffect completion, rather than a delay, establish the new owner before assertions.
+
 Shared visible-chat admission tests keep the existing own/blocked/unknown error order, all known
 conversation phases, exact owner/peer projection, no writes and propagated storage failure.
 Native Clear-target tests cross the public export, reopen its store and recheck refusal after the
