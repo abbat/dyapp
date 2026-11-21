@@ -177,7 +177,7 @@
     <string name="storage_peer_id">Ваш идентификатор узла</string>
     <string name="storage_os_loss">Удаление приложения или очистка его данных стирает ключ этой личности без предупреждения. Резервную копию пока сделать нельзя.</string>
     <string name="storage_error">Перезапустите приложение. Ваш ключ не был заменён.</string>
-    <string name="identity_persistence_title">Сохранение изменений</string>
+    <string name="identity_persistence_title">Результат</string>
     <string name="identity_persistence_notice">Изменение личности выполнено, но не удалось подтвердить его сохранение. После перезапуска приложения проверьте, какая личность выбрана.</string>
     <string name="identity_persistence_ack">Продолжить</string>
     <string name="identity_switch">Выбрать другую личность</string>

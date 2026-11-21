@@ -586,6 +586,17 @@ search providers asked: 0 of 3</pre>
     </div>
   </div>
 
+  <!-- A committed result is acknowledged; no storage operation is repeated. -->
+  <div class="scrim" data-on="identity-durability-dialog">
+    <div class="dialog" id="identity-durability-dialog" role="dialog" aria-modal="true" aria-labelledby="identity-durability-title">
+      <h2 id="identity-durability-title" data-t="identity.persistence.title"></h2>
+      <p id="identity-durability-notice" aria-live="polite" data-t="identity.persistence.notice"></p>
+      <div class="actions">
+        <button type="button" class="btn text" id="identity-durability-ack" data-go="profile" data-t="identity.persistence.ack"></button>
+      </div>
+    </div>
+  </div>
+
   <!-- Publish dialog: exact public fields, two fresh consents, then proof-of-work progress. -->
   <div class="scrim" data-on="publish-dialog publish-progress">
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="publish-title">
@@ -706,7 +717,8 @@ const query = new URLSearchParams(location.search);
 const screen = location.hash.slice(1) || 'profile';
 const lang = query.get('lang') === 'ru' ? 'ru' : 'en';
 const t = STRINGS[lang];
-const has = (el, name) => el.dataset[name].split(' ').includes(screen);
+const shown = screen === 'identity-durability-dialog' ? 'profile' : screen;
+const has = (el, name) => el.dataset[name].split(' ').some((state) => state === screen || state === shown);
 document.documentElement.lang = lang;
 document.documentElement.dataset.screen = screen;
 document.documentElement.dataset.theme = query.get('theme') === 'dark' ? 'dark' : 'light';

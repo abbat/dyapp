@@ -178,7 +178,7 @@
     <string name="storage_peer_id">Your Peer ID</string>
     <string name="storage_os_loss">Uninstalling the app or clearing its data erases this identity\'s key without warning. It cannot be backed up yet.</string>
     <string name="storage_error">Restart the app. Your identity was not replaced.</string>
-    <string name="identity_persistence_title">Saving changes</string>
+    <string name="identity_persistence_title">Result</string>
     <string name="identity_persistence_notice">The identity change completed, but its persistence could not be confirmed. After restarting the app, check which identity is selected.</string>
     <string name="identity_persistence_ack">Continue</string>
     <string name="identity_switch">Use another identity</string>

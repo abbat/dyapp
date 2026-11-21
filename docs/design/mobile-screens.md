@@ -14,6 +14,11 @@ default; Cancel/Back do not write, unchanged selection does not recreate, and a 
 selection persists its tag and recreates the Activity on the same saved Settings route. Window-focus
 signals control initial/return focus; retired dialog openings or owners cannot apply choices.
 
+Android acknowledges committed identity persistence uncertainty in a scrollable, localized dialog
+on the resulting route. Its only action continues without repeating or rolling back the change;
+a fresh result owns a fresh acknowledgement. `identity-durability-dialog` mirrors this state in the
+static prototype over the selected profile. Native storage decisions stay in the common core.
+
 Android chat attachments now use core-ordered mixed history. Photo metadata remains
 visible while stranger previews are blurred; Show preview reveals only the preview,
 and Download photo explicitly requests the original. Open conversations apply core

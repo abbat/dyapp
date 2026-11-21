@@ -60,6 +60,9 @@ class IdentityDurabilityTests {
     @Test
     fun russianCommittedNoticeFitsWithoutChangingSelection() = verify("ru")
 
+    @Test
+    fun pseudoLocalizedCommittedNoticeFitsWithoutChangingSelection() = verify("en-XA")
+
     private fun verify(language: String) {
         val context = show(language)
         compose.onNodeWithTag("identity-durability-dialog").assertDoesNotExist()

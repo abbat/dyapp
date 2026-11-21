@@ -2,6 +2,10 @@
 // app/src/main/res. Only keys that differ on Android or exist only here.
 Object.assign(STRINGS.en, {
   'language.name': 'English',
+  'identity.persistence.title': 'Result',
+  'identity.persistence.notice':
+    'The identity change completed, but its persistence could not be confirmed. After restarting the app, check which identity is selected.',
+  'identity.persistence.ack': 'Continue',
   'privacy.hint': 'These settings stay on this device and apply to this identity only.',
   'nav.back': 'Back',
   'storage.kind.system': 'Android Keystore',
@@ -37,6 +41,10 @@ Object.assign(STRINGS.en, {
 });
 Object.assign(STRINGS.ru, {
   'language.name': 'Русский',
+  'identity.persistence.title': 'Результат',
+  'identity.persistence.notice':
+    'Изменение личности выполнено, но не удалось подтвердить его сохранение. После перезапуска приложения проверьте, какая личность выбрана.',
+  'identity.persistence.ack': 'Продолжить',
   'privacy.hint': 'Эти настройки хранятся на этом устройстве и действуют только для этой личности.',
   'nav.back': 'Назад',
   'storage.kind.system': 'Хранилище ключей Android',

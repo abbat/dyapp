@@ -20,7 +20,7 @@ confirmed, you can retry, cancel or explicitly remove it anyway. Local removal d
 immediate disappearance from search or a fixed expiry date: nodes expire records under their
 retention policy and another device can keep the profile published.
 
-If an identity change completes but its persistence cannot be confirmed, **Saving changes** explains
+If an identity change completes but its persistence cannot be confirmed, **Result** explains
 that result. **Continue** keeps the current route and does not repeat the operation. After restarting,
 check which identity is selected.
 

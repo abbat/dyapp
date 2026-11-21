@@ -25,7 +25,7 @@ const reveal = (node) =>
       observer.disconnect();
       clearTimeout(deadline);
       cancelAnimationFrame(frame);
-      if (failed) reject(new Error(`Forward control is unreachable: ${node.id}`));
+      if (failed) reject(new Error(`Prototype control is unreachable: ${node.id}`));
       else resolve(undefined);
     };
     const check = () => {
@@ -92,6 +92,11 @@ export const checkForwardReachability = async () => {
       throw new Error(`Required forward control is unavailable: ${id}`);
     return node;
   });
+  await checkControls(controls);
+};
+
+/** Shared prototype-only exposure checks, including deliberately unreachable counterexamples. */
+export const checkControls = async (controls) => {
   for (const node of controls) await reveal(node);
   if (controls.length) {
     calibrate(controls[0]);

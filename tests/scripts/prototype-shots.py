@@ -381,6 +381,7 @@ DESKTOP = [
     "disconnect-offline",
 ]
 ANDROID = [
+    "identity-durability-dialog",
     "lock-setup",
     "lock-unlock",
     "wizard-identity",
@@ -736,28 +737,38 @@ def saved(_view: WebKit2.WebView, result: Gio.AsyncResult) -> None:
             KeyboardFixtures(
                 view, keyboard_calibrated, keyboard_progress
             ).start()
-    elif PLATFORM == "android" and jobs[0][0].startswith("chat-forward-"):
-        phase("forward fixture")
+    elif PLATFORM == "android" and (
+        jobs[0][0].startswith("chat-forward-")
+        or jobs[0][0] == "identity-durability-dialog"
+    ):
+        module, method = (
+            ("identity-notice", "checkIdentityNotice")
+            if jobs[0][0] == "identity-durability-dialog"
+            else ("forward", "checkForwardFixture")
+        )
+        phase(f"{module} fixture")
         view.call_async_javascript_function(
             "await (await import("
-            "'/android/prototype/forward-fixture-tests.js'"
-            ")).checkForwardFixture()",
+            f"'/android/prototype/{module}-fixture-tests.js'"
+            f")).{method}()",
             -1,
             None,
             None,
             None,
             None,
-            forward_checked,
+            android_fixture_checked,
         )
     else:
         finish_job()
 
 
-def forward_checked(_view: WebKit2.WebView, result: Gio.AsyncResult) -> None:
+def android_fixture_checked(
+    _view: WebKit2.WebView, result: Gio.AsyncResult
+) -> None:
     try:
         view.call_async_javascript_function_finish(result)
     except GLib.Error as error:
-        failed.append(f"{shot_name()} forward fixture: {error.message}")
+        failed.append(f"{shot_name()} Android fixture: {error.message}")
     finish_job()
 
 
