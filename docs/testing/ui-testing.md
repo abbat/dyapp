@@ -1,7 +1,11 @@
 # UI Testing: Practical Guide
 
 Android prototype snapshots include nine forwarding states. Their browser checks live beside the
-prototype in `clients/android/prototype/forward-fixture-tests.js` and are not packaged in the APK. After capture, browser checks verify
+prototype in `clients/android/prototype/forward-fixture-tests.js` and are not packaged in the APK.
+Run the on-demand `prototype-review` workflow with `platform=android` for the complete Android
+inventory and layout checks; its default `platform=desktop` retains desktop capture and criteria.
+The artifact records the selected platform, exact source and input hashes. Ordinary APK CI does
+not execute the HTML-prototype capture. After capture, browser checks verify
 state-specific admission, received-menu permissions and destination-only history/avatar. Each ready
 dialog snapshot also checks the actual 32+8 pagination, full-ID search, retained selection across
 pages and rejection of callbacks after a synchronous leave-and-return transition. These checks
