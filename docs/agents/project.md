@@ -91,8 +91,8 @@ A normal suite skips phase-only tests without their arguments. Worker phases pub
 record an anchor ID, stop the real node, queue and reopen the exact offline ID, reboot the guest,
 verify that ID again, then restart the node
 and check incoming/outgoing IDs through a JobScheduler-dispatched `MailJob`. Only the counterpart advances
-its mailbox directly. The message checkpoint is bound to both native Peer IDs; reopen never republishes
-profiles. Only preparation lowers test PoW; receive phases use a fresh process with production defaults
+its mailbox directly. The message checkpoint is bound to both native Peer IDs and the initialized current public device
+keys read through the offline core directory; reopen compares both keys and never republishes profiles. Only preparation lowers test PoW; receive phases use a fresh process with production defaults
 and reject the preparation process by boot count, PID and process start timestamp. Native explicit-seed
 mail uses the client swarm without the node dial guard, and direct profile verification checks content
 and signatures rather than search PoW. This does not establish default-policy search/discovery coverage.

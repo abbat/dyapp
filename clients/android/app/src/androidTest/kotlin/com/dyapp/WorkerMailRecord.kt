@@ -31,6 +31,25 @@ internal class WorkerMailRecord(
         JSONObject().put("owner", owner).put("counterpart", counterpart).put("preparationProcess", process())
     )
 
+    fun recordDevices(ownerKey: ByteArray, counterpartKey: ByteArray) {
+        val state = read()
+        check(!state.has("ownerDevice") && !state.has("counterpartDevice")) { "Device proof already exists" }
+        checkpoint.write(
+            state.put("ownerDevice", deviceKey(ownerKey)).put("counterpartDevice", deviceKey(counterpartKey))
+        )
+    }
+
+    fun requireDevices(ownerKey: ByteArray, counterpartKey: ByteArray) {
+        val state = read()
+        check(state.getString("ownerDevice") == deviceKey(ownerKey)) { "Owner device changed" }
+        check(state.getString("counterpartDevice") == deviceKey(counterpartKey)) { "Counterpart device changed" }
+    }
+
+    private fun deviceKey(key: ByteArray): String {
+        check(key.size == 32) { "Invalid public device key width" }
+        return Base64.encodeToString(key, Base64.NO_WRAP)
+    }
+
     fun requireFreshProcess() {
         check(read().getString("preparationProcess") != process()) {
             "Worker body reused the preparation process and its proof overrides"
