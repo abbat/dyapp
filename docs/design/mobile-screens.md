@@ -282,6 +282,13 @@ and cleared messages do not return on redelivery. A failed target read offers ve
 unknown targets cannot authorize Clear. Closing the dialog retires its callbacks. The mutation
 rechecks admission under its native lease; a previously displayed target is not authority.
 
+Shared native confirmation controls retire their installed callbacks when dismissed, confirmed or
+removed from composition. Chat Block additionally requires the current Block dialog and an idle form;
+message Delete requires the exact current selected message and an idle form. Changing that selection
+creates a new confirmation opening. Both controls disable while admission is unavailable; an old
+callback cannot cancel a replacement dialog or reuse its action. Native actions retain all existing
+validation and leases, and Delete captures the selected message before clearing its presentation.
+
 Android screens may be reviewed and implemented individually against the frozen criteria and the
 corresponding desktop behavior. The complete prototype review and per-client impact review remain
 v0.0.1 release requirements; this delivery order does not waive criteria or native verification.

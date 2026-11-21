@@ -582,6 +582,12 @@ Material text field also merges its title and supporting hint into `Text`; treat
 list as the editable value rejects correct input. Keep separate label/hint geometry checks and
 save/reopen/validation assertions.
 
+`ChatConfirmOwnershipTests` invokes the actual installed Block/Delete confirm and cancel callbacks:
+cancel/reopen, a replacement message, an equal selection under a new form, and busy admission before
+recomposition all refuse stale authority. The current callback still acts once and observes the selected
+message before dismissal. Existing native operation/failure tests remain required; these UI callback
+tests do not substitute for core authorization.
+
 `ChatClearOpeningTests` exercise unknown/busy admission, exact-target replacement on retry,
 cancel/reopen retirement, disposal and a different active dialog without elapsed-time assertions.
 `ChatMenuTests` waits for the actual verified/enabled Clear control before confirming; its injected

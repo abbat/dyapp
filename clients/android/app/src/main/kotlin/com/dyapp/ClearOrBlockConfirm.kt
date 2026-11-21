@@ -14,7 +14,8 @@ internal fun ClearOrBlockConfirm(form: ChatForm, actions: ChatActions, name: Con
             R.string.block_title,
             listOf(R.string.block_text),
             R.string.chat_block,
-            cancel
+            cancel,
+            admitted = { !form.busy && form.dialog.value == ChatDialog.BLOCK }
         ) {
             cancel()
             actions.onBlock()
