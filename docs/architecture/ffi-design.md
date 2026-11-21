@@ -515,7 +515,7 @@ Common `message_actions::prepare` provides read-only own-message selection from 
 Store owner, viewed peer and exact group/author/logical-ID. Its media kind preserves text-only
 edit/delete contracts separately from sticker-only or desktop text-or-sticker deletion. It refuses
 blocked, foreign, wrong-key and cleared targets before transport; session staging still validates
-the current group/target. Tauri edit/delete uses this preflight; native adapter adoption is in progress.
+the current group/target. Tauri edit/delete and native text/sticker operations use this preflight.
 The shared key/kind matcher also serves the preserved desktop regression tests; matching alone
 does not authorize ownership or peer visibility.
 
@@ -535,6 +535,10 @@ then commits through the same durable staging path. Own-device listing admission
 Only an absent local group may fall through to online first-contact admission; a staging refusal never
 triggers another submission. The connected path still verifies the peer profile. Offline operation
 cannot discover remote revocations it has not received.
+
+Common native `submit_delete_sticker` accepts an explicit peer/group/author/logical-ID and only a
+current own sticker. Its session/identity lease covers selection, staging and typed commitment;
+foreign authors cannot rebind a colliding own ID. Text edit/delete retains its text-only contract.
 
 Common native `submit_text`, `submit_edit_text`, `submit_delete_text` and
 `submit_chat_photo` and `submit_saved_sticker` return `ChatSubmission::Accepted` or `Queued`

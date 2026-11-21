@@ -48,6 +48,7 @@ mod photo_view;
 mod photos;
 pub use photo_view::{ChatItem, ChatPhoto};
 mod sticker_collection;
+mod sticker_delete;
 pub use sticker_collection::{SavedStickerPackEntry, SavedStickerPackPage, SavedStickerPackState};
 mod sticker_import;
 pub use sticker_import::{sticker_import_byte_limit, SavedStickerPackImport};

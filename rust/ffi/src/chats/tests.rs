@@ -30,6 +30,7 @@ mod profile_share;
 mod saved_sticker;
 #[path = "tests/sticker_collection.rs"]
 mod sticker_collection;
+mod sticker_delete;
 #[path = "tests/sticker_download.rs"]
 mod sticker_download;
 #[path = "tests/sticker_exchange.rs"]

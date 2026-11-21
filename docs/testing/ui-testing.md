@@ -1,5 +1,12 @@
 # UI Testing: Practical Guide
 
+Shared own-message preflight tests retain desktop full-key/live-text/delete-only sticker cases
+and real Store coverage for colliding authors, media kinds, blocking and cleared history. The
+original desktop test block remains and its argument helpers call the common matcher.
+Native sticker-delete boundary tests check exact selection and no writes before transport,
+including a valid own selector reaching an intentionally absent network and unchanged text-only
+compatibility. Actual successful native deletion remains separate runtime proof.
+
 Common received-pack control table tests cover current phases and failures, both retained and
 absent generations for failures, exact order and unchanged controls across zero/maximum retry deadlines.
 The desktop controller test deliberately supplies controls that disagree with its former state
