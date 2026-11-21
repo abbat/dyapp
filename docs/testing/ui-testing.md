@@ -1,5 +1,9 @@
 # UI Testing: Practical Guide
 
+Offline native chat fixtures that establish several conversations must pass distinct interaction
+event IDs per author. Reusing an author/event pair for a different peer correctly fails with
+`InteractionConflict`; `establish_with_event` makes the fixture's distinct events explicit.
+
 Android prototype snapshots include nine forwarding states. Their browser checks live beside the
 prototype in `clients/android/prototype/forward-fixture-tests.js` and are not packaged in the APK.
 Run the on-demand `prototype-review` workflow with `platform=android` for the complete Android

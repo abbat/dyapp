@@ -2,6 +2,11 @@ use super::favorites::Fixture;
 use super::*;
 
 pub(super) fn establish(f: &Fixture) -> String {
+    establish_with_event(f, [1; 16])
+}
+
+// One author/event ID cannot be reused for another target, even in an isolated fixture.
+pub(super) fn establish_with_event(f: &Fixture, event_id: [u8; 16]) -> String {
     let peer = Identity::try_generate().unwrap();
     let key = Identity::try_generate().unwrap();
     let device = dyapp_messaging::mls::Device::new(&peer, key.public_key(), 1).unwrap();
@@ -36,7 +41,7 @@ pub(super) fn establish(f: &Fixture) -> String {
     .unwrap();
     let like = dyapp_client::interactions::Interaction {
         kind: dyapp_client::interactions::Kind::Like,
-        event_id: [1; 16],
+        event_id,
         hlc: 1000,
     };
     state
