@@ -19,8 +19,11 @@ late-save case retains newer input and then persists an explicit undo of the com
 `ProfileInterestUiTests` exercises actual editor save/reopen/clear and invalid-input recovery through
 MainActivity. `ProfileInterestRowsTests` exercises the actual shared public/preview rows, preserving
 punctuation and duplicate order and distinguishing an interest-only profile from an empty one.
-These device tests require CI execution; normal/enlarged layout and search acceptance
-remain separate.
+`InterestGeometryTests` renders the actual editor/search fields and public rows in the production
+theme at EN/RU normal/doubled font scale. It checks full labels, native-limit hints, a long multiline
+input and public tag list using current text layouts and viewport bounds. Device CI execution is
+required; component geometry does not replace full screen/keyboard/owner review or network search
+acceptance.
 
 Native privacy preference tests use real offline ChatSession/Store fixtures for default values,
 per-field independence, reopen durability and another identity's defaults. Unsupported flag formats,
