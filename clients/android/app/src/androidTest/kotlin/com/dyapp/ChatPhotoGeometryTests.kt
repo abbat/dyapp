@@ -73,7 +73,9 @@ class ChatPhotoGeometryTests {
             .assertIsDisplayed()
         requireBounds(image)
         val bounds = image.getUnclippedBoundsInRoot()
-        assertEquals("Decoded image keeps its actual aspect", 2f, bounds.width.value / bounds.height.value, 0.01f)
+        val width = bounds.right.value - bounds.left.value
+        val height = bounds.bottom.value - bounds.top.value
+        assertEquals("Decoded image keeps its actual aspect", 2f, width / height, 0.01f)
         compose.onNode(hasText(context.getString(R.string.chat_photo_download))).assertDoesNotExist()
         compose.onNode(hasText(context.getString(R.string.chat_photo_failed))).assertDoesNotExist()
     }
