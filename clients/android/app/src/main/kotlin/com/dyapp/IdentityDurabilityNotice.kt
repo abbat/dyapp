@@ -18,13 +18,24 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 
+@Composable
+private fun IdentityDurabilityBody() {
+    Column(Modifier.verticalScroll(rememberScrollState())) {
+        Text(
+            stringResource(R.string.identity_persistence_notice),
+            Modifier.testTag("identity-durability-notice").semantics { liveRegion = LiveRegionMode.Polite }
+        )
+    }
+}
+
 /** Acknowledges an already committed result; the native diagnostic is never a retry action. */
 @Composable
 internal fun IdentityDurabilityNotice(shown: Shown) {
     var visible by remember(shown) { mutableStateOf(shown.durabilityDetail != null) }
     if (!visible) return
+    val acknowledge = { visible = false }
     AlertDialog(
-        onDismissRequest = { visible = false },
+        onDismissRequest = acknowledge,
         modifier = Modifier.testTag("identity-durability-dialog"),
         title = {
             Text(
@@ -32,16 +43,12 @@ internal fun IdentityDurabilityNotice(shown: Shown) {
                 Modifier.testTag("identity-durability-title")
             )
         },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text(
-                    stringResource(R.string.identity_persistence_notice),
-                    Modifier.testTag("identity-durability-notice").semantics { liveRegion = LiveRegionMode.Polite }
-                )
-            }
-        },
+        text = { IdentityDurabilityBody() },
         confirmButton = {
-            TextButton({ visible = false }, Modifier.testTag("identity-durability-ack")) {
+            TextButton(
+                acknowledge,
+                Modifier.testTag("identity-durability-ack").applicationClick(acknowledge)
+            ) {
                 Text(stringResource(R.string.identity_persistence_ack))
             }
         }

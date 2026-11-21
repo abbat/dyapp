@@ -8,7 +8,8 @@ acceptance require the separate real JNI journey and screen review.
 
 Android stale-callback checks capture the installed `applicationClickKey` action, rather than a
 Compose `SemanticsActions.OnClick` wrapper: modifier nodes may reuse that wrapper for a new opening
-or require attachment before invoking it. Profile sharing exposes the same application action used
+or require attachment before invoking it. Identity durability acknowledgement uses that same exact
+callback contract for replacement results and disposal. Profile sharing exposes the same application action used
 by each real control; cancellation, duplicate admission and retired completion assertions remain.
 The real foreground LAN-permission journey closes the IME with Espresso's acknowledged action after
 text replacement, then scrolls to the check button using current layout bounds before clicking.

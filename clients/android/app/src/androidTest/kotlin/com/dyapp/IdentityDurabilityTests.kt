@@ -9,7 +9,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
@@ -109,7 +108,7 @@ class IdentityDurabilityTests {
         show("en")
         compose.runOnIdle { shown.value = Shown(ready, durabilityDetail = "unconfirmed") }
         val node = compose.awaitNode(hasTestTag("identity-durability-ack")).fetchSemanticsNode()
-        val old = checkNotNull(node.config[SemanticsActions.OnClick].action)
+        val old = node.config[applicationClickKey]
         val successor = Shown(ready, durabilityDetail = "unconfirmed")
         compose.runOnIdle { shown.value = successor }
         compose.awaitNode(hasTestTag("identity-durability-ack"))
