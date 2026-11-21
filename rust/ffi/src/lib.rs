@@ -117,7 +117,10 @@ pub use profile_photos::{
 mod profile_publish;
 pub use profile_publish::{profile_publish_block, ProfileSolve, ProfileWorkStep};
 mod editor_input;
-pub use editor_input::{parse_profile_height, parse_profile_seeking, ParsedProfileSeeking};
+pub use editor_input::{
+    parse_profile_height, parse_profile_interests, parse_profile_seeking, profile_interest_limits,
+    ParsedProfileSeeking, ProfileInterestLimits,
+};
 mod birth_input;
 pub use birth_input::{parse_profile_birth_parts, valid_profile_birth_parts};
 mod search_input;

@@ -668,7 +668,13 @@ projections; persistence callers must validate first. `profile_editor::normalize
 interest-list limits and NFC/trim/lowercase normalization; Tauri and native saves use it. Native
 `PublicProfileDraft.interests` is an optional edit: None preserves stored tags, Some(empty) clears,
 and loaded drafts return Some with the actual tags. This keeps unrelated edits by older callers from
-erasing interests. Mobile interest controls remain planned behind the UI review gate.
+erasing interests. `profile_editor::parse_interest_lines` additionally accepts one tag per nonempty
+line, preserving punctuation/duplicates and delegating canonicalization/validation to that same
+boundary. It allocates at most one excess nonempty tag before refusing the count.
+Native `parse_profile_interests` returns None for invalid input and a successful empty list for clear;
+`profile_interest_limits` exposes authoritative count/canonical-character limits for presentation.
+Android interest controls are being developed one screen at a time; full native/release review
+remains required, and iOS interest UI is still planned.
 The common native draft adapter converts
 records and errors, validates through this API before opening storage, and delegates save and
 eligibility/search projections to the same normalized application. Editable saves use the core

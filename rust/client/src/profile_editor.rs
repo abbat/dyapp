@@ -136,7 +136,7 @@ pub fn apply(draft: &Profile, target: &mut Profile) {
 }
 
 mod interests;
-pub use interests::normalize_interests;
+pub use interests::{normalize_interests, parse_interest_lines};
 
 #[cfg(test)]
 mod tests;

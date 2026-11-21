@@ -1,5 +1,10 @@
 # UI Testing: Practical Guide
 
+Shared multiline-interest tests cover CRLF/blank lines, punctuation, canonical Unicode, preserved
+duplicates, exact count limits and invalid-tag refusal without partial output. Native adapter tests
+compare advertised limits against actual parser admission at each boundary and distinguish clear
+from invalid input. Native parsing alone does not establish Android editor/persistence/search acceptance.
+
 Native privacy preference tests use real offline ChatSession/Store fixtures for default values,
 per-field independence, reopen durability and another identity's defaults. Unsupported flag formats,
 invalid values/lengths and a database-triggered write refusal must propagate errors without
