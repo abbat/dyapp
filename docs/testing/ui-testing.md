@@ -1,5 +1,10 @@
 # UI Testing: Practical Guide
 
+Android stale-callback checks capture the installed `applicationClickKey` action, rather than a
+Compose `SemanticsActions.OnClick` wrapper: modifier nodes may reuse that wrapper for a new opening
+or require attachment before invoking it. Profile sharing exposes the same application action used
+by each real control; cancellation, duplicate admission and retired completion assertions remain.
+
 Received-message prototype actions use the existing spacing token separately from compact message
 metadata. Empty received-menu holders are hidden; the normal/enlarged layout validator checks the
 actual control separation without allowances.

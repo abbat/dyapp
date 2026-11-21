@@ -3,7 +3,6 @@ package com.dyapp
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -42,10 +41,10 @@ class ProfileShareOpeningTests {
         if (mounted && form.shown) ProfileShareDialog(form, listOf(row), { opened += it }) { sent += it }
     }
 
-    private fun click(matcher: SemanticsMatcher): () -> Boolean =
-        checkNotNull(compose.awaitNode(matcher).fetchSemanticsNode().config[SemanticsActions.OnClick].action)
+    private fun click(matcher: SemanticsMatcher): () -> Unit =
+        compose.awaitNode(matcher).fetchSemanticsNode().config[applicationClickKey]
 
-    private fun cancel(): () -> Boolean {
+    private fun cancel(): () -> Unit {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         return click(hasText(context.getString(R.string.search_cancel)))
     }
@@ -77,7 +76,7 @@ class ProfileShareOpeningTests {
         requireCommittedSendCannotRepeat(currentSend)
     }
 
-    private fun requireCommittedSendCannotRepeat(send: () -> Boolean) = compose.runOnIdle {
+    private fun requireCommittedSendCannotRepeat(send: () -> Unit) = compose.runOnIdle {
         form.completeSubmission(Result.success(ChatSubmission.Accepted(byteArrayOf(1))), peer, form.opening)
         send()
         assertEquals(listOf(peer), sent)

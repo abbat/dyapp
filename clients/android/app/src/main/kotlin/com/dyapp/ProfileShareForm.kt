@@ -102,22 +102,25 @@ internal fun ProfileShareDialog(
     send: (String) -> Unit,
 ) {
     val opening = form.opening
+    val cancel = { form.cancel(opening) }
     DisposableEffect(form, opening) {
         onDispose { if (form.opening === opening) form.shown = false }
     }
     AlertDialog(
-        onDismissRequest = { form.cancel(opening) },
+        onDismissRequest = cancel,
         title = { Text(stringResource(R.string.profile_share)) },
         text = { ProfileShareChoices(form, targets) { if (form.admit(opening)) send(it) } },
         confirmButton = {
             form.sentTo?.let { target ->
-                TextButton({
-                    form.navigate(opening, target, openChat)
-                }, Modifier.testTag(PROFILE_SHARE_OPEN_CHAT_TAG)) { Text(stringResource(R.string.view_message)) }
+                val navigate = { form.navigate(opening, target, openChat) }
+                TextButton(
+                    navigate,
+                    Modifier.testTag(PROFILE_SHARE_OPEN_CHAT_TAG).applicationClick(navigate)
+                ) { Text(stringResource(R.string.view_message)) }
             }
         },
         dismissButton = {
-            TextButton({ form.cancel(opening) }, enabled = !form.sending) {
+            TextButton(cancel, Modifier.applicationClick(cancel), enabled = !form.sending) {
                 Text(stringResource(R.string.search_cancel))
             }
         },
@@ -134,7 +137,8 @@ private fun ProfileShareChoices(form: ProfileShareForm, targets: List<uniffi.dya
             form.sentTo != null -> Unit
             targets.isEmpty() -> Text(stringResource(R.string.profile_share_empty))
             else -> targets.forEach { row ->
-                TextButton({ send(row.peerId) }, Modifier.testTag("profile-share-${row.peerId}")) {
+                val choose = { send(row.peerId) }
+                TextButton(choose, Modifier.testTag("profile-share-${row.peerId}").applicationClick(choose)) {
                     Text(contactLabel(row.peerId, names[row.peerId]))
                 }
             }
