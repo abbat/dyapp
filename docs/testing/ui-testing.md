@@ -8,6 +8,13 @@ caption with read-only recovery; all original quota/fresh/conflict/focus
 assertions remain. Native request-status integration tests also check controls on actual New/Waiting/Downloading/
 Fetch-failed/Saved transitions. These require native CI; formatting alone does not prove execution.
 
+Android `StickerPackPresentationTests` controls native-like request completion and readback:
+uncertain application followed by failed read retains the known intent and disables mutation;
+read-only retry installs the current generation; retired/same-token status callbacks and duplicate
+admission cannot submit. Explicit completion gates have separate failure deadlines. The request
+presentation controller is implemented; its production screen/manager wiring remains planned.
+Actual instrumentation execution is required independently of source lint.
+
 Android `ChatStickerImageTests` checks actual Bitmap alpha/channel conversion, rendered aspect and
 localized accessibility labels. Controlled native-like completion gates cover duplicate manual
 requests, replacement owners, retired callbacks and failure/retry. These tests retain complete
