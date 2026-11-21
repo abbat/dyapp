@@ -143,7 +143,7 @@
 </main>
 
 <!-- App shell: every screen after first run. -->
-<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog photo-remove-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings settings-appearance settings-privacy settings-notifications settings-photos settings-node settings-account settings-about settings-identities-screen settings-devices settings-blocked settings-passed stickers-remove-dialog stickers-remove-unreadable stickers-removing stickers-removed stickers-remove-error stickers-empty stickers-ready stickers-loading stickers-error stickers-importing stickers-quota switcher menu remove-dialog remove-offline devices-sent device-code-dialog device-code-error device-code-bad device-confirm-dialog disconnect-dialog disconnect-offline profile-view profile-view-safety profile-view-verified verify-dialog profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog">
+<div class="shell" data-on="profile profile-hidden profile-dark publish-dialog photo-remove-dialog publish-progress network network-checking network-error search search-loading search-empty search-error settings settings-appearance settings-privacy settings-notifications settings-photos settings-node settings-account settings-about settings-identities-screen settings-devices settings-blocked settings-passed stickers-remove-dialog stickers-remove-unreadable stickers-removing stickers-removed stickers-remove-error stickers-empty stickers-ready stickers-loading stickers-error stickers-importing stickers-quota switcher menu remove-dialog remove-offline devices-sent device-code-dialog device-code-error device-code-bad device-confirm-dialog disconnect-dialog disconnect-offline profile-view profile-view-safety profile-view-verified verify-dialog profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu">
   <header class="topbar">
     <button type="button" class="btn quiet" id="menu-open" data-ta="nav.menu"><svg aria-hidden="true" class="icon"><use href="#i-menu"/></svg></button>
     <span class="title" data-t="app.name"></span>
@@ -167,7 +167,7 @@
       <svg aria-hidden="true" class="icon"><use href="#i-profile"/></svg><span class="label" data-t="nav.profile"></span></button>
     <button type="button" class="nav" id="nav-search" data-current="search search-loading search-empty search-error profile-view profile-view-safety profile-view-verified verify-dialog profile-view-match unlike-dialog">
       <svg aria-hidden="true" class="icon"><use href="#i-search"/></svg><span class="label" data-t="nav.search"></span></button>
-    <button type="button" class="nav" id="nav-chats" data-current="chats chat chat-closed chat-first chat-request chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog">
+    <button type="button" class="nav" id="nav-chats" data-current="chats chat chat-closed chat-first chat-request chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu">
       <svg aria-hidden="true" class="icon"><use href="#i-chat"/></svg><span class="label" data-t="nav.chats"></span>
       <span class="badge" id="chats-unread" data-ta="chats.unread">3</span></button>
     <button type="button" class="nav" id="nav-network" data-current="network network-checking network-error">
@@ -407,16 +407,16 @@ search providers asked: 0 of 3</pre>
     </section>
 
     <!-- Chat: one conversation; the first message to a non-match, an incoming request. -->
-    <section id="chat" class="chat" data-on="chat chat-draft chat-closed chat-first chat-request chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog">
+    <section id="chat" class="chat" data-on="chat chat-draft chat-closed chat-first chat-request chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu">
       <div class="chat-head">
         <button type="button" class="btn quiet" id="chat-back" data-ta="nav.chats"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button>
         <!-- The peer itself opens the profile, so a narrow header needs one text button. -->
-        <button type="button" class="peer" id="chat-profile">
-          <span class="avatar photo p2" aria-hidden="true" data-on="chat chat-closed chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog"></span>
+        <button type="button" class="peer" id="chat-profile" data-peer-id="a3f72c109d84e6b502cf7a491be8d53f60e17c829ba34d650f2a67c9e01b4583">
+          <span class="avatar photo p2" aria-hidden="true" data-on="chat chat-closed chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu"></span>
           <span class="avatar photo p3" aria-hidden="true" data-on="chat-first"></span>
           <span class="avatar photo p4" aria-hidden="true" data-on="chat-request"></span>
-          <span class="grow"><b class="ellipsis" data-on="chat chat-closed chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog" data-t="view.name"></b><code data-on="chat-first">@b8e0f3</code><code data-on="chat-request">@5d2a91</code>
-            <span class="sub caption" id="chat-presence" data-on="chat chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog" data-t="chat.active"></span></span></button>
+          <span class="grow"><b class="ellipsis" data-on="chat chat-closed chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu" data-t="view.name"></b><code data-on="chat-first">@b8e0f3</code><code data-on="chat-request">@5d2a91</code>
+            <span class="sub caption" id="chat-presence" data-on="chat chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu" data-t="chat.active"></span></span></button>
         <button type="button" class="btn quiet" id="chat-more" aria-haspopup="menu" data-ta="chat.more"><svg aria-hidden="true" class="icon"><use href="#i-more"/></svg></button>
         <div class="menu" id="chat-menu" role="menu" data-on="chat-menu">
           <button type="button" class="nav" role="menuitem" id="chat-rename" data-t="chat.rename"></button>
@@ -462,15 +462,16 @@ search providers asked: 0 of 3</pre>
         </div>
 
         <p class="caption cleared" id="chat-cleared-note" data-on="chat-cleared" data-t="chat.cleared"></p>
-        <div class="msg out" data-on="chat chat-closed chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog delete-dialog"><span data-t="chat.m1"></span><span class="meta">14:05</span></div>
-        <div class="msg in" data-on="chat chat-closed chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog delete-dialog"><span data-t="chat.m2"></span><span class="meta">14:11</span></div>
-        <div class="msg in deleted" data-on="chat chat-closed chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog delete-dialog"><span data-t="chat.deleted"></span></div>
-        <div class="msg out" data-on="chat chat-closed chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog delete-dialog"><span data-t="chat.m3"></span><span class="meta"><span data-t="chat.edited"></span> · 14:20 · <span data-t="chat.delivered"></span></span>
-          <span class="msg-menu" id="msg-menu" data-off="chat-closed"><button type="button" class="btn quiet" data-t="chat.edit"></button><button type="button" class="btn quiet" id="msg-delete" data-t="chat.delete"></button></span></div>
-        <div class="msg in" data-on="chat chat-closed chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog delete-dialog"><span data-t="chat.m4"></span><span class="meta">14:32</span></div>
-        <span class="caption" id="chat-typing" data-on="chat chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog delete-dialog" data-t="chat.typing"></span>
+        <div class="msg out" data-on="chat chat-closed chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-received-menu"><span data-t="chat.m1"></span><span class="meta">14:05</span></div>
+        <div class="msg in" data-on="chat chat-closed chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-received-menu"><span data-t="chat.m2"></span><span class="meta">14:11</span><button type="button" class="btn quiet" id="received-actions" data-off="chat-closed" data-t="forward.actions"></button><span id="forward-received-menu"></span></div>
+        <div class="msg in deleted" data-on="chat chat-closed chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-received-menu"><span data-t="chat.deleted"></span></div>
+        <div class="msg out" data-on="chat chat-closed chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-received-menu"><span data-t="chat.m3"></span><span class="meta"><span data-t="chat.edited"></span> · 14:20 · <span data-t="chat.delivered"></span></span>
+          <span class="msg-menu" id="msg-menu" data-off="chat-closed"><button type="button" class="btn quiet" id="msg-edit" data-t="chat.edit"></button><button type="button" class="btn quiet" id="msg-delete" data-t="chat.delete"></button><button type="button" class="btn quiet" id="msg-forward" data-t="forward.action"></button></span></div>
+        <div class="msg in" data-on="chat chat-closed chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-received-menu"><span data-t="chat.m4"></span><span class="meta">14:32</span></div>
+        <span class="caption" id="chat-typing" data-on="chat chat-new-device chat-linked chat-menu chat-clear-dialog chat-rename-dialog delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-received-menu" data-t="chat.typing"></span>
         <div class="msg out" data-on="chat-first"><span data-t="chat.first.m1"></span><span class="meta">18:47 · <span data-t="chat.sent"></span></span></div>
         <div class="msg in" data-on="chat-request"><span data-t="chat.request.m1"></span><span class="meta">9:41</span></div>
+        <div class="msg out" data-on="chat-forward-sent chat-forward-queued"><span id="chat-forward-body"></span><span class="meta" data-on="chat-forward-sent" data-t="chat.sent"></span><span class="meta" data-on="chat-forward-queued" data-t="forward.queued"></span></div>
       </div>
       <div class="composer">
         <button type="button" class="btn quiet icon-button" id="chat-attach" aria-label="Attach photo" title="Attach photo" data-ta="chat.attach" data-tt="chat.attach" data-disabled="chat-first chat-closed"><svg class="icon" aria-hidden="true"><use href="#i-attach"/></svg></button>
@@ -702,6 +703,33 @@ search providers asked: 0 of 3</pre>
     <div class="actions">
       <button type="button" class="btn focus" id="profile-cancel" data-t="action.cancel"></button>
       <button type="button" class="btn primary" id="profile-publish-confirm" data-t="publish.confirm" disabled></button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-scrim" data-on="chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending">
+  <div class="modal" id="chat-forward-dialog" data-dialog-kind="choice" role="dialog" aria-modal="true" aria-labelledby="chat-forward-title">
+    <h2 id="chat-forward-title" data-t="forward.title"></h2>
+    <p role="status" data-on="chat-forward-loading" data-t="forward.loading"></p>
+    <p role="status" data-on="chat-forward-pending" data-t="forward.sending"></p>
+    <p id="forward-no-targets" data-on="chat-forward-empty" data-t="forward.empty"></p>
+    <p role="alert" data-on="chat-forward-error" data-t="forward.readFailed"></p>
+    <p role="alert" data-on="chat-forward-send-error" data-t="forward.sendFailed"></p>
+    <div data-on="chat-forward-dialog chat-forward-send-error">
+      <p><b id="chat-forward-selected-name"></b><br><code id="chat-forward-selected-peer"></code></p>
+      <div class="field"><label for="chat-forward-query" data-t="settings.collection.search"></label><input id="chat-forward-query" type="search"></div>
+      <table><tbody id="chat-forward-list"></tbody></table>
+      <p id="chat-forward-count" class="caption" role="status"></p>
+      <div class="actions">
+        <button type="button" class="btn" id="chat-forward-previous" data-t="settings.collection.previous"></button>
+        <button type="button" class="btn" id="chat-forward-next" data-t="settings.collection.next"></button>
+        <button type="button" class="btn" id="chat-forward-refresh" data-t="settings.collection.refresh"></button>
+      </div>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn" id="chat-forward-retry" data-on="chat-forward-error" data-t="action.retry"></button>
+      <button type="button" class="btn focus" id="chat-forward-cancel" data-t="action.cancel" data-disabled="chat-forward-pending"></button>
+      <button type="button" class="btn primary" id="chat-forward-confirm" data-t="forward.action"></button>
     </div>
   </div>
 </div>
@@ -953,6 +981,7 @@ import { installIdentifiers } from '../ui/identifiers.js';
 installIdentifiers(window.strings);
 </script>
 <script type="module" src="profile-choice-fixture.js"></script>
+<script type="module" src="forward-state.js"></script>
 <script type="module">
 import { installCollections } from './collection-fixture.js';
 installCollections(window.strings);

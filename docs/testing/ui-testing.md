@@ -1,5 +1,15 @@
 # UI Testing: Practical Guide
 
+Received-message prototype actions use the existing spacing token separately from compact message
+metadata. Empty received-menu holders are hidden; the normal/enlarged layout validator checks the
+actual control separation without allowances.
+
+Desktop forwarding adds nine families beyond the original 99-family matrix. Keyboard calibration
+reopens the real static picker and requires a fresh owner, ignored retired choice and unbound old
+pagination. The admitted-send frame checks disabled actions and Escape refusal, then acknowledges
+a controlled failed completion before the normal GDK focus/radio/Escape-restoration audit. It never
+cancels backend work or exempts the ready state from existing keyboard checks.
+
 Native desktop Settings smoke captures the actual blocked and passed panels after their initial
 load completes, before replacing their rows with pagination/error fixtures. These named capture
 points run the existing text/accessibility checks on the synchronization hints in all desktop clients.

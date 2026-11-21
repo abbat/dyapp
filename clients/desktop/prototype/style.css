@@ -46,6 +46,13 @@ html[data-text-scale="200"] {
 #search-more {
   margin-top: var(--space-3);
 }
+#received-actions,
+#forward-received-menu:not(:empty) {
+  margin-block-start: var(--space-3);
+}
+#forward-received-menu:empty {
+  display: none;
+}
 #presence-audience {
   margin: var(--space-3) 0 var(--space-2);
 }

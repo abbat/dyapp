@@ -615,6 +615,12 @@ sending off never stops receiving.
 | What a notice shows | `notice-content` | Three immediate radio choices: "New message" only, sender name, or name and text. Disabling notices disables the group and preserves its choice. Requests and likes stay fixed |
 | Run a node | `node-enabled` | Off |
 
+The prototype includes nine forwarding states for text-only selection, loading, empty/error,
+admitted submission and sent/queued outcomes. Source selectors and retired openings cannot act on
+a replacement. Cancel and Escape wait for admitted submission to complete, matching the native UI;
+the keyboard audit uses a controlled completion signal before its ordinary focus/restore walk.
+No original-author verification or attachment/sticker forwarding is implied.
+
 `remove-dialog` names the identity by avatar, short Peer ID and kind, then the full ID, withdraws
 the profile with a tombstone and deletes the key with this identity's chats, matches and likes on
 this computer. `remove-offline`:

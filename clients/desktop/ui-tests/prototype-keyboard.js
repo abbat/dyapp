@@ -143,6 +143,28 @@ export const focused = async (name) => {
   };
 };
 let escapeClosed;
+export const prepareAdmittedPhase = async () => {
+  if (document.documentElement.dataset.screen !== 'chat-forward-pending') return null;
+  const unavailable = () =>
+    element('#chat-forward-cancel').disabled && element('#chat-forward-confirm').disabled;
+  if (!unavailable()) throw new Error('Admitted forwarding still has enabled actions');
+  document.dispatchEvent(
+    new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
+  await frames();
+  if (document.documentElement.dataset.screen !== 'chat-forward-pending' || !unavailable())
+    throw new Error('Escape dismissed an admitted forward');
+  const fixture = await import('../prototype/forward-state.js');
+  await fixture.completePendingForKeyboard();
+  if (element('#chat-forward-confirm').disabled)
+    throw new Error('Controlled forward completion did not enable retry');
+  return null;
+};
+
 export const prepareEscape = (contract) => {
   const dialog = element(contract.dialog);
   escapeClosed =
@@ -243,6 +265,32 @@ export const checkSwitcherVisibilityGuard = async () => {
     if (missing().length !== 3) throw new Error('Hidden requested switcher escaped the audit');
   } finally {
     sidebar.style.visibility = visibility;
+    endFixture();
+  }
+};
+
+export const checkForwardReopening = async () => {
+  await beginFixture('forward-opening');
+  try {
+    const fixture = await import('../prototype/forward-state.js');
+    controller.showState('chat-forward-dialog');
+    await frames();
+    const old = fixture.forwardOpening;
+    controller.showState('chat');
+    controller.showState('chat-forward-dialog');
+    await frames();
+    const current = fixture.forwardOpening;
+    if (old === current || old.current() || !current.current())
+      throw new Error('Forward opening was reused across navigation');
+    const peer = '2'.padStart(64, '0');
+    current.choose(peer, 'Robin 2');
+    old.choose('3'.padStart(64, '0'), 'Retired choice');
+    if (element('#chat-forward-selected-peer').textContent !== peer)
+      throw new Error('Retired forward choice changed the new opening');
+    current.state.next.click();
+    if (current.state.page !== 1 || old.state.page !== 0)
+      throw new Error('Retired forward pagination still receives events');
+  } finally {
     endFixture();
   }
 };

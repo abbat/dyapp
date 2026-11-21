@@ -819,6 +819,13 @@ code.grow.identifier {
   opacity: 0.8;
   align-self: flex-end;
 }
+#received-actions,
+#forward-received-menu:not(:empty) {
+  margin-block-start: var(--space-3);
+}
+#forward-received-menu:empty {
+  display: none;
+}
 .msg-menu {
   display: flex;
   flex-wrap: wrap;

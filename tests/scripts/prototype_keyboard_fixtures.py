@@ -30,6 +30,7 @@ class KeyboardFixtures:
                 ("escape", "Escape did not close/restore focus"),
                 ("rename-initial", ""),
                 ("switcher-visibility", ""),
+                ("forward-opening", ""),
                 *[
                     (f"popup:{name}", "")
                     for name in (
@@ -85,6 +86,9 @@ class KeyboardFixtures:
                 f"{json.dumps(name)})",
                 self.start,
             )
+            return
+        if mode == "forward-opening":
+            self.evaluate("await keys.checkForwardReopening()", self.start)
             return
         if mode == "switcher-visibility":
             self.evaluate(

@@ -83,7 +83,10 @@ class KeyboardAudit:
 
     def start(self) -> None:
         self.view.grab_focus()
-        self.js("keys.plan()", self.planned)
+        self.js(
+            "await keys.prepareAdmittedPhase()",
+            lambda _value: self.js("keys.plan()", self.planned),
+        )
 
     def waiting(self, phase: str) -> None:
         self.deadline.begin(phase)

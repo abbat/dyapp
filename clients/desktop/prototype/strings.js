@@ -2,6 +2,16 @@
 // biome-ignore lint/correctness/noUnusedVariables: a global read by the inline script of index.html
 const STRINGS = {
   en: {
+    'forward.action': 'Forward',
+    'forward.actions': 'Message actions',
+    'forward.title': 'Forward message',
+    'forward.empty': 'No other open chats are available.',
+    'forward.readFailed': 'The source message or destination chats could not be verified.',
+    'forward.sendFailed': 'The message could not be forwarded.',
+    'forward.loading': 'Loading…',
+    'forward.sending': 'Sending…',
+    'forward.queued': 'Queued',
+    'forward.marker': 'Forwarded',
     'settings.collection.search': 'Search this list',
     'settings.collection.previous': 'Previous page',
     'settings.collection.next': 'Next page',
@@ -438,6 +448,16 @@ const STRINGS = {
       'Its chats, matches and likes on this computer are deleted with it. Other identities stay.',
   },
   ru: {
+    'forward.action': 'Переслать',
+    'forward.actions': 'Действия с сообщением',
+    'forward.title': 'Переслать сообщение',
+    'forward.empty': 'Других открытых переписок нет.',
+    'forward.readFailed': 'Не удалось проверить исходное сообщение или переписки для пересылки.',
+    'forward.sendFailed': 'Не удалось переслать сообщение.',
+    'forward.loading': 'Загрузка…',
+    'forward.sending': 'Отправка…',
+    'forward.queued': 'В очереди',
+    'forward.marker': 'Переслано',
     'settings.collection.search': 'Поиск в списке',
     'settings.collection.previous': 'Предыдущая страница',
     'settings.collection.next': 'Следующая страница',
