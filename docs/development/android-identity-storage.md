@@ -201,7 +201,11 @@ Its pure native preview checks that exact opening under the receiver monitor and
 or replaced owners before using the retained review. Native `photo_thumbnail` resolves frozen source
 and index through shared core validation, admits the original slot/network before reading and after
 fetching, and returns bounded pixels without persisting remote blobs. It does not borrow the active
-shell's photo cache. Full field-choice and photo presentation remains planned.
+shell's photo cache. The Android adapter admits each thumbnail read to the retained worker and
+exposes only an independent result promise. Cancelling its UI waiter cannot cancel the actual native
+read or close its handle; busy state clears only after native completion. A changed-context refusal
+requires a fresh comparison, while an ordinary unavailable photo does not change field choices or
+setup policy. Full field-choice and photo presentation remains planned.
 Invitation expiry formatting observes
 Compose's current configuration locale, so a language change invalidates the displayed date.
 

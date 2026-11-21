@@ -1,10 +1,10 @@
 package com.dyapp
 
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -14,8 +14,6 @@ import uniffi.dyapp.LinkReviewException
 import uniffi.dyapp.LinkReviewField
 import uniffi.dyapp.LinkReviewSnapshot
 import uniffi.dyapp.LinkReviewSource
-import uniffi.dyapp.MobileIdentityRegistry
-import uniffi.dyapp.MobileSlotLayout
 import java.util.concurrent.atomic.AtomicInteger
 
 class LinkEnrollmentWorkerTests {
@@ -32,7 +30,7 @@ class LinkEnrollmentWorkerTests {
             assertTrue(receiver.prepareEnrollmentReview { next })
             idle(receiver)
             val opening = checkNotNull(receiver.state.value.enrollment.comparison)
-            val other = LinkReviewOpening(next.snapshot) { _, choices -> next.preview(choices) }
+            val other = LinkReviewOpening(next.snapshot, { _, choices -> next.preview(choices) }, { _, _, _ -> null })
             assertFalse(receiver.confirmEnrollmentReview(other, choices()))
             assertSame(next.snapshot.remote, opening.preview(choices()))
             confirmAcrossRetirement(receiver, pending)
@@ -72,6 +70,7 @@ class LinkEnrollmentWorkerTests {
             assertSame(refreshed.snapshot, fresh.snapshot)
             assertSame(refreshed.snapshot.remote, fresh.preview(choices()))
             assertThrows(IllegalStateException::class.java) { oldOpening.preview(choices()) }
+            assertNull(oldOpening.thumbnail(LinkReviewSource.LOCAL, 0u))
             assertFalse(receiver.confirmEnrollmentReview(oldOpening, choices()))
         }
     }
@@ -102,6 +101,7 @@ class LinkEnrollmentWorkerTests {
             throw LinkReviewException.Failed("after possible save")
         },
         { snapshot.remote },
+        { _, _ -> error("Unexpected thumbnail read") },
         {}
     )
 
@@ -111,39 +111,16 @@ class LinkEnrollmentWorkerTests {
         snapshot: LinkReviewSnapshot,
         resume: () -> Boolean,
         close: () -> Unit
-    ) = LinkEnrollmentReview(snapshot, resume, { error("Unexpected confirmation") }, { snapshot.remote }, close)
+    ) = LinkEnrollmentReview(
+        snapshot,
+        resume,
+        { error("Unexpected confirmation") },
+        { snapshot.remote },
+        { _, _ -> error("Unexpected thumbnail read") },
+        close
+    )
 
-    private suspend fun idle(receiver: LinkReceiverSession) {
-        withTimeout(5_000) { receiver.state.first { !it.busy } }
-    }
+    private suspend fun idle(receiver: LinkReceiverSession) = awaitLinkReceiverIdle(receiver)
 
-    private suspend fun withReceiver(block: suspend (LinkReceiverSession) -> Unit) {
-        NativeSlotFixture().use { fixture ->
-            MobileIdentityRegistry(
-                fixture.root.absolutePath,
-                MobileSlotLayout.ANDROID,
-                NativeSlotKeys
-            ).use { registry -> withSelection(registry, block) }
-        }
-    }
-
-    private suspend fun withSelection(
-        registry: MobileIdentityRegistry,
-        block: suspend (LinkReceiverSession) -> Unit
-    ) {
-        val selection = registry.create()
-        selection.key.use {
-            val receiver = installedReceiver(selection)
-            try {
-                assertTrue(receiver.start())
-                idle(receiver)
-                assertTrue(receiver.poll())
-                idle(receiver)
-                block(receiver)
-            } finally {
-                idle(receiver)
-                receiver.close()
-            }
-        }
-    }
+    private suspend fun withReceiver(block: suspend (LinkReceiverSession) -> Unit) = withInstalledLinkReceiver(block)
 }
