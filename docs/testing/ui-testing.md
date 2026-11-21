@@ -7,6 +7,13 @@ OS-permission gates. Observers must only record signals/data: they run inside na
 must not reenter RustBridge. A zero attempt count is meaningful only after verified job completion;
 an expired deadline never proves that no notification was attempted. Actual OS-post integration
 acceptance remains separate from these observer hooks.
+`WorkerStickerNoticeTests` uses owned registry slots and an independent native sender on the suite's
+real node. It registers an accessibility notification-event listener before scheduling the debug
+service, checks the actual private/public OS payload and original slot/peer, then verifies exact
+sticker receipt without saving a pack. Muted and notification-off cases require native job completion,
+zero observed post attempts and the exact received sticker; an absence timeout cannot pass them.
+The fixture restores the previous identity inventory. It requires CI/device execution, notification
+permission and no live Activities; periodic/Doze scheduling and non-open-chat coverage remain separate.
 
 Shared own-message preflight tests retain desktop full-key/live-text/delete-only sticker cases
 and real Store coverage for colliding authors, media kinds, blocking and cleared history. The
