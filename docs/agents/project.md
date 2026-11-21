@@ -200,6 +200,10 @@ Prototype services use Compose `init: true` for signal forwarding and child reap
 is retained in the bounded check log. Manual capture CI requires a small canonical snapshot pass
 before the full matrix, so display/Python startup failures do not consume its entire job budget.
 
+Android prototype capture validates layout and browser fixtures; it does not run the desktop-only
+criteria audit. Keep native runtime and full screen review as separate acceptance evidence; see
+[UI testing](../testing/ui-testing.md).
+
 UniFFI callback/record member names must avoid target-language keywords. UniFFI 0.32.2 can
 leak Swift backtick escaping into C callback fields; regenerate the Swift header and compile
 it as C with Clang after callback changes. Binding generation alone does not validate it.
@@ -321,6 +325,9 @@ for an unrelated completion deadline.
 
 Dialog `close()` clears `open` before its queued close event updates other visibility state.
 Tests must await close completion before reopening and require open plus visible readiness.
+WebKit can retain nonzero client rectangles for descendants of closed `details`. Check the closed
+ancestor's disclosure state before treating geometry as visibility; separately open the disclosure
+and await real focus/hit-test readiness, then restore it. Longer deadlines do not expose hidden controls.
 Close handlers must check the current open state before hiding a modal: an older queued event can
 otherwise hide a newer opening. Use callbacks with transition deadlines rather than sleeps.
 

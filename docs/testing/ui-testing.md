@@ -4,7 +4,11 @@ Android receiving-screen checks use the real Settings frame, controls and retain
 with controlled native completion. They preserve the exact reserved destination, require explicit
 creation and disposition, and invoke captured application callbacks after disposal/equal reopening.
 These checks establish presentation ownership; actual owner approval, enrollment, QR and runtime
-acceptance require the separate real JNI journey and screen review.
+acceptance require the separate real JNI journey and screen review. Receiving prototype states run
+`clients/android/prototype/receive-fixture-tests.js` after capture: typed refusal actions, code
+visibility, activation prerequisites and busy disposition are checked before focus/reachability
+calibration. Canonical Android capture validates layout and these browser contracts; it does not
+run the desktop-only criteria audit or prove native transfer/enrollment.
 
 Android stale-callback checks capture the installed `applicationClickKey` action, rather than a
 Compose `SemanticsActions.OnClick` wrapper: modifier nodes may reuse that wrapper for a new opening

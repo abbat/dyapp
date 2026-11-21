@@ -5,6 +5,8 @@
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
+  --qr-light: white;
+  --qr-ink: #111;
   --bg: #fbf8fd;
   --surface: #efedf4;
   --surface-high: #e9e7ef;
@@ -92,6 +94,16 @@ code {
 .photo,
 .avatar.photo {
   background: center / cover var(--sample-photo);
+}
+
+/* Layout stand-in; native Android renders the shared core's actual QR matrix. */
+.receive-qr {
+  width: min(100%, 294px);
+  aspect-ratio: 1;
+  border: 24px solid var(--qr-light);
+  background: repeating-conic-gradient(var(--qr-ink) 0 25%, var(--qr-light) 0 50%);
+  background-size: 12px 12px;
+  background-clip: content-box;
 }
 
 /* Full-screen first-run and lock pages: text on top, full-width buttons at the bottom. */

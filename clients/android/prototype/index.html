@@ -65,26 +65,109 @@
   <p class="caption" id="key-store" data-t="storage.android"></p>
   <p class="caption" id="no-backup" data-t="backup.none"></p>
   <div class="grow"></div>
-  <div class="actions"><button type="button" class="btn filled" id="create-identity" data-t="wizard.create"></button></div>
+  <div class="actions"><button type="button" class="btn filled" id="create-identity" data-t="wizard.create"></button>
+    <button type="button" class="btn" id="receive-identity" data-go="receive-network" data-t="wizard.receive"></button></div>
 </main>
 
-<main class="page" data-on="wizard-network">
-  <div class="steps" data-t="wizard.step2"></div>
-  <h1 data-t="wizard.network.title"></h1>
-  <p class="caption"><span data-t="identity.peer"></span>
+<main class="page" data-on="wizard-network receive-network receive-network-ready receive-network-activating receive-network-active">
+  <div class="steps" data-on="wizard-network" data-t="wizard.step2"></div>
+  <h1 data-on="wizard-network" data-t="wizard.network.title"></h1>
+  <h1 data-off="wizard-network" data-t="receive.network_title"></h1>
+  <p data-off="wizard-network" data-t="receive.network_intro"></p>
+  <p class="caption" data-on="wizard-network"><span data-t="identity.peer"></span>
     <code id="peer-id">2efa429a891a14eb7c79d3f55845ff59cfe53f70da52d61e1e0982fb683f9c2a</code></p>
-  <div class="actions"><button type="button" class="btn text" id="copy-peer-id" data-t="action.copy"></button></div>
+  <div class="actions" data-on="wizard-network"><button type="button" class="btn text" id="copy-peer-id" data-t="action.copy"></button></div>
   <div class="field"><label for="network-name" data-t="network.name"></label>
-    <input type="text" id="network-name" data-tp="network.name.public">
+    <input type="text" id="network-name" data-disabled="receive-network-activating" data-tp="network.name.public">
     <p class="caption" data-t="network.name.hint"></p></div>
   <div class="field"><label for="seeds" data-t="network.seeds"></label>
-    <textarea id="seeds">node1.example.org:33445
+    <textarea id="seeds" data-disabled="receive-network-activating">node1.example.org:33445
 [2001:db8::7]:33445</textarea>
     <p class="caption" data-t="network.seeds.hint"></p></div>
   <div class="grow"></div>
   <div class="actions">
-    <button type="button" class="btn filled" id="check-connection" data-t="network.check"></button>
-    <button type="button" class="btn text" id="skip-network" data-t="wizard.skip"></button>
+    <button type="button" class="btn filled" id="check-connection" data-on="wizard-network receive-network" data-t="network.check"></button>
+    <button type="button" class="btn filled" id="activate-receive-network" data-on="receive-network-ready" data-go="receive-network-active" data-t="network.activate"></button>
+    <p role="status" data-on="receive-network-activating" data-t="network.activating"></p>
+    <button type="button" class="btn filled" id="network-done" data-on="receive-network-active" data-go="link-receive-wizard-intro" data-t="network.continue"></button>
+    <button type="button" class="btn text" id="network-save" data-disabled="receive-network-activating" data-t="network.save"></button>
+    <button type="button" class="btn text" id="skip-network" data-on="wizard-network" data-t="wizard.skip"></button>
+    <button type="button" class="btn text" id="cancel-receive-network" data-off="wizard-network" data-go="profile" data-disabled="receive-network-activating" data-t="action.cancel"></button>
+  </div>
+</main>
+
+<!-- Receiving result stays separate from enrollment and publication; fixtures contain no keys. -->
+<main class="page" data-on="link-receive-intro link-receive-starting link-receive-waiting link-receive-receiving link-receive-installing link-receive-cancelled link-receive-expired link-receive-invalidated link-receive-failed-admission link-receive-failed-reservation link-receive-failed-destination link-receive-failed-unconfirmed link-receive-received link-setup-running link-setup-complete link-setup-review link-setup-private-review link-setup-authorization link-setup-revoked link-setup-unlisted link-setup-error link-receive-durability link-receive-wizard-intro link-receive-start-error link-receive-poll-error">
+  <h1 data-t="receive.title"></h1>
+  <div data-on="link-receive-intro link-receive-wizard-intro" class="content" style="padding:0">
+    <p data-on="link-receive-intro" data-t="receive.intro"></p>
+    <p data-on="link-receive-wizard-intro" data-t="receive.wizard_intro"></p>
+    <button type="button" class="btn filled" id="link-receive-start" data-go="link-receive-waiting" data-t="receive.start"></button>
+    <button type="button" class="btn text" id="link-receive-back" data-go="settings-account" data-t="nav.back"></button>
+  </div>
+  <div data-off="link-receive-intro link-receive-wizard-intro" class="content" style="padding:0">
+    <p class="caption" data-t="receive.source"></p>
+    <code id="link-receive-source">2efa429a891a14eb7c79d3f55845ff59cfe53f70da52d61e1e0982fb683f9c2a</code>
+    <p id="link-receive-status" role="status" aria-live="polite">
+      <span data-on="link-receive-start-error link-receive-poll-error" data-t="receive.error"></span>
+      <span data-on="link-receive-starting" data-t="receive.starting"></span>
+      <span data-on="link-receive-waiting" data-t="receive.waiting"></span>
+      <span data-on="link-receive-receiving" data-t="receive.receiving"></span>
+      <span data-on="link-receive-installing" data-t="receive.installing"></span>
+      <span data-on="link-receive-cancelled" data-t="receive.cancelled"></span>
+      <span data-on="link-receive-expired" data-t="receive.expired"></span>
+      <span data-on="link-receive-invalidated" data-t="receive.invalidated"></span>
+      <span data-on="link-receive-failed-admission" data-t="receive.reconcile"></span>
+      <span data-on="link-receive-failed-reservation" data-t="receive.reconcile"></span>
+      <span data-on="link-receive-failed-destination" data-t="receive.reconcile"></span>
+      <span data-on="link-receive-failed-unconfirmed" data-t="receive.reconcile"></span>
+      <span data-on="link-receive-received link-receive-durability" data-t="receive.received"></span>
+      <span data-on="link-setup-running" data-t="setup.running"></span>
+      <span data-on="link-setup-complete" data-t="setup.complete"></span>
+      <span data-on="link-setup-review" data-t="receive.received"></span>
+      <span data-on="link-setup-private-review" data-t="receive.received"></span>
+      <span data-on="link-setup-authorization" data-t="receive.received"></span>
+      <span data-on="link-setup-revoked" data-t="receive.received"></span>
+      <span data-on="link-setup-unlisted" data-t="receive.received"></span>
+      <span data-on="link-setup-error" data-t="receive.received"></span>
+    </p>
+    <div class="progress" role="progressbar" data-on="link-receive-starting link-receive-receiving link-receive-installing link-setup-running" data-ta="receive.receiving"></div>
+    <div data-on="link-receive-waiting link-receive-receiving link-receive-poll-error" class="content" style="padding:0">
+      <div class="receive-qr" id="link-receive-qr" role="img" data-ta="receive.qr"></div>
+      <code id="link-receive-code">dyapp-link:1:9f2c41d07be3a65e18c4f07d2ba96e3150c8d7f4a1e62b90d3f75c18ae406b72:2efa429a891a14eb7c79d3f55845ff59cfe53f70da52d61e1e0982fb683f9c2a:1798765432</code>
+      <button type="button" class="btn text" id="link-receive-copy" data-t="action.copy"></button>
+      <p class="caption" data-t="receive.expiry"></p>
+    </div>
+    <div class="notice error" data-on="link-receive-failed-admission" role="alert" data-t="receive.admission"></div>
+    <div class="notice error" data-on="link-receive-failed-reservation" role="alert" data-t="receive.reservation"></div>
+    <div class="notice error" data-on="link-receive-failed-destination" role="alert" data-t="receive.destination"></div>
+    <div class="notice error" data-on="link-receive-failed-unconfirmed" role="alert" data-t="receive.unconfirmed"></div>
+    <div class="notice error" role="alert" data-on="link-receive-start-error link-receive-poll-error">
+      <p data-t="receive.error"></p>
+      <details><summary data-t="details"></summary><pre id="link-receive-details">native.transport: operation failed; original attempt retained</pre>
+        <button type="button" class="btn text" id="link-receive-copy-details" data-t="action.copy"></button></details>
+    </div>
+    <code id="link-receive-destination" data-on="link-receive-failed-destination">linked-8f406b72</code>
+    <div data-on="link-receive-received link-setup-running link-setup-complete link-setup-review link-setup-private-review link-setup-authorization link-setup-revoked link-setup-unlisted link-setup-error link-receive-durability" class="content" style="padding:0">
+      <code id="link-receive-peer">a3f72c109d84e6b502cf7a491be8d53f60e17c829ba34d650f2a67c9e01b4583</code>
+      <p data-off="link-setup-complete" data-t="receive.pending"></p>
+      <p class="caption" data-t="setup.no_publish"></p>
+      <p class="notice warn" data-on="link-receive-durability" data-t="identity.persistence.notice"></p>
+      <div class="notice error" role="alert" data-on="link-setup-review" data-t="setup.review"></div>
+      <div class="notice error" role="alert" data-on="link-setup-private-review" data-t="setup.private_review"></div>
+      <div class="notice error" role="alert" data-on="link-setup-authorization" data-t="setup.authorization"></div>
+      <div class="notice error" role="alert" data-on="link-setup-revoked" data-t="setup.revoked"></div>
+      <div class="notice error" role="alert" data-on="link-setup-unlisted" data-t="setup.unlisted"></div>
+      <div class="notice error" role="alert" data-on="link-setup-error" data-t="setup.error"></div>
+      <button type="button" class="btn filled" id="link-setup-finish" data-on="link-receive-received link-receive-durability link-setup-error" data-go="link-setup-running" data-t="setup.finish"></button>
+      <button type="button" class="btn" id="link-receive-open" data-go="profile" data-disabled="link-setup-running" data-t="receive.open"></button>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn text" id="link-receive-cancel" data-on="link-receive-starting link-receive-waiting link-receive-receiving link-receive-expired link-receive-start-error link-receive-poll-error" data-go="link-receive-cancelled" data-t="receive.cancel"></button>
+      <button type="button" class="btn text" id="link-receive-review" data-go="settings-identities-screen" data-disabled="link-receive-starting link-receive-receiving link-receive-installing link-setup-running" data-t="receive.review"></button>
+      <p class="caption" data-t="receive.disposition"></p>
+      <button type="button" class="btn text" id="link-receive-dismiss" data-go="settings-account" data-disabled="link-receive-starting link-receive-receiving link-receive-installing link-setup-running" data-t="receive.dismiss"></button>
+    </div>
   </div>
 </main>
 
@@ -448,6 +531,7 @@ search providers asked: 0 of 3</pre>
       <div class="backbar"><button type="button" class="icon-btn" data-go="settings" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button><h1 class="title" data-t="settings.account"></h1></div>
       <div class="settings-hub">
 <a class="btn" href="#settings-identities-screen" data-settings-open="identities"><span data-t="settings.identities">Identities</span> <span class="settings-count"></span></a>
+<a class="btn" id="settings-receive" href="#link-receive-intro"><span data-t="receive.title">Receive a profile</span></a>
 </div>
     </section>
     <section id="settings-about" class="content" style="padding:0" data-on="settings-about">
@@ -734,6 +818,10 @@ for (const el of document.querySelectorAll('[data-ta]')) el.setAttribute('aria-l
 for (const el of document.querySelectorAll('[data-tp]')) el.placeholder = t[el.dataset.tp];
 for (const control of document.querySelectorAll('[role="switch"]'))
   control.addEventListener('change', () => control.setAttribute('aria-checked', String(control.checked)));
+if (screen === 'receive-network')
+  document.getElementById('check-connection').dataset.go = 'receive-network-ready';
+if (screen === 'link-receive-wizard-intro')
+  document.getElementById('link-receive-back').dataset.go = 'profile';
 for (const control of document.querySelectorAll('[data-go]'))
   control.addEventListener('click', () => { location.hash = control.dataset.go; });
 window.addEventListener('hashchange', () => location.reload());

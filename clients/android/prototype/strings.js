@@ -1,6 +1,65 @@
 // Android wording over the desktop prototype strings (loaded first); the shipped strings live in
 // app/src/main/res. Only keys that differ on Android or exist only here.
 Object.assign(STRINGS.en, {
+  'network.save': 'Save draft',
+  'network.activate': 'Activate checked settings',
+  'network.activating': 'Activating checked settings…',
+  'network.continue': 'Continue',
+  'receive.title': 'Receive a profile',
+  'receive.wizard_intro':
+    'Show this code to a device with your profile and approve linking there. Other saved profiles stay on this phone.',
+  'receive.network_title': 'Connect to receive your profile',
+  'receive.network_intro':
+    'Use the same network as your other device. Check the connection and activate it before creating the link code.',
+  'wizard.receive': 'Receive my existing profile',
+  'setup.finish': 'Finish device setup',
+  'setup.running': 'Completing device enrollment and private-data synchronization…',
+  'setup.complete': 'Pending device setup completed.',
+  'setup.no_publish': 'Completing device setup does not publish profile edits.',
+  'setup.review':
+    'The original profile or link context needs a fresh comparison. Review it before trying again.',
+  'setup.private_review':
+    'Private data needs explicit recovery review. This action cannot choose how to restore it.',
+  'setup.authorization':
+    'Earlier device enrollment is uncertain. New approval from an authorized device is required; retry cannot restore authorization.',
+  'setup.revoked': 'This device was revoked. It cannot restore its own authorization.',
+  'setup.unlisted':
+    'This device is absent from the verified device list. Approval from an authorized device is required.',
+  'setup.selection': 'The selected fields need review. The original comparison is retained.',
+  'setup.error':
+    'Device setup could not be confirmed. The original attempt is retained; earlier steps may already have completed.',
+  'receive.intro':
+    'Configure Network first. Show this code to a device with your profile, then approve linking there. Existing profiles on this phone are preserved.',
+  'receive.start': 'Create link code',
+  'receive.source': 'Started from identity',
+  'receive.qr': 'QR code for receiving this profile',
+  'receive.expiry': 'Code expires: 2027-01-01 01:03 UTC',
+  'receive.cancel': 'Stop waiting',
+  'receive.open': 'Return to app',
+  'receive.review': 'Review stored profiles',
+  'receive.disposition':
+    'Closing this result does not remove or repair stored profiles. Review them if installation could not be confirmed.',
+  'receive.dismiss': 'Close this result',
+  'receive.starting': 'Creating the public link code…',
+  'receive.waiting': 'Waiting for approval on your other device.',
+  'receive.receiving': 'Receiving the profile…',
+  'receive.installing': 'Saving the received profile. Cancellation can no longer undo this step.',
+  'receive.received': 'Profile received.',
+  'receive.pending':
+    'Enrollment and private-data synchronization may still require completion. Receiving the profile does not confirm that setup is finished.',
+  'receive.cancelled': 'Waiting stopped. This does not remove any stored profile.',
+  'receive.expired': 'This code has expired. Close this result before creating another code.',
+  'receive.invalidated':
+    'The original profile opening changed. Review the current profiles before starting again.',
+  'receive.error': 'The last step could not be confirmed. This original attempt is retained.',
+  'receive.reconcile':
+    'Installation needs review. No rollback or successful completion is assumed.',
+  'receive.admission': 'Installation was refused before reserving a destination.',
+  'receive.reservation': 'Destination reservation failed. No exact destination was confirmed.',
+  'receive.unconfirmed':
+    'Installation completion is unknown. Review stored profiles before trying again.',
+  'receive.destination':
+    'Installation failed after reserving this destination. Review its actual state.',
   'language.name': 'English',
   'identity.persistence.title': 'Result',
   'identity.persistence.notice':
@@ -40,6 +99,66 @@ Object.assign(STRINGS.en, {
     'A block hides someone from your search and chats and revokes their network tokens. They are not told. Retry the revocation if it is still pending.',
 });
 Object.assign(STRINGS.ru, {
+  'network.save': 'Сохранить черновик',
+  'network.activate': 'Активировать проверенные настройки',
+  'network.activating': 'Активация проверенных настроек…',
+  'network.continue': 'Продолжить',
+  'receive.title': 'Получить профиль',
+  'receive.wizard_intro':
+    'Покажите код устройству с вашим профилем и подтвердите привязку на нём. Другие сохранённые профили останутся на этом телефоне.',
+  'receive.network_title': 'Подключитесь для получения профиля',
+  'receive.network_intro':
+    'Используйте ту же сеть, что и на другом устройстве. Проверьте и активируйте подключение перед созданием кода привязки.',
+  'wizard.receive': 'Получить существующий профиль',
+  'setup.finish': 'Завершить настройку устройства',
+  'setup.running': 'Завершение регистрации устройства и синхронизации личных данных…',
+  'setup.complete': 'Ожидающая настройка устройства завершена.',
+  'setup.no_publish': 'Завершение настройки устройства не публикует правки анкеты.',
+  'setup.review':
+    'Исходный профиль или контекст привязки требуют нового сравнения. Проверьте его перед новой попыткой.',
+  'setup.private_review':
+    'Личные данные требуют явной проверки восстановления. Это действие не выбирает способ их восстановления.',
+  'setup.authorization':
+    'Результат прежней регистрации устройства неизвестен. Нужно новое подтверждение авторизованного устройства; повтор не восстанавливает авторизацию.',
+  'setup.revoked': 'Это устройство отозвано. Оно не может восстановить собственную авторизацию.',
+  'setup.unlisted':
+    'Устройства нет в проверенном списке. Требуется подтверждение авторизованного устройства.',
+  'setup.selection': 'Выбранные поля требуют проверки. Исходное сравнение сохранено.',
+  'setup.error':
+    'Настройка устройства не подтверждена. Исходная попытка сохранена; предыдущие шаги уже могли завершиться.',
+  'receive.intro':
+    'Сначала настройте сеть. Покажите код устройству с вашим профилем и подтвердите привязку на нём. Уже сохранённые профили этого телефона останутся.',
+  'receive.start': 'Создать код привязки',
+  'receive.source': 'Начато из профиля',
+  'receive.qr': 'QR-код для получения профиля',
+  'receive.expiry': 'Код действует до: 2027-01-01 01:03 UTC',
+  'receive.cancel': 'Прекратить ожидание',
+  'receive.open': 'Вернуться в приложение',
+  'receive.review': 'Проверить сохранённые профили',
+  'receive.disposition':
+    'Закрытие результата не удаляет и не исправляет сохранённые профили. Проверьте их, если установка не подтверждена.',
+  'receive.dismiss': 'Закрыть результат',
+  'receive.starting': 'Создание открытого кода привязки…',
+  'receive.waiting': 'Ожидание подтверждения на другом устройстве.',
+  'receive.receiving': 'Получение профиля…',
+  'receive.installing': 'Полученный профиль сохраняется. Отмена уже не может прервать этот шаг.',
+  'receive.received': 'Профиль получен.',
+  'receive.pending':
+    'Регистрация устройства и синхронизация личных данных могут требовать завершения. Получение профиля ещё не подтверждает окончание настройки.',
+  'receive.cancelled': 'Ожидание прекращено. Сохранённые профили не удаляются.',
+  'receive.expired': 'Срок действия кода истёк. Закройте результат перед созданием нового кода.',
+  'receive.invalidated':
+    'Исходное открытие профиля изменилось. Проверьте текущие профили перед новым запуском.',
+  'receive.error': 'Последний шаг не подтверждён. Исходная попытка сохранена.',
+  'receive.reconcile':
+    'Установку нужно проверить. Откат или успешное завершение не предполагаются.',
+  'receive.admission': 'Установка отклонена до резервирования места для профиля.',
+  'receive.reservation':
+    'Не удалось зарезервировать место для профиля. Точное место не подтверждено.',
+  'receive.unconfirmed':
+    'Завершение установки неизвестно. Проверьте сохранённые профили перед новой попыткой.',
+  'receive.destination':
+    'Установка не удалась после резервирования этого места. Проверьте его текущее состояние.',
   'language.name': 'Русский',
   'identity.persistence.title': 'Результат',
   'identity.persistence.notice':

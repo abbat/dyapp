@@ -327,7 +327,10 @@ before the QR step. Cancel preserves that identity and saved network draft. Navi
 stores only the source identifiers and requires another explicit code creation; core checks whether
 the wizard may be cleaned after success. Field/private-state recovery screens, owner approval and
 device-list screens remain planned; native runtime and screen review are still required. Code lifetime,
-installation receipts and authorization stay in shared Rust.
+installation receipts and authorization stay in shared Rust. The static Android prototype now includes
+explicit receiving, typed failure and separate setup states, plus first-run network activation without
+Skip. Its QR is a layout stand-in; the APK uses the core matrix. Manual field comparison remains
+planned in both presentations.
 
 Android screens may be reviewed and implemented individually against the frozen criteria and the
 corresponding desktop behavior. The complete prototype review and per-client impact review remain

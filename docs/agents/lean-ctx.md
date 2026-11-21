@@ -50,6 +50,11 @@ under `/tmp`); read those with the harness's own tool.
   `fresh: true` re-reads a file changed outside lean-ctx.
 - Instruction files (AGENTS.md, SKILL.md) are always returned in full.
 - `ctx_shell` compresses command output; pass `raw: true` when you need it verbatim.
+- Check the installed shell schema before long checks. This profile uses `run_in_background: true`,
+  not `background`, and `timeout_ms` sets the command lifetime, not the observation wait. A foreground
+  call can detach after about 110 seconds while retaining its original lifetime limit. Preserve its
+  job handle; after an observer timeout inspect the actual Docker container and reattach to that
+  container if it is still running instead of starting another check.
 - If output was cut or archived, recover it with `ctx_expand` (shell/tool output) or
   `ctx_retrieve` (a file read earlier). Do not rerun the command just to see more.
 
