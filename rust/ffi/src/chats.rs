@@ -54,6 +54,8 @@ pub use sticker_import::{sticker_import_byte_limit, SavedStickerPackImport};
 mod sticker_exchange;
 mod sticker_request_actions;
 pub use sticker_request_actions::{StickerPackSaveAction, StickerPackSaveAttempt};
+mod sticker_request_controls;
+pub use sticker_request_controls::StickerPackSaveControl;
 mod sticker_request_status;
 pub use sticker_request_status::{
     StickerPackSaveFailure, StickerPackSaveState, StickerPackSaveStatus,

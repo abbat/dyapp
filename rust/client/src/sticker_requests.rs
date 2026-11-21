@@ -201,6 +201,8 @@ pub fn status(
 
 mod actions;
 pub use actions::{prepare, Action, Kind, Stage};
+mod controls;
+pub use controls::Control;
 
 #[cfg(test)]
 mod tests;

@@ -561,7 +561,10 @@ Its snapshot reads authenticated local originals/saved packs, applies automatic-
 using the adapter's OS network report, and revalidates current metadata before decoding/cache
 retention. Cache-write failure does not discard validated pixels. Desktop and common native
 `chat_sticker_frame` use this boundary. Shared `Snapshot::access` orders local lookup before
-retrieval admission. Native `chat_sticker_image` exposes typed `Ready`, `OnTap` and `Unavailable`
+retrieval admission. Native received-pack status additionally projects ordered `StickerPackSaveControl` values from
+common `Status::controls`; clients must not reconstruct Retry/Fresh/StopWaiting eligibility from
+state, failure, tokens or local clocks. Display controls never replace mutation authorization.
+Native `chat_sticker_image` exposes typed `Ready`, `OnTap` and `Unavailable`
 outcomes; transport and validation failures remain errors. The compatibility `chat_sticker_frame`
 API preserves its `onTap`/`notFound` errors. No descriptor or compressed image crosses either API.
 The native call retains session/identity ownership through blocking completion; UI cancellation

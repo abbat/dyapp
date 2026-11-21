@@ -31,7 +31,8 @@ pub use chats::{
     ContactVerificationState, FavoriteError, RecentStickerPickerEntry, RecentStickerPickerPage,
     SavedStickerFrame, SavedStickerPackEntry, SavedStickerPackImport, SavedStickerPackPage,
     SavedStickerPackState, SavedStickerPickerPage, StickerPackSaveAction, StickerPackSaveAttempt,
-    StickerPackSaveFailure, StickerPackSaveState, StickerPackSaveStatus, StickerPickerEntry,
+    StickerPackSaveControl, StickerPackSaveFailure, StickerPackSaveState, StickerPackSaveStatus,
+    StickerPickerEntry,
 };
 mod link_review;
 pub use link_review::{

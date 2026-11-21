@@ -272,6 +272,11 @@ existing session/identity lifetime, with checked 32-bit offsets and safe labels/
 They perform no networking or state mutation. Mobile picker UI remains planned; full saved-frame
 and collection exports are separate APIs.
 
+Common `sticker_requests::Status::controls` supplies the ordered Request/Retry/Fresh/StopWaiting/
+Refresh/Manage display choices, independent of client clocks. Native status includes this typed
+list; actual mutations still recheck full selection, stored generation and authorization. Android
+and Tauri widget adoption of this shared projection remains in progress.
+
 Shared `sticker_media` owns current full-key selection, identity/content revalidation,
 authenticated local-source lookup, automatic-download admission and decoded completion/cache
 retention. Desktop and common native `ChatSession.chat_sticker_frame` delegate these rules

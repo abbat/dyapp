@@ -69,14 +69,18 @@ pub struct StickerPackSaveStatus {
     pub failure: Option<StickerPackSaveFailure>,
     /// Exact core Unix-millisecond retry deadline, when a descriptor exists.
     pub retry_at_ms: Option<u64>,
+    /// Ordered common-core controls; display hints never authorize an operation.
+    pub controls: Vec<super::StickerPackSaveControl>,
 }
 impl From<core::Status> for StickerPackSaveStatus {
     fn from(value: core::Status) -> Self {
+        let controls = value.controls().into_iter().map(Into::into).collect();
         Self {
             state: value.state.into(),
             generation: value.generation.map(|token| token.to_vec()),
             failure: value.failure.map(Into::into),
             retry_at_ms: value.retry_at_ms,
+            controls,
         }
     }
 }
