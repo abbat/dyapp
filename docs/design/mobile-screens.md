@@ -289,6 +289,12 @@ creates a new confirmation opening. Both controls disable while admission is una
 callback cannot cancel a replacement dialog or reuse its action. Native actions retain all existing
 validation and leases, and Delete captures the selected message before clearing its presentation.
 
+Android text-forward delivery is in progress. The native layer now provides validated destination
+IDs; the presentation state keeps only the exact source opening, selected offered ID, busy/error
+state and typed committed result. Accepted and queued results are terminal for that opening;
+retired/cancelled UI cannot navigate on a late result. The message action, bounded destination picker
+and actual native/UI runtime acceptance remain planned until their integration is delivered.
+
 Android screens may be reviewed and implemented individually against the frozen criteria and the
 corresponding desktop behavior. The complete prototype review and per-client impact review remain
 v0.0.1 release requirements; this delivery order does not waive criteria or native verification.

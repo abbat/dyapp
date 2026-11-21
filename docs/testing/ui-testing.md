@@ -582,6 +582,12 @@ Material text field also merges its title and supporting hint into `Text`; treat
 list as the editable value rejects correct input. Keep separate label/hint geometry checks and
 save/reopen/validation assertions.
 
+`ChatForwardPresentationTests` cover exact offered selection, read/pre-commit errors, explicit retry,
+terminal Accepted/Queued results and retired callback admission. `ChatForwardCompletionTests` holds
+the synchronous backend behind an entered/completion signal, creates the replacement before release,
+then joins the actual outer send job. Late success and caller cancellation cannot publish a committed
+result or failure into that replacement. These controlled callbacks do not prove JNI delivery or picker UI.
+
 Common forwarding target tests use real SQLite state to cover request/open/closed targets, exact
 source selectors with no available destination, blocked/own/unknown sources and local Clear. An
 unreadable conversation table must fail instead of becoming an empty picker. Native forwarding tests
