@@ -1,6 +1,7 @@
 # UI Testing: Practical Guide
 
-Android prototype snapshots include nine forwarding states. After capture, browser checks verify
+Android prototype snapshots include nine forwarding states. Their browser checks live beside the
+prototype in `clients/android/prototype/forward-fixture-tests.js` and are not packaged in the APK. After capture, browser checks verify
 state-specific admission, received-menu permissions and destination-only history/avatar. Each ready
 dialog snapshot also checks the actual 32+8 pagination, full-ID search, retained selection across
 pages and rejection of callbacks after a synchronous leave-and-return transition. These checks

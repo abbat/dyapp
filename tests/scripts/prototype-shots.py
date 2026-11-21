@@ -731,7 +731,7 @@ def saved(_view: WebKit2.WebView, result: Gio.AsyncResult) -> None:
         phase("forward fixture")
         view.call_async_javascript_function(
             "await (await import("
-            "'/desktop/ui-tests/android-forward-fixture.js'"
+            "'/android/prototype/forward-fixture-tests.js'"
             ")).checkForwardFixture()",
             -1,
             None,
