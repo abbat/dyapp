@@ -12,6 +12,10 @@ presentation guard; its existing controlled Compose scenarios retain their origi
 read-only retry, committed-but-unconfirmed receipts, and pending typing with owner replacement.
 Counters are checked outside caught callbacks; controlled completion signals avoid guessed delays.
 The existing production-Activity receipt persistence/recreation test remains unchanged.
+`NativePrivacyPreferenceTests` crosses the actual registry/Keystore/generated JNI boundary through
+production preference adapters: independent changes preserve presence/notices, another selected
+identity retains its defaults/selection, and reopening restores the edited values. Each native
+read/write gets its own failure deadline; no node or Activity is needed. Device CI must execute it.
 
 Debug-only `MailNoticeProbeService` observes actual framework start/stop/completion and attempts
 at OS notification posting without replacing registry selection, native receive or posting.

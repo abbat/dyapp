@@ -215,8 +215,9 @@ The IDs inside each section are the desktop ones; only the frame differs.
   and the `presence-audience` radios. Its hint scopes these preferences to this identity on
   this device. Native Android persists views/read-receipts/typing through independent common-core
   preferences, with disabled unknown/busy switches, confirmed readback and read-only retry.
-  The presence audience also uses common-core foreground send policy; outgoing Android
-  views/typing signal paths remain separate required implementation and runtime acceptance.
+  The presence audience also uses common-core foreground send policy. Profile-view send-path parity
+  and actual native runtime evidence remain separate; typing delivery stays planned for a
+  [future direct client path](read-receipts.md#typing-indicators).
   Separate count links open `settings-blocked` and `settings-passed`.
   The distinct `lock-settings` row opens app lock, whose scope is the whole app.
   Notifications has `message-notifications` and `notice-content` (`notice-fixed`,
