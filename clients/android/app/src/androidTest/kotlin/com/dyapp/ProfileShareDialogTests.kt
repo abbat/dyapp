@@ -76,7 +76,8 @@ class ProfileShareDialogTests {
         compose.onNodeWithTag("profile-share-$peer").performClick()
         compose.runOnIdle {
             assertEquals(listOf(peer), sent)
-            form.completeSubmission(Result.success(ChatSubmission.Queued(byteArrayOf(2), "offline")), peer)
+            val queued = ChatSubmission.Queued(byteArrayOf(2), "offline")
+            form.completeSubmission(Result.success(queued), peer, form.opening)
         }
         compose.onNodeWithTag("profile-share-$peer").assertDoesNotExist()
         compose.onNodeWithText(string(R.string.chat_queued)).assertExists()
@@ -95,7 +96,7 @@ class ProfileShareDialogTests {
 
     @Test
     fun acceptedCommitmentOpensTheExactTargetAndClosesWithoutAnotherSend() {
-        form.completeSubmission(Result.success(ChatSubmission.Accepted(byteArrayOf(1))), peer)
+        form.completeSubmission(Result.success(ChatSubmission.Accepted(byteArrayOf(1))), peer, form.opening)
         show(listOf(row()))
         openSharedChat()
         compose.runOnIdle {

@@ -160,7 +160,7 @@ policy's device verification is planned after v0.0.1. Foreground use remains ava
 
 ## Share a profile
 
-On a loaded profile page, **Share profile…** offers existing open chats, excluding the profile owner. Choosing a chat sends a profile link; it never creates a message request. The dialog distinguishes a sent link from one saved locally pending network delivery. After success, **Message** opens the destination chat. Cancel before choosing a chat sends nothing. An exact profile link in a live message appears as a profile button. Press it to load the verified profile; no linked profile is fetched before that press. If unavailable, the profile page offers retry. Back returns to the original chat.
+On a loaded profile page, **Share profile…** offers existing open chats, excluding the profile owner. Choosing a chat sends a profile link; it never creates a message request. The dialog distinguishes a sent link from one saved locally pending network delivery. After success, **Message** opens the destination chat. Cancel before choosing a chat sends nothing. Reopening starts a new choice; actions or completions retained from a cancelled or closed page cannot send or change the new dialog. An exact profile link in a live message appears as a profile button. Press it to load the verified profile; no linked profile is fetched before that press. If unavailable, the profile page offers retry. Back returns to the original chat.
 
 ## Install
 

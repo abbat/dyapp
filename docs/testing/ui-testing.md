@@ -246,6 +246,10 @@ mailbox-revision status replacement. `StickerPackControlsTests` checks authorita
 retired-owner navigation, pending caption retention and read-only recovery. Button coroutines
 start undispatched to admit an operation before the next captured callback can run.
 Actual instrumentation execution is required independently of source lint.
+`ProfileShareOpeningTests` retains actual dialog callbacks across Cancel and equal-content reopening.
+Only the current opening admits a send once; retired Cancel, Open Chat and completion callbacks
+cannot alter a successor or unlock its pending request. Successful/queued commitment admits only
+navigation to its exact destination, while current refusal permits an explicit retry.
 `ChatPhotoGeometryTests` exercises the production photo bubble in EN/RU at normal/doubled font
 scale: explicit stranger reveal, held download, failure/retry and actual PNG decoding. Completion
 signals and external request counters separate phases; complete label layouts, current viewport
