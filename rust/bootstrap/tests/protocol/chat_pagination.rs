@@ -10,6 +10,81 @@ use std::sync::Arc;
 /// Reading on before going back would open later texts first and lose that page for good.
 #[tokio::test]
 async fn a_backlog_longer_than_a_page_survives_a_cold_profile_cache() {
+    let (mut bob, mut session, alice_profile, bob_profile, seal_key) =
+        Box::pin(backlog_case()).await;
+    drain_backlog(
+        &mut bob,
+        &mut session,
+        alice_profile,
+        bob_profile,
+        &seal_key,
+    )
+    .await;
+    let (remaining, more) = bob.node.fetch(&bob.device_key).await.unwrap();
+    assert!(remaining.is_empty() && !more);
+}
+
+#[tokio::test]
+async fn a_profile_cached_between_passes_rewinds_the_unresolved_page() {
+    let (mut bob, mut session, alice_profile, bob_profile, seal_key) =
+        Box::pin(backlog_case()).await;
+    let mut profiles = vec![bob_profile];
+    let (events, more) = session
+        .receive_page(
+            std::slice::from_mut(&mut bob.node),
+            &bob.device_key,
+            &profiles,
+            &seal_key,
+        )
+        .await
+        .unwrap();
+    assert!(more);
+    assert!(events
+        .iter()
+        .any(|event| matches!(event, Event::UnknownOwner(_))));
+    assert!(session.next_page(more, false).unwrap());
+    profiles.push(alice_profile);
+
+    let mut texts = std::collections::BTreeSet::new();
+    for _ in 0..8 {
+        let (events, more) = session
+            .receive_page(
+                std::slice::from_mut(&mut bob.node),
+                &bob.device_key,
+                &profiles,
+                &seal_key,
+            )
+            .await
+            .unwrap();
+        for event in events {
+            match event {
+                Event::Message {
+                    body: Body::Text { id, .. },
+                    ..
+                } => {
+                    texts.insert(id);
+                }
+                Event::Refused(why) => panic!("refused: {why}"),
+                Event::ResendRequired => panic!("a text lost its MLS key"),
+                _ => {}
+            }
+        }
+        if !session.next_page(more, false).unwrap() {
+            break;
+        }
+    }
+    assert_eq!(texts.len(), 1);
+    let (remaining, more) = bob.node.fetch(&bob.device_key).await.unwrap();
+    assert!(remaining.is_empty() && !more);
+}
+
+async fn backlog_case() -> (
+    Person,
+    Session,
+    dyapp_profile::VerifiedProfile,
+    dyapp_profile::VerifiedProfile,
+    [u8; 32],
+) {
     let address = start_config(|config| {
         config.roles = vec![Role::Store];
         config.limits.requests_per_second = 1000;
@@ -35,7 +110,7 @@ async fn a_backlog_longer_than_a_page_survives_a_cold_profile_cache() {
         .unwrap()
         .stage_outbound(&bob.device.seal(&seal_key).unwrap(), &[])
         .unwrap();
-    let mut session = establish_backlog(
+    let session = establish_backlog(
         &mut alice,
         &mut bob,
         &alice_profile,
@@ -44,16 +119,7 @@ async fn a_backlog_longer_than_a_page_survives_a_cold_profile_cache() {
         &seal_key,
     )
     .await;
-    drain_backlog(
-        &mut bob,
-        &mut session,
-        alice_profile,
-        bob_profile,
-        &seal_key,
-    )
-    .await;
-    let (remaining, more) = bob.node.fetch(&bob.device_key).await.unwrap();
-    assert!(remaining.is_empty() && !more);
+    (bob, session, alice_profile, bob_profile, seal_key)
 }
 
 async fn establish_backlog(
@@ -387,6 +453,11 @@ async fn assert_late_text_after_restart(
             )
             .await
             .unwrap();
+        for event in &events {
+            if matches!(event, Event::ResendRequired) {
+                panic!("holder switch lost a text: {event:?}");
+            }
+        }
         text_count += events
             .iter()
             .filter(|event| {

@@ -21,6 +21,22 @@ impl Store {
         Ok(found.is_some())
     }
 
+    /// Whether this envelope requires a fresh encrypted copy and a repeated negative receipt.
+    ///
+    /// # Errors
+    /// Returns an error if the inbox entry cannot be read.
+    pub fn needs_resend(&self, key: &InboxKey) -> Result<bool, Error> {
+        let kind: Option<i64> = self
+            .db
+            .query_row(
+                "SELECT `kind` FROM `inbox` WHERE `mailbox` = ?1 AND `envelope_id` = ?2",
+                params![key.mailbox.as_slice(), key.id.as_slice()],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(kind == Some(InboxKind::ResendRequired as i64))
+    }
+
     /// Commit the new sealed MLS snapshot, processed delivery and pending ACK together, and the
     /// `(group ID, peer ID)` catalog entry of a group a Welcome joined.
     /// Returns false for an identical duplicate without replacing the saved MLS state.

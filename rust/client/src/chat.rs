@@ -95,6 +95,8 @@ pub enum Event {
     UnknownOwner(String),
     /// The envelope was refused and acked: no group took it.
     Refused(String),
+    /// The text key was pruned; the sender must re-encrypt current text after a negative receipt.
+    ResendRequired,
 }
 
 /// A local decision about a peer that the owner's devices share.
@@ -231,6 +233,9 @@ pub struct Receipt {
     /// One to [`MAX_RECEIPT_IDS`] 16-byte envelope IDs.
     #[prost(bytes = "vec", repeated, tag = "2")]
     pub ids: Vec<Vec<u8>>,
+    /// Envelope IDs permanently refused as too old; the sender may re-encrypt current text.
+    #[prost(bytes = "vec", repeated, tag = "3")]
+    pub refused: Vec<Vec<u8>>,
 }
 
 /// The most asks or tokens in one body: 30 days for each of 64 owner devices.
@@ -436,8 +441,8 @@ impl Body {
             .ok()
             .filter(|r| {
                 r.mailbox.len() == 32
-                    && (1..=MAX_RECEIPT_IDS).contains(&r.ids.len())
-                    && r.ids.iter().all(|id| id.len() == 16)
+                    && (1..=MAX_RECEIPT_IDS).contains(&r.ids.len().saturating_add(r.refused.len()))
+                    && r.ids.iter().chain(&r.refused).all(|id| id.len() == 16)
             })
             .map(Self::Receipt)
             .ok_or(Error::Reply("bad receipt"))
@@ -520,6 +525,7 @@ impl std::fmt::Debug for Event {
             Self::Gap(group) => f.debug_tuple("Gap").field(group).finish(),
             Self::UnknownOwner(_) => f.debug_tuple("UnknownOwner").finish_non_exhaustive(),
             Self::Refused(reason) => f.debug_tuple("Refused").field(reason).finish(),
+            Self::ResendRequired => f.write_str("ResendRequired"),
         }
     }
 }

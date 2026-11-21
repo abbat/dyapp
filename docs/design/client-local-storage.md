@@ -528,10 +528,10 @@ returns that first page; `Node::fetch_page` reports a non-advancing reply if
 `more` is true, so the pagination caller cannot loop over page one.
 
 The Store has one profile-bound cursor setting: `save_mailbox_cursor` records an
-opaque 1–64 byte cursor with the responding node's Peer ID, `mailbox_cursor_for`
-clears it on holder switch, and `clear_mailbox_cursor` resets to the head. Corrupt
-format, Peer ID or length fails safely. `Session::receive_page` calls these APIs
-after the page's per-envelope commits, ACK and receipt attempts; it returns
+opaque 1–64 byte cursor with the responding node's Peer ID and the owners whose profiles blocked
+earlier pages, `mailbox_cursor_for` clears it on holder switch, and `clear_mailbox_cursor` resets
+to the head. Corrupt format, Peer ID, owner IDs or length fails safely. `Session::receive_page`
+calls these APIs after the page's per-envelope commits, ACK and receipt attempts; it returns
 events and whether another page is due. A crash before cursor save replays a
 page through inbox deduplication. A crash after save resumes after the
 committed page. If the node changes, the client clears the cursor and starts from
@@ -540,8 +540,8 @@ records. The desktop catch-up pass reads up to eight pages per call while `more`
 true, and the next pass resumes from the saved cursor. It checks the active-slot
 transition flag before each page and never interrupts an MLS/Store transaction.
 A per-envelope stop within a page is planned. An envelope from an unknown owner stays
-unacknowledged without hiding later pages; once a fetched profile may resolve it, the
-same call returns to the head at once, before later texts of that owner can open and push the
+unacknowledged without hiding later pages. Once that owner's profile enters the cache through any
+path, the next fetch returns to the head before later texts of that owner can open and push the
 earlier ones past the ratchet's out-of-order window. Once `more` is false, the cursor is cleared
 and the next scheduled check starts from the head, which also finds inserts with reused
 or earlier sequence numbers. Deletion or eviction of the cursor row does not

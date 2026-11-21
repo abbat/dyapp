@@ -472,6 +472,7 @@ fn receipts_are_strict() {
         Body::Receipt(Receipt {
             mailbox: vec![1; mailbox],
             ids,
+            refused: Vec::new(),
         })
     };
     for body in [
@@ -480,6 +481,12 @@ fn receipts_are_strict() {
     ] {
         assert!(Body::decode(&body.encode()).ok() == Some(body));
     }
+    let negative = Body::Receipt(Receipt {
+        mailbox: vec![1; 32],
+        ids: Vec::new(),
+        refused: vec![vec![2; 16]],
+    });
+    assert!(Body::decode(&negative.encode()).ok() == Some(negative));
     for bad in [
         receipt(31, vec![vec![2; 16]]),
         receipt(32, Vec::new()),
