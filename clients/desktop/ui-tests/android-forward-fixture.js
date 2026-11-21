@@ -2,13 +2,55 @@ const check = (value, reason) => {
   if (!value) throw new Error(reason);
 };
 
-// Runs after the static snapshot; retiring the opening cannot alter the captured state.
-export const checkForwardFixture = () => {
-  const get = (id) => {
-    const node = document.getElementById(id);
-    if (!node) throw new Error('Missing forward fixture: ' + id);
-    return node;
-  };
+const get = (id) => {
+  const node = document.getElementById(id);
+  if (!node) throw new Error(`Missing forward fixture: ${id}`);
+  return node;
+};
+
+const checkState = () => {
+  const screenName = document.documentElement.dataset.screen;
+  const ready = ['chat-forward-dialog', 'chat-forward-send-error'].includes(screenName);
+  check(
+    get('chat-forward-confirm').disabled === !ready,
+    'Forward admission does not match the state',
+  );
+  check(
+    get('chat-forward-cancel').disabled === (screenName === 'chat-forward-pending'),
+    'Cancel must be available during reads and blocked during submission',
+  );
+  if (['chat-forward-sent', 'chat-forward-queued'].includes(screenName)) {
+    const profile = get('chat-profile');
+    check(
+      [...profile.querySelectorAll('.avatar.photo')].every((node) => node.hidden),
+      'Destination retained the source photo',
+    );
+    check(
+      profile.dataset.peerId === get('chat-forward-selected-peer').textContent,
+      'Destination header and confirmed Peer ID differ',
+    );
+    const messages = [...get('chat-thread').querySelectorAll('.msg')].filter(
+      (node) => !node.hidden,
+    );
+    check(
+      messages.length === 1 && messages[0].contains(get('chat-forward-body')),
+      'Source conversation leaked into the destination',
+    );
+  }
+  if (screenName === 'chat-forward-received-menu') {
+    check(
+      get('msg-edit').hidden && get('msg-delete').hidden,
+      'Received text gained author actions',
+    );
+    check(
+      get('forward-received-menu').contains(get('msg-forward')),
+      'Received Forward menu is missing',
+    );
+  }
+  return ready;
+};
+
+const checkSelection = () => {
   const list = get('chat-forward-list');
   const selected = get('chat-forward-selected-peer');
   const query = get('chat-forward-query');
@@ -51,4 +93,9 @@ export const checkForwardFixture = () => {
   get('chat-forward-cancel').click();
   check(selected.textContent === before, 'Retired radio changed the selected recipient');
   check(location.href === url, 'Retired confirmation navigated');
+};
+
+// Runs after the static snapshot; retiring the opening cannot alter the captured state.
+export const checkForwardFixture = () => {
+  if (checkState()) checkSelection();
 };

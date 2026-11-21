@@ -727,7 +727,7 @@ def saved(_view: WebKit2.WebView, result: Gio.AsyncResult) -> None:
             KeyboardFixtures(
                 view, keyboard_calibrated, keyboard_progress
             ).start()
-    elif PLATFORM == "android" and jobs[0][0] == "chat-forward-dialog":
+    elif PLATFORM == "android" and jobs[0][0].startswith("chat-forward-"):
         phase("forward fixture")
         view.call_async_javascript_function(
             "await (await import("

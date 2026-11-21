@@ -158,6 +158,11 @@ export const installForwardFixture = (words, screen) => {
   if (['chat-forward-sent', 'chat-forward-queued'].includes(screen)) {
     byId('chat-presence', HTMLElement).hidden = true;
     byId('chat-profile', HTMLElement).dataset.peerId = chosen;
+    const avatar = byId('chat-profile', HTMLElement).querySelector('.avatar.p2');
+    if (avatar) {
+      avatar.classList.remove('photo', 'p2');
+      avatar.textContent = 'R';
+    }
     const heading = byId('chat-profile', HTMLElement).querySelector('.grow > b');
     if (heading) heading.textContent = name.textContent;
     byId('chat-forward-body', HTMLElement).textContent =

@@ -1,10 +1,13 @@
 # UI Testing: Practical Guide
 
-Android prototype snapshots include nine forwarding states. After each ready-dialog snapshot,
-the browser fixture checks the actual 32+8 pagination, full-ID search, retained selection across
+Android prototype snapshots include nine forwarding states. After capture, browser checks verify
+state-specific admission, received-menu permissions and destination-only history/avatar. Each ready
+dialog snapshot also checks the actual 32+8 pagination, full-ID search, retained selection across
 pages and rejection of callbacks after a synchronous leave-and-return transition. These checks
 use DOM actions and completion callbacks; they do not stage native messages. Native forwarding
-and receiver-history evidence remain separate requirements.
+and receiver-history evidence remain separate requirements. The production-dialog Compose test
+also requires a controlled precommit send failure to retain its selected destination and draft,
+then allows exactly one additional forwarding-call attempt after an explicit retry.
 
 `ChatFormOwnershipTests` renders the production remembered form and replaces either its peer or
 the actual opened identity while retaining equal slot/owner identifiers. It requires a fresh form

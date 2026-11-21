@@ -102,6 +102,28 @@ class ChatForwardUiTests {
     }
 
     @Test
+    fun failedSendRetainsDestinationUntilExplicitRetry() {
+        val f = ChatForwardUiFixture(compose)
+        f.failSend = true
+        f.show()
+        ask("Own text")
+        f.ready()
+        val target = f.choices[1]
+        compose.onNodeWithTag("forward-target-" + target).performScrollTo().performClick()
+        f.ready().performClick()
+        compose.awaitNode(hasTestTag("forward-failed"))
+        assertEquals(1, f.sends.get())
+        assertEquals(emptyList<String>(), f.navigated.toList())
+        assertEquals(target, f.current.get().state.chosen)
+        assertEquals("draft", f.form.draft.value)
+        compose.runOnIdle { f.failSend = false }
+        f.ready().performClick()
+        compose.waitUntil(60_000) { f.navigated.isNotEmpty() }
+        assertEquals(2, f.sends.get())
+        assertEquals(listOf(target), f.navigated.toList())
+    }
+
+    @Test
     fun failedVerificationMustBeRetriedBeforeAnyDestinationCanBeSent() {
         val f = ChatForwardUiFixture(compose)
         f.failRead.set(true)
