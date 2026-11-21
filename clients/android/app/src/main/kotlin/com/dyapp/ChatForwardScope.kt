@@ -17,6 +17,15 @@ internal fun ChatForwardScope(
     content: @Composable () -> Unit,
 ) = key(feed.opened, peer) {
     val context = remember { nativeForwardContext(feed, peer) }
+    ChatForwardBoundary(context, open, content)
+}
+
+@Composable
+internal fun ChatForwardBoundary(
+    context: ChatForwardContext,
+    open: (String) -> Unit,
+    content: @Composable () -> Unit,
+) = key(context) {
     DisposableEffect(context) { onDispose { context.state.retire() } }
     CompositionLocalProvider(LocalChatForward provides context, content = content)
     ChatForwardHost(context, open)

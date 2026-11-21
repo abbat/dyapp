@@ -582,6 +582,13 @@ Material text field also merges its title and supporting hint into `Text`; treat
 list as the editable value rejects correct input. Keep separate label/hint geometry checks and
 save/reopen/validation assertions.
 
+`ChatForwardUiTests` mounts the production forwarding boundary, host, menu and dialog over a
+controlled native seam. It checks received text has Forward without own edit/delete actions, searches
+for an off-page full target ID, retains the complete native source selector, admits queued submission
+once and preserves draft/held/edit state. Reopening an actual identity object with equal IDs retires
+an old installed confirm callback. Real JNI/network delivery and destination-history feedback are
+separate acceptance, not inferred from the controlled navigation callback.
+
 `ChatForwardReadCancellationTests` cancels one signalled native-style read, starts a replacement
 before releasing the old result and joins each actual outer read job. Both old success and old failure
 must leave the replacement busy, empty and error-free until its own completion; no submit is admitted.

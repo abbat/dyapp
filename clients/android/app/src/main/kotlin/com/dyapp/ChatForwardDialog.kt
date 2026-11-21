@@ -45,7 +45,7 @@ private fun ChatForwardBody(state: ChatForwardPresentation, actions: ChatForward
                 }
             }
             state.targets?.isEmpty() == true -> {
-                Text(stringResource(R.string.chat_forward_empty))
+                Text(stringResource(R.string.chat_forward_empty), Modifier.testTag("forward-no-targets"))
             }
             else -> {
                 ChatForwardTargets(state, actions)
