@@ -12,12 +12,9 @@ import uniffi.dyapp.PreparedPhotoData
 import uniffi.dyapp.photoDecodePlan
 import uniffi.dyapp.photoPickedByteLimit
 import uniffi.dyapp.preparePhotoPixels
-import java.io.ByteArrayOutputStream
 import java.io.IOException
-import java.io.InputStream
 import java.nio.ByteBuffer
 
-private const val READ_CHUNK = 64 * 1024
 private const val RGBA_CHANNELS = 4
 
 /** A picked file the editor will not use; [text] names why on the status line. */
@@ -29,19 +26,13 @@ internal typealias PreparedPhoto = PreparedPhotoData
 /** Reads only within the core's source budget. Call it off the UI thread. */
 internal fun readPicked(context: Context, uri: Uri): ByteArray =
     (context.contentResolver.openInputStream(uri) ?: throw PhotoProblem(R.string.profile_photo_unsupported))
-        .use(::readBounded)
-
-private fun readBounded(input: InputStream): ByteArray {
-    val limit = photoPickedByteLimit()
-    val out = ByteArrayOutputStream()
-    val chunk = ByteArray(READ_CHUNK)
-    while (true) {
-        val read = input.read(chunk)
-        if (read < 0) return out.toByteArray()
-        if (out.size().toULong() + read.toULong() > limit) throw PhotoProblem(R.string.profile_photo_too_large)
-        out.write(chunk, 0, read)
-    }
-}
+        .use { input ->
+            try {
+                readPickedBytes(input, photoPickedByteLimit())
+            } catch (error: PickedInputTooLarge) {
+                throw PhotoProblem(R.string.profile_photo_too_large).apply { initCause(error) }
+            }
+        }
 
 /** Android decodes upright pixels; the core owns all preparation policy. Call off the UI thread. */
 internal fun preparePhoto(bytes: ByteArray, purpose: PhotoPurpose = PhotoPurpose.PROFILE): PreparedPhoto {

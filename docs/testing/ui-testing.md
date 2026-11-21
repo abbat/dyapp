@@ -8,6 +8,11 @@ caption with read-only recovery; all original quota/fresh/conflict/focus
 assertions remain. Native request-status integration tests also check controls on actual New/Waiting/Downloading/
 Fetch-failed/Saved transitions. These require native CI; formatting alone does not prove execution.
 
+Android `PickedInputTests` checks empty/exact limits, fragmented provider reads, partial-read
+failure propagation and oversized input rejection after at most one extra byte. The OS reader
+uses core-provided budgets; it performs no archive, image or quota validation. Photos reuse this
+reader with their existing native budget and localized too-large/unsupported errors.
+
 Android `StickerPackPresentationTests` controls native-like request completion and readback:
 uncertain application followed by failed read retains the known intent and disables mutation;
 read-only retry installs the current generation; retired/same-token status callbacks and duplicate
