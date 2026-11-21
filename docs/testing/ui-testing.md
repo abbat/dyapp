@@ -14,6 +14,8 @@ event IDs per author. Reusing an author/event pair for a different peer correctl
 
 Android prototype snapshots include nine forwarding states. Their browser checks live beside the
 prototype in `clients/android/prototype/forward-fixture-tests.js` and are not packaged in the APK.
+The static forward opening owns abortable listeners, including collection navigation; retirement
+removes those bindings. A controlled browser check requires navigation before abort and no work after it.
 Run the on-demand `prototype-review` workflow with `platform=android` for the complete Android
 inventory and layout checks; its default `platform=desktop` retains desktop capture and criteria.
 The artifact records the selected platform, exact source and input hashes. Ordinary APK CI does

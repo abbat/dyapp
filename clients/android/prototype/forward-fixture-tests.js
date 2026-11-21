@@ -1,3 +1,5 @@
+import { bindCollectionNavigation } from '../../desktop/ui/settings-collection-view.js';
+
 const check = (value, reason) => {
   if (!value) throw new Error(reason);
 };
@@ -95,7 +97,39 @@ const checkSelection = () => {
   check(location.href === url, 'Retired confirmation navigated');
 };
 
+const checkBindingRetirement = () => {
+  const button = () => document.createElement('button');
+  const state = {
+    name: 'forward',
+    list: document.createElement('tbody'),
+    page: 0,
+    items: [],
+    search: document.createElement('input'),
+    status: document.createElement('p'),
+    previous: button(),
+    next: button(),
+    refresh: button(),
+  };
+  let rendered = 0;
+  const lifetime = new AbortController();
+  bindCollectionNavigation(
+    state,
+    () => {
+      rendered++;
+    },
+    lifetime.signal,
+  );
+  state.next.click();
+  check(state.page === 1 && rendered === 1, 'Live collection navigation did not render');
+  lifetime.abort();
+  state.previous.click();
+  state.search.dispatchEvent(new Event('input'));
+  state.next.click();
+  check(state.page === 1 && rendered === 1, 'Retired collection bindings still act');
+};
+
 // Runs after the static snapshot; retiring the opening cannot alter the captured state.
 export const checkForwardFixture = () => {
+  checkBindingRetirement();
   if (checkState()) checkSelection();
 };

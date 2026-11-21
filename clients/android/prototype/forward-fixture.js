@@ -16,48 +16,56 @@ export const forwardScreens = [
   'chat-forward-received-menu',
 ];
 
-/** Static fixtures only: this module never contacts nodes or stages messages.
- * @param {Record<string, string>} words @param {string} screen */
-export const installForwardFixture = (words, screen) => {
-  const query = new URLSearchParams(location.search);
-  const list = byId('chat-forward-list', HTMLTableSectionElement);
-  const selected = byId('chat-forward-selected-peer', HTMLElement);
-  const name = byId('chat-forward-selected-name', HTMLElement);
-  const confirm = byId('chat-forward-confirm', HTMLButtonElement);
-  const cancel = byId('chat-forward-cancel', HTMLButtonElement);
-  const ready = ['chat-forward-dialog', 'chat-forward-send-error'].includes(screen);
-  const pending = screen === 'chat-forward-pending';
+const createLifetime = (screen, list) => {
+  const lifetime = new AbortController();
   let active = true;
-  let chosen = query.get('forwardTo') || '1'.padStart(64, '0');
+  const retire = () => {
+    active = false;
+    lifetime.abort();
+  };
   const navigation = new MutationObserver((records) => {
-    if (records.length) active = false;
+    if (records.length) retire();
   });
+  lifetime.signal.addEventListener('abort', () => navigation.disconnect(), { once: true });
   navigation.observe(document.documentElement, {
     attributes: true,
     attributeFilter: ['data-screen'],
   });
   const current = () => {
-    if (navigation.takeRecords().length) active = false;
+    if (navigation.takeRecords().length) retire();
     return active && list.isConnected && document.documentElement.dataset.screen === screen;
   };
-  const chosenNumber = Number.parseInt(chosen, 16);
-  if (
-    !Number.isInteger(chosenNumber) ||
-    chosenNumber < 1 ||
-    chosenNumber > 40 ||
-    chosen !== chosenNumber.toString(16).padStart(64, '0')
-  )
-    chosen = '1'.padStart(64, '0');
-  /** @param {string} destination */
+  return { current, retire, options: { signal: lifetime.signal } };
+};
+
+const chosenFromQuery = (query) => {
+  const chosen = query.get('forwardTo') || '1'.padStart(64, '0');
+  const value = Number.parseInt(chosen, 16);
+  return Number.isInteger(value) &&
+    value >= 1 &&
+    value <= 40 &&
+    chosen === value.toString(16).padStart(64, '0')
+    ? chosen
+    : '1'.padStart(64, '0');
+};
+
+const createSelection = (screen) => {
+  const query = new URLSearchParams(location.search);
+  const list = byId('chat-forward-list', HTMLTableSectionElement);
+  const selected = byId('chat-forward-selected-peer', HTMLElement);
+  const name = byId('chat-forward-selected-name', HTMLElement);
+  const lifetime = createLifetime(screen, list);
+  const { current, retire } = lifetime;
+  const ready = ['chat-forward-dialog', 'chat-forward-send-error'].includes(screen);
+  let chosen = chosenFromQuery(query);
   const navigate = (destination) => {
     if (!current()) return;
-    active = false;
     const url = new URL(location.href);
     url.searchParams.set('forwardTo', chosen);
     url.hash = destination;
+    retire();
     location.assign(url);
   };
-  /** @param {string} peer @param {string} label */
   const choose = (peer, label) => {
     if (!current() || !ready) return;
     chosen = peer;
@@ -65,7 +73,23 @@ export const installForwardFixture = (words, screen) => {
     name.textContent = label;
     for (const radio of list.querySelectorAll('input')) radio.checked = radio.value === peer;
   };
-  const records = Array.from({ length: 40 }, (_, index) => {
+  return {
+    ...lifetime,
+    query,
+    list,
+    selected,
+    name,
+    navigate,
+    choose,
+    get chosen() {
+      return chosen;
+    },
+  };
+};
+
+const createRecords = (selection) =>
+  Array.from({ length: 40 }, (_, index) => {
+    const { choose, options } = selection;
     const peer = (index + 1).toString(16).padStart(64, '0');
     const label = `Robin ${index + 1}`;
     const row = document.createElement('tr');
@@ -76,8 +100,8 @@ export const installForwardFixture = (words, screen) => {
     radio.type = 'radio';
     radio.name = 'chat-forward-target';
     radio.value = peer;
-    radio.checked = chosen === peer;
-    radio.addEventListener('change', () => choose(peer, label));
+    radio.checked = selection.chosen === peer;
+    radio.addEventListener('change', () => choose(peer, label), options);
     const body = document.createElement('span');
     const title = document.createElement('b');
     title.textContent = label;
@@ -89,84 +113,121 @@ export const installForwardFixture = (words, screen) => {
     return {
       find: () => `${label} ${peer}`,
       row: () => {
-        radio.checked = chosen === peer;
+        radio.checked = selection.chosen === peer;
         return row;
       },
     };
   });
-  /** @type {import('../../desktop/ui/settings-collection-view.js').CollectionState} */
-  const state = {
-    name: 'forward',
-    list,
-    page: 0,
-    search: byId('chat-forward-query', HTMLInputElement),
-    status: byId('chat-forward-count', HTMLParagraphElement),
-    previous: byId('chat-forward-previous', HTMLButtonElement),
-    next: byId('chat-forward-next', HTMLButtonElement),
-    refresh: byId('chat-forward-refresh', HTMLButtonElement),
-    items: screen === 'chat-forward-empty' ? [] : records,
-  };
+
+const createCollection = (selection, screen) => ({
+  name: 'forward',
+  list: selection.list,
+  page: 0,
+  search: byId('chat-forward-query', HTMLInputElement),
+  status: byId('chat-forward-count', HTMLParagraphElement),
+  previous: byId('chat-forward-previous', HTMLButtonElement),
+  next: byId('chat-forward-next', HTMLButtonElement),
+  refresh: byId('chat-forward-refresh', HTMLButtonElement),
+  items: screen === 'chat-forward-empty' ? [] : createRecords(selection),
+});
+
+const bindActions = (selection, state, screen, render) => {
+  const { current, navigate, options } = selection;
+  const confirm = byId('chat-forward-confirm', HTMLButtonElement);
+  const cancel = byId('chat-forward-cancel', HTMLButtonElement);
+  const ready = ['chat-forward-dialog', 'chat-forward-send-error'].includes(screen);
+  const pending = screen === 'chat-forward-pending';
+  bindCollectionNavigation(state, render, options.signal);
+  state.refresh.addEventListener(
+    'click',
+    () => {
+      if (current() && ready) {
+        state.page = 0;
+        state.search.value = '';
+        render(state);
+      }
+    },
+    options,
+  );
+  confirm.disabled = !ready;
+  cancel.disabled = pending;
+  confirm.addEventListener(
+    'click',
+    () => {
+      if (ready) navigate('chat-forward-sent');
+    },
+    options,
+  );
+  cancel.addEventListener(
+    'click',
+    () => {
+      if (!pending) navigate('chat');
+    },
+    options,
+  );
+  byId('chat-forward-retry', HTMLButtonElement).addEventListener(
+    'click',
+    () => navigate('chat-forward-dialog'),
+    options,
+  );
+};
+
+const bindMenu = (selection, screen) => {
+  const { current, query, retire, options } = selection;
+  byId('msg-forward', HTMLButtonElement).addEventListener(
+    'click',
+    () => {
+      if (!current()) return;
+      query.set('forwardSource', screen === 'chat-forward-received-menu' ? 'received' : 'own');
+      const url = new URL(location.href);
+      url.search = query.toString();
+      url.hash = 'chat-forward-dialog';
+      retire();
+      location.assign(url);
+    },
+    options,
+  );
+  if (screen === 'chat-forward-received-menu') {
+    byId('forward-received-menu', HTMLElement).append(byId('msg-menu', HTMLElement));
+    byId('msg-edit', HTMLButtonElement).hidden = true;
+    byId('msg-delete', HTMLButtonElement).hidden = true;
+  }
+};
+
+const showDestination = (selection, words, screen) => {
+  if (!['chat-forward-sent', 'chat-forward-queued'].includes(screen)) return;
+  byId('chat-presence', HTMLElement).hidden = true;
+  byId('chat-profile', HTMLElement).dataset.peerId = selection.chosen;
+  const avatar = byId('chat-profile', HTMLElement).querySelector('.avatar.p2');
+  if (avatar) {
+    avatar.classList.remove('photo', 'p2');
+    avatar.textContent = 'R';
+  }
+  const heading = byId('chat-profile', HTMLElement).querySelector('.grow > b');
+  if (heading) heading.textContent = selection.name.textContent;
+  byId('chat-forward-body', HTMLElement).textContent =
+    `${words['forward.marker']}: ${words[selection.query.get('forwardSource') === 'received' ? 'chat.m2' : 'chat.m3']}`;
+};
+
+/** Static fixtures only: this module never contacts nodes or stages messages.
+ * @param {Record<string, string>} words @param {string} screen */
+export const installForwardFixture = (words, screen) => {
+  const selection = createSelection(screen);
+  const state = createCollection(selection, screen);
   const collectionWords = Object.fromEntries(
     ['search', 'previous', 'next', 'refresh', 'failed', 'empty', 'page'].map((key) => [
       key,
       words[`settings.collection.${key}`],
     ]),
   );
-  /** @param {typeof state} value */
   const render = (value) => {
-    if (current()) renderCollectionView(value, collectionWords);
+    if (selection.current()) renderCollectionView(value, collectionWords);
   };
-  bindCollectionNavigation(state, render);
-  state.refresh.addEventListener('click', () => {
-    if (current() && ready) {
-      state.page = 0;
-      state.search.value = '';
-      render(state);
-    }
-  });
-  confirm.disabled = !ready;
-  cancel.disabled = pending;
-  confirm.addEventListener('click', () => {
-    if (ready) navigate('chat-forward-sent');
-  });
-  cancel.addEventListener('click', () => {
-    if (!pending) navigate('chat');
-  });
-  byId('chat-forward-retry', HTMLButtonElement).addEventListener('click', () =>
-    navigate('chat-forward-dialog'),
-  );
-  for (const id of ['msg-forward']) {
-    byId(id, HTMLButtonElement).addEventListener('click', () => {
-      if (!current()) return;
-      query.set('forwardSource', screen === 'chat-forward-received-menu' ? 'received' : 'own');
-      const url = new URL(location.href);
-      url.search = query.toString();
-      url.hash = 'chat-forward-dialog';
-      active = false;
-      location.assign(url);
-    });
-  }
-  if (screen === 'chat-forward-received-menu') {
-    byId('forward-received-menu', HTMLElement).append(byId('msg-menu', HTMLElement));
-    byId('msg-edit', HTMLButtonElement).hidden = true;
-    byId('msg-delete', HTMLButtonElement).hidden = true;
-  }
+  bindActions(selection, state, screen, render);
+  bindMenu(selection, screen);
   render(state);
-  const chosenIndex = Number.parseInt(chosen, 16) - 1;
-  selected.textContent = chosen;
-  name.textContent = `Robin ${chosenIndex < 0 ? 1 : chosenIndex + 1}`;
-  if (['chat-forward-sent', 'chat-forward-queued'].includes(screen)) {
-    byId('chat-presence', HTMLElement).hidden = true;
-    byId('chat-profile', HTMLElement).dataset.peerId = chosen;
-    const avatar = byId('chat-profile', HTMLElement).querySelector('.avatar.p2');
-    if (avatar) {
-      avatar.classList.remove('photo', 'p2');
-      avatar.textContent = 'R';
-    }
-    const heading = byId('chat-profile', HTMLElement).querySelector('.grow > b');
-    if (heading) heading.textContent = name.textContent;
-    byId('chat-forward-body', HTMLElement).textContent =
-      `${words['forward.marker']}: ${words[query.get('forwardSource') === 'received' ? 'chat.m2' : 'chat.m3']}`;
-  }
-  return { state, choose, current };
+  selection.selected.textContent = selection.chosen;
+  selection.name.textContent = `Robin ${Number.parseInt(selection.chosen, 16)}`;
+  showDestination(selection, words, screen);
+  return { state, choose: selection.choose, current: selection.current, retire: selection.retire };
 };

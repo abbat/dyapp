@@ -104,8 +104,9 @@ export const createCollectionView = (name, list, words) => {
   const state = { name, list, search, status, previous, next, refresh, items: [], page: 0 };
   return state;
 };
-/** @param {CollectionState} state @param {(state: CollectionState) => void} render */
-export const bindCollectionNavigation = (state, render) => {
+/** @param {CollectionState} state @param {(state: CollectionState) => void} render
+ * @param {AbortSignal} [signal] */
+export const bindCollectionNavigation = (state, render, signal) => {
   const { previous, next, search } = state;
   /** @param {number} amount */
   const move = (amount) => {
@@ -120,10 +121,14 @@ export const bindCollectionNavigation = (state, render) => {
           : previous
     ).focus();
   };
-  previous.addEventListener('click', () => move(-1));
-  next.addEventListener('click', () => move(1));
-  search.addEventListener('input', () => {
-    state.page = 0;
-    render(state);
-  });
+  previous.addEventListener('click', () => move(-1), { signal });
+  next.addEventListener('click', () => move(1), { signal });
+  search.addEventListener(
+    'input',
+    () => {
+      state.page = 0;
+      render(state);
+    },
+    { signal },
+  );
 };
