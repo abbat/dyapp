@@ -1191,7 +1191,13 @@ retaining the actual call through completion. Kotlin must keep that worker alive
 its UI continuation. The common native adapter starts no node host or installation-node operation.
 `result` returns the original typed installation receipt with an opaque verified identity key and
 selection durability, or the exact failure boundary/destination. Cloning receipts clones the opaque
-key handle, never foreign plaintext identity bytes. Android screen integration remains planned.
+key handle, never foreign plaintext identity bytes. Android's `LinkReceiverSession` owns factory and
+poll work in its own IO scope, exposes completion snapshots rather than cancellable worker jobs, and
+retains the original receipt after screen retirement. Retirement requests native cancellation and
+prevents further polling; it cannot assert rollback after admission. Explicit disposition refuses
+to close an in-flight handle. A process-owned `LinkReceiverStore` retains the exact source registry
+and opening across activity disposal, refuses replacement invitations while an outcome is unresolved,
+and releases only the explicitly disposed opening. Android screen integration remains planned.
 Core `LinkAdmission` serializes receiving and cancellation without a network mutex.
 A normal empty/transient completion explicitly resumes waiting; abandoned work is interrupted
 and cannot implicitly retry. After network completion and shared-lease release, its poll guard
