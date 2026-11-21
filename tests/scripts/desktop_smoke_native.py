@@ -6,6 +6,7 @@ from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING
 
 import contextlib
+import hashlib
 from concurrent.futures import ThreadPoolExecutor
 import json
 import os
@@ -328,6 +329,53 @@ def video_smoke(case: dc.CaseRunner, reports: Path) -> None:
                 profile,
                 peer=False,
             )
+
+
+def _file_sha256(path: Path) -> str:
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def _moderation_captures(output: Path, language: str) -> dict[str, str]:
+    captures = {}
+    for panel in ("blocked", "passed"):
+        for width in (440, 1280):
+            image = output / f"settings-{panel}-{language}-{width}.png"
+            if image.stat().st_size == 0:
+                raise RuntimeError(f"Empty native moderation capture: {image}")
+            captures[image.name] = _file_sha256(image)
+    return captures
+
+
+def moderation_panels(
+    case: dc.CaseRunner, reports: Path, executable: str
+) -> None:
+    """Run loaded-panel locale checks and retain Linux capture evidence."""
+    output = Path(tempfile.mkdtemp(prefix="moderation-shots-", dir=reports))
+    captures = {}
+    for language in ("en", "ru"):
+        flags = ["--ui-test-file", "--ui-test-step=settings-moderation"]
+        if language == "ru":
+            flags.append("--ui-test-ru")
+        env = {"DYAPP_SMOKE_RU": "0"}
+        if sys.platform.startswith("linux"):
+            env["DYAPP_UI_SHOTS"] = str(output)
+        with tempfile.TemporaryDirectory(dir=reports) as profile:
+            case(f"moderation-{language}", flags, profile, extra_env=env)
+        if sys.platform.startswith("linux"):
+            captures.update(_moderation_captures(output, language))
+    binary_sha256 = _file_sha256(Path(executable))
+    (output / "receipt.json").write_text(
+        json.dumps(
+            {
+                "executable_sha256": binary_sha256,
+                "platform": sys.platform,
+                "cases": ["moderation-en", "moderation-ru"],
+                "captures": captures,
+            },
+            indent=2,
+        )
+    )
 
 
 def start_smoke_node(

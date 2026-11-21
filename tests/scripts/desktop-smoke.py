@@ -44,6 +44,7 @@ forge_search_signature = native.forge_search_signature
 expire_sticker_media = native.expire_sticker_media
 video_smoke = native.video_smoke
 start_smoke_node = native.start_smoke_node
+moderation_panels = native.moderation_panels
 
 
 class DesktopSmoke:
@@ -102,10 +103,10 @@ class DesktopSmoke:
         arguments = [*launcher, self.executable, "--ui-test", *extra]
         if not launcher:
             unlock_keyring()
-        if os.environ.get("DYAPP_SMOKE_RU") == "1":
-            arguments.append("--ui-test-ru")
         env = dict(os.environ, DYAPP_TEST_CONFIG_DIR=str(profile))
         env.update(extra_env or {})
+        if env.get("DYAPP_SMOKE_RU") == "1":
+            arguments.append("--ui-test-ru")
         process = run(arguments, timeout=timeout, env=env)
         match = re.search(r"UI_SMOKE_PASS:([0-9a-f]{64})?", process.stdout)
         found = match is not None and (match[1] is not None or not peer)
@@ -942,6 +943,8 @@ class DesktopSmoke:
             video_smoke(self.case, self.reports)
         self.storage_modes(flows)
         self.network_flows(flows)
+        if flows:
+            moderation_panels(self.case, self.reports, self.executable)
         language_step = "--ui-test-step=settings-language"
         with tempfile.TemporaryDirectory(dir=self.reports) as profile:
             self.case(

@@ -13,6 +13,11 @@ cancels backend work or exempts the ready state from existing keyboard checks.
 Native desktop Settings smoke captures the actual blocked and passed panels after their initial
 load completes, before replacing their rows with pagination/error fixtures. These named capture
 points run the existing text/accessibility checks on the synchronization hints in all desktop clients.
+The focused `settings-moderation` step runs independently in EN/RU on all three native desktops.
+Linux additionally retains the loaded panels at 440/1280 widths in a fresh `moderation-shots-*`
+directory; a receipt binds all eight required PNGs to their hashes and the executable hash.
+Missing/empty captures fail the exposure. CI uploads this directory with native diagnostics;
+its Linux setup includes the same ImageMagick capture tool already used by the Docker test image.
 
 The prototype keyboard fixture calibrates requested switcher visibility against both the real
 visible menu and a controlled hidden sidebar. It must reject all three missing identity actions;

@@ -735,13 +735,18 @@ const runSmokeNetworkStep = async (state, step) => {
   } else return false;
   return true;
 };
-const runSmokeFallbackStep = async (state, mode, existing, step, readySteps) => {
+const checkInitialSettingsStep = async (state, mode, step) => {
+  if (state.status !== 'setup') throw new Error('storage picker not shown');
+  await chooseStorage(mode);
+  await checkSettingsInventory(document.getElementById('peer-id').textContent, mode);
   if (step === 'settings-language') {
-    if (state.status !== 'setup') throw new Error('storage picker not shown');
-    await chooseStorage(mode);
-    await checkSettingsInventory(document.getElementById('peer-id').textContent, mode);
     await checkSettingsLanguage();
     await checkPrivacy(false);
+  } else await smoke.checkModerationHints();
+};
+const runSmokeFallbackStep = async (state, mode, existing, step, readySteps) => {
+  if (['settings-language', 'settings-moderation'].includes(step)) {
+    await checkInitialSettingsStep(state, mode, step);
   } else if (Object.hasOwn(readySteps, step)) {
     if (state.status !== 'ready') throw new Error('identity not reopened');
     await readySteps[step]();

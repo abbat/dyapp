@@ -100,6 +100,12 @@ class NativeSmoke(Protocol):
         """Run both raw video smoke sizes."""
         ...
 
+    def moderation_panels(
+        self, case: CaseRunner, reports: Path, executable: str
+    ) -> None:
+        """Run loaded moderation panels in both locales."""
+        ...
+
     def start_smoke_node(
         self, node: Path, env: Mapping[str, str], seed: str, log: Path
     ) -> subprocess.Popen[bytes]:
