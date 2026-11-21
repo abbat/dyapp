@@ -7,6 +7,12 @@ only offered invalid interest input to the field-specific failure. Android query
 requires device execution. `SearchInterestTests` crosses generated JNI for canonical Unicode,
 punctuation, offered-invalid refusal and blank/hidden omission, and renders the actual filter form
 to verify offered visibility changes retain raw input without applying hidden conditions.
+`NativeInterestSearchTests` publishes actual slot-owned profiles through the existing suite node,
+obtains its offered fields and queries a unique canonical tag using decomposed/uppercase input.
+The verified result must contain only the expected peer and its complete saved tag list. A distinct
+nonmatching tag is accepted as empty only after a complete, nonpartial, failure-free native search;
+expired deadlines never establish absence. Each transition advances on a real completed search.
+This test requires device CI and the existing suite node; it does not make Android a network node.
 
 Shared multiline-interest tests cover CRLF/blank lines, punctuation, canonical Unicode, preserved
 duplicates, exact count limits and invalid-tag refusal without partial output. Native adapter tests
