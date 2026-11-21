@@ -31,8 +31,11 @@ duplicate refusal, remote removal after native receive completion, and retained 
 `StickerDeletePresentationTests` controls Cancel/reopen tokens, duplicate admission, precommit refusal
 and noncancellable completion after retirement. `StickerDeleteUiTests` drives actual own/foreign
 history rows, the Delete-only menu, Cancel/reopen and identity retirement, exact selected keys and
-committed duplicate rejection with an unchanged composer draft. Actual JNI/UI execution remains
-required CI proof.
+committed duplicate rejection with an unchanged composer draft. `StickerDeleteGeometryTests`
+renders that same history/confirmation with long literal pack names in EN/RU at normal/doubled
+font scale, scrolls the complete explanatory text, and checks full action labels and live dialog
+bounds. Cancel must leave both the delete-call counter and composer unchanged. Actual JNI/UI
+execution remains required CI proof.
 
 Common received-pack control table tests cover current phases and failures, both retained and
 absent generations for failures, exact order and unchanged controls across zero/maximum retry deadlines.
