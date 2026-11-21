@@ -588,6 +588,9 @@ for an off-page full target ID, retains the complete native source selector, adm
 once and preserves draft/held/edit state. Reopening an actual identity object with equal IDs retires
 an old installed confirm callback. Real JNI/network delivery and destination-history feedback are
 separate acceptance, not inferred from the controlled navigation callback.
+`ChatForwardGeometryTests` uses the same host fixture with matching localized resources and normal/
+doubled font scale. It scrolls actual selected/full-ID rows into view, checks complete measured text,
+and compares action-label bounds to their current buttons. No guessed pointer offsets or color checks.
 
 `ChatForwardReadCancellationTests` cancels one signalled native-style read, starts a replacement
 before releasing the old result and joins each actual outer read job. Both old success and old failure
