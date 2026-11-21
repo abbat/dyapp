@@ -62,6 +62,7 @@ private fun searchError(error: Throwable) = when {
     "notConnected" in error.toString() -> R.string.search_not_connected
     "invalid search age" in error.toString() -> R.string.search_age_invalid
     "invalid search height" in error.toString() -> R.string.search_height_invalid
+    "invalid search interest" in error.toString() -> R.string.search_interest_invalid
     "mutual unavailable" in error.toString() -> R.string.search_mutual_unavailable
     else -> R.string.search_failed
 }
@@ -106,7 +107,12 @@ private fun SearchLoading(cancel: () -> Unit) {
 }
 
 private val FIX_THE_FIELDS =
-    setOf(R.string.search_age_invalid, R.string.search_height_invalid, R.string.search_mutual_unavailable)
+    setOf(
+        R.string.search_age_invalid,
+        R.string.search_height_invalid,
+        R.string.search_interest_invalid,
+        R.string.search_mutual_unavailable
+    )
 
 @Composable
 private fun SearchFailed(failed: SearchState.Failed, run: () -> Unit, openNetwork: () -> Unit) {

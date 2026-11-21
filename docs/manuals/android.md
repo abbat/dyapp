@@ -10,7 +10,10 @@ existing meanings.
 The profile editor accepts one **Interest** per line. The hint shows the limits supplied by the
 common core. Save validates the whole list; a blank edited field clears saved interests. Changing
 another field leaves untouched interests in storage. Saved publication previews and loaded profiles
-show the canonical list. Interest search remains planned.
+show the canonical list. When reached nodes offer it, Search shows an **Interest** filter for
+one complete tag. Case and Unicode normalization follow the common core; commas and semicolons
+remain part of that tag. Blank input means any interest. Invalid input must be corrected before
+searching; a filter hidden by a later sample does not constrain that query.
 
 Who can see what about you: [Your privacy in dyapp](privacy.md).
 

@@ -33,11 +33,12 @@ import uniffi.dyapp.ProfileScale
 import uniffi.dyapp.SearchChoiceInputs
 import uniffi.dyapp.SearchCondition
 import uniffi.dyapp.SearchRangeInputs
-import uniffi.dyapp.searchChoiceConditions
+import uniffi.dyapp.searchCheckedChoiceConditions
 import uniffi.dyapp.searchMutualConditions
 import uniffi.dyapp.searchRangeConditions
 
 // Node field numbers, as the desktop page uses them.
+private const val INTEREST_FIELD = 19u
 private const val COUNTRY_FIELD = 4u
 private const val HEIGHT_FIELD = 46u
 private const val PLACE_FIELD = 20u
@@ -52,11 +53,13 @@ internal class SearchFilters(private val scales: List<ProfileScale>) {
     var ageMax by mutableStateOf("")
     var heightMin by mutableStateOf("")
     var heightMax by mutableStateOf("")
+    var interest by mutableStateOf("")
     val place = PlaceInputs("", null, "")
     val picked = mutableStateMapOf<String, Int>()
     val employer = EmployerFilter()
     var mutual by mutableStateOf(false)
 
+    val interestOffered get() = INTEREST_FIELD in offered
     val shownScales get() = scales.filter { it.field in offered }
     val mutualOffered get() = SEEKING_GENDERS_FIELD in offered && SEEKING_AGE_FIELD in offered
 
@@ -75,10 +78,10 @@ internal class SearchFilters(private val scales: List<ProfileScale>) {
      * a height that is no whole number or an impossible range as `invalid search height`.
      */
     fun conditions(): List<SearchCondition> =
-        searchChoiceConditions(
+        searchCheckedChoiceConditions(
             offered,
             // PlacePicker stores UInt32 IDs as Int; toUInt restores all bits, including the sign bit.
-            SearchChoiceInputs(picked.mapValues { it.value.toLong() }, place.country, "", place.place?.toUInt())
+            SearchChoiceInputs(picked.mapValues { it.value.toLong() }, place.country, interest, place.place?.toUInt())
         ) + ranges()
 
     private fun ranges(): List<SearchCondition> =
@@ -114,6 +117,7 @@ internal fun SearchFilterFields(filters: SearchFilters) {
     if (COUNTRY_FIELD in filters.offered) {
         PlacePicker(filters.place, PLACE_FIELD in filters.offered, R.string.search_any, "search")
     }
+    if (filters.interestOffered) SearchInterestField(filters)
     if (filters.mutualOffered) MutualFilter(filters)
     if (filters.shownScales.isNotEmpty()) MoreFilters(filters)
     EmployerFilterFields(filters.employer)

@@ -52,7 +52,10 @@ remain unmentioned on unrelated saves. A late save retains newer input and updat
 baseline so a subsequent explicit undo is persisted. Fetched profiles and the saved publication
 preview display all canonical tags in their original order, separated by semicolons like Linux;
 an interest-only profile does not show the empty-profile fallback. Rendered/native editor
-acceptance and interest search remain open.
+acceptance remains open. Search offers a single exact-interest input only when the reached
+nodes advertise field 19. Raw text survives a later hidden-field sample without contributing
+conditions while hidden. The checked common parser canonicalizes valid input and refuses the
+whole query for invalid offered text; the error asks for field correction rather than a retry.
 
 Android implementation checkpoint: a loaded profile offers **Share profile…**.
 The native destination dialog lists open chats except the profile owner, using

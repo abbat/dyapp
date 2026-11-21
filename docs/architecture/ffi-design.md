@@ -1089,17 +1089,20 @@ its domain normalization also removes NEL at the edges. Country and employer ret
 separate raw-input whitespace contracts. Selected place IDs are
 independent of country-field availability; pickers must invalidate a selection when its source
 country/text changes. Free-form place labels are never wire conditions. The common native
-`search_choice_conditions` adapter converts records only; Android and iOS use it for these
-choices and append range conditions separately. Choice conditions use canonical scale order,
+`search_choice_conditions` adapter converts records only. iOS retains this entry point; Android
+uses the checked variant described below and both append range conditions separately. Choice conditions use canonical scale order,
 then country, interest and place. Android restores selected UInt32 IDs from the picker's Int
 storage with `toUInt`, preserving all bits. Desktop adoption remains planned. Interest input
-is supported by the shared API; the native forms currently pass blank interest text.
+is supported by the shared API. Android passes the raw offered interest field; the iOS form
+still passes blank text.
 The additive `SearchChoiceInputs::checked_conditions` and thin native
 `search_checked_choice_conditions` additionally validate an offered, nonblank canonical interest
 against the common profile-tag admission policy. Invalid input refuses the whole query with
 `invalid search interest`; hidden or canonical-blank text does not constrain it. The original
-infallible adapter remains available for existing callers. Android checked-path adoption and
-its interest field are planned; no iOS UI adoption is implied.
+infallible adapter remains available for existing callers. Android uses the checked path, renders
+its interest input only when field 19 is offered, and maps its failure to field-correction advice.
+It retains raw input if a later sample hides the field, while the common core excludes it from
+conditions. No iOS UI adoption is implied.
 
 ## Identity registry core
 

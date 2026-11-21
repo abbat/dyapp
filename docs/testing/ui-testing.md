@@ -4,7 +4,9 @@ Checked shared-search tests match canonical Unicode interest conditions against 
 tags, preserve punctuation, reject invalid nonblank offered tags without a partial query, and
 ignore invalid hidden fields. Native adapter tests retain condition ordering/payloads and map
 only offered invalid interest input to the field-specific failure. Android query/UI acceptance
-requires its own checked-path integration and device execution.
+requires device execution. `SearchInterestTests` crosses generated JNI for canonical Unicode,
+punctuation, offered-invalid refusal and blank/hidden omission, and renders the actual filter form
+to verify offered visibility changes retain raw input without applying hidden conditions.
 
 Shared multiline-interest tests cover CRLF/blank lines, punctuation, canonical Unicode, preserved
 duplicates, exact count limits and invalid-tag refusal without partial output. Native adapter tests
