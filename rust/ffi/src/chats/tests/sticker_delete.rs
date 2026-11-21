@@ -127,7 +127,7 @@ fn native_sticker_delete_preserves_own_blocked_malformed_and_clear_guards() {
     store(&f).set_blocked(&f.peer, true).unwrap();
     assert_eq!(delete(&f, &own).unwrap_err().to_string(), "blocked");
     store(&f).set_blocked(&f.peer, false).unwrap();
-    store(&f).clear_chat(&f.peer).unwrap();
+    store(&f).clear_chat(&own.group).unwrap();
     let cleared = snapshot(&f.native);
     assert_eq!(delete(&f, &own).unwrap_err().to_string(), "unknownMessage");
     assert_eq!(snapshot(&f.native), cleared);

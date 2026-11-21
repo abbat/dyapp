@@ -153,7 +153,8 @@ exact intended file paths to the formatter; keep the rest of the checkout read-o
 When changing Kotlin member APIs, search both qualified calls and unqualified calls inside
 extension functions. `ChatFeedActions.shareProfile` uses `history(peer)` and `send(peer, text)`
 without a receiver. `make lint-android` does not resolve method signatures; native Android CI
-must compile the changed callers and generated bindings.
+must compile the changed callers and generated bindings. Fixture helpers that call `setContent`
+take `ComposeContentTestRule`; base `ComposeTestRule` supports synchronization/input only.
 
 When a native status/page object is a callback-admission token, use Compose
 `referentialEqualityPolicy` (or a separate explicit token). Default structural policy discards

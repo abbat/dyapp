@@ -152,7 +152,7 @@ fn blocking_own_peer_and_clear_refuse_before_any_operation_can_be_staged() {
         prepare(&f.media.store, malformed, Kind::Text),
         Err(Error::UnknownMessage)
     ));
-    f.media.store.clear_chat(&f.media.peer).unwrap();
+    f.media.store.clear_chat(&f.sticker.group).unwrap();
     for kind in [Kind::Text, Kind::Sticker, Kind::TextOrSticker] {
         assert!(matches!(
             f.select(&f.text, kind),

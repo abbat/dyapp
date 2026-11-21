@@ -20,27 +20,29 @@ fn read(f: &Received) -> StickerPackSaveStatus {
         .unwrap()
 }
 
-#[test]
-fn native_status_preserves_new_waiting_answer_failure_generation_and_deadline() {
-    let f = Received::new();
-    let new = read(&f);
+fn assert_new_and_waiting(f: &Received) -> Vec<u8> {
+    let new = read(f);
     assert_eq!(new.state, State::New);
     assert_eq!(new.controls, vec![Control::Request]);
     f.request();
-    let waiting = read(&f);
+    let waiting = read(f);
     assert_eq!(waiting.state, State::Waiting);
     assert_eq!(waiting.controls, vec![Control::StopWaiting]);
     let token = waiting.generation.unwrap();
     assert_eq!(token.len(), 16);
     assert!(waiting.retry_at_ms.is_none() && waiting.failure.is_none());
+    token
+}
+
+fn assert_answer_and_failure(f: &Received, token: Vec<u8>) {
     assert!(f.answer());
-    let answer = read(&f);
+    let answer = read(f);
     assert_eq!(answer.state, State::Downloading);
     assert_eq!(answer.controls, vec![Control::StopWaiting]);
     assert_eq!(answer.generation.as_ref(), Some(&token));
     assert_eq!(answer.retry_at_ms, Some(0));
     assert_eq!(f.run(), 0);
-    let failed = read(&f);
+    let failed = read(f);
     assert_eq!(failed.state, State::Failed);
     assert_eq!(failed.failure, Some(Failure::Fetch));
     assert_eq!(failed.controls, vec![Control::Retry, Control::StopWaiting]);
@@ -52,6 +54,13 @@ fn native_status_preserves_new_waiting_answer_failure_generation_and_deadline() 
         .unwrap()
         .unwrap();
     assert_eq!(failed.retry_at_ms, Some(stored.retry_at_ms));
+}
+
+#[test]
+fn native_status_preserves_new_waiting_answer_failure_generation_and_deadline() {
+    let f = Received::new();
+    let token = assert_new_and_waiting(&f);
+    assert_answer_and_failure(&f, token);
 }
 
 #[test]

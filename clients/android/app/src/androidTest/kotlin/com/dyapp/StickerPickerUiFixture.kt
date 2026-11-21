@@ -10,7 +10,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isEnabled
-import androidx.compose.ui.test.junit4.ComposeTestRule
+import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 /** Actual composer/dialogs with controlled native projections; no transport or guessed transition delay. */
-internal class StickerPickerUiFixture(private val compose: ComposeTestRule) {
+internal class StickerPickerUiFixture(private val compose: ComposeContentTestRule) {
     val owner = mutableStateOf<Any>(Any())
     val scale = mutableStateOf(1f)
     val form = ChatForm(mutableStateOf("draft survives"))

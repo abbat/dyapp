@@ -18,6 +18,9 @@ Native iOS CI compiles and runs these tests. macOS uses the shared Rust desktop 
 These rules apply to every new or modified test:
 
 - Make results reproducible with controlled inputs, fixtures and clocks when timing is involved.
+  Rate-limit fixtures inject the same clock into the service and independent peer limiter; sign
+  fixture metadata and start jobs on that clock too. Exhaustion must not expire while unrelated
+  setup (such as swarm construction) runs against real time.
   Set the process-global node-ID PoW requirement explicitly in every protocol fixture using
   no-PoW nodes; dependency crates do not inherit the integration test's `cfg(test)`, and parallel
   tests cannot rely on another fixture changing that global. The native linked-device fixture

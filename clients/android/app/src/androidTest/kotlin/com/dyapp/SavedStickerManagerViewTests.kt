@@ -4,7 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.junit4.ComposeTestRule
+import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -103,7 +103,7 @@ private class SavedStickerViewFixture(private val paged: Boolean = false) {
         SavedStickerPackState.Unreadable("not a display label")
     )
 
-    fun show(compose: ComposeTestRule) {
+    fun show(compose: ComposeContentTestRule) {
         compose.setContent {
             val scope = rememberCoroutineScope()
             val actions = SavedStickerActions(
