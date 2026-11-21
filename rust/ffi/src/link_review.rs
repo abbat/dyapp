@@ -133,6 +133,23 @@ impl ProfileAdoptionReview {
         }
     }
 
+    /// Preview explicit choices from the frozen comparison without IO or changed-context admission.
+    /// This validates choice completeness only; confirmation still validates the profile and owner.
+    ///
+    /// # Errors
+    /// Returns typed selection errors for missing, duplicate or unoffered field decisions.
+    pub fn preview(
+        &self,
+        choices: Vec<LinkReviewChoice>,
+    ) -> Result<LinkReviewProfile, LinkReviewError> {
+        let choices: Vec<_> = choices.into_iter().map(Into::into).collect();
+        self.review
+            .select_fields(&choices)
+            .map(|profile| LinkReviewProfile::from(&profile))
+            .map_err(publish::AdoptionConfirmError::from)
+            .map_err(LinkReviewError::from)
+    }
+
     /// Reopen the original session and save explicit choices through shared core confirmation.
     /// Public profile publication and unfinished link key packages remain separate operations.
     ///

@@ -1005,6 +1005,10 @@ The common native `MobileLinkRecovery(registry, id, expected_peer, store)` binds
 without opening them. Its blocking `prepare` returns an opaque `ProfileAdoptionReview`; no key,
 session or operation lease stays in either idle handle. `snapshot` includes complete editable local
 and remote values, all original photo chunks, visibility and typed differing field groups.
+`preview(choices)` delegates complete explicit source selection to the shared core and returns a
+read-only projection of the frozen result, without credentials, storage or network access. Missing,
+duplicate and unoffered choices retain typed selection errors. Preview does not establish current
+admission or profile validity and does not save, publish or complete enrollment.
 `confirm(choices)` reacquires existing-only admission, checks the original session certificate and
 local context and core `ChatBinding` (slot/owner/device plus sealing-key digest), rejects an already
 changed active network, and delegates all field selection and atomic completion to core. Typed errors

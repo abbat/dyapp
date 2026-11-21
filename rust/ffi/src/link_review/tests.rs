@@ -1,5 +1,6 @@
 mod behavior;
 mod completion;
+mod preview;
 pub(crate) mod server;
 
 use super::*;
