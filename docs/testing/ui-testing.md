@@ -1,5 +1,14 @@
 # UI Testing: Practical Guide
 
+The native linked-media protocol regression first establishes a matched chat containing a valid
+JPEG and decoded WebP sticker, verifies both protected node blobs and recipient mixed-history
+rows, and only then enrolls the extra device. The public native receiver must join, receive
+subsequent text and reopen with no earlier photo/sticker rows or cached originals. Original
+protected blobs are checked again after enrollment and reopening so data disappearance cannot
+make the absence assertions pass. Existing linked-text, idle-revocation and third-own-group
+protocol cases remain separate. The test requires core protocol CI; source checks alone do not
+establish its runtime acceptance.
+
 Localized Android Compose fixtures use `LocalizedTestContext`: provide the selected context,
 configuration and `LocalResources` together, plus the desired current density/font scale.
 Capture the real Activity's `LocalActivityResultRegistryOwner` before replacing its context and

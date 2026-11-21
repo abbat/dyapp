@@ -5,6 +5,9 @@ use dyapp_ffi::{ChatSession, IdentityKey, KeyStore};
 use dyapp_identity::network::{self, Network, Settings};
 use std::sync::Arc;
 
+#[path = "native/old_media.rs"]
+mod old_media;
+
 fn native_device(person: &Person, address: &Multiaddr) -> Arc<ChatSession> {
     let dir = protocol_build_path("native-linked-device");
     std::fs::create_dir_all(&dir).unwrap();
@@ -60,7 +63,10 @@ impl ExistingChat {
     async fn new() -> Self {
         // The dependency is not cfg(test): align native replica admission with this no-PoW node.
         dyapp_p2p_net::set_id_pow_bits(0);
-        let address = link_node().await;
+        Self::at(link_node().await).await
+    }
+
+    async fn at(address: Multiaddr) -> Self {
         let mut alice = Person::new(&address).await;
         let mut bob = Person::new(&address).await;
         let owner = alice.identity.peer_id();
