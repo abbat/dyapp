@@ -4,4 +4,23 @@
     <string name="sticker_image_tap">Tap to load the sticker image.</string>
     <string name="sticker_image_unavailable">The sticker image is unavailable.</string>
     <string name="sticker_image_failed">Could not load the sticker image. Try again.</string>
+    <string name="sticker_pack_checking">Checking saved pack…</string>
+    <string name="sticker_pack_new">Pack “%1$s” is not saved.</string>
+    <string name="sticker_pack_saved">Pack “%1$s” is saved on this device.</string>
+    <string name="sticker_pack_waiting">Waiting for pack “%1$s”. The request will be sent when connected.</string>
+    <string name="sticker_pack_downloading">Download of pack “%1$s” is pending.</string>
+    <string name="sticker_pack_fetch">Could not download the pack. Retry or check its status.</string>
+    <string name="sticker_pack_invalid">The received pack is invalid. Retry or request a fresh copy.</string>
+    <string name="sticker_pack_quota">Saved-pack storage is full. Manage saved packs before retrying.</string>
+    <string name="sticker_pack_storage">Could not read or save the pack. Manage packs or refresh before retrying.</string>
+    <string name="sticker_pack_missing">The saved pack does not contain this sticker. Check saved packs.</string>
+    <string name="sticker_pack_read_failed">Current status is unknown. Refresh before changing the request.</string>
+    <string name="sticker_pack_action_failed">The action could not be confirmed. Check the current status.</string>
+    <string name="sticker_pack_warning">Requests need a published profile and a listed device. Queued requests are not delivery. Stop waiting cannot recall queued packets. Saving a pack does not save chat history.</string>
+    <string name="sticker_pack_request">Add pack</string>
+    <string name="sticker_pack_retry">Retry saving</string>
+    <string name="sticker_pack_fresh">Request a fresh copy</string>
+    <string name="sticker_pack_stop">Stop waiting</string>
+    <string name="sticker_pack_refresh">Refresh status</string>
+    <string name="sticker_pack_manage">Manage saved packs</string>
 </resources>

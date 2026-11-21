@@ -12,7 +12,10 @@ Android `StickerPackPresentationTests` controls native-like request completion a
 uncertain application followed by failed read retains the known intent and disables mutation;
 read-only retry installs the current generation; retired/same-token status callbacks and duplicate
 admission cannot submit. Explicit completion gates have separate failure deadlines. The request
-presentation controller is implemented; its production screen/manager wiring remains planned.
+presentation controller and reusable Compose controls are implemented; production ChatFeed/manager
+navigation remains planned. `StickerPackControlsTests` checks authoritative projected actions,
+retired-owner navigation, pending caption retention and read-only recovery. Button coroutines
+start undispatched to admit an operation before the next captured callback can run.
 Actual instrumentation execution is required independently of source lint.
 
 Android `ChatStickerImageTests` checks actual Bitmap alpha/channel conversion, rendered aspect and
