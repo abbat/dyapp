@@ -195,8 +195,10 @@ uses the shared core's frozen selection and grants no write or enrollment author
 worker supports explicit fresh comparison and confirmation against that exact snapshot, freezing each
 submitted choice before IO. A saved draft enables separate enrollment continuation; an indeterminate
 save requires a fresh comparison instead of repeating the write. These operations retain the original
-receipt and native review through actual completion, including UI retirement. Full field-choice
-presentation remains planned.
+receipt and native review through actual completion, including UI retirement. Each comparison exposes
+a reference-identity presentation opening, so equal fresh snapshots do not preserve old UI choices.
+Its pure native preview checks that exact opening under the receiver monitor and refuses busy, closed
+or replaced owners before using the retained review. Full field-choice presentation remains planned.
 Invitation expiry formatting observes
 Compose's current configuration locale, so a language change invalidates the displayed date.
 

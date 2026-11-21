@@ -5,7 +5,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import uniffi.dyapp.LinkReviewChoice
 import uniffi.dyapp.LinkReviewSaved
-import uniffi.dyapp.LinkReviewSnapshot
 import uniffi.dyapp.MobileLinkReceipt
 import uniffi.dyapp.MobileSlotSelection
 
@@ -32,7 +31,7 @@ internal class LinkEnrollmentWorker(
                 current.value = current.value.copy(
                     enrollment = current.value.enrollment.copy(
                         completed = outcome.isSuccess,
-                        comparison = adoption?.snapshot,
+                        comparison = adoption?.let(::opening),
                         failure = outcome.exceptionOrNull()
                     ),
                     busy = false
@@ -57,7 +56,7 @@ internal class LinkEnrollmentWorker(
             synchronized(monitor) {
                 current.value = current.value.copy(
                     enrollment = LinkEnrollmentSnapshot(
-                        comparison = adoption?.snapshot, failure = outcome.exceptionOrNull(), offered = true
+                        comparison = adoption?.let(::opening), failure = outcome.exceptionOrNull(), offered = true
                     ),
                     busy = false
                 )
@@ -66,11 +65,12 @@ internal class LinkEnrollmentWorker(
         true
     }
 
-    fun confirm(expected: LinkReviewSnapshot, choices: List<LinkReviewChoice>): Boolean = synchronized(monitor) {
+    fun confirm(expected: LinkReviewOpening, choices: List<LinkReviewChoice>): Boolean = synchronized(monitor) {
         val before = current.value
         val review = adoption ?: return@synchronized false
         if (before.busy || before.closed || !before.enrollment.canConfirm) return@synchronized false
-        if (before.enrollment.comparison !== expected || review.snapshot !== expected) return@synchronized false
+        if (before.enrollment.comparison !== expected) return@synchronized false
+        if (review.snapshot !== expected.snapshot) return@synchronized false
         val submitted = choices.map { LinkReviewChoice(it.field, it.source) }
         current.value = before.copy(busy = true, enrollment = before.enrollment.copy(confirmationAttempted = true))
         worker.launch { confirmed(runCatching { review.confirm(submitted) }) }
@@ -85,6 +85,17 @@ internal class LinkEnrollmentWorker(
             busy = false
         )
     }
+
+    private fun opening(review: LinkEnrollmentReview): LinkReviewOpening =
+        LinkReviewOpening(review.snapshot) { owner, choices ->
+            // Pure native computation; this monitor excludes review replacement and native writes.
+            synchronized(monitor) {
+                val state = current.value
+                check(!state.busy && !state.closed && state.enrollment.canConfirm)
+                check(state.enrollment.comparison === owner && adoption === review)
+                review.preview(choices.map { LinkReviewChoice(it.field, it.source) })
+            }
+        }
 
     /** The receiver checks busy and moves to closed under the same monitor before releasing handles. */
     fun close() {

@@ -2,12 +2,11 @@ package com.dyapp
 
 import uniffi.dyapp.LinkReviewException
 import uniffi.dyapp.LinkReviewSaved
-import uniffi.dyapp.LinkReviewSnapshot
 
 /** Presentation only: the native review still validates every attempted completion. */
 internal data class LinkEnrollmentSnapshot(
     val completed: Boolean = false,
-    val comparison: LinkReviewSnapshot? = null,
+    val comparison: LinkReviewOpening? = null,
     val failure: Throwable? = null,
     val offered: Boolean = false,
     val saved: LinkReviewSaved? = null,
