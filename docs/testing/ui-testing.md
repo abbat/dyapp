@@ -5,6 +5,9 @@ per-field independence, reopen durability and another identity's defaults. Unsup
 invalid values/lengths and a database-triggered write refusal must propagate errors without
 repairing the stored value or changing adjacent preferences. Generated bindings, Android controls
 and real governed signal delivery require their own CI/runtime evidence.
+`PrivacyPreferenceStateTests` covers unknown/read-retry, pending duplicate admission, unconfirmed
+write/readback, disposed-owner completion and equal fresh read revisions. Presence uses this shared
+presentation guard; its existing controlled Compose scenarios retain their original assertions.
 
 Debug-only `MailNoticeProbeService` observes actual framework start/stop/completion and attempts
 at OS notification posting without replacing registry selection, native receive or posting.

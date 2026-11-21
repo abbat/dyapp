@@ -31,8 +31,10 @@ not recomposition or mail refresh. Retiring that event cancels queued presentati
 session admission, Kotlin checks cancellation again before invoking the sender. Admitted core work
 retains its operation through completion. Android Privacy offers immediate matches/nobody radios,
 with native readback after writes, disabled unknown/busy states and read-only retry after any
-unconfirmed outcome. Identity replacement retires the old presentation; changing the setting
-itself sends no activity.
+unconfirmed outcome. The shared Kotlin privacy-preference presentation admits one operation
+against the exact displayed revision. Even an equal fresh read retires old callbacks; disposing
+the original `Opened.Ready` presentation rejects both old actions and late completions.
+Changing the setting itself sends no activity.
 Android shows received marks in chat rows and the open
 chat heading, refreshes them after mailbox passes, and hides them on failed reads or identity changes.
 Kotlin performs only ID membership checks; freshness and match eligibility stay in the core.

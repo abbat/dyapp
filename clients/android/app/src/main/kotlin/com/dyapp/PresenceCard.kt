@@ -10,13 +10,11 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -28,36 +26,20 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
-private class PresencePresentation {
-    var value by mutableStateOf<Boolean?>(null)
-    var busy by mutableStateOf(true)
-    var failed by mutableStateOf(false)
-
-    fun editable() = value != null && !busy && !failed
-
-    fun admits(target: Boolean?) = !busy && (target == null || editable() && value != target)
-
-    fun complete(result: Result<Boolean>) {
-        failed = result.isFailure
-        result.onSuccess { value = it }
-        busy = false
-    }
-}
-
 @Composable
-internal fun PresenceCard(active: Opened.Ready) = PresencePicker(active.slot.id, presenceCalls(active))
+internal fun PresenceCard(active: Opened.Ready) = PresencePicker(active, presenceCalls(active))
 
 /** Only the selected audience is local presentation state, never the disclosure policy. */
 @Composable
-internal fun PresencePicker(owner: Any, calls: PresenceCalls) = key(owner) {
-    val state = remember { PresencePresentation() }
+internal fun PresencePicker(owner: Any, calls: PrivacyPreferenceCalls) = key(owner) {
+    val state = remember { PrivacyPreferenceState() }
+    DisposableEffect(state) { onDispose { state.retire() } }
     val backend = remember { calls }
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { state.complete(backend.resolve(null)) }
+    val shown = state.revision
     val run = { target: Boolean? ->
-        if (state.admits(target)) {
-            state.busy = true
-            state.failed = false
+        if (state.begin(target, shown)) {
             scope.launch { state.complete(backend.resolve(target)) }
         }
     }
@@ -69,7 +51,7 @@ internal fun PresencePicker(owner: Any, calls: PresenceCalls) = key(owner) {
 }
 
 @Composable
-private fun PresenceChoices(state: PresencePresentation, pick: (Boolean) -> Unit) {
+private fun PresenceChoices(state: PrivacyPreferenceState, pick: (Boolean) -> Unit) {
     Column(Modifier.selectableGroup().testTag("presence-audience")) {
         for ((enabled, label) in listOf(true to R.string.presence_matches, false to R.string.presence_nobody)) {
             val selected = state.value == enabled
@@ -91,7 +73,7 @@ private fun PresenceChoices(state: PresencePresentation, pick: (Boolean) -> Unit
 }
 
 @Composable
-private fun PresenceStatus(state: PresencePresentation, retry: () -> Unit) {
+private fun PresenceStatus(state: PrivacyPreferenceState, retry: () -> Unit) {
     Caption(stringResource(R.string.presence_hint))
     if (state.busy) Caption(stringResource(R.string.presence_loading))
     if (state.failed) {

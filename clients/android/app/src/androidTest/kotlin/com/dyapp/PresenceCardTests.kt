@@ -34,7 +34,7 @@ class PresenceCardTests {
     fun unknownAudienceRequiresReadRetryInsteadOfWritingADefault() {
         val fail = AtomicBoolean(true)
         val writes = AtomicInteger()
-        val calls = PresenceCalls(read = {
+        val calls = PrivacyPreferenceCalls(read = {
             check(!fail.get()) { "controlled read failure" }
             false
         }, write = { writes.incrementAndGet() })
@@ -53,7 +53,7 @@ class PresenceCardTests {
     fun indeterminateSaveRequiresReadbackBeforeAnotherDisclosureChoice() {
         val stored = AtomicBoolean(true)
         val writes = AtomicInteger()
-        val calls = PresenceCalls(read = { stored.get() }, write = {
+        val calls = PrivacyPreferenceCalls(read = { stored.get() }, write = {
             stored.set(it)
             writes.incrementAndGet()
             error("write committed before failure")
@@ -77,7 +77,7 @@ class PresenceCardTests {
         val writes = AtomicInteger()
         val owner = mutableStateOf("first")
         val first = pendingCall(writes, started, release, returned)
-        val second = PresenceCalls(read = { true }, write = {})
+        val second = PrivacyPreferenceCalls(read = { true }, write = {})
         showOwners(owner, first, second)
         try {
             ready("presence-nobody")
@@ -100,7 +100,7 @@ class PresenceCardTests {
         started: CompletableDeferred<Unit>,
         release: CompletableDeferred<Unit>,
         returned: CompletableDeferred<Unit>
-    ) = PresenceCalls(read = { true }, write = {
+    ) = PrivacyPreferenceCalls(read = { true }, write = {
         writes.incrementAndGet()
         started.complete(Unit)
         try {
@@ -112,8 +112,8 @@ class PresenceCardTests {
 
     private fun showOwners(
         owner: androidx.compose.runtime.MutableState<String>,
-        first: PresenceCalls,
-        second: PresenceCalls
+        first: PrivacyPreferenceCalls,
+        second: PrivacyPreferenceCalls
     ) = compose.setContent {
         MaterialTheme { PresencePicker(owner.value, if (owner.value == "first") first else second) }
     }
