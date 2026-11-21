@@ -1,5 +1,11 @@
 # UI Testing: Practical Guide
 
+Native privacy preference tests use real offline ChatSession/Store fixtures for default values,
+per-field independence, reopen durability and another identity's defaults. Unsupported flag formats,
+invalid values/lengths and a database-triggered write refusal must propagate errors without
+repairing the stored value or changing adjacent preferences. Generated bindings, Android controls
+and real governed signal delivery require their own CI/runtime evidence.
+
 Debug-only `MailNoticeProbeService` observes actual framework start/stop/completion and attempts
 at OS notification posting without replacing registry selection, native receive or posting.
 The attempt carries the original admitted slot/peer and a notification copy, after foreground and

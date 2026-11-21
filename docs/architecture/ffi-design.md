@@ -12,6 +12,13 @@ thread, reset input/navigation on owner replacement and retain known native rows
 failure. Identity rows map unchanged slot IDs back to their inventoried removal candidates; paging
 never selects a candidate. Native screen acceptance remains separate.
 
+`ChatSession.profile_views_enabled` / `set_profile_views_enabled` and
+`typing_enabled` / `set_typing_enabled` expose existing common Store preferences under the
+native session lock. Views default off and typing defaults on; defaulting, stored-flag validation
+and the `hide_typing` inversion remain in Store. Each setter writes only its own preference and
+sends no signal. Database/unsupported-value failures remain errors rather than guessed values.
+These exports alone do not implement the Android switches or the optional outgoing signal paths.
+
 `ChatSession.active_chat_peers` is a read-only common-core projection of fresh authenticated
 match presence. A failed read stays an error; the native UI must not infer expiry or a fresh mark
 from missing data. It never sends presence, including during mailbox/expiry refresh. Native

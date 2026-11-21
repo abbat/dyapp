@@ -42,6 +42,7 @@ mod original;
 mod own_receive;
 mod photo_settings;
 mod presence;
+mod privacy;
 pub use media_cache::ChatMediaCache;
 pub use photo_settings::ChatPhotoDownload;
 mod photo_view;
