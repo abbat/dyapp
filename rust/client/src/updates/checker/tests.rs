@@ -117,16 +117,59 @@ fn rollback_and_transport_failure_keep_prior_cache_and_success() {
 }
 
 #[test]
-fn interrupted_restore_counts_failure_once_without_network_or_sleep() {
-    let dir = test_dir().unwrap();
-    let mut state = LockedState::try_open(&dir).unwrap().unwrap();
+fn interrupted_process_fixture() {
+    let Some(root) = std::env::var_os("DYAPP_TEST_UPDATE_CRASH_ROOT") else {
+        return;
+    };
+    let mut state = LockedState::try_open(Path::new(&root)).unwrap().unwrap();
     let mut snapshot = state.load().unwrap();
     let mut checkpoint = snapshot.checkpoint();
     checkpoint.in_flight = true;
     checkpoint.state.last_attempt = Some(100);
     snapshot.set_checkpoint(checkpoint);
     state.save(&snapshot).unwrap();
-    drop(state);
+    // Intentionally bypass Drop: the OS must release the process lease itself.
+    std::process::exit(0);
+}
+
+fn terminate_after_admission(root: &Path) {
+    use std::process::{Command, Stdio};
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    let mut child = Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "updates::checker::tests::interrupted_process_fixture",
+        ])
+        .env("DYAPP_TEST_UPDATE_CRASH_ROOT", root)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .unwrap();
+    let mut stdout = child.stdout.take().unwrap();
+    let (done, completion) = mpsc::channel();
+    let reader = std::thread::spawn(move || {
+        let result = std::io::copy(&mut stdout, &mut std::io::sink());
+        let _ = done.send(result);
+    });
+    let observed = completion.recv_timeout(Duration::from_secs(10));
+    if !matches!(&observed, Ok(Ok(_))) {
+        let _ = child.kill();
+        let _ = child.wait();
+        reader.join().unwrap();
+        panic!("child completion signal failed: {observed:?}");
+    }
+    let status = child.wait().unwrap();
+    reader.join().unwrap();
+    assert!(status.success(), "child failed: {status}");
+}
+
+#[test]
+fn interrupted_restore_counts_failure_once_without_network_or_sleep() {
+    let dir = test_dir().unwrap();
+    terminate_after_admission(&dir);
+    assert!(disk(&dir).checkpoint().in_flight);
     for now in [110, 120] {
         assert!(matches!(
             check_with(&dir, Trigger::Timer, now, now, |_| panic!(

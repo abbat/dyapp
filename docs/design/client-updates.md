@@ -25,6 +25,9 @@ fetch, and validated completion is committed before returning a new trusted snap
 transport/rollback/clock results retain the prior cache and persist failure backoff; interrupted
 requests are counted once on restore. Busy callers do not start another request. Interval changes
 also use the update lease and report busy during a request, without canceling it.
+The checker tests observe a child process exiting after durable admission without running Drop,
+then require successful lease reacquisition and exactly one interrupted-attempt failure. A pipe-EOF
+completion signal has a failure deadline; no elapsed sleep establishes process readiness.
 Native APIs, lifecycle/timer hooks and notice presentation remain planned.
 Clients stay disabled until live-feed verification and those integrations pass.
 
