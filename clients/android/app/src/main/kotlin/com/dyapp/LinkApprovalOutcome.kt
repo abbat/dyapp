@@ -1,8 +1,19 @@
 package com.dyapp
 
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -12,11 +23,33 @@ import uniffi.dyapp.MobileLinkCodeStatus
 
 @Composable
 internal fun LinkApprovalOutcome(view: LinkApprovalViewState) {
-    for ((tag, resource) in approvalMessages(view)) {
-        Text(
-            stringResource(resource),
-            Modifier.testTag(tag).semantics { liveRegion = LiveRegionMode.Polite }
-        )
+    val messages = approvalMessages(view)
+    for ((index, message) in messages.withIndex()) {
+        key(message.first) { LinkApprovalMessage(message, view, index == 0) }
+    }
+}
+
+@Composable
+private fun LinkApprovalMessage(
+    message: Pair<String, Int>,
+    view: LinkApprovalViewState,
+    first: Boolean
+) {
+    val reveal = remember { BringIntoViewRequester() }
+    var placed by remember { mutableStateOf(false) }
+    var line by remember { mutableStateOf<Rect?>(null) }
+    val ready = !view.retired && placed && LocalWindowInfo.current.isWindowFocused
+    Text(
+        stringResource(message.second),
+        Modifier.testTag(message.first).bringIntoViewRequester(reveal)
+            .onGloballyPositioned { placed = it.isAttached }
+            .semantics { liveRegion = LiveRegionMode.Polite },
+        onTextLayout = { layout ->
+            line = Rect(0f, layout.getLineTop(0), layout.size.width.toFloat(), layout.getLineBottom(0))
+        }
+    )
+    LaunchedEffect(view, ready, line) {
+        if (first && ready) line?.let { reveal.bringIntoView(it) }
     }
 }
 

@@ -9,11 +9,14 @@ import uniffi.dyapp.MobileDeviceSnapshot
 import uniffi.dyapp.MobileLinkCodeStatus
 import uniffi.dyapp.MobileOwnDevice
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 /** Controlled core-shaped outcomes for rendering only; no node, native transfer or authorization proof. */
 internal class OwnerVisualBackend(val state: OwnerVisualState) {
     val entered = CompletableDeferred<Unit>()
+    val sending = AtomicReference<() -> Unit>({})
+    val sent = AtomicInteger()
     private val release = CountDownLatch(1)
     val inspect = AtomicReference<() -> MobileLinkCodeStatus>({ initialStatus() })
     val approval = LinkApprovalSession({ inspect.get().invoke() }, ::prepare)
@@ -35,6 +38,8 @@ internal class OwnerVisualBackend(val state: OwnerVisualState) {
     }
 
     private fun send() {
+        sent.incrementAndGet()
+        sending.get().invoke()
         if (state == OwnerVisualState.SENDING) hold()
         check(
             state !in setOf(

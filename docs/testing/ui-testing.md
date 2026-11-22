@@ -1353,6 +1353,17 @@ Its preparation fixture rejects any changed input. The manual workflow enables a
 native LatinIME for this separate phase, retains its own instrumentation log and tar, and validates
 24 complete frames with finite, nonempty glyph/control rectangles inside the recorded visible frame.
 Authoring these checks does not establish that the runtime passed.
+Owner approval feedback uses the first actual laid-out message line with window/layout readiness
+and the platform bring-into-view callback; safe footer focus alone cannot reveal a separate
+scrolling body. A new opening starts a fresh body scroll state. `LinkApprovalOutcomeTests` holds
+an admitted send, then releases success or uncertain failure without test-driven scrolling;
+EN/RU at both actual scales must expose the current feedback. An IO-only repeat completes before
+Compose can observe SEND, so equal rendered strings must not hide a new native delivery result.
+The tests preserve the original target and
+refuse expired/unavailable retry. A large-text negative control scrolls back to the identifiers
+and requires the same current-geometry detector to reject the hidden outcome; user scrolling
+must not trigger a feedback-reveal loop. Native runtime and fresh visual review remain required.
+
 Dedicated visual instrumentation opts into `--phase-callbacks`. A `DYAppVisual` status callback
 renews the failure deadline only for the active JUnit class/method and the next completed case.
 Callbacks are emitted after scene/worker cleanup; duplicates, gaps, unrelated logs and late callbacks

@@ -44,6 +44,8 @@ full-control warning, and approve only a device you hold and a link you started 
 disabled. **Sent** confirms sending; the new device must still finish receiving and setup.
 An unconfirmed send may already have delivered some encrypted parts: check the receiving device
 before explicitly retrying. A later expired code does not undo an earlier partial transfer.
+New operation feedback scrolls into view without moving focus from the safe dismissal action;
+long codes and the full warning remain available in the same scrollable body.
 Leaving the screen or switching profiles cannot redirect an admitted operation to another profile.
 
 **Settings → Account → Identities** and **Settings → Privacy → Blocked / Passed** lists have
