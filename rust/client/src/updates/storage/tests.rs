@@ -2,8 +2,7 @@ use super::*;
 use crate::updates::{coordinator::Checkpoint, transport::Cache, CheckState, Interval};
 use dyapp_test_support::test_dir;
 
-fn snapshot() -> Snapshot {
-    let mut snapshot = Snapshot::default();
+fn snapshot(mut snapshot: Snapshot) -> Snapshot {
     let body = br#"{"schema":1,"channel":"stable","targets":{"android":{"version":"2.0.0","tag":"v2.0.0","method":"package"}}}"#;
     snapshot
         .admit(Cache::restore(body.to_vec(), Some("\"disk\"")).unwrap())
@@ -21,15 +20,43 @@ fn snapshot() -> Snapshot {
 }
 
 #[test]
+fn initialization_generates_jitter_once_and_preserves_all_seed_boundaries() {
+    for jitter in [0, 1, u64::MAX] {
+        let mut database = Connection::open_in_memory().unwrap();
+        initialize(&mut database, || Ok(Snapshot::fresh(jitter))).unwrap();
+        initialize(&mut database, || {
+            panic!("existing state must not regenerate jitter")
+        })
+        .unwrap();
+        let saved = read_snapshot(&database).unwrap();
+        assert_eq!(saved.jitter(), jitter);
+        assert_eq!(
+            Snapshot::decode(&saved.encode().unwrap()).unwrap().jitter(),
+            jitter
+        );
+    }
+    let mut database = Connection::open_in_memory().unwrap();
+    assert!(matches!(
+        initialize(&mut database, || Err(Error::Entropy)),
+        Err(Error::Entropy)
+    ));
+    initialize(&mut database, || Ok(Snapshot::fresh(7))).unwrap();
+    assert_eq!(read_snapshot(&database).unwrap().jitter(), 7);
+}
+
+#[test]
 fn committed_snapshot_reopens_exactly_under_one_installation_lease() {
     let dir = test_dir().unwrap();
     let mut state = LockedState::try_open(&dir).unwrap().unwrap();
-    assert_eq!(
-        state.load().unwrap().encode().unwrap(),
-        Snapshot::default().encode().unwrap()
-    );
-    let expected = snapshot().encode().unwrap();
-    state.save(&snapshot()).unwrap();
+    assert_eq!(state.load().unwrap().checkpoint(), Checkpoint::default());
+    let jitter = state.load().unwrap().jitter();
+    assert!(matches!(
+        state.save(&Snapshot::fresh(jitter ^ 1)),
+        Err(Error::Incompatible)
+    ));
+    assert_eq!(state.load().unwrap().jitter(), jitter);
+    let expected = snapshot(state.load().unwrap()).encode().unwrap();
+    state.save(&snapshot(state.load().unwrap())).unwrap();
     assert!(LockedState::try_open(&dir).unwrap().is_none());
     drop(state);
     let reopened = LockedState::try_open(&dir).unwrap().unwrap();
@@ -42,7 +69,7 @@ fn profile_selection_lock_does_not_admit_or_interrupt_an_update() {
     let profile = regular_file(&dir.join("profiles.lock")).unwrap();
     profile.lock().unwrap();
     let mut state = LockedState::try_open(&dir).unwrap().unwrap();
-    state.save(&snapshot()).unwrap();
+    state.save(&snapshot(state.load().unwrap())).unwrap();
     assert!(LockedState::try_open(&dir).unwrap().is_none());
     let other_profile = regular_file(&dir.join("profiles.lock")).unwrap();
     assert!(matches!(
@@ -57,7 +84,7 @@ fn profile_selection_lock_does_not_admit_or_interrupt_an_update() {
 fn failed_validation_or_transaction_preserves_the_previous_record() {
     let dir = test_dir().unwrap();
     let mut state = LockedState::try_open(&dir).unwrap().unwrap();
-    state.save(&snapshot()).unwrap();
+    state.save(&snapshot(state.load().unwrap())).unwrap();
     let before = state.load().unwrap().encode().unwrap();
     let mut invalid = Snapshot::default();
     invalid.set_checkpoint(Checkpoint {

@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 #[serde(deny_unknown_fields)]
 pub(super) struct Saved {
     schema: u32,
+    jitter: u64,
     interval_seconds: u64,
     last_attempt: Option<u64>,
     last_success: Option<u64>,
@@ -44,6 +45,7 @@ pub(super) fn value(snapshot: &Snapshot) -> Result<Value, Error> {
         .collect();
     Ok(json!({
         "schema": 1,
+        "jitter": snapshot.jitter,
         "interval_seconds": checkpoint.interval.seconds(),
         "last_attempt": checkpoint.state.last_attempt,
         "last_success": checkpoint.state.last_success,
@@ -81,6 +83,7 @@ impl Saved {
             None => return Err(Error::Invalid),
         };
         Ok(Snapshot {
+            jitter: self.jitter,
             checkpoint: Checkpoint {
                 interval,
                 state: CheckState {

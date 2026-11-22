@@ -17,6 +17,9 @@ pub enum Error {
     /// SQLite could not complete the requested transaction.
     #[error("update storage transaction failed: {0}")]
     Sql(#[from] rusqlite::Error),
+    /// OS randomness could not initialize the installation's local timer jitter.
+    #[error("update timer randomness unavailable")]
+    Entropy,
     /// Foreign schema, missing singleton or non-regular storage file.
     #[error("incompatible update storage")]
     Incompatible,
@@ -60,7 +63,7 @@ impl LockedState {
         let limit = i32::try_from(snapshot::MAX_BYTES).map_err(|_| Error::Incompatible)?;
         let _ = connection.set_limit(Limit::SQLITE_LIMIT_LENGTH, limit + 4096)?;
         connection.pragma_update(None, "synchronous", "FULL")?;
-        initialize(&mut connection)?;
+        initialize(&mut connection, fresh_snapshot)?;
         let state = Self {
             connection,
             _lease: lease,
@@ -94,6 +97,9 @@ impl LockedState {
             {
                 return Err(snapshot::Error::Rollback.into());
             }
+        }
+        if snapshot.jitter() != previous.jitter() {
+            return Err(Error::Incompatible);
         }
         let changed = transaction.execute(
             "UPDATE `state` SET `payload` = ?1 WHERE `id` = 1",
@@ -131,33 +137,50 @@ fn regular_file(path: &Path) -> Result<File, Error> {
     Ok(options.open(path)?)
 }
 
-fn initialize(connection: &mut Connection) -> Result<(), Error> {
+fn fresh_snapshot() -> Result<Snapshot, Error> {
+    let mut seed = [0; 8];
+    getrandom::fill(&mut seed).map_err(|_| Error::Entropy)?;
+    Ok(Snapshot::fresh(u64::from_le_bytes(seed)))
+}
+
+fn initialize(
+    connection: &mut Connection,
+    fresh: impl FnOnce() -> Result<Snapshot, Error>,
+) -> Result<(), Error> {
     let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
     let application: i64 =
         transaction.pragma_query_value(None, "application_id", |row| row.get(0))?;
     let schema: i64 = transaction.pragma_query_value(None, "user_version", |row| row.get(0))?;
-    if application == 0 && schema == 0 {
-        let tables: i64 = transaction.query_row(
-            "SELECT count(*) FROM `sqlite_schema` WHERE `name` NOT LIKE 'sqlite_%'",
-            [],
-            |row| row.get(0),
-        )?;
-        if tables != 0 {
-            return Err(Error::Incompatible);
-        }
-        transaction.execute_batch(
-            "CREATE TABLE `state` (`id` INTEGER PRIMARY KEY CHECK (`id` = 1), `payload` BLOB NOT NULL CHECK (typeof(`payload`) = 'blob'));",
-        )?;
-        transaction.execute(
-            "INSERT INTO `state` (`id`, `payload`) VALUES (1, ?1)",
-            params![Snapshot::default().encode()?],
-        )?;
-        transaction.pragma_update(None, "application_id", APPLICATION)?;
-        transaction.pragma_update(None, "user_version", SCHEMA)?;
-    } else if application != APPLICATION || schema != SCHEMA {
-        return Err(Error::Incompatible);
+    match (application, schema) {
+        (0, 0) => initialize_fresh(&transaction, fresh)?,
+        (APPLICATION, SCHEMA) => {}
+        _ => return Err(Error::Incompatible),
     }
     transaction.commit()?;
+    Ok(())
+}
+
+fn initialize_fresh(
+    transaction: &rusqlite::Transaction<'_>,
+    fresh: impl FnOnce() -> Result<Snapshot, Error>,
+) -> Result<(), Error> {
+    let tables: i64 = transaction.query_row(
+        "SELECT count(*) FROM `sqlite_schema` WHERE `name` NOT LIKE 'sqlite_%'",
+        [],
+        |row| row.get(0),
+    )?;
+    if tables != 0 {
+        return Err(Error::Incompatible);
+    }
+    transaction.execute_batch(
+        "CREATE TABLE `state` (`id` INTEGER PRIMARY KEY CHECK (`id` = 1), `payload` BLOB NOT NULL CHECK (typeof(`payload`) = 'blob'));",
+    )?;
+    transaction.execute(
+        "INSERT INTO `state` (`id`, `payload`) VALUES (1, ?1)",
+        params![fresh()?.encode()?],
+    )?;
+    transaction.pragma_update(None, "application_id", APPLICATION)?;
+    transaction.pragma_update(None, "user_version", SCHEMA)?;
     Ok(())
 }
 

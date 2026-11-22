@@ -17,6 +17,9 @@ admission/HTTP/completion; it never takes a profile, chat or node operation lock
 synchronization and a single-record transaction keep cache and high-water state together.
 Foreign schemas, missing records and corrupt payloads fail closed without repair or truncation.
 A save also compares persisted high-water marks inside the transaction, refusing accidental resets.
+Initialization obtains one local jitter seed from OS randomness inside the first transaction;
+reopening never regenerates it and saves cannot replace it. Randomness failure leaves no partial state.
+This seed enters only cadence calculation, never the HTTP request or identity storage.
 Shared checker orchestration, native APIs and lifecycle/timer hooks remain planned.
 Clients stay disabled until live-feed verification and those integrations pass.
 

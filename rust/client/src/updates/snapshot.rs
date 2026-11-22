@@ -13,6 +13,7 @@ pub const MAX_BYTES: usize = 512 * 1024;
 /// Cadence and cache/high-water state move together in the eventual durable transaction.
 #[derive(Clone, Debug, Default)]
 pub struct Snapshot {
+    jitter: u64,
     checkpoint: Checkpoint,
     cache: Option<Cache>,
     highest: BTreeMap<Platform, Version>,
@@ -33,6 +34,17 @@ pub enum Error {
 }
 
 impl Snapshot {
+    pub(super) fn fresh(jitter: u64) -> Self {
+        Self {
+            jitter,
+            ..Self::default()
+        }
+    }
+
+    pub(super) const fn jitter(&self) -> u64 {
+        self.jitter
+    }
+
     /// Current admission state, including whether the process stopped during a request.
     #[must_use]
     pub const fn checkpoint(&self) -> Checkpoint {
