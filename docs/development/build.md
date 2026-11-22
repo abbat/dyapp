@@ -162,7 +162,8 @@ gh workflow run gradle-verification.yml -f source_ref=<reviewed-head-sha>
 
 It uses the existing pinned Android Docker toolchain and an empty Gradle cache, resolves every
 resolvable project configuration, excluding project outputs (which have no Maven checksum),
-without compiling or packaging the app, and uploads
+and the detached Linux AAPT2 artifact using the installed AGP version and packaged build number.
+It does not compile or package the app, and uploads
 `gradle-verification`: candidate XML, before/after diff, exact source SHA, checksum and resolution
 log. It neither commits the candidate nor merges the PR. Review new coordinates and publisher
 artifacts before committing the XML to the dependency branch, then require ordinary CI; successful

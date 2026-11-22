@@ -877,14 +877,21 @@ The shared `device_directory::rows` projects public own-device keys and the curr
 without writing editor state. It places the current device first while preserving every other
 device's relative order; desktop and UniFFI consume that order directly. Verified ordinary remote
 readback is used only when strictly newer than the saved draft; absent, equal or older readback
-retains the cached directory.
+retains the cached directory. `device_directory::snapshot` additionally reports the read outcome
+(Cached, Unavailable, NoProfile or Verified) and the actual Saved/Remote row source. Successful
+older readback can therefore report Verified while preserving Saved rows; row count never implies
+freshness or permission to revoke. NoProfile means no verified same-owner profile was returned,
+not proof of account removal.
 A newer removed profile contributes its empty directory. Callers must verify remote owner/signature
 before projection.
 
 Common native `MobileDeviceDirectory(registry, id, expected_peer, store)` binds an initialized
-existing slot/device/sealing-key context. Idle handles retain no lease; each `devices(live)` or
-explicit `revoke(device_key)` reacquires and checks that original context through actual completion.
-Missing credentials/sessions are refused without bootstrap. `devices` delegates projection to core;
+existing slot/device/sealing-key context. Idle handles retain no lease; each `snapshot(live)`,
+compatibility `devices(live)` or explicit `revoke(device_key)` reacquires and checks that original
+context through actual completion.
+Missing credentials/sessions are refused without bootstrap. `snapshot` exposes the core read outcome
+and actual row source; `devices` returns the same projection's rows for existing callers. Live-read
+failures retain saved rows with Unavailable status, while local admission/storage failures remain errors.
 `revoke` delegates mailbox closure/publication to core `publish::revoke_device`, including partial
 success and retry authorization. A reported failure does not imply rollback. Calls block off the UI
 thread on the existing joined network worker. Android JNI list/revoke runtime acceptance and the
@@ -953,8 +960,10 @@ visibility, trust observations and actor/HLC metadata; unknown wire fields also 
 Any difference returns `LinkStateReviewRequired`, preserving both snapshots and credentials.
 `Store.prepare_link_state_review` now freezes the owner, database path, exact pending bytes and current
 private snapshot in one read transaction. Its read-only differences cover block/mute/favorite/name/note,
-pass, visibility and the owner's outgoing like; incoming likes, trust/device observations and historical
-actor/clock/event metadata are never offered as editable preferences. A separate protected-difference
+pass and visibility; all Like/Unlike events, trust/device observations and historical
+actor/clock/event metadata are never offered as editable preferences. Recovery must merge existing
+interaction events through the normal authenticated event ordering; a new Like/Unlike is a separate
+explicit ordinary action, never a side effect of choosing a recovery snapshot. A separate protected-difference
 signal also detects unknown/noncanonical pending wire data. Duplicate peer/like/pass keys are refused.
 `LinkStateReview.is_current` checks the same pending operation, absent import progress and current
 private bytes; it holds no keys or identity lease and authorizes no writes. Confirmation must revalidate
@@ -1009,6 +1018,11 @@ and remote values, all original photo chunks, visibility and typed differing fie
 read-only projection of the frozen result, without credentials, storage or network access. Missing,
 duplicate and unoffered choices retain typed selection errors. Preview does not establish current
 admission or profile validity and does not save, publish or complete enrollment.
+`photo_thumbnail(source, index)` instead reopens and admits the original slot/certificate/network,
+resolves only that frozen source's ordered photo, and delegates hash checking and bounded JPEG
+thumbnail decoding to the shared core. Valid stored thumbnails work offline; missing or invalid
+cached bytes can be fetched from the admitted network without a disk cache. Context is checked again
+before pixels return. Unavailable bytes never remove photo references or select a source.
 `confirm(choices)` reacquires existing-only admission, checks the original session certificate and
 local context and core `ChatBinding` (slot/owner/device plus sealing-key digest), rejects an already
 changed active network, and delegates all field selection and atomic completion to core. Typed errors

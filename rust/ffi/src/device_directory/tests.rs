@@ -80,6 +80,22 @@ fn offline_reads_keep_cached_rows_and_an_idle_handle_does_not_block_profile_chan
     assert!(offline[0].current);
     assert_eq!(offline[0].key.len(), 32);
     assert_eq!(f.worker.devices(true).unwrap(), offline);
+    assert_eq!(
+        f.worker.snapshot(false).unwrap(),
+        MobileDeviceSnapshot {
+            devices: offline.clone(),
+            state: MobileDeviceReadState::Cached,
+            source: MobileDeviceRowSource::Saved,
+        }
+    );
+    assert_eq!(
+        f.worker.snapshot(true).unwrap(),
+        MobileDeviceSnapshot {
+            devices: offline.clone(),
+            state: MobileDeviceReadState::Unavailable,
+            source: MobileDeviceRowSource::Saved,
+        }
+    );
     assert_eq!(f.store().profile_draft().unwrap(), before);
     // A handle is idle between calls; a registry mutation must not wait for its disposal.
     let registry = f.registry.clone();

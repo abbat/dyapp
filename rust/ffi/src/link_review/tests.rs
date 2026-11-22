@@ -1,5 +1,7 @@
 mod behavior;
 mod completion;
+mod photo_network;
+mod photos;
 mod preview;
 pub(crate) mod server;
 

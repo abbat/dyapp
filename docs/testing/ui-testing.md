@@ -10,6 +10,23 @@ visibility, activation prerequisites and busy disposition are checked before foc
 calibration. Canonical Android capture validates layout and these browser contracts; it does not
 run the desktop-only criteria audit or prove native transfer/enrollment.
 
+Comparison prototype captures also run `clients/android/prototype/review-fixture-tests.js`: all
+31 offered groups retain full source values; initial comparisons have no checked answers; photo
+reference disclosure does not select a source. Explicit choices survive read-only preview and return,
+partial choices cannot save, confirmation admits one transition, and retired editable owners cannot
+change an equal replacement. These controlled browser fixtures do not establish native profile
+validation, photo availability, device authorization or persistence.
+
+The native comparison form has independent Compose checks for complete EN/RU values at normal and
+200% text, unsigned-code/income preservation, partial/coupled groups and current viewport geometry.
+Its actual application callbacks are replayed after an equal fresh opening. Confirmation uses its
+completion promise with no required busy frame; preview/edit focus follows composition, window and
+control readiness. Controlled photo completion after form retirement cannot publish old pixels.
+These presentation checks complement the real two-phone JNI journey, which prepares an actual core
+JPEG, transfers its references and invokes the original review thumbnail binding before unchanged
+separate enrollment, private-sync and revocation assertions. They do not substitute for full screen
+review or all recovery-policy branches.
+
 Android stale-callback checks capture the installed `applicationClickKey` action, rather than a
 Compose `SemanticsActions.OnClick` wrapper: modifier nodes may reuse that wrapper for a new opening
 or require attachment before invoking it. Identity durability acknowledgement uses that same exact
@@ -60,7 +77,11 @@ Desktop outcome-to-source navigation restores the original peer, header/avatar a
 its reopening calibration checks both sent and queued outcomes before exercising retired callbacks.
 Run the on-demand `prototype-review` workflow with `platform=android` for the complete Android
 inventory and layout checks; its default `platform=desktop` retains desktop capture and criteria.
-The artifact records the selected platform, exact source and input hashes. Ordinary APK CI does
+The artifact records the selected platform, exact source and input hashes. Android owner-approval
+prototype checks preserve the original public owner/code, distinguish read-only preparation from
+admitted sending, retain partial-delivery uncertainty after expiry and use the shared current-geometry
+control reachability checks. These static outcomes do not prove native authorization or delivery.
+Ordinary APK CI does
 not execute the HTML-prototype capture. After capture, browser checks verify
 state-specific admission, received-menu permissions and destination-only history/avatar. Each ready
 dialog snapshot also checks the actual 32+8 pagination, full-ID search, retained selection across
@@ -832,7 +853,10 @@ planned. Host SDK compilation does not execute them.
 `LocalNetworkPermissionPhaseTests` uses an isolated native identity and real Rust connection checks.
 The ordinary API 31 runner explicitly executes its `legacy` phase before the UI suite. Native
 connection completion admits the suite; a failed phase stops immediately with the guest-to-node
-address and retained report path, without bulk-suite retries or emulator restart guesses. The helper
+address, last native connection result and retained report path, without bulk-suite retries or emulator
+restart guesses. Successful-connection readiness gives each native operation the transition's remaining
+failure budget; it does not repeatedly discard an unfinished handshake after an arbitrary five seconds.
+The separate expected-refusal probe keeps its bounded negative-result budget. The helper
 `android-lan-permission-phases.sh modern` brackets separate instrumentation processes with shell
 permission grant/revoke, checking granted, denied, regranted and revoked states against an owned LAN
 node. The first granted phase activates one retained native identity in an isolated
@@ -1141,7 +1165,14 @@ then stops the responder before terminal retries. This package-local coverage mu
 `MobileLinkReceiver::result` with `Ok(None)`; Android-only acceptance does not cover that mutant.
 `NativeLinkJourneyTests` uses two isolated native registries and the existing CI node: owner
 publication, explicit approval, authenticated reception, and normal pending-link enrollment through
-`MobileLinkRecovery`. It first opens the normal linked chat session,
+`MobileLinkRecovery`. Owner approval now enters the receiving code through production Account →
+Devices dialogs and their real native worker. Before creating that code, the test awaits the owner's
+verified directory and available entry so initial UI/network setup does not consume invitation
+lifetime. It checks original identity and normalized code display/copy, full-control/physical-possession
+warnings and actual sending completion before retaining every receiver/import/enrollment assertion.
+Owner approval and later revocation share one Compose root with fresh route/scene references.
+Each phase awaits actual native handle release before fixture cleanup; no extra node or link setup,
+automatic transfer retry or weakened receiver assertion is added. It first opens the normal linked chat session,
 which preserves the received device and bootstraps only local session state. It verifies an empty
 contact note and favorite list before import, completion followed by an idle retry, then the original
 nonempty note and saved favorite flag. `verifyNativeOwnPrivateSync` then observes an actual receive
@@ -1159,6 +1190,66 @@ then completes verified cleanup through the same Kotlin adapter used by both rec
 second adapter call has no authority to recreate the removed context. Only the linked slot disappears;
 the other selected identity still opens. Native package tests separately retain duplicate/concurrent
 capability outcomes. This cleanup extension needs its own actual CI runtime proof.
+`LinkApprovalWorkerTests` and `LinkApprovalLifetimeTests` cover the owner-approval IO adapter with
+controlled native-shaped calls. They check core-provided malformed/expired refusal, immutable normalized
+public targets, exact opening admission, explicit preparation retry, uncertainty retained after later
+expiry, and retirement during both preparation and send. Cancelling a UI waiter cannot cancel the
+admitted send or close its handle early; a successor session remains unchanged and each handle closes
+once. Completion signals and per-transition failure deadlines replace timing guesses. These tests
+require Android instrumentation CI; they do not prove generated binding compilation, actual transfer
+or the production owner-approval widgets. The input dialog reuses the localized `owner_link`
+resource for its title; Kotlin source lint cannot validate generated `R.string` names.
+`LinkApprovalUITests` and `LinkApprovalUILifetimeTests` drive those production dialogs using controlled
+native-shaped completions. They assert the original public target and full-control warnings, explicit
+consent, partial failure followed by expiry, first-input expiry, acknowledged send and no repeat.
+A blocked send disables Cancel/submit and ignores native Back. Replacing the actual opened owner
+retires the old dialog; its saved open/submit/dismiss callbacks cannot change an equal successor.
+These tests use actual semantics, scroll geometry and completion signals. Existence assertions stay
+receiver calls on `SemanticsNodeInteraction`; importing them as top-level extensions fails test-APK
+compilation even when main-source CodeQL and source lint pass. Full native EN/RU visual
+review and the existing real two-device UI/JNI journey remain separate acceptance.
+The owner visual fixtures provide twelve controlled native-shaped outcomes through production
+dialog controls, one reusable Compose root, matching EN/RU resources and font configuration, and
+completion-owned worker retirement. They never overwrite presentation StateFlows or host a node.
+This foundation does not establish native authorization, transfer, rendered visual acceptance or
+real IME/editor scrolling.
+The phase-only `OwnerApprovalVisualTests` requires instrumentation arguments `ownerVisual=1`,
+`sourceSha=<40-hex producer commit>` and `expectedWidth=360|412`; ordinary instrumentation excludes
+it. A fresh device is required for each width. EN/RU, light/dark and 100/200% font variants produce
+top/bottom dialog PNGs and a completion manifest under `files/owner-approval-visual/<width>/`.
+Compose PixelCopy captures the dialog. Actual paragraph layouts and live scroll viewports establish
+text geometry; public identifier semantics retain raw copy values while exposing grouped glyph layout.
+Each preparation/operation transition moves safe focus back to Cancel before subsequent input.
+The keyboard-disabled baseline does not establish real IME or internal editor scrolling, native
+authorization, transfer, or completed visual acceptance. The artifact-consuming CI runner and
+source-bound image review remain planned; source lint cannot establish runtime success.
+`tests/scripts/android_visual_producer.py` validates saved GitHub producer/job/artifact API metadata
+before a planned visual runner installs anything. It requires a same-repository main push/manual
+`ci.yml` run, exactly one successful matching Android build and an unexpired source-matching runtime
+artifact with its digest. Unrelated queued Apple jobs do not prevent this validation; the whole
+workflow need not have finished. Keep the API receipts beside `validated.json` for provenance.
+`DeviceDirectoryWorkerTests` and `DeviceDirectoryFailureTests` exercise the presentation adapter with
+controlled native-shaped completions. They retain original public targets across mutable DTO input,
+reject stale/forged confirmation openings, retire a view during an admitted call, cancel its UI waiter
+and require exactly-once close after completion. A successor view remains unchanged. Partial write
+failure, acknowledged success and later cached-read failure remain distinct, without automatic retry.
+The same real link journey now confirms revocation through the production Account Devices menu,
+retained native screen session and scrollable target dialog instead of calling revoke directly. It
+checks the saved menu count independently of the verified remote list, current-row refusal, exact
+raw-key display/copy and a matching completion signal, then retains all prior remote-directory,
+mailbox cleanup and unrelated-profile checks. Row lookup uses the immutable raw key and current
+semantics/scroll geometry. Clipboard verification also awaits the dialog's WindowInfo-driven Cancel
+focus before reading the foreground clipboard. Each StateFlow phase has its own failure deadline;
+no extra link setup or remote-submission retry is added. This widget extension requires fresh actual CI runtime evidence.
+`DeviceDirectoryUITests` additionally drives the actual Compose controls around controlled native-shaped
+calls and the real common collection pager. It checks the immutable displayed target, no current-row
+Disconnect, partial-failure Retry, acknowledged success alongside cache failure and an old dialog
+callback after an equal successor screen replaces its owner. Native writes are held by explicit
+completion gates; observer deadlines reset per transition, and row clicks use current scroll geometry.
+An additional controlled case keeps the row count at zero while changing only the core-projected
+source from Saved to Remote: captions must distinguish saved fallback from a truly empty verified
+directory, without inventing revocation completion. These controlled cases do not prove real network
+authorization or full native visual acceptance.
 `NativePrivateContactTests` separately invokes the actual JNI favorite/note APIs without a profile
 fetch or counterpart mailbox. It reopens native storage, checks identity isolation and exact Unicode
 text, and requires private-only mutations to leave public draft, likes and chat state unchanged.
@@ -1399,11 +1490,18 @@ retry is [flaky](README.md#flaky-tests): `xcodebuild test` retries a failed test
 run reruns up to twice, each time only the tests the failed run lists (`-e class`, checked
 with a minimum of one test), or the whole suite when it lists none. The tests listed by a
 failed run before a passing one are flaky (`android instrumentation` when a failed run lists
-none). All Android instrumentation invocations use `android_instrumentation.py` with raw
-status callbacks (`am instrument -w -r`). Startup, each completed named test and final ADB
-exit have fresh failure budgets (normally 300 seconds, 900 for the main suite and long worker
-phases); there is no total suite timer. Only matched start/completion records advance progress,
+none). The main suite and explicit peer/photo phase invocations use
+`android_instrumentation.py` with raw status callbacks (`am instrument -w -r`). Startup, each
+completed named test and final ADB exit have fresh failure budgets (normally 300 seconds, 900 for
+the main suite and long worker phases). The monitor has no aggregate suite timer; the CI lane still
+has its separate outer 30-minute command budget. Only matched start/completion records advance progress,
 including failed or skipped test outcomes; logs, repeated statuses and partial lines do not.
+Each monitored invocation flushes validated start/completion events with exact test identity,
+completed count, outcome code and monotonic elapsed seconds into its matching `.progress.jsonl`
+sidecar. Appending `runner_started`/`runner_finished` markers separates invocations and retains
+completed JUnit retry attempts. An outer deadline can stop a healthy long suite too: compare its
+last exact completion/start timings before diagnosing a stalled test. Timing events never establish
+a passing suite or relax the existing failure deadlines.
 The final JUnit checker rejects raw ignored/assumption statuses (-3/-4), even with an `OK`
 summary, and writes a success JSON only after all gates pass. The ordinary suite excludes the
 three phase-only permission/retained/worker classes and only the forged-search method using
@@ -1815,7 +1913,7 @@ Docker diagnostics; exported reports and application files keep their formats.
 | Suite | Exported files |
 |-------|----------------|
 | `android-unit-test` | `gradle-version.txt`, `test-results/` (JUnit XML), `hs_err*.log` on JVM crash |
-| `android-emulator-test` | `instrumentation.txt`/`.json`, `instrumentation-<n>.txt` of failed runs, `ready.png`, `logcat.txt`, on failure `failure.png`, `window.txt`; plus `app-debug.apk` |
+| `android-emulator-test` | `instrumentation.txt`/`.json`, `*.progress.jsonl`, `instrumentation-<n>.txt` of failed runs, `ready.png`, `logcat.txt`, on failure `failure.png`, `window.txt`; plus `app-debug.apk` |
 | `linux-test` | `desktop-ui-results.json`; plus the `dyapp-linux` binary |
 
 Both Android instrumentation runners write a fresh `android-artifacts.json` beside

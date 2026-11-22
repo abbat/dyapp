@@ -195,10 +195,50 @@ uses the shared core's frozen selection and grants no write or enrollment author
 worker supports explicit fresh comparison and confirmation against that exact snapshot, freezing each
 submitted choice before IO. A saved draft enables separate enrollment continuation; an indeterminate
 save requires a fresh comparison instead of repeating the write. These operations retain the original
-receipt and native review through actual completion, including UI retirement. Full field-choice
-presentation remains planned.
+receipt and native review through actual completion, including UI retirement. Each comparison exposes
+a reference-identity presentation opening, so equal fresh snapshots do not preserve old UI choices.
+Its pure native preview checks that exact opening under the receiver monitor and refuses busy, closed
+or replaced owners before using the retained review. Native `photo_thumbnail` resolves frozen source
+and index through shared core validation, admits the original slot/network before reading and after
+fetching, and returns bounded pixels without persisting remote blobs. It does not borrow the active
+shell's photo cache. The Android adapter admits each thumbnail read to the retained worker and
+exposes only an independent result promise. Cancelling its UI waiter cannot cancel the actual native
+read or close its handle; busy state clears only after native completion. A changed-context refusal
+requires a fresh comparison, while an ordinary unavailable photo does not change field choices or
+setup policy. The native field form keeps explicit choices only for its reference-identity opening,
+uses complete frozen values without narrowing unsigned codes, and displays original photo references
+alongside available bounded thumbnails. Core preview is read-only. Confirmation returns its own
+completion result, so validation-error retries do not depend on seeing an intermediate busy frame.
+Retiring the form refuses old callbacks and late pixel publication without cancelling native work.
+Actual binding/runtime and full screen acceptance remain required.
 Invitation expiry formatting observes
 Compose's current configuration locale, so a language change invalidates the displayed date.
+
+Account → Devices uses `DeviceDirectorySession` as its presentation worker, with one session per
+actual opened identity/view. Cached rows appear before a live refresh; query/count/page bounds use
+`LocalCollectionView` and the common core. The worker freezes public target bytes from the common snapshot and uses reference-identity
+confirmation openings. Refresh invalidates old confirmations. Native read/revoke calls run on its
+independent IO scope; retiring a view rejects further callbacks and closes the handle only after an
+admitted call and its cached reconciliation finish. A cancelled UI waiter cannot cancel that call.
+The actual revoke result stays separate from a later cache-read failure and remains attached to its
+original target. Neither a missing row nor read freshness creates revocation authority. The screen
+describes a failed revoke as unconfirmed, possibly partial completion: mailbox closure can precede
+a later error. It never promises the device stayed connected or that changes rolled back; retry
+remains a new explicit action for the original target. The current row has no Disconnect action.
+The scrollable dialog names the raw key before consequences and disables Cancel/Back while the
+worker owns a revoke. Displayed key groups preserve the raw semantics and explicit copy payload.
+The Account row counts only the saved directory and never performs a network refresh.
+
+`LinkApprovalSession` provides the owner-approval presentation worker used by native Devices dialogs.
+It prepares the original pasted input on independent IO, using the common code-status function and
+`MobileLinkApproval`. Only the immutable normalized public code is projected into a reference-owned
+confirmation. Kotlin does not parse invitations, calculate expiry or export private data. Preparation
+is read-only; sending requires that exact opening and explicit consent. Core revalidates the selected
+owner/view and expiry before exporting. A failed send is potentially partial delivery, retained on
+the original target. A later preflight expiry refuses another send without erasing that earlier result.
+Duplicate, foreign and retired callbacks are refused. Retirement stops presentation admission but
+does not cancel admitted preparation/send; the native handle closes once after actual completion,
+including when the UI waiter is cancelled. Successful sending also prevents duplicate consent.
 
 Root identity actions run on IO. The existing route shows loading until completion, rejects
 duplicate actions and never publishes a cancelled screen owner's late result. Its completed revision

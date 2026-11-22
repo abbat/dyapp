@@ -160,6 +160,7 @@
       <div class="notice error" role="alert" data-on="link-setup-unlisted" data-t="setup.unlisted"></div>
       <div class="notice error" role="alert" data-on="link-setup-error" data-t="setup.error"></div>
       <button type="button" class="btn filled" id="link-setup-finish" data-on="link-receive-received link-receive-durability link-setup-error" data-go="link-setup-running" data-t="setup.finish"></button>
+      <button type="button" class="btn" id="link-setup-prepare" data-on="link-setup-review" data-go="link-review-comparison" data-t="review.refresh"></button>
       <button type="button" class="btn" id="link-receive-open" data-go="profile" data-disabled="link-setup-running" data-t="receive.open"></button>
     </div>
     <div class="actions">
@@ -168,6 +169,34 @@
       <p class="caption" data-t="receive.disposition"></p>
       <button type="button" class="btn text" id="link-receive-dismiss" data-go="settings-account" data-disabled="link-receive-starting link-receive-receiving link-receive-installing link-setup-running" data-t="receive.dismiss"></button>
     </div>
+  </div>
+</main>
+
+<!-- Owner choices apply to a frozen comparison, never to device authorization. -->
+<main class="page" data-on="link-review-loading link-review-comparison link-review-ready link-review-preview link-review-saving link-review-saved link-review-validation link-review-error link-review-equal">
+  <h1 data-t="review.title"></h1>
+  <code id="review-peer">a3f72c109d84e6b502cf7a491be8d53f60e17c829ba34d650f2a67c9e01b4583</code>
+  <p data-on="link-review-comparison link-review-ready link-review-validation link-review-preview link-review-equal" data-t="review.intro"></p>
+  <p class="caption" data-t="review.authority"></p>
+  <p class="caption" data-t="review.noPublish"></p>
+  <p role="status" data-on="link-review-loading" data-t="review.loading"></p>
+  <p role="status" data-on="link-review-saving" data-t="review.saving"></p>
+  <p role="status" data-on="link-review-saved" data-t="review.saved"></p>
+  <p role="status" data-on="link-review-equal" data-t="review.equal"></p>
+  <div class="notice error" role="alert" data-on="link-review-error" data-t="review.uncertain"></div>
+  <div class="notice error" role="alert" data-on="link-review-validation" data-t="review.invalid"></div>
+  <div id="review-fields" class="content" style="padding:0" data-on="link-review-comparison link-review-ready link-review-validation link-review-saving"></div>
+  <section id="review-preview-panel" class="content" style="padding:0" data-on="link-review-preview">
+    <h2 data-t="review.previewTitle"></h2>
+    <div id="review-preview-values" class="content" style="padding:0"></div>
+  </section>
+  <div class="actions">
+    <button type="button" class="btn" id="review-preview" data-on="link-review-comparison link-review-ready link-review-validation link-review-preview link-review-equal" data-t="review.preview"></button>
+    <button type="button" class="btn" id="review-edit" data-on="link-review-preview" data-t="review.edit"></button>
+    <button type="button" class="btn filled" id="review-confirm" data-on="link-review-comparison link-review-ready link-review-validation link-review-preview link-review-equal link-review-saving" data-t="review.save"></button>
+    <button type="button" class="btn" id="review-refresh" data-on="link-review-error" data-go="link-review-comparison" data-t="review.refresh"></button>
+    <button type="button" class="btn filled" id="review-finish" data-on="link-review-saved" data-go="link-setup-running" data-t="setup.finish"></button>
+    <button type="button" class="btn text" id="review-back" data-go="link-receive-received" data-disabled="link-review-saving" data-t="nav.back"></button>
   </div>
 </main>
 
@@ -206,13 +235,13 @@
 
 <!-- App shell: every screen after first run. Detail screens (a found profile, a chat, the app
      lock settings) bring their own back bar and hide the navigation bar. -->
-<div class="app" data-on="profile profile-hidden profile-goal-dialog publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error profile-view profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu settings settings-language-dialog switcher remove-dialog remove-offline lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed">
-  <header class="appbar" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-language-dialog remove-dialog remove-offline">
+<div class="app" data-on="profile profile-hidden profile-goal-dialog publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error profile-view profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu settings settings-language-dialog switcher remove-dialog remove-offline lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-devices">
+  <header class="appbar" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-devices settings-language-dialog remove-dialog remove-offline">
     <span class="title"><span data-on="profile profile-hidden profile-goal-dialog publish-dialog publish-progress switcher" data-t="nav.profile"></span>
       <span data-on="search search-loading search-empty search-error" data-t="nav.search"></span>
       <span data-on="chats" data-t="nav.chats"></span>
       <span data-on="network network-checking network-error" data-t="nav.network"></span>
-      <span data-on="settings settings-language-dialog remove-dialog remove-offline settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed" data-t="nav.settings"></span></span>
+      <span data-on="settings settings-language-dialog remove-dialog remove-offline settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-devices" data-t="nav.settings"></span></span>
     <!-- Connected means one compatible node answered; it opens Network. -->
     <button type="button" class="status" id="connection-status">
       <span class="dot" data-off="search-error network-checking"></span>
@@ -531,8 +560,25 @@ search providers asked: 0 of 3</pre>
       <div class="backbar"><button type="button" class="icon-btn" data-go="settings" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button><h1 class="title" data-t="settings.account"></h1></div>
       <div class="settings-hub">
 <a class="btn" href="#settings-identities-screen" data-settings-open="identities"><span data-t="settings.identities">Identities</span> <span class="settings-count"></span></a>
+<a class="btn" id="settings-devices-open" href="#devices-ready" data-settings-open="devices"><span data-t="devices.title"></span><span class="settings-count">2</span></a>
 <a class="btn" id="settings-receive" href="#link-receive-intro"><span data-t="receive.title">Receive a profile</span></a>
 </div>
+    </section>
+    <section id="settings-devices" class="content" style="padding:0" data-on="settings-devices devices-loading devices-saved devices-ready devices-verified-saved devices-offline devices-no-profile devices-empty devices-error devices-confirm devices-revoking devices-uncertain devices-gone" data-collection-pane="devices">
+      <div class="backbar"><button type="button" class="icon-btn" data-go="settings-account" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button><h1 class="title" data-t="devices.title"></h1></div>
+      <p class="notice" id="device-read-status" role="status" aria-live="polite"></p>
+      <p class="notice" data-on="devices-gone" data-t="devices.gone"></p>
+      <div class="card">
+        <div class="field"><label for="settings-devices-search" data-t="settings.collection.search"></label><input id="settings-devices-search" type="text" data-disabled="devices-loading devices-revoking"></div>
+        <table class="collection-table"><tbody id="devices-list">
+          <tr data-device-current><td><code>a41f09</code><span class="caption" data-t="devices.this"></span></td><td></td></tr>
+          <tr><td><code>7c20be</code><span class="caption" data-t="devices.other"></span></td><td><button type="button" class="btn" id="device-disconnect" data-go="devices-confirm" data-disabled="devices-loading devices-revoking" data-t="devices.disconnect"></button></td></tr>
+        </tbody></table>
+        <p class="caption" data-t="devices.hint"></p>
+      </div>
+      <button type="button" class="btn" id="owner-open" data-go="owner-code" data-disabled="devices-loading devices-revoking" data-t="devices.link"></button>
+      <p class="notice" id="settings-devices-status" role="status" aria-live="polite"></p>
+      <div class="actions"><button type="button" class="btn" id="settings-devices-previous" data-t="settings.collection.previous"></button><button type="button" class="btn" id="settings-devices-next" data-t="settings.collection.next"></button><button type="button" class="btn" id="settings-devices-refresh" data-t="settings.collection.refresh"></button></div>
     </section>
     <section id="settings-about" class="content" style="padding:0" data-on="settings-about">
       <div class="backbar"><button type="button" class="icon-btn" data-go="settings" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button><h1 class="title" data-t="settings.about"></h1></div>
@@ -615,7 +661,7 @@ search providers asked: 0 of 3</pre>
     </section>
   </main>
 
-  <nav class="navbar" aria-label="Main" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-language-dialog remove-dialog remove-offline">
+  <nav class="navbar" aria-label="Main" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-devices settings-language-dialog remove-dialog remove-offline">
     <button type="button" class="nav-item" id="nav-profile" data-current="profile profile-hidden profile-goal-dialog publish-dialog publish-progress switcher">
       <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-profile"/></svg></span><span data-t="nav.profile"></span></button>
     <button type="button" class="nav-item" id="nav-search" data-current="search search-loading search-empty search-error">
@@ -625,7 +671,7 @@ search providers asked: 0 of 3</pre>
       <span class="badge" id="chats-unread" data-ta="chats.unread">3</span></button>
     <button type="button" class="nav-item" id="nav-network" data-current="network network-checking network-error">
       <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-network"/></svg></span><span data-t="nav.network"></span></button>
-    <button type="button" class="nav-item" id="nav-settings" data-current="settings settings-language-dialog remove-dialog remove-offline settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed">
+    <button type="button" class="nav-item" id="nav-settings" data-current="settings settings-language-dialog remove-dialog remove-offline settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-devices">
       <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-settings"/></svg></span><span data-t="nav.settings"></span></button>
   </nav>
 
@@ -727,6 +773,57 @@ search providers asked: 0 of 3</pre>
     </div>
   </div>
 
+  <div class="scrim" data-on="owner-code owner-malformed owner-expired owner-preparing owner-prepare-error">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="owner-code-title">
+      <h2 id="owner-code-title" data-t="devices.code.title"></h2>
+      <p data-t="owner.intro"></p>
+      <div class="field"><label for="owner-code-input" data-t="devices.code.label"></label><textarea id="owner-code-input" rows="4" data-disabled="owner-preparing"></textarea></div>
+      <p class="notice error" data-on="owner-malformed" data-t="devices.code.bad"></p>
+      <p class="notice error" data-on="owner-expired" data-t="devices.code.expired"></p>
+      <p class="notice error" data-on="owner-prepare-error" data-t="owner.prepareError"></p>
+      <p class="notice" role="status" data-on="owner-preparing" data-t="owner.preparing"></p>
+      <div class="actions">
+        <button type="button" class="btn text" id="owner-code-cancel" data-go="devices-ready" data-t="action.cancel"></button>
+        <button type="button" class="btn text" id="owner-code-next" data-go="owner-preparing" data-disabled="owner-preparing" data-t="devices.code.next"></button>
+      </div>
+    </div>
+  </div>
+  <div class="scrim" data-on="owner-confirm owner-confirm-expired owner-sending owner-send-error owner-send-expired owner-send-check-error owner-sent">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="owner-confirm-title">
+      <h2 id="owner-confirm-title" data-t="devices.confirm.title"></h2>
+      <p class="caption" data-t="owner.identity"></p><code id="owner-identity"></code>
+      <p class="caption" data-t="devices.code.label"></p><code id="owner-recipient"></code>
+      <p data-t="devices.confirm.text"></p>
+      <p class="notice" data-t="devices.confirm.warn"></p>
+      <p class="notice" role="status" data-on="owner-sending" data-t="owner.sending"></p>
+      <p class="notice error" role="status" data-on="owner-send-error owner-send-expired owner-send-check-error" data-t="devices.code.offline"></p>
+      <p class="notice error" data-on="owner-confirm-expired owner-send-expired" data-t="devices.code.expired"></p>
+      <p class="notice error" role="status" data-on="owner-send-check-error" data-t="owner.unavailable"></p>
+      <p class="notice" role="status" data-on="owner-sent" data-t="devices.sent"></p>
+      <div class="actions">
+        <button type="button" class="btn text" id="owner-confirm-cancel" data-go="devices-ready" data-off="owner-sent" data-disabled="owner-sending" data-t="action.cancel"></button>
+        <button type="button" class="btn text danger" id="owner-send" data-go="owner-sending" data-off="owner-sent owner-send-error owner-send-expired owner-send-check-error" data-disabled="owner-sending owner-confirm-expired" data-t="devices.confirm.action"></button>
+        <button type="button" class="btn text danger" id="owner-retry" data-go="owner-sending" data-on="owner-send-error owner-send-check-error" data-disabled="owner-send-check-error" data-t="action.retry"></button>
+        <button type="button" class="btn text" id="owner-done" data-go="devices-ready" data-on="owner-sent" data-t="nav.back"></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="scrim" data-on="devices-confirm devices-revoking devices-uncertain">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="disconnect-title">
+      <h2 id="disconnect-title" data-t="disconnect.title"></h2>
+      <code id="disconnect-device">7c20be</code>
+      <p data-t="disconnect.text"></p>
+      <p class="notice" data-on="devices-revoking" data-t="devices.revoking"></p>
+      <p class="notice error" data-on="devices-uncertain" data-t="disconnect.offline"></p>
+      <div class="actions">
+        <button type="button" class="btn text" id="disconnect-cancel" data-go="devices-ready" data-disabled="devices-revoking" data-t="action.cancel"></button>
+        <button type="button" class="btn text danger" id="disconnect-confirm" data-go="devices-revoking" data-off="devices-uncertain" data-disabled="devices-revoking" data-t="disconnect.action"></button>
+        <button type="button" class="btn text danger" id="disconnect-retry" data-go="devices-revoking" data-on="devices-uncertain" data-t="action.retry"></button>
+      </div>
+    </div>
+  </div>
+
   <!-- Rename dialog: a private name shared with this identity's own devices; empty removes it. -->
   <div class="scrim" data-on="chat-rename-dialog">
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="rename-title">
@@ -795,13 +892,14 @@ search providers asked: 0 of 3</pre>
 
 <script src="../../desktop/prototype/strings.js"></script>
 <script src="strings.js"></script>
+<script src="review-strings.js"></script>
 <script>
 // Show the screen named by the hash in the language and theme named by the query; nothing else.
 const query = new URLSearchParams(location.search);
 const screen = location.hash.slice(1) || 'profile';
 const lang = query.get('lang') === 'ru' ? 'ru' : 'en';
 const t = STRINGS[lang];
-const shown = screen === 'identity-durability-dialog' ? 'profile' : screen;
+const shown = /^(devices|owner)-/.test(screen) ? 'settings-devices' : screen === 'identity-durability-dialog' ? 'profile' : screen;
 const has = (el, name) => el.dataset[name].split(' ').some((state) => state === screen || state === shown);
 document.documentElement.lang = lang;
 document.documentElement.dataset.screen = screen;
@@ -829,6 +927,9 @@ document.title = `${t['app.name']} — ${screen}`;
 </script>
 <script type="module">
 import { installIdentifiers } from '../../desktop/ui/identifiers.js';
+import { installReviewFixture } from './review-fixture.js';
+import { installDevicesFixture } from './devices-fixture.js';
+import { installOwnerFixture } from './owner-fixture.js';
 import { enhanceChoice } from '../../desktop/ui/profile-choice.js';
 import { installCollections } from '../../desktop/prototype/collection-fixture.js';
 import { installForwardFixture, forwardScreens } from '../../desktop/prototype/forward-fixture.js';
@@ -840,8 +941,11 @@ if (!contactName || !contact.dataset.peerId || !targetName || !targetPeer)
   throw new Error('Clear confirmation target is missing');
 targetName.textContent = contactName.textContent;
 targetPeer.textContent = contact.dataset.peerId;
+if (screen.startsWith('link-review-')) installReviewFixture(t, screen);
 installIdentifiers(t);
-installCollections(t, ['identities', 'blocked', 'passed']);
+installCollections(t, ['identities', 'blocked', 'passed', 'devices']);
+installDevicesFixture(t, screen.startsWith('owner-') ? 'devices-ready' : screen);
+installOwnerFixture(t, screen);
 if (screen.startsWith('chat') || forwardScreens.includes(screen)) installForwardFixture(t, screen);
 enhanceChoice(
   document.querySelector('select[data-choice-picker]'),

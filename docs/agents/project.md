@@ -140,6 +140,11 @@ horizontal calibration, capture the actual onTextLayout callback: CI observed th
 adapter reconstructed two wrapped lines for softWrap=false. Keep the horizontal-clipping assertion
 and assert no vertical overflow so another rejection cannot mask a broken horizontal guard.
 
+For a Compose stale-callback test, retain `applicationClickKey` from the control, not its
+`SemanticsActions.OnClick` wrapper. Foundation's wrapper dereferences a Modifier node before calling
+the app; invoking it after disposal can fail on a detached node without exercising the app's guard.
+Keep the real control click for admission and call the saved application closure only for retirement.
+
 Android network-policy tests use public API 31 `NetworkCapabilities.capabilities` snapshots:
 `addCapability`/`removeCapability` on `NetworkCapabilities` are hidden SDK APIs. Keep these
 tests independent of an emulator's live connection and callback timing.
@@ -159,8 +164,24 @@ extension functions. `ChatFeedActions.shareProfile` uses `history(peer)` and `se
 without a receiver. `make lint-android` does not resolve method signatures; native Android CI
 must compile the changed callers and generated bindings. Fixture helpers that call `setContent`
 take `ComposeContentTestRule`; base `ComposeTestRule` supports synchronization/input only.
+Call `setContent` once per test. Multiple native UI phases reuse a mutable root scene with fresh
+reference-owned routes and await disposal/completion instead of installing another Compose root.
+For Kotlin CodeQL findings, inspect compiler lowering before changing working source. CodeQL 2.27.5
+can label `UInt` constants as `Integer` at `List<UInt>.contains`; Kotlin 2.4.21 actually inserts
+`UInt.box-impl`. A small Docker probe with present/absent fields and a deliberately boxed `Int`
+negative control distinguishes this false positive from a real container-type mismatch.
+Compose also generates class-specific synthetic static `$stable` fields; inherited names are expected
+stability metadata, not application-state shadowing. Verify the compiler/runtime contract and source
+members before dismissing that finding. Keep individual evidence in the bead; do not disable queries
+or add source suppressions for these cases. Python `Protocol` member bodies containing a docstring
+and `...` are intentional structural type declarations; trace calls to their real implementations
+before classifying an `ineffectual-statement` finding. A protocol stub is not an unfinished runtime
+implementation when the caller uses a structurally typed function or module.
 Raw `onNode`/`onAllNodes` are receiver members: call `compose.onNode(...)`/
-`compose.onAllNodes(...)` without importing top-level functions. Named helpers such as
+`compose.onAllNodes(...)` without importing top-level functions. Likewise `assertExists` and
+`assertDoesNotExist` are `SemanticsNodeInteraction` members; retain their node calls without
+`androidx.compose.ui.test` imports. Main-source CodeQL compilation does not validate androidTest
+imports; the Android test-APK compiler remains the authoritative check. Named helpers such as
 `onNodeWithTag` remain extensions requiring imports.
 Localized instrumentation content uses `LocalizedTestContext` so context/configuration/resources
 agree and the actual Activity picker registry survives the configuration-context substitution.
@@ -178,6 +199,11 @@ read/import job must outlive clearing the picker ticket while staying within the
 Compose `produceState` restart keys do not recreate its remembered initial state. Profile loading
 uses an outer keyed composition for peer/feed ownership and verifies coroutine activity before
 publishing a fetch result; preserve both guards when changing retries or data sources.
+A `StateFlow`/Compose consumer can conflate a worker's busy and idle frames. UI admission latches
+therefore use an explicit worker completion result, independent of the UI coroutine; observing
+`busy = true` is not a prerequisite for releasing a completed validation-error retry. Generated
+UniFFI records can compare structurally equal across fresh reads: comparison form ownership uses a
+plain reference token, not the record itself.
 For a dynamic owner-key array, use one structural key such as `key(owners.toList())`.
 The Kotlin/Compose compiler 2.4.21 crashes in `irJoinKeyChain` on a spread-only `key(*owners)`.
 
@@ -442,6 +468,10 @@ with its exit code; retain that line when investigating provider errors such as 
 | Rust API docs | `make doc` | output stays in the Docker volume, see [documentation.md](../development/documentation.md) |
 | UI tests | `make ui-test`, `ui-test-android`, `ui-test-android-emulator`, `ui-test-linux` | see [ui-testing.md](../testing/ui-testing.md) |
 
+Android's shared text components in `Page.kt` are `PageTitle` for a page and `CardTitle` for a
+semantic group heading. Kotlin lint does not compile callers: it cannot prove that a helper name or
+generated FFI member exists; the Android/CodeQL compilation jobs supply that evidence.
+
 Hawk includes test and other non-production consumers. New regression tests can make an old
 `hawk::dead_public` expectation stale; remove the stale marker instead of relaxing the audit.
 On failure, inspect only the `diagnostics` list in the container's `build/unused-public.json`.
@@ -620,6 +650,10 @@ discovery and run nothing; regression tests must cover discovery errors and empt
   versions and identity mismatches. Revisit compatibility when a client is released.
 - Commit and push only when the user has authorised it (for the session or in their
   instructions). End commits with the Co-Authored-By line for your model (see AGENTS.md).
+- Before another delivery push, observe the current branch CI within the agreed polling cadence.
+  Let required active jobs finish and harvest their results first; retain local commits while waiting.
+  The main CI workflow cancels an older push run on the same ref. Replace that run only when the
+  maintainer explicitly asks for replacement; a new commit does not make pending acceptance useless.
 - Before pushing or merging, run the local [A6 delivery gate](quorum.md#a6-delivery-gate)
   on the exact delivery range. Check-only tightening needs an explicit classification;
   other triggers need a matching closed quorum. A direct push to `main` may print

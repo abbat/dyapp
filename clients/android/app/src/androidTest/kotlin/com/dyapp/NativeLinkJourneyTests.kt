@@ -1,17 +1,18 @@
 package com.dyapp
 
+import androidx.compose.ui.test.junit4.createComposeRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import uniffi.dyapp.IdentityKey
 import uniffi.dyapp.LinkReviewChoice
 import uniffi.dyapp.LinkReviewSource
 import uniffi.dyapp.MobileDeviceDirectory
 import uniffi.dyapp.MobileIdentityRegistry
-import uniffi.dyapp.MobileLinkApproval
 import uniffi.dyapp.MobileLinkPhase
 import uniffi.dyapp.MobileLinkReceipt
 import uniffi.dyapp.MobileLinkReceiver
@@ -20,12 +21,17 @@ import uniffi.dyapp.MobileSlotSelection
 
 /** Both phones are clients of the existing CI node; neither hosts a node. */
 class NativeLinkJourneyTests {
+    @get:Rule
+    val compose = createComposeRule()
+    private val screenHost by lazy { NativeLinkScreenHost(compose) }
+
     @Test
     fun confirmedOwnerTransfersPrivateStateAndReceiverCompletesEnrollment() {
         workerTestPolicy()
         withPhones { owner, recipient ->
             val original = createReady(owner)
             val destination = createReady(recipient)
+            prepareNativeLinkPhoto(original)
             publishWorkerPeer(original)
             activateWorkerPeer(destination)
             val contact = IdentityKey.generate().use { it.peerId() }
@@ -34,7 +40,7 @@ class NativeLinkJourneyTests {
                 it.setContactNote(contact, note)
                 it.setFavorite(contact, true)
             }
-            transfer(owner, original, recipient, destination).let { installed ->
+            transfer(original, recipient, destination).let { installed ->
                 assertEquals(original.peerId, installed.peerId)
                 assertNotEquals(destination.slot.id, installed.slot.id)
                 assertEquals(2, recipient.list().size)
@@ -64,27 +70,27 @@ class NativeLinkJourneyTests {
         selection.key.use { Opened.Ready(selection.slot.view(registry), it.peerId()) }
 
     private fun transfer(
-        owner: MobileIdentityRegistry,
         original: Opened.Ready,
         recipient: MobileIdentityRegistry,
         destination: Opened.Ready
     ): Opened.Ready =
-        MobileLinkReceiver.start(recipient, destination.slot.id, destination.peerId, false).use { receiver ->
-            MobileLinkApproval.prepare(owner, original.slot.id, original.peerId, receiver.code()).use { approval ->
-                approval.confirmAndSend()
-            }
-            PeerTransition("authenticated link installation").await(
-                ready = { receiver.phase() == MobileLinkPhase.COMPLETED },
-                advance = {
-                    val phase = receiver.poll()
-                    check(phase == MobileLinkPhase.WAITING || phase == MobileLinkPhase.COMPLETED) {
-                        "Link stopped at $phase: ${receiver.result()}"
+        NativeOwnerApprovalJourney(screenHost, original).use { owner ->
+            owner.open()
+            MobileLinkReceiver.start(recipient, destination.slot.id, destination.peerId, false).use { receiver ->
+                owner.approve(receiver.code())
+                PeerTransition("authenticated link installation").await(
+                    ready = { receiver.phase() == MobileLinkPhase.COMPLETED },
+                    advance = {
+                        val phase = receiver.poll()
+                        check(phase == MobileLinkPhase.WAITING || phase == MobileLinkPhase.COMPLETED) {
+                            "Link stopped at $phase: ${receiver.result()}"
+                        }
                     }
-                }
-            )
-            val receipt = receiver.result()
-            check(receipt is MobileLinkReceipt.Installed) { "Missing installed receipt: $receipt" }
-            ready(recipient, receipt.selection)
+                )
+                val receipt = receiver.result()
+                check(receipt is MobileLinkReceipt.Installed) { "Missing installed receipt: $receipt" }
+                ready(recipient, receipt.selection)
+            }
         }
 
     private fun directory(opened: Opened.Ready) = MobileDeviceDirectory(
@@ -111,7 +117,7 @@ class NativeLinkJourneyTests {
                 assertTrue(before.any { it.key.contentEquals(linkedKey) })
                 assertNull(owner.revokedDevice())
                 assertNull(completeRevokedDevice(installed))
-                owner.revoke(linkedKey)
+                NativeDeviceScreenJourney(screenHost).revoke(original, linkedKey)
                 val remaining = owner.devices(true)
                 assertEquals(1, remaining.size)
                 assertTrue(remaining.single().current)
@@ -141,7 +147,8 @@ class NativeLinkJourneyTests {
     private fun completeEnrollment(installed: Opened.Ready) {
         linkEnrollmentReview(installed.slot.owner(), installed.slot.id, installed.peerId).use { review ->
             val choices = review.snapshot.differences.map { LinkReviewChoice(it, LinkReviewSource.REMOTE) }
-            assertEquals(review.snapshot.remote, review.preview(choices))
+            assertNativeReviewProjection(review.snapshot.remote, review.preview(choices))
+            assertNativeLinkThumbnail(review)
             assertTrue(review.resume())
             // A second completion proves that the original pending-link row was cleared.
             assertFalse(review.resume())

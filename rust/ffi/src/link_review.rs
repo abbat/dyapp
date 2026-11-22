@@ -1,6 +1,7 @@
 //! Idle owner-review handles retain no session, key or operation lease.
 mod error;
 mod fields;
+mod photos;
 mod view;
 pub use error::LinkReviewError;
 pub use fields::{LinkReviewChoice, LinkReviewField, LinkReviewSource};

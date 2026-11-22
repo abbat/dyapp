@@ -500,8 +500,16 @@ const checkLinkCode = async () => {
   ) {
     throw new Error(`code did not reach the confirmation: ${sent}`);
   }
-  await appBindings.sendLink(refuse('notConnected'));
+  let encryptedPartSent = false;
+  await appBindings.sendLink((command, args) => {
+    if (command !== 'send_link' || args.code !== 'dyapp-link:1:code')
+      throw new Error('partial send changed its confirmed target');
+    encryptedPartSent = true;
+    return Promise.reject('partialDeliveryFailed');
+  });
   if (
+    !encryptedPartSent ||
+    appBindings.codeField.value !== 'dyapp-link:1:code' ||
     confirm.open ||
     !code.open ||
     problem.textContent !== appApi.strings['devices.code.offline']

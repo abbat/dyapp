@@ -1,6 +1,5 @@
 package com.dyapp
 
-import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -39,7 +38,6 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.createBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -49,7 +47,6 @@ import uniffi.dyapp.PhotoPurpose
 import uniffi.dyapp.ProfileSearcher
 import uniffi.dyapp.checkPreview
 import uniffi.dyapp.peerPhotoAuto
-import java.nio.ByteBuffer
 
 /**
  * Other people's photos in the searcher's memory cache; see docs/design/profile-photos.md. A page
@@ -97,12 +94,7 @@ internal class PeerPhotos(private val searcher: ProfileSearcher?, private val op
 internal val LocalPeerPhotos = staticCompositionLocalOf<PeerPhotos?> { null }
 
 // The core decodes thumbnails, held to 320 x 320, so a crafted JPEG never reaches the platform decoder.
-internal fun thumbnail(bytes: ByteArray): ImageBitmap {
-    val rgba = checkPreview(bytes)
-    val bitmap = createBitmap(rgba.width.toInt(), rgba.height.toInt(), Bitmap.Config.ARGB_8888)
-    bitmap.copyPixelsFromBuffer(ByteBuffer.wrap(rgba.pixels))
-    return bitmap.asImageBitmap()
-}
+internal fun thumbnail(bytes: ByteArray): ImageBitmap = previewBitmap(checkPreview(bytes))
 
 // Use the core's purpose-specific target before allocating a full image for display.
 internal fun fullImage(bytes: ByteArray, purpose: PhotoPurpose = PhotoPurpose.PROFILE): ImageBitmap =

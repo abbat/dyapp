@@ -1,6 +1,27 @@
 // Android wording over the desktop prototype strings (loaded first); the shipped strings live in
 // app/src/main/res. Only keys that differ on Android or exist only here.
 Object.assign(STRINGS.en, {
+  'owner.intro': 'On the new device choose Receive a profile, then paste its code here.',
+  'owner.identity': 'Identity giving full control',
+  'owner.preparing': 'Preparing confirmation. No private data has been sent.',
+  'owner.prepareError': 'Could not prepare confirmation. No private data has been sent.',
+  'owner.sending': 'Sending encrypted profile data. Wait for confirmation.',
+  'owner.unavailable':
+    'Could not continue this attempt. Check the current result before starting again.',
+  'devices.this': 'This device',
+  'devices.revoking': 'Disconnecting this device. Wait for confirmation.',
+  'devices.read.loading': 'Reading the saved device list…',
+  'devices.read.saved': 'Saved device list. This view does not confirm the current network state.',
+  'devices.read.verified': 'Showing the device list from a verified network profile.',
+  'devices.read.verifiedSaved':
+    'The saved device list is shown; the verified reply did not provide a newer version.',
+  'devices.read.unavailable':
+    'Could not read a verified network profile. The saved device list remains visible.',
+  'devices.read.noProfile':
+    'No network profile was found. The saved device list remains visible; this does not confirm disconnection.',
+  'devices.read.empty':
+    'The verified profile lists no devices. This does not confirm an earlier disconnect request.',
+  'devices.read.error': 'Could not read the saved device list. Return or try Refresh.',
   'network.save': 'Save draft',
   'network.activate': 'Activate checked settings',
   'network.activating': 'Activating checked settings…',
@@ -99,6 +120,27 @@ Object.assign(STRINGS.en, {
     'A block hides someone from your search and chats and revokes their network tokens. They are not told. Retry the revocation if it is still pending.',
 });
 Object.assign(STRINGS.ru, {
+  'owner.intro': 'На новом устройстве выберите «Получить профиль» и вставьте сюда его код.',
+  'owner.identity': 'Идентичность, передающая полный контроль',
+  'owner.preparing': 'Подготовка подтверждения. Приватные данные ещё не отправлялись.',
+  'owner.prepareError': 'Не удалось подготовить подтверждение. Приватные данные не отправлялись.',
+  'owner.sending': 'Отправка зашифрованных данных профиля. Дождитесь подтверждения.',
+  'owner.unavailable':
+    'Не удалось продолжить эту попытку. Проверьте текущий результат перед новой попыткой.',
+  'devices.this': 'Это устройство',
+  'devices.revoking': 'Устройство отключается. Дождитесь подтверждения.',
+  'devices.read.loading': 'Чтение сохранённого списка устройств…',
+  'devices.read.saved': 'Сохранённый список устройств. Это не подтверждает текущее состояние сети.',
+  'devices.read.verified': 'Показан список устройств из проверенного сетевого профиля.',
+  'devices.read.verifiedSaved':
+    'Показан сохранённый список: проверенный ответ не содержит более новой версии.',
+  'devices.read.unavailable':
+    'Не удалось прочитать проверенный сетевой профиль. Сохранённый список устройств остаётся на экране.',
+  'devices.read.noProfile':
+    'Сетевой профиль не найден. Сохранённый список остаётся на экране; это не подтверждает отключение.',
+  'devices.read.empty':
+    'В проверенном профиле нет устройств. Это не подтверждает прежний запрос отключения.',
+  'devices.read.error': 'Не удалось прочитать сохранённый список. Вернитесь или обновите список.',
   'network.save': 'Сохранить черновик',
   'network.activate': 'Активировать проверенные настройки',
   'network.activating': 'Активация проверенных настроек…',

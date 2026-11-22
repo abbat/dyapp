@@ -134,7 +134,7 @@ fn comparison_offers_only_owner_preferences_without_writes_or_import_progress() 
     let review = store.prepare_link_state_review(&identity).unwrap().unwrap();
     assert!(review.is_current(&store, &identity).unwrap());
     let differences = review.differences();
-    assert_eq!(differences.len(), 8);
+    assert_eq!(differences.len(), 7);
     let note = differences
         .iter()
         .find(|difference| difference.field == Field::Note)
@@ -142,9 +142,7 @@ fn comparison_offers_only_owner_preferences_without_writes_or_import_progress() 
     assert_eq!(note.peer.as_deref(), Some("carol"));
     assert!(note.local == Value::Text(String::new()));
     assert!(note.pending == Value::Text("original note".into()));
-    assert!(differences
-        .iter()
-        .any(|difference| difference.field == Field::OutgoingLike));
+    assert!(review.has_protected_differences());
     assert_eq!(store.db.total_changes(), writes);
     assert_eq!(store.link_state().unwrap(), before);
     assert_eq!(store.link_pending().unwrap(), Some(state.clone()));
@@ -155,16 +153,24 @@ fn comparison_offers_only_owner_preferences_without_writes_or_import_progress() 
 }
 
 #[test]
-fn incoming_likes_trust_observations_and_unknown_fields_are_not_preference_choices() {
+fn all_likes_trust_observations_and_unknown_fields_are_not_preference_choices() {
     let identity = Identity::from_secret(&[7; 32]);
-    for case in 0..3 {
+    for case in 0..4 {
         let store = Store::open(&temp_db_path(), &identity).unwrap();
         private_choices(&store, false, 2_000);
         let mut pending = snapshot(&store);
         match case {
-            0 => pending.likes.push(Like {
-                sender: "someone".into(),
-                target: identity.peer_id(),
+            0 | 2 => pending.likes.push(Like {
+                sender: if case == 0 {
+                    "someone".into()
+                } else {
+                    identity.peer_id()
+                },
+                target: if case == 0 {
+                    identity.peer_id()
+                } else {
+                    "someone".into()
+                },
                 liked: true,
                 hlc: 5,
                 device: b"other".to_vec(),
@@ -174,7 +180,7 @@ fn incoming_likes_trust_observations_and_unknown_fields_are_not_preference_choic
             _ => {}
         }
         let mut bytes = pending.encode_to_vec();
-        if case == 2 {
+        if case == 3 {
             bytes.extend([0xF8, 0x07, 0x01]);
         }
         legacy(&store, &bytes);

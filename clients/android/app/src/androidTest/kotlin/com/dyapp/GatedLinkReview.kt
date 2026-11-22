@@ -25,6 +25,7 @@ internal class GatedLinkReview(snapshot: LinkReviewSnapshot) {
             LinkReviewSaved(snapshot.remote, snapshot.local, hidden = true, pending = true)
         },
         { snapshot.remote },
+        { _, _ -> error("Unexpected thumbnail read") },
         { closes.incrementAndGet() }
     )
 }

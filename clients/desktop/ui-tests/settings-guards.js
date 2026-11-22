@@ -135,9 +135,20 @@
     }
   };
   const checkFailedDisconnect = async () => {
-    await appBindings.disconnectNow(() => Promise.reject(new Error('notConnected')));
+    let closedMailbox = false;
+    await appBindings.disconnectNow((command, args) => {
+      if (command !== 'revoke_device' || args.deviceKey.join() !== '1,2,255')
+        throw new Error('failed disconnect changed its target');
+      closedMailbox = true;
+      return Promise.reject(new Error('profilePublicationFailed'));
+    });
+    const problem = document.getElementById('disconnect-problem');
     if (
-      document.getElementById('disconnect-problem').hidden ||
+      !closedMailbox ||
+      !document.getElementById('disconnect').open ||
+      problem.textContent !== appApi.strings['disconnect.offline'] ||
+      document.getElementById('devices-status').textContent ||
+      problem.hidden ||
       document.getElementById('disconnect-retry').hidden ||
       !document.getElementById('disconnect-action').hidden
     ) {

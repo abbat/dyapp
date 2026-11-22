@@ -182,8 +182,14 @@ encrypts one chat message, prepares every signed mailbox write, commits the new 
 writes, and only then calls `Node::put_prepared`. A preparation or local storage failure discards
 the advanced in-memory handles until `recover` reopens the last committed snapshot. Network
 failure leaves the exact signed writes in the outbox: `Session::retry_due` puts every due one
-again, and a failed retry waits 1 s, then twice as long each time, up to an hour. An accepted
-write stays until its delivery receipt: `Session::receive` sends each group one `Body::Receipt`
+again, and a failed retry waits 1 s, then twice as long each time, up to an hour. Equal retry
+deadlines preserve staging order, but node acceptance is not an ordering guarantee across holders.
+If a text is older than the MLS out-of-order window, the recipient marks it refused and returns a
+negative receipt. A duplicate refused envelope repeats that receipt. The sender accepts it only from
+the corresponding member/device mailbox and only for the same MLS group. If the original text is
+still current and has not been edited or deleted, the sender re-encrypts the same logical ID and
+original HLC in the current generation, sends only to the refusing device, and atomically replaces
+the old outbox write. An accepted write stays until its delivery receipt: `Session::receive` sends each group one `Body::Receipt`
 naming the envelope IDs it committed, and the sender's outbox drops them. Without a receipt it
 is put again 1 h after acceptance, then up to a day apart, and given up after 30 days. A receipt
 leaves the outbox once a node accepts it and is not receipted itself. Each `Session` call takes

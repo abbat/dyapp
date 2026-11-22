@@ -225,8 +225,9 @@ The IDs inside each section are the desktop ones; only the frame differs.
   the mailbox every minute while it is in the foreground, on every section and in a chat, and a
   background job about every 15 minutes otherwise ([privacy](../security/privacy.md#local-notices)); failures
   stay quiet.
-- Linking a phone to an identity and the Devices list are planned; the desktop screens define the
-  flow, see [desktop-screens.md](desktop-screens.md#linking-this-computer).
+- Profile receiving, Devices and owner approval have native implementations described below.
+  The desktop defines the shared linking contract, see
+  [desktop-screens.md](desktop-screens.md#linking-this-computer).
 - Settings, `settings`: a fixed category hub, with no identity/peer rows or destructive actions.
   Categories are `settings-appearance`, `settings-privacy`, `settings-notifications`,
   `settings-photos`, `settings-account` and `settings-about`. Each has a
@@ -251,6 +252,36 @@ The IDs inside each section are the desktop ones; only the frame differs.
   Native Android now implements the download-mode radio group through the common core API;
   retention, exact numeric MiB budget, byte usage, refresh and confirmed cache clear use shared core
   input and current-state edit policy. Native runtime and visual acceptance remain separate.
+- Account also opens the own-device prototype through `settings-devices-open`.
+  Its states cover `devices-loading`, `devices-saved`, `devices-ready`,
+  `devices-verified-saved`, `devices-offline`, `devices-no-profile`, `devices-empty`
+  and `devices-error`. Saved rows remain distinct from a verified reply; an absent network
+  profile or empty list never acknowledges revocation. Empty saved rows after an older/equal verified
+  reply retain the saved-fallback label; only empty rows projected from the remote source describe
+  an empty verified directory. `devices-confirm`, `devices-revoking`,
+  `devices-uncertain` and `devices-gone` show explicit confirmation, admitted work,
+  unconfirmed partial completion and acknowledged completion. The current device is first and
+  cannot be disconnected here. Retry retains the displayed original target; copied-key and
+  local-copy warnings remain. Search and paging use the existing prototype collection component.
+  Native Account → Devices routing and widgets now use the retained IO presentation worker and
+  common device snapshot. Local collection search/count/page bounds remain in Rust. The confirmation
+  names the immutable original key before its consequences; admitted work disables Cancel/Back.
+  Acknowledged revoke and subsequent cache-read failure remain separate visible results. Generated
+  bindings, real JNI and full native EN/RU visual acceptance still require CI.
+  The owner approval prototype opens through `owner-open`: `owner-code`, `owner-malformed`,
+  `owner-expired`, `owner-preparing` and `owner-prepare-error` show input and read-only preparation.
+  `owner-confirm` displays the original owner and public recipient code before the full-control
+  and physical-possession warnings. `owner-confirm-expired` refuses sending; `owner-sending`
+  disables dismissal and repeat submission. `owner-send-error` retains the target and explicit Retry;
+  `owner-send-expired` preserves both expiry and potentially partial encrypted delivery.
+  `owner-send-check-error` retains that uncertainty alongside an unavailable code check and disabled Retry.
+  `owner-sent` acknowledges sending, never recipient installation. Closing cannot recall delivered
+  data. Native Devices now opens the same flow through its retained IO worker, with scrollable
+  confirmation, public owner/code copy actions and WindowInfo-driven Cancel focus. Preparation can
+  dismiss; admitted send rejects Back/Cancel and repeats. A retired dialog cannot act on a successor.
+  An unavailable code check preserves earlier send facts and asks for result review rather than
+  claiming nothing was sent. Native EN/RU visual and actual UI/JNI transfer acceptance remain open;
+  static outcomes perform no validation or writes.
 - Account links to `settings-identities-screen`. Its `settings-identities` list preserves
   `settings-remove`, `settings-remove-2` and `settings-create`. Blocked and passed have
   `blocked-list` and `passed-list` in the `blocked` and `passed` cards:
@@ -325,12 +356,21 @@ only backend failures offer ordinary explicit retry. First run also offers Recei
 only an explicit choice creates its wizard identity, then the shared network form checks and activates
 before the QR step. Cancel preserves that identity and saved network draft. Navigation restoration
 stores only the source identifiers and requires another explicit code creation; core checks whether
-the wizard may be cleaned after success. Field/private-state recovery screens, owner approval and
+the wizard may be cleaned after success. Private-state recovery screens, owner approval and
 device-list screens remain planned; native runtime and screen review are still required. Code lifetime,
 installation receipts and authorization stay in shared Rust. The static Android prototype now includes
 explicit receiving, typed failure and separate setup states, plus first-run network activation without
-Skip. Its QR is a layout stand-in; the APK uses the core matrix. Manual field comparison remains
-planned in both presentations.
+Skip. Its QR is a layout stand-in; the APK uses the core matrix. The static field comparison covers
+all 31 core field groups, explicit source choices, full values and photo-reference disclosure, read-only
+preview, saving, saved and recovery states. It starts without selected answers and preserves choices
+when returning from preview. Its sample values and photos prove no native authorization or write.
+The native comparison uses the same explicit full-value form, including unknown unsigned codes,
+partial dates, complete coupled groups and bounded photo thumbnails from the original slot. Photo
+references remain inspectable when pixels are unavailable; retry never selects a source. Returning
+from the core preview preserves choices; reopening the form or replacing its native opening clears
+them. Saving and photo reads outlive UI cancellation through the retained worker. Confirmation uses
+an explicit completion result rather than relying on an observed busy frame. Native runtime and
+complete screen review remain required before release.
 
 Android screens may be reviewed and implemented individually against the frozen criteria and the
 corresponding desktop behavior. The complete prototype review and per-client impact review remain

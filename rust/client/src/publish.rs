@@ -16,6 +16,7 @@ use prost::Message as _;
 
 mod adoption_confirm;
 mod adoption_fields;
+mod adoption_photos;
 mod adoption_review;
 mod condition;
 mod fields;
@@ -29,6 +30,7 @@ pub use adoption_confirm::{
     confirm_adoption_review, confirm_adoption_review_with_scores, AdoptionConfirmError,
 };
 pub use adoption_fields::AdoptionField;
+pub use adoption_photos::AdoptionPhotoError;
 pub use adoption_review::{
     review_adoption, review_adoption_with_scores, AdoptionReview, AdoptionSelectionError,
     AdoptionSource,

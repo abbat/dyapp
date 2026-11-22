@@ -18,7 +18,7 @@ import uniffi.dyapp.SeedRow
 import uniffi.dyapp.setTestNodeIdPowBits
 import java.io.File
 
-private const val LAN_PROBE_WAIT_MS = 5_000u
+private const val LAN_REFUSAL_BUDGET_MS = 5_000u
 
 /** Separate invocations survive the process termination caused by an external permission revoke. */
 class LocalNetworkPermissionPhaseTests {
@@ -149,12 +149,18 @@ class LocalNetworkPermissionPhaseTests {
     private fun checkConnection(checker: ConnectionCheck, settings: NetworkSettings, allowed: Boolean): SeedRow {
         var rows = emptyList<SeedRow>()
         if (allowed) {
-            PeerTransition("native permission fixture ${settings.seeds.single()} readiness").await(
-                ready = { rows.singleOrNull() is SeedRow.Connected },
-                advance = { rows = checker.run(settings, LAN_PROBE_WAIT_MS) }
-            )
+            try {
+                PeerTransition("native permission fixture ${settings.seeds.single()} readiness").awaitSignal(
+                    ready = { rows.singleOrNull() is SeedRow.Connected },
+                    advance = { remaining ->
+                        rows = checker.run(settings, remaining.coerceAtMost(UInt.MAX_VALUE.toLong()).toUInt())
+                    }
+                )
+            } catch (failure: IllegalStateException) {
+                throw AssertionError("${failure.message}; last native connection result: $rows", failure)
+            }
         } else {
-            rows = checker.run(settings, LAN_PROBE_WAIT_MS)
+            rows = checker.run(settings, LAN_REFUSAL_BUDGET_MS)
         }
         assertEquals(1, rows.size)
         if (allowed) {

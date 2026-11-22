@@ -11,6 +11,73 @@ pub struct OwnDevice {
     pub this: bool,
 }
 
+/// Outcome of a directory read; absence of a verified profile grants no revocation authority.
+#[derive(Clone, Copy)]
+pub enum Readback<'a> {
+    /// No network read was requested.
+    Cached,
+    /// The requested read could not complete.
+    Unavailable,
+    /// The read returned no verified same-owner profile.
+    NoProfile,
+    /// A verified same-owner profile was returned.
+    Verified(&'a Profile),
+}
+
+/// Whether the requested directory read completed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReadState {
+    /// Saved data only.
+    Cached,
+    /// Network or configuration was unavailable.
+    Unavailable,
+    /// No verified same-owner profile was returned.
+    NoProfile,
+    /// Verified same-owner readback completed, possibly older than the saved draft.
+    Verified,
+}
+
+/// Snapshot actually used for the displayed rows.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RowSource {
+    /// Saved profile, including fallback after an unavailable or older readback.
+    Saved,
+    /// Strictly newer verified profile.
+    Remote,
+}
+
+/// Truthful read status and rows; this snapshot authorizes no device changes.
+#[derive(Debug, PartialEq, Eq)]
+pub struct Snapshot {
+    /// Current-device-first public selectors.
+    pub devices: Vec<OwnDevice>,
+    /// Read outcome, independent of whether rows are empty.
+    pub state: ReadState,
+    /// Profile actually projected into rows.
+    pub source: RowSource,
+}
+
+/// Project read status and directory contents without guessing freshness from row contents.
+#[must_use]
+pub fn snapshot(draft: &Profile, readback: Readback<'_>, this: &[u8]) -> Snapshot {
+    let (state, remote) = match readback {
+        Readback::Cached => (ReadState::Cached, None),
+        Readback::Unavailable => (ReadState::Unavailable, None),
+        Readback::NoProfile => (ReadState::NoProfile, None),
+        Readback::Verified(profile) => (ReadState::Verified, Some(profile)),
+    };
+    let source = if newer(draft, remote).is_some() {
+        RowSource::Remote
+    } else {
+        RowSource::Saved
+    };
+    Snapshot {
+        devices: rows(draft, remote, this),
+        state,
+        source,
+    }
+}
+
 /// Project current-device-first rows, preserving other order and the saved editable profile.
 ///
 /// `remote` must come from verified same-owner ordinary readback. An unavailable readback is
@@ -18,9 +85,7 @@ pub struct OwnDevice {
 /// preserves the desktop's existing offline fallback and strict version precedence.
 #[must_use]
 pub fn rows(draft: &Profile, remote: Option<&Profile>, this: &[u8]) -> Vec<OwnDevice> {
-    let profile = remote
-        .filter(|held| held.version > draft.version)
-        .unwrap_or(draft);
+    let profile = newer(draft, remote).unwrap_or(draft);
     let mut rows: Vec<_> = publish::device_keys(profile)
         .into_iter()
         .map(|key| OwnDevice {
@@ -32,6 +97,14 @@ pub fn rows(draft: &Profile, remote: Option<&Profile>, this: &[u8]) -> Vec<OwnDe
     rows
 }
 
+fn newer<'a>(draft: &Profile, remote: Option<&'a Profile>) -> Option<&'a Profile> {
+    remote.filter(|held| held.version > draft.version)
+}
+
+#[cfg(test)]
+#[path = "device_directory/read_tests.rs"]
+mod read_tests;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -39,7 +112,7 @@ mod tests {
     use dyapp_profile::DeviceCertificate;
     use prost::Message as _;
 
-    fn profile(owner: &Identity, device: &Identity, version: u64) -> Profile {
+    pub(super) fn profile(owner: &Identity, device: &Identity, version: u64) -> Profile {
         Profile {
             version,
             name: "unsent local edit".into(),

@@ -29,8 +29,6 @@ pub enum LinkPreference {
     Passed,
     /// Search visibility.
     Hidden,
-    /// The owner's outgoing like, not an incoming like.
-    OutgoingLike,
 }
 
 /// A frozen value; selecting it must not copy historical actors, clocks or event identifiers.
@@ -128,8 +126,8 @@ impl LinkStateReview {
     /// field's domain policy under its writer. A comparison never authorizes event-history changes.
     #[must_use]
     pub fn differences(&self) -> Vec<LinkPreferenceDifference> {
-        let local = preferences(&self.local, &self.owner);
-        let pending = preferences(&self.pending, &self.owner);
+        let local = preferences(&self.local);
+        let pending = preferences(&self.pending);
         let keys: BTreeSet<_> = local.keys().chain(pending.keys()).cloned().collect();
         keys.into_iter()
             .filter_map(|(peer, field)| {
@@ -164,7 +162,7 @@ impl LinkStateReview {
 
 type Preferences = BTreeMap<(Option<String>, LinkPreference), LinkPreferenceValue>;
 
-fn preferences(state: &LinkState, owner: &str) -> Preferences {
+fn preferences(state: &LinkState) -> Preferences {
     use LinkPreference as F;
     use LinkPreferenceValue::{Flag, Text};
     let mut values = Preferences::new();
@@ -182,16 +180,6 @@ fn preferences(state: &LinkState, owner: &str) -> Preferences {
     }
     for pass in &state.passes {
         values.insert((Some(pass.peer_id.clone()), F::Passed), Flag(pass.passed));
-    }
-    for like in state
-        .likes
-        .iter()
-        .filter(|like| like.sender == owner && like.target != owner)
-    {
-        values.insert(
-            (Some(like.target.clone()), F::OutgoingLike),
-            Flag(like.liked),
-        );
     }
     values
 }

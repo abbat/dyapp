@@ -375,12 +375,22 @@ DESKTOP = [
     "devices-sent",
     "device-code-dialog",
     "device-code-error",
+    "device-send-error",
     "device-code-bad",
     "device-confirm-dialog",
     "disconnect-dialog",
     "disconnect-offline",
 ]
 ANDROID = [
+    "link-review-loading",
+    "link-review-comparison",
+    "link-review-ready",
+    "link-review-preview",
+    "link-review-saving",
+    "link-review-saved",
+    "link-review-validation",
+    "link-review-error",
+    "link-review-equal",
     "link-receive-intro",
     "link-receive-wizard-intro",
     "link-receive-start-error",
@@ -462,6 +472,30 @@ ANDROID = [
     "settings-identities-screen",
     "settings-blocked",
     "settings-passed",
+    "devices-loading",
+    "devices-saved",
+    "devices-ready",
+    "devices-verified-saved",
+    "devices-offline",
+    "devices-no-profile",
+    "devices-empty",
+    "devices-error",
+    "devices-confirm",
+    "devices-revoking",
+    "devices-uncertain",
+    "devices-gone",
+    "owner-code",
+    "owner-malformed",
+    "owner-expired",
+    "owner-preparing",
+    "owner-prepare-error",
+    "owner-confirm",
+    "owner-confirm-expired",
+    "owner-sending",
+    "owner-send-error",
+    "owner-send-expired",
+    "owner-send-check-error",
+    "owner-sent",
     "lock-settings",
     "switcher",
     "remove-dialog",
@@ -741,6 +775,12 @@ def audited(_view: WebKit2.WebView, result: Gio.AsyncResult) -> None:
 
 
 def android_fixture(screen: str) -> tuple[str, str] | None:
+    if screen.startswith("owner-"):
+        return "owner", "checkOwnerFixture"
+    if screen.startswith("devices-"):
+        return "devices", "checkDevicesFixture"
+    if screen.startswith("link-review-"):
+        return "review", "checkReviewFixture"
     if screen.startswith(("link-receive-", "link-setup-", "receive-network")):
         return "receive", "checkReceiveFixture"
     if screen == "identity-durability-dialog":

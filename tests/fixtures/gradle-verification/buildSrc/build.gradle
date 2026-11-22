@@ -1,0 +1,14 @@
+plugins { id 'java-gradle-plugin' }
+tasks.named('processResources') {
+    if (System.getenv('DYAPP_FIXTURE_MISSING_AAPT2') == '1') {
+        exclude 'com/android/build/gradle/internal/res/aapt2_version.properties'
+    }
+}
+gradlePlugin {
+    plugins {
+        androidFixture {
+            id = 'com.android.application'
+            implementationClass = 'fixture.AndroidPlugin'
+        }
+    }
+}

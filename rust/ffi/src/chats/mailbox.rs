@@ -59,7 +59,7 @@ impl ChatSession {
                             .await?;
                     }
                 }
-                Event::Gap(_) | Event::Refused(_) => {}
+                Event::Gap(_) | Event::Refused(_) | Event::ResendRequired => {}
                 _ => changed = changed.saturating_add(1),
             }
         }

@@ -17,12 +17,13 @@ internal enum class SettingsPane(val title: Int, val tag: String) {
     ACCOUNT(R.string.settings_account_title, "settings-account"),
     ABOUT(R.string.settings_about_title, "settings-about"),
     IDENTITIES(R.string.settings_identities, "settings-identities-screen"),
+    DEVICES(R.string.devices_title, "settings-devices"),
     RECEIVE(R.string.link_receive_title, "settings-receive"),
     BLOCKED(R.string.settings_blocked, "settings-blocked"),
     PASSED(R.string.settings_passed, "settings-passed");
 
     fun parent(): SettingsPane = when (this) {
-        IDENTITIES, RECEIVE -> ACCOUNT
+        IDENTITIES, DEVICES, RECEIVE -> ACCOUNT
         BLOCKED, PASSED -> PRIVACY
         else -> ROOT
     }

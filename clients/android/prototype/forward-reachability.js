@@ -1,3 +1,16 @@
+/** WebKit can retain client rectangles inside a collapsed disclosure. */
+export const isVisible = (node) => {
+  if (!(node instanceof HTMLElement) || node.getClientRects().length === 0) return false;
+  for (let parent = node.parentElement; parent; parent = parent.parentElement) {
+    if (
+      parent.matches('details:not([open])') &&
+      !parent.querySelector(':scope > summary')?.contains(node)
+    )
+      return false;
+  }
+  return true;
+};
+
 const reached = (node) => {
   const rect = node.getBoundingClientRect();
   if (

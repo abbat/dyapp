@@ -417,6 +417,8 @@ const STRINGS = {
     'devices.code.next': 'Continue',
     'devices.code.expired': 'This code expired. Show a new one on the new device.',
     'devices.code.bad': 'This is not a link code. Copy the whole code from the new device.',
+    'devices.code.offline':
+      'Sending could not be confirmed. Some encrypted data may already have been sent. Check the new device before trying again.',
     'devices.confirm.title': 'Give this device full control?',
     'devices.confirm.text':
       'It gets the key of this identity. It can read new chats, write as you, change your profile and disconnect your other devices, and you cannot take the key back.',
@@ -428,7 +430,7 @@ const STRINGS = {
       'It stops getting your chats. Copies already stored on that device may remain. Your contacts see that the device left.',
     'disconnect.action': 'Disconnect',
     'disconnect.offline':
-      'No node answered, so the device stays connected. Check the network and retry.',
+      'Disconnection could not be confirmed. Some changes may already have taken effect. Check the network and retry for this device.',
     'chat.linked':
       'This device reads this chat from the moment it joined. Earlier messages stay on your other devices.',
     'profile.status.hidden': 'Hidden from search. Version 3 stays saved as your draft.',
@@ -873,6 +875,8 @@ const STRINGS = {
     'devices.code.next': 'Продолжить',
     'devices.code.expired': 'Срок этого кода истёк. Покажите новый на новом устройстве.',
     'devices.code.bad': 'Это не код привязки. Скопируйте код с нового устройства целиком.',
+    'devices.code.offline':
+      'Отправка не подтверждена. Часть зашифрованных данных уже могла уйти. Проверьте новое устройство перед повторной попыткой.',
     'devices.confirm.title': 'Дать этому устройству полный контроль?',
     'devices.confirm.text':
       'Оно получит ключ этой идентичности. Сможет читать новые чаты, писать от вашего имени, менять профиль и отключать другие ваши устройства, а забрать ключ обратно нельзя.',
@@ -884,7 +888,7 @@ const STRINGS = {
       'Оно перестанет получать ваши чаты. Уже сохранённые на нём копии могут остаться. Контакты увидят, что устройство ушло.',
     'disconnect.action': 'Отключить',
     'disconnect.offline':
-      'Ни один узел не ответил, устройство осталось подключённым. Проверьте сеть и повторите.',
+      'Отключение не подтверждено. Часть изменений могла уже вступить в силу. Проверьте сеть и повторите для этого устройства.',
     'chat.linked':
       'Это устройство читает чат с момента привязки. Прежние сообщения остаются на других ваших устройствах.',
     'profile.status.hidden': 'Скрыт из поиска. Версия 3 сохранена как черновик.',

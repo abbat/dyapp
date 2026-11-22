@@ -22,17 +22,15 @@ import androidx.compose.ui.unit.dp
 
 /**
  * Six Settings categories preserve native panels and separate destructive collection actions.
- * Add changes the active slot through [act]; the lock row uses [lockMode] and [onLock].
+ * Add changes the active slot through [actions]; the lock row uses [lockMode].
  * Switching and the network remain in the shell; detail pages provide their own back route.
  */
 @Composable
-@Suppress("LongParameterList") // The section needs the slots, the lock mode and both routes out.
 internal fun IdentitySettingsScreen(
     slots: Slots,
     active: Opened.Ready,
     lockMode: LockMode,
-    act: (() -> Opened) -> Unit,
-    onLock: () -> Unit
+    actions: IdentitySettingsActions
 ) {
     val fallback = rememberSettingsPane(active.slot.id)
     val route = LocalSettingsPane.current ?: fallback
@@ -42,9 +40,9 @@ internal fun IdentitySettingsScreen(
             SettingsPane.PRIVACY -> PrivacySettings(active, route)
             SettingsPane.NOTIFICATIONS -> NoticeCard(active)
             SettingsPane.PHOTOS -> PhotoSettings(active)
-            SettingsPane.ACCOUNT -> AccountSettings(lockMode, route, onLock)
+            SettingsPane.ACCOUNT -> AccountSettings(active, lockMode, route, actions.lock)
             SettingsPane.ABOUT -> AboutSettings()
-            else -> SettingsCollection(route, slots, active, act)
+            else -> SettingsCollection(route, slots, active, actions.act)
         }
     }
 }
@@ -65,6 +63,7 @@ private fun SettingsCollection(
 ) {
     when (route.value) {
         SettingsPane.IDENTITIES -> IdentityCollection(slots, active, act)
+        SettingsPane.DEVICES -> DeviceDirectoryScreen(active)
         SettingsPane.RECEIVE -> LinkReceiveScreen(
             LinkReceiveSource(active),
             LinkReceiveNavigation(
@@ -94,11 +93,13 @@ private fun PrivacySettings(active: Opened.Ready, route: androidx.compose.runtim
 
 @Composable
 private fun AccountSettings(
+    active: Opened.Ready,
     mode: LockMode,
     route: androidx.compose.runtime.MutableState<SettingsPane>,
     onLock: () -> Unit
 ) {
     SettingsLink(SettingsPane.IDENTITIES, route)
+    DeviceDirectoryMenu(active, route)
     SettingsLink(SettingsPane.RECEIVE, route)
     LockRow(mode, onLock)
 }

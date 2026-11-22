@@ -60,6 +60,7 @@ const contracts = {
   'stickers-remove-unreadable': ['stickers-ready', '#sticker-remove-2'],
   'device-code-dialog': ['settings-devices', '#device-link'],
   'device-code-error': ['settings-devices', '#device-link'],
+  'device-send-error': ['settings-devices', '#device-link'],
   'device-code-bad': ['settings-devices', '#device-link'],
   'device-confirm-dialog': ['device-code-dialog', '#device-code-next'],
   'disconnect-dialog': ['settings-devices', '#device-disconnect'],

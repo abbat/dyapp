@@ -16,8 +16,23 @@ closing the result. **Return to app** rereads the current selection. Receiving a
 device enrollment or private-data synchronization: **Finish device setup** explicitly completes the
 original pending link through the core without publishing edits. Review, revocation and uncertain
 authorization are distinct refusals; they do not offer ordinary retry. Backend failures retain the
-original review for explicit retry. Full recovery-screen integration remains planned and
-runtime/visual acceptance is still required.
+original review for explicit retry. When field review is required, **Load a fresh comparison** shows
+complete local and verified-network values. Choose each differing group explicitly; nothing is
+preselected. Photo thumbnails have inspectable original references and a retry for unavailable
+pixels. **Preview chosen values** does not save; returning preserves the choices. **Save chosen fields**
+saves a local draft, then **Finish device setup** remains a separate action. An unconfirmed save
+requires another fresh comparison. Private-state recovery and owner-authorization screens remain
+planned; runtime/visual acceptance is still required.
+
+On the phone that already holds the profile, open **Settings → Account → Devices → Link a new
+device…** and paste the receiving device’s complete code. **Continue** only prepares confirmation;
+it sends no private data. Check the displayed original identity and recipient code, read the
+full-control warning, and approve only a device you hold and a link you started yourself.
+**Give full control** explicitly sends encrypted profile data. While sending, Cancel and Back are
+disabled. **Sent** confirms sending; the new device must still finish receiving and setup.
+An unconfirmed send may already have delivered some encrypted parts: check the receiving device
+before explicitly retrying. A later expired code does not undo an earlier partial transfer.
+Leaving the screen or switching profiles cannot redirect an admitted operation to another profile.
 
 **Settings → Account → Identities** and **Settings → Privacy → Blocked / Passed** lists have
 local search, entry counts, page navigation and **Refresh list**. Search checks complete local

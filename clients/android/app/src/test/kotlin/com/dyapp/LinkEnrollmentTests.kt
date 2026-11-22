@@ -27,13 +27,12 @@ class LinkEnrollmentTests {
     fun anIndeterminateChoiceSaveRequiresFreshReviewInsteadOfOrdinaryRetry() {
         val state = LinkEnrollmentSnapshot(
             offered = true,
-            confirmationAttempted = true,
             failure = LinkReviewException.Failed("possibly committed")
         )
         assertFalse(state.canFinish)
         assertFalse(state.canConfirm)
         assertTrue(state.canPrepare)
-        val preparingFailed = state.copy(confirmationAttempted = false)
+        val preparingFailed = state.copy(operation = LinkEnrollmentOperation.PREPARE)
         assertFalse(preparingFailed.canFinish)
         assertTrue(preparingFailed.canPrepare)
     }

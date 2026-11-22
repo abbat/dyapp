@@ -1,16 +1,4 @@
-import { checkControls } from './forward-reachability.js';
-
-const visible = (node) => {
-  if (!(node instanceof HTMLElement) || node.getClientRects().length === 0) return false;
-  for (let parent = node.parentElement; parent; parent = parent.parentElement) {
-    if (
-      parent.matches('details:not([open])') &&
-      !parent.querySelector(':scope > summary')?.contains(node)
-    )
-      return false;
-  }
-  return true;
-};
+import { checkControls, isVisible as visible } from './forward-reachability.js';
 const control = (id) => {
   const node = document.getElementById(id);
   if (!(node instanceof HTMLButtonElement)) throw new Error(`Receiving control missing: ${id}`);
@@ -82,6 +70,8 @@ const checkNetworkBoundaries = (screen) => {
 };
 
 const checkReceivingBoundaries = (screen) => {
+  if (visible(control('link-setup-prepare')) !== (screen === 'link-setup-review'))
+    throw new Error('Fresh field review is offered for the wrong recovery boundary');
   const busy = [
     'link-receive-starting',
     'link-receive-receiving',

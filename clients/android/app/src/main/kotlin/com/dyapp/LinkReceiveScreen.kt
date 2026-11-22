@@ -51,6 +51,8 @@ internal fun LinkReceiveScreen(
         if (snapshot.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         LinkReceiveInvitation(snapshot, status)
         LinkReceiveOutcome(snapshot)
+        if (snapshot.receipt is MobileLinkReceipt.Installed) LinkEnrollmentAction(snapshot, actions)
+        LinkReviewPanel(snapshot, actions.enrollment)
         LinkReceiveButtons(snapshot, actions)
     }
 }
@@ -87,7 +89,6 @@ private fun LinkReceiveButtons(snapshot: LinkReceiverSnapshot, actions: LinkRece
         }
     }
     if (snapshot.receipt is MobileLinkReceipt.Installed) {
-        LinkEnrollmentAction(snapshot, actions)
         Button(
             actions.openApp,
             Modifier.testTag("link-receive-open").applicationClick(actions.openApp),

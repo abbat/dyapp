@@ -880,19 +880,16 @@ impl Session {
             Event::Message {
                 body: Body::TokenAnswer(answer),
                 ..
-            } => {
-                tokens::accept(&self.store, &answer, seal_key)?;
-                Ok(None)
-            }
-            // IDs are random per write, so only their recipient can name them; a repeat or a
-            // stranger's ID drops nothing.
+            } => Ok(tokens::accept(&self.store, &answer, seal_key).map(|_| None)?),
             Event::Message {
+                group,
+                sender,
+                device,
                 body: Body::Receipt(receipt),
-                ..
-            } => {
-                self.record_receipt(&receipt).await?;
-                Ok(None)
-            }
+            } => self
+                .record_receipt(nodes, &group, &sender, &device, &receipt, seal_key)
+                .await
+                .map(|()| None),
             Event::Message {
                 ref group,
                 body: Body::PeerChange { ref peer, .. },
@@ -909,25 +906,6 @@ impl Session {
             }
             event => Ok(Some(event)),
         }
-    }
-
-    async fn record_receipt(&mut self, receipt: &chat::Receipt) -> Result<(), Error> {
-        let mailbox = receipt.mailbox.as_slice().try_into().unwrap_or([0; 32]);
-        let ids = receipt
-            .ids
-            .iter()
-            .filter_map(|id| id.as_slice().try_into().ok())
-            .collect::<Vec<_>>();
-        let now = crate::now();
-        for peer in self.store.receipted(&mailbox, &ids)?.1 {
-            if let Ok(peer) = peer.parse() {
-                self.scores
-                    .lock()
-                    .await
-                    .fault(peer, now, Operation::MailboxWrite);
-            }
-        }
-        Ok(())
     }
 
     /// Reopen exact signed bytes for the retry worker after a crash or failed node request.
@@ -975,6 +953,7 @@ mod device_maintenance;
 mod operations;
 mod profile_share;
 mod publication;
+mod receipts;
 mod receive;
 mod staging;
 mod state;
