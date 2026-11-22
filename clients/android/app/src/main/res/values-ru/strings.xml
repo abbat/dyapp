@@ -609,4 +609,23 @@
     <string name="devices_read_verified_saved">Показан сохранённый список: проверенный ответ не содержит более новой версии.</string>
     <string name="devices_read_empty">В проверенном профиле нет устройств. Это не подтверждает прежний запрос отключения.</string>
     <string name="devices_read_error">Не удалось прочитать сохранённый список. Вернитесь или обновите список.</string>
+    <string name="owner_link">Привязать новое устройство…</string>
+    <string name="owner_sent_title">Отправлено</string>
+    <string name="owner_confirm_title">Дать этому устройству полный контроль?</string>
+    <string name="owner_identity">Идентичность, передающая полный контроль</string>
+    <string name="owner_code_label">Код с нового устройства</string>
+    <string name="owner_confirm_text">Оно получит ключ этой идентичности. Сможет читать новые чаты, писать от вашего имени, менять профиль и отключать другие ваши устройства, а забрать ключ обратно нельзя.</string>
+    <string name="owner_confirm_warn">Продолжайте, только если устройство у вас в руках и привязку начали вы сами. Если код вам прислали, остановитесь.</string>
+    <string name="owner_intro">На новом устройстве выберите «Получить профиль» и вставьте сюда его код.</string>
+    <string name="owner_continue">Продолжить</string>
+    <string name="owner_confirm_action">Дать полный контроль</string>
+    <string name="owner_done">К устройствам</string>
+    <string name="owner_code_bad">Это не код привязки. Скопируйте код с нового устройства целиком.</string>
+    <string name="owner_code_expired">Срок этого кода истёк. Покажите новый на новом устройстве.</string>
+    <string name="owner_preparing">Подготовка подтверждения. Приватные данные ещё не отправлялись.</string>
+    <string name="owner_prepare_error">Не удалось подготовить подтверждение. Приватные данные не отправлялись.</string>
+    <string name="owner_sending">Отправка зашифрованных данных профиля. Дождитесь подтверждения.</string>
+    <string name="owner_uncertain">Отправка не подтверждена. Часть зашифрованных данных уже могла уйти. Проверьте новое устройство перед повторной попыткой.</string>
+    <string name="owner_sent">Отправлено. Новое устройство появится здесь, когда закончит привязку.</string>
+    <string name="owner_unavailable">Не удалось продолжить эту попытку. Проверьте текущий результат перед новой попыткой.</string>
 </resources>

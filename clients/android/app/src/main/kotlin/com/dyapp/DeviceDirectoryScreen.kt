@@ -26,18 +26,22 @@ import uniffi.dyapp.MobileDeviceRowSource
 @Composable
 internal fun DeviceDirectoryScreen(opened: Opened.Ready) = key(opened) {
     val session = remember { DeviceDirectorySession { nativeDeviceDirectoryCalls(opened) } }
-    DeviceDirectoryScreen(session)
+    DeviceDirectoryScreen(session) { enabled -> LinkApprovalEntry(opened, enabled) }
 }
 
 /** A fresh screen owns fresh presentation; retiring it cannot cancel admitted native work. */
 @Composable
-internal fun DeviceDirectoryScreen(session: DeviceDirectorySession) = key(session) {
+internal fun DeviceDirectoryScreen(
+    session: DeviceDirectorySession,
+    ownerActions: @Composable (Boolean) -> Unit = {}
+) = key(session) {
     val view by session.state.collectAsState()
     DisposableEffect(session) { onDispose { session.retire() } }
     LaunchedEffect(session) {
         if (session.refresh(false)?.await()?.isSuccess == true) session.refresh(true)?.await()
     }
     DeviceDirectoryContent(session, view)
+    ownerActions(!view.busy && !view.retired && view.confirmation == null)
     view.confirmation?.let { opening ->
         key(opening) { DeviceDisconnectDialog(session, opening, view) }
     }

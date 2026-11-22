@@ -229,7 +229,7 @@ The scrollable dialog names the raw key before consequences and disables Cancel/
 worker owns a revoke. Displayed key groups preserve the raw semantics and explicit copy payload.
 The Account row counts only the saved directory and never performs a network refresh.
 
-`LinkApprovalSession` provides the owner-approval presentation worker; native widgets remain planned.
+`LinkApprovalSession` provides the owner-approval presentation worker used by native Devices dialogs.
 It prepares the original pasted input on independent IO, using the common code-status function and
 `MobileLinkApproval`. Only the immutable normalized public code is projected into a reference-owned
 confirmation. Kotlin does not parse invitations, calculate expiry or export private data. Preparation

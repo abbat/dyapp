@@ -225,8 +225,8 @@ The IDs inside each section are the desktop ones; only the frame differs.
   the mailbox every minute while it is in the foreground, on every section and in a chat, and a
   background job about every 15 minutes otherwise ([privacy](../security/privacy.md#local-notices)); failures
   stay quiet.
-- Profile receiving and Devices have native implementations described below; owner approval remains
-  a prototype pending native widgets. The desktop defines the shared linking contract, see
+- Profile receiving, Devices and owner approval have native implementations described below.
+  The desktop defines the shared linking contract, see
   [desktop-screens.md](desktop-screens.md#linking-this-computer).
 - Settings, `settings`: a fixed category hub, with no identity/peer rows or destructive actions.
   Categories are `settings-appearance`, `settings-privacy`, `settings-notifications`,
@@ -273,7 +273,12 @@ The IDs inside each section are the desktop ones; only the frame differs.
   disables dismissal and repeat submission. `owner-send-error` retains the target and explicit Retry;
   `owner-send-expired` preserves both expiry and potentially partial encrypted delivery.
   `owner-sent` acknowledges sending, never recipient installation. Closing cannot recall delivered
-  data. Native owner approval widgets remain planned; static outcomes perform no validation or writes.
+  data. Native Devices now opens the same flow through its retained IO worker, with scrollable
+  confirmation, public owner/code copy actions and WindowInfo-driven Cancel focus. Preparation can
+  dismiss; admitted send rejects Back/Cancel and repeats. A retired dialog cannot act on a successor.
+  An unavailable code check preserves earlier send facts and asks for result review rather than
+  claiming nothing was sent. Native EN/RU visual and actual UI/JNI transfer acceptance remain open;
+  static outcomes perform no validation or writes.
 - Account links to `settings-identities-screen`. Its `settings-identities` list preserves
   `settings-remove`, `settings-remove-2` and `settings-create`. Blocked and passed have
   `blocked-list` and `passed-list` in the `blocked` and `passed` cards:

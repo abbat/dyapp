@@ -24,6 +24,16 @@ saves a local draft, then **Finish device setup** remains a separate action. An 
 requires another fresh comparison. Private-state recovery and owner-authorization screens remain
 planned; runtime/visual acceptance is still required.
 
+On the phone that already holds the profile, open **Settings → Account → Devices → Link a new
+device…** and paste the receiving device’s complete code. **Continue** only prepares confirmation;
+it sends no private data. Check the displayed original identity and recipient code, read the
+full-control warning, and approve only a device you hold and a link you started yourself.
+**Give full control** explicitly sends encrypted profile data. While sending, Cancel and Back are
+disabled. **Sent** confirms sending; the new device must still finish receiving and setup.
+An unconfirmed send may already have delivered some encrypted parts: check the receiving device
+before explicitly retrying. A later expired code does not undo an earlier partial transfer.
+Leaving the screen or switching profiles cannot redirect an admitted operation to another profile.
+
 **Settings → Account → Identities** and **Settings → Privacy → Blocked / Passed** lists have
 local search, entry counts, page navigation and **Refresh list**. Search checks complete local
 identifiers and identity Peer IDs without downloading profiles. A page

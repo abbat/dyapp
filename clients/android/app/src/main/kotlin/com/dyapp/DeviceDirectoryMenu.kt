@@ -37,9 +37,9 @@ internal fun DeviceDirectoryMenu(opened: Opened.Ready, route: MutableState<Setti
 
 /** Group display characters only; the dedicated copy action always receives the unchanged raw key. */
 @Composable
-internal fun DeviceIdentifier(raw: String, tag: String) {
+internal fun DeviceIdentifier(raw: String, tag: String, label: Int = R.string.devices_key) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Caption(stringResource(R.string.devices_key))
+        Caption(stringResource(label))
         Text(
             raw.chunked(DEVICE_KEY_GROUP).joinToString(" "),
             Modifier.testTag(tag).clearAndSetSemantics { text = AnnotatedString(raw) },

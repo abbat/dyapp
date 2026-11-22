@@ -610,4 +610,23 @@
     <string name="devices_read_verified_saved">The saved device list is shown; the verified reply did not provide a newer version.</string>
     <string name="devices_read_empty">The verified profile lists no devices. This does not confirm an earlier disconnect request.</string>
     <string name="devices_read_error">Could not read the saved device list. Return or try Refresh.</string>
+    <string name="owner_link">Link a new device…</string>
+    <string name="owner_sent_title">Sent</string>
+    <string name="owner_confirm_title">Give this device full control?</string>
+    <string name="owner_identity">Identity giving full control</string>
+    <string name="owner_code_label">Code from the new device</string>
+    <string name="owner_confirm_text">It gets the key of this identity. It can read new chats, write as you, change your profile and disconnect your other devices, and you cannot take the key back.</string>
+    <string name="owner_confirm_warn">Go on only if you hold that device and started this link yourself. If someone sent you this code, stop.</string>
+    <string name="owner_intro">On the new device choose Receive a profile, then paste its code here.</string>
+    <string name="owner_continue">Continue</string>
+    <string name="owner_confirm_action">Give full control</string>
+    <string name="owner_done">Back to Devices</string>
+    <string name="owner_code_bad">This is not a link code. Copy the whole code from the new device.</string>
+    <string name="owner_code_expired">This code expired. Show a new one on the new device.</string>
+    <string name="owner_preparing">Preparing confirmation. No private data has been sent.</string>
+    <string name="owner_prepare_error">Could not prepare confirmation. No private data has been sent.</string>
+    <string name="owner_sending">Sending encrypted profile data. Wait for confirmation.</string>
+    <string name="owner_uncertain">Sending could not be confirmed. Some encrypted data may already have been sent. Check the new device before trying again.</string>
+    <string name="owner_sent">Sent. The new device appears here once it finishes.</string>
+    <string name="owner_unavailable">Could not continue this attempt. Check the current result before starting again.</string>
 </resources>
