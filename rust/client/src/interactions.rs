@@ -1,6 +1,8 @@
 //! Bounded plaintext codec for private interaction MLS application messages.
 //! Sender and peer identities come from the verified MLS group, never this payload.
 
+pub mod profile_view;
+
 /// The exact size of a version-1 private interaction payload.
 pub const ENCODED_LEN: usize = 26;
 const VERSION: u8 = 1;
@@ -95,7 +97,7 @@ impl Interaction {
 
 #[cfg(test)]
 mod tests {
-    use super::{DecodeError, Interaction, Kind, ENCODED_LEN};
+    use super::{DecodeError, ENCODED_LEN, Interaction, Kind};
 
     #[test]
     fn round_trip_every_kind() {

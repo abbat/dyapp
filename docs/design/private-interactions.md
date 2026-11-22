@@ -66,6 +66,11 @@ at most once per peer profile per UTC day. Receiving views never depends on that
 `Store::profile_view_due_at` provides adapters with read-only preflight before network IO. It
 shares drafting's persisted HLC, preference, block and daily checks without allocating an event
 ID or advancing the clock. Staging repeats admission; preflight never reserves a view.
+`interactions::profile_view::Opening` binds one explicit opening to its original owner, recipient
+and contact-context generation. Retirement prevents an unadmitted disclosure; a consumed opening
+cannot retry on a preference change or later callback. Adapters capture the network while holding
+the same context lock as admission. An admitted operation retains that original network snapshot
+through completion; replacing a profile or network must not redirect it.
 
 For each sender identity and peer pair, compare `(HLC timestamp, sender device ID, event ID)`
 lexicographically. Only a greater like/unlike event replaces the stored latest event. Keep the
