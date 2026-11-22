@@ -783,6 +783,8 @@ def android_fixture(screen: str) -> tuple[str, str] | None:
         return "review", "checkReviewFixture"
     if screen.startswith(("link-receive-", "link-setup-", "receive-network")):
         return "receive", "checkReceiveFixture"
+    if screen == "remove-offline":
+        return "remove", "checkRemoveFixture"
     if screen == "identity-durability-dialog":
         return "identity-notice", "checkIdentityNotice"
     if screen.startswith("chat-forward-"):

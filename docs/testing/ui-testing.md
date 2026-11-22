@@ -26,6 +26,12 @@ visibility, activation prerequisites and busy disposition are checked before foc
 calibration. Canonical Android capture validates layout and these browser contracts; it does not
 run the desktop-only criteria audit or prove native transfer/enrollment.
 
+Android `remove-offline` captures also run `remove-fixture-tests.js` after capture. It checks
+that the translated uncertainty warning and all three actions are reachable using actual
+scroll/focus completion, current bounds and hit testing, including enlarged text. Hidden,
+covered and off-screen counterexamples calibrate the shared reachability check. Initial
+viewport PNGs alone do not show the entire long dialog or prove native removal behavior.
+
 `LinkEnrollmentNoticeTests` exercises the production enrollment notices and controls in EN/RU.
 Uncertain authorization, private-state review, revoked and unlisted outcomes remain distinct and
 expose neither completion retry nor review refresh, including after a comparison was offered.
