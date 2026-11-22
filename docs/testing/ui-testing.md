@@ -3,6 +3,10 @@
 Native receiving completion checks retain a recovery review prepared before setup finishes:
 preparing another review after the pending link has been cleared is correctly refused. Publication
 preview tests await their expected current row after the native draft read, before scrolling.
+Activity recreation waits for the requested screen's current semantics after asynchronous protected
+startup, rather than treating the Activity lifecycle acknowledgement as private-content readiness.
+The profile recreation case requires its ready Profile label without dismissing a network wizard;
+its original identity, wrapped-key and selected-slot assertions remain.
 
 Android native link journeys observe actual session completion through Compose `awaitSnapshot`.
 Each transition retains its independent failure deadline and named stage; Compose drives queued
