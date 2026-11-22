@@ -1,7 +1,6 @@
 package com.dyapp
 
 import android.content.ClipboardManager
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag

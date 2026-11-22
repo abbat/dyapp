@@ -1203,7 +1203,9 @@ native-shaped completions. They assert the original public target and full-contr
 consent, partial failure followed by expiry, first-input expiry, acknowledged send and no repeat.
 A blocked send disables Cancel/submit and ignores native Back. Replacing the actual opened owner
 retires the old dialog; its saved open/submit/dismiss callbacks cannot change an equal successor.
-These tests use actual semantics, scroll geometry and completion signals. Full native EN/RU visual
+These tests use actual semantics, scroll geometry and completion signals. Existence assertions stay
+receiver calls on `SemanticsNodeInteraction`; importing them as top-level extensions fails test-APK
+compilation even when main-source CodeQL and source lint pass. Full native EN/RU visual
 review and the existing real two-device UI/JNI journey remain separate acceptance.
 `DeviceDirectoryWorkerTests` and `DeviceDirectoryFailureTests` exercise the presentation adapter with
 controlled native-shaped completions. They retain original public targets across mutable DTO input,

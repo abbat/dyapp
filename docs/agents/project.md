@@ -178,7 +178,10 @@ and `...` are intentional structural type declarations; trace calls to their rea
 before classifying an `ineffectual-statement` finding. A protocol stub is not an unfinished runtime
 implementation when the caller uses a structurally typed function or module.
 Raw `onNode`/`onAllNodes` are receiver members: call `compose.onNode(...)`/
-`compose.onAllNodes(...)` without importing top-level functions. Named helpers such as
+`compose.onAllNodes(...)` without importing top-level functions. Likewise `assertExists` and
+`assertDoesNotExist` are `SemanticsNodeInteraction` members; retain their node calls without
+`androidx.compose.ui.test` imports. Main-source CodeQL compilation does not validate androidTest
+imports; the Android test-APK compiler remains the authoritative check. Named helpers such as
 `onNodeWithTag` remain extensions requiring imports.
 Localized instrumentation content uses `LocalizedTestContext` so context/configuration/resources
 agree and the actual Activity picker registry survives the configuration-context substitution.
