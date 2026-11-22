@@ -140,6 +140,11 @@ horizontal calibration, capture the actual onTextLayout callback: CI observed th
 adapter reconstructed two wrapped lines for softWrap=false. Keep the horizontal-clipping assertion
 and assert no vertical overflow so another rejection cannot mask a broken horizontal guard.
 
+For a Compose stale-callback test, retain `applicationClickKey` from the control, not its
+`SemanticsActions.OnClick` wrapper. Foundation's wrapper dereferences a Modifier node before calling
+the app; invoking it after disposal can fail on a detached node without exercising the app's guard.
+Keep the real control click for admission and call the saved application closure only for retirement.
+
 Android network-policy tests use public API 31 `NetworkCapabilities.capabilities` snapshots:
 `addCapability`/`removeCapability` on `NetworkCapabilities` are hidden SDK APIs. Keep these
 tests independent of an emulator's live connection and callback timing.

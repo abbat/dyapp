@@ -8,7 +8,6 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
@@ -49,7 +48,7 @@ class DeviceDirectoryUITests {
             show(shown)
             openOther()
             val confirm = compose.awaitNode(hasTestTag("disconnect-confirm"))
-            val callback = checkNotNull(confirm.fetchSemanticsNode().config[SemanticsActions.OnClick].action)
+            val callback = confirm.fetchSemanticsNode().config[applicationClickKey]
             confirm.performClick()
             assertArrayEquals(original.other, runBlocking { withTimeout(5_000) { entered.await() } })
             compose.awaitNode(hasTestTag("disconnect-pending"))
@@ -112,7 +111,7 @@ class DeviceDirectoryUITests {
     }
 
     private fun checkSuccessor(
-        callback: () -> Boolean,
+        callback: () -> Unit,
         original: DeviceDirectoryFixture,
         successor: DeviceDirectoryFixture
     ) {
