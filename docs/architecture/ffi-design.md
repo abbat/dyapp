@@ -104,6 +104,15 @@ exception requires a concrete reason recorded in the task and beside the impleme
 with maintainer agreement before implementation. Moving code preserves validation, errors
 and security invariants; test the shared rules independently of platform callback timing.
 
+## Search range ownership
+
+`dyapp_client::search_input::range_conditions` converts offered raw age/height inputs into
+protocol conditions at an explicit civil date. Shared parsing runs first; semantic validation
+then preserves age-before-height errors and condition order, hidden-field behavior and defaults.
+Both Tauri search and the common UniFFI `search_range_conditions` delegate to it. The native
+adapter converts records/errors only; Kotlin and Swift continue supplying their raw form values.
+The native API and existing field-specific error strings are unchanged.
+
 ## Profile-share submission ownership
 
 Core `Session::prepare_profile_share` validates a canonical shared Peer ID and a distinct,

@@ -26,13 +26,13 @@ pub struct SearchRanges {
     pub max_height: Option<u32>,
 }
 
-/// The field whose entered number cannot be represented.
+/// The field whose entered number or resulting range is invalid.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum SearchInputError {
-    /// An age bound is not a nonnegative whole number in the supported integer range.
+    /// An age bound cannot be parsed or forms no valid birth-date range.
     #[error("invalid search age")]
     Age,
-    /// A height bound is not a nonnegative whole number in the supported integer range.
+    /// A height bound cannot be parsed or the resulting bounds are reversed.
     #[error("invalid search height")]
     Height,
 }
