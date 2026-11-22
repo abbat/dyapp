@@ -174,10 +174,7 @@ function references() {
   }
   return used;
 }
-function checkCss() {
-  const used = references();
-  const filename = path.join(ui, 'style.css');
-  const selectors = new Map();
+function collectCssSelectors(filename, used, selectors) {
   css.walk(
     css.parse(fs.readFileSync(filename, 'utf8'), {
       positions: true,
@@ -192,9 +189,16 @@ function checkCss() {
       selectors.set(`${node.type === 'ClassSelector' ? '.' : '#'}${name}`, {
         used: names.has(name) || used.strings.has(name),
         line: node.loc.start.line,
+        filename: path.relative(root, filename),
       });
     },
   );
+}
+function checkCss() {
+  const used = references();
+  const selectors = new Map();
+  for (const filename of files(ui).filter((name) => name.endsWith('.css')))
+    collectCssSelectors(filename, used, selectors);
   const allow = JSON.parse(
     fs.readFileSync(path.join(root, 'tools/web-lint/runtime-selectors.json'), 'utf8'),
   ).selectors;
@@ -214,7 +218,7 @@ function checkCss() {
   }
   for (const [selector, value] of selectors) {
     if (value.used || Object.hasOwn(allow, selector)) continue;
-    console.error(`clients/desktop/ui/style.css:${value.line}: unreferenced selector ${selector}`);
+    console.error(`${value.filename}:${value.line}: unreferenced selector ${selector}`);
     valid = false;
   }
   return valid;

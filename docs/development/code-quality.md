@@ -167,6 +167,9 @@ its line count as a budget that fails when it grows and also when it shrinks, so
 lowered in the same change (or the entry dropped once the file is within the limit). Adding an
 entry, raising a budget or raising `max_lines` weakens the check.
 
+Shared desktop styles load `style.css` then `shell.css`; prototype overrides follow both.
+Keep this cascade order when moving rules between the shared files.
+
 ### Trigger list
 
 `tests/scripts/triggers.toml` is the machine-readable list of practice A6a of
