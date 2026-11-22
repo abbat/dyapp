@@ -21,6 +21,10 @@ The Tauri received-view smoke drives the actual Privacy pane: read-only loading,
 cursors/dates, query reset, failure retention, explicit profile opening and Back focus after read
 completion. A held refresh completes after leaving the pane and must not replace known rows or
 admit a captured old row. These native webview checks run in desktop CI.
+The five Android `settings-views` prototype outcomes run `views-fixture-tests.js` after capture.
+They check read-outcome rows/errors, full-target search across bounded pages, explicit Open and
+current-geometry control reachability. Non-shipping samples reuse existing prototype collection
+navigation; production Android and Tauri filtering/paging remain owned by the Rust core.
 
 Native receiving completion checks retain a recovery review prepared before setup finishes:
 preparing another review after the pending link has been cleared is correctly refused. Publication
