@@ -199,6 +199,13 @@ checks New/Off and writes under one guard; a Kotlin mode preflight cannot replac
 Localized instrumentation content uses `LocalizedTestContext` so context/configuration/resources
 agree and the actual Activity picker registry survives the configuration-context substitution.
 Use its font-scale argument for geometry cases; retain the original locale and text-layout assertions.
+The helper gives a real parent ComposeView a configured Activity-based context: a platform Dialog
+creates a separate owner and resets LocalDensity from its View context. A composition-local override
+alone does not scale that window. Keep the View/composition stable across configuration changes so
+remembered edits survive; retain the Activity window token and picker registry. Base the window
+context on the actual parent View's Activity context, not an application configuration context.
+Visual evidence must measure TextLayoutResult density inside the actual window, not label frames
+from requested settings.
 Create fixture locales with `Locale.forLanguageTag(language)`: the current SDK deprecates the
 single-string constructor and Android test compilation treats that warning as an error.
 

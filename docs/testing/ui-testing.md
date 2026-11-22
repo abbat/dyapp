@@ -1255,8 +1255,15 @@ The phase-only `OwnerApprovalVisualTests` requires instrumentation arguments `ow
 `sourceSha=<40-hex producer commit>` and `expectedWidth=360|412`; ordinary instrumentation excludes
 it. A fresh device is required for each width. EN/RU, light/dark and 100/200% font variants produce
 top/bottom dialog PNG images and a completion manifest under `files/owner-approval-visual/<width>/`.
-Compose PixelCopy captures the dialog. Actual paragraph layouts and live scroll viewports establish
-text geometry; public identifier semantics retain raw copy values while exposing grouped glyph layout.
+Compose PixelCopy captures the dialog. Every captured text layout must report the requested
+fontScale; each frame records `actual_font_scale` and `actual_density` from TextLayoutResult.
+Owner, receiving and IME archive validation rejects missing, nonfinite or mismatched witnesses.
+`LocalizedDialogScaleTests` checks refusal of a bare composition-only override and verifies genuine
+1→2→1 dialog scaling while remembered edits and the Activity picker registry survive. The test
+context uses a configured parent View without changing global OS settings. Earlier PNG inventories
+without effective-scale witnesses do not establish enlarged-dialog acceptance.
+Actual paragraph layouts and live scroll viewports establish text geometry; public identifier
+semantics retain raw copy values while exposing grouped glyph layout.
 Each preparation/operation transition moves safe focus back to Cancel before subsequent input.
 Completed validation status/failure also restores focus: a fast worker may finish before Compose
 renders its busy state. `LinkApprovalFocusTests` forces that ordering by completing the IO-only
