@@ -10,7 +10,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.platform.app.InstrumentationRegistry
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
@@ -55,24 +54,22 @@ internal class NativeOwnerApprovalJourney(
         compose.onNodeWithTag("owner-code-next").performClick()
     }
 
-    private fun awaitPreparation(session: LinkApprovalSession): LinkApprovalOpening = runBlocking {
-        val view = withTimeout(OWNER_UI_STEP_MS) {
-            session.state.first { !it.busy && (it.opening != null || it.codeStatus != null || it.failure != null) }
+    private fun awaitPreparation(session: LinkApprovalSession): LinkApprovalOpening {
+        val view = compose.awaitSnapshot(session.state, OWNER_UI_STEP_MS, "owner preparation") {
+            !it.busy && (it.opening != null || it.codeStatus != null || it.failure != null)
         }
         view.failure?.let { throw it }
         assertEquals(MobileLinkCodeStatus.VALID, view.codeStatus)
-        checkNotNull(view.opening)
+        return checkNotNull(view.opening)
     }
 
-    private fun awaitDelivery(session: LinkApprovalSession): LinkApprovalDelivery = runBlocking {
-        val view = withTimeout(OWNER_UI_STEP_MS) {
-            session.state.first {
-                !it.busy && (it.delivery != null || it.codeStatus != MobileLinkCodeStatus.VALID || it.failure != null)
-            }
+    private fun awaitDelivery(session: LinkApprovalSession): LinkApprovalDelivery {
+        val view = compose.awaitSnapshot(session.state, OWNER_UI_STEP_MS, "owner delivery") {
+            !it.busy && (it.delivery != null || it.codeStatus != MobileLinkCodeStatus.VALID || it.failure != null)
         }
         view.failure?.let { throw it }
         assertEquals(MobileLinkCodeStatus.VALID, view.codeStatus)
-        checkNotNull(view.delivery)
+        return checkNotNull(view.delivery)
     }
 
     private fun checkTargetCopy(identity: String, code: String) {

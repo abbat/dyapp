@@ -1,5 +1,6 @@
 package com.dyapp
 
+import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.hasTestTag
@@ -8,6 +9,27 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import kotlinx.coroutines.flow.StateFlow
+
+/** Drive Compose effects while observing the real session; blocking first() can starve its dispatcher. */
+internal fun <T : Any> ComposeTestRule.awaitSnapshot(
+    state: StateFlow<T>,
+    timeoutMillis: Long,
+    stage: String,
+    ready: (T) -> Boolean
+): T {
+    var completed: T? = null
+    try {
+        waitUntil(timeoutMillis) {
+            state.value.let { snapshot ->
+                ready(snapshot).also { if (it) completed = snapshot }
+            }
+        }
+    } catch (failure: ComposeTimeoutException) {
+        throw AssertionError("Session did not complete: $stage", failure)
+    }
+    return checkNotNull(completed)
+}
 
 /** Each transition gets a fresh failure deadline and observes its actual semantic completion. */
 internal fun ComposeTestRule.awaitNode(matcher: SemanticsMatcher): SemanticsNodeInteraction {

@@ -47,14 +47,14 @@ internal class NativeReceiveUiFixture(
 
     fun start(): LinkReceiverDisplay {
         compose.onNodeWithTag("link-receive-start").performScrollTo().performClick()
-        val created = await { it.display != null }
+        val created = await("receiving invitation") { it.display != null }
         val display = checkNotNull(created.display)
         compose.awaitNode(hasTestTag("link-receive-code"))
         return display
     }
 
     fun installed(): MobileLinkReceipt.Installed {
-        val result = await { !it.busy && it.receipt != null }
+        val result = await("profile installation") { !it.busy && it.receipt != null }
         val receipt = result.receipt
         check(receipt is MobileLinkReceipt.Installed) { "Native receiving did not install a profile" }
         compose.awaitNode(hasTestTag("link-receive-peer"))
@@ -88,19 +88,21 @@ internal class NativeReceiveUiFixture(
 
     fun finishEnrollment() {
         compose.awaitNode(hasTestTag("link-setup-finish")).performScrollTo().performClick()
-        val result = await { !it.busy && (it.enrollment.completed || it.enrollment.failure != null) }
+        val result = await("enrollment completion") {
+            !it.busy && (it.enrollment.completed || it.enrollment.failure != null)
+        }
         result.enrollment.failure?.let { throw it }
         check(result.enrollment.completed)
     }
 
-    private fun await(ready: (LinkReceiverSnapshot) -> Boolean): LinkReceiverSnapshot = runBlocking {
+    private fun await(stage: String, ready: (LinkReceiverSnapshot) -> Boolean): LinkReceiverSnapshot {
         val session = checkNotNull(store.state.value).session
-        val result = withTimeout(NATIVE_LINK_UI_STEP_MS) {
-            session.state.first { it.error != null || it.receipt is MobileLinkReceipt.Failed || ready(it) }
+        val result = compose.awaitSnapshot(session.state, NATIVE_LINK_UI_STEP_MS, stage) {
+            it.error != null || it.receipt is MobileLinkReceipt.Failed || ready(it)
         }
         result.error?.let { throw it }
         check(result.receipt !is MobileLinkReceipt.Failed) { "Native receiving failed" }
-        result
+        return result
     }
 
     override fun close() {

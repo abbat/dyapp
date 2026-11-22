@@ -188,7 +188,9 @@ imports; the Android test-APK compiler remains the authoritative check. Named he
 `onNodeWithTag` remain extensions requiring imports. Create Compose rules through
 `androidx.compose.ui.test.junit4.v2.createComposeRule` (or its Android rule counterpart): the old
 factory is deprecated and `-Werror` rejects it. V2 queues coroutine effects with StandardTestDispatcher;
-await actual state/UI readiness rather than depending on immediate effect execution.
+await actual state/UI readiness rather than depending on immediate effect execution. For UI-owned
+session transitions, use `compose.awaitSnapshot` so queued effects can resume; `runBlocking` with
+`Flow.first` can starve them. Pure IO retirement after disposal still awaits its real worker.
 Localized instrumentation content uses `LocalizedTestContext` so context/configuration/resources
 agree and the actual Activity picker registry survives the configuration-context substitution.
 Use its font-scale argument for geometry cases; retain the original locale and text-layout assertions.

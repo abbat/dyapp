@@ -1,5 +1,11 @@
 # UI Testing: Practical Guide
 
+Android native link journeys observe actual session completion through Compose `awaitSnapshot`.
+Each transition retains its independent failure deadline and named stage; Compose drives queued
+UI effects while native IO remains real. Blocking `Flow.first` on the instrumentation thread is
+reserved for worker teardown after disposal. `ScreenReadinessTests` gates an actual LaunchedEffect
+continuation to check scheduler progress without sleeps or guessed delays.
+
 Android receiving-screen checks use the real Settings frame, controls and retained-operation store
 with controlled native completion. They preserve the exact reserved destination, require explicit
 creation and disposition, and invoke captured application callbacks after disposal/equal reopening.

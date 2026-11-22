@@ -10,7 +10,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertArrayEquals
@@ -63,11 +62,11 @@ internal class NativeDeviceScreenJourney(private val host: NativeLinkScreenHost)
         compose.awaitNode(hasTestTag("disconnect-cancel") and isFocused())
     }
 
-    private fun awaitRevoke(session: DeviceDirectorySession): DeviceDisconnectCompletion = runBlocking {
-        val view = withTimeout(DEVICE_UI_STEP_MS) {
-            session.state.first { !it.busy && it.completion != null }
+    private fun awaitRevoke(session: DeviceDirectorySession): DeviceDisconnectCompletion {
+        val view = compose.awaitSnapshot(session.state, DEVICE_UI_STEP_MS, "device revocation") {
+            !it.busy && it.completion != null
         }
-        checkNotNull(view.completion)
+        return checkNotNull(view.completion)
     }
 
     private fun close(session: DeviceDirectorySession, scene: NativeLinkScreenScene) {
