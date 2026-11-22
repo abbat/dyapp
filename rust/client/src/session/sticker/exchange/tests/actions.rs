@@ -35,12 +35,18 @@ fn prepare(
         Action { kind, generation },
     )
 }
-fn fixture() -> (Invite, std::path::PathBuf, MessageKey, Pack) {
-    let (mut pair, path) = pair();
+fn fixture() -> (
+    dyapp_test_support::TestDir,
+    Invite,
+    std::path::PathBuf,
+    MessageKey,
+    Pack,
+) {
+    let (test_dir, mut pair, path) = pair();
     let pack = sticker_packs::tests::pack("Cats");
     let key = selected(&mut pair, &pack);
     published(&pair);
-    (pair, path, key, pack)
+    (test_dir, pair, path, key, pack)
 }
 fn pending(pair: &Invite, pack: &Pack) -> PendingPack {
     pair.session
@@ -52,7 +58,7 @@ fn pending(pair: &Invite, pack: &Pack) -> PendingPack {
 
 #[test]
 fn shared_actions_queue_offline_fresh_generation_survives_restart_and_stop_keeps_outbox() {
-    let (mut pair, path, key, pack) = fixture();
+    let (_test_dir_60, mut pair, path, key, pack) = fixture();
     prepare(&pair, &path, &key, Kind::Request, None)
         .unwrap()
         .unwrap()
@@ -96,11 +102,11 @@ fn shared_actions_queue_offline_fresh_generation_survives_restart_and_stop_keeps
 
 #[test]
 fn prepared_action_refuses_other_owner_without_advancing_its_session() {
-    let (pair, path, key, _) = fixture();
+    let (_test_dir_104, pair, path, key, _) = fixture();
     let stage = prepare(&pair, &path, &key, Kind::Request, None)
         .unwrap()
         .unwrap();
-    let (mut other, _) = super::pair();
+    let (_test_dir, mut other, _) = super::pair();
     let snapshot = other.session.store().sealed_device().unwrap();
     let writes = queued(&other.session);
     assert!(matches!(
@@ -115,7 +121,7 @@ fn prepared_action_refuses_other_owner_without_advancing_its_session() {
 
 #[test]
 fn prepared_action_rechecks_device_listing_without_advancing_mls() {
-    let (mut pair, path, key, _) = fixture();
+    let (_test_dir_123, mut pair, path, key, _) = fixture();
     let stage = prepare(&pair, &path, &key, Kind::Request, None)
         .unwrap()
         .unwrap();
@@ -138,7 +144,7 @@ fn prepared_action_rechecks_device_listing_without_advancing_mls() {
 
 #[test]
 fn prepared_action_refuses_block_and_clear_without_advancing_mls() {
-    let (mut pair, path, key, _) = fixture();
+    let (_test_dir_146, mut pair, path, key, _) = fixture();
     let snapshot = pair.session.store().sealed_device().unwrap();
     let writes = queued(&pair.session);
     let stage = prepare(&pair, &path, &key, Kind::Request, None)

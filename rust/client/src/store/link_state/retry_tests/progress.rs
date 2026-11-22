@@ -8,9 +8,10 @@ fn snapshot(store: &Store) -> LinkState {
 
 #[test]
 fn visibility_failure_rolls_back_prefix_clock_and_applied_phase() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
     let state = source(&identity);
-    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     store.set_link_pending(&state).unwrap();
     let before = snapshot(&store);
     store
@@ -30,9 +31,10 @@ fn visibility_failure_rolls_back_prefix_clock_and_applied_phase() {
 
 #[test]
 fn progress_failure_rolls_back_private_values_and_visibility() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
     let state = source(&identity);
-    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     store.set_link_pending(&state).unwrap();
     let before = snapshot(&store);
     store
@@ -51,8 +53,9 @@ fn progress_failure_rolls_back_private_values_and_visibility() {
 
 #[test]
 fn pending_creation_failure_rolls_back_linked_marker_and_initial_phase() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let state = source(&identity);
     store
         .db
@@ -70,8 +73,9 @@ fn pending_creation_failure_rolls_back_linked_marker_and_initial_phase() {
 
 #[test]
 fn clear_failure_is_atomic_and_a_new_same_bytes_link_does_not_reuse_applied_progress() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let path = temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let state = source(&identity);
     let mut store = Store::open(&path, &identity).unwrap();
     store.set_link_pending(&state).unwrap();
@@ -102,9 +106,10 @@ fn clear_failure_is_atomic_and_a_new_same_bytes_link_does_not_reuse_applied_prog
 
 #[test]
 fn a_replaced_pending_snapshot_requires_its_own_exact_initial_phase() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
     let state = source(&identity);
-    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     store.set_link_pending(&state).unwrap();
     store.import_link_state(&state).unwrap();
     private_choices(&store, false, 2_000);
@@ -127,9 +132,10 @@ fn a_replaced_pending_snapshot_requires_its_own_exact_initial_phase() {
 
 #[test]
 fn an_old_completion_cannot_clear_a_replacement_or_unapplied_pending_link() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
     let state = source(&identity);
-    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     store.set_link_pending(&state).unwrap();
     assert!(matches!(
         store.clear_completed_link(&state),
@@ -155,9 +161,10 @@ fn an_old_completion_cannot_clear_a_replacement_or_unapplied_pending_link() {
 
 #[test]
 fn malformed_progress_is_refused_before_any_prefix_write() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
     let state = source(&identity);
-    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     store.set_link_pending(&state).unwrap();
     let before = snapshot(&store);
     let mut wrong_digest = vec![0_u8; 33];
@@ -197,8 +204,9 @@ fn legacy_pending(store: &Store, state: &[u8]) {
 
 #[test]
 fn identical_legacy_snapshot_records_progress_without_replaying_private_writes() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     private_choices(&store, false, 2_000);
     let state = store.link_state().unwrap();
     legacy_pending(&store, &state);
@@ -225,8 +233,9 @@ fn identical_legacy_snapshot_records_progress_without_replaying_private_writes()
 
 #[test]
 fn unknown_wire_fields_do_not_prove_identical_legacy_state() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let before = store.link_state().unwrap();
     let mut state = before.clone();
     state.extend([0xF8, 0x07, 0x01]);
@@ -241,8 +250,9 @@ fn unknown_wire_fields_do_not_prove_identical_legacy_state() {
 
 #[test]
 fn identical_legacy_progress_failure_preserves_the_unresolved_operation() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     private_choices(&store, false, 2_000);
     let state = store.link_state().unwrap();
     legacy_pending(&store, &state);
@@ -266,9 +276,10 @@ fn identical_legacy_progress_failure_preserves_the_unresolved_operation() {
 
 #[test]
 fn legacy_pending_without_progress_keeps_both_private_snapshots_for_explicit_recovery() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
     let state = source(&identity);
-    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     private_choices(&store, false, 2_000);
     let before = snapshot(&store);
     store

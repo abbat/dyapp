@@ -44,8 +44,8 @@ fn advance(
 #[tokio::test]
 async fn concurrent_refresh_cannot_strand_a_successfully_published_target() {
     for finalized in [false, true] {
-        let (identity, store, original) = local();
-        let mut fixture = duplicate(&identity, &store, &original, 6);
+        let (_test_dir, identity, store, original) = local();
+        let (_fixture_test_dir, mut fixture) = duplicate(&identity, &store, &original, 6);
         let media = Arc::clone(&fixture.media);
         let called = Arc::new(AtomicUsize::new(0));
         let observed = Arc::clone(&called);
@@ -71,8 +71,8 @@ async fn concurrent_refresh_cannot_strand_a_successfully_published_target() {
 }
 
 async fn foreign_stage(withdrawal: bool) {
-    let (identity, store, original) = local();
-    let mut fixture = duplicate(&identity, &store, &original, 6);
+    let (_test_dir, identity, store, original) = local();
+    let (_fixture_test_dir, mut fixture) = duplicate(&identity, &store, &original, 6);
     let media = Arc::clone(&fixture.media);
     let (mut foreign, bytes) = replacement(&original);
     foreign.version = 8;
@@ -124,8 +124,8 @@ async fn stale_withdraw_finalize_preserves_a_newer_foreign_stage() {
 
 #[tokio::test]
 async fn lost_staged_ownership_is_an_explicit_failure_and_can_be_retried() {
-    let (identity, store, original) = local();
-    let mut fixture = duplicate(&identity, &store, &original, 6);
+    let (_test_dir, identity, store, original) = local();
+    let (_fixture_test_dir, mut fixture) = duplicate(&identity, &store, &original, 6);
     let media = Arc::clone(&fixture.media);
     fixture.before_finalize = Some(Box::new(|fixture| {
         let cutoff = dyapp_bootstrap::clock::Clock::system().timestamp() + 1;
@@ -149,8 +149,8 @@ async fn lost_staged_ownership_is_an_explicit_failure_and_can_be_retried() {
 
 #[tokio::test]
 async fn refresh_uses_the_exact_signed_profile_with_unknown_wire_fields() {
-    let (identity, store, original) = local();
-    let mut fixture = duplicate(&identity, &store, &original, 6);
+    let (_test_dir, identity, store, original) = local();
+    let (_fixture_test_dir, mut fixture) = duplicate(&identity, &store, &original, 6);
     let mut payload = original.encode_to_vec();
     // Unknown field 127, varint value 1, is signed and survives verified raw readback.
     payload.extend_from_slice(&[0xf8, 0x07, 1]);
@@ -175,8 +175,9 @@ async fn refresh_uses_the_exact_signed_profile_with_unknown_wire_fields() {
 
 #[tokio::test]
 async fn exhausted_media_revision_preserves_the_draft_and_existing_ownership() {
-    let (identity, store, original) = local();
-    let fixture = duplicate(&identity, &store, &original, i64::MAX.cast_unsigned());
+    let (_test_dir, identity, store, original) = local();
+    let (_fixture_test_dir, fixture) =
+        duplicate(&identity, &store, &original, i64::MAX.cast_unsigned());
     let media = Arc::clone(&fixture.media);
     let before = media.keep_snapshot(&identity.peer_id()).unwrap();
     let mut node = connect(fixture).await;
@@ -205,8 +206,8 @@ fn reopened(identity: &Identity, profile: &Profile, dir: &std::path::Path) -> Fi
 
 #[tokio::test]
 async fn quota_failure_retains_live_references_and_the_changed_draft() {
-    let (identity, store, original) = local();
-    let mut fixture = duplicate(&identity, &store, &original, 6);
+    let (_test_dir, identity, store, original) = local();
+    let (_fixture_test_dir, mut fixture) = duplicate(&identity, &store, &original, 6);
     fixture.quota = 0;
     let media = Arc::clone(&fixture.media);
     let (mut changed, bytes) = replacement(&original);
@@ -234,8 +235,8 @@ async fn quota_failure_retains_live_references_and_the_changed_draft() {
 
 #[tokio::test]
 async fn unsupported_conditional_protocol_preserves_existing_photos_and_draft() {
-    let (identity, store, original) = local();
-    let mut fixture = duplicate(&identity, &store, &original, 6);
+    let (_test_dir, identity, store, original) = local();
+    let (_fixture_test_dir, mut fixture) = duplicate(&identity, &store, &original, 6);
     fixture.reject_conditional = Some(Status::Unsupported);
     let media = Arc::clone(&fixture.media);
     let before = media.keep_snapshot(&identity.peer_id()).unwrap();
@@ -251,8 +252,8 @@ async fn unsupported_conditional_protocol_preserves_existing_photos_and_draft() 
 
 #[tokio::test]
 async fn photo_free_publication_can_use_a_store_without_conditional_media() {
-    let (identity, store, original) = local();
-    let mut fixture = duplicate(&identity, &store, &original, 6);
+    let (_test_dir, identity, store, original) = local();
+    let (_fixture_test_dir, mut fixture) = duplicate(&identity, &store, &original, 6);
     fixture.reject_conditional = Some(Status::Unsupported);
     let media = Arc::clone(&fixture.media);
     let before = media.keep_snapshot(&identity.peer_id()).unwrap();
@@ -270,7 +271,7 @@ async fn photo_free_publication_can_use_a_store_without_conditional_media() {
 
 #[tokio::test]
 async fn reopened_storage_recovers_the_persisted_pending_stage() {
-    let (identity, store, original) = local();
+    let (_test_dir, identity, store, original) = local();
     let dir = path();
     let mut fixture = reopened(&identity, &original, &dir);
     fixture.refuse_publish_once = true;

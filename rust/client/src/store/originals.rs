@@ -324,21 +324,10 @@ impl Store {
 mod tests {
     use super::{file_name, is_kept, keep, keep_with, path, prune, prune_contacts, read, FOLDER};
     use crate::attachment::{seal, Attachment};
-    use dyapp_identity::Identity;
     use std::collections::{HashMap, HashSet};
     use std::fs::{self, File};
     use std::io::Write;
-    use std::path::PathBuf;
     use std::time::{Duration, SystemTime};
-
-    fn folder() -> PathBuf {
-        let dir = std::env::temp_dir().join(format!(
-            "originals-{}",
-            Identity::try_generate().unwrap().peer_id()
-        ));
-        fs::create_dir_all(&dir).unwrap();
-        dir
-    }
 
     fn photo(bytes: &[u8]) -> Attachment {
         seal(bytes).unwrap().0
@@ -346,7 +335,8 @@ mod tests {
 
     #[test]
     fn a_kept_original_opens_only_under_its_key_and_hash() {
-        let dir = folder();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir.to_path_buf();
         let bytes = b"the plaintext original".repeat(10_000);
         let photo = photo(&bytes);
         assert_eq!(read(&dir, &[1; 32], &photo), None);
@@ -371,7 +361,8 @@ mod tests {
 
     #[test]
     fn write_failures_preserve_a_valid_original() {
-        let dir = folder();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir.to_path_buf();
         let bytes = b"a complete original";
         let photo = photo(bytes);
         keep(&dir, &[1; 32], &photo, bytes).unwrap();
@@ -415,7 +406,8 @@ mod tests {
 
     #[test]
     fn publication_failures_leave_a_complete_original() {
-        let dir = folder();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir.to_path_buf();
         let bytes = b"a complete original";
         let photo = photo(bytes);
         keep(&dir, &[1; 32], &photo, bytes).unwrap();
@@ -459,7 +451,8 @@ mod tests {
 
     #[test]
     fn a_sweep_ignores_pending_contact_entries_then_removes_them() {
-        let dir = folder();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir.to_path_buf();
         let bytes = b"a complete original";
         let photo = photo(bytes);
         keep(&dir, &[1; 32], &photo, bytes).unwrap();
@@ -477,7 +470,8 @@ mod tests {
 
     #[test]
     fn a_sweep_drops_unknown_files_then_the_least_recently_used() {
-        let dir = folder();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir.to_path_buf();
         let bytes = [7; 1024];
         let photos = [photo(&bytes), photo(&bytes), photo(&bytes), photo(&bytes)];
         let now = SystemTime::now();
@@ -511,7 +505,8 @@ mod tests {
 
     #[test]
     fn contact_limits_are_exact_oldest_first_and_isolated() {
-        let dir = folder();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir.to_path_buf();
         let photos = [photo(b"first"), photo(b"second"), photo(b"third")];
         let now = SystemTime::now();
         for (age, photo) in (1u64..).zip(&photos) {
@@ -543,7 +538,8 @@ mod tests {
 
     #[test]
     fn a_shared_blob_is_pinned_for_an_under_limit_contact() {
-        let dir = folder();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir.to_path_buf();
         let photos = [photo(b"shared"), photo(b"private")];
         let now = SystemTime::now();
         for (age, photo) in (2u64..).zip(&photos) {
@@ -571,7 +567,8 @@ mod tests {
 
     #[test]
     fn a_contact_remove_failure_is_recoverable_and_does_not_touch_another() {
-        let dir = folder();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir.to_path_buf();
         let photos = [photo(b"first"), photo(b"second"), photo(b"other")];
         let now = SystemTime::now();
         for (age, photo) in (1u64..).zip(&photos) {

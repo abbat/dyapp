@@ -5,14 +5,16 @@ use crate::store::InboxKey;
 use dyapp_identity::Identity;
 use dyapp_p2p_net::{Mode, SwarmOptions};
 
-fn fixture(seal: &[u8; 32]) -> Invite {
-    bob_invited(&crate::store::tests::temp_db_path(), seal)
+fn fixture(seal: &[u8; 32]) -> (dyapp_test_support::TestDir, Invite) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let invite = bob_invited(&test_dir.path().join("client-1.db"), seal);
+    (test_dir, invite)
 }
 
 #[tokio::test]
 async fn last_resort_rotation_overflow_cannot_advance_snapshot_or_publish_a_record() {
     let seal = [5; 32];
-    let mut f = fixture(&seal);
+    let (_test_dir, mut f) = fixture(&seal);
     let before = f.session.store().sealed_device().unwrap();
     let options = SwarmOptions {
         mode: Mode::Client,
@@ -76,7 +78,7 @@ fn accept_match(f: &mut Invite, seal: &[u8; 32]) {
 #[tokio::test]
 async fn public_presence_commits_retryable_hidden_work_without_a_delivery_node() {
     let seal = [6; 32];
-    let mut f = fixture(&seal);
+    let (_test_dir, mut f) = fixture(&seal);
     accept_match(&mut f, &seal);
     assert!(f.session.due_outbound(i64::MAX).unwrap().is_empty());
     assert!(matches!(

@@ -23,7 +23,7 @@ pub(super) fn initialize(registry: &Registry, wrapping: &Wrapping) {
 #[test]
 fn initialized_chats_never_regenerate_a_missing_device_or_state_key() {
     for name in ["device.key", "chat-state.key"] {
-        let (dir, registry, wrapping) = fixture(Layout::Android);
+        let (_test_dir, dir, registry, wrapping) = fixture(Layout::Android);
         initialize(&registry, &wrapping);
         let other = if name == "device.key" {
             "chat-state.key"
@@ -45,7 +45,7 @@ fn initialized_chats_never_regenerate_a_missing_device_or_state_key() {
 #[test]
 fn initialized_chats_reject_a_different_device_or_state_key_without_replacing_it() {
     for name in ["device.key", "chat-state.key"] {
-        let (dir, registry, wrapping) = fixture(Layout::Android);
+        let (_test_dir, dir, registry, wrapping) = fixture(Layout::Android);
         initialize(&registry, &wrapping);
         let old = fs::read(dir.join(name)).unwrap();
         let changed: Vec<_> = old.iter().map(|byte| byte ^ 1).collect();
@@ -62,7 +62,7 @@ fn initialized_chats_reject_a_different_device_or_state_key_without_replacing_it
 #[test]
 fn invalid_existing_wrapped_files_fail_before_generating_any_other_key() {
     for name in ["device.key", "chat-state.key"] {
-        let (dir, registry, wrapping) = fixture(Layout::Android);
+        let (_test_dir, dir, registry, wrapping) = fixture(Layout::Android);
         fs::write(dir.join(name), [0; 4097]).unwrap();
         assert!(registry
             .chat_operation(FIRST, &wrapping.owner.peer_id(), &wrapping, &wrapping)
@@ -74,7 +74,7 @@ fn invalid_existing_wrapped_files_fail_before_generating_any_other_key() {
 
 #[test]
 fn a_corrupt_existing_database_never_triggers_key_generation() {
-    let (dir, registry, wrapping) = fixture(Layout::Android);
+    let (_test_dir, dir, registry, wrapping) = fixture(Layout::Android);
     fs::write(dir.join("client.db"), b"not a database").unwrap();
     assert!(registry
         .chat_operation(FIRST, &wrapping.owner.peer_id(), &wrapping, &wrapping)
@@ -87,7 +87,7 @@ fn a_corrupt_existing_database_never_triggers_key_generation() {
 #[test]
 fn ancillary_symlinks_are_not_followed_or_replaced() {
     for name in ["device.key", "chat-state.key"] {
-        let (dir, registry, wrapping) = fixture(Layout::Android);
+        let (_test_dir, dir, registry, wrapping) = fixture(Layout::Android);
         let outside = dir.parent().unwrap().join("outside");
         fs::write(&outside, b"keep").unwrap();
         std::os::unix::fs::symlink(&outside, dir.join(name)).unwrap();
@@ -101,7 +101,7 @@ fn ancillary_symlinks_are_not_followed_or_replaced() {
 
 #[test]
 fn wrong_identity_or_lifecycle_never_generates_chat_keys() {
-    let (dir, registry, wrapping) = fixture(Layout::Android);
+    let (_test_dir, dir, registry, wrapping) = fixture(Layout::Android);
     assert!(registry
         .chat_operation(FIRST, "wrong peer", &wrapping, &wrapping)
         .is_err());

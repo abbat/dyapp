@@ -185,18 +185,20 @@ mod tests {
     use super::*;
     use std::path::Path;
 
-    fn directory(tag: &str) -> String {
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../build/native-profile-work")
+    fn directory(tag: &str) -> (dyapp_test_support::TestDir, String) {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir
+            .path()
             .join(tag)
             .join(IdentityKey::generate().unwrap().peer_id());
         std::fs::create_dir_all(&dir).unwrap();
-        dir.to_str().unwrap().to_owned()
+        let dir = dir.to_str().unwrap().to_owned();
+        (test_dir, dir)
     }
 
     #[test]
     fn empty_profile_needs_only_fresh_attestation_without_creating_a_database() {
-        let dir = directory("gate");
+        let (_test_dir, dir) = directory("gate");
         let key = IdentityKey::generate().unwrap();
         assert_eq!(
             profile_publish_block(dir.clone(), key.clone(), false).unwrap(),
@@ -232,7 +234,7 @@ mod tests {
 
     #[test]
     fn cancelled_work_preserves_nonce_and_new_handle_resumes() {
-        let dir = directory("solve");
+        let (_test_dir, dir) = directory("solve");
         let key = Arc::new(IdentityKey {
             identity: dyapp_identity::Identity::from_secret(&[7; 32]),
         });

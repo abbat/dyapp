@@ -66,7 +66,8 @@ fn chat_item_ids(items: &[ChatItem]) -> Vec<u8> {
 
 #[test]
 fn mixed_history_and_rows_follow_original_time_and_count_each_item_once() {
-    let path = super::tests::temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let owner = Identity::try_generate().unwrap();
     let (a, b, c) = (
         Identity::try_generate().unwrap().peer_id(),
@@ -121,7 +122,8 @@ fn mixed_history_and_rows_follow_original_time_and_count_each_item_once() {
 
 #[test]
 fn chats_rows_keep_state_latest_time_and_unread_across_clear_and_restart() {
-    let path = super::tests::temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let owner = Identity::try_generate().unwrap();
     let own = owner.peer_id();
     let a = Identity::try_generate().unwrap().peer_id();
@@ -158,7 +160,7 @@ fn chats_rows_keep_state_latest_time_and_unread_across_clear_and_restart() {
         Err(Error::WrongIdentity)
     ));
     let separate = Store::open(
-        &super::tests::temp_db_path(),
+        &test_dir.path().join("client-2.db"),
         &Identity::try_generate().unwrap(),
     )
     .unwrap();

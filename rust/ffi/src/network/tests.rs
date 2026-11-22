@@ -9,15 +9,6 @@ use libp2p::multiaddr::Protocol;
 use libp2p::swarm::SwarmEvent;
 use std::net::TcpListener;
 
-fn temp_dir(tag: &str) -> String {
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../build/native-network-tests")
-        .join(tag)
-        .join(crate::IdentityKey::generate().unwrap().peer_id());
-    std::fs::create_dir_all(&dir).unwrap();
-    dir.to_str().unwrap().into()
-}
-
 async fn serve_node(sender: std::sync::mpsc::Sender<(u16, String)>) {
     let options = SwarmOptions {
         mode: Mode::Auto,
@@ -66,7 +57,8 @@ pub(crate) fn reserved_endpoint() -> (TcpListener, std::net::UdpSocket) {
 
 #[test]
 fn a_checked_draft_is_saved_and_only_a_connected_one_activates() {
-    let dir = temp_dir("check");
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().to_string_lossy().into_owned();
     let check = ConnectionCheck::new(dir.clone()).unwrap();
     assert_eq!(load_network(dir.clone(), NetworkFile::Draft), Ok(None));
     assert_eq!(check.activate(), Err(CheckError::NotChecked));
@@ -166,7 +158,8 @@ pub(crate) fn reject_handshake(listener: TcpListener) -> std::thread::JoinHandle
 
 #[test]
 fn cancel_stops_a_running_check() {
-    let check = ConnectionCheck::new(temp_dir("cancel")).unwrap();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let check = ConnectionCheck::new(test_dir.path().to_string_lossy().into_owned()).unwrap();
     let worker = check.clone();
     let (mute, _udp) = reserved_endpoint();
     let silent = NetworkSettings {

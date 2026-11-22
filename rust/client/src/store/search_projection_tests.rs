@@ -1,5 +1,4 @@
 use super::*;
-use crate::store::tests::temp_db_path;
 use dyapp_identity::{Domain, Identity};
 use dyapp_profile::Profile;
 
@@ -20,7 +19,8 @@ fn record(identity: &Identity, version: u64) -> SignedRecord {
 
 #[test]
 fn acknowledged_head_survives_restart_and_prevents_requeue() {
-    let path = temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let identity = Identity::try_generate().unwrap();
     let store = Store::open(&path, &identity).unwrap();
     let newest = record(&identity, 8);
@@ -41,8 +41,9 @@ fn acknowledged_head_survives_restart_and_prevents_requeue() {
 
 #[test]
 fn conflicting_or_unauthenticated_records_cannot_mutate_queue() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::try_generate().unwrap();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let original = record(&identity, 3);
     store.hold_search_profile(&original).unwrap();
     let conflict = Profile::tombstone(3, 0, 0).sign(&identity);
@@ -73,8 +74,9 @@ fn conflicting_or_unauthenticated_records_cannot_mutate_queue() {
 
 #[test]
 fn late_completions_preserve_newer_pending_and_monotonic_deadlines() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::try_generate().unwrap();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let old = record(&identity, 1);
     let new = record(&identity, 2);
     store.hold_search_profile(&new).unwrap();
@@ -98,8 +100,9 @@ fn late_completions_preserve_newer_pending_and_monotonic_deadlines() {
 
 #[test]
 fn legacy_pending_backfills_head_before_ack_clears_it() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::try_generate().unwrap();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let legacy = record(&identity, 5);
     store
         .set_search_publish(&State {
@@ -116,7 +119,8 @@ fn legacy_pending_backfills_head_before_ack_clears_it() {
 
 #[test]
 fn independent_writers_are_refused_before_read_modify_write() {
-    let path = temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let identity = Identity::try_generate().unwrap();
     let store = Store::open(&path, &identity).unwrap();
     let other = Store::open(&path, &identity).unwrap();
@@ -136,8 +140,9 @@ fn independent_writers_are_refused_before_read_modify_write() {
 
 #[test]
 fn failed_head_write_rolls_back_pending_and_ack_together() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::try_generate().unwrap();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let first = record(&identity, 1);
     store.hold_search_profile(&first).unwrap();
     store
@@ -156,8 +161,9 @@ fn failed_head_write_rolls_back_pending_and_ack_together() {
 
 #[test]
 fn malformed_head_fails_closed_and_saved_draft_is_a_version_floor() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::try_generate().unwrap();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     store
         .save_profile_draft(&Profile {
             version: 10,

@@ -20,9 +20,10 @@ fn delete(target: [u8; 16], operation: u8, wall_ms: u64) -> Body {
 
 #[test]
 fn ordered_operations_replay_and_terminal_delete_survive_restart() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut random = [0; 16];
     getrandom::fill(&mut random).unwrap();
-    let path = std::env::temp_dir().join(format!(
+    let path = test_dir.path().join(format!(
         "dyapp-chat-ops-{:032x}.db",
         u128::from_be_bytes(random)
     ));
@@ -144,9 +145,10 @@ fn assert_ordered_terminal_delete(store: &mut Store, key: &MessageKey) {
 
 #[test]
 fn early_edits_resolve_once_and_discard_pending_text() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut random = [0; 16];
     getrandom::fill(&mut random).unwrap();
-    let path = std::env::temp_dir().join(format!(
+    let path = test_dir.path().join(format!(
         "dyapp-chat-early-{:032x}.db",
         u128::from_be_bytes(random)
     ));
@@ -185,9 +187,10 @@ fn early_edits_resolve_once_and_discard_pending_text() {
 
 #[test]
 fn early_delete_is_terminal_and_pending_budget_is_global() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut random = [0; 16];
     getrandom::fill(&mut random).unwrap();
-    let path = std::env::temp_dir().join(format!(
+    let path = test_dir.path().join(format!(
         "dyapp-chat-bound-{:032x}.db",
         u128::from_be_bytes(random)
     ));

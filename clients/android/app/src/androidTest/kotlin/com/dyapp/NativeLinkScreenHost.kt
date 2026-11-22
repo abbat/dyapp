@@ -9,9 +9,6 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import uniffi.dyapp.MobileDeviceReadState
 
@@ -51,20 +48,18 @@ internal class NativeLinkScreenHost(val compose: ComposeContentTestRule) {
         compose.awaitNode(hasTestTag("settings-devices-open") and hasText(expected)).performClick()
     }
 
-    fun verifiedDirectory(scene: NativeLinkScreenScene): DeviceDirectoryListing = runBlocking {
-        val view = withTimeout(NATIVE_LINK_UI_STEP_MS) {
-            scene.directory.state.first {
-                !it.busy && (
-                    it.failure != null || it.listing?.state?.let { state ->
-                        state != MobileDeviceReadState.CACHED
-                    } == true
-                    )
-            }
+    fun verifiedDirectory(scene: NativeLinkScreenScene): DeviceDirectoryListing {
+        val view = compose.awaitSnapshot(scene.directory.state, NATIVE_LINK_UI_STEP_MS, "verified directory") {
+            !it.busy && (
+                it.failure != null || it.listing?.state?.let { state ->
+                    state != MobileDeviceReadState.CACHED
+                } == true
+                )
         }
         view.failure?.let { throw it }
         val listing = checkNotNull(view.listing)
         assertEquals(MobileDeviceReadState.VERIFIED, listing.state)
-        listing
+        return listing
     }
 
     @Composable

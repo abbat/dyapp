@@ -31,7 +31,7 @@ fn a_revoke_deletes_the_keys_envelopes_and_refuses_their_puts_without_a_strike()
         Identity::try_generate().unwrap(),
     );
     let mailbox = mailbox_of(&owner);
-    let service = service_with(|l| l.strikes_to_ban = 1);
+    let (_service_test_dir, service) = service_with(|l| l.strikes_to_ban = 1);
     let signed = |id: u8, by: &Identity| {
         let token = token(&owner, &mailbox, by, today());
         by.sign(
@@ -63,7 +63,7 @@ fn a_revoke_deletes_the_keys_envelopes_and_refuses_their_puts_without_a_strike()
 
     // Repair carries the signed record to another replica as is.
     assert_eq!(service.revokes(&mailbox).unwrap(), [record]);
-    let next = service_with(|_| {});
+    let (_next_test_dir, next) = service_with(|_| {});
     let record = service.revokes(&mailbox).unwrap().remove(0);
     let request = mailbox_request::Request::ReplicaRevoke(record);
     assert_eq!(put(&next, &replica, request), Status::Ok);
@@ -80,7 +80,7 @@ fn forged_revokes_strike_and_future_or_expired_ones_do_not() {
         Identity::try_generate().unwrap(),
     );
     let mailbox = mailbox_of(&owner);
-    let service = service_with(|l| l.strikes_to_ban = 1);
+    let (_service_test_dir, service) = service_with(|l| l.strikes_to_ban = 1);
     let now = crate::clock::Clock::system().timestamp();
     let send = |from: &str, record: SignedRecord| {
         put(
@@ -126,7 +126,7 @@ fn the_owner_closes_a_revoked_device_mailbox() {
         Identity::try_generate().unwrap(),
     );
     let mailbox = mailbox_of(&device);
-    let service = service_with(|l| l.strikes_to_ban = 1);
+    let (_service_test_dir, service) = service_with(|l| l.strikes_to_ban = 1);
     let signed = |id: u8| {
         let token = token(&device, &mailbox, &contact, today());
         contact.sign(
@@ -206,7 +206,7 @@ fn check_revoke_repair(service: &Service, mailbox: &[u8], record: SignedRecord) 
         service.revokes(mailbox).unwrap(),
         std::slice::from_ref(&record)
     );
-    let next = service_with(|_| {});
+    let (_next_test_dir, next) = service_with(|_| {});
     let request = mailbox_request::Request::ReplicaRevoke(record);
     assert_eq!(put(&next, &replica_peer("r"), request), Status::Ok);
     assert!(next.closed(mailbox).unwrap());

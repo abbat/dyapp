@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn downloaded_bytes_require_pack_identity_and_clicked_hash() {
     for kind in 0..3 {
-        let (mut pair, path, pack, mut job) = admitted();
+        let (_test_dir_5, mut pair, path, pack, mut job) = admitted();
         let bytes = match kind {
             0 => b"malformed".to_vec(),
             1 => sticker_packs::tests::pack("Different manifest").encode(),
@@ -48,7 +48,7 @@ fn downloaded_bytes_require_pack_identity_and_clicked_hash() {
 }
 
 fn stale_retry_completion() {
-    let (mut pair, _, pack, job) = admitted();
+    let (_test_dir_50, mut pair, _, pack, job) = admitted();
     let next = pair
         .session
         .store
@@ -85,7 +85,7 @@ fn stale_retry_completion() {
 fn stale_unsolicited_and_blocked_fetch_completions_never_publish() {
     stale_retry_completion();
 
-    let (mut pair, _, pack, job) = admitted();
+    let (_test_dir_87, mut pair, _, pack, job) = admitted();
     pair.session
         .store
         .finish_sticker_pack(&job.peer, &job.pack_id, &job.token)
@@ -98,7 +98,7 @@ fn stale_unsolicited_and_blocked_fetch_completions_never_publish() {
         .unwrap()
         .is_none());
 
-    let (mut pair, _, pack, job) = admitted();
+    let (_test_dir_100, mut pair, _, pack, job) = admitted();
     pair.session.store.set_blocked(&job.peer, true).unwrap();
     assert!(!complete(&mut pair, &job, &pack));
     assert!(pair
@@ -111,7 +111,7 @@ fn stale_unsolicited_and_blocked_fetch_completions_never_publish() {
 
 #[tokio::test]
 async fn stop_after_transport_and_unreadable_local_file_preserve_retryable_intent() {
-    let (mut pair, _, pack, job) = admitted();
+    let (_test_dir_113, mut pair, _, pack, job) = admitted();
     let checks = std::cell::Cell::new(0);
     assert_eq!(
         pair.session
@@ -158,7 +158,7 @@ async fn stop_after_transport_and_unreadable_local_file_preserve_retryable_inten
 
 #[tokio::test]
 async fn five_due_downloads_leave_one_for_the_next_pass() {
-    let (mut pair, _) = pair();
+    let (_test_dir, mut pair, _) = pair();
     for index in 20..25 {
         let pack = sticker_packs::tests::pack(&format!("Cats {index}"));
         let mut item = sticker(&pack);
@@ -233,7 +233,7 @@ fn refreshed_request(pair: &mut Invite, pack: &Pack, job: &PackDownloadJob) {
 
 #[test]
 fn full_clear_cancels_old_fetch_but_preserves_saved_packs_recents_and_sharing() {
-    let (mut pair, _, pack, job) = admitted();
+    let (_test_dir_235, mut pair, _, pack, job) = admitted();
     let kept = sticker_packs::tests::pack("Keep this pack");
     pair.session.store.save_sticker_pack(&SEAL, &kept).unwrap();
     pair.session

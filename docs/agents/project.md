@@ -6,6 +6,9 @@ automatically. This page holds the details. **The user's own instructions (globa
 
 ## Layout
 
+Workspace helper crates inherit `license.workspace = true`, including unpublished test support.
+`cargo deny` checks their license metadata even when `publish = false`.
+
 A Rust module loaded with `#[path]` needs explicit paths for its nested file modules, including
 `#[cfg(test)]` children, when their files live in a subdirectory. The native desktop crates are
 outside root quality compilation; a dependency-free rustc fixture can verify module resolution.
@@ -182,7 +185,12 @@ Raw `onNode`/`onAllNodes` are receiver members: call `compose.onNode(...)`/
 `assertDoesNotExist` are `SemanticsNodeInteraction` members; retain their node calls without
 `androidx.compose.ui.test` imports. Main-source CodeQL compilation does not validate androidTest
 imports; the Android test-APK compiler remains the authoritative check. Named helpers such as
-`onNodeWithTag` remain extensions requiring imports.
+`onNodeWithTag` remain extensions requiring imports. Create Compose rules through
+`androidx.compose.ui.test.junit4.v2.createComposeRule` (or its Android rule counterpart): the old
+factory is deprecated and `-Werror` rejects it. V2 queues coroutine effects with StandardTestDispatcher;
+await actual state/UI readiness rather than depending on immediate effect execution. For UI-owned
+session transitions, use `compose.awaitSnapshot` so queued effects can resume; `runBlocking` with
+`Flow.first` can starve them. Pure IO retirement after disposal still awaits its real worker.
 Localized instrumentation content uses `LocalizedTestContext` so context/configuration/resources
 agree and the actual Activity picker registry survives the configuration-context substitution.
 Use its font-scale argument for geometry cases; retain the original locale and text-layout assertions.
@@ -496,9 +504,10 @@ Gradle and cargo dependencies into `build/android-build`.
 There are no other targets (no `ui-test-all`, no npm). Details: [testing](../testing/README.md),
 [Docker](../testing/docker.md), [CI](../development/ci-matrix.md).
 
-For Docker quality checks of an isolated branch, use a normal local clone (`git clone --no-local`)
-under `/tmp/ai`. A Git worktree's `.git` pointer and a `--shared` clone's object alternates are
-not available inside the Docker checkout; the small-batches check then fails before linting.
+Docker quality and test targets also work from a linked Git worktree. `docker-local.py` mounts the
+main checkout's git metadata read-only at the path referenced by the worktree, so history and batch
+checks keep working without a manual Compose override. A `--shared` clone still needs a normal
+local clone (`git clone --no-local`) under `/tmp/ai`, because its object alternates are unavailable.
 
 Rust tests run with the crate directory as their working directory. Repository-local test
 artifacts must derive the root `build/` path from `CARGO_MANIFEST_DIR`; `current_dir()/build`
@@ -523,9 +532,9 @@ streams the existing underlying stages. Help and valid interactive shells keep
 their direct output. Image-test cleanup preserves an original failure; failed
 mandatory cleanup also fails an otherwise successful check.
 
-The dev container mounts a separate volume at `/workspace/build`, hiding the host's `build/`.
-Bind-mount ad-hoc scripts and cached compiler inputs explicitly; use a dedicated host `build/`
-output mount when generated artifacts must be read afterwards.
+The dev and test containers bind the checkout's `build/workspace` at `/workspace/build`. Compiler
+reports, including `build/complexity/` and `build/check-output/`, therefore remain readable in the
+same worktree after the container exits. No separate output mount is needed for generated artifacts.
 
 `run-check.py` accepts only check IDs registered in `tools/scripts/check-output.json`;
 GitHub step names are display labels, not new check IDs. Prototype image builds use `docker`

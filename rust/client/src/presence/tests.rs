@@ -2,18 +2,18 @@ use super::*;
 use crate::interactions::{Interaction, Kind};
 use dyapp_identity::Identity;
 use dyapp_messaging::hlc::Timestamp;
-use std::{fs, path::Path};
+use std::fs;
 
 const T: u64 = 1_800_000_000_000;
 
-fn fixture() -> (Store, String, String) {
+fn fixture() -> (dyapp_test_support::TestDir, Store, String, String) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::try_generate().unwrap();
     let peer = Identity::try_generate().unwrap().peer_id();
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../build/test-presence-projection")
-        .join(owner.peer_id());
+    let dir = test_dir.path().join(owner.peer_id());
     fs::create_dir_all(&dir).unwrap();
     (
+        test_dir,
         Store::open(&dir.join("state.sqlite"), &owner).unwrap(),
         owner.peer_id(),
         peer,
@@ -37,7 +37,7 @@ fn like(store: &mut Store, sender: &str, target: &str, id: u8) {
 
 #[test]
 fn preflight_is_read_only_and_reuses_match_hour_and_audience_rules() {
-    let (mut store, owner, peer) = fixture();
+    let (_test_dir, mut store, owner, peer) = fixture();
     assert!(!due_at(&store, T).unwrap());
     like(&mut store, &owner, &peer, 1);
     assert!(!due_at(&store, T).unwrap());
@@ -59,7 +59,7 @@ fn preflight_is_read_only_and_reuses_match_hour_and_audience_rules() {
 
 #[test]
 fn incoming_projection_expires_and_is_not_reciprocal_with_the_local_send_setting() {
-    let (mut store, owner, peer) = fixture();
+    let (_test_dir, mut store, owner, peer) = fixture();
     assert_eq!(active_peers_at(&store, T).unwrap().len(), 0);
     like(&mut store, &owner, &peer, 1);
     like(&mut store, &peer, &owner, 2);

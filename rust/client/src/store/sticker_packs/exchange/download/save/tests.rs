@@ -29,7 +29,7 @@ fn no_file(store: &Store, job: &PackDownloadJob) {
 
 #[test]
 fn current_requested_pack_publication_and_existing_file_retire_intent() {
-    let (mut store, owner, path, peer) = database();
+    let (_test_dir, mut store, owner, path, peer) = database();
     let pack = sticker_packs::tests::pack("Requested");
     let job = intent(&store, &peer, &pack);
     assert!(store
@@ -58,7 +58,7 @@ fn current_requested_pack_publication_and_existing_file_retire_intent() {
 
 #[test]
 fn stale_wrong_unsolicited_or_disallowed_request_never_publishes() {
-    let (mut store, _, _, peer) = database();
+    let (_test_dir, mut store, _, _, peer) = database();
     let pack = sticker_packs::tests::pack("Requested");
     let job = intent(&store, &peer, &pack);
     let mut stale = job.clone();
@@ -105,7 +105,7 @@ fn stale_wrong_unsolicited_or_disallowed_request_never_publishes() {
 
 #[test]
 fn clicked_hash_and_quota_guards_preserve_request_without_publication() {
-    let (mut store, _, _, peer) = database();
+    let (_test_dir, mut store, _, _, peer) = database();
     let pack = sticker_packs::tests::pack("Requested");
     let job = intent(&store, &peer, &pack);
     store
@@ -141,7 +141,7 @@ fn clicked_hash_and_quota_guards_preserve_request_without_publication() {
 
 #[test]
 fn failed_sqlite_commit_preserves_intent_and_published_file_recovers_idempotently() {
-    let (mut store, owner, path, peer) = database();
+    let (_test_dir, mut store, owner, path, peer) = database();
     let pack = sticker_packs::tests::pack("Requested");
     let job = intent(&store, &peer, &pack);
     // Deferred constraint fails at commit, after the file rename, rather than in the guard.

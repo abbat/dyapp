@@ -6,11 +6,13 @@ struct Fixture {
     registry: Registry,
     receiver: LinkReceiver<String, String>,
     view: ProfileView,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 impl Fixture {
     fn new(address: &Multiaddr) -> Self {
-        let registry = Registry::new(protocol_build_path("link-receiver"), Layout::Desktop);
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let registry = Registry::new(test_dir.to_path_buf(), Layout::Desktop);
         let (source, owner, _) = registry.create(Storage::File, &Files).unwrap();
         network::save(
             &source.dir,
@@ -39,6 +41,7 @@ impl Fixture {
             registry,
             receiver,
             view,
+            _test_dir: test_dir,
         }
     }
 }

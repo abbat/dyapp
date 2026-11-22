@@ -45,9 +45,10 @@ fn assert_staged(store: &Store, key: &MessageKey, write: &PreparedEnvelope, gene
 
 #[test]
 fn own_chat_projection_mls_and_exact_writes_share_one_commit() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut random = [0; 16];
     getrandom::fill(&mut random).unwrap();
-    let path = std::env::temp_dir().join(format!(
+    let path = test_dir.path().join(format!(
         "dyapp-chat-outbound-{:032x}.db",
         u128::from_be_bytes(random)
     ));
@@ -348,12 +349,12 @@ fn assert_failed_edit_rollback(store: &mut Store, sender: VerifiedChatSender, ed
 
 #[test]
 fn attachment_descriptor_clock_and_delivery_survive_restart() {
-    let path = crate::store::tests::temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let owner = Identity::try_generate().unwrap();
     let author = owner.peer_id();
     let peer = Identity::try_generate().unwrap().peer_id();
-    let group = [3];
-    let device = [4; 32];
+    let (group, device) = ([3], [4; 32]);
     let sender = VerifiedChatSender {
         group: &group,
         author: &author,
@@ -477,7 +478,8 @@ fn assert_attachment_outbox(store: &Store, peer: &str, write: &PreparedEnvelope)
 
 #[test]
 fn received_operations_and_interactions_advance_chat_drafts_but_failure_does_not() {
-    let path = super::super::tests::temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let owner = Identity::try_generate().unwrap();
     let peer = Identity::try_generate().unwrap();
     let mut store = Store::open(&path, &owner).unwrap();

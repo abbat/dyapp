@@ -14,7 +14,8 @@ fn save_device(slot: &Slot, device: &Identity) -> Result<(), String> {
 
 #[test]
 fn one_retained_outcome_supports_the_existing_platform_device_writer() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = Registry::new(root.clone(), Layout::Desktop);
     let (source, owner, _) = registry.create(Storage::File, &Files).unwrap();
     let linked = incoming();
@@ -46,7 +47,8 @@ fn one_retained_outcome_supports_the_existing_platform_device_writer() {
 
 #[test]
 fn a_platform_write_failure_never_retries_into_another_destination() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = Registry::new(root.clone(), Layout::Desktop);
     let (source, owner, _) = registry.create(Storage::File, &Files).unwrap();
     let mut received = ReceivedLink::new(
@@ -80,7 +82,8 @@ fn a_platform_write_failure_never_retries_into_another_destination() {
 
 #[test]
 fn wrapped_installation_still_refuses_desktop_before_any_reservation() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = Registry::new(root.clone(), Layout::Desktop);
     let (source, owner, _) = registry.create(Storage::File, &Files).unwrap();
     let mut received = ReceivedLink::new(

@@ -13,14 +13,16 @@ fn persisted_event(f: &Fixture, event: Interaction) -> Interaction {
     Interaction::decode(&payload).unwrap()
 }
 
-fn unjoined(f: &Fixture) -> Session {
-    Session::open_or_create(
-        Store::open(&crate::store::tests::temp_db_path(), &f.owner).unwrap(),
+fn unjoined(f: &Fixture) -> (dyapp_test_support::TestDir, Session) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let session = Session::open_or_create(
+        Store::open(&test_dir.path().join("client-1.db"), &f.owner).unwrap(),
         &f.owner,
         &Identity::try_generate().unwrap(),
         &f.seal,
     )
-    .unwrap()
+    .unwrap();
+    (test_dir, session)
 }
 
 #[tokio::test]
@@ -117,7 +119,7 @@ async fn disabled_view_is_no_event_and_preserves_mls() {
 #[tokio::test]
 async fn an_unjoined_unlike_is_no_event_and_first_like_refusal_stages_nothing() {
     let f = fixture();
-    let mut session = unjoined(&f);
+    let (_test_dir, mut session) = unjoined(&f);
     let sealed = session.store().sealed_device().unwrap();
     assert!(session
         .submit_interaction_with(&mut [], &f.profiles, Kind::Unlike, &f.seal)

@@ -28,7 +28,96 @@ def status(current: int, code: int, name: str = "example") -> bytes:
     ).encode()
 
 
+def phase(
+    case: str, name: str = "example", suite: str = "com.dyapp.Fixture"
+) -> bytes:
+    return (
+        "INSTRUMENTATION_STATUS: id=DYAppVisual\n"
+        f"INSTRUMENTATION_STATUS: class={suite}\n"
+        f"INSTRUMENTATION_STATUS: test={name}\n"
+        f"INSTRUMENTATION_STATUS: case={case}\n"
+        "INSTRUMENTATION_STATUS_CODE: 2\n"
+    ).encode()
+
+
 class AndroidInstrumentation(TestCase):
+    def test_completed_visual_cases_renew_without_fabricating_junit_results(
+        self,
+    ) -> None:
+        clock = 0.0
+        events: list[dict[str, object]] = []
+        progress = MONITOR.Progress(
+            10, now=lambda: clock, emit=events.append, phase_callbacks=True
+        )
+        progress.feed(status(1, 1))
+        for case in range(1, 9):
+            clock += 8
+            progress.feed(phase(str(case)))
+            self.assertEqual(progress.remaining(), 10)
+            self.assertEqual(progress.completed, 0)
+        self.assertEqual(progress.completed_cases, 8)
+        self.assertEqual(
+            [
+                event["code"]
+                for event in events
+                if event["event"] == "phase_completed"
+            ],
+            [str(case) for case in range(1, 9)],
+        )
+        progress.feed(status(1, 0))
+        self.assertEqual(progress.completed, 1)
+
+    def test_visual_callbacks_require_opt_in_and_an_active_matching_test(
+        self,
+    ) -> None:
+        clock = 0.0
+        default = MONITOR.Progress(10, now=lambda: clock)
+        enabled = MONITOR.Progress(10, now=lambda: clock, phase_callbacks=True)
+        enabled.feed(phase("1"))
+        default.feed(status(1, 1))
+        enabled.feed(status(1, 1))
+        clock = 2
+        default.feed(phase("1"))
+        self.assertEqual(default.remaining(), 8)
+        for callback in (
+            phase("2"),
+            phase("0"),
+            phase("-1"),
+            phase("one"),
+            phase("١"),
+            phase("1", name="other"),
+            phase("1", suite="com.dyapp.Other"),
+            b"arbitrary completion log\n",
+        ):
+            enabled.feed(callback)
+            self.assertEqual(enabled.remaining(), 8)
+        enabled.feed(phase("1"))
+        clock = 4
+        enabled.feed(phase("1"))
+        self.assertEqual(enabled.remaining(), 8)
+        self.assertEqual(enabled.completed_cases, 1)
+
+    def test_late_phase_cannot_revive_expired_deadline_and_sequence_resets(
+        self,
+    ) -> None:
+        clock = 0.0
+        progress = MONITOR.Progress(
+            10, now=lambda: clock, phase_callbacks=True
+        )
+        progress.feed(status(1, 1))
+        clock = 8
+        progress.feed(phase("1"))
+        progress.feed(status(1, 0))
+        progress.feed(status(2, 1, "next"))
+        clock = 16
+        progress.feed(phase("1", name="next"))
+        self.assertEqual(progress.completed_cases, 1)
+        self.assertEqual(progress.remaining(), 10)
+        clock = 26
+        with self.assertRaises(TimeoutError):
+            progress.feed(phase("2", name="next"))
+        self.assertEqual(progress.completed_cases, 1)
+
     def test_healthy_sequence_can_outlive_the_initial_budget(self) -> None:
         clock = 0.0
         progress = MONITOR.Progress(10, now=lambda: clock)

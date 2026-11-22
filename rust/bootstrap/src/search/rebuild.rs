@@ -47,7 +47,7 @@ fn fake(i: u32) -> [u8; 32] {
 
 #[tokio::test]
 async fn changes_during_the_copy_reach_the_candidate() {
-    let index = index();
+    let (_index_test_dir, index) = index();
     let t = index.created();
     let keys = fill(&index, 600, t);
     let id = Identity::try_generate().unwrap();
@@ -93,7 +93,7 @@ async fn changes_during_the_copy_reach_the_candidate() {
 
 #[tokio::test]
 async fn overflow_aborts_and_deletes_the_candidate() {
-    let index = index();
+    let (_index_test_dir, index) = index();
     fill(&index, 300, index.created());
     let budget = RebuildBudget::new(64);
     let flood = async {
@@ -112,7 +112,7 @@ async fn overflow_aborts_and_deletes_the_candidate() {
 
 #[tokio::test]
 async fn low_disk_aborts_before_the_copy() {
-    let index = index();
+    let (_index_test_dir, index) = index();
     fill(&index, 3, index.created());
     let built = index.build(NEXT, &RebuildBudget::new(64), u64::MAX).await;
     assert!(matches!(built, Err(Abort::Disk)));
@@ -121,7 +121,7 @@ async fn low_disk_aborts_before_the_copy() {
 
 #[tokio::test]
 async fn continuous_changes_postpone_then_replay_settles() {
-    let index = index();
+    let (_index_test_dir, index) = index();
     fill(&index, 3, index.created());
     let budget = RebuildBudget::new(64);
     // More distinct keys than a settled round may take, changed again during every batch.

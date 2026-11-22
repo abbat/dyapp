@@ -211,7 +211,7 @@ pub(super) fn on_like(
 #[cfg(test)]
 mod tests {
     use super::super::messages::{MessageKey, VerifiedChatSender};
-    use super::super::tests::{catalog_group, temp_db_path};
+    use super::super::tests::catalog_group;
     use super::super::{Error, InboxKey, Store};
     use super::Conversation;
     use crate::chat::Body;
@@ -227,17 +227,20 @@ mod tests {
         store: Store,
         own: String,
         peer: String,
+        _test_dir: dyapp_test_support::TestDir,
     }
 
     fn pair() -> Pair {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let owner = Identity::try_generate().unwrap();
         let peer = Identity::try_generate().unwrap().peer_id();
-        let mut store = Store::open(&temp_db_path(), &owner).unwrap();
+        let mut store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
         catalog_group(&mut store, GROUP, &peer);
         Pair {
             store,
             own: owner.peer_id(),
             peer,
+            _test_dir: test_dir,
         }
     }
 

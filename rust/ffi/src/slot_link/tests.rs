@@ -2,7 +2,7 @@ mod receipts;
 mod wire;
 
 use super::*;
-use crate::slot_registry_tests::{root, Credentials};
+use crate::slot_registry_tests::Credentials;
 use crate::{MobileSlotLayout, MobileSlotSelection};
 use dyapp_client::identity_slots::{Layout, Registry};
 use dyapp_identity::Identity;
@@ -12,6 +12,7 @@ struct Fixture {
     root: PathBuf,
     registry: Arc<MobileIdentityRegistry>,
     source: MobileSlotSelection,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 impl Fixture {
@@ -20,7 +21,8 @@ impl Fixture {
     }
 
     fn with_keys(keys: Arc<dyn crate::MobileSlotKeys>) -> Self {
-        let root = root();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let root = test_dir.to_path_buf();
         let registry = MobileIdentityRegistry::new(
             root.to_str().unwrap().into(),
             MobileSlotLayout::Android,
@@ -31,6 +33,7 @@ impl Fixture {
             root,
             registry,
             source,
+            _test_dir: test_dir,
         }
     }
 

@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn store_media_checks_each_condition_and_evicts_cache_before_refusing() {
-    let s = media_service(|_| {});
+    let (_s_test_dir, s) = media_service(|_| {});
     let owner = Identity::try_generate().unwrap();
     check_keep_conditions(&s, &owner);
     check_attachment_conditions(&s, &owner);
@@ -115,7 +115,7 @@ fn check_attachment_conditions(s: &Service, owner: &Identity) {
 
 fn check_cache_eviction_and_disk_space(owner: &Identity) {
     // A full store first evicts cached blobs, oldest read first, down to 95%.
-    let s = media_service(|l| l.media_max_mb = 1);
+    let (_s_test_dir, s) = media_service(|l| l.media_max_mb = 1);
     let media = s.media.as_ref().unwrap();
     for read in 1..=3u8 {
         let data = vec![read; 400 << 10].into_boxed_slice();
@@ -126,13 +126,13 @@ fn check_cache_eviction_and_disk_space(owner: &Identity) {
     assert_eq!(media.cached(&[1; 32], 4).unwrap(), None);
     assert!(media.cached(&[3; 32], 4).unwrap().is_some());
     // Low disk space alone refuses storage.
-    let s = media_service(|l| l.min_free_mb = 1 << 40);
+    let (_s_test_dir, s) = media_service(|l| l.min_free_mb = 1 << 40);
     assert_eq!(store_media_status(&s, &fits), Status::Full);
 }
 
 #[test]
 fn media_have_accepts_a_full_repair_window_and_no_more() {
-    let s = media_service(|_| {});
+    let (_s_test_dir, s) = media_service(|_| {});
     let status = |items| {
         let request = MediaRequest {
             request: Some(media_request::Request::Have(proto::MediaHave { items })),

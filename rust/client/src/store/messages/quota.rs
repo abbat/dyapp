@@ -122,6 +122,7 @@ mod tests {
         peer: String,
         other: String,
         path: PathBuf,
+        _test_dir: dyapp_test_support::TestDir,
     }
 
     fn message_id(number: i64) -> [u8; 16] {
@@ -137,7 +138,8 @@ mod tests {
     }
 
     fn fixture() -> Fixture {
-        let path = crate::store::tests::temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let owner = Identity::try_generate().unwrap();
         let peer = Identity::try_generate().unwrap().peer_id();
         let other = Identity::try_generate().unwrap().peer_id();
@@ -168,6 +170,7 @@ mod tests {
             peer,
             other,
             path,
+            _test_dir: test_dir,
         }
     }
 
@@ -266,8 +269,9 @@ mod tests {
 
     #[test]
     fn replay_metadata_expires_only_at_the_retention_boundary() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let owner = Identity::try_generate().unwrap();
-        let mut store = Store::open(&crate::store::tests::temp_db_path(), &owner).unwrap();
+        let mut store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
         let inbox = InboxKey {
             mailbox: [1; 32],
             id: [2; 16],

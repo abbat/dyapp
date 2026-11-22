@@ -14,7 +14,7 @@ async fn matched_pair(
     for owner in &owners {
         held.push(alice.node.get_profile(owner).await.unwrap());
     }
-    let (mut ours, mut theirs, group) = begin_chat_at(alice, bob, &held, path).await;
+    let (_test_dir_16, mut ours, mut theirs, group) = begin_chat_at(alice, bob, &held, path).await;
     for (session, person) in [(&mut ours, &mut *alice), (&mut theirs, &mut *bob)] {
         session
             .interact(from_mut(&mut person.node), &group, Kind::Like, &SEAL)
@@ -45,10 +45,11 @@ fn pending_bytes(session: &Session) -> Vec<Vec<u8>> {
 
 #[tokio::test]
 async fn offline_text_reopens_and_retries_through_a_real_node_without_duplicate_delivery() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let address = link_node().await;
     let mut alice = Person::new(&address).await;
     let mut bob = Person::new(&address).await;
-    let path = store_path("offline-retry");
+    let path = test_dir.path().join("offline-retry.db");
     let (mut ours, mut theirs, held) = matched_pair(&mut alice, &mut bob, &path).await;
     let queued = ours
         .try_submit_established_text(&mut [], &bob.identity.peer_id(), b"retained offline", &SEAL)

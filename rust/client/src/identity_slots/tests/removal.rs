@@ -1,7 +1,7 @@
 mod faults;
 mod safety;
 
-use super::{root, slot, FIRST};
+use super::{slot, FIRST};
 use crate::identity_slots::{Credential, KeyReader, KeyRemover, Layout, Registry, Slot, Storage};
 use dyapp_identity::Identity;
 use std::cell::{Cell, RefCell};
@@ -72,8 +72,12 @@ impl KeyRemover for Backend {
     }
 }
 
-fn fixture(layout: Layout, storage: Storage) -> (PathBuf, Registry, Backend) {
-    let root = root();
+fn fixture(
+    layout: Layout,
+    storage: Storage,
+) -> (dyapp_test_support::TestDir, PathBuf, Registry, Backend) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let dir = slot(&root, FIRST, b"ready\n");
     let identity = Identity::try_generate().unwrap();
     let bytes = if storage == Storage::File {
@@ -121,5 +125,5 @@ fn fixture(layout: Layout, storage: Storage) -> (PathBuf, Registry, Backend) {
         stale_open: Cell::new(false),
         lock,
     };
-    (root.clone(), Registry::new(root, layout), backend)
+    (test_dir, root.clone(), Registry::new(root, layout), backend)
 }

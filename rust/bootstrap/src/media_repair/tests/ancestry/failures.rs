@@ -1,11 +1,17 @@
 //! Old, conflicting and malformed admission replies never authorize writes.
 use super::*;
 
-fn fixture() -> (Chain, Service, Vec<u8>, Vec<u8>) {
+fn fixture() -> (
+    dyapp_test_support::TestDir,
+    Chain,
+    Service,
+    Vec<u8>,
+    Vec<u8>,
+) {
     let data = b"guarded photo".to_vec();
     let hash = dyapp_identity::sha256(&data).to_vec();
     let chain = Chain::new(4, &hash);
-    let target = service();
+    let (target_test_dir, target) = service();
     assert_ok(
         &target
             .store_media(&replica(&chain.records[0], data.clone(), None))
@@ -17,7 +23,7 @@ fn fixture() -> (Chain, Service, Vec<u8>, Vec<u8>) {
             .store_media(&replica(chain.target(), data.clone(), None))
             .unwrap(),
     );
-    (chain, target, data, hash)
+    (target_test_dir, chain, target, data, hash)
 }
 
 fn no_write(trace: &[proto::media_request::Request]) {
@@ -62,7 +68,7 @@ fn unsupported_replies() -> [Option<proto::MediaResponse>; 4] {
 #[test]
 fn unsupported_or_missing_current_receipts_fail_closed() {
     for reply in unsupported_replies() {
-        let (chain, target, data, hash) = fixture();
+        let (_test_dir, chain, target, data, hash) = fixture();
         let nodes = [(PeerId::random(), &target)];
         let mut repair = chain.repair(&nodes);
         let trace = drive_with(&mut repair, &chain.source, &nodes, |service, request| {
@@ -91,7 +97,7 @@ fn unsupported_or_missing_current_receipts_fail_closed() {
 
 #[test]
 fn nondecreasing_page_progress_does_not_reset_its_deadline() {
-    let (chain, target, _, _) = fixture();
+    let (_test_dir, chain, target, _, _) = fixture();
     let nodes = [(PeerId::random(), &target)];
     let mut repair = chain.repair(&nodes);
     let before = repair.deadline;
@@ -129,7 +135,7 @@ fn malformed_probe_progress_never_authorizes_a_destination() {
         (false, 3, Some(true)),
         (true, 4, Some(true)),
     ] {
-        let (chain, target, _, _) = fixture();
+        let (_test_dir, chain, target, _, _) = fixture();
         let nodes = [(PeerId::random(), &target)];
         let mut repair = chain.repair(&nodes);
         let before = repair.deadline;
@@ -157,7 +163,7 @@ fn malformed_probe_progress_never_authorizes_a_destination() {
 
 #[test]
 fn invalid_conditional_signature_cannot_downgrade_to_legacy() {
-    let (chain, _, _, hash) = fixture();
+    let (_test_dir, chain, _, _, hash) = fixture();
     let mut record = chain.target().clone();
     record.payload.push(0);
     assert!(Repair::new(&chain.source, record, vec![hash], Instant::now()).is_err());
@@ -173,7 +179,7 @@ fn step(repair: &mut Repair, source: &Service) -> (usize, proto::MediaRequest) {
 
 #[test]
 fn verified_progress_extends_deadline_but_expired_progress_cannot_revive_it() {
-    let (chain, target, _, _) = fixture();
+    let (_test_dir, chain, target, _, _) = fixture();
     let nodes = [(PeerId::random(), &target)];
     let mut repair = chain.repair(&nodes);
     let old = repair.deadline;
@@ -191,8 +197,8 @@ fn verified_progress_extends_deadline_but_expired_progress_cannot_revive_it() {
 
 #[test]
 fn missing_required_proofs_finish_without_waiting_or_pruning() {
-    let (chain, target, data, hash) = fixture();
-    let seeded = service();
+    let (_test_dir, chain, target, data, hash) = fixture();
+    let (_seeded_test_dir, seeded) = service();
     assert_ok(
         &seeded
             .store_media(&replica(chain.target(), data.clone(), None))

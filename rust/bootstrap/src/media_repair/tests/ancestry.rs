@@ -63,10 +63,11 @@ struct Chain {
     source: Service,
     owner: Identity,
     records: Vec<SignedRecord>,
+    _test_dir: dyapp_test_support::TestDir,
 }
 impl Chain {
     fn new(count: usize, hash: &[u8]) -> Self {
-        let source = service();
+        let (source_test_dir, source) = service();
         let owner = Identity::from_secret(&[44; 32]);
         let mut records = Vec::new();
         for version in 1..=count {
@@ -81,6 +82,7 @@ impl Chain {
             source,
             owner,
             records,
+            _test_dir: source_test_dir,
         }
     }
 
@@ -183,7 +185,7 @@ fn skipped_revisions_preserve_existing_photo_bytes_without_obsolete_uploads() {
     let data = b"retained photo".to_vec();
     let hash = dyapp_identity::sha256(&data).to_vec();
     let chain = Chain::new(4, &hash);
-    let target = service();
+    let (_target_test_dir, target) = service();
     assert_ok(
         &target
             .store_media(&replica(&chain.records[0], data.clone(), None))
@@ -217,7 +219,7 @@ fn reverse_history_is_bounded_and_crosses_the_record_page_limit() {
     let data = b"bounded photo".to_vec();
     let hash = dyapp_identity::sha256(&data).to_vec();
     let chain = Chain::new(260, &hash);
-    let target = service();
+    let (_target_test_dir, target) = service();
     assert_ok(
         &target
             .store_media(&replica(&chain.records[0], data.clone(), None))

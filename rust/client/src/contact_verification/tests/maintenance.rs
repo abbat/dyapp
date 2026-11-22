@@ -2,7 +2,8 @@ use super::*;
 
 #[test]
 fn refresh_turn_is_bounded_ordered_and_excludes_the_owner() {
-    let path = temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let store = Store::open(&path, &owner(1)).unwrap();
     assert_eq!(refresh_target(&store, 0).unwrap(), None);
     let own = owner(1).peer_id();
@@ -41,7 +42,7 @@ fn refresh_turn_is_bounded_ordered_and_excludes_the_owner() {
 
 #[test]
 fn contact_readback_admits_only_the_requested_owner_and_current_generation() {
-    let store = store(1);
+    let (_test_dir, store) = store(1);
     let peer = owner(2).peer_id();
     let mut context = Context::default();
     let obsolete = context.generation();
@@ -73,7 +74,7 @@ fn contact_readback_admits_only_the_requested_owner_and_current_generation() {
 
 #[test]
 fn contact_readback_keeps_newer_and_equal_authority() {
-    let store = store(1);
+    let (_test_dir, store) = store(1);
     let peer = owner(2).peer_id();
     let mut context = Context::default();
     let generation = context.generation();

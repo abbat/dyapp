@@ -1,13 +1,18 @@
 use super::*;
 use dyapp_identity::Identity;
 
-fn store() -> (Store, std::path::PathBuf, Identity) {
+fn store() -> (
+    dyapp_test_support::TestDir,
+    Store,
+    std::path::PathBuf,
+    Identity,
+) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::try_generate().unwrap();
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../build/test-media-cache")
-        .join(owner.peer_id());
+    let dir = test_dir.path().join(owner.peer_id());
     fs::create_dir_all(&dir).unwrap();
     (
+        test_dir,
         Store::open(&dir.join("state.sqlite"), &owner).unwrap(),
         dir,
         owner,
@@ -16,7 +21,7 @@ fn store() -> (Store, std::path::PathBuf, Identity) {
 
 #[test]
 fn numeric_budget_survives_restart_disabled_state_and_invalid_writes() {
-    let (store, dir, owner) = store();
+    let (_test_dir, store, dir, owner) = store();
     assert_eq!(
         store.media_cache_config().unwrap(),
         MediaCacheConfig::default()
@@ -65,7 +70,7 @@ fn numeric_budget_survives_restart_disabled_state_and_invalid_writes() {
 
 #[test]
 fn corrupt_or_unsupported_setting_cannot_change_retention() {
-    let (store, _, _) = store();
+    let (_test_dir, store, _, _) = store();
     store
         .set_media_cache_config(MediaCacheConfig::default())
         .unwrap();
@@ -96,7 +101,7 @@ fn corrupt_or_unsupported_setting_cannot_change_retention() {
 #[cfg(unix)]
 #[test]
 fn clear_refuses_a_redirected_cache_folder() {
-    let (store, dir, _) = store();
+    let (_test_dir, store, dir, _) = store();
     let outside = dir.join("outside");
     fs::create_dir(&outside).unwrap();
     fs::write(outside.join("valuable"), b"preserve").unwrap();
@@ -108,7 +113,7 @@ fn clear_refuses_a_redirected_cache_folder() {
 
 #[test]
 fn usage_and_explicit_clear_are_local_and_preserve_preference() {
-    let (store, dir, _) = store();
+    let (_test_dir, store, dir, _) = store();
     assert_eq!(store.media_cache_usage(&dir).unwrap(), 0);
     store.clear_media_cache(&dir).unwrap();
     let cache = dir.join(FOLDER);

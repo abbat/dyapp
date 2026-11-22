@@ -2,7 +2,7 @@
 use super::*;
 
 pub(super) fn resume_after_reopen(chain: &Chain, hash: &[u8], data: &[u8]) {
-    let mut target = service();
+    let (_target_test_dir, mut target) = service();
     assert_ok(
         &target
             .store_media(&replica(&chain.records[0], data.to_vec(), None))
@@ -56,7 +56,7 @@ fn sharded_repair_preserves_present_shards_and_writes_only_the_gap() {
     let (manifest, shards) = media_encode(&vec![9; MEDIA_OBJECT_BYTES + 1]).unwrap();
     let hash = manifest.hash.clone();
     let chain = Chain::new(4, &hash);
-    let target = service();
+    let (_target_test_dir, target) = service();
     store_shards(
         &target,
         &replica(&chain.records[0], Vec::new(), Some(manifest.clone())),
@@ -90,8 +90,11 @@ fn sharded_repair_preserves_present_shards_and_writes_only_the_gap() {
     }
 }
 
-fn superseded_target(chain: &Chain, data: &[u8]) -> (Service, SignedRecord) {
-    let target = service();
+fn superseded_target(
+    chain: &Chain,
+    data: &[u8],
+) -> (dyapp_test_support::TestDir, Service, SignedRecord) {
+    let (target_test_dir, target) = service();
     let request = proto::MediaRequest {
         request: Some(proto::media_request::Request::KeepCatchup(
             proto::MediaKeepCatchup {
@@ -116,7 +119,7 @@ fn superseded_target(chain: &Chain, data: &[u8]) -> (Service, SignedRecord) {
         &chain.owner,
         vec![dyapp_identity::sha256(b"new owner intent").to_vec()],
     );
-    (target, newer)
+    (target_test_dir, target, newer)
 }
 
 #[test]
@@ -124,8 +127,8 @@ fn unadmitted_holder_can_supply_public_bytes_but_is_not_overwritten_or_counted()
     let data = b"public fallback photo".to_vec();
     let hash = dyapp_identity::sha256(&data).to_vec();
     let chain = Chain::new(3, &hash);
-    let (target, newer) = superseded_target(&chain, &data);
-    let fresh = service();
+    let (_target_test_dir, target, newer) = superseded_target(&chain, &data);
+    let (_fresh_test_dir, fresh) = service();
     let nodes = [(PeerId::random(), &target), (PeerId::random(), &fresh)];
     let mut repair = chain.repair(&nodes);
     let trace = drive_history(&mut repair, &chain.source, &nodes);
@@ -150,13 +153,13 @@ fn seeded_source_without_older_proof_can_fill_an_admitted_empty_holder() {
     let data = b"seeded head photo".to_vec();
     let hash = dyapp_identity::sha256(&data).to_vec();
     let chain = Chain::new(4, &hash);
-    let seeded = service();
+    let (_seeded_test_dir, seeded) = service();
     assert_ok(
         &seeded
             .store_media(&replica(chain.target(), data.clone(), None))
             .unwrap(),
     );
-    let target = service();
+    let (_target_test_dir, target) = service();
     let nodes = [(PeerId::random(), &target)];
     let mut repair = Repair::new(
         &seeded,

@@ -11,7 +11,7 @@ fn count(store: &Store) -> i64 {
 
 #[test]
 fn hostile_or_stale_selection_and_changed_chat_state_create_no_intent() {
-    let (mut store, owner, _, peer) = database();
+    let (_test_dir, mut store, owner, _, peer) = database();
     let key = selected(&mut store, &peer, 1);
     let request = store.sticker_pack_request(&[9], &key).unwrap();
     assert!(store.sticker_pack_request(&[10], &key).is_err());
@@ -59,7 +59,7 @@ fn hostile_or_stale_selection_and_changed_chat_state_create_no_intent() {
 
 #[test]
 fn parallel_last_slot_stays_bounded_and_retry_works_at_capacity() {
-    let (mut store, owner, path, peer) = database();
+    let (_test_dir, mut store, owner, path, peer) = database();
     let mut first = None;
     for id in 1..=63 {
         let key = selected(&mut store, &peer, id);

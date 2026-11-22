@@ -700,7 +700,6 @@ pub(crate) mod tests {
     use dyapp_p2p_net::proto;
     use dyapp_profile::{Profile, VerifiedProfile};
     use prost::Message as _;
-    use std::path::PathBuf;
 
     /// Catalog a test group without MLS state, as `stage_group` or a Welcome would.
     pub(crate) fn catalog_group(store: &mut Store, group: &[u8], peer_id: &str) {
@@ -709,46 +708,10 @@ pub(crate) mod tests {
         tx.commit().unwrap();
     }
 
-    pub(crate) fn temp_db_path() -> PathBuf {
-        let mut random = [0; 16];
-        getrandom::fill(&mut random).unwrap();
-        std::env::temp_dir().join(format!(
-            "dyapp-client-store-{:032x}.db",
-            u128::from_be_bytes(random)
-        ))
-    }
-
-    #[test]
-    fn privacy_settings_survive_restart_without_crossing_profiles() {
-        let path = temp_db_path();
-        let alice = Identity::try_generate().unwrap();
-        let store = Store::open(&path, &alice).unwrap();
-        assert!(!store.send_profile_views().unwrap());
-        assert!(store.send_typing().unwrap());
-        assert!(store.notifications().unwrap());
-        store.set_send_profile_views(true).unwrap();
-        store.set_send_typing(false).unwrap();
-        store.set_notifications(false).unwrap();
-        drop(store);
-        let store = Store::open(&path, &alice).unwrap();
-        assert!(store.send_profile_views().unwrap());
-        assert!(!store.send_typing().unwrap());
-        assert!(!store.notifications().unwrap());
-        store.set_send_profile_views(false).unwrap();
-        drop(store);
-        assert!(!Store::open(&path, &alice)
-            .unwrap()
-            .send_profile_views()
-            .unwrap());
-        let other = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
-        assert!(!other.send_profile_views().unwrap());
-        assert!(other.send_typing().unwrap());
-        assert!(other.notifications().unwrap());
-    }
-
     #[test]
     fn download_and_notice_settings_roundtrip_and_survive_restart() {
-        let path = temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let alice = Identity::try_generate().unwrap();
         let store = Store::open(&path, &alice).unwrap();
         assert_eq!(store.auto_download().unwrap(), AutoDownload::ByNetwork);
@@ -768,7 +731,8 @@ pub(crate) mod tests {
 
     #[test]
     fn pass_history_orders_updates_and_survives_restart_without_crossing_profiles() {
-        let path = temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let alice = Identity::try_generate().unwrap();
         let peer = Identity::try_generate().unwrap().peer_id();
         let store = Store::open(&path, &alice).unwrap();
@@ -780,13 +744,22 @@ pub(crate) mod tests {
         assert!(store.passed(&peer).unwrap());
         assert!(store.set_pass(&peer, false, Timestamp::new(11, 0)).unwrap());
         assert!(!store.passed(&peer).unwrap());
-        let other = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
+        let other = Store::open(
+            &test_dir.path().join("client-2.db"),
+            &Identity::try_generate().unwrap(),
+        )
+        .unwrap();
         assert!(!other.passed(&peer).unwrap());
     }
 
     #[test]
     fn unknown_setting_format_fails_closed() {
-        let store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let store = Store::open(
+            &test_dir.path().join("client-1.db"),
+            &Identity::try_generate().unwrap(),
+        )
+        .unwrap();
         store
             .db
             .execute(
@@ -837,7 +810,8 @@ pub(crate) mod tests {
 
     #[test]
     fn the_owner_catalogs_a_group_of_only_own_devices() {
-        let path = temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let identity = Identity::try_generate().unwrap();
         let mut draft = Profile {
             version: 2,
@@ -863,7 +837,8 @@ pub(crate) mod tests {
 
     #[test]
     fn outbound_and_mls_snapshot_survive_restart_and_roll_back_together() {
-        let path = temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let owner = Identity::try_generate().unwrap();
         let device =
             Device::new(&owner, Identity::try_generate().unwrap().public_key(), 1).unwrap();
@@ -914,7 +889,8 @@ pub(crate) mod tests {
 
     #[test]
     fn inbound_ack_waits_for_durable_mls_and_deduplication() {
-        let path = temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let owner = Identity::try_generate().unwrap();
         let key = InboxKey {
             mailbox: [4; 32],
@@ -947,7 +923,12 @@ pub(crate) mod tests {
 
     #[test]
     fn failed_mls_write_rolls_back_inbox_and_ack() {
-        let mut store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let mut store = Store::open(
+            &test_dir.path().join("client-1.db"),
+            &Identity::try_generate().unwrap(),
+        )
+        .unwrap();
         store
             .db
             .execute_batch(
@@ -970,7 +951,12 @@ pub(crate) mod tests {
 
     #[test]
     fn outbox_rejects_a_mismatch_in_either_key_part() {
-        let mut store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let mut store = Store::open(
+            &test_dir.path().join("client-1.db"),
+            &Identity::try_generate().unwrap(),
+        )
+        .unwrap();
         let write = prepare_put(&[7; 32], vec![1]).unwrap();
         store
             .stage_outbound(b"sealed", std::slice::from_ref(&write))

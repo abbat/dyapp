@@ -45,10 +45,11 @@ fn assert_sticker_preview(store: &Store, peer: &str, other: &str) {
 
 #[test]
 fn mixed_kinds_select_one_preview_and_count_every_unread_once() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::try_generate().unwrap();
     let peer = Identity::try_generate().unwrap().peer_id();
     let other = Identity::try_generate().unwrap().peer_id();
-    let mut store = Store::open(&super::super::tests::temp_db_path(), &owner).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
     for (group, name) in [(&[3][..], &peer), (&[4], &peer), (&[5], &other)] {
         super::super::tests::catalog_group(&mut store, group, name);
     }
@@ -86,7 +87,8 @@ fn mixed_kinds_select_one_preview_and_count_every_unread_once() {
 
 #[test]
 fn closed_sticker_only_history_survives_restart_delete_then_clear() {
-    let path = super::super::tests::temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let owner = Identity::try_generate().unwrap();
     let peer = Identity::try_generate().unwrap().peer_id();
     let mut store = Store::open(&path, &owner).unwrap();

@@ -10,8 +10,8 @@ async fn common_maintenance_starts_one_group_and_syncs_private_changes() {
     let (mut first, mut second, own) = Box::pin(own_device_pair(&address)).await;
     let held = [own.clone()];
     let now = 1_000_000;
-    let mut first_session = session(&first, "maintenance-first");
-    let mut second_session = session(&second, "maintenance-second");
+    let (_test_dir_12, mut first_session) = session(&first, "maintenance-first");
+    let (_test_dir_13, mut second_session) = session(&second, "maintenance-second");
     second_session
         .maintain_own_devices(from_mut(&mut second.node), &own, &held, now, &SEAL)
         .await

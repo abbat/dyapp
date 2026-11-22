@@ -44,8 +44,9 @@ fn edit_with_stronger_proof(
 
 #[tokio::test]
 async fn withdrawal_readback_cannot_replace_an_edit_committed_while_waiting() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let path = temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let store = Store::open(&path, &identity).unwrap();
     let request = Profile {
         name: "before request".into(),
@@ -86,8 +87,9 @@ async fn withdrawal_readback_cannot_replace_an_edit_committed_while_waiting() {
 
 #[tokio::test]
 async fn newer_local_publication_projection_supersedes_withdrawal_readback() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::try_generate().unwrap();
-    let path = temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let store = Store::open(&path, &identity).unwrap();
     let request = Profile::default();
     store.save_profile_draft(&request).unwrap();

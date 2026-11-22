@@ -2,13 +2,14 @@
 
 #[test]
 fn malformed_exact_contact_version_cannot_partially_import_other_preferences() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::from_secret(&[1; 32]);
-    let source = Store::open(&temp_db_path(), &owner).unwrap();
+    let source = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
     source.set_blocked("bob", true).unwrap();
     let mut snapshot = LinkState::decode(source.link_state().unwrap().as_slice()).unwrap();
     snapshot.peers[0].seen_version = Some(i64::MAX);
     snapshot.peers[0].seen_version_exact = Some(vec![0; 7]);
-    let mut target = Store::open(&temp_db_path(), &owner).unwrap();
+    let mut target = Store::open(&test_dir.path().join("client-2.db"), &owner).unwrap();
     assert!(matches!(
         target.import_link_state(&snapshot.encode_to_vec()),
         Err(Error::InvalidSetting)
@@ -21,8 +22,6 @@ fn malformed_exact_contact_version_cannot_partially_import_other_preferences() {
     ));
     assert!(!target.blocked("bob").unwrap());
 }
-
-use super::super::tests::temp_db_path;
 use super::*;
 use crate::interactions::Kind;
 use dyapp_identity::Identity;
@@ -30,7 +29,12 @@ use prost::Message as _;
 
 #[test]
 fn a_pending_link_stays_until_cleared_and_reads_only_its_format() {
-    let store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let store = Store::open(
+        &test_dir.path().join("client-1.db"),
+        &Identity::try_generate().unwrap(),
+    )
+    .unwrap();
     assert_eq!(store.link_pending().unwrap(), None);
     assert!(!store.is_linked_device().unwrap());
     store.set_link_pending(b"first").unwrap();
@@ -52,8 +56,9 @@ fn a_pending_link_stays_until_cleared_and_reads_only_its_format() {
 #[test]
 fn linked_notes_keep_text_clock_actor_and_reject_invalid_snapshots() {
     use crate::chat::PeerChange;
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::try_generate().unwrap();
-    let old = Store::open(&temp_db_path(), &owner).unwrap();
+    let old = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
     let high = 1u64 << 40;
     old.apply_peer_change(
         "bob",
@@ -63,7 +68,7 @@ fn linked_notes_keep_text_clock_actor_and_reject_invalid_snapshots() {
     )
     .unwrap();
     let snapshot = old.link_state().unwrap();
-    let mut linked = Store::open(&temp_db_path(), &owner).unwrap();
+    let mut linked = Store::open(&test_dir.path().join("client-2.db"), &owner).unwrap();
     linked.import_link_state(&snapshot).unwrap();
     assert_eq!(linked.contact_note("bob").unwrap(), "Case\nLine");
     assert!(u64::from(linked.tick(0).unwrap()) > high);
@@ -87,8 +92,9 @@ fn linked_notes_keep_text_clock_actor_and_reject_invalid_snapshots() {
 
 #[test]
 fn linked_favorites_keep_their_clock_and_hide_blocked_peers() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::try_generate().unwrap();
-    let old = Store::open(&temp_db_path(), &owner).unwrap();
+    let old = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
     old.apply_peer_change(
         "bob",
         &crate::chat::PeerChange::Favorite(true),
@@ -101,7 +107,7 @@ fn linked_favorites_keep_their_clock_and_hide_blocked_peers() {
     old.db
         .execute("UPDATE `peers` SET `favorite_hlc` = ?1", [high])
         .unwrap();
-    let mut linked = Store::open(&temp_db_path(), &owner).unwrap();
+    let mut linked = Store::open(&test_dir.path().join("client-2.db"), &owner).unwrap();
     linked
         .import_link_state(&old.link_state().unwrap())
         .unwrap();
@@ -117,8 +123,9 @@ fn linked_favorites_keep_their_clock_and_hide_blocked_peers() {
 
 #[test]
 fn a_fresh_store_takes_the_owners_state_and_later_events_win() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let alice = Identity::try_generate().unwrap();
-    let mut old = Store::open(&temp_db_path(), &alice).unwrap();
+    let mut old = Store::open(&test_dir.path().join("client-1.db"), &alice).unwrap();
     old.set_blocked("bob", true).unwrap();
     old.set_muted("carol", true).unwrap();
     old.set_local_name("carol", "Carrie").unwrap();
@@ -139,7 +146,7 @@ fn a_fresh_store_takes_the_owners_state_and_later_events_win() {
         )
         .unwrap();
 
-    let mut new = Store::open(&temp_db_path(), &alice).unwrap();
+    let mut new = Store::open(&test_dir.path().join("client-2.db"), &alice).unwrap();
     let state = old.link_state().unwrap();
     new.import_link_state(&state).unwrap();
     new.import_link_state(&state).unwrap();
@@ -179,8 +186,9 @@ fn check_exported_snapshot(state: &[u8], new: &Store) {
 
 #[test]
 fn bytes_that_are_no_state_change_nothing() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let alice = Identity::try_generate().unwrap();
-    let mut store = Store::open(&temp_db_path(), &alice).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &alice).unwrap();
     assert!(matches!(
         store.import_link_state(&[0xFF]),
         Err(Error::InvalidSetting)

@@ -26,15 +26,6 @@ mod outbound;
 #[path = "tests/recovery.rs"]
 mod recovery;
 
-fn temp_path() -> std::path::PathBuf {
-    let mut random = [0; 16];
-    getrandom::fill(&mut random).unwrap();
-    std::env::temp_dir().join(format!(
-        "dyapp-receive-session-{:032x}.db",
-        u128::from_be_bytes(random)
-    ))
-}
-
 fn key(id: u8) -> InboxKey {
     InboxKey {
         mailbox: [9; 32],
@@ -124,7 +115,8 @@ fn assert_forwarded_photo_after_restart(
 
 #[test]
 fn attachment_request_is_dropped_then_forwarded_photo_survives_restart() {
-    let path = temp_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("session-1.db");
     let seal_key = [5; 32];
     let Invite {
         mut session,
@@ -274,7 +266,8 @@ fn assert_duplicate_ack_only_for_same_mailbox(session: &mut Session) {
 
 #[test]
 fn received_envelopes_commit_before_ack_and_survive_restart() {
-    let path = temp_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("session-1.db");
     let seal_key = [5; 32];
     let Invite {
         mut session,
@@ -321,11 +314,12 @@ fn received_envelopes_commit_before_ack_and_survive_restart() {
 
 #[tokio::test]
 async fn blocked_peer_is_refused_before_outbound_interaction_uses_network() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::try_generate().unwrap();
     let device_key = Identity::try_generate().unwrap();
     let peer = person().2;
     let seal_key = [7; 32];
-    let store = Store::open(&temp_path(), &owner).unwrap();
+    let store = Store::open(&test_dir.path().join("session-1.db"), &owner).unwrap();
     let mut session = Session::open_or_create(store, &owner, &device_key, &seal_key).unwrap();
     session.store.set_blocked(&peer.peer_id, true).unwrap();
     let own = Profile {
@@ -351,18 +345,20 @@ async fn blocked_peer_is_refused_before_outbound_interaction_uses_network() {
 
 #[tokio::test]
 async fn block_with_no_issued_tokens_is_local_even_without_nodes() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::try_generate().unwrap();
     let device_key = Identity::try_generate().unwrap();
     let peer = Identity::try_generate().unwrap().peer_id();
     let seal_key = [7; 32];
-    let store = Store::open(&temp_path(), &owner).unwrap();
+    let store = Store::open(&test_dir.path().join("session-1.db"), &owner).unwrap();
     let mut session = Session::open_or_create(store, &owner, &device_key, &seal_key).unwrap();
     session.block(&mut [], &device_key, &peer).await.unwrap();
     assert!(session.store.blocked(&peer).unwrap());
 }
 
 fn blocked_owner_is_refused(seal_key: &[u8; 32]) {
-    let invite = bob_invited(&temp_path(), seal_key);
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let invite = bob_invited(&test_dir.path().join("session-1.db"), seal_key);
     let mut session = invite.session;
     session
         .store
@@ -377,6 +373,7 @@ fn blocked_owner_is_refused(seal_key: &[u8; 32]) {
 
 #[test]
 fn a_blocked_owner_is_not_joined_and_its_messages_are_acked_unseen() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let seal_key = [7; 32];
     blocked_owner_is_refused(&seal_key);
 
@@ -388,7 +385,7 @@ fn a_blocked_owner_is_not_joined_and_its_messages_are_acked_unseen() {
         welcome,
         profiles,
         ..
-    } = bob_invited(&temp_path(), &seal_key);
+    } = bob_invited(&test_dir.path().join("session-1.db"), &seal_key);
     session
         .stage_envelope(&key(1), &welcome, &profiles, &seal_key)
         .unwrap();
@@ -426,6 +423,7 @@ fn a_blocked_owner_is_not_joined_and_its_messages_are_acked_unseen() {
 
 #[test]
 fn a_message_from_an_owner_not_yet_fetched_waits_and_opens_with_the_profile() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let seal_key = [7; 32];
     let Invite {
         mut session,
@@ -434,7 +432,7 @@ fn a_message_from_an_owner_not_yet_fetched_waits_and_opens_with_the_profile() {
         welcome,
         profiles,
         ..
-    } = bob_invited(&temp_path(), &seal_key);
+    } = bob_invited(&test_dir.path().join("session-1.db"), &seal_key);
     session
         .stage_envelope(&key(1), &welcome, &profiles, &seal_key)
         .unwrap();
@@ -471,7 +469,8 @@ fn assert_chat_text(store: &Store, key: &MessageKey, expected: &[u8]) {
 
 #[test]
 fn failed_receive_commit_neither_acks_nor_loses_the_envelope() {
-    let path = temp_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("session-1.db");
     let seal_key = [6; 32];
     let Invite {
         mut session,
@@ -547,8 +546,8 @@ fn assert_current_operation(store: &Store, message: &MessageKey, i: u8) {
 
 #[test]
 fn received_edit_and_delete_keep_only_current_projection() {
-    let path = temp_path();
-    let seal_key = [8; 32];
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let (path, seal_key) = (test_dir.path().join("session-1.db"), [8; 32]);
     let Invite {
         mut session,
         bob_id,
@@ -601,7 +600,8 @@ fn received_edit_and_delete_keep_only_current_projection() {
 
 #[test]
 fn refused_envelope_is_marked_without_changing_mls_state() {
-    let path = temp_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("session-1.db");
     let seal_key = [7; 32];
     let Invite {
         mut session,
@@ -621,6 +621,7 @@ fn refused_envelope_is_marked_without_changing_mls_state() {
 
 #[test]
 fn failed_store_write_invalidates_session_until_recovery() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let (alice_id, alice, alice_profile) = person();
     let (_, bob, bob_profile) = person();
     let (group, _) = alice
@@ -633,7 +634,7 @@ fn failed_store_write_invalidates_session_until_recovery() {
     let seal_key = [4; 32];
     let mut random = [0; 16];
     getrandom::fill(&mut random).unwrap();
-    let path = std::env::temp_dir().join(format!(
+    let path = test_dir.path().join(format!(
         "dyapp-send-session-{:032x}.db",
         u128::from_be_bytes(random)
     ));
@@ -713,6 +714,7 @@ fn assert_hourly_match_presence(
 
 #[test]
 fn presence_goes_to_a_match_hourly_and_is_seen_only_from_a_match() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let seal_key = [6; 32];
     let Invite {
         mut session,
@@ -722,7 +724,7 @@ fn presence_goes_to_a_match_hourly_and_is_seen_only_from_a_match() {
         mut group,
         welcome,
         profiles,
-    } = bob_invited(&temp_path(), &seal_key);
+    } = bob_invited(&test_dir.path().join("session-1.db"), &seal_key);
     session
         .stage_envelope(&key(1), &welcome, &profiles, &seal_key)
         .unwrap();
@@ -762,6 +764,7 @@ fn presence_goes_to_a_match_hourly_and_is_seen_only_from_a_match() {
 
 #[test]
 fn read_receipts_are_opt_in_and_marked_only_by_the_unblocked_partner() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let seal_key = [5; 32];
     let Invite {
         mut session,
@@ -771,7 +774,7 @@ fn read_receipts_are_opt_in_and_marked_only_by_the_unblocked_partner() {
         mut group,
         welcome,
         profiles,
-    } = bob_invited(&temp_path(), &seal_key);
+    } = bob_invited(&test_dir.path().join("session-1.db"), &seal_key);
     let stage =
         |s: &mut Session, n, bytes: &[u8]| s.stage_envelope(&key(n), bytes, &profiles, &seal_key);
     stage(&mut session, 1, &welcome).unwrap();
@@ -818,6 +821,7 @@ fn read_receipts_are_opt_in_and_marked_only_by_the_unblocked_partner() {
 
 #[test]
 fn a_strangers_other_bodies_are_dropped_until_a_reply() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let seal_key = [4; 32];
     let Invite {
         mut session,
@@ -826,7 +830,7 @@ fn a_strangers_other_bodies_are_dropped_until_a_reply() {
         welcome,
         profiles,
         ..
-    } = bob_invited(&temp_path(), &seal_key);
+    } = bob_invited(&test_dir.path().join("session-1.db"), &seal_key);
     session
         .stage_envelope(&key(1), &welcome, &profiles, &seal_key)
         .unwrap();
@@ -872,10 +876,15 @@ mod invites;
 
 #[test]
 fn a_write_carries_the_token_of_today() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let seal_key = [5; 32];
     let mailbox = [7; 32];
     let today = u32::try_from(crate::now() / 86_400).unwrap();
-    let mut store = Store::open(&temp_path(), &Identity::try_generate().unwrap()).unwrap();
+    let mut store = Store::open(
+        &test_dir.path().join("session-1.db"),
+        &Identity::try_generate().unwrap(),
+    )
+    .unwrap();
     let token = proto::WriteToken {
         mailbox: mailbox.to_vec(),
         token_key: store
@@ -900,11 +909,12 @@ fn a_write_carries_the_token_of_today() {
 
 #[test]
 fn the_first_open_creates_the_device_and_later_opens_keep_it() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let (identity, device_key) = (
         Identity::try_generate().unwrap(),
         Identity::try_generate().unwrap(),
     );
-    let path = crate::store::tests::temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let seal_key = [5; 32];
     let first = Session::open_or_create(
         Store::open(&path, &identity).unwrap(),
@@ -929,9 +939,10 @@ fn the_first_open_creates_the_device_and_later_opens_keep_it() {
 
 #[test]
 fn reopened_sessions_can_share_identity_network_selection_state() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::try_generate().unwrap();
     let device = Identity::try_generate().unwrap();
-    let path = crate::store::tests::temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let scores = std::sync::Arc::default();
     let first = Session::open_or_create_with_scores(
         Store::open(&path, &identity).unwrap(),

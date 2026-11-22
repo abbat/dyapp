@@ -1,5 +1,5 @@
 //! Storage boundaries for exact contact authority, independent of platform adapters.
-use super::super::{tests::temp_db_path, Store};
+use super::super::Store;
 use super::verification::{floor, Floor};
 use dyapp_identity::Identity;
 use dyapp_profile::{Profile, VerifiedProfile};
@@ -44,8 +44,9 @@ fn exact_floor_validation_refuses_corrupt_and_future_encodings() {
 
 #[test]
 fn enclosing_transaction_controls_the_exact_floor_and_verification_mark() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::from_secret(&[1; 32]);
-    let path = temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let store = Store::open(&path, &owner).unwrap();
     store.set_verified(&profile(3)).unwrap();
     let transaction =
@@ -61,8 +62,9 @@ fn enclosing_transaction_controls_the_exact_floor_and_verification_mark() {
 
 #[test]
 fn recoverable_legacy_floor_is_upgraded_only_after_successful_observation() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::from_secret(&[1; 32]);
-    let store = Store::open(&temp_db_path(), &owner).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
     let held = profile(3);
     store.set_verified(&held).unwrap();
     store
@@ -87,8 +89,9 @@ fn recoverable_legacy_floor_is_upgraded_only_after_successful_observation() {
 
 #[test]
 fn snapshots_cannot_discard_exact_authority_or_equal_version_device_memory() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::from_secret(&[1; 32]);
-    let store = Store::open(&temp_db_path(), &owner).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
     let held = profile(u64::MAX);
     store.set_verified(&held).unwrap();
     let exact = u64::MAX.to_be_bytes();
@@ -121,8 +124,9 @@ fn snapshots_cannot_discard_exact_authority_or_equal_version_device_memory() {
 
 #[test]
 fn failed_device_observation_rolls_back_exact_floor_and_notice_together() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::from_secret(&[1; 32]);
-    let store = Store::open(&temp_db_path(), &owner).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
     let held = profile(3);
     store.set_verified(&held).unwrap();
     store

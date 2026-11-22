@@ -16,7 +16,7 @@ fn get(s: &Service, hash: &[u8]) -> crate::Result<MediaResponse> {
 
 #[test]
 fn whole_and_cached_files_stop_at_the_media_limit_before_service_allocation() {
-    let s = media_service(|limits| limits.bytes_per_second = 64 << 20);
+    let (_s_test_dir, s) = media_service(|limits| limits.bytes_per_second = 64 << 20);
     let owner = Identity::try_generate().unwrap();
     let data = b"whole".to_vec();
     let hash = dyapp_identity::sha256(&data).to_vec();
@@ -52,7 +52,7 @@ fn whole_and_cached_files_stop_at_the_media_limit_before_service_allocation() {
 
 #[test]
 fn shard_sql_excludes_oversized_values_before_service_allocation() {
-    let s = media_service(|limits| limits.bytes_per_second = 64 << 20);
+    let (_s_test_dir, s) = media_service(|limits| limits.bytes_per_second = 64 << 20);
     let hash = [9; 32];
     let db = rusqlite::Connection::open(s.config.storage.dir.join("media.db")).unwrap();
     let request = || MediaRequest {

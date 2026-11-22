@@ -18,10 +18,10 @@ fn reopen(base: &Path, target: u32) -> Result<SearchIndex> {
 }
 
 /// A filled index at `INDEX_VERSION`, and its base path.
-fn filled(n: u64) -> (PathBuf, Vec<[u8; 32]>) {
-    let index = index();
+fn filled(n: u64) -> (dyapp_test_support::TestDir, PathBuf, Vec<[u8; 32]>) {
+    let (index_test_dir, index) = index();
     let keys = fill(&index, n, index.created());
-    (index.path.clone(), keys)
+    (index_test_dir, index.path.clone(), keys)
 }
 
 fn mark(index: &SearchIndex, keys: impl IntoIterator<Item = u32>) {
@@ -40,7 +40,7 @@ fn reader_retries_one_failed_open_and_reuses_the_pooled_connection() {
     use std::cell::Cell;
     use std::rc::Rc;
 
-    let index = index();
+    let (_index_test_dir, index) = index();
     let active = index.active_path();
     let backup = active.with_extension("retry-backup");
     std::fs::rename(&active, &backup).unwrap();
@@ -69,7 +69,7 @@ fn reader_returns_an_error_after_a_persistent_open_failure() {
     use std::cell::Cell;
     use std::rc::Rc;
 
-    let index = index();
+    let (_index_test_dir, index) = index();
     let active = index.active_path();
     let backup = active.with_extension("failed-backup");
     std::fs::rename(&active, &backup).unwrap();
@@ -93,14 +93,14 @@ fn reader_returns_an_error_after_a_persistent_open_failure() {
 
 #[test]
 fn a_second_open_of_the_directory_is_refused() {
-    let index = index();
+    let (_index_test_dir, index) = index();
     let error = reopen(&index.path, 1).err().unwrap().to_string();
     assert!(error.contains("search.lock"), "{error}");
 }
 
 #[tokio::test]
 async fn rebuild_switches_and_restart_keeps_the_highest_complete_generation() {
-    let (base, keys) = filled(300);
+    let (_test_dir, base, keys) = filled(300);
     let index = reopen(&base, NEXT).unwrap();
     assert_eq!(index.index_version(), V);
     let pooled = index.reader().unwrap();
@@ -142,7 +142,7 @@ async fn rebuild_switches_and_restart_keeps_the_highest_complete_generation() {
 
 #[test]
 fn open_keeps_only_the_highest_complete_generation() {
-    let (base, _) = filled(1);
+    let (_test_dir, base, _) = filled(1);
     let later = generation_file(&base, NEXT);
     let db = storage::open(&later, &[SCHEMA]).unwrap();
     stamp(&db.into_inner().unwrap(), NEXT, true).unwrap();
@@ -153,7 +153,7 @@ fn open_keeps_only_the_highest_complete_generation() {
 
 #[test]
 fn a_fresh_target_generation_is_stamped_complete() {
-    let (base, _) = filled(1);
+    let (_test_dir, base, _) = filled(1);
     remove_files(&base);
     let index = reopen(&base, NEXT).unwrap();
     let complete: bool = index
@@ -166,7 +166,7 @@ fn a_fresh_target_generation_is_stamped_complete() {
 
 #[tokio::test]
 async fn activation_at_the_exact_size_limit_is_not_over() {
-    let (base, _) = filled(1);
+    let (_test_dir, base, _) = filled(1);
     let mut index = reopen(&base, NEXT).unwrap();
     let candidate = index.build(NEXT, &RebuildBudget::new(64), 0).await.unwrap();
     let conn = Connection::open(&candidate.path).unwrap();
@@ -182,7 +182,7 @@ async fn withdrawal_proof_survives_generation_rebuild_without_a_visible_profile(
     let profile = Profile::search_tombstone(2, 0, 0);
     let record = profile.sign(&owner);
     let key = dyapp_identity::key_hash(&owner.public_key());
-    let index = index();
+    let (_index_test_dir, index) = index();
     assert_eq!(
         index
             .put(&key, &profile, &record, index.created(), false)
@@ -219,7 +219,7 @@ async fn withdrawal_proof_survives_generation_rebuild_without_a_visible_profile(
 
 #[tokio::test]
 async fn activation_replays_settled_keys_or_postpones() {
-    let (base, _) = filled(10);
+    let (_test_dir, base, _) = filled(10);
     let index = reopen(&base, NEXT).unwrap();
     let candidate = index.build(NEXT, &RebuildBudget::new(64), 0).await.unwrap();
     mark(&index, 0..=u32::try_from(candidate::SETTLED_KEYS).unwrap());
@@ -234,7 +234,7 @@ async fn activation_replays_settled_keys_or_postpones() {
 
 #[tokio::test]
 async fn activation_replay_failure_keeps_the_serving_generation_after_reopen() {
-    let (base, keys) = filled(5);
+    let (_test_dir, base, keys) = filled(5);
     let index = reopen(&base, NEXT).unwrap();
     let candidate = index.build(NEXT, &RebuildBudget::new(64), 0).await.unwrap();
     let candidate_path = candidate.path.clone();
@@ -263,7 +263,7 @@ async fn activation_replay_failure_keeps_the_serving_generation_after_reopen() {
 
 #[tokio::test]
 async fn activation_commit_failure_keeps_the_serving_generation_after_reopen() {
-    let (base, keys) = filled(5);
+    let (_test_dir, base, keys) = filled(5);
     let index = reopen(&base, NEXT).unwrap();
     let candidate = index.build(NEXT, &RebuildBudget::new(64), 0).await.unwrap();
     let candidate_path = candidate.path.clone();
@@ -289,7 +289,7 @@ async fn activation_commit_failure_keeps_the_serving_generation_after_reopen() {
 
 #[tokio::test]
 async fn three_disk_aborts_drop_the_index_for_a_refill() {
-    let (base, keys) = filled(5);
+    let (_test_dir, base, keys) = filled(5);
     let index = reopen(&base, NEXT).unwrap();
     let budget = RebuildBudget::new(64);
     index.rebuild_with(&budget, u64::MAX, NOW).await;

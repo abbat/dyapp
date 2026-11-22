@@ -11,6 +11,7 @@ struct Fixture {
     remote: Profile,
     held: Arc<Mutex<Option<SignedRecord>>>,
     review: AdoptionReview,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 fn prepare_local(store: &Store, identity: &Identity, remote: &Profile, hidden: bool) {
@@ -35,9 +36,10 @@ impl Fixture {
         hidden: bool,
         mut change: impl FnMut(&mut Store, &Identity) + Send + 'static,
     ) -> Self {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let identity = Identity::from_secret(&[7; 32]);
         let device = Identity::from_secret(&[8; 32]);
-        let path = temp_db_path();
+        let path = test_dir.path().join("client-1.db");
         let session = Session::open_or_create(
             Store::open(&path, &identity).unwrap(),
             &identity,
@@ -78,6 +80,7 @@ impl Fixture {
             remote,
             held,
             review,
+            _test_dir: test_dir,
         }
     }
 

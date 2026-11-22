@@ -190,7 +190,8 @@ mod tests {
 
     #[test]
     fn revoke_deletes_the_keys_envelopes_until_it_expires() {
-        let store = temp_store();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let store = temp_store(test_dir.path());
         put(&store, 1, Some(b"a"));
         put(&store, 2, Some(b"b"));
         put(&store, 3, None);
@@ -226,7 +227,8 @@ mod tests {
 
     #[test]
     fn an_empty_key_deletes_every_envelope_of_the_mailbox() {
-        let store = temp_store();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let store = temp_store(test_dir.path());
         put(&store, 1, Some(b"a"));
         put(&store, 2, None);
         assert!(store
@@ -241,7 +243,8 @@ mod tests {
 
     #[test]
     fn revoked_keys_are_capped_per_mailbox() {
-        let store = temp_store();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let store = temp_store(test_dir.path());
         let keys: Vec<Vec<u8>> = (0..MAX_REVOKED).map(|i| i.to_be_bytes().to_vec()).collect();
         for (i, chunk) in keys.chunks(64).enumerate() {
             let record = record(u8::try_from(i).unwrap());
@@ -260,7 +263,8 @@ mod tests {
 
     #[test]
     fn revocation_statements_use_indexes() {
-        let store = temp_store();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let store = temp_store(test_dir.path());
         let db = lock(&store.messages).unwrap();
         for sql in [DELETE_REVOKED, DELETE_CLOSED, IS_REVOKED] {
             let mut query = db.prepare(&format!("EXPLAIN QUERY PLAN {sql}")).unwrap();

@@ -35,7 +35,8 @@ proptest! {
         use_env in any::<bool>(),
         use_cli in any::<bool>(),
     ) {
-        let dir = temp_dir();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir.path().join("config-1");
         fs::create_dir_all(&dir)?;
         let file = dir.join("config.toml");
         fs::write(&file, format!("[limits]\nrequests_per_second = {file_value}\n"))?;
@@ -92,8 +93,9 @@ proptest! {
             Just((1usize << 20) + 1), Just(usize::MAX), 0usize..=(2usize << 20)
         ],
     ) {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let mut config = NodeConfig::default();
-        config.storage.dir = temp_dir();
+        config.storage.dir = test_dir.path().join("config-1");
         config.media.shard_threshold = threshold;
         prop_assert_eq!(config.validate().is_ok(), (1..=1_048_576).contains(&threshold));
     }
@@ -119,14 +121,11 @@ fn search_rejects_invalid_puzzle_bounds() {
         .contains("max_puzzle_bits 12..=32"));
 }
 
-pub(super) fn temp_dir() -> PathBuf {
-    PathBuf::from(format!("/tmp/ai/test-config-{}", uuid::Uuid::new_v4()))
-}
-
 #[test]
 fn storage_lock_refuses_a_second_holder_until_dropped() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let storage = StorageConfig {
-        dir: temp_dir(),
+        dir: test_dir.path().join("config-1"),
         ..StorageConfig::default()
     };
     fs::create_dir_all(&storage.dir).unwrap();
@@ -140,7 +139,8 @@ fn storage_lock_refuses_a_second_holder_until_dropped() {
 
 #[test]
 fn file_then_env_overrides_and_unknown_keys() {
-    let dir = temp_dir();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().join("config-1");
     fs::create_dir_all(&dir).unwrap();
     let file = dir.join("node.toml");
     fs::write(
@@ -176,7 +176,8 @@ fn file_then_env_overrides_and_unknown_keys() {
 
 #[test]
 fn config_file_reads_stop_at_the_format_boundary() {
-    let dir = temp_dir();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().join("config-1");
     fs::create_dir_all(&dir).unwrap();
     let file = dir.join("node.toml");
     let prefix = "future_key = 1\n#";
@@ -221,7 +222,8 @@ fn options_override_env() {
 
 #[test]
 fn turn_secret_file() {
-    let dir = temp_dir();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().join("config-1");
     fs::create_dir_all(&dir).unwrap();
     let file = dir.join("turn.secret");
     let path = file.display().to_string();
@@ -258,6 +260,7 @@ fn turn_secret_file() {
 
 #[test]
 fn deny_dial_defaults_overrides_and_validation() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut config = NodeConfig::default();
     assert_eq!(
         config.network.deny_dial,
@@ -281,7 +284,7 @@ fn deny_dial_defaults_overrides_and_validation() {
     let (loaded, _) = NodeConfig::load(None, [], &options).unwrap();
     assert_eq!(loaded.network.deny_dial, ["10.0.0.0/8", "fc00::/7"]);
 
-    config.storage.dir = temp_dir();
+    config.storage.dir = test_dir.path().join("config-1");
     config.network.deny_dial = vec![];
     config.validate().unwrap();
     config.network.deny_dial = vec!["10.0.0.0/8".into(), "nonsense".into()];
@@ -328,8 +331,9 @@ fn russian_help_covers_every_documented_option() {
 #[cfg(unix)]
 fn node_key_refuses_group_other_bits_without_repairing_permissions() {
     use std::os::unix::fs::PermissionsExt;
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut config = NodeConfig::default();
-    config.storage.dir = temp_dir();
+    config.storage.dir = test_dir.path().join("config-1");
     config.network.id_pow_bits = 4;
     config.validate().unwrap();
     let peer = config.keygen(None).unwrap();
@@ -349,8 +353,9 @@ fn node_key_refuses_group_other_bits_without_repairing_permissions() {
 
 #[test]
 fn node_key_is_bound_to_the_data() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut config = NodeConfig::default();
-    config.storage.dir = temp_dir();
+    config.storage.dir = test_dir.path().join("config-1");
     config.network.id_pow_bits = 4;
     config.validate().unwrap();
     config.node_key().unwrap_err();
@@ -380,7 +385,7 @@ fn node_key_is_bound_to_the_data() {
 
     // A key without the proof of work is refused.
     let mut config = NodeConfig::default();
-    config.storage.dir = temp_dir();
+    config.storage.dir = test_dir.path().join("config-2");
     config.network.id_pow_bits = 0;
     config.validate().unwrap();
     config.keygen(None).unwrap();
@@ -390,8 +395,9 @@ fn node_key_is_bound_to_the_data() {
 
 #[test]
 fn node_key_and_id_reads_stop_at_their_format_boundaries() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut config = NodeConfig::default();
-    config.storage.dir = temp_dir();
+    config.storage.dir = test_dir.path().join("config-1");
     config.network.id_pow_bits = 0;
     config.validate().unwrap();
     config.keygen(None).unwrap();
@@ -422,8 +428,9 @@ fn node_key_and_id_reads_stop_at_their_format_boundaries() {
 #[cfg(unix)]
 fn key_source_is_independent_of_its_protection() {
     use std::os::unix::fs::PermissionsExt;
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut config = NodeConfig::default();
-    config.storage.dir = temp_dir();
+    config.storage.dir = test_dir.path().join("config-1");
     config.network.id_pow_bits = 4;
     config.validate().unwrap();
     // keygen to a writer leaves no key file: another tool seals what it gets.
@@ -433,7 +440,7 @@ fn key_source_is_independent_of_its_protection() {
     config.load_key(None).unwrap_err();
 
     // A systemd credential: readable through an ACL, so its mode shows group bits.
-    let credentials = temp_dir();
+    let credentials = test_dir.path().join("config-2");
     fs::create_dir_all(&credentials).unwrap();
     let credential = credentials.join("node.key");
     fs::write(&credential, &sealed).unwrap();
@@ -458,7 +465,7 @@ fn key_source_is_independent_of_its_protection() {
 
     // keygen writes a plain key to storage.key, outside storage.dir.
     let mut config = NodeConfig::default();
-    config.storage.dir = temp_dir();
+    config.storage.dir = test_dir.path().join("config-3");
     config.storage.key = credentials.join("node2.key");
     config.network.id_pow_bits = 4;
     config.validate().unwrap();
@@ -471,7 +478,7 @@ fn key_source_is_independent_of_its_protection() {
 
 #[test]
 fn keygen_recovers_only_a_valid_file_backed_key_without_id() {
-    let config = named("city");
+    let (_config_test_dir, config) = named("city");
     let peer = config.keygen(None).unwrap();
     let key_path = config.storage.key_path();
     let id_path = config.storage.dir.join("node.id");
@@ -493,7 +500,7 @@ fn keygen_recovers_only_a_valid_file_backed_key_without_id() {
     assert_eq!(config.node_key().unwrap().public().to_peer_id(), peer);
     config.keygen(None).unwrap_err();
 
-    let corrupt = named("city");
+    let (_corrupt_test_dir, corrupt) = named("city");
     fs::write(corrupt.storage.key_path(), b"unknown key").unwrap();
     corrupt.keygen(None).unwrap_err();
     assert_eq!(
@@ -505,7 +512,7 @@ fn keygen_recovers_only_a_valid_file_backed_key_without_id() {
 
 #[test]
 fn keygen_persistence_faults_leave_a_retryable_or_complete_identity() {
-    let unwritten = named("city");
+    let (_unwritten_test_dir, unwritten) = named("city");
     unwritten
         .keygen_with(None, |_, _| Err(anyhow::anyhow!("injected write failure")))
         .unwrap_err();
@@ -513,7 +520,7 @@ fn keygen_persistence_faults_leave_a_retryable_or_complete_identity() {
     assert!(!unwritten.storage.dir.join("node.id").exists());
     unwritten.keygen(None).unwrap();
 
-    let interrupted = named("city");
+    let (_interrupted_test_dir, interrupted) = named("city");
     let mut calls = 0;
     interrupted
         .keygen_with(None, |path, bytes| {
@@ -531,7 +538,7 @@ fn keygen_persistence_faults_leave_a_retryable_or_complete_identity() {
     assert_eq!(fs::read(interrupted.storage.key_path()).unwrap(), key);
     assert_eq!(interrupted.node_key().unwrap().public().to_peer_id(), peer);
 
-    let published = named("city");
+    let (_published_test_dir, published) = named("city");
     let mut calls = 0;
     published
         .keygen_with(None, |path, bytes| {
@@ -560,7 +567,8 @@ fn keygen_persistence_faults_leave_a_retryable_or_complete_identity() {
 
 #[test]
 fn atomic_publication_never_exposes_partial_or_replaced_files() {
-    let dir = temp_dir();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().join("config-1");
     fs::create_dir_all(&dir).unwrap();
     let partial = dir.join("partial");
     persist_new_with(
@@ -612,13 +620,14 @@ fn atomic_publication_never_exposes_partial_or_replaced_files() {
     assert_eq!(fs::read(existing).unwrap(), b"keep");
 }
 
-fn named(name: &str) -> NodeConfig {
+fn named(name: &str) -> (dyapp_test_support::TestDir, NodeConfig) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut config = NodeConfig::default();
-    config.storage.dir = temp_dir();
+    config.storage.dir = test_dir.path().join("config-1");
     config.network.name = name.into();
     config.network.id_pow_bits = 0;
     config.validate().unwrap();
-    config
+    (test_dir, config)
 }
 
 fn marker(config: &NodeConfig) -> Vec<u8> {
@@ -628,7 +637,7 @@ fn marker(config: &NodeConfig) -> Vec<u8> {
 #[test]
 fn keygen_and_start_bind_storage_to_one_network() {
     // keygen binds a fresh directory to the configured name.
-    let mut config = named("city");
+    let (_config_test_dir, mut config) = named("city");
     config.keygen(None).unwrap();
     assert_eq!(marker(&config), b"city");
     config.bind_network().unwrap();
@@ -644,13 +653,13 @@ fn keygen_and_start_bind_storage_to_one_network() {
 
     // A first start without data takes the configured name, the public one included.
     for name in ["city", ""] {
-        let config = named(name);
+        let (_config_test_dir, config) = named(name);
         config.bind_network().unwrap();
         assert_eq!(marker(&config), name.as_bytes());
     }
 
     // keygen in a directory of another network writes neither key nor id.
-    let mut config = named("city");
+    let (_config_test_dir, mut config) = named("city");
     config.bind_network().unwrap();
     config.network.name = "other".into();
     config.keygen(None).unwrap_err();
@@ -667,7 +676,7 @@ fn keygen_refuses_a_directory_with_node_data() {
         .collect();
     data.push("data/".into());
     for name in data {
-        let config = named("city");
+        let (_config_test_dir, config) = named("city");
         let path = config.storage.dir.join(&name);
         if name.ends_with('/') {
             fs::create_dir(&path).unwrap();
@@ -680,7 +689,7 @@ fn keygen_refuses_a_directory_with_node_data() {
     }
 
     // The deny list, peer caches and a key alone are not data.
-    let config = named("city");
+    let (_config_test_dir, config) = named("city");
     for path in [
         config.storage.deny_path(),
         config.storage.peers_path(),
@@ -701,7 +710,7 @@ fn malformed_markers_are_refused_and_kept() {
         b" city".to_vec(),
     ] {
         for name in ["", "city"] {
-            let config = named(name);
+            let (_config_test_dir, config) = named(name);
             fs::write(config.storage.dir.join("network"), &bad).unwrap();
             config.bind_network().unwrap_err();
             config.keygen(None).unwrap_err();
@@ -710,7 +719,7 @@ fn malformed_markers_are_refused_and_kept() {
         }
     }
     // A directory in place of the marker is an inspection error, not a missing marker.
-    let config = named("city");
+    let (_config_test_dir, config) = named("city");
     fs::create_dir(config.storage.dir.join("network")).unwrap();
     config.bind_network().unwrap_err();
 }

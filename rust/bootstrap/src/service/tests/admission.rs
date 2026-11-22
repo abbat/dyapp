@@ -123,7 +123,7 @@ fn writes() -> Vec<Write> {
 }
 
 fn admission_service() -> Service {
-    let mut service = search_service();
+    let (_service_test_dir, mut service) = search_service();
     service.media = Some(MediaStore::open(&service.config.storage.dir).unwrap());
     service
 }

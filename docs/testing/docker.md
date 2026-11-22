@@ -196,7 +196,10 @@ pinned SHA-256 remain mandatory; exhausted retries fail the image build.
 The crates are fetched into the images. Containers run as the host user and write only to
 bind-mounted directories under `build/` (`workspace`, `linux`, `*-reports`, `android-build`,
 `android-avd`), so `rm -rf build/workspace` clears the Rust build cache and
-`rm -rf build/android-build` the Android build, Gradle and cargo caches.
+`rm -rf build/android-build` the Android build, Gradle and cargo caches. The `workspace` bind mount
+also keeps compiler and complexity diagnostics readable in the same checkout or linked worktree.
+For a linked worktree, the Docker launcher mounts the main checkout's git metadata read-only at the
+path referenced by `.git`; standard Make targets need no manual Compose override.
 
 ### Use `--rm` Flag
 
@@ -220,6 +223,11 @@ its fix pointer is checked against the central map. `--raw` includes the previou
 UID/capability metadata after enforcing the same predicates. Keep the configured
 isolation when fixing a failure; do not grant capabilities or mount control
 sockets to make the check pass.
+
+Keep writable runtime mounts outside read-only source or artifact binds. Docker cannot create a
+missing child mountpoint inside a read-only parent bind; the container fails before its entrypoint
+runs. The native Android visual runner therefore writes ADB diagnostics to `/visual-runtime`,
+independently of the read-only `/app/build` APK artifacts.
 
 ## Troubleshooting
 

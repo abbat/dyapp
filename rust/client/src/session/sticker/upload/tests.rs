@@ -155,9 +155,8 @@ async fn confirmed_reuse(
 
 #[tokio::test]
 async fn failed_upload_does_not_stage_but_confirmed_reuse_strips_owner_capability() {
-    let root =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../build/sticker-session-tests");
-    std::fs::create_dir_all(&root).unwrap();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.path();
     let mut random = [0; 16];
     getrandom::fill(&mut random).unwrap();
     let path = root.join(format!("{:032x}.db", u128::from_be_bytes(random)));

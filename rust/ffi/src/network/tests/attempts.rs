@@ -1,5 +1,4 @@
 use super::*;
-use crate::slot_registry_tests::root;
 use crate::slot_registry_tests::workers::{Gate, WorkerCredentials};
 use crate::{ConnectionAttempt, MobileIdentityRegistry, MobileSlotLayout};
 use std::fs::{File, OpenOptions, TryLockError};
@@ -14,7 +13,8 @@ fn draft() -> NetworkSettings {
 
 #[test]
 fn cancellation_before_dispatch_preserves_files_and_a_new_retry_is_independent() {
-    let directory = temp_dir("attempt-before-dispatch");
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let directory = test_dir.path().to_string_lossy().into_owned();
     let checker = ConnectionCheck::new(directory.clone()).unwrap();
     let attempt = ConnectionAttempt::new(checker.clone());
     attempt.cancel();
@@ -39,7 +39,8 @@ fn cancellation_before_dispatch_preserves_files_and_a_new_retry_is_independent()
 
 #[test]
 fn cancellation_at_registration_wins_over_an_immediately_ready_check() {
-    let checker = ConnectionCheck::new(temp_dir("attempt-registration")).unwrap();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let checker = ConnectionCheck::new(test_dir.path().to_string_lossy().into_owned()).unwrap();
     let cancellation = Cancellation::new();
     assert_eq!(
         checker.run_attempt_with_ready(draft(), 0, &cancellation, || cancellation.cancel()),
@@ -56,11 +57,13 @@ struct Admission {
     checker: Arc<ConnectionCheck>,
     directory: PathBuf,
     lock: File,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 impl Admission {
     fn new(layout: MobileSlotLayout) -> Self {
-        let root = root();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let root = test_dir.to_path_buf();
         let keys = Arc::new(WorkerCredentials::default());
         let registry =
             MobileIdentityRegistry::new(root.to_str().unwrap().into(), layout, keys.clone());
@@ -81,6 +84,7 @@ impl Admission {
             checker,
             directory: created.slot.directory.into(),
             lock,
+            _test_dir: test_dir,
         }
     }
 }

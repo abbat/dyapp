@@ -179,7 +179,6 @@ impl Store {
 
 #[cfg(test)]
 mod tests {
-    use crate::store::tests::temp_db_path;
     use crate::store::{Error, Store};
     use dyapp_identity::{Identity, SignedRecord};
     use dyapp_profile::Profile;
@@ -195,7 +194,11 @@ mod tests {
 
     #[test]
     fn holds_edits_within_the_window_and_merges_them_across_restart() {
-        let (path, alice) = (temp_db_path(), Identity::try_generate().unwrap());
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let (path, alice) = (
+            test_dir.path().join("client-1.db"),
+            Identity::try_generate().unwrap(),
+        );
         let store = Store::open(&path, &alice).unwrap();
         assert_eq!(store.search_profile_minutes_left(1000).unwrap(), None);
         let first = profile(&alice, 1);
@@ -228,8 +231,9 @@ mod tests {
 
     #[test]
     fn rate_limited_keeps_the_profile_held_for_retry_after() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let alice = Identity::try_generate().unwrap();
-        let store = Store::open(&temp_db_path(), &alice).unwrap();
+        let store = Store::open(&test_dir.path().join("client-1.db"), &alice).unwrap();
         let first = profile(&alice, 1);
         store.hold_search_profile(&first).unwrap();
         let retry = Duration::from_millis(120_001);
@@ -252,7 +256,12 @@ mod tests {
 
     #[test]
     fn heartbeat_is_due_once_a_day_at_a_random_time() {
-        let store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let store = Store::open(
+            &test_dir.path().join("client-1.db"),
+            &Identity::try_generate().unwrap(),
+        )
+        .unwrap();
         assert!(store.search_heartbeat_due(86_400).unwrap());
         for day in 1..4 {
             // Ten app opens a day, the last one at the day's final second, send exactly one.
@@ -282,8 +291,9 @@ mod tests {
 
     #[test]
     fn rejects_a_corrupt_setting() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let alice = Identity::try_generate().unwrap();
-        let store = Store::open(&temp_db_path(), &alice).unwrap();
+        let store = Store::open(&test_dir.path().join("client-1.db"), &alice).unwrap();
         store
             .db
             .execute(

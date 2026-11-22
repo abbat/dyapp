@@ -7,8 +7,15 @@ use dyapp_identity::Identity;
 const DUE: u64 = 86_400_100;
 const EARLY: u64 = 86_400_099;
 
-fn fixture() -> (Store, Identity, PackResponseJob, PackAnswer) {
-    let (mut store, owner, _, peer) = crate::store::sticker_packs::exchange::tests::database();
+fn fixture() -> (
+    dyapp_test_support::TestDir,
+    Store,
+    Identity,
+    PackResponseJob,
+    PackAnswer,
+) {
+    let (test_dir, mut store, owner, _, peer) =
+        crate::store::sticker_packs::exchange::tests::database();
     let pack = sticker_packs::tests::pack("Cats");
     store.save_sticker_pack(&[5; 32], &pack).unwrap();
     let own = owner.peer_id();
@@ -50,7 +57,7 @@ fn fixture() -> (Store, Identity, PackResponseJob, PackAnswer) {
         )
         .unwrap();
     let job = store.due_sticker_pack_responses(0).unwrap().remove(0);
-    (store, owner, job, answer(&pack))
+    (test_dir, store, owner, job, answer(&pack))
 }
 fn answer(pack: &crate::sticker_pack::Pack) -> PackAnswer {
     let (mut attachment, _) = crate::attachment::seal(&pack.encode()).unwrap();
@@ -96,7 +103,7 @@ fn last(store: &Store) -> Option<i64> {
 
 #[test]
 fn durable_response_and_cooldown_survive_restart_and_reject_stale_workers() {
-    let (mut store, owner, job, answer) = fixture();
+    let (_test_dir, mut store, owner, job, answer) = fixture();
     let path = std::path::PathBuf::from(store.db.path().unwrap());
     let write = crate::prepare_put(&[1; 32], vec![9]).unwrap();
     store
@@ -125,7 +132,7 @@ fn durable_response_and_cooldown_survive_restart_and_reject_stale_workers() {
 
 #[test]
 fn response_outbox_failure_or_removed_pack_never_advances_cooldown() {
-    let (mut store, _, job, answer) = fixture();
+    let (_test_dir, mut store, _, job, answer) = fixture();
     let write = crate::prepare_put(&[1; 32], vec![9]).unwrap();
     assert!(store
         .stage_sticker_pack_response(b"empty", &[], &job, &answer, 100)
@@ -162,7 +169,7 @@ fn response_outbox_failure_or_removed_pack_never_advances_cooldown() {
 
 #[test]
 fn concurrent_response_completions_commit_only_one_outbox() {
-    let (store, owner, job, answer) = fixture();
+    let (_test_dir, store, owner, job, answer) = fixture();
     let path = std::path::PathBuf::from(store.db.path().unwrap());
     let barrier = std::sync::Arc::new(std::sync::Barrier::new(3));
     let mut tasks = Vec::new();

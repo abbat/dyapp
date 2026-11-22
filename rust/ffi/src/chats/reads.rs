@@ -167,11 +167,12 @@ mod tests {
     #[test]
     fn a_request_and_a_chat_without_texts_owe_nothing() {
         use dyapp_client::interactions::{Interaction, Kind};
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let dir = std::env::temp_dir().join(format!("dyapp-ffi-reads-{nanos}"));
+        let dir = test_dir.path().join(format!("dyapp-ffi-reads-{nanos}"));
         std::fs::create_dir_all(&dir).unwrap();
         let own = crate::IdentityKey::generate().unwrap();
         let (own_id, peer_id) = (

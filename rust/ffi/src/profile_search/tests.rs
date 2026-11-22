@@ -4,18 +4,10 @@ use super::*;
 use dyapp_identity::network::{self, Network, Settings};
 use std::time::Duration;
 
-fn directory(tag: &str) -> std::path::PathBuf {
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../build/native-search-tests")
-        .join(tag)
-        .join(IdentityKey::generate().unwrap().peer_id());
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
-}
-
 #[test]
 fn search_needs_an_answering_active_network() {
-    let dir = directory("search");
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.to_path_buf();
     let key = IdentityKey::generate().unwrap();
     let searcher = ProfileSearcher::new(dir.to_str().unwrap().to_owned()).unwrap();
     let network = Network {
@@ -32,7 +24,8 @@ fn search_needs_an_answering_active_network() {
 
 #[test]
 fn search_dials_from_a_swift_sized_stack() {
-    let dir = directory("stack");
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.to_path_buf();
     let (listener, _udp) = crate::network::tests::reserved_endpoint();
     let closed = listener.local_addr().unwrap().port();
     let rejected = crate::network::tests::reject_handshake(listener.try_clone().unwrap());

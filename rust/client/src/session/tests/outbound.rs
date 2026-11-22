@@ -1,5 +1,4 @@
 use super::*;
-use crate::store::tests::temp_db_path;
 
 async fn apply_peer_change(
     session: &mut Session,
@@ -15,6 +14,7 @@ async fn apply_peer_change(
 
 #[tokio::test]
 async fn private_changes_without_own_devices_create_no_peer_message() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let (owner, device, own_profile) = person();
     let (_, contact, profile) = person();
     let peer = profile.peer_id.clone();
@@ -25,7 +25,7 @@ async fn private_changes_without_own_devices_create_no_peer_message() {
         )
         .unwrap();
     let seal = [9; 32];
-    let mut store = Store::open(&temp_db_path(), &owner).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
     store
         .stage_group(&group, &profile, &device.seal(&seal).unwrap(), &[])
         .unwrap();
@@ -65,9 +65,10 @@ async fn private_changes_without_own_devices_create_no_peer_message() {
 
 #[test]
 fn only_a_newer_profile_without_this_device_revokes_it() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let (identity, device, _) = person();
     let seal_key = [3; 32];
-    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     store
         .stage_outbound(&device.seal(&seal_key).unwrap(), &[])
         .unwrap();
@@ -116,6 +117,7 @@ struct OutboundFixture {
     bob_profile: dyapp_profile::VerifiedProfile,
     group_id: Vec<u8>,
     seal_key: [u8; 32],
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 impl OutboundFixture {
@@ -138,6 +140,7 @@ struct StagedMessages {
 }
 
 fn outbound_fixture() -> OutboundFixture {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let (alice_id, alice, alice_profile) = person();
     let (_, bob, bob_profile) = person();
     let (group, _) = alice
@@ -149,7 +152,7 @@ fn outbound_fixture() -> OutboundFixture {
     let seal_key = [3; 32];
     let mut random = [0; 16];
     getrandom::fill(&mut random).unwrap();
-    let path = std::env::temp_dir().join(format!(
+    let path = test_dir.path().join(format!(
         "dyapp-send-session-{:032x}.db",
         u128::from_be_bytes(random)
     ));
@@ -179,6 +182,7 @@ fn outbound_fixture() -> OutboundFixture {
         bob_profile,
         group_id: group.id().to_vec(),
         seal_key,
+        _test_dir: test_dir,
     }
 }
 
@@ -397,11 +401,12 @@ fn message_is_staged_before_network_and_reopens_exact_bytes() {
 
 #[test]
 fn only_a_resolved_profile_sends_the_next_page_to_the_head() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let (identity, device_key) = (
         Identity::try_generate().unwrap(),
         Identity::try_generate().unwrap(),
     );
-    let store = Store::open(&crate::store::tests::temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let session = Session::open_or_create(store, &identity, &device_key, &[5; 32]).unwrap();
     let node = libp2p::PeerId::random();
     session.store.save_mailbox_cursor(node, &[1]).unwrap();

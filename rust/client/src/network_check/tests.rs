@@ -14,7 +14,8 @@ fn contact_profile() -> dyapp_profile::VerifiedProfile {
 
 #[test]
 fn every_activation_invalidates_shared_contact_tickets_including_switch_back() {
-    let dir = dir("contact-activation");
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.to_path_buf();
     let owner = dyapp_identity::Identity::from_secret(&[1; 32]);
     let store = crate::store::Store::open(&dir.join("client.db"), &owner).unwrap();
     let fetched = contact_profile();
@@ -66,7 +67,8 @@ fn every_activation_invalidates_shared_contact_tickets_including_switch_back() {
 
 #[test]
 fn failed_active_save_invalidates_contacts_but_preserves_activation_retry() {
-    let dir = dir("contact-failed-save");
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.to_path_buf();
     let owner = dyapp_identity::Identity::from_secret(&[1; 32]);
     let store = crate::store::Store::open(&dir.join("client.db"), &owner).unwrap();
     let fetched = contact_profile();
@@ -108,7 +110,8 @@ fn failed_active_save_invalidates_contacts_but_preserves_activation_retry() {
 
 #[test]
 fn a_save_error_after_replacement_cannot_restore_the_previous_ticket() {
-    let dir = dir("contact-ambiguous-save");
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.to_path_buf();
     let owner = dyapp_identity::Identity::from_secret(&[1; 32]);
     let store = crate::store::Store::open(&dir.join("client.db"), &owner).unwrap();
     let fetched = contact_profile();
@@ -142,15 +145,6 @@ fn a_save_error_after_replacement_cannot_restore_the_previous_ticket() {
     assert_eq!(checks.activate(&dir), Ok(draft("B")));
 }
 
-fn dir(tag: &str) -> PathBuf {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../build/core-network-check")
-        .join(tag)
-        .join(dyapp_identity::Identity::try_generate().unwrap().peer_id());
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
-}
-
 fn draft(name: &str) -> Network {
     Network {
         seeds: vec!["not an address".into()],
@@ -178,7 +172,11 @@ fn connected(checks: &Checks, dir: &Path, draft: &Network) -> Arc<Cancellation> 
 
 #[test]
 fn successful_check_is_directory_bound_consumed_and_cannot_be_restored_by_late_completion() {
-    let (dir, other) = (dir("owner"), dir("foreign"));
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().join("checked");
+    let other = test_dir.path().join("other");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::create_dir_all(&other).unwrap();
     let checks = Checks::default();
     let draft = draft("first");
     assert_eq!(checks.activate(&dir), Err(Error::NotChecked));
@@ -199,7 +197,8 @@ fn successful_check_is_directory_bound_consumed_and_cannot_be_restored_by_late_c
 
 #[test]
 fn identity_transition_and_replacement_check_reject_earlier_completion() {
-    let dir = dir("transition");
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.to_path_buf();
     let checks = Checks::default();
     let first = draft("first");
     let old = connected(&checks, &dir, &first);
@@ -224,7 +223,8 @@ fn identity_transition_and_replacement_check_reject_earlier_completion() {
 
 #[tokio::test]
 async fn failed_recheck_keeps_its_draft_without_reusing_previous_success() {
-    let dir = dir("recheck");
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.to_path_buf();
     let checks = Checks::default();
     connected(&checks, &dir, &draft("first"));
     let invalid = Network {
@@ -267,7 +267,8 @@ async fn failed_recheck_keeps_its_draft_without_reusing_previous_success() {
 
 #[tokio::test]
 async fn pre_cancelled_attempt_does_not_write_and_retry_has_independent_registration() {
-    let dir = dir("pre-cancel");
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.to_path_buf();
     let checks = Checks::default();
     let cancellation = Cancellation::new();
     cancellation.cancel();
@@ -301,7 +302,8 @@ async fn pre_cancelled_attempt_does_not_write_and_retry_has_independent_registra
 
 #[tokio::test]
 async fn registration_signal_cancels_without_sleep_or_network_timing() {
-    let dir = dir("registration");
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.to_path_buf();
     let checks = Checks::default();
     let cancellation = Cancellation::new();
     assert_eq!(
@@ -340,7 +342,8 @@ async fn registration_signal_cancels_without_sleep_or_network_timing() {
 
 #[tokio::test]
 async fn registered_pending_check_is_stopped_by_a_readiness_callback() {
-    let dir = dir("running");
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.to_path_buf();
     let checks = Checks::default();
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let network = Network {

@@ -27,7 +27,7 @@ fn photo(source: &Service) -> (proto::MediaReplicaPut, Vec<u8>) {
 
 #[tokio::test]
 async fn successful_empty_lookup_confirms_the_local_holder() {
-    let (source, mut swarm) = node();
+    let (_test_dir, source, mut swarm) = node();
     let (replica, hash) = photo(&source);
     let query = swarm.behaviour_mut().kad.get_closest_peers(hash.clone());
     let mut replicas = Replicas::default();
@@ -52,7 +52,7 @@ async fn successful_empty_lookup_confirms_the_local_holder() {
 
 #[tokio::test]
 async fn failed_lookup_releases_one_repair_slot_without_confirming_a_holder() {
-    let (source, mut swarm) = node();
+    let (_test_dir, source, mut swarm) = node();
     let (replica, hash) = photo(&source);
     let Some(proto::media_replica_put::Authorization::Keep(record)) = replica.authorization else {
         panic!("expected signed keep");

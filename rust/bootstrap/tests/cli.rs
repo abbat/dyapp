@@ -4,13 +4,11 @@ use dyapp_bootstrap::{storage::NewEnvelope, BootstrapStore};
 use dyapp_identity::{Domain, Identity};
 use dyapp_p2p_net::proto;
 use prost::Message;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, Output};
 
-fn directory() -> PathBuf {
-    let dir = PathBuf::from(format!("/tmp/ai/test-cli-{}", uuid::Uuid::new_v4()));
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
+fn directory() -> dyapp_test_support::TestDir {
+    dyapp_test_support::test_dir().unwrap()
 }
 
 fn command(dir: &Path, args: &[&str]) -> Output {

@@ -967,7 +967,9 @@ explicit ordinary action, never a side effect of choosing a recovery snapshot. A
 signal also detects unknown/noncanonical pending wire data. Duplicate peer/like/pass keys are refused.
 `LinkStateReview.is_current` checks the same pending operation, absent import progress and current
 private bytes; it holds no keys or identity lease and authorizes no writes. Confirmation must revalidate
-under its writer with original-device admission. `select_preferences` requires one explicit Local/Pending
+under its writer with original-device admission. The internal `is_current_in_snapshot` reuses the
+same guards inside an existing transaction and refuses autocommit; it opens no nested transaction
+and grants no import or device authority. `select_preferences` requires one explicit Local/Pending
 source for every differing owner preference, rejects duplicate/unoffered choices and returns a frozen
 preview in core presentation order. It exposes selected values without historical actors/clocks/event IDs;
 a preview neither imports state nor resolves protected evidence or grants enrollment. Atomic confirmation,

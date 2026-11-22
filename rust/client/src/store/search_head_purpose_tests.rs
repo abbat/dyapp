@@ -1,5 +1,4 @@
 use super::*;
-use crate::store::tests::temp_db_path;
 use dyapp_identity::Identity;
 use dyapp_profile::{Profile, ProfileCondition};
 
@@ -29,6 +28,7 @@ fn historical(store: &Store, record: &SignedRecord, pending: bool) {
 
 #[test]
 fn historical_reads_derive_only_verified_pending_purpose_without_writing() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let cases = [
         (Profile::tombstone(8, 0, 0), Purpose::LegacyWithdrawal),
         (
@@ -38,7 +38,7 @@ fn historical_reads_derive_only_verified_pending_purpose_without_writing() {
     ];
     for (profile, purpose) in cases {
         for pending in [false, true] {
-            let path = temp_db_path();
+            let path = test_dir.path().join("client-1.db");
             let owner = Identity::from_secret(&[7; 32]);
             let store = Store::open(&path, &owner).unwrap();
             historical(&store, &profile.sign(&owner), pending);
@@ -57,8 +57,9 @@ fn historical_reads_derive_only_verified_pending_purpose_without_writing() {
 
 #[test]
 fn contradictory_pending_purpose_is_refused_without_rewriting_state() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&temp_db_path(), &owner).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
     let record = Profile::search_tombstone(8, 0, 0).sign(&owner);
     store.hold_search_profile(&record).unwrap();
     let mut head = store.search_head().unwrap().unwrap();
@@ -78,8 +79,9 @@ fn contradictory_pending_purpose_is_refused_without_rewriting_state() {
 
 #[test]
 fn unknown_purpose_invalid_version_and_malformed_head_encodings_fail_closed() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&temp_db_path(), &owner).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
     let head = store
         .record_head(&Profile::search_tombstone(8, 0, 0).sign(&owner))
         .unwrap();
@@ -123,7 +125,8 @@ fn verified_purpose_survives_acknowledgement_and_existing_only_reopen() {
         (Profile::tombstone(8, 0, 0), 2),
     ];
     for (profile, purpose) in cases {
-        let path = temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let owner = Identity::from_secret(&[7; 32]);
         let record = profile.sign(&owner);
         let store = Store::open(&path, &owner).unwrap();

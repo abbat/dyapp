@@ -10,11 +10,12 @@ struct Handover {
     job: u64,
     remote: PeerId,
     now: Instant,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 impl Handover {
     fn begin(store: Store) -> Self {
-        let (source, mut swarm) = node();
+        let (test_dir, source, mut swarm) = node();
         let key = match store {
             Store::Mailbox => {
                 hold_mailbox(&source, 41);
@@ -52,6 +53,7 @@ impl Handover {
             job,
             remote,
             now,
+            _test_dir: test_dir,
         }
     }
 

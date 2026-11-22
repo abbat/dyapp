@@ -1,5 +1,4 @@
 use super::*;
-use crate::store::tests::temp_db_path;
 use dyapp_identity::Identity;
 use dyapp_profile::Profile;
 use std::time::Duration;
@@ -10,8 +9,9 @@ fn at(unix_seconds: u64) -> SearchOutboxSchedule {
 
 #[test]
 fn ordinary_queue_exposes_the_exact_window_and_backoff_across_reopen() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::try_generate().unwrap();
-    let path = temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let store = Store::open(&path, &owner).unwrap();
     assert_eq!(
         store.search_outbox_schedule().unwrap(),
@@ -48,8 +48,9 @@ fn ordinary_queue_exposes_the_exact_window_and_backoff_across_reopen() {
 
 #[test]
 fn legacy_queue_requires_review_even_before_a_deferred_deadline_and_never_migrates() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::try_generate().unwrap();
-    let store = Store::open(&temp_db_path(), &owner).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
     let legacy = Profile::tombstone(2, 0, 0).sign(&owner);
     store.hold_search_profile(&legacy).unwrap();
     store
@@ -70,8 +71,9 @@ fn legacy_queue_requires_review_even_before_a_deferred_deadline_and_never_migrat
 
 #[test]
 fn authorized_withdrawal_bypasses_only_the_window_and_ack_becomes_idle() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::try_generate().unwrap();
-    let path = temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let store = Store::open(&path, &owner).unwrap();
     let first = Profile {
         version: 1,

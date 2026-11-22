@@ -1,4 +1,4 @@
-use super::{root, Credentials};
+use super::Credentials;
 use crate::slot_keys::SlotKeys;
 use crate::{IdentityKey, MobileSlotKeys};
 use dyapp_client::identity_slots::{ChatKeyStore, Layout, Registry, Resolution, Storage};
@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 #[test]
 fn opaque_existing_wrap_refuses_missing_alias_and_keeps_the_owner() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let callbacks = Arc::new(Credentials::default());
     let device = IdentityKey::generate().unwrap();
     assert!(callbacks
@@ -41,7 +42,7 @@ fn opaque_existing_wrap_refuses_missing_alias_and_keeps_the_owner() {
     let keys = SlotKeys(callbacks);
     let slot = dyapp_client::identity_slots::Slot {
         id: "slot".into(),
-        dir: root(),
+        dir: test_dir.to_path_buf(),
         state: dyapp_client::identity_slots::State::Pending,
         storage: Some(Storage::Wrapped),
     };
@@ -56,8 +57,9 @@ fn opaque_existing_wrap_refuses_missing_alias_and_keeps_the_owner() {
 
 #[test]
 fn opaque_slot_callbacks_feed_the_core_link_writer_and_chat_bootstrap() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let keys = SlotKeys(Arc::new(Credentials::default()));
-    let registry = Registry::new(root(), Layout::Android);
+    let registry = Registry::new(test_dir.to_path_buf(), Layout::Android);
     let (source, owner, _) = registry.create(Storage::Wrapped, &keys).unwrap();
     let linked = Linked {
         identity: Identity::try_generate().unwrap(),

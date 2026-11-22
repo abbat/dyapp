@@ -7,11 +7,13 @@ struct Source {
     owner: Identity,
     network: Network,
     state: Zeroizing<Vec<u8>>,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 impl Source {
     fn new(address: &Multiaddr) -> Self {
-        let registry = Registry::new(protocol_build_path("link-owner-source"), Layout::Desktop);
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let registry = Registry::new(test_dir.to_path_buf(), Layout::Desktop);
         let (slot, owner, _) = registry.create(Storage::File, &Files).unwrap();
         let store = Store::open(&slot.dir.join("client.db"), &owner).unwrap();
         store.set_profile_hidden(true).unwrap();
@@ -35,6 +37,7 @@ impl Source {
             owner,
             network,
             state,
+            _test_dir: test_dir,
         }
     }
 }

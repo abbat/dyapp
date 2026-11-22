@@ -9,12 +9,9 @@ mod media;
 #[path = "republish/replies.rs"]
 mod replies;
 
-pub(super) fn node() -> (Service, Swarm<Behaviour>) {
-    let dir = format!(
-        "{}/../../build/test-republish-{}",
-        env!("CARGO_MANIFEST_DIR"),
-        uuid::Uuid::new_v4()
-    );
+pub(super) fn node() -> (dyapp_test_support::TestDir, Service, Swarm<Behaviour>) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().to_string_lossy().into_owned();
     let mut config = crate::NodeConfig::default();
     config.storage.dir = dir.clone().into();
     config.network.id_pow_bits = 0;
@@ -30,7 +27,7 @@ pub(super) fn node() -> (Service, Swarm<Behaviour>) {
     )
     .unwrap();
     add_peer(&mut swarm);
-    (service, swarm)
+    (test_dir, service, swarm)
 }
 
 pub(super) fn add_peer(swarm: &mut Swarm<Behaviour>) {
@@ -82,7 +79,7 @@ fn finish_lookups(replicas: &mut Replicas, ok: bool) {
 
 #[tokio::test]
 async fn waits_for_bootstrap_warmup() {
-    let (service, mut swarm) = node();
+    let (_test_dir, service, mut swarm) = node();
     hold_mailbox(&service, 1);
     let mut replicas = Replicas::default();
     let now = Instant::now();
@@ -113,7 +110,7 @@ async fn waits_for_bootstrap_warmup() {
 
 #[tokio::test]
 async fn hands_every_store_to_the_repair_paths() {
-    let (service, mut swarm) = node();
+    let (_test_dir, service, mut swarm) = node();
     hold_mailbox(&service, 1);
     let owner = dyapp_identity::Identity::try_generate().unwrap();
     let profile = dyapp_profile::Profile {
@@ -152,7 +149,7 @@ async fn hands_every_store_to_the_repair_paths() {
 
 #[tokio::test]
 async fn unchanged_routing_republishes_nothing_until_a_new_closest_node() {
-    let (service, mut swarm) = node();
+    let (_test_dir, service, mut swarm) = node();
     hold_mailbox(&service, 1);
     let mut replicas = Replicas::default();
     let now = ready(&mut replicas);
@@ -170,7 +167,7 @@ async fn unchanged_routing_republishes_nothing_until_a_new_closest_node() {
 
 #[tokio::test]
 async fn failed_handover_stays_dirty() {
-    let (service, mut swarm) = node();
+    let (_test_dir, service, mut swarm) = node();
     hold_mailbox(&service, 1);
     let mut replicas = Replicas::default();
     let now = ready(&mut replicas);
@@ -187,7 +184,7 @@ async fn failed_handover_stays_dirty() {
 
 #[tokio::test]
 async fn owner_repair_blocks_republish() {
-    let (service, mut swarm) = node();
+    let (_test_dir, service, mut swarm) = node();
     hold_mailbox(&service, 1);
     let mut replicas = Replicas::default();
     replicas.repaired.insert(vec![1; 32]);
@@ -202,7 +199,7 @@ async fn owner_repair_blocks_republish() {
 
 #[tokio::test]
 async fn keeps_sixteen_in_flight() {
-    let (service, mut swarm) = node();
+    let (_test_dir, service, mut swarm) = node();
     for mailbox in 0..20 {
         hold_mailbox(&service, mailbox);
     }
@@ -221,7 +218,7 @@ async fn keeps_sixteen_in_flight() {
 
 #[tokio::test]
 async fn busy_node_does_not_republish() {
-    let (service, mut swarm) = node();
+    let (_test_dir, service, mut swarm) = node();
     hold_mailbox(&service, 1);
     let mut replicas = Replicas::default();
     let now = ready(&mut replicas);

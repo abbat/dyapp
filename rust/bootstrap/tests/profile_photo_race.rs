@@ -10,17 +10,14 @@ use libp2p::identity::Keypair;
 use libp2p::request_response::{Event, Message};
 use libp2p::swarm::SwarmEvent;
 use prost::Message as _;
-use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 #[path = "profile_photo_race/transitions.rs"]
 mod transitions;
 
-fn path() -> PathBuf {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../build/photo-races");
-    std::fs::create_dir_all(&root).unwrap();
-    root.join(uuid::Uuid::new_v4().to_string())
+fn path() -> dyapp_test_support::TestDir {
+    dyapp_test_support::test_dir().unwrap()
 }
 
 fn hashes(profile: &Profile) -> Vec<Vec<u8>> {
@@ -267,16 +264,17 @@ async fn serve(mut server: Box<libp2p::Swarm<dyapp_p2p_net::Behaviour>>, mut fix
     }
 }
 
-fn local() -> (Identity, Store, Profile) {
+fn local() -> (dyapp_test_support::TestDir, Identity, Store, Profile) {
+    let test_dir = path();
     let identity = Identity::try_generate().unwrap();
-    let mut store = Store::open(&path(), &identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client.db"), &identity).unwrap();
     store
         .add_profile_photo(&[0xff, 0xd8, 0xff, 1], &[0xff, 0xd8, 0xff, 2])
         .unwrap();
     let mut original = store.profile_draft().unwrap().unwrap();
     original.version = 5;
     store.save_profile_draft(&original).unwrap();
-    (identity, store, original)
+    (test_dir, identity, store, original)
 }
 
 fn replacement(original: &Profile) -> (Profile, Vec<u8>) {
@@ -293,10 +291,10 @@ fn replacement(original: &Profile) -> (Profile, Vec<u8>) {
 }
 
 async fn race(publication: bool) {
-    let (identity, store, original) = local();
+    let (local_test_dir, identity, store, original) = local();
     let (newer, new_bytes) = replacement(&original);
     let new_hash = newer.photos[0].thumbnail.clone();
-    let media = Arc::new(MediaStore::open(&path()).unwrap());
+    let media = Arc::new(MediaStore::open(&local_test_dir).unwrap());
     seed(&media, &identity, newer.version, hashes(&newer));
     assert_eq!(
         media
@@ -353,8 +351,14 @@ async fn publication_cannot_release_newer_photos_while_retrying() {
     Box::pin(race(true)).await;
 }
 
-fn duplicate(identity: &Identity, store: &Store, original: &Profile, version: u64) -> Fixture {
-    let media = Arc::new(MediaStore::open(&path()).unwrap());
+fn duplicate(
+    identity: &Identity,
+    store: &Store,
+    original: &Profile,
+    version: u64,
+) -> (dyapp_test_support::TestDir, Fixture) {
+    let test_dir = path();
+    let media = Arc::new(MediaStore::open(&test_dir).unwrap());
     seed(&media, identity, version, hashes(original));
     for hash in hashes(original) {
         let bytes = store.profile_photo(&hash).unwrap().unwrap();
@@ -363,7 +367,7 @@ fn duplicate(identity: &Identity, store: &Store, original: &Profile, version: u6
             Put::Stored
         );
     }
-    Fixture {
+    let fixture = Fixture {
         owner: identity.peer_id(),
         media,
         held: original.sign(identity),
@@ -373,16 +377,18 @@ fn duplicate(identity: &Identity, store: &Store, original: &Profile, version: u6
         before_finalize: None,
         quota: 1_000_000,
         reject_conditional: None,
-    }
+    };
+    (test_dir, fixture)
 }
 
 async fn retry(local_blobs: bool) {
-    let (identity, mut store, original) = local();
-    let fixture = duplicate(&identity, &store, &original, 6);
+    let (_local_test_dir, identity, mut store, original) = local();
+    let retry_dir = path();
+    let (_duplicate_test_dir, fixture) = duplicate(&identity, &store, &original, 6);
     let media = Arc::clone(&fixture.media);
     let keeps = Arc::clone(&fixture.keeps);
     if !local_blobs {
-        store = Store::open(&path(), &identity).unwrap();
+        store = Store::open(&retry_dir.path().join("retry.db"), &identity).unwrap();
         store.save_profile_draft(&original).unwrap();
     }
     let mut node = connect(fixture).await;
@@ -412,8 +418,8 @@ async fn stale_repair_can_fetch_verified_blobs_missing_from_the_local_store() {
 
 #[tokio::test]
 async fn changed_draft_recovers_after_failed_staging_and_live_refresh() {
-    let (identity, store, original) = local();
-    let mut fixture = duplicate(&identity, &store, &original, 6);
+    let (_test_dir, identity, store, original) = local();
+    let (_fixture_test_dir, mut fixture) = duplicate(&identity, &store, &original, 6);
     fixture.refuse_publish_once = true;
     let media = Arc::clone(&fixture.media);
     let mut node = connect(fixture).await;
@@ -458,8 +464,8 @@ async fn changed_draft_recovers_after_failed_staging_and_live_refresh() {
 
 #[tokio::test]
 async fn conditional_refresh_renews_retention_instead_of_only_repairing_bytes() {
-    let (identity, store, original) = local();
-    let fixture = duplicate(&identity, &store, &original, original.version);
+    let (_test_dir, identity, store, original) = local();
+    let (_fixture_test_dir, fixture) = duplicate(&identity, &store, &original, original.version);
     let keeps = Arc::clone(&fixture.keeps);
     let mut node = connect(fixture).await;
     let result = publish::refresh_photos(&store, &mut node, &identity, 100).await;

@@ -212,7 +212,6 @@ mod tests {
     use super::{PRESENCE_THROTTLE_MS, PRESENCE_WINDOW_MS};
     use crate::interactions::{Interaction, Kind};
     use crate::prepare_put;
-    use crate::store::tests::temp_db_path;
     use crate::store::{Error, Store};
     use dyapp_identity::Identity;
     use dyapp_messaging::hlc::Timestamp;
@@ -236,7 +235,8 @@ mod tests {
 
     #[test]
     fn presence_goes_only_to_unblocked_matches_hourly_and_survives_restart() {
-        let path = temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let alice = Identity::try_generate().unwrap();
         let (a, b) = (alice.peer_id(), Identity::try_generate().unwrap().peer_id());
         let mut store = Store::open(&path, &alice).unwrap();
@@ -275,7 +275,8 @@ mod tests {
 
     #[test]
     fn received_presence_is_latest_from_unblocked_matches_and_expires() {
-        let path = temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let alice = Identity::try_generate().unwrap();
         let (a, b) = (alice.peer_id(), Identity::try_generate().unwrap().peer_id());
         let mut store = Store::open(&path, &alice).unwrap();

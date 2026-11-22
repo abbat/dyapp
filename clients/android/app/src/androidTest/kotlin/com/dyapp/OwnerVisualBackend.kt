@@ -28,7 +28,7 @@ internal class OwnerVisualBackend(val state: OwnerVisualState) {
     }
 
     private fun prepare(input: String): LinkApprovalCalls {
-        check(input.isNotBlank())
+        check(input == OWNER_VISUAL_CODE) { "Preparation changed the original fixture code" }
         if (state == OwnerVisualState.PREPARING) hold()
         check(state != OwnerVisualState.PREPARE_ERROR) { "Controlled read-only preparation failure" }
         return LinkApprovalCalls(OWNER_VISUAL_CODE, ::send, {})

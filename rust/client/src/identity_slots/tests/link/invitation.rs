@@ -13,7 +13,8 @@ fn mutation_guard(root: &std::path::Path) -> fs::File {
 
 #[test]
 fn idle_invitation_has_a_parseable_code_and_no_operation_lease() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = Registry::new(root.clone(), Layout::Desktop);
     let (slot, owner, _) = registry.create(Storage::File, &Files).unwrap();
     let waiting = registry
@@ -30,7 +31,8 @@ fn idle_invitation_has_a_parseable_code_and_no_operation_lease() {
 
 #[test]
 fn invitation_creation_refuses_wrong_owner_selection_and_overflow_without_writes() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = Registry::new(root.clone(), Layout::Desktop);
     let (source, owner, _) = registry.create(Storage::File, &Files).unwrap();
     assert!(registry
@@ -50,7 +52,8 @@ fn invitation_creation_refuses_wrong_owner_selection_and_overflow_without_writes
 
 #[tokio::test]
 async fn expired_and_changed_source_polling_never_dials() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = Registry::new(root.clone(), Layout::Desktop);
     let (source, owner, _) = registry.create(Storage::File, &Files).unwrap();
     let mut waiting = registry
@@ -76,7 +79,8 @@ async fn expired_and_changed_source_polling_never_dials() {
 
 #[test]
 fn pending_connection_uses_active_network_and_holds_only_its_operation_lease() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = Registry::new(root.clone(), Layout::Desktop);
     let (source, owner, _) = registry.create(Storage::File, &Files).unwrap();
     let network = Network {
@@ -112,7 +116,8 @@ fn pending_connection_uses_active_network_and_holds_only_its_operation_lease() {
 
 #[tokio::test]
 async fn a_transient_connection_failure_keeps_the_same_code_and_releases_admission() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = Registry::new(root.clone(), Layout::Desktop);
     let (source, owner, _) = registry.create(Storage::File, &Files).unwrap();
     network::save(

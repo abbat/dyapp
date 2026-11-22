@@ -11,6 +11,7 @@ async fn revocation_preserves_an_edit_during_its_initial_read() {
 }
 
 async fn check_initial_read(hidden: bool, remote_version: u64) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
     let key = Identity::from_secret(&[8; 32]);
     let device = dyapp_messaging::mls::Device::new(&identity, key.public_key(), 1).unwrap();
@@ -21,7 +22,7 @@ async fn check_initial_read(hidden: bool, remote_version: u64) {
         device_owners: vec![crate::owner_binding(&key, &identity.public_key())],
         ..Default::default()
     };
-    let path = temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let store = Store::open(&path, &identity).unwrap();
     store.save_profile_draft(&draft).unwrap();
     store.set_profile_hidden(hidden).unwrap();
@@ -63,6 +64,7 @@ async fn check_initial_read(hidden: bool, remote_version: u64) {
 #[tokio::test]
 async fn foreign_profile_after_initial_read_does_not_replace_pending_local_edits() {
     type Held = Arc<Mutex<Option<SignedRecord>>>;
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
     let key = Identity::from_secret(&[8; 32]);
     let device = dyapp_messaging::mls::Device::new(&identity, key.public_key(), 1).unwrap();
@@ -79,7 +81,7 @@ async fn foreign_profile_after_initial_read_does_not_replace_pending_local_edits
         ..draft.clone()
     }
     .sign(&identity);
-    let path = temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let store = Store::open(&path, &identity).unwrap();
     store.save_profile_draft(&draft).unwrap();
     let destination: Arc<Mutex<Option<Held>>> = Arc::new(Mutex::new(None));

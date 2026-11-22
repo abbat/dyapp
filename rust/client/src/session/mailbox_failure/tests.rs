@@ -4,9 +4,10 @@ use dyapp_identity::{Identity, SignedRecord};
 use dyapp_profile::Profile;
 use std::sync::{atomic::Ordering, Arc};
 
-fn make_session(owner: &Identity) -> (Session, Identity) {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../build/mailbox-failure-tests")
+fn make_session(owner: &Identity) -> (dyapp_test_support::TestDir, Session, Identity) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir
+        .path()
         .join(format!("{:016x}", getrandom::u64().unwrap()));
     std::fs::create_dir_all(&root).unwrap();
     let device = Identity::try_generate().unwrap();
@@ -17,7 +18,7 @@ fn make_session(owner: &Identity) -> (Session, Identity) {
         &[5; 32],
     )
     .unwrap();
-    (session, device)
+    (test_dir, session, device)
 }
 
 async fn connect(server: &super::server::Server) -> Node {
@@ -32,7 +33,7 @@ async fn connect(server: &super::server::Server) -> Node {
 #[tokio::test]
 async fn probe_reads_one_envelope_without_acknowledging_or_applying_it() {
     let owner = Identity::try_generate().unwrap();
-    let (session, device) = make_session(&owner);
+    let (_test_dir, session, device) = make_session(&owner);
     let original_state = (
         session.store().sealed_device().unwrap(),
         session.store().link_state().unwrap(),
@@ -70,7 +71,7 @@ async fn probe_reads_one_envelope_without_acknowledging_or_applying_it() {
 #[tokio::test]
 async fn probe_requires_actual_refusal_and_verified_removal() {
     let owner = Identity::try_generate().unwrap();
-    let (session, device) = make_session(&owner);
+    let (_test_dir, session, device) = make_session(&owner);
     session.store().note_device_listed(1).unwrap();
     let server = super::server::Server::new(
         Profile {
@@ -110,7 +111,7 @@ async fn probe_requires_actual_refusal_and_verified_removal() {
 #[tokio::test]
 async fn probe_rejects_replaced_device_before_network_io() {
     let owner = Identity::try_generate().unwrap();
-    let (session, _) = make_session(&owner);
+    let (_test_dir, session, _) = make_session(&owner);
     let server = super::server::Server::new(Profile::default().sign(&owner));
     let mut node = connect(&server).await;
     assert!(matches!(
@@ -137,7 +138,7 @@ async fn original(session: &Session, node: &mut Node) {
 #[tokio::test]
 async fn actual_readback_requires_both_refusal_and_newer_verified_removal() {
     let owner = Identity::try_generate().unwrap();
-    let (session, _) = make_session(&owner);
+    let (_test_dir, session, _) = make_session(&owner);
     session.store().note_device_listed(1).unwrap();
     let listed = Profile {
         version: 2,
@@ -202,7 +203,7 @@ async fn original_errors_do_not_read(
 #[tokio::test]
 async fn missing_foreign_tampered_and_withdrawn_profiles_never_confirm_cleanup() {
     let owner = Identity::try_generate().unwrap();
-    let (session, _) = make_session(&owner);
+    let (_test_dir, session, _) = make_session(&owner);
     session.store().note_device_listed(1).unwrap();
     let removed = Profile {
         version: 2,
@@ -228,7 +229,7 @@ async fn missing_foreign_tampered_and_withdrawn_profiles_never_confirm_cleanup()
         *server.record.lock().unwrap() = reply;
         original(&session, &mut node).await;
     }
-    let (never_listed, _) = make_session(&owner);
+    let (_never_listed_test_dir, never_listed, _) = make_session(&owner);
     *server.record.lock().unwrap() = Some(removed.sign(&owner));
     original(&never_listed, &mut node).await;
 }

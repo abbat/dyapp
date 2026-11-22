@@ -2,11 +2,17 @@ use super::*;
 use crate::storage::BootstrapStore;
 use crate::NodeConfig;
 
-pub(super) fn service() -> Service {
-    let dir = format!("/tmp/ai/test-metrics-{}", uuid::Uuid::new_v4());
+pub(super) fn service() -> (dyapp_test_support::TestDir, Service) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir
+        .path()
+        .join("case-176")
+        .to_string_lossy()
+        .into_owned();
     let mut config = NodeConfig::default();
     config.storage.dir = dir.clone().into();
-    Service::new(BootstrapStore::new(&dir).unwrap(), config).unwrap()
+    let service = Service::new(BootstrapStore::new(&dir).unwrap(), config).unwrap();
+    (test_dir, service)
 }
 
 fn value(text: &str, sample: &str) -> Option<u64> {
@@ -20,7 +26,8 @@ fn samples(text: &str) -> usize {
 
 #[test]
 fn a_fresh_render_is_well_formed_and_has_no_snapshot() {
-    let text = render(&service());
+    let (_test_dir, service) = service();
+    let text = render(&service);
     let mut types: Vec<&str> = text.lines().filter(|l| l.starts_with("# TYPE ")).collect();
     let families = types.len();
     types.dedup();
@@ -56,7 +63,7 @@ fn a_fresh_render_is_well_formed_and_has_no_snapshot() {
 
 #[test]
 fn counters_survive_the_hourly_status_and_scrapes_repeat() {
-    let service = service();
+    let (_test_dir, service) = service();
     service.metrics.count(2, None);
     service
         .metrics
@@ -84,7 +91,7 @@ fn counters_survive_the_hourly_status_and_scrapes_repeat() {
 
 #[test]
 fn a_delayed_reply_counts_once_and_activity_adds_no_series() {
-    let service = service();
+    let (_test_dir, service) = service();
     let idle = samples(&render(&service));
     service.metrics.count(3, None);
     // The reply comes much later, after other requests.
@@ -99,7 +106,7 @@ fn a_delayed_reply_counts_once_and_activity_adds_no_series() {
 
 #[test]
 fn a_snapshot_reports_the_configured_stores() {
-    let service = service();
+    let (_test_dir, service) = service();
     snapshot(&service);
     let text = render(&service);
     assert!(value(&text, "dyapp_snapshot_timestamp_seconds").unwrap() > 0);
@@ -114,7 +121,7 @@ fn a_snapshot_reports_the_configured_stores() {
 
 #[test]
 fn a_failed_read_reports_no_size() {
-    let service = service();
+    let (_test_dir, service) = service();
     *service.metrics.snapshot.lock().unwrap() = Snapshot {
         at: 1,
         stores: [Usage::Failed, Usage::Read(5, 6), Usage::Off],

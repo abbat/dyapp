@@ -276,7 +276,10 @@ mod tests {
 
     #[test]
     fn deny_store_adds_lists_and_removes() {
-        let dir = std::env::temp_dir().join(format!("dyapp-deny-{}", std::process::id()));
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir
+            .path()
+            .join(format!("dyapp-deny-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let store = DenyStore::open(&dir.join("deny.db")).unwrap();
         let peer = PeerId::random().to_string();
@@ -306,7 +309,10 @@ mod tests {
 
     #[test]
     fn corrupt_received_rows_stop_at_the_retained_list_boundary() {
-        let dir = std::env::temp_dir().join(format!("dyapp-deny-limit-{}", uuid::Uuid::new_v4()));
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir
+            .path()
+            .join(format!("dyapp-deny-limit-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
         let store = DenyStore::open(&dir.join("deny.db")).unwrap();
         let db = lock(&store.db).unwrap();
@@ -333,7 +339,10 @@ mod tests {
 
     #[test]
     fn received_lists_are_checked_and_only_newer_ones_kept() {
-        let dir = std::env::temp_dir().join(format!("dyapp-received-{}", std::process::id()));
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir
+            .path()
+            .join(format!("dyapp-received-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let store = DenyStore::open(&dir.join("deny.db")).unwrap();
         let keypair = libp2p::identity::Keypair::generate_ed25519();

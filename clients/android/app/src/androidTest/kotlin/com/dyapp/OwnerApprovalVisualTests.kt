@@ -2,16 +2,21 @@ package com.dyapp
 
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isFocused
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TestName
 
 /** Dedicated native visual phase; ordinary instrumentation never expands this matrix. */
 class OwnerApprovalVisualTests {
     @get:Rule
     val compose = createComposeRule()
+
+    @get:Rule
+    val method = TestName()
+    private val progress = OwnerVisualProgress(javaClass.name, method)
 
     @Test
     fun capturesEveryOwnerDialogState() {
@@ -19,8 +24,8 @@ class OwnerApprovalVisualTests {
         assumeTrue("Run only through the dedicated native visual phase", arguments.getString("ownerVisual") == "1")
         val source = checkNotNull(arguments.getString("sourceSha"))
         val width = checkNotNull(arguments.getString("expectedWidth")).toInt()
-        val actual = InstrumentationRegistry.getInstrumentation().targetContext.resources.configuration.screenWidthDp
-        check(actual == width) { "Native viewport is $actual dp, expected$width" }
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        compose.waitUntil(10_000) { context.resources.configuration.screenWidthDp == width }
         val output = OwnerVisualOutput(source, width)
         val host = OwnerVisualHost(compose)
         for (language in listOf("en", "ru")) captureLanguage(host, output, language)
@@ -33,6 +38,7 @@ class OwnerApprovalVisualTests {
                 val context = ownerVisualContext(language, font)
                 for (state in OwnerVisualState.entries) {
                     capture(host, output, OwnerVisualScene(OwnerVisualBackend(state), context, dark, font))
+                    progress.completed()
                 }
             }
         }
@@ -44,7 +50,7 @@ class OwnerApprovalVisualTests {
             OwnerVisualDriver(compose).show(scene.backend)
             checkOwnerVisualState(compose, scene.backend.state)
             awaitSafeFocus(scene.backend.state)
-            val geometry = OwnerVisualGeometry(host)
+            val geometry = NativeVisualGeometry(compose, "owner-dialog")
             geometry.first()
             output.capture(host, scene, "top")
             geometry.check()

@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn descriptor_validation_and_corruption_fail_without_replacing_the_row() {
-    let (mut store, _, _) = database();
+    let (_test_dir, mut store, _, _) = database();
     let good = candidate(1, 100);
     let mut invalid = good.clone();
     invalid.release_secret = [0; 32];
@@ -47,7 +47,7 @@ fn descriptor_validation_and_corruption_fail_without_replacing_the_row() {
 
 #[test]
 fn parallel_reservations_cannot_both_spend_the_last_budget() {
-    let (mut store, owner, path) = database();
+    let (_test_dir, mut store, owner, path) = database();
     for index in 0..12 {
         upload(
             store
@@ -80,7 +80,7 @@ fn parallel_reservations_cannot_both_spend_the_last_budget() {
 
 #[test]
 fn late_retry_renews_uncertainty_and_confirmation_is_not_a_renewal() {
-    let (mut store, _, _) = database();
+    let (_test_dir, mut store, _, _) = database();
     let candidate = candidate(1, 100);
     let first = upload(store.plan_sticker_upload(&candidate, 100).unwrap());
     let retry_at = 100 + 7 * 86400;

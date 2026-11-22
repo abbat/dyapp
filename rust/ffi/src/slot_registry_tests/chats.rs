@@ -4,21 +4,27 @@ use std::fs::{self, OpenOptions, TryLockError};
 
 fn fixture(
     layout: MobileSlotLayout,
-) -> (Arc<MobileIdentityRegistry>, MobileSlotSelection, PathBuf) {
-    let root = root();
+) -> (
+    dyapp_test_support::TestDir,
+    Arc<MobileIdentityRegistry>,
+    MobileSlotSelection,
+    PathBuf,
+) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = MobileIdentityRegistry::new(
         root.to_str().unwrap().to_owned(),
         layout,
         Arc::new(Credentials::default()),
     );
     let created = registry.create().unwrap();
-    (registry, created, root)
+    (test_dir, registry, created, root)
 }
 
 #[test]
 fn guarded_native_chat_sessions_retain_locks_through_last_owner_then_allow_removal() {
     for layout in [MobileSlotLayout::Android, MobileSlotLayout::Ios] {
-        let (registry, created, root) = fixture(layout);
+        let (_test_dir, registry, created, root) = fixture(layout);
         let chats = registry
             .open_chats(
                 created.slot.id.clone(),
@@ -50,7 +56,7 @@ fn guarded_native_chat_sessions_retain_locks_through_last_owner_then_allow_remov
 
 #[test]
 fn initialized_native_chats_refuse_a_missing_key_without_regeneration() {
-    let (registry, created, _) = fixture(MobileSlotLayout::Android);
+    let (_test_dir, registry, created, _) = fixture(MobileSlotLayout::Android);
     let open = || {
         registry.open_chats(
             created.slot.id.clone(),
@@ -81,7 +87,7 @@ impl KeyStore for OtherStore {
 
 #[test]
 fn a_different_wrapping_store_is_rejected_before_bootstrap_writes() {
-    let (registry, created, _) = fixture(MobileSlotLayout::Android);
+    let (_test_dir, registry, created, _) = fixture(MobileSlotLayout::Android);
     assert!(registry
         .open_chats(created.slot.id, created.key.peer_id(), Arc::new(OtherStore))
         .is_err());

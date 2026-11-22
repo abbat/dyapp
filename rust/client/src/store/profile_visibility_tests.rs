@@ -1,5 +1,4 @@
 use super::*;
-use crate::store::tests::temp_db_path;
 use dyapp_identity::Domain;
 
 fn owner() -> Identity {
@@ -12,7 +11,8 @@ fn saved(store: &Store) -> Profile {
 
 #[test]
 fn hide_uses_latest_fields_photos_devices_and_stronger_proof() {
-    let (path, identity) = (temp_db_path(), owner());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let (path, identity) = (test_dir.path().join("client-1.db"), owner());
     let store = Store::open(&path, &identity).unwrap();
     let request = Profile {
         version: 1,
@@ -59,9 +59,10 @@ fn hide_uses_latest_fields_photos_devices_and_stronger_proof() {
 
 #[test]
 fn hide_advances_past_all_known_versions() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     for (request_version, seen, expected) in [(3, 0, 5), (3, 6, 7), (9, 6, 10)] {
         let identity = owner();
-        let store = Store::open(&temp_db_path(), &identity).unwrap();
+        let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
         store
             .save_profile_draft(&Profile {
                 version: 1,
@@ -94,8 +95,9 @@ fn hide_advances_past_all_known_versions() {
 
 #[test]
 fn final_visibility_write_failure_rolls_back_draft_and_search_projection() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let before = Profile {
         version: 1,
         ..Profile::default()
@@ -132,8 +134,9 @@ fn final_visibility_write_failure_rolls_back_draft_and_search_projection() {
 
 #[test]
 fn empty_storage_uses_the_supplied_draft_without_publishing_its_fields() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let request = Profile {
         version: 4,
         about: "local fields".into(),
@@ -150,15 +153,16 @@ fn empty_storage_uses_the_supplied_draft_without_publishing_its_fields() {
 
 #[test]
 fn stronger_request_proof_is_kept_as_one_nonce_bits_pair() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     store
         .save_profile_draft(&Profile {
             name: "current".into(),
             ..Profile::default()
         })
         .unwrap();
-    let mut proof_store = Store::open(&temp_db_path(), &identity).unwrap();
+    let mut proof_store = Store::open(&test_dir.path().join("client-2.db"), &identity).unwrap();
     let work = proof_store
         .prepare_profile_work(&identity, 2, 1024)
         .unwrap();
@@ -176,8 +180,9 @@ fn stronger_request_proof_is_kept_as_one_nonce_bits_pair() {
 
 #[test]
 fn another_owner_cannot_sign_a_hide_for_this_store() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let before = Profile {
         version: 1,
         ..Profile::default()
@@ -195,8 +200,9 @@ fn another_owner_cannot_sign_a_hide_for_this_store() {
 
 #[test]
 fn exhausted_version_refuses_hide_without_any_projection_changes() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let before = Profile {
         version: u64::MAX,
         ..Profile::default()
@@ -213,8 +219,9 @@ fn exhausted_version_refuses_hide_without_any_projection_changes() {
 
 #[test]
 fn malformed_held_profile_is_not_silently_replaced() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let before = Profile {
         version: 1,
         ..Profile::default()

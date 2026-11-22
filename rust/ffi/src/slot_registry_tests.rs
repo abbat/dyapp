@@ -91,16 +91,11 @@ fn wrap_error(error: &crate::CoreError) -> WrapError {
     }
 }
 
-pub(crate) fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../build/native-slot-fixtures")
-        .join(IdentityKey::generate().unwrap().peer_id())
-}
-
 #[test]
 fn exported_registry_creates_reopens_and_selects_the_same_identity() {
     for layout in [MobileSlotLayout::Android, MobileSlotLayout::Ios] {
-        let root = root().to_str().unwrap().to_owned();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let root = test_dir.to_path_buf().to_str().unwrap().to_owned();
         let keys = Arc::new(Credentials::default());
         let registry = MobileIdentityRegistry::new(root.clone(), layout, keys.clone());
         assert!(matches!(
@@ -128,7 +123,8 @@ fn literal_legacy_and_uuid_layouts_reopen_without_rewriting_the_key() {
     const UUID: &str = "12345678-1234-4234-8234-123456789abc";
     for layout in [MobileSlotLayout::Android, MobileSlotLayout::Ios] {
         for id in ["legacy-primary", UUID] {
-            let root = root();
+            let test_dir = dyapp_test_support::test_dir().unwrap();
+            let root = test_dir.to_path_buf();
             let directory = if id == "legacy-primary" {
                 root.clone()
             } else {
@@ -161,12 +157,13 @@ fn literal_legacy_and_uuid_layouts_reopen_without_rewriting_the_key() {
 #[test]
 fn committed_selection_retains_the_key_and_unconfirmed_durability() {
     use dyapp_client::identity_slots::{SelectionDurability, Slot, State, Storage};
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = dyapp_identity::Identity::try_generate().unwrap();
     let peer = identity.peer_id();
     let selected = crate::slot_registry::selected(
         Slot {
             id: "legacy-primary".to_owned(),
-            dir: root(),
+            dir: test_dir.to_path_buf(),
             state: State::Ready,
             storage: Some(Storage::Wrapped),
         },
@@ -189,7 +186,8 @@ fn interrupted_lifecycle_never_opens_as_ready() {
         ("deleting\n", MobileSlotRecovery::Deleting),
         ("invalid\n", MobileSlotRecovery::Damaged),
     ] {
-        let root = root();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let root = test_dir.to_path_buf();
         let registry = MobileIdentityRegistry::new(
             root.to_str().unwrap().to_owned(),
             MobileSlotLayout::Android,
@@ -214,7 +212,8 @@ fn interrupted_lifecycle_never_opens_as_ready() {
 #[test]
 fn native_operation_retains_mutation_protection_with_its_verified_key() {
     use std::fs::{OpenOptions, TryLockError};
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = MobileIdentityRegistry::new(
         root.to_str().unwrap().to_owned(),
         MobileSlotLayout::Android,
@@ -241,7 +240,8 @@ fn native_operation_retains_mutation_protection_with_its_verified_key() {
 #[test]
 fn exported_removal_preserves_confirmation_and_only_erases_the_requested_alias() {
     for layout in [MobileSlotLayout::Android, MobileSlotLayout::Ios] {
-        let root = root().to_str().unwrap().to_owned();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let root = test_dir.to_path_buf().to_str().unwrap().to_owned();
         let keys = Arc::new(Credentials::default());
         let registry = MobileIdentityRegistry::new(root, layout, keys.clone());
         let first = registry.create().unwrap();
@@ -299,7 +299,8 @@ impl MobileSlotKeys for Denied {
 
 #[test]
 fn missing_and_denied_credentials_preserve_selection_and_remain_distinct() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let path = root.to_str().unwrap().to_owned();
     let keys = Arc::new(Credentials::default());
     let registry =

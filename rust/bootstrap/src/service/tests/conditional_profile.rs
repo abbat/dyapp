@@ -2,16 +2,19 @@
 use super::*;
 use dyapp_profile::ProfileCondition;
 
-pub(super) fn fixture() -> (Service, Identity) {
+pub(super) fn fixture() -> (dyapp_test_support::TestDir, Service, Identity) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut config = NodeConfig::default();
-    config.storage.dir =
-        std::env::temp_dir().join(format!("profile-condition-{}", uuid::Uuid::new_v4()));
+    config.storage.dir = test_dir
+        .path()
+        .join(format!("profile-condition-{}", uuid::Uuid::new_v4()));
     config.network.id_pow_bits = 0;
     config.search.min_profile_pow_bits = 0;
     config.limits.requests_per_second = 1000;
     config.limits.min_free_mb = 0;
     let store = BootstrapStore::new(config.storage.dir.to_str().unwrap()).unwrap();
     (
+        test_dir,
         Service::new(store, config).unwrap(),
         Identity::from_secret(&[7; 32]),
     )
@@ -46,7 +49,7 @@ fn request(request: profile_request::Request) -> ProfileRequest {
 #[test]
 fn newer_revocation_survives_conditional_legacy_and_replica_replays() {
     for route in 0..3 {
-        let (service, owner) = fixture();
+        let (_test_dir, service, owner) = fixture();
         let source = record(&owner, 2, "reviewed");
         let target = target(&owner, Some(&source));
         service.store.put_profile(&source).unwrap();
@@ -76,7 +79,7 @@ fn observed_fork_and_absence_are_enforced_but_old_replicas_can_catch_up() {
         Some((2, "reviewed")),
         Some((2, "fork")),
     ] {
-        let (service, owner) = fixture();
+        let (_test_dir, service, owner) = fixture();
         let source = record(&owner, 2, "reviewed");
         if let Some((version, name)) = current {
             service
@@ -100,7 +103,7 @@ fn observed_fork_and_absence_are_enforced_but_old_replicas_can_catch_up() {
         };
         assert_eq!(status(&response), expected);
     }
-    let (service, owner) = fixture();
+    let (_test_dir, service, owner) = fixture();
     service
         .store
         .put_profile(&record(&owner, 1, "appeared"))
@@ -118,7 +121,7 @@ fn observed_fork_and_absence_are_enforced_but_old_replicas_can_catch_up() {
 
 #[test]
 fn admission_refuses_a_conflict_before_fanout_and_exact_retries_return_the_target() {
-    let (service, owner) = fixture();
+    let (_test_dir, service, owner) = fixture();
     let source = record(&owner, 2, "reviewed");
     let attempted = target(&owner, Some(&source));
     service
@@ -134,7 +137,7 @@ fn admission_refuses_a_conflict_before_fanout_and_exact_retries_return_the_targe
         .unwrap();
     assert_eq!(status(&response), Status::Stale);
 
-    let (service, owner) = fixture();
+    let (_test_dir, service, owner) = fixture();
     let target = target(&owner, None);
     let operation = || request(profile_request::Request::ConditionalPublish(target.clone()));
     assert_eq!(
@@ -148,7 +151,7 @@ fn admission_refuses_a_conflict_before_fanout_and_exact_retries_return_the_targe
 
 #[test]
 fn conditional_endpoint_rejects_legacy_authorization_and_legacy_endpoint_remains_explicit() {
-    let (service, owner) = fixture();
+    let (_test_dir, service, owner) = fixture();
     let legacy = record(&owner, 1, "legacy");
     let response = service
         .profile(

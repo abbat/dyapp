@@ -466,7 +466,12 @@ mod tests {
 
     #[test]
     fn hourly_expiry_drops_idle_assembled_media_only() {
-        let dir = format!("/tmp/ai/test-hourly-media-cache-{}", uuid::Uuid::new_v4());
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir
+            .path()
+            .join("case-14758")
+            .to_string_lossy()
+            .into_owned();
         let mut config = crate::NodeConfig::default();
         config.storage.dir = dir.clone().into();
         let mut service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config).unwrap();

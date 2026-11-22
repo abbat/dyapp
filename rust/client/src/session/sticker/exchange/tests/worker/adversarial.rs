@@ -34,7 +34,7 @@ async fn respond_count(pair: &mut Invite) -> usize {
 
 #[tokio::test]
 async fn wrong_owner_stop_block_and_removed_pack_never_send_a_response() {
-    let (mut pair, _, _, job) = pending();
+    let (_test_dir_36, mut pair, _, _, job) = pending();
     let count = pair.session.due_outbound(i64::MAX).unwrap().len();
     let other = dyapp_identity::Identity::try_generate().unwrap();
     assert!(pair
@@ -65,7 +65,7 @@ async fn wrong_owner_stop_block_and_removed_pack_never_send_a_response() {
         .unwrap()
         .is_empty());
     assert_eq!(pair.session.due_outbound(i64::MAX).unwrap().len(), count);
-    let (mut pair, _, _, job) = pending();
+    let (_test_dir_67, mut pair, _, _, job) = pending();
     let count = pair.session.due_outbound(i64::MAX).unwrap().len();
     pair.session
         .store
@@ -83,7 +83,7 @@ async fn wrong_owner_stop_block_and_removed_pack_never_send_a_response() {
 
 #[tokio::test]
 async fn corrupt_ready_pack_key_is_preserved_without_reply_or_cooldown() {
-    let (mut pair, path, pack, job) = pending();
+    let (_test_dir_85, mut pair, path, pack, job) = pending();
     let descriptor = confirmed(&mut pair, &pack);
     let raw = corrupt_key(&path, 2, &descriptor);
     let count = pair.session.due_outbound(i64::MAX).unwrap().len();
@@ -113,7 +113,7 @@ async fn corrupt_ready_pack_key_is_preserved_without_reply_or_cooldown() {
 
 #[tokio::test]
 async fn corrupt_ready_single_key_cannot_stage_a_bad_sticker_before_delivery_fails() {
-    let (mut pair, path, pack, _) = pending();
+    let (_test_dir_115, mut pair, path, pack, _) = pending();
     let (mut descriptor, _) = crate::attachment::seal(pack.sticker_bytes(0).unwrap()).unwrap();
     descriptor.mime = "image/webp".into();
     descriptor.width = 1;
@@ -157,7 +157,7 @@ async fn corrupt_ready_single_key_cannot_stage_a_bad_sticker_before_delivery_fai
 
 #[tokio::test]
 async fn five_due_confirmed_jobs_leave_one_for_the_next_batch() {
-    let (mut pair, _, first, _) = pending();
+    let (_test_dir_159, mut pair, _, first, _) = pending();
     confirmed(&mut pair, &first);
     for index in 2..=5 {
         let pack = sticker_packs::tests::pack(&format!("Cats {index}"));

@@ -1,5 +1,5 @@
 use super::*;
-use crate::slot_registry_tests::{root, Credentials, Wrapping};
+use crate::slot_registry_tests::{Credentials, Wrapping};
 use crate::{MobileSlotLayout, MobileSlotSelection};
 use dyapp_profile::Profile;
 use std::{fs, path::PathBuf};
@@ -9,11 +9,13 @@ struct Fixture {
     slot: MobileSlotSelection,
     worker: Arc<MobileSearchRecovery>,
     dir: PathBuf,
+    _test_dir: dyapp_test_support::TestDir,
 }
 impl Fixture {
     fn new(layout: MobileSlotLayout) -> Self {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let registry = MobileIdentityRegistry::new(
-            root().to_str().unwrap().into(),
+            test_dir.to_path_buf().to_str().unwrap().into(),
             layout,
             Arc::new(Credentials::default()),
         );
@@ -47,6 +49,7 @@ impl Fixture {
             slot,
             worker,
             dir,
+            _test_dir: test_dir,
         }
     }
     fn store(&self) -> Store {
@@ -238,8 +241,9 @@ fn a_removed_original_directory_cannot_be_recreated_by_confirmation() {
 
 #[test]
 fn preparation_never_bootstraps_missing_chat_credentials_or_database() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let registry = MobileIdentityRegistry::new(
-        root().to_str().unwrap().into(),
+        test_dir.to_path_buf().to_str().unwrap().into(),
         MobileSlotLayout::Android,
         Arc::new(Credentials::default()),
     );

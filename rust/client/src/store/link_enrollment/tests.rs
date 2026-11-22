@@ -1,12 +1,18 @@
 use super::*;
-use crate::store::tests::temp_db_path;
 use dyapp_identity::Domain;
 use dyapp_profile::Profile;
 use std::path::Path;
 
-fn fixture() -> (Identity, Store, SignedRecord, ProfilePublication) {
+fn fixture() -> (
+    dyapp_test_support::TestDir,
+    Identity,
+    Store,
+    SignedRecord,
+    ProfilePublication,
+) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     store.set_link_pending(b"original").unwrap();
     let certificate = identity.sign(Domain::Profile, vec![1]);
     let mut attempt = store.prepare_profile_publication(&identity).unwrap();
@@ -14,12 +20,12 @@ fn fixture() -> (Identity, Store, SignedRecord, ProfilePublication) {
         version: 1,
         ..Default::default()
     });
-    (identity, store, certificate, attempt)
+    (test_dir, identity, store, certificate, attempt)
 }
 
 #[test]
 fn exact_source_retries_survive_reopen_and_same_pending_does_not_renew_authorization() {
-    let (identity, store, certificate, mut attempt) = fixture();
+    let (_test_dir, identity, store, certificate, mut attempt) = fixture();
     store
         .admit_link_enrollment(&identity, &certificate, &attempt, b"original")
         .unwrap();
@@ -53,7 +59,7 @@ fn exact_source_retries_survive_reopen_and_same_pending_does_not_renew_authoriza
 
 #[test]
 fn certificate_or_same_version_directory_changes_cannot_reuse_an_intent() {
-    let (identity, store, certificate, mut attempt) = fixture();
+    let (_test_dir, identity, store, certificate, mut attempt) = fixture();
     store
         .admit_link_enrollment(&identity, &certificate, &attempt, b"original")
         .unwrap();
@@ -75,8 +81,9 @@ fn certificate_or_same_version_directory_changes_cannot_reuse_an_intent() {
 
 #[test]
 fn legacy_pending_does_not_gain_fresh_authorization_from_an_idempotent_save() {
-    let (identity, source, certificate, attempt) = fixture();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let (_test_dir, identity, source, certificate, attempt) = fixture();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     // Construct the historical layout without deleting new-format provenance.
     store
         .db
@@ -94,7 +101,7 @@ fn legacy_pending_does_not_gain_fresh_authorization_from_an_idempotent_save() {
 
 #[test]
 fn intent_write_failure_preserves_the_fresh_grant_and_never_records_membership() {
-    let (identity, store, certificate, attempt) = fixture();
+    let (_test_dir, identity, store, certificate, attempt) = fixture();
     store
         .db
         .execute_batch(
@@ -122,7 +129,7 @@ fn intent_write_failure_preserves_the_fresh_grant_and_never_records_membership()
 
 #[test]
 fn known_membership_cannot_become_fresh_enrollment_at_a_contradictory_version() {
-    let (identity, store, certificate, attempt) = fixture();
+    let (_test_dir, identity, store, certificate, attempt) = fixture();
     store
         .note_device_listed(attempt.directory_source().unwrap().version)
         .unwrap();
@@ -134,7 +141,7 @@ fn known_membership_cannot_become_fresh_enrollment_at_a_contradictory_version() 
 
 #[test]
 fn unknown_or_malformed_intent_formats_fail_closed() {
-    let (identity, store, certificate, attempt) = fixture();
+    let (_test_dir, identity, store, certificate, attempt) = fixture();
     for (format, bytes) in [(2, vec![0_u8; 32]), (1, vec![0; 31]), (1, vec![0; 32])] {
         store
             .db

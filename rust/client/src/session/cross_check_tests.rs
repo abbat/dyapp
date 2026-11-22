@@ -22,14 +22,12 @@ struct Fixture {
     welcome: Vec<u8>,
     text: Vec<u8>,
     path: PathBuf,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 fn fixture() -> Fixture {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../build/cross-check-tests")
-        .join(format!("{:016x}", getrandom::u64().unwrap()));
-    std::fs::create_dir_all(&root).unwrap();
-    let path = root.join("client.db");
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client.db");
     let alice_id = Identity::try_generate().unwrap();
     let alice = Device::new(&alice_id, Identity::try_generate().unwrap().public_key(), 1).unwrap();
     let bob_id = Identity::try_generate().unwrap();
@@ -74,6 +72,7 @@ fn fixture() -> Fixture {
         welcome,
         text,
         path,
+        _test_dir: test_dir,
     }
 }
 

@@ -6,16 +6,19 @@ struct Fixture {
     store: Store,
     db: Connection,
     peer: String,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 impl Fixture {
     fn new() -> Self {
-        let path = crate::store::tests::temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let owner = Identity::try_generate().unwrap();
         Self {
             store: Store::open(&path, &owner).unwrap(),
             db: Connection::open(path).unwrap(),
             peer: Identity::try_generate().unwrap().peer_id(),
+            _test_dir: test_dir,
         }
     }
 

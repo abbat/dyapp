@@ -1,7 +1,6 @@
 mod maintenance;
 
 use super::*;
-use crate::store::tests::temp_db_path;
 use dyapp_identity::{key_hash, Identity};
 use dyapp_messaging::mls::Device;
 use dyapp_profile::{Profile, ProfileCondition};
@@ -10,8 +9,10 @@ fn owner(secret: u8) -> Identity {
     Identity::from_secret(&[secret; 32])
 }
 
-fn store(secret: u8) -> Store {
-    Store::open(&temp_db_path(), &owner(secret)).unwrap()
+fn store(secret: u8) -> (dyapp_test_support::TestDir, Store) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &owner(secret)).unwrap();
+    (test_dir, store)
 }
 
 fn profile(secret: u8, version: u64, devices: &[u8]) -> VerifiedProfile {
@@ -63,7 +64,7 @@ fn generation_tracks_invalidation_without_changing_on_profile_admission() {
 
 #[test]
 fn current_comparison_marks_the_held_profile() {
-    let store = store(1);
+    let (_test_dir, store) = store(1);
     let peer = owner(2).peer_id();
     let mut context = Context::default();
     assert_eq!(context.state(&store, &peer).unwrap(), State::default());
@@ -83,7 +84,7 @@ fn current_comparison_marks_the_held_profile() {
 
 #[test]
 fn invalid_own_and_wrong_targets_never_mark_a_peer() {
-    let store = store(1);
+    let (_test_dir, store) = store(1);
     let peer = owner(2).peer_id();
     let mut context = Context::default();
     assert!(matches!(
@@ -105,7 +106,7 @@ fn invalid_own_and_wrong_targets_never_mark_a_peer() {
 
 #[test]
 fn switching_away_and_back_does_not_restore_a_ticket() {
-    let store = store(1);
+    let (_test_dir, store) = store(1);
     let peer = owner(2).peer_id();
     let mut context = Context::default();
     let ticket = context.begin(&store, &peer).unwrap();
@@ -123,7 +124,8 @@ fn switching_away_and_back_does_not_restore_a_ticket() {
 
 #[test]
 fn full_unsigned_versions_keep_their_durable_order_after_reopen() {
-    let path = temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let peer = owner(2).peer_id();
     {
         let store = Store::open(&path, &owner(1)).unwrap();
@@ -143,8 +145,8 @@ fn full_unsigned_versions_keep_their_durable_order_after_reopen() {
 
 #[test]
 fn another_context_or_local_owner_cannot_use_a_ticket() {
-    let first = store(1);
-    let second = store(4);
+    let (_first_test_dir, first) = store(1);
+    let (_second_test_dir, second) = store(4);
     let peer = owner(2).peer_id();
     let mut context = Context::default();
     let ticket = context.begin(&first, &peer).unwrap();
@@ -164,7 +166,7 @@ fn another_context_or_local_owner_cannot_use_a_ticket() {
 
 #[test]
 fn rollback_and_unpublished_records_do_not_write_a_mark() {
-    let store = store(1);
+    let (_test_dir, store) = store(1);
     let peer = owner(2).peer_id();
     let mut context = Context::default();
     context.accept(profile(2, 3, &[3])).unwrap();
@@ -189,7 +191,7 @@ fn rollback_and_unpublished_records_do_not_write_a_mark() {
 
 #[test]
 fn deletion_and_search_only_authority_cannot_receive_a_mark() {
-    let store = store(1);
+    let (_test_dir, store) = store(1);
     let identity = owner(2);
     let peer = identity.peer_id();
     let source = Profile {
@@ -222,7 +224,7 @@ fn deletion_and_search_only_authority_cannot_receive_a_mark() {
 
 #[test]
 fn a_fresh_context_cannot_lower_the_durable_observed_version() {
-    let store = store(1);
+    let (_test_dir, store) = store(1);
     let peer = owner(2).peer_id();
     let mut context = Context::default();
     let ticket = context.begin(&store, &peer).unwrap();
@@ -238,7 +240,7 @@ fn a_fresh_context_cannot_lower_the_durable_observed_version() {
 
 #[test]
 fn equal_version_confirmation_uses_the_already_held_authority() {
-    let store = store(1);
+    let (_test_dir, store) = store(1);
     let peer = owner(2).peer_id();
     let held = profile(2, 3, &[3]);
     let mut context = Context::default();
@@ -253,7 +255,7 @@ fn equal_version_confirmation_uses_the_already_held_authority() {
 
 #[test]
 fn store_only_actions_validate_targets_before_mutation() {
-    let store = store(1);
+    let (_test_dir, store) = store(1);
     let own = profile(1, 1, &[9]);
     store.set_verified(&own).unwrap();
     let peer = owner(2).peer_id();
@@ -277,7 +279,7 @@ fn store_only_actions_validate_targets_before_mutation() {
 
 #[test]
 fn store_only_actions_preserve_device_memory_and_independent_flags() {
-    let store = store(1);
+    let (_test_dir, store) = store(1);
     let peer = owner(2).peer_id();
     let mut context = Context::default();
     let ticket = context.begin(&store, &peer).unwrap();
@@ -301,7 +303,8 @@ fn store_only_actions_preserve_device_memory_and_independent_flags() {
 #[test]
 fn session_delegation_preserves_device_notice_and_unverify_semantics() {
     let identity = owner(1);
-    let session = Session::open_or_create(store(1), &identity, &owner(9), &[8; 32]).unwrap();
+    let (_test_dir, store) = store(1);
+    let session = Session::open_or_create(store, &identity, &owner(9), &[8; 32]).unwrap();
     let peer = owner(2).peer_id();
     let mut context = Context::default();
     let ticket = context.begin(session.store(), &peer).unwrap();
@@ -350,7 +353,8 @@ fn session_delegation_preserves_device_notice_and_unverify_semantics() {
 
 #[test]
 fn a_failed_write_keeps_the_previously_committed_mark() {
-    let path = temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let store = Store::open(&path, &owner(1)).unwrap();
     let peer = owner(2).peer_id();
     let mut context = Context::default();
@@ -384,9 +388,9 @@ fn a_failed_write_keeps_the_previously_committed_mark() {
 fn exact_unsigned_floors_survive_linking_and_keep_device_notices() {
     let boundary = u64::try_from(i64::MAX).unwrap();
     for version in [boundary, boundary + 1, boundary + 2, u64::MAX] {
-        let source = store(1);
+        let (_source_test_dir, source) = store(1);
         source.set_verified(&profile(2, version, &[3])).unwrap();
-        let mut linked = store(1);
+        let (_linked_test_dir, mut linked) = store(1);
         linked
             .import_link_state(&source.link_state().unwrap())
             .unwrap();
@@ -406,7 +410,8 @@ fn exact_unsigned_floors_survive_linking_and_keep_device_notices() {
 
 #[test]
 fn a_legacy_clamped_floor_stays_unverified_until_explicit_maximum_confirmation() {
-    let path = temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let source = Store::open(&path, &owner(1)).unwrap();
     let peer = owner(2).peer_id();
     source.set_verified(&profile(2, u64::MAX, &[3])).unwrap();
@@ -417,7 +422,7 @@ fn a_legacy_clamped_floor_stays_unverified_until_explicit_maximum_confirmation()
             [&peer],
         )
         .unwrap();
-    let mut linked = store(1);
+    let (_linked_test_dir, mut linked) = store(1);
     linked
         .import_link_state(&source.link_state().unwrap())
         .unwrap();
@@ -433,12 +438,12 @@ fn a_legacy_clamped_floor_stays_unverified_until_explicit_maximum_confirmation()
 
 #[test]
 fn an_older_link_snapshot_cannot_erase_a_locally_observed_unsigned_floor() {
-    let source = store(1);
+    let (_source_test_dir, source) = store(1);
     source
         .set_verified(&profile(2, u64::MAX - 1, &[3]))
         .unwrap();
     source.set_blocked("unrelated preference", true).unwrap();
-    let mut target = store(1);
+    let (_target_test_dir, mut target) = store(1);
     target.set_verified(&profile(2, u64::MAX, &[3, 4])).unwrap();
     assert!(target
         .import_link_state(&source.link_state().unwrap())
@@ -452,7 +457,8 @@ fn an_older_link_snapshot_cannot_erase_a_locally_observed_unsigned_floor() {
 
 #[test]
 fn exact_metadata_mismatch_refuses_contact_writes_and_snapshot_export() {
-    let path = temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let store = Store::open(&path, &owner(1)).unwrap();
     let peer = owner(2).peer_id();
     store.set_verified(&profile(2, 3, &[3])).unwrap();
@@ -478,7 +484,8 @@ fn exact_metadata_mismatch_refuses_contact_writes_and_snapshot_export() {
 
 #[test]
 fn writer_admission_precedes_device_observation_and_confirmation() {
-    let path = temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let store = Store::open(&path, &owner(1)).unwrap();
     let peer = owner(2).peer_id();
     store.set_verified(&profile(2, 2, &[3])).unwrap();

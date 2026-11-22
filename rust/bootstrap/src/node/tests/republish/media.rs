@@ -4,7 +4,7 @@ use super::*;
 #[tokio::test]
 async fn queued_ancestry_filters_owner_refusal_without_blocking_hash_metadata() {
     use crate::node::replicas::listed_media_request;
-    let (source, swarm) = node();
+    let (_test_dir, source, swarm) = node();
     let owner = dyapp_identity::Identity::from_secret(&[71; 32]);
     let hash = dyapp_identity::sha256(b"blocked bytes").to_vec();
     let record = conditional_record(&swarm, hash.clone());
@@ -41,7 +41,7 @@ fn conditional_record(swarm: &Swarm<Behaviour>, hash: Vec<u8>) -> dyapp_identity
 #[tokio::test]
 async fn conditional_history_dispatch_uses_local_validation_and_remote_accounting() {
     for local in [true, false] {
-        let (source, mut swarm) = node();
+        let (_test_dir, source, mut swarm) = node();
         let hash = dyapp_identity::sha256(b"dispatch photo").to_vec();
         let record = conditional_record(&swarm, hash.clone());
         let to = if local {
@@ -89,6 +89,8 @@ struct Transfer {
     now: Instant,
     hash: Vec<u8>,
     remote: PeerId,
+    _source_test_dir: dyapp_test_support::TestDir,
+    _destination_test_dir: dyapp_test_support::TestDir,
 }
 
 impl Transfer {
@@ -106,8 +108,8 @@ impl Transfer {
     }
 
     fn begin() -> Self {
-        let (source, mut swarm) = node();
-        let (destination, _) = node();
+        let (source_test_dir, source, mut swarm) = node();
+        let (destination_test_dir, destination, _) = node();
         let hash = dyapp_identity::sha256(b"handover bytes").to_vec();
         let record = dyapp_identity::Identity::from_secret(&[71; 32]).sign(
             dyapp_identity::Domain::MediaKeep,
@@ -146,6 +148,8 @@ impl Transfer {
             now,
             hash,
             remote,
+            _source_test_dir: source_test_dir,
+            _destination_test_dir: destination_test_dir,
         }
     }
 

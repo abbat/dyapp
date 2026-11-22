@@ -135,13 +135,12 @@ fn like(store: &mut Store, sender: &str, target: &str, n: u8) {
 
 #[test]
 fn store_capture_excludes_muted_blocked_likes_and_rows_without_changing_private_state() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let (owner, peer) = (
         dyapp_identity::Identity::try_generate().unwrap(),
         dyapp_identity::Identity::try_generate().unwrap(),
     );
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../build/core-notice-waiting")
-        .join(owner.peer_id());
+    let dir = test_dir.path().join(owner.peer_id());
     std::fs::create_dir_all(&dir).unwrap();
     let mut store = Store::open(&dir.join("client.db"), &owner).unwrap();
     let (me, them) = (owner.peer_id(), peer.peer_id());

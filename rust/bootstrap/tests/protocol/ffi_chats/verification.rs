@@ -106,8 +106,15 @@ fn publish(runtime: &Runtime, address: &Multiaddr, profile: &mut Profile, initia
     }
 }
 
-fn client(rows: Vec<String>) -> (std::path::PathBuf, Arc<ChatSession>) {
-    let dir = protocol_build_path("native-contact-confirmation");
+fn client(
+    rows: Vec<String>,
+) -> (
+    dyapp_test_support::TestDir,
+    std::path::PathBuf,
+    Arc<ChatSession>,
+) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.to_path_buf();
     std::fs::create_dir_all(&dir).unwrap();
     network::save(
         &dir,
@@ -133,7 +140,7 @@ fn client(rows: Vec<String>) -> (std::path::PathBuf, Arc<ChatSession>) {
         TestStore.wrap(vec![8; 32]).unwrap(),
     )
     .unwrap();
-    (dir, chats)
+    (test_dir, dir, chats)
 }
 
 fn confirmation(
@@ -160,7 +167,7 @@ fn native_confirmation_selects_highest_signed_profile_in_both_seed_orders() {
     publish(&runtime, &high, &mut newest, false);
     let signed = dyapp_profile::verify(&newest.sign(&Identity::from_secret(&[2; 32]))).unwrap();
     for rows in [[&low, &high], [&high, &low]] {
-        let (dir, chats) = client(rows.into_iter().map(seed_row).collect());
+        let (_test_dir_165, dir, chats) = client(rows.into_iter().map(seed_row).collect());
         assert_eq!(confirm(&runtime, &chats).version, 2);
         let peer = signed.peer_id.clone();
         assert!(chats.contact_verification(peer.clone()).unwrap().verified);
@@ -180,7 +187,7 @@ fn native_device_notice_tracks_network_readback_and_acknowledgement_once() {
     let runtime = runtime();
     let address = server(&runtime);
     publish(&runtime, &address, &mut profile(1, &[3]), true);
-    let (dir, chats) = client(vec![seed_row(&address)]);
+    let (_test_dir_185, dir, chats) = client(vec![seed_row(&address)]);
     assert_eq!(confirm(&runtime, &chats).version, 1);
     let peer = Identity::from_secret(&[2; 32]).peer_id();
     publish(&runtime, &address, &mut profile(2, &[3, 4]), false);
@@ -224,7 +231,7 @@ fn invalid_signed_responses_do_not_mask_a_valid_node_in_either_order() {
     invalid.payload.push(0);
     let mut bad = Controlled::start(&runtime, invalid, false);
     for rows in [[&good, &bad.address], [&bad.address, &good]] {
-        let (_, chats) = client(rows.into_iter().map(seed_row).collect());
+        let (_test_dir_229, _, chats) = client(rows.into_iter().map(seed_row).collect());
         assert_eq!(confirm(&runtime, &chats).version, 1);
         phase(
             &runtime,
@@ -272,7 +279,7 @@ fn a_native_reply_after_real_network_switch_back_cannot_confirm_the_contact() {
     let record = profile(1, &[3]).sign(&Identity::from_secret(&[2; 32]));
     let mut blocked = Controlled::start(&runtime, record, true);
     let alternative = server_named(&runtime, "B");
-    let (dir, chats) = client(vec![seed_row(&blocked.address)]);
+    let (_test_dir_277, dir, chats) = client(vec![seed_row(&blocked.address)]);
     // Finish probe handshakes before holding a profile reply; only the actual activation
     // writes run within the production request deadline, without guessed delays.
     let away = checked(&runtime, &dir, &alternative, "B");
@@ -310,7 +317,7 @@ fn a_native_reply_after_real_network_switch_back_cannot_confirm_the_contact() {
 fn a_seed_without_a_usable_endpoint_is_disconnected_not_unavailable() {
     let runtime = runtime();
     // Port zero cannot name a listening service; no other process can occupy this endpoint.
-    let (_, chats) = client(vec!["127.0.0.1:0".into()]);
+    let (_test_dir_315, _, chats) = client(vec!["127.0.0.1:0".into()]);
     let result = native(&runtime, "native unreachable seed", move || {
         chats.confirm_contact(Identity::from_secret(&[2; 32]).peer_id())
     });
@@ -369,7 +376,7 @@ fn terminal_case(
     } else {
         vec![seed_row(live), seed_row(&tombstone.address)]
     };
-    let (_, chats) = client(rows);
+    let (_test_dir_374, _, chats) = client(rows);
     let peer = Identity::from_secret(&[2; 32]).peer_id();
     if held_live {
         assert_eq!(confirm(runtime, &chats).version, 3);
@@ -409,7 +416,7 @@ fn an_observed_terminal_account_tombstone_cannot_be_hidden_by_a_higher_live_fork
 fn an_answering_seed_without_a_profile_is_unavailable_not_disconnected() {
     let runtime = runtime();
     let address = server(&runtime);
-    let (_, chats) = client(vec![seed_row(&address)]);
+    let (_test_dir_414, _, chats) = client(vec![seed_row(&address)]);
     let result = native(&runtime, "native missing profile", move || {
         chats.confirm_contact(Identity::from_secret(&[2; 32]).peer_id())
     });

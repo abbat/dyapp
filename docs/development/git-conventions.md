@@ -10,6 +10,13 @@
   bypass until the first public release; release hardening removes it and requires signed commits
   ([Threat Model](../security/threat-model.md#ai-agents-and-developer-tooling)).
 
+## Branch history
+
+Before a work branch is merged, its history may be amended, reordered, squashed and rebased onto the
+current `main`. Group commits by logical change and fold fixes for earlier commits or red CI into
+those commits instead of leaving a trail of repair-only commits. Verify the resulting head before
+merging. Never rewrite `main` or other history already published as the shared baseline.
+
 ## Pull requests
 
 External PRs require maintainer approval before CI runs, two independent local AI reviews of a

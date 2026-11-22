@@ -21,9 +21,14 @@ async fn initial_adoption(f: &mut HiddenLink, listed: bool) -> Profile {
 }
 
 async fn prepare(hidden: bool, listed: bool, revoked: bool) -> (HiddenLink, Profile, Profile) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut f = Box::pin(HiddenLink::with_roles(vec![Role::Store, Role::Media])).await;
     if !hidden {
-        let phone = Store::open(&store_path("visible-advanced-phone"), &f.owner.identity).unwrap();
+        let phone = Store::open(
+            &test_dir.path().join("visible-advanced-phone.db"),
+            &f.owner.identity,
+        )
+        .unwrap();
         f.state = phone.link_state().unwrap();
     }
     let accepted = Box::pin(initial_adoption(&mut f, listed)).await;

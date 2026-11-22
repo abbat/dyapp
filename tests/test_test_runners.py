@@ -445,6 +445,51 @@ class Runners(unittest.TestCase):
         self.assertIn(ROOT / "build/ux-research/current", made)
         self.assertNotIn(ROOT / "build/workspace", made)
 
+    def test_worktree_mounts_common_git_metadata(self) -> None:
+        spec = importlib.util.spec_from_file_location(
+            "docker_local", ROOT / "tools/scripts/docker-local.py"
+        )
+        assert spec is not None and spec.loader is not None
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        with tempfile.TemporaryDirectory(dir="/tmp/ai") as directory:
+            root = Path(directory) / "worktree"
+            root.mkdir()
+            gitdir = Path(directory) / "main" / ".git" / "worktrees" / "topic"
+            gitdir.mkdir(parents=True)
+            (root / ".git").write_text(f"gitdir: {gitdir}\n")
+            text = runner.worktree_git_override(
+                root, {"dev", "quality", "coverage", "security"}
+            )
+            self.assertIsNotNone(text)
+            for service in ("dev", "quality", "coverage", "security"):
+                self.assertIn(f"  {service}:", text)
+            common = gitdir.parent.parent
+            self.assertIn(f'"{common}:{common}:ro"', text)
+            (root / "base.yml").write_text("services:\n  dev:\n")
+            with runner.worktree_arguments(
+                root, ["-f", "base.yml", "run"], Path(directory)
+            ) as arguments:
+                self.assertEqual(arguments[:2], ["-f", "base.yml"])
+                self.assertEqual(arguments[-1], "run")
+                override = Path(arguments[-2])
+                self.assertTrue(override.exists())
+            self.assertFalse(override.exists())
+            compose = root / "tests/docker/compose.dev.yml"
+            compose.parent.mkdir(parents=True)
+            compose.write_text(
+                "services:\n  dev:\n    volumes:\n"
+                "      - ../../build/workspace:/workspace/build\n"
+            )
+            runner.make_bind_directories(
+                ["-f", "tests/docker/compose.dev.yml"], root=root
+            )
+            self.assertTrue((root / "build/workspace").is_dir())
+            self.assertIsNone(runner.worktree_git_override(root, set()))
+            regular = Path(directory) / "regular"
+            regular.mkdir()
+            self.assertIsNone(runner.worktree_git_override(regular, {"dev"}))
+
     def test_image_builds_have_cpu_quota_and_stop_on_failure(self) -> None:
         spec = importlib.util.spec_from_file_location(
             "docker_local", ROOT / "tools/scripts/docker-local.py"

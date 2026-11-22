@@ -147,7 +147,12 @@ fn message_v1_json_remains_compatible() {
 
 #[test]
 fn named_keygen_binds_storage_and_a_public_start_is_refused() {
-    let dir = format!("/tmp/ai/test-network-named-{}", uuid::Uuid::new_v4());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir
+        .path()
+        .join("case-4983")
+        .to_string_lossy()
+        .into_owned();
     let dyappd = |name: &str, args: &[&str]| {
         std::process::Command::new(env!("CARGO_BIN_EXE_dyappd"))
             .env_clear()
@@ -171,6 +176,7 @@ fn named_keygen_binds_storage_and_a_public_start_is_refused() {
 
 #[test]
 fn documented_config_and_deny_diagnostics_remain_stable() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let config_error = NodeConfig::load(
         None,
         Vec::<(String, String)>::new(),
@@ -178,7 +184,11 @@ fn documented_config_and_deny_diagnostics_remain_stable() {
     )
     .unwrap_err()
     .to_string();
-    let dir = format!("/tmp/ai/test-deny-diagnostic-{}", uuid::Uuid::new_v4());
+    let dir = test_dir
+        .path()
+        .join("case-6216")
+        .to_string_lossy()
+        .into_owned();
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_dyappd"))
         .env_clear()
         .envs(std::env::var_os("LLVM_PROFILE_FILE").map(|path| ("LLVM_PROFILE_FILE", path)))

@@ -82,7 +82,7 @@ fn replay(service: &Service, record: &SignedRecord, route: Route) {
 }
 
 fn check_replay(legacy: bool, present: bool, route: Route) {
-    let (service, owner) = fixture();
+    let (_test_dir, service, owner) = fixture();
     if present {
         service
             .store
@@ -164,7 +164,7 @@ fn apply_search(service: &Service, hidden: &SignedRecord, route: SearchRoute) {
 #[test]
 fn search_withdrawal_round_trips_rpc_gossip_and_catchup_without_ordinary_changes() {
     for route in [SearchRoute::Rpc, SearchRoute::Gossip, SearchRoute::Catchup] {
-        let service = search_service();
+        let (_service_test_dir, service) = search_service();
         let owner = Identity::from_secret(&[7; 32]);
         let hidden = hidden_record(&service, &owner);
         let proof = dyapp_profile::verify_search(&hidden).unwrap().profile;
@@ -186,7 +186,7 @@ fn search_withdrawal_round_trips_rpc_gossip_and_catchup_without_ordinary_changes
             }),
         );
         assert_eq!(reply.records, vec![hidden], "{route:?}");
-        let replica = search_service();
+        let (_replica_test_dir, replica) = search_service();
         apply_search(&replica, &reply.records[0], SearchRoute::Catchup);
         assert_eq!(replica.store.get_profile(&owner.peer_id()).unwrap(), None);
         assert_eq!(
@@ -198,7 +198,7 @@ fn search_withdrawal_round_trips_rpc_gossip_and_catchup_without_ordinary_changes
 
 #[test]
 fn fresh_conditional_account_deletion_remains_ordinary_authority() {
-    let (service, owner) = fixture();
+    let (_test_dir, service, owner) = fixture();
     let original = Profile {
         version: 1,
         ..Default::default()

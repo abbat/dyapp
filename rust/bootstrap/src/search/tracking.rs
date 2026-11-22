@@ -18,7 +18,7 @@ fn removed(index: &SearchIndex, keys: &[[u8; 32]]) -> HashSet<[u8; 32]> {
 
 #[test]
 fn every_mutation_marks_its_key() {
-    let index = index();
+    let (_index_test_dir, index) = index();
     let id = Identity::try_generate().unwrap();
     let (key, p1, r1) = signed(&id, profile(1));
     index.put(&key, &p1, &r1, 0, true).unwrap();
@@ -62,7 +62,7 @@ fn newcomer_eviction_marks_the_evicted_key() {
         )
         .unwrap(),
     );
-    let index = quota(1 << 40, 2.0 * one / 2f64.powi(40));
+    let (_index_test_dir, index) = quota(1 << 40, 2.0 * one / 2f64.powi(40));
     let late = index.created() + 31 * 86_400;
     let first = put_at(&index, "2950159", 2, late, true);
     index.track_start().unwrap();
@@ -73,9 +73,9 @@ fn newcomer_eviction_marks_the_evicted_key() {
 
 #[test]
 fn size_eviction_marks_the_evicted_keys() {
-    let probe = index();
+    let (_probe_test_dir, probe) = index();
     put_at(&probe, "2950159", 300, probe.created(), false);
-    let index = sized(probe.usage().unwrap());
+    let (_index_test_dir, index) = sized(probe.usage().unwrap());
     let t = index.created();
     let before = put_at(&index, "2950159", 300, t, false);
     let held: Vec<_> = before
@@ -103,7 +103,7 @@ fn size_eviction_marks_the_evicted_keys() {
 
 #[test]
 fn overflow_loses_the_set_until_tracking_restarts() {
-    let index = index();
+    let (_index_test_dir, index) = index();
     index.track_start().unwrap();
     {
         let mut db = lock(&index.db).unwrap();

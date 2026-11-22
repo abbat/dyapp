@@ -1,0 +1,138 @@
+name: android-visual
+
+on:
+  workflow_dispatch:
+    inputs:
+      producer_run:
+        description: Exact main CI run with a successful Android build
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  producer:
+    runs-on: ubuntu-24.04
+    outputs:
+      source_sha: ${{ steps.validate.outputs.source_sha }}
+      artifact_id: ${{ steps.validate.outputs.artifact_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: validate exact producer
+        id: validate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRODUCER_RUN: ${{ inputs.producer_run }}
+        run: |
+          set -euo pipefail
+          [[ "$PRODUCER_RUN" =~ ^[1-9][0-9]{0,19}$ ]]
+          report=build/android-visual-producer
+          mkdir -p "$report"
+          endpoint="repos/$GITHUB_REPOSITORY/actions/runs/$PRODUCER_RUN"
+          gh api "$endpoint" > "$report/producer.json"
+          gh api --paginate --slurp "$endpoint/jobs?per_page=100" > "$report/jobs.json"
+          gh api --paginate --slurp "$endpoint/artifacts?per_page=100" > "$report/artifacts.json"
+          python3 -B tests/scripts/android_visual_producer.py --directory "$report" \
+            --repository "$GITHUB_REPOSITORY" --run "$PRODUCER_RUN" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: android-visual-producer
+          path: build/android-visual-producer/
+          if-no-files-found: error
+
+  capture:
+    name: android - visual ${{ matrix.width }}dp
+    needs: producer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        width: [360, 412]
+    env:
+      DYAPP_VISUAL_SOURCE: ${{ needs.producer.outputs.source_sha }}
+      DYAPP_VISUAL_WIDTH: ${{ matrix.width }}
+      DYAPP_BUILD_CACHE: gha
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: checkout exact APK source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.producer.outputs.source_sha }}
+          path: build/android-visual-source
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
+      - name: kvm
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          {
+            echo "DYAPP_KVM_GID=$(stat -c %g /dev/kvm)"
+            echo "DYAPP_UID=$(id -u)"
+            echo "DYAPP_GID=$(id -g)"
+            echo "DYAPP_VISUAL_CHECKOUT=$GITHUB_WORKSPACE/build/android-visual-source"
+            echo "DYAPP_VISUAL_PACKAGES=$GITHUB_WORKSPACE/build/android-build"
+          } >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.producer.outputs.artifact_id }}
+          merge-multiple: true
+          run-id: ${{ inputs.producer_run }}
+          github-token: ${{ github.token }}
+          path: build/android-build
+      - name: prepare emulator tools
+        run: |
+          (cd build/android-visual-source && python3 tools/scripts/docker-local.py -f tests/docker/compose.ui.yml --profile all build android-build)
+          mkdir -p build/android-visual-reports build/android-visual-avd build/android-visual-runtime
+          git rev-parse HEAD > build/android-visual-reports/runner-head.txt
+          git -C build/android-visual-source rev-parse HEAD > build/android-visual-reports/source-head.txt
+          docker image inspect --format '{{.Id}}' dyapp:android-tools > build/android-visual-reports/tools-image.txt
+      - name: capture native dialogs
+        run: |
+          docker compose -f tests/docker/compose.android-visual.yml up \
+            --abort-on-container-exit --exit-code-from capture capture
+      - name: validate native matrix
+        if: always()
+        run: |
+          python3 -B tests/scripts/android_visual_archive.py \
+            --archive "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/native.tar" \
+            --output "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/frames" \
+            --width "$DYAPP_VISUAL_WIDTH" --source "$DYAPP_VISUAL_SOURCE"
+      - name: validate receiving matrix
+        if: always()
+        run: |
+          python3 -B tests/scripts/android_visual_archive.py --kind receive \
+            --archive "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/receive.tar" \
+            --output "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/receive-frames" \
+            --width "$DYAPP_VISUAL_WIDTH" --source "$DYAPP_VISUAL_SOURCE"
+      - name: validate real IME matrix
+        if: always()
+        run: |
+          python3 -B tests/scripts/android_visual_archive.py --kind ime \
+            --archive "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/ime.tar" \
+            --output "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/ime-frames" \
+            --width "$DYAPP_VISUAL_WIDTH" --source "$DYAPP_VISUAL_SOURCE"
+      - name: native evidence and diagnostics
+        if: always()
+        run: |
+          docker compose -f tests/docker/compose.android-visual.yml logs --no-color \
+            > build/android-visual-reports/containers.log 2>&1 || true
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: android-visual-${{ matrix.width }}
+          path: |
+            build/android-visual-reports/
+            build/android-visual-runtime/
+          if-no-files-found: error

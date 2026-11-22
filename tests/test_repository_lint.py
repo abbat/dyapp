@@ -120,6 +120,30 @@ class Lint(unittest.TestCase):
             ],
         )
 
+    def test_web_source_size_budgets(self) -> None:
+        size = {"max_lines": 2, "files": {"big.css": 3}}
+        texts = {
+            "big.css": "\n" * 3,
+            "page.html": "\n" * 2,
+            "style.css": "\n" * 2,
+        }
+        self.assertEqual(CHECK.size_errors(texts, size), [])
+        texts.update(
+            {
+                "big.css": "\n" * 4,
+                "page.html": "\n" * 3,
+                "style.css": "\n" * 3,
+            }
+        )
+        self.assertEqual(
+            CHECK.size_errors(texts, size),
+            [
+                "big.css: 4 > 3 lines",
+                "page.html: 3 > 2 lines",
+                "style.css: 3 > 2 lines",
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -27,6 +27,7 @@ jni-sys = "0.4"
 ndk-context = "0.1"
 
 [dev-dependencies]
+dyapp-test-support = { path = "../test-support" }
 libp2p = "0.57"
 rusqlite = { version = "0.41", features = ["bundled", "limits"] }
 

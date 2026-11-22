@@ -3,13 +3,16 @@ use super::write_token::{envelope, mailbox_of, put, today, token};
 use super::*;
 
 /// A replica put of envelopes `ids` with `remaining` seconds each, and the stored expiries.
-fn replicate(ids: &[u8], remaining: Vec<u32>) -> (Service, Vec<Option<i64>>) {
+fn replicate(
+    ids: &[u8],
+    remaining: Vec<u32>,
+) -> (dyapp_test_support::TestDir, Service, Vec<Option<i64>>) {
     let (owner, contact) = (
         Identity::try_generate().unwrap(),
         Identity::try_generate().unwrap(),
     );
     let mailbox = mailbox_of(&owner);
-    let service = service();
+    let (service_test_dir, service) = service();
     let records = ids.iter().map(|&id| {
         let token = token(&owner, &mailbox, &contact, today());
         contact.sign(
@@ -32,7 +35,7 @@ fn replicate(ids: &[u8], remaining: Vec<u32>) -> (Service, Vec<Option<i64>>) {
                 .map(|(_, _, expires_at)| *expires_at)
         })
         .collect();
-    (service, expiries)
+    (service_test_dir, service, expiries)
 }
 
 fn near(actual: Option<i64>, expected: i64) {
@@ -42,7 +45,7 @@ fn near(actual: Option<i64>, expected: i64) {
 
 #[test]
 fn a_replica_put_carries_the_remaining_time_capped_at_the_retention() {
-    let (service, expiries) = replicate(&[1, 2], vec![600, u32::MAX]);
+    let (_test_dir, service, expiries) = replicate(&[1, 2], vec![600, u32::MAX]);
     let now = crate::clock::Clock::system().timestamp();
     near(expiries[0], now + 600);
     near(expiries[1], now + service.retention());
@@ -50,7 +53,7 @@ fn a_replica_put_carries_the_remaining_time_capped_at_the_retention() {
 
 #[test]
 fn a_zero_remaining_time_drops_the_envelope() {
-    let (_, expiries) = replicate(&[1, 2], vec![0, 600]);
+    let (_test_dir, _, expiries) = replicate(&[1, 2], vec![0, 600]);
     assert_eq!(expiries[0], None);
     assert!(expiries[1].is_some());
 }
@@ -58,7 +61,7 @@ fn a_zero_remaining_time_drops_the_envelope() {
 #[test]
 fn a_mismatched_or_missing_list_gives_a_fresh_retention() {
     for remaining in [vec![], vec![600]] {
-        let (service, expiries) = replicate(&[1, 2], remaining);
+        let (_test_dir, service, expiries) = replicate(&[1, 2], remaining);
         let fresh = crate::clock::Clock::system().timestamp() + service.retention();
         near(expiries[0], fresh);
         near(expiries[1], fresh);
@@ -72,7 +75,7 @@ fn a_carried_expiry_leaves_a_stored_envelope_alone() {
         Identity::try_generate().unwrap(),
     );
     let mailbox = mailbox_of(&owner);
-    let service = service();
+    let (_service_test_dir, service) = service();
     let token = token(&owner, &mailbox, &contact, today());
     let record = contact.sign(
         Domain::Envelope,
@@ -93,7 +96,7 @@ fn a_carried_expiry_leaves_a_stored_envelope_alone() {
 
 #[test]
 fn a_profile_replica_carries_the_owner_age_and_an_expired_one_is_not_stored() {
-    let service = service();
+    let (_service_test_dir, service) = service();
     let ttl = service.config.limits.profile_ttl_days * 86_400;
     let send = |identity: &Identity, age_seconds| {
         let request = ProfileRequest {

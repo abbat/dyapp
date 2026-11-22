@@ -91,11 +91,13 @@ struct Fixture {
     source: String,
     target: String,
     key: MessageKey,
+    _test_dir: dyapp_test_support::TestDir,
 }
 impl Fixture {
     fn new() -> Self {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let owner = dyapp_identity::Identity::try_generate().unwrap();
-        let path = crate::store::tests::temp_db_path();
+        let path = test_dir.path().join("client-1.db");
         let mut store = Store::open(&path, &owner).unwrap();
         let db = rusqlite::Connection::open(path).unwrap();
         let source = "ab".repeat(32);
@@ -115,6 +117,7 @@ impl Fixture {
             source,
             target,
             key,
+            _test_dir: test_dir,
         }
     }
 

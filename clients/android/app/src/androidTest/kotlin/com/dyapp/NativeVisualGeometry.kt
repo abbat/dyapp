@@ -9,6 +9,7 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
@@ -17,12 +18,11 @@ import kotlin.math.ceil
 import kotlin.math.floor
 
 /** Actual paragraph layouts and live scroll viewports, without guessed padding or tap offsets. */
-internal class OwnerVisualGeometry(host: OwnerVisualHost) {
-    private val compose = host.compose
+internal class NativeVisualGeometry(private val compose: ComposeContentTestRule, private val rootTag: String) {
 
     fun check(): Int {
         val matcher = SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult) and
-            hasAnyAncestor(hasTestTag("owner-dialog"))
+            hasAnyAncestor(hasTestTag(rootTag))
         val nodes = compose.onAllNodes(matcher, useUnmergedTree = true).fetchSemanticsNodes()
         check(nodes.isNotEmpty()) { "Dialog exposes no actual text layouts" }
         for (textNode in nodes) {
@@ -30,7 +30,7 @@ internal class OwnerVisualGeometry(host: OwnerVisualHost) {
             val layout = target.textLayout()
             assertTrue("Complete native text must fit its actual layout", layout.textFitsLayout())
             if (SemanticsProperties.EditableText !in textNode.config) {
-                val dialog = compose.onNodeWithTag("owner-dialog").fetchSemanticsNode()
+                val dialog = compose.onNodeWithTag(rootTag).fetchSemanticsNode()
                 val parent = scrollParent(textNode)
                 compose.runOnIdle {
                     val left = textNode.positionInRoot.x
@@ -83,7 +83,7 @@ internal class OwnerVisualGeometry(host: OwnerVisualHost) {
     fun first() {
         val body = compose.onAllNodes(
             SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult) and
-                hasAnyAncestor(hasTestTag("owner-dialog")),
+                hasAnyAncestor(hasTestTag(rootTag)),
             useUnmergedTree = true
         ).fetchSemanticsNodes().firstOrNull { scrollParent(it) != null }
         body?.let { node(it.id).performScrollTo().assertIsDisplayed() }

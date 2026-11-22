@@ -12,11 +12,74 @@ mod resume;
 #[path = "finish/revocation.rs"]
 mod revocation;
 
+pub(super) async fn finish_live_link(
+    alice: &mut Person,
+    laptop: &mut Person,
+    identity: &Identity,
+    device_key: &Identity,
+    path: &std::path::Path,
+) -> Profile {
+    let store = Store::open(path, identity).unwrap();
+    assert!(store.link_pending().unwrap().is_some());
+    let live = alice
+        .node
+        .get_profile(&alice.identity.peer_id())
+        .await
+        .unwrap()
+        .profile;
+    assert!(
+        finish_pending(store, &mut laptop.node, identity, device_key)
+            .await
+            .unwrap()
+    );
+    let listed = alice
+        .node
+        .get_profile(&alice.identity.peer_id())
+        .await
+        .unwrap()
+        .profile;
+    assert_eq!(listed.version, live.version + 1);
+    assert_eq!(listed.devices.len(), live.devices.len() + 1);
+    listed
+}
+
+pub(super) async fn finish_completed_link(
+    alice: &mut Person,
+    laptop: &mut Person,
+    identity: &Identity,
+    device_key: &Identity,
+    path: &std::path::Path,
+    phone: &Store,
+    listed: Profile,
+) {
+    // Everything is done but the row: a repeat ends it and leaves the profile alone.
+    let store = Store::open(path, identity).unwrap();
+    assert!(store.link_pending().unwrap().is_none());
+    assert!(store.blocked("bob").unwrap());
+    assert_eq!(store.device_listed().unwrap(), listed.version);
+    store
+        .set_link_pending(&phone.link_state().unwrap())
+        .unwrap();
+    assert!(
+        finish_pending(store, &mut laptop.node, identity, device_key)
+            .await
+            .unwrap()
+    );
+    let served = alice
+        .node
+        .get_profile(&alice.identity.peer_id())
+        .await
+        .unwrap()
+        .profile;
+    assert_eq!(served.version, listed.version);
+}
+
 struct HiddenLink {
     owner: Person,
     laptop: Person,
     path: std::path::PathBuf,
     state: Vec<u8>,
+    _test_dir: dyapp_test_support::TestDir,
 }
 impl HiddenLink {
     async fn new() -> Self {
@@ -24,6 +87,7 @@ impl HiddenLink {
     }
 
     async fn with_roles(roles: Vec<Role>) -> Self {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let address = start_config(move |config| {
             config.roles = roles;
             config.limits.requests_per_second = 1000;
@@ -31,15 +95,20 @@ impl HiddenLink {
         })
         .await;
         let owner = Person::new(&address).await;
-        let phone = Store::open(&store_path("hidden-finish-phone"), &owner.identity).unwrap();
+        let phone = Store::open(
+            &test_dir.path().join("hidden-finish-phone.db"),
+            &owner.identity,
+        )
+        .unwrap();
         phone.set_profile_hidden(true).unwrap();
         let laptop =
             Person::device(&address, Identity::from_secret(&owner.identity.secret()), 2).await;
         Self {
             owner,
             laptop,
-            path: store_path("hidden-finish-laptop"),
+            path: test_dir.path().join("hidden-finish-laptop.db"),
             state: phone.link_state().unwrap(),
+            _test_dir: test_dir,
         }
     }
 

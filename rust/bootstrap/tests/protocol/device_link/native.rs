@@ -8,10 +8,15 @@ use std::sync::Arc;
 #[path = "native/old_media.rs"]
 mod old_media;
 
-fn native_device(person: &Person, address: &Multiaddr) -> Arc<ChatSession> {
-    let dir = protocol_build_path("native-linked-device");
+fn native_device(
+    person: &Person,
+    address: &Multiaddr,
+) -> (dyapp_test_support::TestDir, Arc<ChatSession>) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.to_path_buf();
     std::fs::create_dir_all(&dir).unwrap();
-    native_at(person, address, &dir)
+    let session = native_at(person, address, &dir);
+    (test_dir, session)
 }
 
 fn native_at(person: &Person, address: &Multiaddr, dir: &std::path::Path) -> Arc<ChatSession> {
@@ -57,6 +62,8 @@ struct ExistingChat {
     contact: Session,
     group: Vec<u8>,
     held: Vec<dyapp_profile::VerifiedProfile>,
+    _test_dir: dyapp_test_support::TestDir,
+    _contact_test_dir: dyapp_test_support::TestDir,
 }
 
 impl ExistingChat {
@@ -67,6 +74,7 @@ impl ExistingChat {
     }
 
     async fn at(address: Multiaddr) -> Self {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let mut alice = Person::new(&address).await;
         let mut bob = Person::new(&address).await;
         let owner = alice.identity.peer_id();
@@ -78,9 +86,9 @@ impl ExistingChat {
             alice.node.get_profile(&owner).await.unwrap(),
             alice.node.get_profile(&peer).await.unwrap(),
         ];
-        let dir = protocol_build_path("native-existing-chat");
+        let dir = test_dir.to_path_buf();
         std::fs::create_dir_all(&dir).unwrap();
-        let (mut sender, contact, group) =
+        let (contact_test_dir, mut sender, contact, group) =
             begin_chat_at(&mut alice, &mut bob, &held, &dir.join("client.db")).await;
         sender
             .send_message(
@@ -100,11 +108,13 @@ impl ExistingChat {
             contact,
             group,
             held,
+            _test_dir: test_dir,
+            _contact_test_dir: contact_test_dir,
         }
     }
 
     async fn link(&mut self) -> Person {
-        let (mut laptop, unused, linked) =
+        let (_laptop_test_dir, mut laptop, unused, linked) =
             Box::pin(publish_laptop(&mut self.alice, &self.address, &self.held)).await;
         drop(unused);
         chat::publish_key_packages(
@@ -218,7 +228,7 @@ fn native_linked_receiver_joins_existing_chat_without_old_history() {
         .unwrap();
     let mut chat = runtime.block_on(ExistingChat::new());
     let laptop = runtime.block_on(chat.link());
-    let receiver = native_device(&laptop, &chat.address);
+    let (_test_dir_228, receiver) = native_device(&laptop, &chat.address);
     assert!(receiver.receive().unwrap() > 0);
     let peer = chat.bob.identity.peer_id();
     assert_eq!(

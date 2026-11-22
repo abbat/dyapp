@@ -1,14 +1,38 @@
 # UI Testing: Practical Guide
 
+Android native link journeys observe actual session completion through Compose `awaitSnapshot`.
+Each transition retains its independent failure deadline and named stage; Compose drives queued
+UI effects while native IO remains real. Blocking `Flow.first` on the instrumentation thread is
+reserved for worker teardown after disposal. `ScreenReadinessTests` gates an actual LaunchedEffect
+continuation to check scheduler progress without sleeps or guessed delays.
+
 Android receiving-screen checks use the real Settings frame, controls and retained-operation store
 with controlled native completion. They preserve the exact reserved destination, require explicit
 creation and disposition, and invoke captured application callbacks after disposal/equal reopening.
 These checks establish presentation ownership; actual owner approval, enrollment, QR and runtime
-acceptance require the separate real JNI journey and screen review. Receiving prototype states run
+acceptance require the separate real JNI journey and screen review. The receiving JNI journey also
+remounts the production screen after installation: retired finish/open callbacks cannot act, the
+exact original native receipt remains, and only the current control completes private-state import. Receiving prototype states run
 `clients/android/prototype/receive-fixture-tests.js` after capture: typed refusal actions, code
 visibility, activation prerequisites and busy disposition are checked before focus/reachability
 calibration. Canonical Android capture validates layout and these browser contracts; it does not
 run the desktop-only criteria audit or prove native transfer/enrollment.
+
+`LinkEnrollmentNoticeTests` exercises the production enrollment notices and controls in EN/RU.
+Uncertain authorization, private-state review, revoked and unlisted outcomes remain distinct and
+expose neither completion retry nor review refresh, including after a comparison was offered.
+Neighboring transient failures and field-review requests retain their respective explicit actions.
+These controlled presentation checks do not renew authorization or prove native enrollment.
+
+`ReceiveVisualTests` is a dedicated rendering phase for the 25 receiving/setup prototype neighbors.
+It uses the production receiving content and Settings frame, with core-produced invitation QR and
+real isolated native keys; outcomes are controlled and no poll, network or enrollment is performed.
+The matrix covers EN/RU, light/dark and 100/200 percent fonts, checks current paragraph/scroll
+geometry and retains top/bottom PNG frames. It is excluded from ordinary instrumentation. The manual
+Android visual workflow runs it before the real-IME phase, with a deadline renewed only by completed
+cases. It retains partial receiving archives and requires exactly 400 source-bound frames per width;
+owner/IME namespaces, wrong widths, links and incomplete inventories are rejected. Successful
+collection does not replace inspection of the actual frames; native visual acceptance remains open.
 
 Comparison prototype captures also run `clients/android/prototype/review-fixture-tests.js`: all
 31 offered groups retain full source values; initial comparisons have no checked answers; photo
@@ -1216,18 +1240,48 @@ real IME/editor scrolling.
 The phase-only `OwnerApprovalVisualTests` requires instrumentation arguments `ownerVisual=1`,
 `sourceSha=<40-hex producer commit>` and `expectedWidth=360|412`; ordinary instrumentation excludes
 it. A fresh device is required for each width. EN/RU, light/dark and 100/200% font variants produce
-top/bottom dialog PNGs and a completion manifest under `files/owner-approval-visual/<width>/`.
+top/bottom dialog PNG images and a completion manifest under `files/owner-approval-visual/<width>/`.
 Compose PixelCopy captures the dialog. Actual paragraph layouts and live scroll viewports establish
 text geometry; public identifier semantics retain raw copy values while exposing grouped glyph layout.
 Each preparation/operation transition moves safe focus back to Cancel before subsequent input.
 The keyboard-disabled baseline does not establish real IME or internal editor scrolling, native
-authorization, transfer, or completed visual acceptance. The artifact-consuming CI runner and
-source-bound image review remain planned; source lint cannot establish runtime success.
+authorization, transfer, or completed visual acceptance. The manual `android-visual` workflow
+consumes the exact producer APK artifact; source-bound native image review still requires an actual
+completed run. Source lint cannot establish runtime success.
 `tests/scripts/android_visual_producer.py` validates saved GitHub producer/job/artifact API metadata
-before a planned visual runner installs anything. It requires a same-repository main push/manual
+before the visual runner installs anything. It requires a same-repository main push/manual
 `ci.yml` run, exactly one successful matching Android build and an unexpired source-matching runtime
 artifact with its digest. Unrelated queued Apple jobs do not prevent this validation; the whole
 workflow need not have finished. Keep the API receipts beside `validated.json` for provenance.
+`tests/scripts/android_visual_archive.py` reads the collected native tar into a fresh directory,
+allowing only regular PNG/manifest files for the requested width with bounded sizes and no duplicate
+paths or links. It retains partial safe frames before rejecting an incomplete manifest. Successful
+validation requires all twelve states × two languages × two themes × two font sizes × two scroll
+edges (192 frames per width), matching source/viewport and PNG header dimensions. This checks evidence
+integrity and coverage, not the visual quality of the rendered screens or the real IME behavior.
+Run `gh workflow run android-visual.yml -f producer_run=RUN_ID` after that main CI run's Android
+build succeeds. Each width gets a fresh KVM emulator without host nodes or network peers. The workflow
+checks out the exact producer for toolchain inputs and records the current trusted runner separately;
+it never rebuilds APKs. Live density determines the physical viewport, and instrumentation requires
+the requested dp width. The keyboard-disabled rendering phase has no submission retries. Always-run
+collection retains logs, raw tar and safe partial frames; successful validation requires complete
+manifests. Artifacts are `android-visual-producer` and `android-visual-360|412`. Ordinary CI does not
+run this matrix; real two-device transfer and real-IME review remain separate blockers.
+The phase-only `OwnerApprovalImeTests` fixture requires `ownerIme=1`, `sourceSha` and
+`expectedWidth` with the software keyboard enabled. It drives EN/RU, both themes and 100/200% fonts,
+selects the beginning/middle/end of the unchanged full code, and waits for native IME visibility.
+Android accessibility character-location rectangles and the real dialog window origin/visible frame
+establish glyph and control positions; no inferred TextField padding is used. Each width records
+24 dialog frames plus measured screen coordinates under `files/owner-approval-ime/<width>/`.
+Its preparation fixture rejects any changed input. The manual workflow enables and selects the
+native LatinIME for this separate phase, retains its own instrumentation log and tar, and validates
+24 complete frames with finite, nonempty glyph/control rectangles inside the recorded visible frame.
+Authoring these checks does not establish that the runtime passed.
+Dedicated visual instrumentation opts into `--phase-callbacks`. A `DYAppVisual` status callback
+renews the failure deadline only for the active JUnit class/method and the next completed case.
+Callbacks are emitted after scene/worker cleanup; duplicates, gaps, unrelated logs and late callbacks
+do not renew the deadline. They do not count as JUnit completion or prove a passing test. Normal
+instrumentation ignores these callbacks unless explicitly enabled.
 `DeviceDirectoryWorkerTests` and `DeviceDirectoryFailureTests` exercise the presentation adapter with
 controlled native-shaped completions. They retain original public targets across mutable DTO input,
 reject stale/forged confirmation openings, retire a view during an admitted call, cancel its UI waiter
@@ -1241,6 +1295,14 @@ mailbox cleanup and unrelated-profile checks. Row lookup uses the immutable raw 
 semantics/scroll geometry. Clipboard verification also awaits the dialog's WindowInfo-driven Cancel
 focus before reading the foreground clipboard. Each StateFlow phase has its own failure deadline;
 no extra link setup or remote-submission retry is added. This widget extension requires fresh actual CI runtime evidence.
+`NativeReceiveUiJourneyTests` complements that unchanged owner-screen journey with production
+receiving controls and their actual native store/factory/polling. It starts the invitation through UI,
+checks the core-provided code/QR, receives a real counterpart transfer, and finishes enrollment through
+its button. The counterpart uses the real native sender directly; owner widgets remain covered by the
+original journey. Private note/favorite import, pending completion and the prior recipient profile
+are checked separately. No direct receive/install or enrollment-resume call substitutes for the UI
+operation; a final readback verifies that no pending completion remains. This new path requires its own
+first-pass exact-source CI runtime acceptance.
 `DeviceDirectoryUITests` additionally drives the actual Compose controls around controlled native-shaped
 calls and the real common collection pager. It checks the immutable displayed target, no current-row
 Disconnect, partial-failure Retry, acknowledged success alongside cache failure and an old dialog
@@ -1542,6 +1604,10 @@ separate home is needed because GNOME Keyring persists the first binary's
 `primary` identity across D-Bus sessions. Without a running Secret Service the
 application correctly disables that choice, making the system-mode smoke fail
 rather than silently falling back to file storage.
+Before each ordinary Linux case, the CI-owned provider (`DYAPP_TEST_SECRET_SERVICE=1`) must report
+an explicit unlocked collection. Failed or malformed probes stop the case; only a known locked
+provider is replaced, and replacement must succeed and return an unlocked readback. No sleeps or
+UI recovery bypasses establish readiness, and an unowned provider is never probed or replaced.
 
 On Linux, `linux-test.sh` keeps Xvfb server stderr in the shared check log instead of
 letting `xvfb-run` discard it. When the desktop smoke fails or times out, it adds up to

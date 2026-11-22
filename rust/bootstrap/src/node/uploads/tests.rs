@@ -6,12 +6,9 @@ use libp2p::identity::Keypair;
 #[path = "tests/dispatch.rs"]
 mod dispatch;
 
-fn service() -> Service {
-    let dir = format!(
-        "{}/../../build/upload-ancestry-{}",
-        env!("CARGO_MANIFEST_DIR"),
-        uuid::Uuid::new_v4()
-    );
+fn service() -> (dyapp_test_support::TestDir, Service) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().to_string_lossy().into_owned();
     let mut config = NodeConfig::default();
     config.storage.dir = dir.clone().into();
     config.network.id_pow_bits = 0;
@@ -21,7 +18,7 @@ fn service() -> Service {
     config.limits.bytes_per_second = 100_000_000;
     let mut service = Service::new(BootstrapStore::new(&dir).unwrap(), config).unwrap();
     service.media = Some(MediaStore::open(std::path::Path::new(&dir)).unwrap());
-    service
+    (test_dir, service)
 }
 
 fn peer() -> super::super::Peer {
@@ -91,10 +88,12 @@ struct Chain {
     source: Service,
     destination: Service,
     records: Vec<SignedRecord>,
+    _source_test_dir: dyapp_test_support::TestDir,
+    _destination_test_dir: dyapp_test_support::TestDir,
 }
 impl Chain {
     fn new(hash: &[u8]) -> Self {
-        let source = service();
+        let (source_test_dir, source) = service();
         let owner = Identity::from_secret(&[62; 32]);
         let records = (0u8..4)
             .map(|version| {
@@ -106,7 +105,7 @@ impl Chain {
                 signed(&source, &owner, hash)
             })
             .collect::<Vec<_>>();
-        let destination = service();
+        let (destination_test_dir, destination) = service();
         let response = destination
             .media(&peer(), segment(&records[0], vec![]))
             .unwrap();
@@ -115,6 +114,8 @@ impl Chain {
             source,
             destination,
             records,
+            _source_test_dir: source_test_dir,
+            _destination_test_dir: destination_test_dir,
         }
     }
 
@@ -173,7 +174,7 @@ fn ordinary_upload_admission_uses_real_bounded_history_without_intermediate_byte
 fn missing_required_proof_fails_but_optional_history_can_end_after_admission() {
     let data = b"upload";
     let chain = Chain::new(&dyapp_identity::sha256(data));
-    let seeded = service();
+    let (_seeded_test_dir, seeded) = service();
     let replica = proto::MediaReplicaPut {
         data: data.to_vec(),
         authorization: Some(proto::media_replica_put::Authorization::Keep(
@@ -186,7 +187,7 @@ fn missing_required_proof_fails_but_optional_history_can_end_after_admission() {
         i32::from(proto::Status::Ok)
     );
     for lagging in [true, false] {
-        let fresh = service();
+        let (_fresh_test_dir, fresh) = service();
         let destination = if lagging { &chain.destination } else { &fresh };
         let remote = PeerId::random();
         let mut uploads = Uploads::default();
@@ -208,7 +209,7 @@ fn missing_required_proof_fails_but_optional_history_can_end_after_admission() {
 
 #[test]
 fn actual_legacy_signature_bypasses_admission_but_corruption_does_not() {
-    let source = service();
+    let (_source_test_dir, source) = service();
     let owner = Identity::from_secret(&[63; 32]);
     let mut record = owner.sign(
         Domain::MediaKeep,

@@ -6,7 +6,7 @@ fn pending(store: &Store, peer: &str, pack_id: &[u8; 32]) -> Option<PendingPack>
 
 #[test]
 fn full_clear_releases_pending_quota_and_late_answers_cannot_restart_intent() {
-    let (mut store, owner, path, peer) = database();
+    let (_test_dir, mut store, owner, path, peer) = database();
     let (pending_pack, answer) = request(&mut store, &peer, 1);
     for id in 2..=63 {
         request(&mut store, &peer, id);
@@ -55,7 +55,7 @@ fn full_clear_releases_pending_quota_and_late_answers_cannot_restart_intent() {
 
 #[test]
 fn cancellation_failure_rolls_back_history_outbox_and_pending_answer() {
-    let (mut store, _, _, peer) = database();
+    let (_test_dir, mut store, _, _, peer) = database();
     let (_, answer) = request(&mut store, &peer, 1);
     admit(&mut store, &peer, 1, &answer);
     let job = store.due_sticker_pack_downloads(0).unwrap().remove(0);

@@ -55,6 +55,16 @@ class WebUnusedTest(unittest.TestCase):
                 "unreferenced selector .ghost",
             ),
             (
+                {"clients/desktop/ui/shell.css": ".ghost { color: red; }"},
+                1,
+                "shell.css:1: unreferenced selector .ghost",
+            ),
+            (
+                {"clients/desktop/ui/shell.css": ".used { padding: 0; }"},
+                0,
+                "",
+            ),
+            (
                 {
                     "clients/desktop/ui/package.json": json.dumps(
                         {
@@ -142,6 +152,7 @@ class WebUnusedTest(unittest.TestCase):
                         capture_output=True,
                         text=True,
                         check=False,
+                        timeout=30,
                     )
                 output = result.stdout + result.stderr
                 self.assertEqual(result.returncode, expected, output)

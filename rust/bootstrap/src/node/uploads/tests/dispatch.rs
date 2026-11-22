@@ -31,6 +31,7 @@ struct Upload {
     peers: [PeerId; 2],
     lookup: libp2p::kad::QueryId,
     now: Instant,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 impl Upload {
@@ -59,14 +60,16 @@ impl Upload {
         let now = Instant::now();
         replicas.puts.get_mut(&1).unwrap().deadline = now + PUT_TIMEOUT;
         let peers = [PeerId::random(), PeerId::random()];
+        let (test_dir, second) = service();
         Self {
             chain,
-            second: service(),
+            second,
             swarm,
             replicas,
             peers,
             lookup,
             now,
+            _test_dir: test_dir,
         }
     }
 
