@@ -70,11 +70,11 @@ SOURCE = {
     ".tsx",
     ".js",
     ".mjs",
+    ".html",
+    ".css",
     ".proto",
 }
 DEBT_SOURCE = SOURCE | {
-    ".html",
-    ".css",
     ".scss",
     ".java",
     ".gradle",

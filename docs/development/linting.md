@@ -466,8 +466,9 @@ JavaScript quotes and 100 columns. Assist actions remain disabled.
 Cognitive complexity 15 and function length 50 code lines are blocking for every JavaScript file
 under `clients/desktop`, including all production, prototype, video and native smoke scripts.
 The directory-wide glob also covers future helpers. Blank lines and immediate closure wrappers
-used to scope classic scripts are excluded; nested functions remain checked. All desktop scripts
-also fit the 1000-line file limit without legacy size allowances. Shipped UI modules additionally
+used to scope classic scripts are excluded; nested functions remain checked. Desktop JavaScript,
+HTML and CSS have the 1000-line file limit; the oversized desktop UI stylesheet has a capped legacy
+allowance in `tests/scripts/baselines.toml`. Shipped UI modules additionally
 reject undeclared variables, so cross-file dependencies require imports instead of page lexical
 globals. The module-entry regression test rejects classic and inline scripts in the shipped page.
 Desktop DOM lookup boundaries carry JSDoc types and validate actual element constructors rather

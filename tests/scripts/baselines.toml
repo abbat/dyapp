@@ -118,6 +118,7 @@ max_lines = 1000
 
 [size.files]
 # Files over the limit may shrink, never grow; lower each budget when it shrinks.
+"clients/desktop/ui/style.css" = 1371
 
 [settings]
 # Criteria S5 (an immediate binary setting is a switch) and S2 (no list that grows with use) in
