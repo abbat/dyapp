@@ -48,7 +48,7 @@ frames cover every laid-out line of every offered value. It is excluded from ord
 External validation uses `tests/scripts/android_comparison_archive.py`: exact source, full matrix,
 bounded archive paths, actual font density and union coverage of every required line must agree.
 Negative controls retain both edge frames while omitting middle lines and require rejection.
-Workflow collection of this additional phase remains planned.
+Use the manual workflow's `suite=comparison` to collect and validate this separate matrix.
 `LinkReviewSaveRefusalTests` publishes each typed
 native refusal before completing the admitted callback, retains all 31 choices, checks safe Back
 focus and verifies that uncertain/unauthorized outcomes gain no ordinary confirmation or finish.
@@ -1331,7 +1331,9 @@ validation requires all twelve states × two languages × two themes × two font
 edges (192 frames per width), matching source/viewport and PNG header dimensions. This checks evidence
 integrity and coverage, not the visual quality of the rendered screens or the real IME behavior.
 Run `gh workflow run android-visual.yml -f producer_run=RUN_ID` after that main CI run's Android
-build succeeds. Each width gets a fresh KVM emulator without host nodes or network peers. The workflow
+build succeeds. The default `suite=standard` retains owner, receiving and IME coverage; pass
+`-f suite=comparison` for the separate complete-form matrix, using a producer that contains
+`LinkReviewVisualTests`. The two suites keep independent native archives and validations. Each width gets a fresh KVM emulator without host nodes or network peers. The workflow
 checks out the exact producer for toolchain inputs and records the current trusted runner separately;
 it never rebuilds APKs. Live density determines the physical viewport, and instrumentation requires
 the requested dp width. The keyboard-disabled rendering phase has no submission retries. Always-run

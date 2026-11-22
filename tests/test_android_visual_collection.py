@@ -115,6 +115,20 @@ class AndroidVisualCollection(unittest.TestCase):
         self.assertEqual(self.calls()[0][-2], self.calls()[1][-1])
         self.assertEqual(self.calls()[0][-2], self.calls()[2][-1])
 
+    def test_comparison_phase_uses_the_same_verified_transfer(self) -> None:
+        result = self.run_export(
+            "success", "files/comparison-visual", "comparison"
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            (self.report / "comparison.tar").read_bytes(),
+            self.payload.read_bytes(),
+        )
+        self.assertEqual(self.calls()[0][-1], "files/comparison-visual")
+        self.assertEqual(
+            self.calls()[0][-2], "files/native-visual-export-comparison.tar"
+        )
+
     def test_unentered_phase_has_diagnostics_instead_of_a_fake_archive(
         self,
     ) -> None:

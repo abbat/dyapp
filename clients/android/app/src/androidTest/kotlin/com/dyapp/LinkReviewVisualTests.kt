@@ -55,20 +55,26 @@ class LinkReviewVisualTests {
 
     private fun captureScale(fixture: LinkReviewUiFixture, output: LinkReviewVisualOutput, dark: Boolean, font: Float) {
         for (state in LinkReviewVisualState.entries) {
-            prepare(fixture, state, dark, font)
-            output.start(state, tags(state), font, dark)
-            val geometry = NativeVisualGeometry(compose, "settings-receive", output::capture)
-            geometry.first()
-            output.capture()
-            geometry.check()
-            output.capture()
-            output.finishScene()
+            try {
+                prepare(fixture, state, dark, font)
+                output.start(state, tags(state), font, dark)
+                val geometry = NativeVisualGeometry(compose, "settings-receive", output::capture)
+                geometry.first()
+                output.capture()
+                geometry.check()
+                output.capture()
+                output.finishScene()
+            } finally {
+                compose.runOnIdle { fixture.shown = false }
+            }
+            compose.onNodeWithTag("link-review-back").assertDoesNotExist()
             progress.completed()
         }
     }
 
     private fun reset(fixture: LinkReviewUiFixture, state: LinkReviewVisualState, dark: Boolean, font: Float) {
         compose.runOnIdle {
+            fixture.shown = true
             fixture.darkTheme = dark
             fixture.scale.floatValue = font
             fixture.confirmation.set(CompletableDeferred())
