@@ -2,6 +2,7 @@ package com.dyapp
 
 import android.content.Context
 import android.content.res.Configuration
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.rememberScrollState
@@ -36,6 +37,7 @@ internal class LinkReviewUiFixture(
     val scale = mutableFloatStateOf(1f)
     val snapshot = mutableStateOf(LinkReceiverSnapshot())
     var shown by mutableStateOf(true)
+    var darkTheme by mutableStateOf<Boolean?>(null)
     var expectedPreview: LinkReviewProfile = review.local
     var previewFailure: Throwable? = null
     val previews = AtomicInteger()
@@ -77,7 +79,7 @@ internal class LinkReviewUiFixture(
         val context = base.createConfigurationContext(configuration)
         compose.setContent {
             LocalizedTestContext(context, scale.floatValue) {
-                DYAppTheme {
+                DYAppTheme(darkTheme ?: isSystemInDarkTheme()) {
                     Frame(receivingFrame)
                 }
             }

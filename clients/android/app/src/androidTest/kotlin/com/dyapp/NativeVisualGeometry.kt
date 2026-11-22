@@ -19,7 +19,11 @@ import kotlin.math.ceil
 import kotlin.math.floor
 
 /** Actual paragraph layouts and live scroll viewports, without guessed padding or tap offsets. */
-internal class NativeVisualGeometry(private val compose: ComposeContentTestRule, private val rootTag: String) {
+internal class NativeVisualGeometry(
+    private val compose: ComposeContentTestRule,
+    private val rootTag: String,
+    private val afterScroll: () -> Unit = {}
+) {
 
     fun density(expectedScale: Float): Density {
         val nodes = compose.onAllNodes(
@@ -76,6 +80,7 @@ internal class NativeVisualGeometry(private val compose: ComposeContentTestRule,
             check(scroll(0f, delta)) { "Native scroll refused a hidden line" }
         }
         compose.waitUntil(10_000) { lineGeometry(target, parent, dialog, line).visible }
+        afterScroll()
     }
 
     private fun lineGeometry(

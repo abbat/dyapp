@@ -38,7 +38,15 @@ Settings frame, acknowledges safe Back focus, and checks the error and all recov
 the current viewport in EN/RU at both text scales. This covers preview refusal only; authoritative
 confirmation refusal belongs to the separately retained enrollment state. Its typed notice and
 existing recovery actions render beside the active form footer, or beside the reopen/saved state;
-receipt-only outcomes keep their original notice. `LinkReviewSaveRefusalTests` publishes each typed
+receipt-only outcomes keep their original notice.
+The phase-only `LinkReviewVisualTests` renders the actual complete comparison in the receiving
+Settings frame: choices, preview, saving, typed refusal and unavailable photos, in EN/RU, both
+colour themes and actual 100/200% text scales. With `comparisonVisual=1`, `sourceSha` and
+`expectedWidth` instrumentation arguments it writes `files/comparison-visual/<width>/<language>`.
+Each actual scroll acknowledgement saves a viewport; the scene can complete only when the saved
+frames cover every laid-out line of every offered value. It is excluded from ordinary runtime.
+Workflow collection and external validation of this additional phase remain planned.
+`LinkReviewSaveRefusalTests` publishes each typed
 native refusal before completing the admitted callback, retains all 31 choices, checks safe Back
 focus and verifies that uncertain/unauthorized outcomes gain no ordinary confirmation or finish.
 These checks establish presentation ownership; actual owner approval, enrollment, QR and runtime
