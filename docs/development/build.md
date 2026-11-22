@@ -195,7 +195,9 @@ results; `--raw` bypasses this frontend and `--help` prints usage without an SDK
 build. The captured Gradle build log remains in the report directory.
 Release builds require `SOURCE_DATE_EPOCH` from the source commit, disable Rust
 wrappers/incremental output and remap Rust/C/C++ source paths through the shared
-`android_release_environment.py` helper. The nightly reproducibility job uses
+`android_release_environment.py` helper. Its C/C++ flags enable
+`-fstack-protector-strong` and `_FORTIFY_SOURCE=2` for bundled native dependencies;
+the build system retains control of optimization levels. The nightly reproducibility job uses
 this same runner and compares complete unsigned packages without normalization.
 
 The `dyapp:android-test` image carries the source and a writable Gradle cache, so

@@ -151,7 +151,9 @@ import from C code, and no writable executable load. The pinned JNA native rebui
 `-D_FORTIFY_SOURCE=2` with `-O2` and `-fstack-protector-strong`; its repackaging step applies
 this same ELF policy before an AAR can reach the application. Every load segment must have at least
 16 KiB alignment and matching file/virtual page offsets. These imports do not prove that every Rust
-or C function is protected.
+or C function is protected. The shared unsigned release environment also enables
+strong stack protection and fortify for the core's bundled C/C++ dependencies;
+prebuilt third-party libraries retain their independent build provenance.
 
 The same job runs `zipalign -c -P 16 4 SIGNED.apk` from the selected signing
 Build-Tools directory, checking packaging alignment independently of ELF alignment.
