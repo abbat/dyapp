@@ -1,6 +1,7 @@
 //! Shared stable versions, feed validation, cadence and bounded HTTPS transport.
 //! Installation IO, native lifecycle integration and activation remain separate.
 
+pub mod availability;
 pub mod checker;
 pub mod coordinator;
 pub mod feed;

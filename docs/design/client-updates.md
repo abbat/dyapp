@@ -30,7 +30,11 @@ cannot overwrite a newer interval and admission uses the interval already commit
 The checker tests observe a child process exiting after durable admission without running Drop,
 then require successful lease reacquisition and exactly one interrupted-attempt failure. A pipe-EOF
 completion signal has a failure deadline; no elapsed sleep establishes process readiness.
-Native APIs, lifecycle/timer hooks and notice presentation remain planned.
+`updates::availability` projects only the installed target from a previously successful snapshot:
+no cache/success marker is never-checked, a missing target is not-published, and only a numerically
+newer target yields a package/source offer with a fixed official release page. Store methods remain
+unavailable until an approved pinned listing exists. Native adapters do not compare versions or
+construct destinations. Native APIs, lifecycle/timer hooks and notice dismissal remain planned.
 Clients stay disabled until live-feed verification and those integrations pass.
 
 The pure `updates::coordinator::Coordinator` now owns simultaneous-trigger admission and attempt
