@@ -8,9 +8,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
 import uniffi.dyapp.MobileDeviceReadState
 import uniffi.dyapp.MobileLinkCodeStatus
 
@@ -62,34 +59,27 @@ internal class OwnerVisualDriver(private val compose: ComposeContentTestRule) {
             else -> return
         }
         compose.awaitNode(hasTestTag("owner-retry") and isEnabled()).performClick()
-        runBlocking {
-            withTimeout(5_000) {
-                backend.approval.state.first { !it.busy && it.codeStatus != MobileLinkCodeStatus.VALID }
-            }
+        compose.awaitSnapshot(backend.approval.state, 5_000, "owner retry") {
+            !it.busy && it.codeStatus != MobileLinkCodeStatus.VALID
         }
     }
 
-    private fun awaitDirectory(backend: OwnerVisualBackend) = runBlocking {
-        withTimeout(5_000) {
-            backend.directory.state.first { !it.busy && it.listing?.state == MobileDeviceReadState.VERIFIED }
+    private fun awaitDirectory(backend: OwnerVisualBackend) =
+        compose.awaitSnapshot(backend.directory.state, 5_000, "owner directory") {
+            !it.busy && it.listing?.state == MobileDeviceReadState.VERIFIED
         }
-    }
 
-    private fun awaitPreparation(backend: OwnerVisualBackend) = runBlocking {
-        withTimeout(5_000) {
-            backend.approval.state.first { !it.busy && (it.codeStatus != null || it.failure != null) }
+    private fun awaitPreparation(backend: OwnerVisualBackend) =
+        compose.awaitSnapshot(backend.approval.state, 5_000, "owner preparation") {
+            !it.busy && (it.codeStatus != null || it.failure != null)
         }
-    }
 
-    private fun awaitSend(backend: OwnerVisualBackend) = runBlocking {
-        withTimeout(5_000) {
-            backend.approval.state.first {
-                !it.busy && (it.delivery != null || it.codeStatus != MobileLinkCodeStatus.VALID)
-            }
+    private fun awaitSend(backend: OwnerVisualBackend) =
+        compose.awaitSnapshot(backend.approval.state, 5_000, "owner delivery") {
+            !it.busy && (it.delivery != null || it.codeStatus != MobileLinkCodeStatus.VALID)
         }
-    }
 
-    private fun awaitEntered(backend: OwnerVisualBackend) = runBlocking {
-        withTimeout(5_000) { backend.entered.await() }
+    private fun awaitEntered(backend: OwnerVisualBackend) {
+        compose.waitUntil(5_000) { backend.entered.isCompleted }
     }
 }

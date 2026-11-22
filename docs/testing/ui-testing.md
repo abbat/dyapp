@@ -1248,6 +1248,11 @@ top/bottom dialog PNG images and a completion manifest under `files/owner-approv
 Compose PixelCopy captures the dialog. Actual paragraph layouts and live scroll viewports establish
 text geometry; public identifier semantics retain raw copy values while exposing grouped glyph layout.
 Each preparation/operation transition moves safe focus back to Cancel before subsequent input.
+Completed validation status/failure also restores focus: a fast worker may finish before Compose
+renders its busy state. `LinkApprovalFocusTests` forces that ordering by completing the IO-only
+worker within one UI turn, then checks Cancel focus and absence of preparation/transfer.
+Visual state waits use `awaitSnapshot` to drive Compose effects while observing session completion;
+blocked fixture operations use their explicit entered signal, with a fresh failure deadline per step.
 The keyboard-disabled baseline does not establish real IME or internal editor scrolling, native
 authorization, transfer, or completed visual acceptance. The manual `android-visual` workflow
 consumes the exact producer APK artifact; source-bound native image review still requires an actual
