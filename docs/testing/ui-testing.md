@@ -258,7 +258,11 @@ Capture the real Activity's `LocalActivityResultRegistryOwner` before replacing 
 provide that same registry inside; a configuration context alone is not an Activity registry owner.
 Keep locale-specific text/description assertions and actual geometry checks; do not turn a missing
 localized node into a timing retry or accept a different language. This helper also covers
-localized full-screen fixtures that can open a system picker.
+localized full-screen fixtures that can open a system picker. Key its configured window host by
+configuration values, font scale and parent window, rather than a caller's Context object identity:
+fresh equivalent locale wrappers must not dispatch repeated configuration changes. The native
+regression retains the actual configured host and dialog draft across those equivalent wrappers;
+separate scale witnesses still require real font changes to reach platform Dialog windows.
 
 `SearchIntentTests` verifies that admitted native conditions, employer and mutual choice remain
 unchanged after every form field and offered list are edited. An admitted validation failure

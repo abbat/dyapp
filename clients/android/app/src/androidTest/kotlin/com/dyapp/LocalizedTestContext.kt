@@ -31,8 +31,10 @@ internal fun LocalizedTestContext(
 ) {
     val registry = checkNotNull(LocalActivityResultRegistryOwner.current)
     val windowContext = LocalView.current.context
-    val configured = remember(context, fontScale, windowContext) {
-        configuredWindowContext(windowContext, context, fontScale)
+    // Callers may create fresh locale Context wrappers during composition; only values matter.
+    val configuration = Configuration(context.resources.configuration)
+    val configured = remember(configuration, fontScale, windowContext) {
+        configuredWindowContext(windowContext, configuration, fontScale)
     }
     val currentContext by rememberUpdatedState(configured)
     val currentContent by rememberUpdatedState(content)
@@ -56,9 +58,9 @@ internal fun LocalizedTestContext(
     )
 }
 
-private fun configuredWindowContext(window: Context, localized: Context, scale: Float): ContextThemeWrapper =
+private fun configuredWindowContext(window: Context, configuration: Configuration, scale: Float): ContextThemeWrapper =
     ContextThemeWrapper(window, 0).apply {
-        applyOverrideConfiguration(Configuration(localized.resources.configuration).apply { fontScale = scale })
+        applyOverrideConfiguration(Configuration(configuration).apply { fontScale = scale })
     }
 
 @Composable

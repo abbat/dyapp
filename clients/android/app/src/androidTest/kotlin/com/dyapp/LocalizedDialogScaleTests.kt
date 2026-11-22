@@ -1,5 +1,7 @@
 package com.dyapp
 
+import android.content.Context
+import android.content.res.Configuration
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.result.ActivityResultRegistryOwner
 import androidx.compose.material3.AlertDialog
@@ -11,10 +13,12 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertTextEquals
@@ -47,6 +51,33 @@ class LocalizedDialogScaleTests {
         val geometry = NativeVisualGeometry(compose, "scale-dialog")
         assertEquals(base, geometry.density(base).fontScale, 0f)
         assertThrows(IllegalStateException::class.java) { geometry.density(base + 1f) }
+    }
+
+    @Test
+    fun equivalentContextWrappersRetainTheActualDialogHost() {
+        val base = InstrumentationRegistry.getInstrumentation().targetContext
+        val revision = mutableIntStateOf(0)
+        var observed: Context? = null
+        compose.setContent {
+            val localized = remember(revision.intValue) {
+                base.createConfigurationContext(Configuration(base.resources.configuration))
+            }
+            LocalizedTestContext(localized, 1f) {
+                val current = LocalContext.current
+                SideEffect { observed = current }
+                ScaleDialog()
+            }
+        }
+        compose.awaitNode(hasTestTag("scale-dialog"))
+        var original: Context? = null
+        compose.runOnIdle { original = checkNotNull(observed) }
+        compose.onNodeWithTag("scale-draft").performTextInput("retained")
+        repeat(2) {
+            compose.runOnIdle { revision.intValue++ }
+            compose.awaitNode(hasTestTag("scale-dialog"))
+            compose.runOnIdle { assertSame(original, observed) }
+            compose.onNodeWithTag("scale-draft").assertTextEquals("retained")
+        }
     }
 
     @Test
