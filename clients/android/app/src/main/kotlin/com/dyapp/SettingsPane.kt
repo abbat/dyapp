@@ -20,11 +20,12 @@ internal enum class SettingsPane(val title: Int, val tag: String) {
     DEVICES(R.string.devices_title, "settings-devices"),
     RECEIVE(R.string.link_receive_title, "settings-receive"),
     BLOCKED(R.string.settings_blocked, "settings-blocked"),
-    PASSED(R.string.settings_passed, "settings-passed");
+    PASSED(R.string.settings_passed, "settings-passed"),
+    VIEWS(R.string.profile_views_title, "settings-views");
 
     fun parent(): SettingsPane = when (this) {
         IDENTITIES, DEVICES, RECEIVE -> ACCOUNT
-        BLOCKED, PASSED -> PRIVACY
+        BLOCKED, PASSED, VIEWS -> PRIVACY
         else -> ROOT
     }
 }

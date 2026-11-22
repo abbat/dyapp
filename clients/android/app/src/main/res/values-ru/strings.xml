@@ -632,4 +632,11 @@
     <string name="owner_uncertain">Отправка не подтверждена. Часть зашифрованных данных уже могла уйти. Проверьте новое устройство перед повторной попыткой.</string>
     <string name="owner_sent">Отправлено. Новое устройство появится здесь, когда закончит привязку.</string>
     <string name="owner_unavailable">Не удалось продолжить эту попытку. Проверьте текущий результат перед новой попыткой.</string>
+    <string name="profile_views_title">Просмотры вашей анкеты</string>
+    <string name="profile_views_hint">Последний полученный день просмотра (UTC). Этот локальный список не отправляет просмотры.</string>
+    <string name="profile_views_empty">Полученных просмотров анкет пока нет.</string>
+    <string name="profile_views_failed">Не удалось прочитать просмотры. Обновите список, чтобы повторить попытку.</string>
+    <string name="profile_views_date">Дата просмотра: %1$s (UTC)</string>
+    <string name="profile_views_open">Открыть анкету</string>
+    <string name="profile_views_open_named">Открыть анкету %1$s</string>
 </resources>

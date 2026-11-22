@@ -77,6 +77,7 @@ private fun SettingsCollection(
         )
         SettingsPane.BLOCKED -> BlockedCard(active)
         SettingsPane.PASSED -> PassedCard(active)
+        SettingsPane.VIEWS -> ReceivedProfileViews(active)
         else -> Unit
     }
 }
@@ -84,6 +85,7 @@ private fun SettingsCollection(
 @Composable
 private fun PrivacySettings(active: Opened.Ready, route: androidx.compose.runtime.MutableState<SettingsPane>) {
     PrivacyPreferenceRow(active, PrivacyPreferenceKind.VIEWS)
+    SettingsLink(SettingsPane.VIEWS, route)
     ReadReceiptsRow(active)
     PrivacyPreferenceRow(active, PrivacyPreferenceKind.TYPING)
     PresenceCard(active)

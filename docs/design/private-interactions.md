@@ -6,7 +6,8 @@ own-event clock and view-day records exist. `Session::interact` and `Session::re
 apply encrypted signal mailbox deliveries; a two-client protocol test covers like, match,
 unlike, replay, offline retry and daily view. Tauri and Android have Search and Liked you controls;
 Android's explicit profile page submits optional views through the common native opening;
-received-view UI remains planned. Own-device events follow the pair-group
+Android's local received-view collection is implemented; Tauri received-view UI remains planned.
+Own-device events follow the pair-group
 ordering and reconciliation rules below.
 
 An enabled first View can create the pair without sending a Like: the core commits its group
@@ -24,7 +25,8 @@ The commands use the same core admission and Session staging as UniFFI. The shar
 prepares only an explicit other-profile opening, submits its exact handle while that page and
 identity remain current, and retires on close, replacement, area change or hiding the document.
 A late preparation result only retires its original handle. Background reads send no views, and
-pre-commit errors trigger no automatic resubmission. Received-view presentation remains planned.
+pre-commit errors trigger no automatic resubmission. Android's received collection uses common
+paging and full identifiers under Privacy; Tauri received-view presentation remains planned.
 
 ## Wire contract
 

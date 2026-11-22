@@ -235,13 +235,13 @@
 
 <!-- App shell: every screen after first run. Detail screens (a found profile, a chat, the app
      lock settings) bring their own back bar and hide the navigation bar. -->
-<div class="app" data-on="profile profile-hidden profile-goal-dialog publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error profile-view profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu settings settings-language-dialog switcher remove-dialog remove-offline lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-devices">
-  <header class="appbar" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-devices settings-language-dialog remove-dialog remove-offline">
+<div class="app" data-on="settings-views settings-views-loading settings-views-empty settings-views-error settings-views-stale profile profile-hidden profile-goal-dialog publish-dialog publish-progress network network-checking network-error search search-loading search-empty search-error profile-view profile-view-match unlike-dialog chats chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu settings settings-language-dialog switcher remove-dialog remove-offline lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-devices">
+  <header class="appbar" data-off="settings-views settings-views-loading settings-views-empty settings-views-error settings-views-stale profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-devices settings-language-dialog remove-dialog remove-offline">
     <span class="title"><span data-on="profile profile-hidden profile-goal-dialog publish-dialog publish-progress switcher" data-t="nav.profile"></span>
       <span data-on="search search-loading search-empty search-error" data-t="nav.search"></span>
       <span data-on="chats" data-t="nav.chats"></span>
       <span data-on="network network-checking network-error" data-t="nav.network"></span>
-      <span data-on="settings settings-language-dialog remove-dialog remove-offline settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-devices" data-t="nav.settings"></span></span>
+      <span data-on="settings-views settings-views-loading settings-views-empty settings-views-error settings-views-stale settings settings-language-dialog remove-dialog remove-offline settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-devices" data-t="nav.settings"></span></span>
     <!-- Connected means one compatible node answered; it opens Network. -->
     <button type="button" class="status" id="connection-status">
       <span class="dot" data-off="search-error network-checking"></span>
@@ -515,6 +515,7 @@ search providers asked: 0 of 3</pre>
       <div class="backbar"><button type="button" class="icon-btn" data-go="settings" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button><h1 class="title" data-t="settings.privacy"></h1></div>
       <div class="settings-hub">
 <a class="btn" href="#settings-blocked" data-settings-open="blocked"><span data-t="settings.blocked">Blocked people</span> <span class="settings-count"></span></a>
+<a class="btn" id="open-settings-views" href="#settings-views" data-t="views.title">Viewed you</a>
 <a class="btn" href="#settings-passed" data-settings-open="passed"><span data-t="settings.passed">Passed people</span> <span class="settings-count"></span></a>
 </div>
 <div class="card" id="privacy">
@@ -643,6 +644,21 @@ search providers asked: 0 of 3</pre>
 <div class="actions"><button type="button" class="btn" id="settings-passed-previous" data-t="settings.collection.previous"></button><button type="button" class="btn" id="settings-passed-next" data-t="settings.collection.next"></button><button type="button" class="btn" id="settings-passed-refresh" data-t="settings.collection.refresh"></button></div>
     </section>
 
+    <section id="settings-views" class="content" style="padding:0" data-on="settings-views settings-views-loading settings-views-empty settings-views-error settings-views-stale">
+      <div class="backbar"><button type="button" class="icon-btn" data-go="settings-privacy" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button><h1 class="title" data-t="views.title"></h1></div>
+      <div class="card"><p class="caption" data-t="views.hint"></p>
+        <p id="received-views-loading" role="status" data-on="settings-views-loading" data-t="search.loading"></p>
+        <p id="received-views-error" class="notice error" role="alert" data-on="settings-views-error settings-views-stale" data-t="views.error"></p>
+        <div data-on="settings-views settings-views-empty settings-views-stale">
+          <div class="field"><label for="received-views-query" data-t="settings.collection.search"></label><input id="received-views-query" type="text"></div>
+          <p class="caption" data-on="settings-views settings-views-stale" data-t="views.onePage"></p><p class="caption" data-on="settings-views-empty" data-t="views.emptyPage"></p>
+          <div class="card" data-on="settings-views settings-views-stale"><div class="who"><span class="avatar" aria-hidden="true">5d</span><code class="grow">0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef</code></div><p class="caption" data-t="views.sampleDate"></p><a class="btn" href="#profile-view" data-t="views.open">Open profile</a></div>
+          <p id="received-views-empty" data-on="settings-views-empty" data-t="views.empty"></p>
+          <div class="actions"><button class="btn" type="button" disabled data-t="settings.collection.previous"></button><button class="btn" type="button" disabled data-t="settings.collection.next"></button></div>
+        </div>
+        <button class="btn" type="button" data-go="settings-views" data-disabled="settings-views-loading" data-t="settings.collection.refresh"></button>
+      </div>
+    </section>
     <!-- App lock: change or turn off the PIN; both ask for the current one. -->
     <section class="content" style="padding:0" data-on="lock-settings">
       <div class="backbar"><button type="button" class="icon-btn" id="lock-back" data-go="settings-privacy" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button>
@@ -661,7 +677,7 @@ search providers asked: 0 of 3</pre>
     </section>
   </main>
 
-  <nav class="navbar" aria-label="Main" data-off="profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-devices settings-language-dialog remove-dialog remove-offline">
+  <nav class="navbar" aria-label="Main" data-off="settings-views settings-views-loading settings-views-empty settings-views-error settings-views-stale profile-view profile-view-match unlike-dialog chat chat-closed chat-first chat-request chat-menu chat-clear-dialog chat-rename-dialog chat-cleared delete-dialog chat-forward-dialog chat-forward-loading chat-forward-empty chat-forward-error chat-forward-send-error chat-forward-pending chat-forward-sent chat-forward-queued chat-forward-received-menu lock-settings settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-devices settings-language-dialog remove-dialog remove-offline">
     <button type="button" class="nav-item" id="nav-profile" data-current="profile profile-hidden profile-goal-dialog publish-dialog publish-progress switcher">
       <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-profile"/></svg></span><span data-t="nav.profile"></span></button>
     <button type="button" class="nav-item" id="nav-search" data-current="search search-loading search-empty search-error">
@@ -671,7 +687,7 @@ search providers asked: 0 of 3</pre>
       <span class="badge" id="chats-unread" data-ta="chats.unread">3</span></button>
     <button type="button" class="nav-item" id="nav-network" data-current="network network-checking network-error">
       <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-network"/></svg></span><span data-t="nav.network"></span></button>
-    <button type="button" class="nav-item" id="nav-settings" data-current="settings settings-language-dialog remove-dialog remove-offline settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-devices">
+    <button type="button" class="nav-item" id="nav-settings" data-current="settings-views settings-views-loading settings-views-empty settings-views-error settings-views-stale settings settings-language-dialog remove-dialog remove-offline settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-devices">
       <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-settings"/></svg></span><span data-t="nav.settings"></span></button>
   </nav>
 

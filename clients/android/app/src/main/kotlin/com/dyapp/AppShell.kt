@@ -114,12 +114,19 @@ private fun ShellRoutes(context: ShellContext, feed: ChatFeed, search: SearchSes
             }
         }
     } else {
-        val openChat = { peer: String ->
-            feed.lists.blocked = null
-            peers.chat = peer
-        }
+        ShellSections(context, feed, search, peers)
+    }
+}
+
+@Composable
+private fun ShellSections(context: ShellContext, feed: ChatFeed, search: SearchSession, peers: ShellPeers) {
+    val openChat = { peer: String ->
+        feed.lists.blocked = null
+        peers.chat = peer
+    }
+    CompositionLocalProvider(LocalSharedProfile provides peers::showSaved) {
         ShellFrame(context, feed, ShellChatActions(openChat, peers::show)) {
-            SearchScreen(search, { open(StartTarget.NETWORK) }, peers::show, peers::showSaved)
+            SearchScreen(search, { context.controls.open(StartTarget.NETWORK) }, peers::show, peers::showSaved)
         }
     }
 }
@@ -245,10 +252,6 @@ private fun ConnectionStatus(opened: Opened.Ready, section: StartTarget, onClick
         label = { Text(name?.ifEmpty { public } ?: stringResource(R.string.status_no_network)) }
     )
 }
-
-private const val SHORT_PEER_ID = 6
-
-internal fun shortPeerId(peerId: String) = "@" + peerId.takeLast(SHORT_PEER_ID)
 
 // No photo yet: the first two Peer ID characters on a tonal circle.
 @Composable

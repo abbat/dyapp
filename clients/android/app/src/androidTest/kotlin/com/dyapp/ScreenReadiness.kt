@@ -44,7 +44,8 @@ internal fun ComposeTestRule.settingsRoot() {
             val parents = mapOf(
                 "settings-identities-screen" to "settings-account",
                 "settings-blocked" to "settings-privacy",
-                "settings-passed" to "settings-privacy"
+                "settings-passed" to "settings-privacy",
+                "settings-views" to "settings-privacy"
             )
             val parent = parents.entries.firstOrNull {
                 onAllNodesWithTag(it.key).fetchSemanticsNodes().isNotEmpty()

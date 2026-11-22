@@ -81,6 +81,10 @@ Profile views are off by default. When enabled, showing another person's actual 
 attempts one encrypted view per peer per UTC day. Lists, profile/photo refreshes and saving a setting
 do not send views. Leaving the page retires unadmitted work; a committed signal may still deliver
 through the normal outbox. A pre-commit failure is not queued; reopening the page can try again.
+**Settings → Privacy → Viewed you** shows locally received views even when your own sending is off.
+Dates have UTC-day precision, not an exact viewing time. Search and paging stay local; only
+**Open profile** loads a profile. Blocked, passed and closed-chat peers are hidden. A failed refresh
+keeps the last known list and offers another read.
 Typing is deferred until a direct client path exists; its saved preference does not send typing
 through mailboxes.
 

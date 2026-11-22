@@ -35,7 +35,7 @@ class SettingsBackReadinessTests {
                 }
             }
         }
-        for (pane in listOf(SettingsPane.IDENTITIES, SettingsPane.BLOCKED, SettingsPane.PASSED)) {
+        for (pane in listOf(SettingsPane.IDENTITIES, SettingsPane.BLOCKED, SettingsPane.PASSED, SettingsPane.VIEWS)) {
             compose.runOnIdle { route.value = pane }
             compose.onNodeWithTag("settings-end").performScrollTo()
             val back = compose.onNodeWithTag("settings-back").getUnclippedBoundsInRoot()

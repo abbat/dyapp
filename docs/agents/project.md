@@ -13,6 +13,8 @@ A Rust module loaded with `#[path]` needs explicit paths for its nested file mod
 `#[cfg(test)]` children, when their files live in a subdirectory. The native desktop crates are
 outside root quality compilation; a dependency-free rustc fixture can verify module resolution.
 After moving a command, update ordinary Rust callers as well as Tauri command registration.
+Targeted `rustfmt` calls must use the Cargo manifest's edition: a newer command-line edition
+can silently reorder imports differently from `cargo fmt`.
 
 The embedded desktop node belongs to the installation, not an identity: `node.json` and `node/`
 live at the app-config root. Profile transitions must not stop or apply it. Snapshot the active
