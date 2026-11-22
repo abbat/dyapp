@@ -1253,6 +1253,11 @@ Its preparation fixture rejects any changed input. The manual workflow enables a
 native LatinIME for this separate phase, retains its own instrumentation log and tar, and validates
 24 complete frames with finite, nonempty glyph/control rectangles inside the recorded visible frame.
 Authoring these checks does not establish that the runtime passed.
+Dedicated visual instrumentation opts into `--phase-callbacks`. A `DYAppVisual` status callback
+renews the failure deadline only for the active JUnit class/method and the next completed case.
+Callbacks are emitted after scene/worker cleanup; duplicates, gaps, unrelated logs and late callbacks
+do not renew the deadline. They do not count as JUnit completion or prove a passing test. Normal
+instrumentation ignores these callbacks unless explicitly enabled.
 `DeviceDirectoryWorkerTests` and `DeviceDirectoryFailureTests` exercise the presentation adapter with
 controlled native-shaped completions. They retain original public targets across mutable DTO input,
 reject stale/forged confirmation openings, retire a view during an admitted call, cancel its UI waiter

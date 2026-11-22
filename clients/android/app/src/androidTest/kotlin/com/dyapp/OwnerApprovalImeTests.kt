@@ -17,11 +17,16 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TestName
 
 /** Real keyboard/editor phase; controlled preparation still authorizes no native transfer. */
 class OwnerApprovalImeTests {
     @get:Rule
     val compose = createComposeRule()
+
+    @get:Rule
+    val method = TestName()
+    private val progress = OwnerVisualProgress(javaClass.name, method)
 
     @Test
     fun codeSelectionAndActionsRemainVisibleWithTheRealKeyboard() {
@@ -43,6 +48,7 @@ class OwnerApprovalImeTests {
                         font
                     )
                     exercise(host, evidence, scene)
+                    progress.completed()
                 }
             }
         }

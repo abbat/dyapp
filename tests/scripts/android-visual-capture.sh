@@ -37,7 +37,7 @@ timeout 30 adb -s emulator-5554 shell input keyevent KEYCODE_WAKEUP
 timeout 30 adb -s emulator-5554 shell wm dismiss-keyguard
 timeout 30 adb -s emulator-5554 shell ime disable com.android.inputmethod.latin/.LatinIME
 python3 /runner/tests/scripts/android_instrumentation.py \
-    --report "$report/instrumentation.txt" --deadline 900 -- \
+    --report "$report/instrumentation.txt" --deadline 900 --phase-callbacks -- \
     adb -s emulator-5554 shell am instrument -w -r \
     -e ownerVisual 1 -e sourceSha "$source_sha" -e expectedWidth "$width" \
     -e class com.dyapp.OwnerApprovalVisualTests com.dyapp.test/androidx.test.runner.AndroidJUnitRunner
@@ -45,7 +45,7 @@ python3 /runner/tests/scripts/check-instrumentation-results.py "$report/instrume
 timeout 30 adb -s emulator-5554 shell ime enable com.android.inputmethod.latin/.LatinIME
 timeout 30 adb -s emulator-5554 shell ime set com.android.inputmethod.latin/.LatinIME
 python3 /runner/tests/scripts/android_instrumentation.py \
-    --report "$report/ime-instrumentation.txt" --deadline 900 -- \
+    --report "$report/ime-instrumentation.txt" --deadline 900 --phase-callbacks -- \
     adb -s emulator-5554 shell am instrument -w -r \
     -e ownerIme 1 -e sourceSha "$source_sha" -e expectedWidth "$width" \
     -e class com.dyapp.OwnerApprovalImeTests com.dyapp.test/androidx.test.runner.AndroidJUnitRunner

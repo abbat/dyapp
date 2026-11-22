@@ -33,6 +33,7 @@ class Progress:
         timeout: float,
         now: Callable[[], float] = time.monotonic,
         emit: Callable[[ProgressEvent], None] | None = None,
+        phase_callbacks: bool = False,
     ) -> None:
         if not math.isfinite(timeout) or timeout <= 0:
             raise ValueError(
@@ -47,6 +48,8 @@ class Progress:
         self.fields: dict[str, str] = {}
         self.active: tuple[str, str, str] | None = None
         self.completed = 0
+        self.phase_callbacks = phase_callbacks
+        self.completed_cases = 0
         self.finished = False
         self.buffer = b""
         self.discard = False
@@ -94,6 +97,54 @@ class Progress:
                 else:
                     self.buffer += part
 
+    def _case_completed(self, fields: dict[str, str], code: str) -> bool:
+        if fields.get("id") != "DYAppVisual":
+            return False
+        if not self.phase_callbacks or self.active is None or code != "2":
+            return True
+        if (fields.get("class"), fields.get("test")) != self.active[1:]:
+            return True
+        case = fields.get("case", "")
+        if (
+            not case.isascii()
+            or not case.isdecimal()
+            or len(case) > 10
+            or int(case) != self.completed_cases + 1
+        ):
+            return True
+        self.completed_cases += 1
+        self.deadline = self.now() + self.timeout
+        self.phase = f"{self.active[1]}#{self.active[2]} after case {case}"
+        self._emit("phase_completed", self.active, case)
+        return True
+
+    def _junit_status(self, fields: dict[str, str], code: str) -> None:
+        current = fields.get("current", "")
+        if (
+            fields.get("id") != "AndroidJUnitRunner"
+            or not current.isascii()
+            or not current.isdecimal()
+            or len(current) > 10
+            or int(current) != self.completed + 1
+            or not fields.get("class")
+            or not fields.get("test")
+        ):
+            return
+        test = (current, fields["class"], fields["test"])
+        if code == "1" and self.active is None:
+            self.active = test
+            self.completed_cases = 0
+            self.phase = f"{test[1]}#{test[2]}"
+            if not self.completed:
+                self.deadline = self.now() + self.timeout
+            self._emit("test_started", test, code)
+        elif code in ("0", "-1", "-2", "-3", "-4") and test == self.active:
+            self.completed += 1
+            self.active = None
+            self.phase = f"next test or final result after {test[1]}#{test[2]}"
+            self.deadline = self.now() + self.timeout
+            self._emit("test_completed", test, code)
+
     def _line(self, line: bytes) -> None:
         if self.finished:
             return
@@ -102,37 +153,14 @@ class Progress:
             key, separator, value = text.removeprefix(
                 "INSTRUMENTATION_STATUS: "
             ).partition("=")
-            if separator and key in ("id", "current", "class", "test"):
+            if separator and key in ("id", "current", "class", "test", "case"):
                 self.fields[key] = value
         elif text.startswith("INSTRUMENTATION_STATUS_CODE: "):
             fields, self.fields = self.fields, {}
-            current = fields.get("current", "")
-            if (
-                fields.get("id") != "AndroidJUnitRunner"
-                or not current.isascii()
-                or not current.isdecimal()
-                or len(current) > 10
-                or int(current) != self.completed + 1
-                or not fields.get("class")
-                or not fields.get("test")
-            ):
-                return
-            test = (current, fields["class"], fields["test"])
             code = text.removeprefix("INSTRUMENTATION_STATUS_CODE: ")
-            if code == "1" and self.active is None:
-                self.active = test
-                self.phase = f"{test[1]}#{test[2]}"
-                if not self.completed:
-                    self.deadline = self.now() + self.timeout
-                self._emit("test_started", test, code)
-            elif code in ("0", "-1", "-2", "-3", "-4") and test == self.active:
-                self.completed += 1
-                self.active = None
-                self.phase = (
-                    f"next test or final result after {test[1]}#{test[2]}"
-                )
-                self.deadline = self.now() + self.timeout
-                self._emit("test_completed", test, code)
+            if self._case_completed(fields, code):
+                return
+            self._junit_status(fields, code)
         elif text.startswith("INSTRUMENTATION_CODE: "):
             self.finished = True
             self.phase = "ADB exit after final result"
@@ -168,8 +196,9 @@ def run(
     output: BinaryIO,
     timeout: float,
     emit: Callable[[ProgressEvent], None] | None = None,
+    phase_callbacks: bool = False,
 ) -> int:
-    progress = Progress(timeout, emit=emit)
+    progress = Progress(timeout, emit=emit, phase_callbacks=phase_callbacks)
     with subprocess.Popen(
         command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
     ) as process:
@@ -200,6 +229,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--deadline", type=float, default=300)
+    parser.add_argument("--phase-callbacks", action="store_true")
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
@@ -218,6 +248,7 @@ def main() -> None:
                 output,
                 args.deadline,
                 lambda event: write_event(timings, event),
+                phase_callbacks=args.phase_callbacks,
             )
     except TimeoutError as error:
         parser.exit(124, f"{error}; report: {args.report}\n")

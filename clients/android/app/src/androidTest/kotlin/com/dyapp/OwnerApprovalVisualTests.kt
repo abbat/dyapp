@@ -7,11 +7,16 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TestName
 
 /** Dedicated native visual phase; ordinary instrumentation never expands this matrix. */
 class OwnerApprovalVisualTests {
     @get:Rule
     val compose = createComposeRule()
+
+    @get:Rule
+    val method = TestName()
+    private val progress = OwnerVisualProgress(javaClass.name, method)
 
     @Test
     fun capturesEveryOwnerDialogState() {
@@ -33,6 +38,7 @@ class OwnerApprovalVisualTests {
                 val context = ownerVisualContext(language, font)
                 for (state in OwnerVisualState.entries) {
                     capture(host, output, OwnerVisualScene(OwnerVisualBackend(state), context, dark, font))
+                    progress.completed()
                 }
             }
         }
