@@ -6,6 +6,15 @@ The `dyapp` desktop client for Linux is a WebKitGTK window. It opens local ident
 connects to bootstrap nodes, edits and publishes a public profile and searches published
 profiles and opens chat histories.
 
+## Received profile views
+
+**Settings → Privacy → Viewed you** shows the latest locally received viewing day per person,
+as a UTC date. Your own send-views setting does not hide received history. Search and page
+controls use the shared local collection; refreshing a failed read preserves known rows.
+**Open profile** fetches that person's verified profile; Back restores the list query/page.
+Reading the list sends no view and makes no Like or match. Opening a profile can send an
+optional view according to the privacy setting.
+
 ## Share a profile
 
 On a profile page, **Share** offers existing open chats, excluding the profile owner.

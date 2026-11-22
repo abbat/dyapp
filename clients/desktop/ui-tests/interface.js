@@ -30,6 +30,7 @@ const profilePhotosModule = await import(new URL('profile-photos.js', document.b
 const profileSeekingModule = await import(new URL('profile-seeking.js', document.baseURI).href);
 const removeModule = await import(new URL('remove.js', document.baseURI).href);
 const savedProfilesModule = await import(new URL('saved-profiles.js', document.baseURI).href);
+const receivedViewsModule = await import(new URL('received-views.js', document.baseURI).href);
 const searchModule = await import(new URL('search.js', document.baseURI).href);
 const settingsCollectionsModule = await import(
   new URL('settings-collections.js', document.baseURI).href
@@ -696,6 +697,9 @@ const appApi = {
   },
   get scanQrFile() {
     return searchModule.controller.scanQrFile;
+  },
+  get receivedViews() {
+    return receivedViewsModule.controller;
   },
   get profileViewDone() {
     return searchModule.controller.profileViewDone;

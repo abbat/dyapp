@@ -21,6 +21,7 @@ import './chats-share.js';
 import './favorites.js';
 import './contact-notes.js';
 import './saved-profiles.js';
+import './received-views.js';
 import './photo-settings.js';
 import './media-cache.js';
 import './stickers.js';

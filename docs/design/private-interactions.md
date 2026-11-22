@@ -6,7 +6,8 @@ own-event clock and view-day records exist. `Session::interact` and `Session::re
 apply encrypted signal mailbox deliveries; a two-client protocol test covers like, match,
 unlike, replay, offline retry and daily view. Tauri and Android have Search and Liked you controls;
 Android's explicit profile page submits optional views through the common native opening;
-Android's local received-view collection is implemented; Tauri received-view UI remains planned.
+Android and Tauri implement local received-view collections under Privacy; current-source
+runtime and rendered acceptance remain required.
 Own-device events follow the pair-group
 ordering and reconciliation rules below.
 
@@ -26,7 +27,11 @@ prepares only an explicit other-profile opening, submits its exact handle while 
 identity remain current, and retires on close, replacement, area change or hiding the document.
 A late preparation result only retires its original handle. Background reads send no views, and
 pre-commit errors trigger no automatic resubmission. Android's received collection uses common
-paging and full identifiers under Privacy; Tauri received-view presentation remains planned.
+paging and full identifiers under Privacy. Tauri transports the common pager's query/cursors and
+renders its order, counts and UTC dates unchanged; list reads fetch no profiles. Explicit Open
+fetches only that target. Back restores the same collection query/page and focuses the current
+row after read completion. Identity, pane and area changes invalidate pending reads/actions;
+refresh failure retains known rows without relabeling them as a new query.
 
 ## Wire contract
 

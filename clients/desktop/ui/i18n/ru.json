@@ -1,5 +1,11 @@
 {
   "identifier.label": "Идентификатор",
+  "views.title": "Просматривали вас",
+  "views.loading": "Читаем полученные просмотры профиля…",
+  "views.hint": "Последний полученный день просмотра (UTC). Чтение этого списка не отправляет просмотры.",
+  "views.empty": "Полученных просмотров профиля пока нет.",
+  "views.date": "Просмотр: {date} (UTC)",
+  "views.open": "Открыть профиль",
   "settings.collection.search": "Поиск в списке",
   "settings.collection.previous": "Предыдущая страница",
   "settings.collection.next": "Следующая страница",

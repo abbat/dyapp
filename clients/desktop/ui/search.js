@@ -211,16 +211,11 @@ const showLikes = (likes) => {
   domById('view-unpass', HTMLButtonElement).hidden = !likes.passed;
 };
 /** @typedef {import('./ipc.js').FoundProfile & { place: string }} FoundWithPlace */
-/** @typedef {{ found: FoundWithPlace, card: HTMLElement, actionStarted: boolean, actionBusy?: boolean }} ProfileOpening */
+/** @typedef {{ found: FoundWithPlace, card: HTMLElement, actionStarted: boolean, actionBusy?: boolean,
+ * disclosure?: ReturnType<typeof profileViewOpening>, returnTo?: () => void }} ProfileOpening */
 /** @type {ProfileOpening | null} */
 let viewed = null;
-/** @type {ReturnType<typeof profileViewOpening> | null} */
-let viewDisclosure = null;
-const retireProfileView = () => {
-  const previous = viewDisclosure;
-  viewDisclosure = null;
-  return previous?.retire() ?? Promise.resolve();
-};
+const retireProfileView = () => viewed?.disclosure?.retire() ?? Promise.resolve();
 let safetyScanToken = 0;
 
 /** @type {number | null} */
@@ -294,7 +289,7 @@ const showFound = (found) => {
 /** @param {ProfileOpening} target @param {number} generation @param {import('./ipc.js').Invoke} call */
 const discloseProfileView = (target, generation, call) => {
   if (target.found.peerId === identityState.current?.peerId) return;
-  viewDisclosure = profileViewOpening(
+  target.disclosure = profileViewOpening(
     target.found.peerId,
     call,
     () =>
@@ -304,16 +299,17 @@ const discloseProfileView = (target, generation, call) => {
       !domById('search-area', HTMLElement).hidden &&
       !document.hidden,
   );
-  controller.profileViewDone = viewDisclosure.done;
+  controller.profileViewDone = target.disclosure.done;
 };
 // A card from Chats opens the profile in Search too; Back returns to the card's area.
-/** @param {FoundWithPlace} found @param {HTMLElement} card */
-const openFound = (found, card, call = invoke) => {
+/** @param {FoundWithPlace} found @param {HTMLElement} card @param {import('./ipc.js').Invoke} [call]
+ * @param {() => void} [returnTo] */
+const openFound = (found, card, call = invoke, returnTo) => {
   void retireProfileView();
   const generation = identityState.generation;
   stopSafetyCamera();
   /** @type {ProfileOpening} */
-  const target = { found, card, actionStarted: false };
+  const target = { found, card, actionStarted: false, returnTo };
   viewed = target;
   for (const id of ['view-like', 'view-unlike', 'view-pass', 'view-unpass'])
     domById(id, HTMLButtonElement).disabled = false;
@@ -367,9 +363,10 @@ const closeFound = () => {
 };
 domById('view-back', HTMLButtonElement).addEventListener('click', () => {
   if (!viewed) return;
-  const { card } = viewed;
+  const { card, returnTo } = viewed;
   const area = card.closest('section')?.id;
   closeFound();
+  if (returnTo) return returnTo();
   if (area === 'search-area') {
     savedProfilesController.refreshSaved();
     return;

@@ -11,6 +11,7 @@ const parent = {
   devices: 'account',
   blocked: 'privacy',
   passed: 'privacy',
+  views: 'privacy',
 };
 /** @type {string | null} */
 let selected = null;

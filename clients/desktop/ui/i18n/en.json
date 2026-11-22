@@ -1,5 +1,11 @@
 {
   "identifier.label": "Identifier",
+  "views.title": "Viewed you",
+  "views.loading": "Reading received profile views…",
+  "views.hint": "Latest received viewing day (UTC). This local list does not send views.",
+  "views.empty": "No received profile views yet.",
+  "views.date": "Viewed on {date} (UTC)",
+  "views.open": "Open profile",
   "settings.collection.search": "Search this list",
   "settings.collection.previous": "Previous page",
   "settings.collection.next": "Next page",
