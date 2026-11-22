@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import com.dyapp.ui.theme.DYAppTheme
 import kotlinx.coroutines.Dispatchers
@@ -31,7 +32,7 @@ internal const val APP_READY_TAG = "app-ready"
  */
 class MainActivity : ComponentActivity() {
     // Fail closed until asynchronous startup reads the saved lock choice.
-    private val appLock = AppLockLifecycle(true, SystemClock::elapsedRealtime)
+    private var appLock = AppLockLifecycle(true, SystemClock::elapsedRealtime)
     private var lockReady = false
     private val networkAccess = LocalNetworkAccess(this)
     private val content = PrivateContent()
@@ -61,10 +62,12 @@ class MainActivity : ComponentActivity() {
             refreshLock()
         }
     }
-    private val skipLock = {
-        // A failed write only means the choice is offered again next launch.
-        runCatching { store.skip() }
-        lock = StoredLock.OFF
+    private val skipLock: suspend () -> Boolean = {
+        val mode = withContext(Dispatchers.IO) {
+            runCatching { store.skip() }.getOrElse { runCatching { store.mode() }.getOrDefault(StoredLock.PIN) }
+        }
+        content.skipped(mode)
+        mode == StoredLock.OFF
     }
     private val leaveSettings = {
         settings = false
@@ -98,6 +101,17 @@ class MainActivity : ComponentActivity() {
     }
 
     private inner class PrivateContent {
+        fun skipped(mode: StoredLock) {
+            if (mode == StoredLock.PIN || mode == StoredLock.BIOMETRIC) {
+                appLock.close()
+                appLock = AppLockLifecycle(true, SystemClock::elapsedRealtime)
+                if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                    appLock.onBackground()
+                }
+            }
+            initializeLock(mode)
+        }
+
         fun initializeLock(mode: StoredLock) {
             lock = mode
             if (mode == StoredLock.NEW || mode == StoredLock.OFF) appLock.onPinCleared()

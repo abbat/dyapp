@@ -91,6 +91,19 @@ class NativeAppLockStoreTests {
     }
 
     @Test
+    fun skipReturnsTheExistingProtectedModeWithoutChangingItsPinRecord() {
+        assertEquals(StoredLock.OFF, store().skip())
+        legacy(0)
+        val before = File(root, "app-lock").readBytes()
+        assertEquals(StoredLock.PIN, store().skip())
+        assertTrue(File(root, "app-lock").readBytes().contentEquals(before))
+        assertEquals(StoredLock.PIN, store().mode())
+        store().useBiometric()
+        assertEquals(StoredLock.BIOMETRIC, store().skip())
+        assertEquals(StoredLock.BIOMETRIC, store().mode())
+    }
+
+    @Test
     fun malformedWrappedRecordNeverBecomesFreshEnrollment() {
         File(root, "app-lock").writeBytes(keys.wrap(byteArrayOf(1, 2, 3)))
         assertThrows(CoreException::class.java) { store().mode() }

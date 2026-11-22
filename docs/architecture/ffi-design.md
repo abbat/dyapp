@@ -1493,6 +1493,8 @@ from foreign code. Rust turns it, and anything else the app throws, into
   No async exports exist. Android reads the saved app-lock mode through an owned IO read before
   composing setup, unlock or private screens. Pending storage keeps a protected loading surface;
   failure selects the protected mode, and a retired Activity cannot publish its late result.
+  Android Skip also runs on IO and reads back the core mode: the separate Skip marker never
+  authorizes the UI to ignore an existing PIN or biometric choice.
 
 ## Security boundary
 

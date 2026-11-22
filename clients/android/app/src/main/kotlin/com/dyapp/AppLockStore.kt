@@ -48,8 +48,11 @@ class AppLockStore(root: File, keys: KeyStore) {
     /** Choose biometric mode on first setup, while off, or after fresh OS authentication. */
     fun useBiometric() = withCore { it.useBiometric() }
 
-    /** Store Skip without disabling an existing lock. */
-    fun skip() = withCore { it.skip() }
+    /** Store Skip and return the actual core mode without disabling an existing lock. */
+    fun skip(): StoredLock = withCore {
+        it.skip()
+        it.mode().local()
+    }
 
     /** Enroll only without an existing PIN; authenticated replacement uses recovery instead. */
     fun enroll(pinValue: String) = withCore { it.enroll(pinValue) }

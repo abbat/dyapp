@@ -2,6 +2,8 @@
 
 Startup waits for the saved app-lock choice behind a protected loading screen. An unreadable
 choice keeps the app locked; profile setup and private content are not shown while it is pending.
+Skip waits for the saved choice. A failed save does not grant access, and a PIN or biometric lock
+configured while setup was open remains active.
 
 On first run, **Receive my existing profile** explicitly creates this phone’s initial identity,
 then opens network setup. Check and activate the same network as the other device; this step cannot
