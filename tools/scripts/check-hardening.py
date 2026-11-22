@@ -10,7 +10,9 @@ least one fortified __*_chk libc call. Rust code gets the first four from its
 toolchain; the canary and fortify imports show that the bundled C code
 (AWS-LC, SQLite) was built with Debian's dpkg-buildflags, as Debian 12's gcc
 does not add -fstack-protector-strong or -D_FORTIFY_SOURCE=2 by default.
-The fortify import check applies to ELF/glibc/bionic; PE and Mach-O retain
+The fortify import check applies to ELF/glibc/bionic; Android marks it
+inapplicable only when verified imports contain no Bionic-covered call.
+PE and Mach-O retain
 their platform-specific checks.
 
 A PE must be a 64-bit (PE32+) image that keeps its relocations and asks for
@@ -26,9 +28,9 @@ and the hardened runtime is a code-signing flag the unsigned ZIP cannot carry.
 
 The Android APK profile requires both core ABIs and checks every packaged JNI
 library as ET_DYN without an interpreter, NX stack, full RELRO, no RPATH or
-text relocations, canary and fortified libc imports, no writable executable
-load, and 16 KiB PT_LOAD alignment. APK ZIP alignment is checked separately
-with SDK zipalign.
+text relocations, canary and applicable fortified libc imports, no writable
+executable load, and 16 KiB PT_LOAD alignment. APK ZIP alignment is checked
+separately with SDK zipalign.
 """
 
 from collections.abc import Iterable
@@ -45,6 +47,31 @@ DT_BIND_NOW, DT_RUNPATH, DT_FLAGS = 24, 29, 30
 DT_FLAGS_1 = 0x6FFFFFFB
 DF_BIND_NOW, DF_1_NOW = 0x8, 0x1
 Segment = tuple[int, int, int, int, int]
+# Bionic 731631f300090436d7f5df80d50b6275c8c60a93:
+# bits/fortify headers and libc.map.txt.
+BIONIC_FORTIFY_CALLS = frozenset(
+    b"""
+    bcopy bzero fgets fread fwrite getcwd memchr memcpy memmove mempcpy memrchr
+    memset open open64 openat openat64 poll ppoll ppoll64 pread pread64 pwrite
+    pwrite64 read readlink readlinkat realpath recv recvfrom send sendto
+    snprintf
+    sprintf stpcpy stpncpy strcat strchr strcpy strlcat strlcpy strlen strncat
+    strncpy strrchr umask vsnprintf vsprintf write
+    """.split()
+)
+BIONIC_CHECKED_CALLS = frozenset(
+    b"__" + name + b"_chk"
+    for name in b"""
+    FD_CLR FD_ISSET FD_SET fgets fread fwrite getcwd memchr memcpy memmove
+    mempcpy
+    memrchr memset poll ppoll ppoll64 pread pread64 pwrite pwrite64 read
+    readlink
+    readlinkat recvfrom sendto snprintf sprintf stpcpy stpncpy strcat strcpy
+    strlcat strlcpy strlen strncat strncpy umask vsnprintf vsprintf write
+    """.split()
+) | frozenset(
+    (b"__open_2", b"__openat_2", b"__stpncpy_chk2", b"__strncpy_chk2")
+)
 
 
 def dynamic_tags(data: bytes, segments: Iterable[Segment]) -> dict[int, int]:
@@ -182,7 +209,10 @@ def elf_dynamic_problems(
     data: bytes, segments: list[Segment], shared: bool
 ) -> list[str]:
     found = []
-    tags = dynamic_tags(data, segments)
+    try:
+        tags, names = elf_hardening_tables(data, segments, shared)
+    except ValueError as error:
+        return [f"unverifiable ELF imports: {error}"]
     if shared and (22 in tags or tags.get(DT_FLAGS, 0) & 4):
         found.append("text relocations")
     bind_now = DT_BIND_NOW in tags or tags.get(DT_FLAGS, 0) & DF_BIND_NOW
@@ -190,23 +220,55 @@ def elf_dynamic_problems(
         found.append("lazy binding, RELRO is partial")
     if DT_RPATH in tags or DT_RUNPATH in tags:
         found.append("RPATH or RUNPATH set")
-    try:
-        names = (
-            elf_import_names(data, segments, tags)
-            if shared
-            else elf_string_names(data, segments, tags)
-        )
-    except ValueError as error:
-        return found + [f"unverifiable ELF imports: {error}"]
     if b"__stack_chk_fail" not in names:
         found.append(
             "no stack protector in the C code (__stack_chk_fail not imported)"
         )
-    if not any(
-        name.startswith(b"__") and name.endswith(b"_chk") for name in names
-    ):
+    if not elf_fortified(names, shared):
         found.append("no fortified libc call (__*_chk not imported)")
     return found
+
+
+def elf_hardening_tables(
+    data: bytes, segments: list[Segment], shared: bool
+) -> tuple[dict[int, int], set[bytes]]:
+    if shared:
+        tags = elf_validated_tags(data, segments)
+        return tags, elf_import_names(data, segments, tags)
+    tags = dynamic_tags(data, segments)
+    return tags, elf_string_names(data, segments, tags)
+
+
+def elf_validated_tags(data: bytes, segments: list[Segment]) -> dict[int, int]:
+    tables = [segment for segment in segments if segment[0] == PT_DYNAMIC]
+    if len(tables) != 1:
+        raise ValueError("expected one dynamic loader table")
+    _, _, offset, address, size = tables[0]
+    if (
+        not size
+        or size % 16
+        or elf_loaded_offset(address, size, segments) != offset
+    ):
+        raise ValueError("invalid dynamic loader table")
+    tags: dict[int, int] = {}
+    for at in range(offset, offset + size, 16):
+        tag, value = struct.unpack_from("<qQ", data, at)
+        if tag == 0:
+            return tags
+        if tag != 1 and tag in tags and tags[tag] != value:
+            raise ValueError("conflicting singleton dynamic loader tags")
+        tags[tag] = value
+    raise ValueError("unterminated dynamic loader table")
+
+
+def elf_fortified(names: set[bytes], shared: bool) -> bool:
+    if shared:
+        return bool(names & BIONIC_CHECKED_CALLS) or not (
+            names & BIONIC_FORTIFY_CALLS
+        )
+    return any(
+        name.startswith(b"__") and name.endswith(b"_chk") for name in names
+    )
 
 
 def elf_string_names(
@@ -453,7 +515,7 @@ def main(raw: bool = False) -> None:
     if android_apk:
         profile = (
             "Android shared ELF, NX, full RELRO, no RPATH/textrel, "
-            "canary, fortify, 16 KiB"
+            "canary, fortify where applicable, 16 KiB"
         )
     elif magic[:2] == b"MZ":
         profile = "PE32+, ASLR, high-entropy ASLR, DEP, relocations kept"

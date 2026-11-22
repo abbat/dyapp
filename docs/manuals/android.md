@@ -150,8 +150,13 @@ After signing, the release job runs
 Both `arm64-v8a` and `x86_64` must contain the core. Every packaged JNI library,
 including dependencies, must be a 64-bit shared ELF of the matching architecture,
 with a non-executable stack, full RELRO, no RPATH/RUNPATH or text relocations,
-a `__stack_chk_fail` canary import and at least one fortified `__*_chk` libc
-import from C code, and no writable executable load. The pinned JNA native rebuild uses
+a `__stack_chk_fail` canary import, no writable executable load, and evidence of a checked libc
+call whenever its verified imports include a Bionic FORTIFY-covered function. If no covered
+function is imported, the fortified-call requirement is inapplicable; this does not waive
+canaries or any other ELF check. Known checked entries include the `_chk2` and `__open*_2`
+variants. The inventory follows Bionic's [FORTIFY headers](https://github.com/aosp-mirror/platform_bionic/tree/731631f300090436d7f5df80d50b6275c8c60a93/libc/include/bits/fortify)
+and [export map](https://github.com/aosp-mirror/platform_bionic/blob/731631f300090436d7f5df80d50b6275c8c60a93/libc/libc.map.txt);
+update it when adopting new covered libc APIs. The pinned JNA native rebuild uses
 `-D_FORTIFY_SOURCE=2` with `-O2` and `-fstack-protector-strong`; its repackaging step applies
 this same ELF policy before an AAR can reach the application. Every load segment must have at least
 16 KiB alignment and matching file/virtual page offsets. These imports do not prove that every Rust

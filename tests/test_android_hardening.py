@@ -192,7 +192,10 @@ class AndroidHardening(unittest.TestCase):
                 {"names": [b"__stack_chk_fail_local", b"__memcpy_chk"]},
                 "protector",
             ),
-            "fortify": ({"names": [b"__stack_chk_fail"]}, "fortified libc"),
+            "fortify": (
+                {"names": [b"__stack_chk_fail", b"memcpy"]},
+                "fortified libc",
+            ),
         }
         for name, (change, message) in changes.items():
             with self.subTest(name=name):
@@ -226,7 +229,11 @@ class AndroidHardening(unittest.TestCase):
     def test_names_without_real_imports_cannot_prove_hardening(self) -> None:
         for symbol, message in ((1, "protector"), (2, "fortified libc")):
             with self.subTest(symbol=symbol):
-                body = bytearray(shared_elf())
+                body = bytearray(
+                    shared_elf(
+                        names=[b"__stack_chk_fail", b"__memcpy_chk", b"memcpy"]
+                    )
+                )
                 sections = struct.unpack_from("<Q", body, 40)[0]
                 symbols = struct.unpack_from("<Q", body, sections + 128 + 24)[
                     0
@@ -247,6 +254,105 @@ class AndroidHardening(unittest.TestCase):
         result = self.run_apk({"lib/x86_64/libdyapp_ffi.so": bytes(body)})
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("protector", result.stdout)
+
+    def test_no_bionic_covered_imports_do_not_require_a_dummy_call(
+        self,
+    ) -> None:
+        result = self.run_apk(
+            {
+                "lib/x86_64/libdyapp_ffi.so": shared_elf(
+                    names=[
+                        b"__stack_chk_fail",
+                        b"malloc",
+                        b"free",
+                        b"atoi",
+                        b"__system_property_get",
+                        b"__cxa_finalize",
+                    ]
+                )
+            }
+        )
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_unfortified_covered_imports_and_unknown_checked_names_fail(
+        self,
+    ) -> None:
+        for name in (
+            b"memcpy",
+            b"read",
+            b"open",
+            b"poll",
+            b"realpath",
+            b"bcopy",
+        ):
+            with self.subTest(name=name):
+                result = self.run_apk(
+                    {
+                        "lib/x86_64/libdyapp_ffi.so": shared_elf(
+                            names=[
+                                b"__stack_chk_fail",
+                                name,
+                                b"__invented_chk",
+                            ]
+                        )
+                    }
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("fortified libc", result.stdout)
+
+    def test_checked_secondary_names_are_actual_fortify_evidence(self) -> None:
+        for name in (
+            b"__open_2",
+            b"__openat_2",
+            b"__strncpy_chk2",
+            b"__stpncpy_chk2",
+        ):
+            with self.subTest(name=name):
+                result = self.run_apk(
+                    {
+                        "lib/x86_64/libdyapp_ffi.so": shared_elf(
+                            names=[
+                                b"__stack_chk_fail",
+                                b"open",
+                                name,
+                            ]
+                        )
+                    }
+                )
+                self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_inapplicability_cannot_bypass_unverifiable_loader_tags(
+        self,
+    ) -> None:
+        for case in ("conflict", "unterminated"):
+            with self.subTest(case=case):
+                body = bytearray(
+                    shared_elf(names=[b"__stack_chk_fail", b"free"])
+                )
+                phoff = struct.unpack_from("<Q", body, 32)[0]
+                stride, count = struct.unpack_from("<HH", body, 54)
+                dynamic = next(
+                    phoff + index * stride
+                    for index in range(count)
+                    if struct.unpack_from("<I", body, phoff + index * stride)[
+                        0
+                    ]
+                    == 2
+                )
+                start = struct.unpack_from("<Q", body, dynamic + 8)[0]
+                size = struct.unpack_from("<Q", body, dynamic + 32)[0]
+                if case == "conflict":
+                    struct.pack_into("<qQ", body, start + size - 16, 6, 1)
+                    struct.pack_into(
+                        "<QQ", body, dynamic + 32, size + 16, size + 16
+                    )
+                else:
+                    struct.pack_into("<qQ", body, start + size - 16, 21, 0)
+                result = self.run_apk(
+                    {"lib/x86_64/libdyapp_ffi.so": bytes(body)}
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("unverifiable ELF imports", result.stdout)
 
     def test_gnu_only_inventory_accepts_undefined_symbol_prefix(self) -> None:
         result = self.run_apk(
