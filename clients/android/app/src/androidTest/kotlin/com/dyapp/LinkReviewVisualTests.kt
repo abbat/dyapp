@@ -58,6 +58,7 @@ class LinkReviewVisualTests {
             try {
                 prepare(fixture, state, dark, font)
                 output.start(state, tags(state), font, dark)
+                output.capturePhotos(state)
                 val geometry = NativeVisualGeometry(compose, "settings-receive", output::capture)
                 geometry.first()
                 output.capture()

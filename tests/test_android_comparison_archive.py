@@ -56,6 +56,7 @@ class AndroidComparisonArchive(TestCase):
                     frames = []
                     for index in range(3):
                         file = f"{name}-{index}.png"
+                        side = sources[min(index, len(sources) - 1)]
                         frames.append(
                             {
                                 "file": file,
@@ -66,6 +67,12 @@ class AndroidComparisonArchive(TestCase):
                                 "viewport_width_dp": 360,
                                 "pixel_width": 1,
                                 "pixel_height": 1,
+                                "photo": f"link-review-photo-{side}-0"
+                                + (
+                                    "-retry"
+                                    if state == "photo_unavailable"
+                                    else ""
+                                ),
                             }
                         )
                         add(
@@ -117,7 +124,14 @@ class AndroidComparisonArchive(TestCase):
         source, manifests = self.matrix()
         output = self.root / "frames"
         ARCHIVE.unpack(source, output, 360)
-        for mutation in ("middle", "field", "scale", "source", "scene"):
+        for mutation in (
+            "middle",
+            "field",
+            "scale",
+            "source",
+            "scene",
+            "photo",
+        ):
             changed = deepcopy(manifests["en"])
             scene = changed["scenes"][0]
             if mutation == "middle":
@@ -126,6 +140,9 @@ class AndroidComparisonArchive(TestCase):
                 scene["required"].pop(next(iter(scene["required"])))
             elif mutation == "scale":
                 changed["scenes"][1]["frames"][0]["actual_font_scale"] = 1
+            elif mutation == "photo":
+                for entry in scene["frames"]:
+                    entry["photo"] = None
             elif mutation == "source":
                 changed["source_sha"] = "b" * 40
             else:

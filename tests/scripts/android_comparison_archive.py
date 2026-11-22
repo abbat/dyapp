@@ -164,7 +164,23 @@ def scene(
             covered[tag].update(actual)
     if covered != required:
         raise ValueError("Saved viewports miss required comparison lines")
+    photo_coverage(frames, name)
     return files
+
+
+def photo_coverage(frames: list[dict[str, Any]], name: str) -> None:
+    sources = (
+        ("REMOTE",) if name.startswith("preview-") else ("LOCAL", "REMOTE")
+    )
+    suffix = "-retry" if name.startswith("photo_unavailable-") else ""
+    expected = {f"link-review-photo-{side}-0{suffix}" for side in sources}
+    actual = {
+        entry["photo"] for entry in frames if entry.get("photo") is not None
+    }
+    if actual != expected:
+        raise ValueError(
+            "Missing comparison photo or unavailable-photo control"
+        )
 
 
 def validate(output: Path, width: int, source: str) -> int:

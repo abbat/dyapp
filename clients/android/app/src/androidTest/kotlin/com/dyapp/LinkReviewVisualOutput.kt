@@ -2,9 +2,12 @@ package com.dyapp
 
 import android.graphics.Bitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
 import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONArray
@@ -46,7 +49,23 @@ internal class LinkReviewVisualOutput(
         scenes.put(JSONObject().put("scene", name).put("required", JSONObject(required)).put("frames", frames))
     }
 
-    fun capture() {
+    fun capturePhotos(state: LinkReviewVisualState) {
+        val sources = if (state == LinkReviewVisualState.PREVIEW) listOf("REMOTE") else listOf("LOCAL", "REMOTE")
+        val suffix = if (state == LinkReviewVisualState.PHOTO_UNAVAILABLE) "-retry" else ""
+        for (source in sources) {
+            val tag = "link-review-photo-$source-0$suffix"
+            val node = compose.onNodeWithTag(tag).performScrollTo().assertIsDisplayed()
+            val bounds = node.getUnclippedBoundsInRoot()
+            val viewport = compose.onNodeWithTag("settings-receive").getUnclippedBoundsInRoot()
+            check(bounds.left >= viewport.left && bounds.right <= viewport.right)
+            check(bounds.top >= viewport.top && bounds.bottom <= viewport.bottom)
+            save(tag)
+        }
+    }
+
+    fun capture() = save(null)
+
+    private fun save(photo: String?) {
         val visible = coverage.visible().filterValues { it.isNotEmpty() }
         for ((tag, lines) in visible) covered.getOrPut(tag) { mutableSetOf() }.addAll(lines)
         val file = "$name-${frames.length()}.png"
@@ -56,7 +75,7 @@ internal class LinkReviewVisualOutput(
         try {
             target.outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
             frames.put(
-                JSONObject().put("file", file).put("visible", JSONObject(visible))
+                JSONObject().put("file", file).put("visible", JSONObject(visible)).put("photo", photo)
                     .put("font_percent", (density.fontScale * 100).toInt())
                     .put("actual_font_scale", density.fontScale)
                     .put("actual_density", density.density)

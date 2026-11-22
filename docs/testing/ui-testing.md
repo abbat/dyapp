@@ -47,7 +47,10 @@ Each actual scroll acknowledgement saves a viewport; the scene can complete only
 frames cover every laid-out line of every offered value. It is excluded from ordinary runtime.
 External validation uses `tests/scripts/android_comparison_archive.py`: exact source, full matrix,
 bounded archive paths, actual font density and union coverage of every required line must agree.
-Negative controls retain both edge frames while omitting middle lines and require rejection.
+Photo frames separately expose each offered image or unavailable-photo retry control, with full
+current viewport bounds; the validator requires those witnesses as well as text-line coverage.
+Negative controls retain both edge frames while omitting middle lines or photo witnesses and
+require rejection.
 Use the manual workflow's `suite=comparison` to collect and validate this separate matrix.
 `LinkReviewSaveRefusalTests` publishes each typed
 native refusal before completing the admitted callback, retains all 31 choices, checks safe Back
