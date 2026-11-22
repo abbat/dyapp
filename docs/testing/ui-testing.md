@@ -156,8 +156,12 @@ Compose `SemanticsActions.OnClick` wrapper: modifier nodes may reuse that wrappe
 or require attachment before invoking it. Identity durability acknowledgement uses that same exact
 callback contract for replacement results and disposal. Profile sharing exposes the same application action used
 by each real control; cancellation, duplicate admission and retired completion assertions remain.
-The real foreground LAN-permission journey closes the IME with Espresso's acknowledged action after
-text replacement, then scrolls to the check button using current layout bounds before clicking.
+The real foreground LAN-permission journey hides the IME through its actual Activity window after
+text replacement. `ActivityImeTransition` listens for pre-draw/window-focus callbacks and completes
+only when current insets show no IME, the window has focus and layout is settled. Each invocation
+has its own failure deadline and removes listeners even on failure. The test then scrolls to the
+check button using current layout bounds before clicking. Espresso root selection is not the
+readiness signal: on modern Android its focus prerequisite can block the IME action itself.
 
 Received-message prototype actions use the existing spacing token separately from compact message
 metadata. Empty received-menu holders are hidden; the normal/enlarged layout validator checks the
