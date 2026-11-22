@@ -20,7 +20,12 @@ A save also compares persisted high-water marks inside the transaction, refusing
 Initialization obtains one local jitter seed from OS randomness inside the first transaction;
 reopening never regenerates it and saves cannot replace it. Randomness failure leaves no partial state.
 This seed enters only cadence calculation, never the HTTP request or identity storage.
-Shared checker orchestration, native APIs and lifecycle/timer hooks remain planned.
+`updates::checker` connects these components on an IO worker: admission is committed before
+fetch, and validated completion is committed before returning a new trusted snapshot. Failed
+transport/rollback/clock results retain the prior cache and persist failure backoff; interrupted
+requests are counted once on restore. Busy callers do not start another request. Interval changes
+also use the update lease and report busy during a request, without canceling it.
+Native APIs, lifecycle/timer hooks and notice presentation remain planned.
 Clients stay disabled until live-feed verification and those integrations pass.
 
 The pure `updates::coordinator::Coordinator` now owns simultaneous-trigger admission and attempt
