@@ -1580,6 +1580,10 @@ separate home is needed because GNOME Keyring persists the first binary's
 `primary` identity across D-Bus sessions. Without a running Secret Service the
 application correctly disables that choice, making the system-mode smoke fail
 rather than silently falling back to file storage.
+Before each ordinary Linux case, the CI-owned provider (`DYAPP_TEST_SECRET_SERVICE=1`) must report
+an explicit unlocked collection. Failed or malformed probes stop the case; only a known locked
+provider is replaced, and replacement must succeed and return an unlocked readback. No sleeps or
+UI recovery bypasses establish readiness, and an unowned provider is never probed or replaced.
 
 On Linux, `linux-test.sh` keeps Xvfb server stderr in the shared check log instead of
 letting `xvfb-run` discard it. When the desktop smoke fails or times out, it adds up to

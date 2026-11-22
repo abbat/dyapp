@@ -95,12 +95,8 @@ def display_diagnostics() -> "str":
     return "\n".join(lines)[:4096]
 
 
-def unlock_keyring() -> None:
-    """A gnome-keyring that dies mid-suite comes back locked through D-Bus
-    activation, and --unlock cannot unlock a running daemon: replace it with
-    an unlocked one. Only a locked one: a concurrent case may be using it."""
-    if os.environ.get("DYAPP_TEST_SECRET_SERVICE") != "1":
-        return
+def _keyring_locked() -> bool:
+    """Read CI provider state; a failed probe is not readiness."""
     locked = subprocess.run(
         [
             "busctl",
@@ -116,7 +112,20 @@ def unlock_keyring() -> None:
         timeout=30,
         check=False,
     )
-    if locked.stdout.strip() != "b true":
+    state = locked.stdout.strip()
+    if locked.returncode != 0 or state not in ("b true", "b false"):
+        detail = locked.stderr.strip()[-2048:]
+        raise RuntimeError(
+            f"Secret Service readiness probe failed: {detail or state}"
+        )
+    return state == "b true"
+
+
+def unlock_keyring() -> None:
+    """Replace a locked CI provider and require an unlocked readback."""
+    if os.environ.get("DYAPP_TEST_SECRET_SERVICE") != "1":
+        return
+    if not _keyring_locked():
         return
     print(
         "Secret Service collection locked; replacing gnome-keyring",
@@ -134,8 +143,12 @@ def unlock_keyring() -> None:
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         timeout=30,
-        check=False,
+        check=True,
     )
+    if _keyring_locked():
+        raise RuntimeError(
+            "Secret Service remains locked after provider replacement"
+        )
 
 
 def run(
