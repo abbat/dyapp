@@ -33,6 +33,12 @@ laid-out text line through current scroll geometry. Top/bottom PNG frames retain
 SHA, actual native density and viewport dimensions; these controlled samples prove rendering only.
 `NativeScreenVisualOutput` writes this metadata and the existing receiving matrix's unchanged format,
 rejecting reused directories, duplicate frames and incomplete frame counts.
+Use the manual `android-visual` workflow's `suite=views` with an exact successful main APK producer.
+Each 360/412dp job runs this phase alone; existing `standard` and `comparison` captures remain
+separate. The bounded `android_visual_archive.py --kind views` validator requires all eighty
+frames, exact producer SHA, locale/theme/font/outcome matrix, actual text-scale witnesses, matching
+PNG dimensions and the dedicated archive namespace. A matrix proves captured controlled rendering,
+not live private delivery, and still requires review of the frames.
 
 Native receiving completion checks retain a recovery review prepared before setup finishes:
 preparing another review after the pending link has been cleared is correctly refused. Publication

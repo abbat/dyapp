@@ -50,6 +50,13 @@ RECEIVE_SCREENS = (
     "link-receive-start-error",
     "link-receive-poll-error",
 )
+VIEW_SCREENS = (
+    "settings-views",
+    "settings-views-loading",
+    "settings-views-empty",
+    "settings-views-error",
+    "settings-views-stale",
+)
 MAX_BYTES = 512 * 1024 * 1024
 
 
@@ -72,14 +79,20 @@ def unpack(
 ) -> None:
     if archive.stat().st_size > MAX_BYTES:
         raise ValueError("Native visual archive exceeds its limit")
-    if kind not in ("visual", "ime", "receive"):
+    if kind not in ("visual", "ime", "receive", "views"):
         raise ValueError("Unknown native evidence kind")
-    folder = (
-        "receive-visual" if kind == "receive" else f"owner-approval-{kind}"
-    )
+    folder = {
+        "visual": "owner-approval-visual",
+        "ime": "owner-approval-ime",
+        "receive": "receive-visual",
+        "views": "received-views-visual",
+    }[kind]
     prefix = f"files/{folder}/{width}"
     folders = {"files", f"files/{folder}", prefix}
-    screen = r"link-[a-z-]+" if kind == "receive" else r"owner-[a-z-]+"
+    screen = {
+        "receive": r"link-[a-z-]+",
+        "views": r"settings-views(?:-[a-z]+)?",
+    }.get(kind, r"owner-[a-z-]+")
     suffix = r"[0-9]{1,4}" if kind == "ime" else r"(top|bottom)"
     pattern = re.compile(
         re.escape(prefix)
@@ -265,7 +278,9 @@ def main() -> None:
     parser.add_argument("--width", type=int, choices=(360, 412), required=True)
     parser.add_argument("--source", required=True)
     parser.add_argument(
-        "--kind", choices=("visual", "ime", "receive"), default="visual"
+        "--kind",
+        choices=("visual", "ime", "receive", "views"),
+        default="visual",
     )
     args = parser.parse_args()
     if re.fullmatch(r"[0-9a-f]{40}", args.source) is None:
@@ -274,7 +289,9 @@ def main() -> None:
     if args.kind == "ime":
         count = validate_ime(args.output, args.width, args.source)
     else:
-        screens = RECEIVE_SCREENS if args.kind == "receive" else SCREENS
+        screens = {"receive": RECEIVE_SCREENS, "views": VIEW_SCREENS}.get(
+            args.kind, SCREENS
+        )
         count = validate(args.output, args.width, args.source, screens)
     print(f"OK native visual matrix: {count} frames")
 
