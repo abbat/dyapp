@@ -31,7 +31,7 @@ fn retirement_and_duplicate_callbacks_cannot_admit_another_disclosure() {
     assert!(!admitted.admit_at(&context, &store, NOW).unwrap());
     assert_eq!(admitted.peer(), peer);
     assert!(!store.viewed_on(store.owner_peer_id(), &peer, NOW).unwrap());
-    assert!(store.known_groups().unwrap().is_empty());
+    assert_eq!(store.known_groups().unwrap().len(), 0);
 }
 
 #[test]

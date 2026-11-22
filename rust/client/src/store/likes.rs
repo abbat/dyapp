@@ -867,6 +867,37 @@ mod tests {
         assert!(store.receive_interaction(&b, b"b1", like, 5_000).unwrap());
     }
 
+    fn assert_readonly_view_clock(store: &Store, a: &str, b: &str, day: u64) {
+        let before = load_hlc(&store.db).unwrap();
+        for _ in 0..3 {
+            assert!(store.profile_view_due_at(b, day).unwrap());
+        }
+        assert_eq!(load_hlc(&store.db).unwrap(), before);
+        assert!(!store.viewed_on(a, b, day).unwrap());
+    }
+
+    fn assert_view_day_boundaries(store: &mut Store, b: &str, c: &str, day: u64) {
+        assert!(own(store, b, Kind::View, day).is_some());
+        assert!(!store.profile_view_due_at(b, 2 * day - 1).unwrap());
+        assert!(store.profile_view_due_at(b, 2 * day).unwrap());
+        assert!(store.profile_view_due_at(c, 2 * day - 1).unwrap());
+        assert_eq!(own(store, b, Kind::View, 2 * day - 1), None);
+        assert!(own(store, c, Kind::View, 2 * day - 1).is_some());
+        assert!(own(store, b, Kind::View, 2 * day).is_some());
+    }
+
+    fn assert_view_clock_rollback(store: &mut Store, a: &str, b: &str, c: &str, day: u64) {
+        // A backwards wall clock must use the persisted HLC, just like actual drafting.
+        assert!(!store.profile_view_due_at(b, day).unwrap());
+        assert!(store.profile_view_due_at(c, day).unwrap());
+        assert!(store.profile_view_due_at(a, day).is_err());
+        store.set_blocked(c, true).unwrap();
+        assert!(store.profile_view_due_at(c, day).is_err());
+        assert!(store.viewed_on(a, b, day).unwrap());
+        assert!(store.viewed_on(a, b, 2 * day).unwrap());
+        assert_eq!(store.likes(b).unwrap(), Likes::default());
+    }
+
     #[test]
     fn views_are_sent_once_per_peer_per_utc_day_and_always_received() {
         const DAY: u64 = 86_400_000;
@@ -883,28 +914,9 @@ mod tests {
         assert!(!store.viewed_on(&a, &b, DAY).unwrap());
 
         store.set_send_profile_views(true).unwrap();
-        let before = load_hlc(&store.db).unwrap();
-        for _ in 0..3 {
-            assert!(store.profile_view_due_at(&b, DAY).unwrap());
-        }
-        assert_eq!(load_hlc(&store.db).unwrap(), before);
-        assert!(!store.viewed_on(&a, &b, DAY).unwrap());
-        assert!(own(&mut store, &b, Kind::View, DAY).is_some());
-        assert!(!store.profile_view_due_at(&b, 2 * DAY - 1).unwrap());
-        assert!(store.profile_view_due_at(&b, 2 * DAY).unwrap());
-        assert!(store.profile_view_due_at(&c, 2 * DAY - 1).unwrap());
-        assert_eq!(own(&mut store, &b, Kind::View, 2 * DAY - 1), None);
-        assert!(own(&mut store, &c, Kind::View, 2 * DAY - 1).is_some());
-        assert!(own(&mut store, &b, Kind::View, 2 * DAY).is_some());
-        // A backwards wall clock must use the persisted HLC, just like actual drafting.
-        assert!(!store.profile_view_due_at(&b, DAY).unwrap());
-        assert!(store.profile_view_due_at(&c, DAY).unwrap());
-        assert!(store.profile_view_due_at(&a, DAY).is_err());
-        store.set_blocked(&c, true).unwrap();
-        assert!(store.profile_view_due_at(&c, DAY).is_err());
-        assert!(store.viewed_on(&a, &b, DAY).unwrap());
-        assert!(store.viewed_on(&a, &b, 2 * DAY).unwrap());
-        assert_eq!(store.likes(&b).unwrap(), Likes::default());
+        assert_readonly_view_clock(&store, &a, &b, DAY);
+        assert_view_day_boundaries(&mut store, &b, &c, DAY);
+        assert_view_clock_rollback(&mut store, &a, &b, &c, DAY);
 
         store.set_send_profile_views(false).unwrap();
         assert!(!store.profile_view_due_at(&b, 3 * DAY).unwrap());

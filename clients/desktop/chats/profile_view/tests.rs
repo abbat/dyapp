@@ -51,23 +51,32 @@ async fn disabled_and_retired_views_stop_before_network_or_device_creation() {
         .prepare(Arc::clone(&context), &owner, &dir, peer.clone())
         .unwrap();
     let capture = state.capture(&token, &dir).unwrap();
-    assert!(send(&dir, &dir, &owner, &capture).await.unwrap().is_none());
+    assert!(Box::pin(send(&dir, &dir, &owner, &capture))
+        .await
+        .unwrap()
+        .is_none());
     let store = super::super::open(&dir, &owner).unwrap();
     store.set_send_profile_views(true).unwrap();
-    assert!(send(&dir, &dir, &owner, &capture).await.unwrap().is_none());
+    assert!(Box::pin(send(&dir, &dir, &owner, &capture))
+        .await
+        .unwrap()
+        .is_none());
     let token = state
         .prepare(Arc::clone(&context), &owner, &dir, peer.clone())
         .unwrap();
     let capture = state.capture(&token, &dir).unwrap();
     capture.opening.retire();
-    assert!(send(&dir, &dir, &owner, &capture).await.unwrap().is_none());
+    assert!(Box::pin(send(&dir, &dir, &owner, &capture))
+        .await
+        .unwrap()
+        .is_none());
     let token = state.prepare(context, &owner, &dir, peer).unwrap();
     let capture = state.capture(&token, &dir).unwrap();
     assert_eq!(
-        send(&dir, &dir, &owner, &capture).await.err(),
+        Box::pin(send(&dir, &dir, &owner, &capture)).await.err(),
         Some("notConnected".into())
     );
     assert!(store.sealed_device().unwrap().is_none());
-    assert!(store.known_groups().unwrap().is_empty());
+    assert_eq!(store.known_groups().unwrap().len(), 0);
     assert!(store.due_outbound(i64::MAX).unwrap().is_empty());
 }

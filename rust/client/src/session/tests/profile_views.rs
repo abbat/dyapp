@@ -12,9 +12,9 @@ fn packages(invite: &Invite) -> Vec<(Vec<u8>, Vec<u8>)> {
     )]
 }
 
-fn unchanged(session: &Session, sealed: &Option<Vec<u8>>) {
-    assert_eq!(&session.store.sealed_device().unwrap(), sealed);
-    assert!(session.store.known_groups().unwrap().is_empty());
+fn unchanged(session: &Session, sealed: Option<&[u8]>) {
+    assert_eq!(session.store.sealed_device().unwrap().as_deref(), sealed);
+    assert_eq!(session.store.known_groups().unwrap().len(), 0);
     assert!(session.due_outbound(i64::MAX).unwrap().is_empty());
 }
 
@@ -30,7 +30,7 @@ async fn a_disabled_first_view_does_not_fetch_keys_or_change_mls() {
         .await
         .unwrap()
         .is_none());
-    unchanged(&invite.session, &before);
+    unchanged(&invite.session, before.as_deref());
 }
 
 #[test]
@@ -65,32 +65,50 @@ fn a_first_view_commits_welcome_and_signal_without_a_like_or_chat_request() {
     );
     assert!(invite.session.store.chat_rows().unwrap().is_empty());
 
-    let mut receiver_store =
-        Store::open(&dir.path().join("receiver.db"), &invite.alice_id).unwrap();
+    assert_first_view_delivery(&invite, &dir.path().join("receiver.db"), &seal, &writes);
+
+    assert_reopened_outbox(invite, &path, &seal, &writes);
+}
+
+fn assert_first_view_delivery(
+    invite: &Invite,
+    path: &std::path::Path,
+    seal: &[u8; 32],
+    writes: &[crate::PreparedEnvelope],
+) {
+    let mut receiver_store = Store::open(path, &invite.alice_id).unwrap();
     receiver_store
-        .stage_outbound(&invite.alice.seal(&seal).unwrap(), &[])
+        .stage_outbound(&invite.alice.seal(seal).unwrap(), &[])
         .unwrap();
-    let mut receiver = Session::open(receiver_store, &seal).unwrap();
+    let mut receiver = Session::open(receiver_store, seal).unwrap();
     let waiting = crate::mail_notices::capture(receiver.store()).unwrap();
-    for write in &writes {
+    for write in writes {
         let key = InboxKey {
             mailbox: *write.mailbox(),
             id: *write.id(),
         };
         receiver
-            .stage_envelope(&key, &write.envelope().ciphertext, &invite.profiles, &seal)
+            .stage_envelope(&key, &write.envelope().ciphertext, &invite.profiles, seal)
             .unwrap();
     }
     let sender = invite.bob_id.peer_id();
-    assert_received_view(&receiver, &sender, &peer, &waiting);
+    assert_received_view(&receiver, &sender, &invite.alice_id.peer_id(), &waiting);
+}
 
+fn assert_reopened_outbox(
+    invite: Invite,
+    path: &std::path::Path,
+    seal: &[u8; 32],
+    writes: &[crate::PreparedEnvelope],
+) {
+    let peer = invite.alice_id.peer_id();
     let before: Vec<_> = writes
         .iter()
         .map(|write| write.as_bytes().to_vec())
         .collect();
     let group = invite.session.pair_group(&peer).unwrap();
     drop(invite.session);
-    let mut reopened = Session::open(Store::open(&path, &invite.bob_id).unwrap(), &seal).unwrap();
+    let mut reopened = Session::open(Store::open(path, &invite.bob_id).unwrap(), seal).unwrap();
     assert_eq!(reopened.pair_group(&peer), Some(group));
     let mut saved: Vec<_> = reopened
         .due_outbound(i64::MAX)
@@ -104,7 +122,7 @@ fn a_first_view_commits_welcome_and_signal_without_a_like_or_chat_request() {
     assert_eq!(saved, expected);
     let sealed = reopened.store.sealed_device().unwrap();
     assert!(reopened
-        .stage_first_view(&invite.profiles, &[], VIEW_TIME, &seal)
+        .stage_first_view(&invite.profiles, &[], VIEW_TIME, seal)
         .unwrap()
         .is_none());
     assert_eq!(reopened.store.sealed_device().unwrap(), sealed);
@@ -167,7 +185,7 @@ async fn a_blocked_first_view_refuses_before_key_package_io() {
             .await,
         Err(Error::Store(crate::store::Error::BlockedPeer))
     ));
-    unchanged(&invite.session, &before);
+    unchanged(&invite.session, before.as_deref());
 }
 
 #[test]
@@ -201,7 +219,7 @@ fn first_view_failure_rolls_back_the_invitation_signal_event_and_day() {
                 .is_err(),
             "{table}"
         );
-        unchanged(&invite.session, &before);
+        unchanged(&invite.session, before.as_deref());
         assert!(invite.session.device.is_none());
         assert!(!invite
             .session
