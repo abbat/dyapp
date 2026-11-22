@@ -22,8 +22,11 @@ These controlled presentation checks do not renew authorization or prove native 
 It uses the production receiving content and Settings frame, with core-produced invitation QR and
 real isolated native keys; outcomes are controlled and no poll, network or enrollment is performed.
 The matrix covers EN/RU, light/dark and 100/200 percent fonts, checks current paragraph/scroll
-geometry and retains top/bottom PNG frames. It is excluded from ordinary instrumentation; automated
-collection and verified visual acceptance of this new phase remain planned until wired into CI.
+geometry and retains top/bottom PNG frames. It is excluded from ordinary instrumentation. The manual
+Android visual workflow runs it before the real-IME phase, with a deadline renewed only by completed
+cases. It retains partial receiving archives and requires exactly 400 source-bound frames per width;
+owner/IME namespaces, wrong widths, links and incomplete inventories are rejected. Successful
+collection does not replace inspection of the actual frames; native visual acceptance remains open.
 
 Comparison prototype captures also run `clients/android/prototype/review-fixture-tests.js`: all
 31 offered groups retain full source values; initial comparisons have no checked answers; photo

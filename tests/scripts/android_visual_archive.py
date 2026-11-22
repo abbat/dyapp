@@ -23,6 +23,33 @@ SCREENS = (
     "owner-send-check-error",
     "owner-sent",
 )
+RECEIVE_SCREENS = (
+    "link-receive-intro",
+    "link-receive-wizard-intro",
+    "link-receive-starting",
+    "link-receive-waiting",
+    "link-receive-receiving",
+    "link-receive-installing",
+    "link-receive-cancelled",
+    "link-receive-expired",
+    "link-receive-invalidated",
+    "link-receive-failed-admission",
+    "link-receive-failed-reservation",
+    "link-receive-failed-destination",
+    "link-receive-failed-unconfirmed",
+    "link-receive-received",
+    "link-receive-durability",
+    "link-setup-running",
+    "link-setup-complete",
+    "link-setup-review",
+    "link-setup-private-review",
+    "link-setup-authorization",
+    "link-setup-revoked",
+    "link-setup-unlisted",
+    "link-setup-error",
+    "link-receive-start-error",
+    "link-receive-poll-error",
+)
 MAX_BYTES = 512 * 1024 * 1024
 
 
@@ -45,14 +72,20 @@ def unpack(
 ) -> None:
     if archive.stat().st_size > MAX_BYTES:
         raise ValueError("Native visual archive exceeds its limit")
-    if kind not in ("visual", "ime"):
+    if kind not in ("visual", "ime", "receive"):
         raise ValueError("Unknown native evidence kind")
-    prefix = f"files/owner-approval-{kind}/{width}"
-    folders = {"files", f"files/owner-approval-{kind}", prefix}
+    folder = (
+        "receive-visual" if kind == "receive" else f"owner-approval-{kind}"
+    )
+    prefix = f"files/{folder}/{width}"
+    folders = {"files", f"files/{folder}", prefix}
+    screen = r"link-[a-z-]+" if kind == "receive" else r"owner-[a-z-]+"
     suffix = r"[0-9]{1,4}" if kind == "ime" else r"(top|bottom)"
     pattern = re.compile(
         re.escape(prefix)
-        + r"/(manifest\.json|owner-[a-z-]+-(en|ru)-"
+        + r"/(manifest\.json|"
+        + screen
+        + r"-(en|ru)-"
         + str(width)
         + r"-(light|dark)-(100|200)-"
         + suffix
@@ -61,7 +94,8 @@ def unpack(
     with tarfile.open(archive, "r:") as source:
         members = source.getmembers()
         names = [member.name.rstrip("/") for member in members]
-        if len(members) > 256 or len(names) != len(set(names)):
+        maximum = 512 if kind == "receive" else 256
+        if len(members) > maximum or len(names) != len(set(names)):
             raise ValueError("Duplicate or excessive archive members")
         total = sum(
             allowed_size(member, folders, pattern) for member in members
@@ -81,7 +115,9 @@ def unpack(
                     target.write(stream.read())
 
 
-def validate(output: Path, width: int, source: str) -> int:
+def validate(
+    output: Path, width: int, source: str, screens: tuple[str, ...] = SCREENS
+) -> int:
     manifest = json.loads((output / "manifest.json").read_text())
     if (
         manifest.get("source_sha") != source
@@ -92,7 +128,7 @@ def validate(output: Path, width: int, source: str) -> int:
     expected = {
         f"{screen}-{language}-{width}-{theme}-{font}-{edge}.png"
         for screen, language, theme, font, edge in product(
-            SCREENS,
+            screens,
             ("en", "ru"),
             ("light", "dark"),
             (100, 200),
@@ -207,13 +243,18 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--width", type=int, choices=(360, 412), required=True)
     parser.add_argument("--source", required=True)
-    parser.add_argument("--kind", choices=("visual", "ime"), default="visual")
+    parser.add_argument(
+        "--kind", choices=("visual", "ime", "receive"), default="visual"
+    )
     args = parser.parse_args()
     if re.fullmatch(r"[0-9a-f]{40}", args.source) is None:
         parser.error("Source must be an exact commit SHA")
     unpack(args.archive, args.output, args.width, args.kind)
-    check = validate_ime if args.kind == "ime" else validate
-    count = check(args.output, args.width, args.source)
+    if args.kind == "ime":
+        count = validate_ime(args.output, args.width, args.source)
+    else:
+        screens = RECEIVE_SCREENS if args.kind == "receive" else SCREENS
+        count = validate(args.output, args.width, args.source, screens)
     print(f"OK native visual matrix: {count} frames")
 
 
