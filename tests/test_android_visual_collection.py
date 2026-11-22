@@ -12,6 +12,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "tests/scripts/android-visual-collect.sh"
 ADB = """#!/usr/bin/env python3
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -20,7 +21,13 @@ args = sys.argv[1:]
 with open(os.environ["COMMAND_LOG"], "a") as log:
     log.write(json.dumps(args) + "\\n")
 mode = os.environ["EXPORT_MODE"]
-if args[2:5] == ["shell", "run-as", "com.dyapp"]:
+if args[2:6] == ["shell", "run-as", "com.dyapp", "sha256sum"]:
+    if mode == "invalid-digest":
+        print("not a checksum")
+    else:
+        digest = hashlib.sha256(Path(os.environ["PAYLOAD"]).read_bytes())
+        print(digest.hexdigest() + "  " + args[6])
+elif args[2:5] == ["shell", "run-as", "com.dyapp"]:
     assert args[5] == "tar" and args[6] == "-cf"
     if mode == "missing":
         print("capture directory is absent", file=sys.stderr)
@@ -37,6 +44,8 @@ elif args[2:5] == ["exec-out", "run-as", "com.dyapp"]:
         print("binary transfer failed", file=sys.stderr)
         sys.exit(17)
     sys.stdout.buffer.write(Path(os.environ["PAYLOAD"]).read_bytes())
+    if mode == "silent-corruption":
+        sys.stdout.buffer.write(b"remote cat diagnostic after complete tar")
 else:
     raise AssertionError(args)
 """
@@ -101,9 +110,10 @@ class AndroidVisualCollection(unittest.TestCase):
         self.assertIn("stdout diagnostic", diagnostics)
         self.assertIn("stderr diagnostic", diagnostics)
         self.assertEqual(
-            [call[2] for call in self.calls()], ["shell", "exec-out"]
+            [call[2] for call in self.calls()], ["shell", "shell", "exec-out"]
         )
         self.assertEqual(self.calls()[0][-2], self.calls()[1][-1])
+        self.assertEqual(self.calls()[0][-2], self.calls()[2][-1])
 
     def test_unentered_phase_has_diagnostics_instead_of_a_fake_archive(
         self,
@@ -136,6 +146,24 @@ class AndroidVisualCollection(unittest.TestCase):
         self.assertIn(
             "binary transfer failed",
             (self.report / "native-collection-error.txt").read_text(),
+        )
+
+    def test_successful_adb_status_cannot_accept_extra_transfer_bytes(
+        self,
+    ) -> None:
+        result = self.run_export("silent-corruption")
+        with tarfile.open(self.report / "native.tar") as archive:
+            self.assertEqual(len(archive.getnames()), 1)
+        self.assertNotEqual(result.returncode, 0)
+
+    def test_unverifiable_remote_digest_never_starts_binary_transfer(
+        self,
+    ) -> None:
+        result = self.run_export("invalid-digest")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((self.report / "native.tar").exists())
+        self.assertEqual(
+            [call[2] for call in self.calls()], ["shell", "shell"]
         )
 
     def test_invalid_paths_never_reach_adb(self) -> None:

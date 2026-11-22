@@ -1268,6 +1268,9 @@ artifact with its digest. Unrelated queued Apple jobs do not prevent this valida
 workflow need not have finished. Keep the API receipts beside `validated.json` for provenance.
 `android-visual-collect.sh` first completes `tar` through `adb shell` with its remote exit
 status, keeping shell diagnostics separate, then transfers the completed file through `exec-out cat`.
+A remote SHA-256 record must match the exact transferred bytes: `exec-out` itself does not carry the
+remote command's exit status, and a tar reader may ignore trailing diagnostics after a valid archive.
+A missing/malformed digest or mismatch fails collection while retaining the raw evidence.
 An unentered phase retains its collection diagnostic without publishing a fake archive. A real
 transfer failure keeps partial bytes and a nonzero status; collection failure also fails an otherwise
 successful capture, while an earlier instrumentation failure keeps its original status.
