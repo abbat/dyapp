@@ -42,7 +42,7 @@ internal fun LinkReceiveOutcome(snapshot: LinkReceiverSnapshot) {
             DeviceIdentifier(receipt.selection.key.peerId(), "link-receive-peer", R.string.link_receive_peer_label)
             if (!snapshot.enrollment.completed) Text(stringResource(R.string.link_receive_pending))
             Caption(stringResource(R.string.link_setup_no_publish))
-            LinkEnrollmentNotice(snapshot.enrollment)
+            if (!snapshot.enrollment.showsComparison) LinkEnrollmentNotice(snapshot.enrollment)
             if (receipt.selection.durabilityDetail != null) Text(stringResource(R.string.identity_persistence_notice))
         }
         is MobileLinkReceipt.Failed -> { LinkReceiveFailure(receipt.failure) }

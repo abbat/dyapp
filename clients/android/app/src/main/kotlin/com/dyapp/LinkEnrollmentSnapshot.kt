@@ -12,6 +12,7 @@ internal data class LinkEnrollmentSnapshot(
     val saved: LinkReviewSaved? = null,
     val operation: LinkEnrollmentOperation? = null
 ) {
+    val showsComparison get() = comparison != null && offered && !completed
     val canFinish get() = !completed && (!offered || saved != null) &&
         (failure == null || failure is LinkReviewException.Failed)
     val canPrepare get() = !completed && (

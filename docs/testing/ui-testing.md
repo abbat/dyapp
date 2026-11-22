@@ -36,7 +36,11 @@ copy tag stays stable while all identifiers reuse the shared display component.
 `LinkReviewFailureTests` rejects a preview after all 31 explicit choices inside the actual receiving
 Settings frame, acknowledges safe Back focus, and checks the error and all recovery controls against
 the current viewport in EN/RU at both text scales. This covers preview refusal only; authoritative
-confirmation refusal belongs to the separately retained enrollment state.
+confirmation refusal belongs to the separately retained enrollment state. Its typed notice and
+existing recovery actions render beside the active form footer, or beside the reopen/saved state;
+receipt-only outcomes keep their original notice. `LinkReviewSaveRefusalTests` publishes each typed
+native refusal before completing the admitted callback, retains all 31 choices, checks safe Back
+focus and verifies that uncertain/unauthorized outcomes gain no ordinary confirmation or finish.
 These checks establish presentation ownership; actual owner approval, enrollment, QR and runtime
 acceptance require the separate real JNI journey and screen review. The receiving JNI journey also
 remounts the production screen after installation: retired finish/open callbacks cannot act, the

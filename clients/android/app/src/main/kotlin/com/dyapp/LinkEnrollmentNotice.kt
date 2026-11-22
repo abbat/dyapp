@@ -39,15 +39,15 @@ internal fun LinkEnrollmentNotice(state: LinkEnrollmentSnapshot) {
 }
 
 @Composable
-internal fun LinkEnrollmentAction(snapshot: LinkReceiverSnapshot, actions: LinkReceiveActions) {
+internal fun LinkEnrollmentAction(snapshot: LinkReceiverSnapshot, actions: LinkEnrollmentActions) {
     if (snapshot.enrollment.canFinish) {
-        val finish = actions.enrollment.finish
+        val finish = actions.finish
         Button(finish, Modifier.testTag("link-setup-finish").applicationClick(finish), !snapshot.busy) {
             Text(stringResource(R.string.link_setup_finish))
         }
     }
     if (snapshot.enrollment.canPrepare) {
-        val prepare = actions.enrollment.prepare
+        val prepare = actions.prepare
         Button(prepare, Modifier.testTag("link-setup-prepare").applicationClick(prepare), !snapshot.busy) {
             Text(stringResource(R.string.link_review_refresh))
         }

@@ -21,7 +21,8 @@ internal class LinkReviewFocus {
 internal fun rememberLinkReviewFocus(
     previewing: Boolean,
     enabled: Boolean,
-    failure: Throwable? = null
+    failure: Throwable? = null,
+    canLeave: Boolean = enabled
 ): LinkReviewFocus {
     val focus = remember { LinkReviewFocus() }
     var viewed by remember { mutableStateOf(false) }
@@ -40,7 +41,7 @@ internal fun rememberLinkReviewFocus(
         if (target == null || target != previewing || !ready) return@LaunchedEffect
         if (focus.request(target)) pending = null
     }
-    LinkReviewFailureFocus(focus.back, failure, ready)
+    LinkReviewFailureFocus(focus.back, failure, canLeave && LocalWindowInfo.current.isWindowFocused)
     return focus
 }
 

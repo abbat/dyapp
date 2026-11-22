@@ -22,20 +22,28 @@ import kotlinx.coroutines.launch
 import uniffi.dyapp.LinkReviewField
 import uniffi.dyapp.profileScales
 
-private class LinkReviewControls(val canLeave: Boolean, val back: () -> Unit, val save: () -> Unit)
+private class LinkReviewControls(
+    val canLeave: Boolean,
+    val back: () -> Unit,
+    val save: () -> Unit,
+    val snapshot: LinkReceiverSnapshot,
+    val actions: LinkEnrollmentActions
+)
 
 /** Complete owner choices remain separate from the receiving receipt and enrollment completion. */
 @Composable
 internal fun LinkReviewPanel(snapshot: LinkReceiverSnapshot, actions: LinkEnrollmentActions) {
     val opening = snapshot.enrollment.comparison ?: return
-    if (!snapshot.enrollment.offered || snapshot.enrollment.completed) return
+    if (!snapshot.enrollment.showsComparison) return
     key(opening) {
         var visible by remember { mutableStateOf(true) }
         if (snapshot.enrollment.saved != null) {
             Text(stringResource(R.string.link_review_saved), Modifier.testTag("link-review-saved"))
+            LinkReviewRecovery(snapshot, actions)
         } else if (visible) {
             LinkReviewForm(opening, snapshot, actions) { visible = false }
         } else {
+            LinkReviewRecovery(snapshot, actions)
             val show = { visible = true }
             Button(show, Modifier.testTag("link-review-open").applicationClick(show), !snapshot.busy) {
                 Text(stringResource(R.string.link_review_show_comparison))
@@ -89,7 +97,9 @@ private fun rememberReviewControls(
                     form.confirmationCompleted(result.await())
                 }
             }
-        }
+        },
+        snapshot = snapshot,
+        actions = actions
     )
 }
 
@@ -123,6 +133,12 @@ private fun LinkReviewContent(form: LinkReviewFormState, photos: LinkReviewPhoto
 }
 
 @Composable
+private fun LinkReviewRecovery(snapshot: LinkReceiverSnapshot, actions: LinkEnrollmentActions) {
+    LinkEnrollmentNotice(snapshot.enrollment)
+    LinkEnrollmentAction(snapshot, actions)
+}
+
+@Composable
 private fun LinkReviewPreviewControl(form: LinkReviewFormState, focus: LinkReviewFocus) {
     if (form.preview == null) {
         val preview = form::showPreview
@@ -151,7 +167,13 @@ private fun LinkReviewPreviewControl(form: LinkReviewFormState, focus: LinkRevie
 
 @Composable
 private fun LinkReviewFooter(form: LinkReviewFormState, controls: LinkReviewControls) {
-    val focus = rememberLinkReviewFocus(form.preview != null, form.available, form.failure)
+    val focus = rememberLinkReviewFocus(
+        form.preview != null,
+        form.available,
+        controls.snapshot.enrollment.failure ?: form.failure,
+        controls.canLeave
+    )
+    LinkReviewRecovery(controls.snapshot, controls.actions)
     LinkReviewPreviewControl(form, focus)
     Button(
         controls.save,

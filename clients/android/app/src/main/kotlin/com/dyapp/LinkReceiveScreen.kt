@@ -62,7 +62,9 @@ internal fun LinkReceiveContent(
     if (snapshot.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
     LinkReceiveInvitation(snapshot, status)
     LinkReceiveOutcome(snapshot)
-    if (snapshot.receipt is MobileLinkReceipt.Installed) LinkEnrollmentAction(snapshot, actions)
+    if (snapshot.receipt is MobileLinkReceipt.Installed && !snapshot.enrollment.showsComparison) {
+        LinkEnrollmentAction(snapshot, actions.enrollment)
+    }
     LinkReviewPanel(snapshot, actions.enrollment)
     LinkReceiveButtons(snapshot, actions)
 }
