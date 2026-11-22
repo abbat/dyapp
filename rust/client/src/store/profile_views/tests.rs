@@ -125,20 +125,38 @@ fn moderation_hides_views_without_rewriting_history_or_hiding_matches() {
 }
 
 #[test]
-fn an_impossible_stored_calendar_day_is_an_error_not_a_guessed_date() {
+fn invalid_sqlite_days_are_errors_not_guessed_dates() {
     let dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::try_generate().unwrap();
-    let store = Store::open(&dir.path().join("owner.db"), &owner).unwrap();
     let peer = Identity::try_generate().unwrap().peer_id();
-    store
-        .db
-        .execute(
-            "INSERT INTO `view_days` (`sender`, `target`, `day`) VALUES (?1, ?2, ?3)",
-            rusqlite::params![peer, owner.peer_id(), i64::MAX],
-        )
-        .unwrap();
-    assert!(matches!(
-        store.received_profile_views(),
-        Err(Error::ClockRange)
-    ));
+    for day in [i64::MIN, -1, i64::MAX] {
+        let store = Store::open(&dir.path().join(format!("day-{day}.db")), &owner).unwrap();
+        store
+            .db
+            .execute(
+                "INSERT INTO `view_days` (`sender`, `target`, `day`) VALUES (?1, ?2, ?3)",
+                rusqlite::params![peer, owner.peer_id(), day],
+            )
+            .unwrap();
+        assert!(
+            matches!(store.received_profile_views(), Err(Error::ClockRange)),
+            "day {day} must not be rendered"
+        );
+    }
+}
+
+#[test]
+fn zero_sqlite_day_is_the_valid_utc_epoch() {
+    let dir = dyapp_test_support::test_dir().unwrap();
+    let owner = Identity::try_generate().unwrap();
+    let peer = Identity::try_generate().unwrap().peer_id();
+    let mut store = Store::open(&dir.path().join("epoch.db"), &owner).unwrap();
+    receive(&mut store, &peer, 1, 0);
+    assert_eq!(
+        store.received_profile_views().unwrap(),
+        vec![ReceivedProfileView {
+            peer_id: peer,
+            utc_date: "1970-01-01".into(),
+        }]
+    );
 }

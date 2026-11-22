@@ -35,11 +35,12 @@ impl Store {
              ORDER BY `latest` DESC, `views`.`sender`",
         )?;
         let rows = query.query_map([&self.owner_peer_id], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, u64>(1)?))
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
         })?;
         collect_bounded(rows, MAX_RESULT_ROWS)?
             .into_iter()
             .map(|(peer_id, day)| {
+                let day = u64::try_from(day).map_err(|_| Error::ClockRange)?;
                 let date = CivilDate::from_unix_days(day)
                     .ok_or(Error::ClockRange)?
                     .yyyymmdd();

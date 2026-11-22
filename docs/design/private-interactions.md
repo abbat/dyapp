@@ -89,6 +89,8 @@ newest day first with canonical Peer ID order for ties. It applies the common re
 hides blocked, passed and closed-conversation peers; a match does not hide a view. Core formats
 only the available `YYYY-MM-DD` date in UTC, never an exact viewing time. The projection is
 read-only, excludes outgoing/own-device views and does not depend on the sending preference.
+Read SQLite days as signed integers, then check conversion to nonnegative calendar days; negative
+or out-of-calendar values reject the projection rather than wrapping or inventing a date.
 `Store::profile_view_due_at` provides adapters with read-only preflight before network IO. It
 shares drafting's persisted HLC, preference, block and daily checks without allocating an event
 ID or advancing the clock. Staging repeats admission; preflight never reserves a view.
