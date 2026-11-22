@@ -63,6 +63,9 @@ pub enum Error {
     /// Existing PINs require authenticated replacement.
     #[error("App PIN already exists")]
     AlreadyEnrolled,
+    /// Initial setup cannot replace a protected choice made by another operation.
+    #[error("App lock is already enabled")]
+    AlreadyEnabled,
     /// Recovery cannot reset a disabled or unconfigured lock.
     #[error("App lock is not enabled")]
     NotEnabled,

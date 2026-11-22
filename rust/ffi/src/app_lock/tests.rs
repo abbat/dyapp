@@ -117,6 +117,36 @@ fn native_handle_retains_storage_and_projects_the_core_transitions_for_both_form
 }
 
 #[test]
+fn native_initial_setup_cannot_replace_another_protected_choice() {
+    for format in [MobileAppLockFormat::Android, MobileAppLockFormat::Ios] {
+        let storage = Arc::new(Protected::default());
+        let lock = MobileAppLock::new(format, storage.clone());
+        lock.use_biometric_initial().unwrap();
+        assert_eq!(
+            error(lock.enroll_initial("123456".into())),
+            "App lock is already enabled"
+        );
+        assert_eq!(
+            error(lock.use_biometric_initial()),
+            "App lock is already enabled"
+        );
+        assert_eq!(lock.mode().unwrap(), MobileAppLockMode::Biometric);
+        lock.reset_after_device_credential(None).unwrap();
+        lock.enroll_initial("123456".into()).unwrap();
+        let before = storage.read_entry(MobileAppLockEntry::Record).unwrap();
+        assert_eq!(
+            error(lock.use_biometric_initial()),
+            "App lock is already enabled"
+        );
+        assert_eq!(
+            storage.read_entry(MobileAppLockEntry::Record).unwrap(),
+            before
+        );
+        assert_eq!(lock.mode().unwrap(), MobileAppLockMode::Pin);
+    }
+}
+
+#[test]
 fn native_protected_io_errors_are_not_absence_or_success() {
     for format in [MobileAppLockFormat::Android, MobileAppLockFormat::Ios] {
         let storage = Arc::new(Protected::default());
