@@ -1,9 +1,8 @@
 use super::*;
-use crate::store::tests::temp_db_path;
 
 #[test]
 fn a_legacy_hidden_readback_requires_content_head_and_listed_device_evidence() {
-    let (identity, store, _, imported) = fixture();
+    let (_test_dir, identity, store, _, imported) = fixture();
     let current = Profile {
         version: imported.version + 1,
         ..imported.clone()
@@ -43,7 +42,7 @@ fn a_legacy_hidden_readback_requires_content_head_and_listed_device_evidence() {
 
 #[test]
 fn malformed_completion_receipts_fail_without_changing_any_projection() {
-    let (identity, store, attempt, imported) = adoption_fixture();
+    let (_test_dir_44, identity, store, attempt, imported) = adoption_fixture();
     store.set_profile_hidden(true).unwrap();
     store
         .commit_profile_adoption(&identity, &attempt, &imported, 100)
@@ -89,7 +88,7 @@ fn malformed_completion_receipts_fail_without_changing_any_projection() {
 
 #[test]
 fn hidden_adoption_replay_preserves_pending_edits_and_an_acked_search_head() {
-    let (identity, mut store, attempt, imported) = adoption_fixture();
+    let (_test_dir_90, identity, mut store, attempt, imported) = adoption_fixture();
     store.set_profile_hidden(true).unwrap();
     store
         .commit_profile_adoption(&identity, &attempt, &imported, 100)
@@ -124,7 +123,7 @@ fn hidden_adoption_replay_preserves_pending_edits_and_an_acked_search_head() {
 
 #[test]
 fn an_adoption_receipt_does_not_admit_a_fork_or_changed_visibility() {
-    let (identity, store, attempt, imported) = adoption_fixture();
+    let (_test_dir_125, identity, store, attempt, imported) = adoption_fixture();
     store.set_profile_hidden(true).unwrap();
     store
         .commit_profile_adoption(&identity, &attempt, &imported, 100)
@@ -149,7 +148,7 @@ fn an_adoption_receipt_does_not_admit_a_fork_or_changed_visibility() {
 
 #[test]
 fn adoption_clock_commits_only_the_remote_version_and_refuses_an_older_completion() {
-    let (identity, store, attempt, imported) = adoption_fixture();
+    let (_test_dir_150, identity, store, attempt, imported) = adoption_fixture();
     store
         .commit_profile_adoption(&identity, &attempt, &imported, 100)
         .unwrap();
@@ -169,7 +168,7 @@ fn adoption_clock_commits_only_the_remote_version_and_refuses_an_older_completio
 
 #[test]
 fn adoption_clock_failure_rolls_back_draft_search_and_prior_blob_pruning() {
-    let (identity, store, attempt, imported) = adoption_fixture();
+    let (_test_dir_170, identity, store, attempt, imported) = adoption_fixture();
     let before = store.profile_draft().unwrap();
     let orphan = store.save_profile_blob(&[0xFF, 0xD8, 0xFF, 7]).unwrap();
     store
@@ -192,7 +191,7 @@ fn adoption_clock_failure_rolls_back_draft_search_and_prior_blob_pruning() {
 
 #[test]
 fn adoption_rechecks_hidden_version_exhaustion_without_partially_recording_age() {
-    let (identity, store, attempt, mut imported) = adoption_fixture();
+    let (_test_dir_193, identity, store, attempt, mut imported) = adoption_fixture();
     imported.version = u64::MAX;
     let before = store.profile_draft().unwrap();
     store.set_profile_hidden(true).unwrap();
@@ -208,7 +207,7 @@ fn adoption_rechecks_hidden_version_exhaustion_without_partially_recording_age()
 
 #[test]
 fn foreign_import_keeps_device_removal_as_one_directory_edit() {
-    let (identity, store, _, mut imported) = fixture();
+    let (_test_dir, identity, store, _, mut imported) = fixture();
     let key = Identity::from_secret(&[8; 32]);
     let device = dyapp_messaging::mls::Device::new(&identity, key.public_key(), 1).unwrap();
     let baseline = Profile {
@@ -241,7 +240,7 @@ fn foreign_import_keeps_device_removal_as_one_directory_edit() {
 
 #[test]
 fn invalid_imported_photo_rolls_back_draft_and_search_projection() {
-    let (identity, mut store, _, mut imported) = fixture();
+    let (_test_dir, identity, mut store, _, mut imported) = fixture();
     store
         .add_profile_photo(&[0xFF, 0xD8, 0xFF, 1], &[0xFF, 0xD8, 0xFF, 2])
         .unwrap();
@@ -261,20 +260,26 @@ fn invalid_imported_photo_rolls_back_draft_and_search_projection() {
         .is_some());
 }
 
-fn adoption_fixture() -> (Identity, Store, ProfilePublication, Profile) {
-    let (identity, store, _, imported) = fixture();
+fn adoption_fixture() -> (
+    dyapp_test_support::TestDir,
+    Identity,
+    Store,
+    ProfilePublication,
+    Profile,
+) {
+    let (test_dir, identity, store, _, imported) = fixture();
     let baseline = Profile {
         version: 1,
         ..imported.clone()
     };
     store.save_profile_draft(&baseline).unwrap();
     let attempt = store.prepare_profile_publication(&identity).unwrap();
-    (identity, store, attempt, imported)
+    (test_dir, identity, store, attempt, imported)
 }
 
 #[test]
 fn adoption_requires_review_for_unconfirmed_existing_editable_values() {
-    let (identity, store, attempt, imported) = fixture();
+    let (_test_dir, identity, store, attempt, imported) = fixture();
     let before = store.profile_draft().unwrap();
     assert!(matches!(
         store.commit_profile_adoption(&identity, &attempt, &imported, 100),
@@ -285,9 +290,16 @@ fn adoption_requires_review_for_unconfirmed_existing_editable_values() {
     assert_eq!(store.own_profile_seen().unwrap(), 0);
 }
 
-fn fixture() -> (Identity, Store, ProfilePublication, Profile) {
+fn fixture() -> (
+    dyapp_test_support::TestDir,
+    Identity,
+    Store,
+    ProfilePublication,
+    Profile,
+) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let baseline = Profile {
         version: 1,
         name: "old local".into(),
@@ -300,12 +312,12 @@ fn fixture() -> (Identity, Store, ProfilePublication, Profile) {
         name: "remote".into(),
         ..baseline
     };
-    (identity, store, attempt, imported)
+    (test_dir, identity, store, attempt, imported)
 }
 
 #[test]
 fn foreign_import_replaces_old_edits_and_queues_only_exact_remote_content() {
-    let (identity, store, attempt, imported) = fixture();
+    let (_test_dir, identity, store, attempt, imported) = fixture();
     let outcome = store
         .commit_profile_import(&identity, &attempt, &imported)
         .unwrap();
@@ -320,7 +332,7 @@ fn foreign_import_replaces_old_edits_and_queues_only_exact_remote_content() {
 
 #[test]
 fn foreign_import_keeps_current_visibility_and_pending_edits_out_of_search() {
-    let (identity, mut store, attempt, imported) = fixture();
+    let (_test_dir, identity, mut store, attempt, imported) = fixture();
     store
         .update_profile_draft(|draft| {
             draft.name = "pending".into();
@@ -344,7 +356,7 @@ fn foreign_import_keeps_current_visibility_and_pending_edits_out_of_search() {
 
 #[test]
 fn foreign_import_refuses_newer_completion_and_wrong_owner_without_changes() {
-    let (identity, store, attempt, imported) = fixture();
+    let (_test_dir, identity, store, attempt, imported) = fixture();
     let newer = Profile {
         version: 5,
         name: "newer".into(),
@@ -366,7 +378,7 @@ fn foreign_import_refuses_newer_completion_and_wrong_owner_without_changes() {
 
 #[test]
 fn foreign_search_fork_rolls_back_the_earlier_draft_write() {
-    let (identity, store, attempt, imported) = fixture();
+    let (_test_dir, identity, store, attempt, imported) = fixture();
     let before = store.profile_draft().unwrap();
     let fork = Profile {
         name: "other same version".into(),
@@ -384,7 +396,7 @@ fn foreign_search_fork_rolls_back_the_earlier_draft_write() {
 
 #[test]
 fn foreign_import_preserves_current_photo_bytes_and_stronger_proof() {
-    let (identity, mut store, attempt, imported) = fixture();
+    let (_test_dir, identity, mut store, attempt, imported) = fixture();
     store
         .add_profile_photo(&[0xFF, 0xD8, 0xFF, 1], &[0xFF, 0xD8, 0xFF, 2])
         .unwrap();

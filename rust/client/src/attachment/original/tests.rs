@@ -16,6 +16,7 @@ struct Fixture {
     first: Attachment,
     second: Attachment,
     dir: std::path::PathBuf,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 impl Fixture {
@@ -24,11 +25,10 @@ impl Fixture {
     }
 
     fn with_bytes(first_bytes: &[u8], second_bytes: &[u8]) -> Self {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let owner = Identity::try_generate().unwrap();
         let peer = Identity::try_generate().unwrap().peer_id();
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../build/core-photo-lookup")
-            .join(owner.peer_id());
+        let dir = test_dir.path().join(owner.peer_id());
         std::fs::create_dir_all(&dir).unwrap();
         let mut store = Store::open(&dir.join("client.db"), &owner).unwrap();
         let first = record(&mut store, &peer, FIRST, first_bytes);
@@ -39,6 +39,7 @@ impl Fixture {
             first,
             second,
             dir,
+            _test_dir: test_dir,
         }
     }
 }
@@ -123,10 +124,9 @@ fn block_precedes_malformed_selection_and_clear_keeps_the_other_group() {
 
 #[test]
 fn invalid_owner_queries_preserve_the_store_failure_category() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::try_generate().unwrap();
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../build/core-photo-lookup")
-        .join(owner.peer_id());
+    let dir = test_dir.path().join(owner.peer_id());
     std::fs::create_dir_all(&dir).unwrap();
     let store = Store::open(&dir.join("client.db"), &owner).unwrap();
     assert!(matches!(

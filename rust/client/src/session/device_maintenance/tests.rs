@@ -1,6 +1,6 @@
 use super::*;
 use crate::contact_verification::Context;
-use crate::store::{tests::temp_db_path, Store};
+use crate::store::Store;
 use dyapp_identity::{Identity, SignedRecord};
 use dyapp_messaging::mls::Device;
 use dyapp_profile::Profile;
@@ -14,14 +14,16 @@ struct Fixture {
     path: PathBuf,
     session: Session,
     known: Profiles,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 impl Fixture {
     fn new() -> Self {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let identity = Identity::try_generate().unwrap();
         let device =
             Device::new(&identity, Identity::try_generate().unwrap().public_key(), 1).unwrap();
-        let path = temp_db_path();
+        let path = test_dir.path().join("client-1.db");
         let mut store = Store::open(&path, &identity).unwrap();
         store
             .stage_outbound(&device.seal(&SEAL).unwrap(), &[])
@@ -39,6 +41,7 @@ impl Fixture {
             path,
             session: Session::open(store, &SEAL).unwrap(),
             known: Profiles::default(),
+            _test_dir: test_dir,
         }
     }
 

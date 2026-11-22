@@ -17,7 +17,7 @@ x-runtime: &runtime
     - /home/appuser:rw,nosuid,nodev,uid=1000,gid=1000,mode=0700
   volumes:
     - ../..:/workspace:ro
-    - workspace-cache:/workspace/build
+    - ../../build/workspace:/workspace/build
   environment: &environment
     HOME: /home/appuser
     RUSTUP_TOOLCHAIN: "1.99.0"
@@ -107,6 +107,3 @@ services:
       - ../../tests/scripts/tarball-test.sh:/tarball-test.sh:ro
     command: [bash, /tarball-test.sh]
     profiles: [deb]
-
-volumes:
-  workspace-cache:

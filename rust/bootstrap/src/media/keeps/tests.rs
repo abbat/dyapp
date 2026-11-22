@@ -11,17 +11,18 @@ struct Fixture {
     store: Arc<MediaStore>,
     identity: Identity,
     dir: PathBuf,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 impl Fixture {
     fn new() -> Self {
-        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../build/media-keeps")
-            .join(uuid::Uuid::new_v4().to_string());
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir.path().join(uuid::Uuid::new_v4().to_string());
         Self {
             store: Arc::new(MediaStore::open(&dir).unwrap()),
             identity: Identity::from_secret(&[37; 32]),
             dir,
+            _test_dir: test_dir,
         }
     }
 

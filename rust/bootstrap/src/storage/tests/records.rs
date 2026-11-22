@@ -4,7 +4,12 @@ use super::*;
 
 #[test]
 fn maintenance_frees_pages_in_bounded_steps() {
-    let dir = format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir
+        .path()
+        .join("case-220")
+        .to_string_lossy()
+        .into_owned();
     let store = BootstrapStore::new(&dir).unwrap();
     let record = SignedRecord {
         payload: vec![7; 10_000],
@@ -41,7 +46,8 @@ fn maintenance_frees_pages_in_bounded_steps() {
 
 #[test]
 fn eviction_takes_the_oldest_first() {
-    let store = temp_store();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let store = temp_store(test_dir.path());
     let record = SignedRecord {
         payload: vec![7; 10_000],
         ..SignedRecord::default()
@@ -90,7 +96,8 @@ fn eviction_takes_the_oldest_first() {
 
 #[test]
 fn envelopes_once_per_id_limits_and_expiry() {
-    let store = temp_store();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let store = temp_store(test_dir.path());
     let record = |n: u8| SignedRecord {
         payload: vec![n; 100],
         ..SignedRecord::default()
@@ -147,7 +154,12 @@ fn envelopes_once_per_id_limits_and_expiry() {
 
 #[test]
 fn paged_fetch_moves_past_unacked_head_and_deleted_cursor() {
-    let dir = format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir
+        .path()
+        .join("case-5168")
+        .to_string_lossy()
+        .into_owned();
     let store = BootstrapStore::new(&dir).unwrap();
     let mailbox = [7u8; 32];
     let record = |n: u8| SignedRecord {
@@ -193,7 +205,8 @@ fn ids(store: &BootstrapStore, mailbox: &[u8]) -> Vec<Vec<u8>> {
 
 #[test]
 fn signals_have_their_own_quota_and_evict_the_oldest() {
-    let store = temp_store();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let store = temp_store(test_dir.path());
     let record = SignedRecord {
         payload: vec![7; 100],
         ..SignedRecord::default()
@@ -216,7 +229,8 @@ fn signals_have_their_own_quota_and_evict_the_oldest() {
 
 #[test]
 fn signals_never_block_messages_and_come_after_them() {
-    let store = temp_store();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let store = temp_store(test_dir.path());
     let record = |n: u8| SignedRecord {
         payload: vec![n; 100],
         ..SignedRecord::default()
@@ -250,7 +264,8 @@ fn signals_never_block_messages_and_come_after_them() {
 
 #[test]
 fn historical_tombstone_remains_readable_and_final_without_new_authority() {
-    let store = temp_store();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let store = temp_store(test_dir.path());
     let owner = Identity::from_secret(&[7; 32]);
     let legacy = Profile::tombstone(2, 0, 0).sign(&owner);
     lock(&store.profiles).unwrap().execute(
@@ -289,7 +304,8 @@ fn tombstone(previous: &SignedRecord) -> Profile {
 
 #[test]
 fn signed_profile_versions_and_tombstone() {
-    let store = temp_store();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let store = temp_store(test_dir.path());
     let owner = Identity::try_generate().unwrap();
     let profile = |version| Profile {
         version,
@@ -346,7 +362,8 @@ fn signed_profile_versions_and_tombstone() {
 
 #[test]
 fn cursors_resume_skip_dead_rows_and_use_indexes() {
-    let store = temp_store();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let store = temp_store(test_dir.path());
     let record = SignedRecord::default();
     for (id, (mailbox, expires_at)) in [(1u8, i64::MAX), (2, 0), (3, i64::MAX), (3, i64::MAX)]
         .into_iter()
@@ -401,7 +418,12 @@ fn cursors_resume_skip_dead_rows_and_use_indexes() {
 
 #[test]
 fn data_survives_reopen() {
-    let path = format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir
+        .path()
+        .join("case-14266")
+        .to_string_lossy()
+        .into_owned();
     let owner = Identity::try_generate().unwrap();
     BootstrapStore::new(&path)
         .unwrap()
@@ -419,7 +441,12 @@ fn data_survives_reopen() {
 
 #[test]
 fn unacked_mailbox_pages_resume_after_reopen_without_loss_or_duplicates() {
-    let path = format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir
+        .path()
+        .join("case-14875")
+        .to_string_lossy()
+        .into_owned();
     let mailbox = [3; 32];
     let ids = |page: &[SignedRecord]| page.iter().map(|r| r.payload[0]).collect::<Vec<_>>();
     let store = BootstrapStore::new(&path).unwrap();
@@ -467,5 +494,6 @@ fn unacked_mailbox_pages_resume_after_reopen_without_loss_or_duplicates() {
 
 #[test]
 fn test_health_check() {
-    assert!(temp_store().health_check().is_ok());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    assert!(temp_store(test_dir.path()).health_check().is_ok());
 }

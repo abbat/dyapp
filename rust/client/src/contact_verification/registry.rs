@@ -78,11 +78,11 @@ pub fn scores(dir: &Path) -> io::Result<Arc<tokio::sync::Mutex<Scores>>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::store::tests::temp_db_path;
 
     #[test]
     fn canonical_aliases_share_authority_without_retaining_idle_workers() {
-        let path = temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         std::fs::create_dir_all(path.join("child")).unwrap();
         let first = shared(&path).unwrap();
         let alias = shared(&path.join("child").join("..")).unwrap();
@@ -105,7 +105,8 @@ mod tests {
 
     #[test]
     fn clear_replaces_selection_without_waiting_for_an_old_operation() {
-        let path = temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         std::fs::create_dir_all(&path).unwrap();
         let context = shared(&path).unwrap();
         let old = context.lock().unwrap().scores();
@@ -117,7 +118,8 @@ mod tests {
 
     #[tokio::test]
     async fn resume_moves_a_live_open_circuit_to_half_open() {
-        let path = temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         std::fs::create_dir_all(&path).unwrap();
         let context = shared(&path).unwrap();
         let scores = context.lock().unwrap().scores();
@@ -142,7 +144,8 @@ mod tests {
 
     #[test]
     fn missing_roots_are_never_created_by_lookup() {
-        let path = temp_db_path().join("absent-context");
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db").join("absent-context");
         assert!(shared(&path).is_err());
         assert!(!path.exists());
     }

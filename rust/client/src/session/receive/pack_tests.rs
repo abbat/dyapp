@@ -148,9 +148,8 @@ async fn pack_answers(pair: &mut Invite, peer: &str) {
 
 #[tokio::test]
 async fn authenticated_pack_controls_are_guarded_durable_receipted_and_hidden() {
-    let root =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../build/pack-session-tests");
-    std::fs::create_dir_all(&root).unwrap();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.path();
     let mut random = [0; 16];
     getrandom::fill(&mut random).unwrap();
     let directory = root.join(format!("{:032x}", u128::from_be_bytes(random)));

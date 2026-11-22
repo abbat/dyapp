@@ -56,7 +56,8 @@ fn assert_future_photo_rejected(store: &mut Store, sender: VerifiedChatSender) {
 
 #[test]
 fn inbound_photo_projects_once_with_snapshot_and_digest() {
-    let path = crate::store::tests::temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let owner = Identity::try_generate().unwrap();
     let peer = Identity::try_generate().unwrap().peer_id();
     let group = [9];
@@ -126,7 +127,8 @@ fn unread(store: &Store, peer_id: &str) -> i64 {
 
 #[test]
 fn timed_text_rejects_future_clock_before_ack_and_observes_valid_clock() {
-    let path = crate::store::tests::temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let owner = Identity::try_generate().unwrap();
     let key = MessageKey {
         group: vec![3],
@@ -211,9 +213,10 @@ fn original_hlc(store: &Store, key: &MessageKey) -> i64 {
 
 #[test]
 fn chat_projection_and_delivery_commit_atomically() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut random = [0; 16];
     getrandom::fill(&mut random).unwrap();
-    let path = std::env::temp_dir().join(format!(
+    let path = test_dir.path().join(format!(
         "dyapp-chat-inbound-{:032x}.db",
         u128::from_be_bytes(random)
     ));
@@ -322,7 +325,8 @@ fn apply_edit_and_delete(store: &mut Store, sender: VerifiedChatSender, key: &Me
 
 #[test]
 fn forwarded_text_keeps_its_marker_and_mls_author_after_restart() {
-    let path = crate::store::tests::temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let owner = Identity::try_generate().unwrap();
     let author = Identity::try_generate().unwrap().peer_id();
     let key = MessageKey {
@@ -399,9 +403,10 @@ fn assert_late_original_survives_restart(
 
 #[test]
 fn late_original_after_delete_keeps_placeholder_and_ack_intent() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut random = [0; 16];
     getrandom::fill(&mut random).unwrap();
-    let path = std::env::temp_dir().join(format!(
+    let path = test_dir.path().join(format!(
         "dyapp-chat-late-original-{:032x}.db",
         u128::from_be_bytes(random)
     ));
@@ -453,7 +458,8 @@ fn late_original_after_delete_keeps_placeholder_and_ack_intent() {
 
 #[test]
 fn unread_is_local_to_a_pair_and_survives_late_delivery_and_restart() {
-    let path = crate::store::tests::temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let owner = Identity::try_generate().unwrap();
     let own = owner.peer_id();
     let peer = Identity::try_generate().unwrap().peer_id();

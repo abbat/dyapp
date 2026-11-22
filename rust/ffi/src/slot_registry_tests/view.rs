@@ -2,8 +2,9 @@ use super::*;
 
 #[test]
 fn native_profile_switch_away_and_back_does_not_reauthorize_the_old_view() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let registry = MobileIdentityRegistry::new(
-        root().to_str().unwrap().into(),
+        test_dir.to_path_buf().to_str().unwrap().into(),
         MobileSlotLayout::Android,
         Arc::new(Credentials::default()),
     );
@@ -27,8 +28,9 @@ fn native_profile_switch_away_and_back_does_not_reauthorize_the_old_view() {
 
 #[test]
 fn a_failed_native_selection_invalidates_the_prior_view_without_changing_owner() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let registry = MobileIdentityRegistry::new(
-        root().to_str().unwrap().into(),
+        test_dir.to_path_buf().to_str().unwrap().into(),
         MobileSlotLayout::Android,
         Arc::new(Credentials::default()),
     );

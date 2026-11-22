@@ -3,7 +3,6 @@
 mod progress_cases;
 #[path = "retry_tests/review.rs"]
 mod review_cases;
-use super::super::tests::temp_db_path;
 use super::*;
 use crate::{chat::PeerChange, interactions::Kind};
 use dyapp_identity::Identity;
@@ -32,7 +31,8 @@ fn private_choices(store: &Store, on: bool, at: u64) {
 }
 
 fn source(identity: &Identity) -> Vec<u8> {
-    let mut store = Store::open(&temp_db_path(), identity).unwrap();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), identity).unwrap();
     private_choices(&store, true, 1_000);
     store.interact("dave", Kind::Like, b"phone", 1_000).unwrap();
     store.set_profile_hidden(true).unwrap();
@@ -41,8 +41,9 @@ fn source(identity: &Identity) -> Vec<u8> {
 
 #[test]
 fn pending_prefix_retry_keeps_newer_private_state_after_reopen() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let path = temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let state = source(&identity);
     let mut store = Store::open(&path, &identity).unwrap();
     store.set_link_pending(&state).unwrap();

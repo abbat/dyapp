@@ -28,7 +28,8 @@ fn write_reply(
 }
 
 fn sharded_handover(refused: bool) {
-    let (source, target) = (service(), service());
+    let (_source_test_dir, source) = service();
+    let (_target_test_dir, target) = service();
     let (me, remote) = (PeerId::random(), PeerId::random());
     let (manifest, shards) = media_encode(&vec![7; MEDIA_OBJECT_BYTES + 1]).unwrap();
     let hash = manifest.hash.clone();

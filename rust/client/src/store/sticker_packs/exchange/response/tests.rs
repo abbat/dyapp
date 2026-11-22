@@ -50,7 +50,7 @@ fn authorize(store: &mut Store, owner: &dyapp_identity::Identity, pack: u8) {
 
 #[test]
 fn only_shared_packs_queue_and_duplicate_requests_keep_generation_after_restart() {
-    let (mut store, owner, path, peer) = database();
+    let (_test_dir, mut store, owner, path, peer) = database();
     selected(&mut store, &peer, 1); // A received sticker cannot grant sharing permission.
     let request = PackRequest { pack_id: [1; 32] };
     assert!(!store
@@ -83,7 +83,7 @@ fn only_shared_packs_queue_and_duplicate_requests_keep_generation_after_restart(
 
 #[test]
 fn retry_deadlines_match_outbox_backoff_and_duplicates_cannot_reset_them() {
-    let (mut store, owner, _, peer) = database();
+    let (_test_dir, mut store, owner, _, peer) = database();
     authorize(&mut store, &owner, 1);
     let request = PackRequest { pack_id: [1; 32] };
     store
@@ -123,7 +123,7 @@ fn retry_deadlines_match_outbox_backoff_and_duplicates_cannot_reset_them() {
 
 #[test]
 fn queue_cap_batch_size_and_rolling_cooldown_boundaries_are_literal() {
-    let (mut store, owner, _, peer) = database();
+    let (_test_dir, mut store, owner, _, peer) = database();
     for id in 1..=64 {
         authorize(&mut store, &owner, id);
         assert!(store

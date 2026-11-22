@@ -33,7 +33,7 @@ fn all_layouts_remove_only_confirmed_identity_data_and_preserve_installation_nod
         (Layout::Android, Storage::Wrapped),
         (Layout::Ios, Storage::Wrapped),
     ] {
-        let (root, registry, backend) = fixture(layout, storage);
+        let (_test_dir, root, registry, backend) = fixture(layout, storage);
         let dir = root.join("profiles").join(FIRST);
         let other = slot(&root, SECOND, b"ready\n");
         fs::write(other.join("identity.key"), b"other identity").unwrap();
@@ -77,7 +77,7 @@ fn unknown_files_and_nested_media_leave_every_key_and_pointer_intact() {
         "originals/notes.txt",
         "sticker-packs/unexpected",
     ] {
-        let (root, registry, backend) = fixture(Layout::Android, Storage::Wrapped);
+        let (_test_dir, root, registry, backend) = fixture(Layout::Android, Storage::Wrapped);
         let dir = root.join("profiles").join(FIRST);
         let unknown = dir.join(name);
         fs::create_dir_all(unknown.parent().unwrap()).unwrap();
@@ -97,7 +97,7 @@ fn unknown_files_and_nested_media_leave_every_key_and_pointer_intact() {
 
 #[test]
 fn wrong_or_missing_confirmation_and_denied_access_never_erase_credentials() {
-    let (_, registry, backend) = fixture(Layout::Android, Storage::Wrapped);
+    let (_test_dir, _, registry, backend) = fixture(Layout::Android, Storage::Wrapped);
     for confirmed in [None, Some("another identity")] {
         assert!(registry.remove(FIRST, confirmed, &backend).is_err());
         assert_eq!(registry.list().unwrap()[0].state, State::Ready);
@@ -111,7 +111,7 @@ fn wrong_or_missing_confirmation_and_denied_access_never_erase_credentials() {
 
 #[test]
 fn legacy_and_damaged_slots_are_never_removed() {
-    let (root, registry, backend) = fixture(Layout::Android, Storage::Wrapped);
+    let (_test_dir, root, registry, backend) = fixture(Layout::Android, Storage::Wrapped);
     fs::write(root.join("identity.key"), b"legacy").unwrap();
     assert!(registry.remove("legacy-primary", None, &backend).is_err());
     fs::write(root.join("profiles").join(FIRST).join("state"), b"damaged").unwrap();
@@ -124,7 +124,7 @@ fn legacy_and_damaged_slots_are_never_removed() {
 
 #[test]
 fn removing_an_inactive_identity_preserves_the_other_selection() {
-    let (root, registry, backend) = fixture(Layout::Android, Storage::Wrapped);
+    let (_test_dir, root, registry, backend) = fixture(Layout::Android, Storage::Wrapped);
     let other = slot(&root, SECOND, b"ready\n");
     fs::write(other.join("identity.key"), b"other key").unwrap();
     let pointer = format!("{SECOND}\n").into_bytes();
@@ -138,7 +138,7 @@ fn removing_an_inactive_identity_preserves_the_other_selection() {
 
 #[test]
 fn absent_wrapping_credentials_allow_cleanup_of_an_orphan_oversize_blob() {
-    let (root, registry, backend) = fixture(Layout::Android, Storage::Wrapped);
+    let (_test_dir, root, registry, backend) = fixture(Layout::Android, Storage::Wrapped);
     backend.present.borrow_mut()[2] = false;
     fs::write(
         root.join("profiles").join(FIRST).join("identity.key"),
@@ -152,7 +152,7 @@ fn absent_wrapping_credentials_allow_cleanup_of_an_orphan_oversize_blob() {
 
 #[test]
 fn a_nested_media_directory_is_not_an_owned_hash_file() {
-    let (root, registry, backend) = fixture(Layout::Android, Storage::Wrapped);
+    let (_test_dir, root, registry, backend) = fixture(Layout::Android, Storage::Wrapped);
     let nested = root
         .join("profiles")
         .join(FIRST)
@@ -171,7 +171,7 @@ fn a_nested_media_directory_is_not_an_owned_hash_file() {
 #[test]
 fn symlinked_owned_files_or_media_are_refused_before_erasure() {
     for name in ["network", "originals", "sticker-packs"] {
-        let (root, registry, backend) = fixture(Layout::Android, Storage::Wrapped);
+        let (_test_dir, root, registry, backend) = fixture(Layout::Android, Storage::Wrapped);
         let outside = root.join("outside");
         fs::create_dir(&outside).unwrap();
         fs::write(outside.join("valuable"), b"untouched").unwrap();

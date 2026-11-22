@@ -1,5 +1,5 @@
 //! Client media calls: listed blobs and attachments are put, read back and released.
-use super::chat::{store_path, Person};
+use super::chat::Person;
 use super::*;
 use dyapp_client::attachment;
 use dyapp_client::chat::{self, Body, Event};
@@ -47,6 +47,7 @@ pub(super) async fn media_node_at(media_requests_per_second: u32) -> Multiaddr {
 
 #[tokio::test]
 async fn the_daily_keep_puts_back_a_lost_photo_of_the_live_profile() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let address = media_node_at(1000).await;
     let connect = || {
         dyapp_client::Node::connect(
@@ -56,7 +57,7 @@ async fn the_daily_keep_puts_back_a_lost_photo_of_the_live_profile() {
     };
     let (mut node, mut reader) = (connect().await.unwrap(), connect().await.unwrap());
     let owner = Identity::try_generate().unwrap();
-    let mut store = Store::open(&store_path("photo-keep"), &owner).unwrap();
+    let mut store = Store::open(&test_dir.path().join("photo-keep.db"), &owner).unwrap();
     let (full, thumbnail) = (vec![0xFF, 0xD8, 0xFF, 1], vec![0xFF, 0xD8, 0xFF, 2]);
     let draft = store.add_profile_photo(&full, &thumbnail).unwrap();
     let published = publish::publish(&store, &mut node, &owner, &draft)
@@ -95,13 +96,14 @@ async fn the_daily_keep_puts_back_a_lost_photo_of_the_live_profile() {
 
 #[tokio::test]
 async fn six_photos_fit_the_default_rate_of_a_node() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let address = media_node().await;
     let protocols = std::sync::Arc::new(dyapp_p2p_net::Protocols::public());
     let mut node = dyapp_client::Node::connect(address, protocols)
         .await
         .unwrap();
     let owner = Identity::try_generate().unwrap();
-    let mut store = Store::open(&store_path("six-photos"), &owner).unwrap();
+    let mut store = Store::open(&test_dir.path().join("six-photos.db"), &owner).unwrap();
     for seed in 1..=6 {
         store
             .add_profile_photo(&[0xFF, 0xD8, 0xFF, seed], &[0xFF, 0xD8, 0xFF, 0x10 + seed])
@@ -115,6 +117,7 @@ async fn six_photos_fit_the_default_rate_of_a_node() {
 
 #[tokio::test]
 async fn profile_photos_reach_readers_and_leave_with_the_profile() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let address = media_node().await;
     let connect = || {
         dyapp_client::Node::connect(
@@ -124,7 +127,7 @@ async fn profile_photos_reach_readers_and_leave_with_the_profile() {
     };
     let (mut node, mut reader) = (connect().await.unwrap(), connect().await.unwrap());
     let owner = Identity::try_generate().unwrap();
-    let mut store = Store::open(&store_path("profile-photos"), &owner).unwrap();
+    let mut store = Store::open(&test_dir.path().join("profile-photos.db"), &owner).unwrap();
     let (full, thumbnail) = (vec![0xFF, 0xD8, 0xFF, 1], vec![0xFF, 0xD8, 0xFF, 2]);
 
     let draft = store.add_profile_photo(&full, &thumbnail).unwrap();
@@ -228,7 +231,7 @@ async fn an_attachment_reaches_the_member_while_the_node_holds_only_ciphertext()
     let mut alice = Person::new(&address).await;
     let mut bob = Person::new(&address).await;
     let bob_owner = bob.identity.peer_id();
-    let (mut alice_session, mut bob_session, profiles, group_id) =
+    let (_test_dir, mut alice_session, mut bob_session, profiles, group_id) =
         open_media_chat(&mut alice, &mut bob, &bob_owner).await;
     match_media_chat(
         &mut alice,
@@ -274,11 +277,13 @@ async fn open_media_chat(
     bob: &mut Person,
     bob_owner: &str,
 ) -> (
+    dyapp_test_support::TestDir,
     Session,
     Session,
     Vec<dyapp_profile::VerifiedProfile>,
     Vec<u8>,
 ) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let profiles = media_profiles(alice, bob, bob_owner).await;
     let alice_mailbox = alice.mailbox();
     let (group, welcome) = chat::invite(&mut alice.node, &alice.device, &alice_mailbox, &profiles)
@@ -286,18 +291,18 @@ async fn open_media_chat(
         .unwrap();
     chat::send(&mut alice.node, &welcome).await.unwrap();
     let group_id = group.id().to_vec();
-    let mut store = Store::open(&store_path("media-alice"), &alice.identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("media-alice.db"), &alice.identity).unwrap();
     let sealed = alice.device.seal(&SEAL).unwrap();
     store
         .stage_group(&group, &profiles[1], &sealed, &[])
         .unwrap();
     let alice_session = Session::open(store, &SEAL).unwrap();
-    let mut store = Store::open(&store_path("media-bob"), &bob.identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("media-bob.db"), &bob.identity).unwrap();
     store
         .stage_outbound(&bob.device.seal(&SEAL).unwrap(), &[])
         .unwrap();
     let bob_session = Session::open(store, &SEAL).unwrap();
-    (alice_session, bob_session, profiles, group_id)
+    (test_dir, alice_session, bob_session, profiles, group_id)
 }
 
 pub(super) async fn match_media_chat(

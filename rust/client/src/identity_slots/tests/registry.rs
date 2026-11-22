@@ -1,4 +1,3 @@
-use super::root;
 use crate::identity_slots::{KeyReader, Layout, Registry, Resolution, Slot};
 use dyapp_identity::Identity;
 use std::fs::{self, OpenOptions, TryLockError};
@@ -20,12 +19,13 @@ impl KeyReader for Probe {
 
 #[test]
 fn resolution_holds_the_compatible_lock_through_backend_completion_then_releases_it() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     for (layout, name) in [
         (Layout::Desktop, "profiles.lock"),
         (Layout::Android, "profiles.lock"),
         (Layout::Ios, ".identity-slots.lock"),
     ] {
-        let root = root();
+        let root = test_dir.to_path_buf();
         let path = root.join(name);
         fs::write(&path, b"existing lock bytes").unwrap();
         let registry = Registry::new(root.clone(), layout);
@@ -43,7 +43,8 @@ fn resolution_holds_the_compatible_lock_through_backend_completion_then_releases
 
 #[test]
 fn an_inventory_failure_releases_the_lock_and_is_not_fresh_setup() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     fs::write(root.join("profiles"), b"not a directory").unwrap();
     let registry = Registry::new(root.clone(), Layout::Android);
     assert!(registry.list().is_err());
@@ -57,7 +58,8 @@ fn an_inventory_failure_releases_the_lock_and_is_not_fresh_setup() {
 #[cfg(unix)]
 #[test]
 fn a_symlinked_lock_does_not_modify_the_target() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let target = root.join("unrelated");
     fs::write(&target, b"keep").unwrap();
     std::os::unix::fs::symlink(&target, root.join("profiles.lock")).unwrap();

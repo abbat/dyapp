@@ -180,12 +180,15 @@ fn decode_owners(bytes: &mut &[u8]) -> Result<Vec<String>, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::store::tests::temp_db_path;
     use dyapp_identity::Identity;
 
     #[test]
     fn cursor_survives_restart_only_for_its_holder_and_clears_at_end() {
-        let (path, owner) = (temp_db_path(), Identity::try_generate().unwrap());
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let (path, owner) = (
+            test_dir.path().join("client-1.db"),
+            Identity::try_generate().unwrap(),
+        );
         let (first, second) = (PeerId::random(), PeerId::random());
         let store = Store::open(&path, &owner).unwrap();
         assert_eq!(store.mailbox_cursor_for(first).unwrap(), None);
@@ -203,8 +206,9 @@ mod tests {
 
     #[test]
     fn cursor_retains_unknown_owners_until_the_head_pass() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let owner = Identity::try_generate().unwrap();
-        let store = Store::open(&temp_db_path(), &owner).unwrap();
+        let store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
         let node = PeerId::random();
         let unknown = owner.peer_id();
         store
@@ -220,7 +224,12 @@ mod tests {
 
     #[test]
     fn corrupt_and_oversized_cursors_fail_safely() {
-        let store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let store = Store::open(
+            &test_dir.path().join("client-1.db"),
+            &Identity::try_generate().unwrap(),
+        )
+        .unwrap();
         let node = PeerId::random();
         for value in [vec![0], vec![1, 0], vec![255, 1, 2], vec![1, 0, 7]] {
             store.write_mailbox_cursor(&value).unwrap();

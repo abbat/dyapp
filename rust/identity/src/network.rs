@@ -143,22 +143,11 @@ pub fn save(dir: &Path, which: Settings, network: &Network) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    fn temp_dir(tag: &str) -> PathBuf {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let dir = std::env::temp_dir().join(format!("dyapp-network-{tag}-{nanos}"));
-        fs::create_dir_all(&dir).unwrap();
-        dir
-    }
 
     #[test]
     fn settings_round_trip_verbatim_and_stay_per_identity() {
-        let root = temp_dir("trip");
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let root = test_dir.path().to_owned();
         let (alice, bob) = (root.join("a"), root.join("b"));
         fs::create_dir_all(&alice).unwrap();
         fs::create_dir_all(&bob).unwrap();
@@ -201,7 +190,8 @@ mod tests {
 
     #[test]
     fn legacy_root_keeps_its_key_files_untouched() {
-        let root = temp_dir("legacy");
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let root = test_dir.path().to_owned();
         fs::write(root.join("identity.key"), b"key").unwrap();
         fs::write(root.join("identity-storage"), b"file").unwrap();
         let network = Network {
@@ -217,7 +207,8 @@ mod tests {
 
     #[test]
     fn damaged_files_and_line_breaks_are_refused() {
-        let dir = temp_dir("bad");
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir.path().to_owned();
         let line_break = Network {
             seeds: vec!["a:1\nseed b:2".into()],
             name: String::new(),

@@ -165,8 +165,11 @@ mod tests {
 
     #[test]
     fn only_a_newer_profile_restarts_the_clock() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let identity = Identity::try_generate().unwrap();
-        let path = std::env::temp_dir().join(format!("dyapp-own-seen-{}.db", identity.peer_id()));
+        let path = test_dir
+            .path()
+            .join(format!("dyapp-own-seen-{}.db", identity.peer_id()));
         let store = super::Store::open(&path, &identity).unwrap();
         assert_eq!(store.own_profile_seen().unwrap(), 0);
         assert_eq!(store.own_profile_age(3, 1_000).unwrap(), 0);

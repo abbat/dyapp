@@ -134,9 +134,8 @@ fn deleted(pair: &mut Invite, body: &Body, hlc: Timestamp, seal_key: &[u8; 32]) 
 
 #[test]
 fn sticker_receive_is_atomic_matched_replay_safe_and_deletable() {
-    let root =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../build/sticker-session-tests");
-    std::fs::create_dir_all(&root).unwrap();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.path();
     let mut random = [0; 16];
     getrandom::fill(&mut random).unwrap();
     let path = root.join(format!("{:032x}.db", u128::from_be_bytes(random)));

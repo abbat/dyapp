@@ -2,23 +2,23 @@ use super::*;
 use image_webp::{ColorType, WebPEncoder};
 use prost::Message;
 
-fn store(owner: &str, path: Option<&Path>) -> Store {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../build")
-        .join(format!(
-            "saved-pack-test-{}",
-            dyapp_identity::Identity::try_generate().unwrap().peer_id()
-        ));
+fn store(owner: &str, path: Option<&Path>) -> (dyapp_test_support::TestDir, Store) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().join(format!(
+        "saved-pack-test-{}",
+        dyapp_identity::Identity::try_generate().unwrap().peer_id()
+    ));
     let path = if let Some(path) = path {
         path.to_path_buf()
     } else {
         fs::create_dir_all(&dir).unwrap();
         dir.join("client.db")
     };
-    Store {
+    let store = Store {
         db: rusqlite::Connection::open(path).unwrap(),
         owner_peer_id: owner.into(),
-    }
+    };
+    (test_dir, store)
 }
 pub(crate) fn pack(name: &str) -> Pack {
     #[derive(Clone, PartialEq, Message)]
@@ -52,7 +52,7 @@ pub(crate) fn pack(name: &str) -> Pack {
 
 #[test]
 fn encrypted_roundtrip_restart_and_idempotence() {
-    let mut first = store("alice", None);
+    let (_first_test_dir, mut first) = store("alice", None);
     let pack = pack("Private collection name");
     assert!(!first.has_sticker_packs().unwrap());
     assert!(first.save_sticker_pack(&[7; 32], &pack).unwrap());
@@ -64,7 +64,7 @@ fn encrypted_roundtrip_restart_and_idempotence() {
     assert!(!first.save_sticker_pack(&[7; 32], &pack).unwrap());
     let db = PathBuf::from(first.db.path().unwrap());
     drop(first);
-    let reopened = store("alice", Some(&db));
+    let (_reopened_test_dir, reopened) = self::store("alice", Some(&db));
     assert!(reopened.has_sticker_packs().unwrap());
     assert_eq!(
         reopened
@@ -75,14 +75,14 @@ fn encrypted_roundtrip_restart_and_idempotence() {
         pack.encode()
     );
     assert!(reopened.saved_sticker_pack(&[8; 32], pack.id()).is_err());
-    let foreign = store("bob", Some(&db));
+    let (_foreign_test_dir, foreign) = store("bob", Some(&db));
     assert!(foreign.saved_sticker_pack(&[7; 32], pack.id()).is_err());
     assert_eq!(fs::read(path).unwrap(), bytes);
 }
 
 #[test]
 fn quota_and_pending_files_never_evict_saved_content() {
-    let mut store = store("alice", None);
+    let (_store_test_dir, mut store) = store("alice", None);
     let first = pack("First");
     let second = pack("Second");
     store.save_sticker_pack(&[7; 32], &first).unwrap();
@@ -105,8 +105,8 @@ fn quota_and_pending_files_never_evict_saved_content() {
 
 #[test]
 fn explicit_removal_recovers_quota_and_is_identity_local() {
-    let mut owner = store("alice", None);
-    let mut foreign = store("bob", None);
+    let (_owner_test_dir, mut owner) = store("alice", None);
+    let (_foreign_test_dir, mut foreign) = self::store("bob", None);
     let first = pack("First");
     let other = pack("Other");
     assert!(!owner.remove_saved_sticker_pack(first.id()).unwrap());
@@ -133,7 +133,7 @@ fn explicit_removal_recovers_quota_and_is_identity_local() {
     assert_eq!(fs::read(dir.join(".interrupted.pending")).unwrap(), [0]);
     let path = PathBuf::from(owner.db.path().unwrap());
     drop(owner);
-    let reopened = store("alice", Some(&path));
+    let (_reopened_test_dir, reopened) = store("alice", Some(&path));
     assert!(reopened
         .saved_sticker_pack(&[7; 32], first.id())
         .unwrap()
@@ -146,7 +146,7 @@ fn explicit_removal_recovers_quota_and_is_identity_local() {
 
 #[test]
 fn explicit_removal_can_recover_a_corrupt_pack_without_its_key() {
-    let mut store = store("alice", None);
+    let (_store_test_dir, mut store) = store("alice", None);
     let first = pack("First");
     let other = pack("Other");
     store.save_sticker_pack(&[7; 32], &first).unwrap();
@@ -160,7 +160,7 @@ fn explicit_removal_can_recover_a_corrupt_pack_without_its_key() {
 
 #[test]
 fn corrupt_content_is_preserved_and_cannot_be_overwritten() {
-    let mut store = store("alice", None);
+    let (_store_test_dir, mut store) = store("alice", None);
     let pack = pack("Cats");
     store.save_sticker_pack(&[7; 32], &pack).unwrap();
     let path = directory(&store).unwrap().join(hex(pack.id()));
@@ -172,9 +172,9 @@ fn corrupt_content_is_preserved_and_cannot_be_overwritten() {
 
 #[test]
 fn sqlite_writer_lock_prevents_overlapping_publications() {
-    let mut first = store("alice", None);
+    let (_first_test_dir, mut first) = store("alice", None);
     let db = PathBuf::from(first.db.path().unwrap());
-    let mut second = store("alice", Some(&db));
+    let (_second_test_dir, mut second) = self::store("alice", Some(&db));
     second.db.busy_timeout(std::time::Duration::ZERO).unwrap();
     let lock = first
         .db
@@ -205,7 +205,7 @@ fn saved_ids(store: &mut Store) -> Vec<[u8; 32]> {
 
 #[test]
 fn collection_pages_are_ordered_bounded_and_keep_unreadable_entries() {
-    let mut store = store("alice", None);
+    let (_store_test_dir, mut store) = store("alice", None);
     assert!(store
         .saved_sticker_packs(&[7; 32], None)
         .unwrap()
@@ -248,7 +248,7 @@ fn collection_pages_are_ordered_bounded_and_keep_unreadable_entries() {
     assert_eq!(fs::read(dir.join(hex(&ids[1]))).unwrap(), b"broken");
     let db = PathBuf::from(store.db.path().unwrap());
     drop(store);
-    let reopened = self::store("alice", Some(&db));
+    let (_reopened_test_dir, reopened) = self::store("alice", Some(&db));
     assert_eq!(
         reopened.saved_sticker_packs(&[7; 32], None).unwrap().next,
         first.next
@@ -259,7 +259,7 @@ fn collection_pages_are_ordered_bounded_and_keep_unreadable_entries() {
 #[test]
 fn symlinks_are_refused_without_touching_the_target() {
     use std::os::unix::fs::symlink;
-    let mut store = store("alice", None);
+    let (_store_test_dir, mut store) = store("alice", None);
     let dir = directory(&store).unwrap();
     fs::create_dir(&dir).unwrap();
     let pack = pack("Cats");
@@ -270,7 +270,7 @@ fn symlinks_are_refused_without_touching_the_target() {
     assert!(store.saved_sticker_pack(&[7; 32], pack.id()).is_err());
     assert!(store.remove_saved_sticker_pack(pack.id()).is_err());
     assert_eq!(fs::read(target).unwrap(), b"keep");
-    let mut other = self::store("bob", None);
+    let (_other_test_dir, mut other) = self::store("bob", None);
     let foreign_dir = directory(&other)
         .unwrap()
         .parent()

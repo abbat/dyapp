@@ -8,13 +8,15 @@ struct Fixture {
     store: Store,
     remote: Profile,
     pending: Profile,
+    _test_dir: dyapp_test_support::TestDir,
 }
 impl Fixture {
     fn new(hidden: bool, remote_version: u64) -> Self {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let identity = Identity::from_secret(&[7; 32]);
         let key = Identity::from_secret(&[8; 32]);
         let device = dyapp_messaging::mls::Device::new(&identity, key.public_key(), 1).unwrap();
-        let path = temp_db_path();
+        let path = test_dir.path().join("client-1.db");
         let store = Store::open(&path, &identity).unwrap();
         let remote = Profile {
             version: remote_version,
@@ -50,6 +52,7 @@ impl Fixture {
             store,
             remote,
             pending,
+            _test_dir: test_dir,
         }
     }
 

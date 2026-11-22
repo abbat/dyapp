@@ -6,19 +6,21 @@ use dyapp_identity::{
 };
 use dyapp_messaging::mls::Device;
 use dyapp_profile::Profile;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use zeroize::Zeroizing;
 
 struct Fixture {
     chats: Arc<ChatSession>,
     dir: PathBuf,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 impl Fixture {
     fn new(secret: u8) -> Self {
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../build/native-verification")
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir
+            .path()
             .join(Identity::try_generate().unwrap().peer_id());
         std::fs::create_dir_all(&dir).unwrap();
         let key = |secret| {
@@ -43,7 +45,11 @@ impl Fixture {
             },
         )
         .unwrap();
-        Self { chats, dir }
+        Self {
+            chats,
+            dir,
+            _test_dir: test_dir,
+        }
     }
 
     fn confirm(&self, profile: VerifiedProfile) -> Result<FoundProfile, CoreError> {

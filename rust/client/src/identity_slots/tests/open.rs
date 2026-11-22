@@ -1,7 +1,7 @@
 #[cfg(unix)]
 mod unix;
 
-use super::{root, slot, FIRST};
+use super::{slot, FIRST};
 use crate::identity_slots::*;
 use dyapp_identity::Identity;
 use std::cell::Cell;
@@ -74,9 +74,14 @@ fn recovery(result: Resolution, expected: RecoveryReason) {
 
 #[test]
 fn existing_file_system_and_wrapped_legacy_keys_keep_their_peer_ids() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let peer = Identity::from_secret(&[7; 32]).peer_id();
-    for layout in [Layout::Desktop, Layout::Android, Layout::Ios] {
-        let root = root();
+    for (index, layout) in [Layout::Desktop, Layout::Android, Layout::Ios]
+        .into_iter()
+        .enumerate()
+    {
+        let root = test_dir.path().join(format!("layout-{index}"));
+        fs::create_dir_all(&root).unwrap();
         let keys = Reader {
             present: true,
             ..Reader::default()
@@ -93,7 +98,8 @@ fn existing_file_system_and_wrapped_legacy_keys_keep_their_peer_ids() {
         assert_eq!(opened, peer);
         assert_eq!(keys.calls.get(), usize::from(layout != Layout::Desktop));
     }
-    let root = root();
+    let root = test_dir.path().join("after-loop");
+    fs::create_dir_all(&root).unwrap();
     fs::write(root.join("identity-storage"), b"system\n").unwrap();
     let keys = Reader {
         present: true,
@@ -108,11 +114,12 @@ fn existing_file_system_and_wrapped_legacy_keys_keep_their_peer_ids() {
 
 #[test]
 fn incomplete_and_deleting_slots_keep_the_derived_peer_id_without_becoming_ready() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     for (marker, expected) in [
         (b"pending\n".as_slice(), RecoveryReason::Incomplete),
         (b"deleting\n", RecoveryReason::Deleting),
     ] {
-        let root = root();
+        let root = test_dir.to_path_buf();
         let dir = slot(&root, FIRST, marker);
         key_file(&dir, b"old wrapped fixture");
         let keys = Reader {
@@ -130,7 +137,8 @@ fn incomplete_and_deleting_slots_keep_the_derived_peer_id_without_becoming_ready
 
 #[test]
 fn missing_denied_and_damaged_slots_are_distinct_and_never_replace_keys() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let dir = slot(&root, FIRST, b"ready\n");
     let keys = Reader::default();
     recovery(
@@ -161,7 +169,8 @@ fn missing_denied_and_damaged_slots_are_distinct_and_never_replace_keys() {
 
 #[test]
 fn empty_inventory_with_orphan_credentials_or_a_saved_pointer_never_becomes_setup() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     assert!(matches!(
         resolve(&root, Layout::Ios, &Reader::default()).unwrap(),
         Resolution::Setup
@@ -198,7 +207,8 @@ fn empty_inventory_with_orphan_credentials_or_a_saved_pointer_never_becomes_setu
 
 #[test]
 fn explicit_apple_unselection_and_missing_legacy_do_not_open_a_different_identity() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let dir = slot(&root, FIRST, b"ready\n");
     key_file(&dir, b"old wrapped fixture");
     let keys = Reader {
@@ -224,7 +234,8 @@ fn explicit_apple_unselection_and_missing_legacy_do_not_open_a_different_identit
 
 #[test]
 fn invalid_raw_lengths_and_oversized_wrapped_files_fail_before_backend_access() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let dir = slot(&root, FIRST, b"ready\n");
     fs::write(dir.join("storage-mode"), b"file\n").unwrap();
     key_file(&dir, &[7; 33]);

@@ -20,11 +20,12 @@ async fn exhausted_version_never_closes_the_mailbox() {
 }
 
 async fn check_exhausted_version(hidden: bool) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
     let key = Identity::from_secret(&[8; 32]);
     let version = u64::MAX.checked_sub(u64::from(hidden)).unwrap();
     let before = draft(&identity, &key, version);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     store.save_profile_draft(&before).unwrap();
     store.set_profile_hidden(hidden).unwrap();
     let calls = Arc::new(AtomicUsize::new(0));
@@ -53,10 +54,11 @@ async fn check_exhausted_version(hidden: bool) {
 
 #[tokio::test]
 async fn refused_mailbox_keeps_binding_and_can_be_retried() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
     let key = Identity::from_secret(&[8; 32]);
     let before = draft(&identity, &key, 1);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     store.save_profile_draft(&before).unwrap();
     let calls = Arc::new(AtomicUsize::new(0));
     let observed = Arc::clone(&calls);

@@ -21,11 +21,15 @@ const SIX: [&str; 6] = [
 ];
 
 /// Returns the index and the keys in SIX[0]/SIX[3].
-fn population() -> (SearchIndex, std::collections::HashSet<[u8; 32]>) {
+fn population() -> (
+    dyapp_test_support::TestDir,
+    SearchIndex,
+    std::collections::HashSet<[u8; 32]>,
+) {
     for place in SIX {
         assert_eq!(crate::places::canonical("DE", place), place);
     }
-    let index = index();
+    let (index_test_dir, index) = index();
     let mut p03 = std::collections::HashSet::new();
     for i in 0..600i64 {
         let id = Identity::try_generate().unwrap();
@@ -60,12 +64,12 @@ fn population() -> (SearchIndex, std::collections::HashSet<[u8; 32]>) {
             p03.insert(key);
         }
     }
-    (index, p03)
+    (index_test_dir, index, p03)
 }
 
 #[test]
 fn virtual_age_condition_contains_the_whole_birth_interval() {
-    let index = index();
+    let (_index_test_dir, index) = index();
     let mut keys = Vec::new();
     for (year, month, day) in [
         (Some(2000), None, None),
@@ -112,7 +116,7 @@ fn virtual_age_condition_contains_the_whole_birth_interval() {
 
 #[test]
 fn query_filters_least_education() {
-    let (index, _) = population();
+    let (_test_dir, index, _) = population();
     let found = index
         .query(&[cond(27, Op::Range, vec![50, 60], vec![])], 200, 10_000)
         .unwrap()
@@ -124,7 +128,7 @@ fn query_filters_least_education() {
 
 #[test]
 fn query_matches_closed_scales_and_skips_unpublished_values() {
-    let index = index();
+    let (_index_test_dir, index) = index();
     let filled = Profile {
         version: 1,
         gender: 4,
@@ -179,7 +183,7 @@ fn query_matches_closed_scales_and_skips_unpublished_values() {
 #[test]
 fn a_code_above_the_maximum_is_not_stated_and_a_gap_code_falls_inside_its_range() {
     use dyapp_profile::{CareerAmbition, EducationLevel, Gender};
-    let index = index();
+    let (_index_test_dir, index) = index();
     let (newer, profile, record) = signed(
         &Identity::try_generate().unwrap(),
         Profile {
@@ -222,7 +226,7 @@ fn a_code_above_the_maximum_is_not_stated_and_a_gap_code_falls_inside_its_range(
 
 #[test]
 fn query_filters_height_with_inclusive_bounds_and_skips_unset() {
-    let index = index();
+    let (_index_test_dir, index) = index();
     for height in [None, Some(170), Some(180)] {
         let (key, profile, record) = signed(
             &Identity::try_generate().unwrap(),
@@ -256,7 +260,7 @@ fn query_filters_height_with_inclusive_bounds_and_skips_unset() {
 
 #[test]
 fn query_filters_photos() {
-    let (index, _) = population();
+    let (_test_dir, index, _) = population();
     let found = index
         .query(&[cond(21, Op::Range, vec![1, 16], vec![])], 200, 10_000)
         .unwrap()
@@ -267,7 +271,7 @@ fn query_filters_photos() {
 
 #[test]
 fn query_filters_activity_by_day() {
-    let index = index();
+    let (_index_test_dir, index) = index();
     let day = 86_400;
     let mut keys = Vec::new();
     for now in [10 * day, 12 * day - 1, 12 * day] {
@@ -293,7 +297,7 @@ fn query_filters_activity_by_day() {
 
 #[test]
 fn query_filters_gender() {
-    let (index, p03) = population();
+    let (_test_dir, index, p03) = population();
     let q = [
         cond(dyapp_profile::Gender::FIELD, Op::Eq, vec![1], vec![]),
         cond(19, Op::Eq, vec![], vec!["chess"]),
@@ -307,7 +311,7 @@ fn query_filters_gender() {
 
 #[test]
 fn query_filters_place_in_and_budget() {
-    let (index, p03) = population();
+    let (_test_dir, index, p03) = population();
     let q = [
         cond(4, Op::Eq, vec![], vec!["DE"]),
         cond(20, Op::In, vec![], vec![SIX[1], SIX[2]]),
@@ -340,7 +344,7 @@ fn query_filters_place_in_and_budget() {
 
 #[test]
 fn mutual_conditions_keep_only_who_seeks_the_gender_and_the_age() {
-    let index = index();
+    let (_index_test_dir, index) = index();
     let put = |genders: Vec<u32>, from, to, not_looking| {
         let (key, p, r) = signed(
             &Identity::try_generate().unwrap(),
@@ -391,7 +395,7 @@ fn mutual_conditions_keep_only_who_seeks_the_gender_and_the_age() {
 
 #[test]
 fn a_republish_replaces_who_a_profile_seeks() {
-    let index = index();
+    let (_index_test_dir, index) = index();
     let id = Identity::try_generate().unwrap();
     let seeking = Profile {
         version: 1,
@@ -424,7 +428,7 @@ fn a_republish_replaces_who_a_profile_seeks() {
 
 #[test]
 fn invalid_conditions() {
-    let (index, _) = population();
+    let (_test_dir, index, _) = population();
     let bad = |q: Vec<Condition>| index.query(&q, 50, 10_000).unwrap().is_err();
     assert!(bad(vec![cond(
         BIRTH_AGE,

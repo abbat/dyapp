@@ -1,4 +1,4 @@
-use super::{incoming, root, WrappedKeys};
+use super::{incoming, WrappedKeys};
 use crate::identity_slots::{
     active, Active, ChatKeyKind, ChatKeyStore, KeyReader, Layout, Registry, Slot, State, Storage,
 };
@@ -89,7 +89,8 @@ impl ChatKeyStore for WrappedKeys {
 
 #[test]
 fn wrapped_link_preserves_the_received_device_through_chat_bootstrap() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = Registry::new(root.clone(), Layout::Android);
     let keys = WrappedKeys::default();
     let (source, owner, _) = registry.create(Storage::Wrapped, &keys).unwrap();
@@ -117,6 +118,7 @@ fn wrapped_link_preserves_the_received_device_through_chat_bootstrap() {
 
 #[test]
 fn wrapped_link_failures_preserve_the_source_and_a_pending_destination() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     for (failure, expected) in [
         (Failure::Wrap, "wrapping denied"),
         (Failure::Mismatch, "Wrapped chat key does not reopen"),
@@ -126,7 +128,7 @@ fn wrapped_link_failures_preserve_the_source_and_a_pending_destination() {
         ),
         (Failure::PersistedMismatch, "Saved chat key does not reopen"),
     ] {
-        let root = root();
+        let root = test_dir.to_path_buf();
         let registry = Registry::new(root.clone(), Layout::Android);
         let keys = WrappedKeys::default();
         let (source, owner, _) = registry.create(Storage::Wrapped, &keys).unwrap();
@@ -159,7 +161,8 @@ fn wrapped_link_failures_preserve_the_source_and_a_pending_destination() {
 
 #[test]
 fn wrapped_link_never_overwrites_a_device_file() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = Registry::new(root.clone(), Layout::Android);
     let keys = WrappedKeys::default();
     let (source, owner, _) = registry.create(Storage::Wrapped, &keys).unwrap();

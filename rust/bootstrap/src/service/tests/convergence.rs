@@ -33,7 +33,10 @@ fn offer_all(nodes: &[Service], records: [&SignedRecord; 4]) {
 
 #[test]
 fn split_three_holders_heal_with_a_late_joiner_and_tombstone() {
-    let nodes = [service(), service(), service()];
+    let (_first_test_dir, first_node) = service();
+    let (_second_test_dir, second_node) = service();
+    let (_third_test_dir, third_node) = service();
+    let nodes = [first_node, second_node, third_node];
     let owner = Identity::from_secret(&[61; 32]);
     let first = record(&owner, 1);
     let revival = record(&owner, 2);

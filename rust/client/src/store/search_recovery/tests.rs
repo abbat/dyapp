@@ -1,5 +1,4 @@
 use super::*;
-use crate::store::tests::temp_db_path;
 use dyapp_identity::SignedRecord;
 use dyapp_profile::ProfileCondition;
 use prost::Message as _;
@@ -35,10 +34,25 @@ struct Fixture {
     owner: Identity,
     path: PathBuf,
     legacy: SignedRecord,
+    _test_dir: dyapp_test_support::TestDir,
 }
+fn mark_legacy_acked(store: &Store, legacy: &SignedRecord) {
+    store.search_profile_sent(legacy, 1001).unwrap();
+    let mut bytes = 4u64.to_be_bytes().to_vec();
+    bytes.extend(sha256(&legacy.encode_to_vec()));
+    store
+        .db
+        .execute(
+            "UPDATE `settings` SET `format_version` = ?1, `value` = ?2 WHERE `key` = ?3",
+            params![1, bytes, "search_profile_head"],
+        )
+        .unwrap();
+}
+
 impl Fixture {
     fn new(acked: bool) -> Self {
-        let path = temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let owner = Identity::from_secret(&[7; 32]);
         let mut store = Store::open(&path, &owner).unwrap();
         // Opaque sealed device bytes must never be opened or rewritten by search recovery.
@@ -68,16 +82,7 @@ impl Fixture {
         let legacy = Profile::tombstone(4, 0, 0).sign(&owner);
         store.hold_search_profile(&legacy).unwrap();
         if acked {
-            store.search_profile_sent(&legacy, 1001).unwrap();
-            let mut bytes = 4u64.to_be_bytes().to_vec();
-            bytes.extend(sha256(&legacy.encode_to_vec()));
-            store
-                .db
-                .execute(
-                    "UPDATE `settings` SET `format_version` = ?1, `value` = ?2 WHERE `key` = ?3",
-                    params![1, bytes, "search_profile_head"],
-                )
-                .unwrap();
+            mark_legacy_acked(&store, &legacy);
         }
         store
             .search_profile_rate_limited(1000, Duration::from_secs(120))
@@ -87,6 +92,7 @@ impl Fixture {
             owner,
             path,
             legacy,
+            _test_dir: test_dir,
         }
     }
     fn plan(&self) -> SearchWithdrawalRecovery {
@@ -333,8 +339,9 @@ fn a_committed_review_cannot_be_reused_after_unhide_or_link_replacement() {
 
 #[test]
 fn missing_draft_requires_explicit_recovery_without_creating_one() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&temp_db_path(), &owner).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
     store.set_profile_hidden(true).unwrap();
     store
         .hold_search_profile(&Profile::tombstone(2, 0, 0).sign(&owner))

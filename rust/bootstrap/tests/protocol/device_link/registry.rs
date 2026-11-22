@@ -59,12 +59,13 @@ fn persist_device(slot: &Slot, device: &Identity) -> Result<(), String> {
 
 #[tokio::test]
 async fn a_wire_invitation_releases_admission_before_retained_installation() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let address = link_node().await;
     let protocols = Arc::new(dyapp_p2p_net::Protocols::public());
     let mut sender = dyapp_client::Node::connect(address.clone(), Arc::clone(&protocols))
         .await
         .unwrap();
-    let root = protocol_build_path("received-link-registry");
+    let root = test_dir.to_path_buf();
     let registry = Registry::new(root.clone(), Layout::Desktop);
     let (source, original, _) = registry.create(Storage::File, &Files).unwrap();
     let network = Network {

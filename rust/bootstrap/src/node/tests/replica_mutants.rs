@@ -5,16 +5,13 @@ use libp2p::request_response::ResponseChannel;
 
 const WAIT: Duration = Duration::from_secs(5);
 
-fn service() -> Service {
+fn service() -> (dyapp_test_support::TestDir, Service) {
     service_with_clock(crate::clock::Clock::system())
 }
 
-fn service_with_clock(clock: crate::clock::Clock) -> Service {
-    let dir = format!(
-        "{}/../../build/test-replica-mutants-{}",
-        env!("CARGO_MANIFEST_DIR"),
-        uuid::Uuid::new_v4()
-    );
+fn service_with_clock(clock: crate::clock::Clock) -> (dyapp_test_support::TestDir, Service) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().to_string_lossy().into_owned();
     let mut config = crate::NodeConfig::default();
     config.storage.dir = dir.clone().into();
     config.network.id_pow_bits = 0;
@@ -24,7 +21,7 @@ fn service_with_clock(clock: crate::clock::Clock) -> Service {
     let mut service =
         Service::with_clock(crate::BootstrapStore::new(&dir).unwrap(), config, clock).unwrap();
     service.media = Some(crate::media::MediaStore::open(&service.config.storage.dir).unwrap());
-    service
+    (test_dir, service)
 }
 
 async fn connect(sender: &Service, receiver: &Service) -> (Swarm<Behaviour>, Swarm<Behaviour>) {
@@ -73,12 +70,14 @@ async fn connect(sender: &Service, receiver: &Service) -> (Swarm<Behaviour>, Swa
 }
 
 async fn media_channel() -> (
+    dyapp_test_support::TestDir,
     Service,
     Swarm<Behaviour>,
     Swarm<Behaviour>,
     ResponseChannel<proto::MediaResponse>,
 ) {
-    let (sender_service, receiver_service) = (service(), service());
+    let (_sender_service_test_dir, sender_service) = service();
+    let (receiver_service_test_dir, receiver_service) = service();
     let (mut sender, mut receiver) = Box::pin(connect(&sender_service, &receiver_service)).await;
     let to = *receiver.local_peer_id();
     sender.behaviour_mut().media.send_request(
@@ -108,7 +107,13 @@ async fn media_channel() -> (
     })
     .await
     .expect("media request did not arrive");
-    (receiver_service, sender, receiver, channel)
+    (
+        receiver_service_test_dir,
+        receiver_service,
+        sender,
+        receiver,
+        channel,
+    )
 }
 
 async fn media_response(
@@ -263,7 +268,7 @@ fn insert_pending_upload(
 
 #[tokio::test]
 async fn pending_counts_every_replica_queue() {
-    let (service, _sender, mut swarm, reply) = Box::pin(media_channel()).await;
+    let (_test_dir, service, _sender, mut swarm, reply) = Box::pin(media_channel()).await;
     let mut replicas = Replicas::default();
     let (owner, profile, now) = start_pending_handover(&service, &mut swarm, &mut replicas);
     insert_pending_states(&service, &mut replicas, &owner, reply, now);
@@ -330,7 +335,7 @@ fn repaired_versions(replicas: &Replicas) -> Vec<(u64, String)> {
 
 #[test]
 fn profile_repair_prefers_only_a_strictly_newer_held_record() {
-    let service = service();
+    let (_service_test_dir, service) = service();
     let mut swarm = swarm(
         Keypair::generate_ed25519(),
         &service.config.limits,
@@ -378,8 +383,8 @@ fn profile_repair_prefers_only_a_strictly_newer_held_record() {
 #[tokio::test]
 async fn profile_gap_sends_the_exact_owner_age() {
     let manual = crate::clock::Manual::at(1_800_000_000);
-    let sender_service = service_with_clock(manual.clock());
-    let receiver_service = service();
+    let (_sender_service_test_dir, sender_service) = service_with_clock(manual.clock());
+    let (_receiver_service_test_dir, receiver_service) = service();
     let owner = dyapp_identity::Identity::try_generate().unwrap();
     let record = profile(&owner, 2, "age");
     assert_eq!(
@@ -426,7 +431,7 @@ async fn profile_gap_sends_the_exact_owner_age() {
 #[tokio::test]
 async fn media_repair_admission_refuses_traffic_or_a_full_queue_independently() {
     for exhaust_queue in [false, true] {
-        let service = service();
+        let (_service_test_dir, service) = service();
         let mut swarm = swarm(
             Keypair::generate_ed25519(),
             &service.config.limits,
@@ -459,7 +464,7 @@ async fn media_repair_admission_refuses_traffic_or_a_full_queue_independently() 
 
 #[tokio::test]
 async fn sharded_start_put_schedules_replica_and_shard_lookups() {
-    let (service, _sender, mut swarm, reply) = Box::pin(media_channel()).await;
+    let (_test_dir, service, _sender, mut swarm, reply) = Box::pin(media_channel()).await;
     republish::add_peer(&mut swarm);
     let mut replicas = Replicas::default();
     replicas.start_put(
@@ -495,7 +500,7 @@ async fn sharded_start_put_schedules_replica_and_shard_lookups() {
 
 #[tokio::test]
 async fn refused_local_shard_does_not_confirm_a_holder() {
-    let service = service();
+    let (_service_test_dir, service) = service();
     let mut swarm = swarm(
         Keypair::generate_ed25519(),
         &service.config.limits,
@@ -564,7 +569,7 @@ fn read_get(manifest: &proto::MediaManifest) -> proto::GetMedia {
 
 #[tokio::test]
 async fn read_looks_up_every_missing_or_corrupt_shard() {
-    let (service, _sender, mut swarm, reply) = Box::pin(media_channel()).await;
+    let (_test_dir, service, _sender, mut swarm, reply) = Box::pin(media_channel()).await;
     let manifest = stored_manifest(&service, &[0, 1], &[1]);
     let now = service.clock.instant();
     let mut replicas = Replicas::default();
@@ -595,7 +600,7 @@ async fn read_looks_up_every_missing_or_corrupt_shard() {
 
 #[tokio::test]
 async fn exact_data_shard_count_completes_and_charges_only_the_reply_envelope() {
-    let (service, mut sender, mut receiver, reply) = Box::pin(media_channel()).await;
+    let (_test_dir, service, mut sender, mut receiver, reply) = Box::pin(media_channel()).await;
     let manifest = stored_manifest(&service, &[0, 1], &[]);
     let get = read_get(&manifest);
     let mut replicas = Replicas::default();
@@ -614,7 +619,7 @@ async fn exact_data_shard_count_completes_and_charges_only_the_reply_envelope() 
 
 #[tokio::test]
 async fn incomplete_read_times_out_at_the_deadline_and_cancels_lookups() {
-    let (service, mut sender, mut receiver, reply) = Box::pin(media_channel()).await;
+    let (_test_dir, service, mut sender, mut receiver, reply) = Box::pin(media_channel()).await;
     let manifest = stored_manifest(&service, &[], &[]);
     let get = read_get(&manifest);
     let mut replicas = Replicas::default();

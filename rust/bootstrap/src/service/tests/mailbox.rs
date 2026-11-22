@@ -58,7 +58,7 @@ fn fetch_from(
 
 #[test]
 fn fetch_cursor_advances_and_rejects_malformed_position() {
-    let service = service_with(|_| {});
+    let (_service_test_dir, service) = service_with(|_| {});
     let sender = Identity::try_generate().unwrap();
     let device = Identity::try_generate().unwrap();
     let address = dyapp_identity::key_hash(&device.public_key()).to_vec();
@@ -101,7 +101,7 @@ fn fetch_cursor_advances_and_rejects_malformed_position() {
 
 #[test]
 fn put_group_binds_the_mailbox_and_source_group() {
-    let service = service();
+    let (_service_test_dir, service) = service();
     let sender = Identity::try_generate().unwrap();
     let envelope = proto::Envelope {
         id: vec![1; 16],
@@ -129,7 +129,7 @@ fn put_group_binds_the_mailbox_and_source_group() {
 
 #[test]
 fn deny_list_refuses_without_strikes() {
-    let mut service = service_with(|l| l.strikes_to_ban = 1);
+    let (_service_test_dir, mut service) = service_with(|l| l.strikes_to_ban = 1);
     let (listed, device) = (
         Identity::try_generate().unwrap(),
         Identity::try_generate().unwrap(),
@@ -196,7 +196,7 @@ fn replica_inventory(service: &Service, address: &[u8], ids: Vec<Vec<u8>>) -> Ma
 
 #[test]
 fn inventory_names_gaps_and_replica_put_fills_them() {
-    let service = service_with(|l| l.strikes_to_ban = 1);
+    let (_service_test_dir, service) = service_with(|l| l.strikes_to_ban = 1);
     let sender = Identity::try_generate().unwrap();
     let address = vec![7; 32];
     let signed = |id: u8| {
@@ -247,7 +247,7 @@ fn inventory_names_gaps_and_replica_put_fills_them() {
 
 #[test]
 fn mailbox_size_hints_cover_boundaries_local_replicas_and_denied_batch_priority() {
-    let s = service();
+    let (_s_test_dir, s) = service();
     let owner = Identity::try_generate().unwrap();
     let mut envelope = proto::Envelope {
         id: vec![4; 16],
@@ -367,7 +367,7 @@ fn check_replica_mailbox_hints(s: &Service, large: SignedRecord, exact: SignedRe
 
 #[test]
 fn mailbox_put_fetch_ack_forged_and_replayed() {
-    let service = service();
+    let (_service_test_dir, service) = service();
     let (device, sender, thief) = (
         Identity::try_generate().unwrap(),
         Identity::try_generate().unwrap(),
@@ -560,14 +560,15 @@ fn full_stores_and_byte_rate_refuse_requests() {
     let put =
         mailbox_request::Request::Put(identity.sign(Domain::Envelope, envelope.encode_to_vec()));
 
-    let service = service_with(|l| (l.profiles_max_mb, l.messages_max_mb) = (0, 0));
+    let (_service_test_dir, service) =
+        service_with(|l| (l.profiles_max_mb, l.messages_max_mb) = (0, 0));
     assert_eq!(
         status(&service.profile(&peer("p"), profile()).unwrap()),
         Status::Full
     );
     let response = mailbox(&service, &mut None, put.clone());
     assert_eq!(mailbox_status(&response), Status::Full);
-    let service = service_with(|l| l.min_free_mb = u64::MAX);
+    let (_service_test_dir, service) = service_with(|l| l.min_free_mb = u64::MAX);
     assert_eq!(
         status(&service.profile(&peer("p"), profile()).unwrap()),
         Status::Full
@@ -578,7 +579,7 @@ fn full_stores_and_byte_rate_refuse_requests() {
 
 fn check_byte_rate_and_memory_refusals(put: mailbox_request::Request) {
     // The byte rate sheds profiles before the mailbox within a second.
-    let service = service_with(|l| l.bytes_per_second = 1 << 30);
+    let (_service_test_dir, service) = service_with(|l| l.bytes_per_second = 1 << 30);
     service.traffic.add((1 << 30) / 100 * 92);
     let limited = status(&service.profile(&peer("p"), get(vec![0; 32])).unwrap());
     assert_eq!(limited, Status::RateLimited);
@@ -595,7 +596,7 @@ fn check_byte_rate_and_memory_refusals(put: mailbox_request::Request) {
     service.report();
 
     // Memory: refused from 80 % of max_memory_mb, without a strike; dropped from 100 %.
-    let service = service_with(|l| l.strikes_to_ban = 1);
+    let (_service_test_dir, service) = service_with(|l| l.strikes_to_ban = 1);
     service.memory.set(85);
     let response = mailbox(&service, &mut None, put.clone());
     assert_eq!(mailbox_status(&response), Status::RateLimited);
@@ -610,7 +611,7 @@ fn check_byte_rate_and_memory_refusals(put: mailbox_request::Request) {
 
 #[test]
 fn group_and_sender_quotas_and_bans() {
-    let service = service_with(|l| {
+    let (_service_test_dir, service) = service_with(|l| {
         (l.ip_group_requests_per_second, l.strikes_to_ban) = (2, 2);
         l.sender_puts_per_second = 1;
     });
@@ -650,7 +651,7 @@ fn check_sender_quotas_and_bans() {
         };
         mailbox_request::Request::Put(sender.sign(Domain::Envelope, envelope.encode_to_vec()))
     };
-    let service = service_with(|l| {
+    let (_service_test_dir, service) = service_with(|l| {
         l.sender_puts_per_second = 1;
         l.strikes_to_ban = 2;
     });
@@ -686,7 +687,7 @@ fn check_sender_quotas_and_bans() {
 
 #[test]
 fn rate_limit_and_info() {
-    let mut service = service();
+    let (_service_test_dir, mut service) = service();
     service.rate_limiter = PeerRateLimiter::new(1);
     let id = vec![0; 32];
     assert_eq!(
@@ -775,7 +776,7 @@ fn exact_signal(sender: &Identity, address: &[u8]) -> SignedRecord {
 #[test]
 fn signals_are_small_counted_apart_and_evict_the_oldest() {
     use proto::EnvelopeClass::{Message, Signal};
-    let service = service_with(|l| {
+    let (_service_test_dir, service) = service_with(|l| {
         l.signal_max_kb = 2;
         l.sender_puts_per_second = 1000;
     });
@@ -824,7 +825,7 @@ fn signals_are_small_counted_apart_and_evict_the_oldest() {
 
 #[test]
 fn info_reports_signal_limits_only_with_the_store_role() {
-    let mut service = service_with(|l| {
+    let (_service_test_dir, mut service) = service_with(|l| {
         l.signal_max_kb = 3;
         l.mailbox_pool_kb = 200;
         l.require_write_tokens = true;

@@ -292,7 +292,7 @@ impl Store {
 mod tests {
     use super::*;
     use crate::attachment::Attachment;
-    use crate::store::tests::{catalog_group, temp_db_path};
+    use crate::store::tests::catalog_group;
     use dyapp_identity::Identity;
     use dyapp_messaging::hlc::Timestamp;
     use rusqlite::params;
@@ -355,7 +355,8 @@ mod tests {
 
     #[test]
     fn descriptor_survives_restart_and_conflicts_across_body_kinds() {
-        let path = temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let owner = Identity::try_generate().unwrap();
         let peer = Identity::try_generate().unwrap().peer_id();
         let group = [9];
@@ -391,9 +392,10 @@ mod tests {
 
     #[test]
     fn photo_queries_filter_other_media_before_ranking_and_unread_count() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let owner = Identity::try_generate().unwrap();
         let peer = Identity::try_generate().unwrap().peer_id();
-        let mut store = Store::open(&temp_db_path(), &owner).unwrap();
+        let mut store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
         catalog_group(&mut store, &[9], &peer);
         let sender = VerifiedChatSender {
             group: &[9],
@@ -432,11 +434,12 @@ mod tests {
 
     #[test]
     fn corrupt_descriptor_or_metadata_fails_closed() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let owner = Identity::try_generate().unwrap();
         let peer = Identity::try_generate().unwrap().peer_id();
         let group = [9];
         let device = [8; 32];
-        let mut store = Store::open(&temp_db_path(), &owner).unwrap();
+        let mut store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
         catalog_group(&mut store, &group, &peer);
         store
             .record_chat_attachment(

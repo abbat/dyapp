@@ -4,7 +4,7 @@ use dyapp_identity::Identity;
 
 #[test]
 fn digest_follows_mutations_and_rejections() {
-    let index = index();
+    let (_index_test_dir, index) = index();
     let keys = fill(&index, 40, 0);
     let owner = Identity::try_generate().unwrap();
     let (key, p, record) = signed(&owner, profile(1));
@@ -50,7 +50,7 @@ fn slot_arithmetic_boundaries() {
 
 #[test]
 fn inventory_range_boundaries() {
-    let index = index();
+    let (_index_test_dir, index) = index();
     let (_, p, record) = signed(&Identity::try_generate().unwrap(), profile(1));
     let keys: Vec<_> = [0, 1, 255, 256, SLOTS - 1]
         .map(|p| slot_start(3, p))

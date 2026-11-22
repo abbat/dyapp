@@ -1,6 +1,6 @@
 mod legacy;
 
-use super::{link::WrappedKeys, root};
+use super::link::WrappedKeys;
 use crate::identity_slots::{
     active, Active, ChatBinding, ChatKeyKind, ChatKeyStore, Credential, KeyReader, KeyRemover,
     Layout, Registry, Slot, State, Storage,
@@ -78,10 +78,12 @@ struct Fixture {
     slot: Slot,
     owner: Identity,
     binding: ChatBinding,
+    _test_dir: dyapp_test_support::TestDir,
 }
 impl Fixture {
     fn new() -> Self {
-        let root = root();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let root = test_dir.to_path_buf();
         let registry = Registry::new(root.clone(), Layout::Android);
         let keys = Keys {
             base: WrappedKeys::default(),
@@ -110,6 +112,7 @@ impl Fixture {
             slot,
             owner,
             binding,
+            _test_dir: test_dir,
         }
     }
 
@@ -238,8 +241,9 @@ fn changed_lifecycle_identity_or_missing_existing_storage_refuses_before_mutatio
 
 #[test]
 fn a_binding_cannot_remove_a_copied_slot_using_the_same_owner_and_platform_alias() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let f = Fixture::new();
-    let other_root = root();
+    let other_root = test_dir.to_path_buf();
     let copied = other_root.join("profiles").join(&f.slot.id);
     fs::create_dir_all(&copied).unwrap();
     for entry in fs::read_dir(&f.slot.dir).unwrap() {

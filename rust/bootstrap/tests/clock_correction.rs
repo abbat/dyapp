@@ -17,15 +17,9 @@ use libp2p::Multiaddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-fn build_path() -> std::path::PathBuf {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../build/clock");
-    std::fs::create_dir_all(&root).unwrap();
-    root.join(uuid::Uuid::new_v4().to_string())
-}
-
-fn config(dir: std::path::PathBuf) -> NodeConfig {
+fn config(dir: &std::path::Path) -> NodeConfig {
     let mut config = NodeConfig::default();
-    config.storage.dir = dir;
+    config.storage.dir = dir.to_path_buf();
     config.network.id_pow_bits = 0;
     config.search.min_profile_pow_bits = 0;
     config.search.min_heartbeat_pow_bits = 0;
@@ -40,8 +34,9 @@ fn config(dir: std::path::PathBuf) -> NodeConfig {
 }
 
 async fn start() -> Multiaddr {
-    let dir = build_path();
-    let config = config(dir.clone());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.to_path_buf();
+    let config = config(&dir);
     let keypair = Keypair::generate_ed25519();
     let peer = keypair.public().to_peer_id();
     let mut service =
@@ -77,7 +72,10 @@ async fn start() -> Multiaddr {
         }
     };
     swarm.add_external_address(address.clone());
-    tokio::spawn(node::run(*swarm, Arc::new(service)));
+    tokio::spawn(async move {
+        let _test_dir = test_dir;
+        Box::pin(node::run(*swarm, Arc::new(service))).await;
+    });
     address.with(Protocol::P2p(peer))
 }
 
@@ -141,6 +139,7 @@ async fn collect_invalid_hints(nodes: &mut [Node], owner: &Identity, local_time:
 }
 
 async fn corrected_requests_succeed(nodes: &mut [Node], owner: &Identity, local_time: u64) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     nodes[0]
         .keep_media(owner, 1, Vec::new(), local_time)
         .await
@@ -175,7 +174,7 @@ async fn corrected_requests_succeed(nodes: &mut [Node], owner: &Identity, local_
         )
         .await
         .unwrap();
-    let store_dir = build_path();
+    let store_dir = test_dir.to_path_buf();
     std::fs::create_dir_all(&store_dir).unwrap();
     let store = dyapp_client::store::Store::open(&store_dir.join("client.db"), owner).unwrap();
     assert!(search::beat_due(&store, owner, 1, 0, nodes, local_time)

@@ -1,9 +1,10 @@
-use super::{bob_invited, key, temp_path, Invite, Session};
+use super::{bob_invited, key, Invite, Session};
 use crate::chat::{self, Body, Event};
 use dyapp_identity::Identity;
 use dyapp_messaging::mls::Device;
 
 fn too_distant_text() -> (
+    dyapp_test_support::TestDir,
     Session,
     Identity,
     crate::Envelope,
@@ -11,6 +12,7 @@ fn too_distant_text() -> (
     dyapp_messaging::mls::Group,
     Device,
 ) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let seal_key = [7; 32];
     let Invite {
         mut session,
@@ -20,7 +22,7 @@ fn too_distant_text() -> (
         welcome,
         profiles,
         ..
-    } = bob_invited(&temp_path(), &seal_key);
+    } = bob_invited(&test_dir.path().join("session-1.db"), &seal_key);
     session
         .stage_envelope(&key(1), &welcome, &profiles, &seal_key)
         .unwrap();
@@ -45,12 +47,12 @@ fn too_distant_text() -> (
         ciphertext: texts[0].mls.clone(),
         sender_key: Vec::new(),
     };
-    (session, bob_id, envelope, profiles, group, alice)
+    (test_dir, session, bob_id, envelope, profiles, group, alice)
 }
 
 #[test]
 fn a_text_opened_after_many_later_ones_is_refused() {
-    let (mut session, _, envelope, profiles, ..) = too_distant_text();
+    let (_test_dir, mut session, _, envelope, profiles, ..) = too_distant_text();
     assert!(matches!(
         session.stage_envelope(&key(2), &envelope.ciphertext, &profiles, &[7; 32]),
         Ok(Some(Event::ResendRequired))
@@ -59,7 +61,7 @@ fn a_text_opened_after_many_later_ones_is_refused() {
 
 #[tokio::test]
 async fn a_too_distant_text_produces_a_negative_receipt() {
-    let (mut session, bob_id, envelope, profiles, group, alice) = too_distant_text();
+    let (_test_dir, mut session, bob_id, envelope, profiles, group, alice) = too_distant_text();
     assert!(matches!(
         session.stage_envelope(&key(2), &envelope.ciphertext, &profiles, &[7; 32]),
         Ok(Some(Event::ResendRequired))
@@ -156,9 +158,11 @@ struct QueuedText {
     group_id: Vec<u8>,
     profiles: [dyapp_profile::VerifiedProfile; 2],
     old: crate::PreparedEnvelope,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 async fn queued_text() -> QueuedText {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let seal_key = [7; 32];
     let Invite {
         mut session,
@@ -168,7 +172,7 @@ async fn queued_text() -> QueuedText {
         welcome,
         profiles,
         ..
-    } = bob_invited(&temp_path(), &seal_key);
+    } = bob_invited(&test_dir.path().join("session-1.db"), &seal_key);
     session
         .stage_envelope(&key(1), &welcome, &profiles, &seal_key)
         .unwrap();
@@ -186,6 +190,7 @@ async fn queued_text() -> QueuedText {
         group_id,
         profiles,
         old,
+        _test_dir: test_dir,
     }
 }
 
@@ -200,6 +205,7 @@ async fn a_negative_receipt_replaces_the_write_with_fresh_current_text() {
         group_id,
         profiles,
         old,
+        _test_dir: _,
     } = queued_text().await;
     let alice_device: [u8; 32] = alice.device_key().unwrap().try_into().unwrap();
     let receipt = chat::Receipt {

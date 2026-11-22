@@ -2,8 +2,14 @@ use super::*;
 mod adversarial;
 use crate::store::sticker_packs::{exchange::response::PackResponseJob, uploads::UploadPlan};
 
-fn pending() -> (Invite, std::path::PathBuf, Pack, PackResponseJob) {
-    let (mut pair, path) = pair();
+fn pending() -> (
+    dyapp_test_support::TestDir,
+    Invite,
+    std::path::PathBuf,
+    Pack,
+    PackResponseJob,
+) {
+    let (test_dir, mut pair, path) = pair();
     let pack = sticker_packs::tests::pack("Cats");
     pair.session.store.save_sticker_pack(&SEAL, &pack).unwrap();
     pair.session
@@ -22,7 +28,7 @@ fn pending() -> (Invite, std::path::PathBuf, Pack, PackResponseJob) {
         .due_sticker_pack_responses(crate::now() * 1000)
         .unwrap()
         .remove(0);
-    (pair, path, pack, job)
+    (test_dir, pair, path, pack, job)
 }
 fn confirmed(pair: &mut Invite, pack: &Pack) -> crate::attachment::Attachment {
     let (mut candidate, _) = crate::attachment::seal(&pack.encode()).unwrap();
@@ -44,7 +50,7 @@ fn confirmed(pair: &mut Invite, pack: &Pack) -> crate::attachment::Attachment {
 
 #[tokio::test]
 async fn upload_failure_keeps_job_and_common_outbox_with_dynamic_retry_deadline() {
-    let (mut pair, path, _, job) = pending();
+    let (_test_dir_52, mut pair, path, _, job) = pending();
     let count = pair.session.due_outbound(i64::MAX).unwrap().len();
     let sealed = pair.session.store.sealed_device().unwrap();
     assert_eq!(
@@ -77,7 +83,7 @@ async fn upload_failure_keeps_job_and_common_outbox_with_dynamic_retry_deadline(
 
 #[tokio::test]
 async fn confirmed_blob_reuse_stages_response_and_mailbox_failure_uses_common_retry() {
-    let (mut pair, _, pack, _) = pending();
+    let (_test_dir_85, mut pair, _, pack, _) = pending();
     let descriptor = confirmed(&mut pair, &pack);
     assert!(descriptor.release_secret != [0; 32]);
     let count = pair.session.due_outbound(i64::MAX).unwrap().len();

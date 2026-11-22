@@ -53,7 +53,7 @@ fn response_hints_decode_legacy_messages_and_keep_wire_tags() {
 
 #[test]
 fn profile_inventory_returns_only_version_and_validates_key_and_budget() {
-    let s = service_with(|limits| limits.bytes_per_second = 10_000);
+    let (_s_test_dir, s) = service_with(|limits| limits.bytes_per_second = 10_000);
     let owner = Identity::try_generate().unwrap();
     let record = Profile {
         version: 2,
@@ -89,14 +89,14 @@ fn profile_inventory_returns_only_version_and_validates_key_and_budget() {
     );
 }
 
-pub(super) fn search_service() -> Service {
-    let mut s = service_with(|limits| limits.bytes_per_second = 1 << 20);
+pub(super) fn search_service() -> (dyapp_test_support::TestDir, Service) {
+    let (s_test_dir, mut s) = service_with(|limits| limits.bytes_per_second = 1 << 20);
     s.config.roles.push(Role::Search);
     s.config.search.min_profile_pow_bits = 2;
     s.config.search.min_heartbeat_pow_bits = 0;
     let index = SearchIndex::open(&s.config.storage.search_path(), &s.config.search);
     s.search = Some(Arc::new(index.unwrap()));
-    s
+    (s_test_dir, s)
 }
 
 mod search;
@@ -106,7 +106,7 @@ fn status_of(status: i32) -> Status {
     Status::try_from(status).unwrap()
 }
 
-pub(super) fn service() -> Service {
+pub(super) fn service() -> (dyapp_test_support::TestDir, Service) {
     service_with(|_| {})
 }
 
@@ -132,16 +132,19 @@ pub(super) fn replica_peer(label: &str) -> Peer {
     }
 }
 
-fn service_with(change: impl FnOnce(&mut crate::config::Limits)) -> Service {
-    let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../build/service")
-        .join(uuid::Uuid::new_v4().to_string());
+fn service_with(
+    change: impl FnOnce(&mut crate::config::Limits),
+) -> (dyapp_test_support::TestDir, Service) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().join(uuid::Uuid::new_v4().to_string());
     let mut config = NodeConfig::default();
     config.storage.dir = dir.clone();
     config.network.id_pow_bits = 0;
     config.search.min_profile_pow_bits = 0;
     change(&mut config.limits);
-    Service::new(BootstrapStore::new(dir.to_str().unwrap()).unwrap(), config).unwrap()
+    let service =
+        Service::new(BootstrapStore::new(dir.to_str().unwrap()).unwrap(), config).unwrap();
+    (test_dir, service)
 }
 
 fn publish(record: SignedRecord) -> ProfileRequest {
@@ -190,7 +193,7 @@ fn padded_record(
 
 #[test]
 fn maintenance_shrinks_the_stores() {
-    let s = service();
+    let (_s_test_dir, s) = service();
     for _ in 0..100 {
         let owner = Identity::try_generate().unwrap();
         let profile = Profile {
@@ -217,7 +220,7 @@ fn maintenance_shrinks_the_stores() {
 
 #[test]
 fn profile_size_hints_cover_send_replica_and_local_boundaries() {
-    let s = service();
+    let (_s_test_dir, s) = service();
     let owner = Identity::try_generate().unwrap();
     let profile = Profile {
         version: 1,
@@ -292,7 +295,7 @@ fn check_oversized_profile_limits(s: &Service, from: &Peer, owner: &Identity, pr
 
 #[test]
 fn store_pow_admission_covers_weak_forged_busy_and_cached_proofs() {
-    let mut s = service();
+    let (_s_test_dir, mut s) = service();
     s.config.search.min_profile_pow_bits = 2;
     let owner = Identity::try_generate().unwrap();
     let weak = Profile {
@@ -374,7 +377,7 @@ fn check_forged_and_zero_pow(s: &mut Service, from: &Peer, owner: &Identity, pro
 
 #[test]
 fn publish_get_stale_and_errors() {
-    let service = service();
+    let (_service_test_dir, service) = service();
     let identity = Identity::try_generate().unwrap();
     let hex_id = identity.peer_id();
     let id: Vec<u8> = (0..hex_id.len())
@@ -507,7 +510,7 @@ fn replicas_reject_missing_pow_and_bad_signatures_with_strikes() {
             peer(&invalid.to_string()),
             peer(&valid.to_string()),
         ] {
-            let mut service = media_service(|l| l.strikes_to_ban = 1);
+            let (_service_test_dir, mut service) = media_service(|l| l.strikes_to_ban = 1);
             service.config.network.id_pow_bits = 8;
             assert_eq!(replica_status(&service, &sender, protocol), Status::Denied);
             assert!(service.reputation.banned(&sender.id), "protocol {protocol}");
@@ -527,7 +530,7 @@ fn stored_manifest(service: &Service, hash: &[u8]) -> bool {
 
 #[test]
 fn shard_upload_requires_node_pow_and_accepts_authorised_node() {
-    let mut service = media_service(|_| {});
+    let (_service_test_dir, mut service) = media_service(|_| {});
     service.config.network.id_pow_bits = 8;
     let owner = Identity::try_generate().unwrap();
     let (manifest, shards) = crate::replication::media_encode(&vec![1; (1 << 20) + 1]).unwrap();
@@ -584,7 +587,7 @@ fn replica_peer_group_and_media_rate_refusals_do_not_strike() {
             if (2..4).contains(&bucket) && protocol < 2 {
                 continue;
             }
-            let mut service = media_service(|l| {
+            let (_service_test_dir, mut service) = media_service(|l| {
                 l.strikes_to_ban = 1;
                 l.requests_per_second = 1;
                 l.ip_group_requests_per_second = 1;
@@ -613,7 +616,7 @@ fn replica_peer_group_and_media_rate_refusals_do_not_strike() {
         }
     }
     // A plain client still receives a strike when the peer bucket refuses it.
-    let service = service_with(|l| {
+    let (_service_test_dir, service) = service_with(|l| {
         l.strikes_to_ban = 1;
         l.requests_per_second = 1;
     });
@@ -627,7 +630,7 @@ fn replica_peer_group_and_media_rate_refusals_do_not_strike() {
 
 #[test]
 fn an_unknown_endpoint_is_refused_counted_and_not_struck() {
-    let service = service_with(|l| l.strikes_to_ban = 1);
+    let (_service_test_dir, service) = service_with(|l| l.strikes_to_ban = 1);
     let unknown = Peer {
         id: "unknown".into(),
         group: String::new(),
@@ -665,7 +668,7 @@ fn an_unknown_endpoint_is_refused_counted_and_not_struck() {
 
 #[test]
 fn fine_groups_of_one_coarse_group_share_ten_times_the_budget() {
-    let service = service_with(|l| l.ip_group_requests_per_second = 1);
+    let (_service_test_dir, service) = service_with(|l| l.ip_group_requests_per_second = 1);
     let at = |id: &str, group: &str, coarse: &str| Peer {
         id: id.into(),
         group: group.into(),
@@ -710,7 +713,7 @@ fn admission_stores_nothing_and_replicas_verify_and_cost_one_unit() {
         ..Profile::default()
     }
     .sign(&identity);
-    let mut service = service();
+    let (_service_test_dir, mut service) = service();
     // A frozen bucket: a slow run must not refill the unit the next get is refused for.
     service.rate_limiter = crate::rate_limit::PeerRateLimiter::frozen(5);
     assert_eq!(
@@ -820,7 +823,7 @@ fn stored_profile_seen(db: &rusqlite::Connection, identity: &Identity) -> i64 {
 
 #[test]
 fn heartbeat_keeps_the_profile_seen() {
-    let service = service();
+    let (_service_test_dir, service) = service();
     let identity = Identity::try_generate().unwrap();
     let now = crate::clock::Clock::system().timestamp().unsigned_abs();
     assert_eq!(

@@ -1202,6 +1202,7 @@ dependencies = [
  "dyapp-messaging",
  "dyapp-p2p-net",
  "dyapp-profile",
+ "dyapp-test-support",
  "dyapp-video",
  "getrandom 0.4.3",
  "governor",
@@ -1239,6 +1240,7 @@ dependencies = [
  "dyapp-messaging",
  "dyapp-p2p-net",
  "dyapp-profile",
+ "dyapp-test-support",
  "getrandom 0.4.3",
  "idna",
  "image",
@@ -1269,6 +1271,7 @@ dependencies = [
  "dyapp-messaging",
  "dyapp-p2p-net",
  "dyapp-profile",
+ "dyapp-test-support",
  "dyapp-video",
  "getrandom 0.4.3",
  "image",
@@ -1287,6 +1290,7 @@ dependencies = [
 name = "dyapp-identity"
 version = "0.0.1"
 dependencies = [
+ "dyapp-test-support",
  "ed25519-dalek 3.0.0",
  "getrandom 0.4.3",
  "proptest",
@@ -1350,6 +1354,13 @@ dependencies = [
  "prost-build",
  "protox",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "dyapp-test-support"
+version = "0.0.1"
+dependencies = [
+ "tempfile",
 ]
 
 [[package]]

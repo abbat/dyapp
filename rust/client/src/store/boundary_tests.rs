@@ -1,4 +1,3 @@
-use super::tests::temp_db_path;
 use super::{collect_bounded, Error, Store, MAX_VALUE_BYTES, VERSION};
 use dyapp_identity::Identity;
 use rusqlite::Connection;
@@ -26,7 +25,8 @@ fn write_limit_probe(path: &Path, value_bytes: usize) {
 
 #[test]
 fn sqlite_values_accept_the_limit_and_reject_one_byte_more() {
-    let path = temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let identity = Identity::try_generate().unwrap();
     drop(Store::open(&path, &identity).unwrap());
     let value_bytes = usize::try_from(MAX_VALUE_BYTES).unwrap();
@@ -97,7 +97,8 @@ fn bounded_collection_accepts_the_limit_and_rejects_one_row_more() {
 
 #[test]
 fn binds_database_to_one_identity_across_reopens() {
-    let path = temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let alice = Identity::try_generate().unwrap();
     let bob = Identity::try_generate().unwrap();
     let store = Store::open(&path, &alice).unwrap();
@@ -111,7 +112,8 @@ fn binds_database_to_one_identity_across_reopens() {
 
 #[test]
 fn refuses_future_and_unknown_schemas_without_replacing_them() {
-    let path = temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let alice = Identity::try_generate().unwrap();
     drop(Store::open(&path, &alice).unwrap());
     let db = Connection::open(&path).unwrap();
@@ -122,7 +124,7 @@ fn refuses_future_and_unknown_schemas_without_replacing_them() {
         Err(Error::FutureVersion(v)) if v == VERSION + 1
     ));
 
-    let unknown = temp_db_path();
+    let unknown = test_dir.path().join("client-2.db");
     let db = Connection::open(&unknown).unwrap();
     db.execute_batch("CREATE TABLE `unknown` (`value` INTEGER)")
         .unwrap();
@@ -135,12 +137,46 @@ fn refuses_future_and_unknown_schemas_without_replacing_them() {
 
 #[test]
 fn refuses_relative_path_and_corrupt_database() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let alice = Identity::try_generate().unwrap();
     assert!(matches!(
         Store::open(std::path::Path::new("client.db"), &alice),
         Err(Error::RelativePath)
     ));
-    let path = temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     std::fs::write(&path, b"not a SQLite database").unwrap();
     assert!(matches!(Store::open(&path, &alice), Err(Error::Sql(_))));
+}
+
+#[test]
+fn privacy_settings_survive_restart_without_crossing_profiles() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
+    let alice = Identity::try_generate().unwrap();
+    let store = Store::open(&path, &alice).unwrap();
+    assert!(!store.send_profile_views().unwrap());
+    assert!(store.send_typing().unwrap());
+    assert!(store.notifications().unwrap());
+    store.set_send_profile_views(true).unwrap();
+    store.set_send_typing(false).unwrap();
+    store.set_notifications(false).unwrap();
+    drop(store);
+    let store = Store::open(&path, &alice).unwrap();
+    assert!(store.send_profile_views().unwrap());
+    assert!(!store.send_typing().unwrap());
+    assert!(!store.notifications().unwrap());
+    store.set_send_profile_views(false).unwrap();
+    drop(store);
+    assert!(!Store::open(&path, &alice)
+        .unwrap()
+        .send_profile_views()
+        .unwrap());
+    let other = Store::open(
+        &test_dir.path().join("client-2.db"),
+        &Identity::try_generate().unwrap(),
+    )
+    .unwrap();
+    assert!(!other.send_profile_views().unwrap());
+    assert!(other.send_typing().unwrap());
+    assert!(other.notifications().unwrap());
 }

@@ -23,10 +23,9 @@ fn deliver(pair: &mut Invite, body: &Body, id: u8) {
         )
         .unwrap();
 }
-fn pair() -> (Invite, std::path::PathBuf) {
-    let root =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../build/pack-session-tests");
-    std::fs::create_dir_all(&root).unwrap();
+fn pair() -> (dyapp_test_support::TestDir, Invite, std::path::PathBuf) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.path();
     let mut random = [0; 16];
     getrandom::fill(&mut random).unwrap();
     let dir = root.join(format!("{:032x}", u128::from_be_bytes(random)));
@@ -52,7 +51,7 @@ fn pair() -> (Invite, std::path::PathBuf) {
     pair.session
         .stage_text(pair.group.id(), b"reply", &SEAL)
         .unwrap();
-    (pair, path)
+    (test_dir, pair, path)
 }
 fn sticker(pack: &Pack) -> Sticker {
     Sticker {
@@ -76,7 +75,7 @@ fn selected(pair: &mut Invite, pack: &Pack) -> MessageKey {
 
 #[test]
 fn request_staging_retains_generation_and_exact_writes_after_session_restart() {
-    let (mut pair, path) = pair();
+    let (_test_dir, mut pair, path) = pair();
     let pack = sticker_packs::tests::pack("Cats");
     let selected = selected(&mut pair, &pack);
     let peer = pair.alice_id.peer_id();
@@ -100,7 +99,7 @@ fn request_staging_retains_generation_and_exact_writes_after_session_restart() {
 
 #[test]
 fn failed_local_request_commit_invalidates_advanced_mls_and_reopens_old_snapshot() {
-    let (mut pair, path) = pair();
+    let (_test_dir, mut pair, path) = pair();
     let pack = sticker_packs::tests::pack("Cats");
     let selected = selected(&mut pair, &pack);
     let peer = pair.alice_id.peer_id();
@@ -134,7 +133,7 @@ fn failed_local_request_commit_invalidates_advanced_mls_and_reopens_old_snapshot
 
 #[test]
 fn response_staging_commits_current_job_and_stale_completion_cannot_advance_mls() {
-    let (mut pair, _) = pair();
+    let (_test_dir, mut pair, _) = pair();
     let pack = sticker_packs::tests::pack("Cats");
     pair.session.store.save_sticker_pack(&SEAL, &pack).unwrap();
     pair.session

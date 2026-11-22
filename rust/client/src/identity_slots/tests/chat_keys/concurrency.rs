@@ -61,7 +61,7 @@ fn start_bootstrap(
 
 #[test]
 fn callback_signals_prove_exclusive_bootstrap_then_shared_operation_admission() {
-    let (dir, registry, wrapping) = fixture(Layout::Android);
+    let (_test_dir, dir, registry, wrapping) = fixture(Layout::Android);
     let lock = wrapping.lock.clone();
     let (progress, observe) = mpsc::channel();
     let (permit, proceed) = mpsc::channel();

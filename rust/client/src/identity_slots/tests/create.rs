@@ -1,4 +1,4 @@
-use super::{root, FIRST};
+use super::FIRST;
 use crate::identity_slots::*;
 use dyapp_identity::Identity;
 use std::cell::RefCell;
@@ -51,7 +51,8 @@ fn all_storage_layouts_reopen_before_becoming_ready_and_selected() {
         (Layout::Android, Storage::Wrapped),
         (Layout::Ios, Storage::Wrapped),
     ] {
-        let root = root();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let root = test_dir.to_path_buf();
         let registry = Registry::new(root.clone(), layout);
         let keys = Writer::default();
         let (slot, identity, _) = registry.create(storage, &keys).unwrap();
@@ -68,7 +69,8 @@ fn all_storage_layouts_reopen_before_becoming_ready_and_selected() {
 
 #[test]
 fn selection_reopens_the_named_identity_and_rejects_missing_or_incomplete_slots() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = Registry::new(root.clone(), Layout::Desktop);
     let keys = Writer::default();
     let (first, identity, _) = registry.create(Storage::File, &keys).unwrap();
@@ -101,7 +103,8 @@ fn denial_or_reopen_mismatch_preserves_the_previous_selection_and_pending_state(
             ..Writer::default()
         },
     ] {
-        let root = root();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let root = test_dir.to_path_buf();
         let previous = format!("{FIRST}\n");
         fs::write(root.join("active-profile"), &previous).unwrap();
         let registry = Registry::new(root.clone(), Layout::Android);
@@ -118,7 +121,8 @@ fn denial_or_reopen_mismatch_preserves_the_previous_selection_and_pending_state(
 
 #[test]
 fn reservation_skips_directory_tombstone_and_alias_collisions_without_overwriting() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let profiles = root.join("profiles");
     let old = super::slot(&root, FIRST, b"ready\n");
     fs::write(old.join("identity.key"), b"keep old key").unwrap();
@@ -160,7 +164,8 @@ fn reservation_skips_directory_tombstone_and_alias_collisions_without_overwritin
 
 #[test]
 fn failed_directory_sync_leaves_broken_inventory_without_changing_the_source() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = Registry::new(root.clone(), Layout::Android);
     let keys = Writer::default();
     let (source, owner, _) = registry.create(Storage::Wrapped, &keys).unwrap();
@@ -213,7 +218,8 @@ fn failed_directory_sync_leaves_broken_inventory_without_changing_the_source() {
 
 #[test]
 fn existing_aliases_are_not_reused_and_stranded_pointer_temps_are_not_overwritten() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = Registry::new(root.clone(), Layout::Android);
     let collision = Writer {
         collision: true,

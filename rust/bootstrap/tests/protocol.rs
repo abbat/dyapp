@@ -27,11 +27,9 @@ use prost::Message as _;
 use std::io;
 use std::time::Duration;
 
-/// A unique protocol-test path under the repository's ignored build directory.
-fn protocol_build_path(name: &str) -> std::path::PathBuf {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../build/protocol");
-    std::fs::create_dir_all(&root).unwrap();
-    root.join(format!("{name}-{}", uuid::Uuid::new_v4()))
+/// A unique protocol-test directory under the repository's ignored build directory.
+fn protocol_build_path(_name: &str) -> dyapp_test_support::TestDir {
+    dyapp_test_support::test_dir().unwrap()
 }
 
 // Fixture writes authorize new changes against actual signed source bytes, never a stale fence.
@@ -100,7 +98,7 @@ async fn start_config_in_protocols(
 ) {
     let dir = protocol_build_path("test-protocol");
     let mut config = NodeConfig::default();
-    config.storage.dir = dir.clone();
+    config.storage.dir = dir.to_path_buf();
     config.network.id_pow_bits = 0;
     config.search.min_profile_pow_bits = 0;
     change(&mut config);
@@ -143,19 +141,25 @@ async fn start_config_in_protocols(
     swarm.add_external_address(addr.clone());
     let wire = service.wire.clone();
     let service = std::sync::Arc::new(service);
-    tokio::spawn(node::run(*swarm, service.clone()));
+    address_admission::spawn_node(*swarm, service.clone(), dir);
     (addr.with(Protocol::P2p(peer)), wire, service)
 }
 
 #[tokio::test]
 async fn an_opened_node_answers_and_frees_its_storage_when_dropped() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let port = std::net::TcpListener::bind("127.0.0.1:0")
         .unwrap()
         .local_addr()
         .unwrap()
         .port();
     let mut config = NodeConfig::default();
-    config.storage.dir = format!("/tmp/ai/test-open-{}", uuid::Uuid::new_v4()).into();
+    config.storage.dir = test_dir
+        .path()
+        .join("case-5593")
+        .to_string_lossy()
+        .into_owned()
+        .into();
     std::fs::create_dir_all(&config.storage.dir).unwrap();
     config.network.id_pow_bits = 0;
     config.roles = vec![Role::Store, Role::Search];
@@ -683,12 +687,22 @@ impl request_response::Codec for RawCodec {
     }
 }
 
-async fn network_keep_nodes() -> (Vec<Swarm<Behaviour>>, Vec<Service>, Vec<Multiaddr>) {
+async fn network_keep_nodes() -> (
+    dyapp_test_support::TestDir,
+    Vec<Swarm<Behaviour>>,
+    Vec<Service>,
+    Vec<Multiaddr>,
+) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut swarms = Vec::new();
     let mut services = Vec::new();
     let mut addresses = Vec::new();
-    for _ in 0..3 {
-        let dir = format!("/tmp/ai/test-network-keep-{}", uuid::Uuid::new_v4());
+    for index in 0..3 {
+        let dir = test_dir
+            .path()
+            .join(format!("case-{index}"))
+            .to_string_lossy()
+            .into_owned();
         let mut config = NodeConfig::default();
         config.storage.dir = dir.clone().into();
         config.network.id_pow_bits = 0;
@@ -725,7 +739,7 @@ async fn network_keep_nodes() -> (Vec<Swarm<Behaviour>>, Vec<Service>, Vec<Multi
         services.push(service);
         swarms.push(swarm);
     }
-    (swarms, services, addresses)
+    (test_dir, swarms, services, addresses)
 }
 
 fn remote_network_keep_data(ids: &[PeerId]) -> (Vec<u8>, Vec<u8>) {
@@ -822,7 +836,7 @@ async fn assert_remote_network_keep(
 #[tokio::test]
 async fn repeated_keep_uses_network_recoverability_without_a_local_copy() {
     dyapp_p2p_net::set_id_pow_bits(0);
-    let (swarms, services, addresses) = Box::pin(network_keep_nodes()).await;
+    let (_test_dir, swarms, services, addresses) = Box::pin(network_keep_nodes()).await;
     let ids = swarms
         .iter()
         .map(|s| *s.local_peer_id())

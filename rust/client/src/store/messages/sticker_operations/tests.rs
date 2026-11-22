@@ -1,6 +1,6 @@
 use super::*;
 use crate::store::messages::VerifiedChatSender;
-use crate::store::tests::{catalog_group, temp_db_path};
+use crate::store::tests::catalog_group;
 use crate::store::Store;
 use dyapp_identity::Identity;
 
@@ -10,12 +10,14 @@ struct Fixture {
     peer: String,
     sticker: Sticker,
     key: MessageKey,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 fn fixture() -> Fixture {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::try_generate().unwrap();
     let peer = Identity::try_generate().unwrap().peer_id();
-    let mut store = Store::open(&temp_db_path(), &owner).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
     catalog_group(&mut store, &[9], &peer);
     let (mut attachment, _) = crate::attachment::seal(b"sticker").unwrap();
     attachment.release_secret = [0; 32];
@@ -39,6 +41,7 @@ fn fixture() -> Fixture {
         peer,
         sticker,
         key,
+        _test_dir: test_dir,
     }
 }
 

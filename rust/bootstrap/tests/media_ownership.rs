@@ -13,7 +13,6 @@ use libp2p::identity::Keypair;
 use libp2p::multiaddr::Protocol;
 use libp2p::swarm::SwarmEvent;
 use prost::Message;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -37,13 +36,13 @@ struct Fixture {
     service: Arc<Service>,
     owner: Identity,
     peer: Peer,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 impl Fixture {
     fn new() -> Self {
-        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../build/media-ownership-wire")
-            .join(uuid::Uuid::new_v4().to_string());
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir.path().join(uuid::Uuid::new_v4().to_string());
         let mut config = NodeConfig::default();
         config.storage.dir.clone_from(&dir);
         config.roles = vec![Role::Store, Role::Media];
@@ -68,6 +67,7 @@ impl Fixture {
                 group: "fixture".into(),
                 coarse: "fixture".into(),
             },
+            _test_dir: test_dir,
         }
     }
 

@@ -50,7 +50,12 @@ pub(super) async fn check_packages_and_retry(
 }
 
 async fn imported_with_newer_private_choices(f: &mut HiddenLink) -> Session {
-    let phone = Store::open(&store_path("resume-private-phone"), &f.owner.identity).unwrap();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let phone = Store::open(
+        &test_dir.path().join("resume-private-phone.db"),
+        &f.owner.identity,
+    )
+    .unwrap();
     phone.set_blocked("bob", true).unwrap();
     phone.set_muted("carol", true).unwrap();
     phone.set_local_name("carol", "original alias").unwrap();
@@ -226,9 +231,14 @@ async fn wrong_keys(f: &mut HiddenLink, kind: u8) {
 
 #[tokio::test]
 async fn original_session_refuses_wrong_recovery_keys_before_importing_link_state() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut f = Box::pin(HiddenLink::new()).await;
     let remote = f.prepare_legacy_partial_link().await;
-    let source = Store::open(&store_path("resume-key-refusal"), &f.owner.identity).unwrap();
+    let source = Store::open(
+        &test_dir.path().join("resume-key-refusal.db"),
+        &f.owner.identity,
+    )
+    .unwrap();
     let marker = f.owner.identity.peer_id();
     source.set_blocked(&marker, true).unwrap();
     let state = source.link_state().unwrap();

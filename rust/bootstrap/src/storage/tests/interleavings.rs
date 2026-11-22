@@ -162,7 +162,8 @@ fn fail_mailbox_put(store: &BootstrapStore) -> std::result::Result<(), TestCaseE
 }
 
 fn check_mailbox(schedule: &[Mail]) -> std::result::Result<(), TestCaseError> {
-    let mut store = temp_store();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let mut store = temp_store(test_dir.path());
     let mut pass = Pass::default();
     for step in schedule {
         match *step {
@@ -256,7 +257,8 @@ fn check_profiles(
     owners: &[Identity; 2],
     schedule: &[ProfileStep],
 ) -> std::result::Result<(), TestCaseError> {
-    let mut store = temp_store();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let mut store = temp_store(test_dir.path());
     let mut model: [Option<(u64, bool, i64)>; 2] = [None; 2];
     for transition in schedule {
         match transition {
@@ -336,7 +338,8 @@ fn stocked(last_resort: bool, n: u8) -> (KeyPackageRecord, Vec<u8>, SignedRecord
 /// is handed out at most once, a consumed one is never revived by a retry, and the fallback is
 /// the newest last-resort revision.
 fn check_keypackages(schedule: &[Stock]) -> std::result::Result<(), TestCaseError> {
-    let mut store = temp_store();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let mut store = temp_store(test_dir.path());
     // hash -> consumed, ordinary and last resort apart.
     let mut ordinary = BTreeMap::<u8, bool>::new();
     let mut last_resort = BTreeMap::<u8, bool>::new();
@@ -444,7 +447,8 @@ proptest! {
 
 #[test]
 fn concurrent_allocations_hand_out_each_ordinary_package_once() {
-    let store = temp_store();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let store = temp_store(test_dir.path());
     for n in 0..20 {
         upload(&store, false, n);
     }

@@ -1,7 +1,7 @@
 mod wire;
 
 use super::*;
-use crate::slot_registry_tests::{root, Credentials, Wrapping};
+use crate::slot_registry_tests::{Credentials, Wrapping};
 use crate::{MobileSlotLayout, MobileSlotSelection};
 use dyapp_identity::Identity;
 use dyapp_profile::Profile;
@@ -13,13 +13,15 @@ pub(super) struct Fixture {
     pub(super) worker: Arc<MobileDeviceDirectory>,
     pub(super) keys: Arc<Credentials>,
     cached: Profile,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 impl Fixture {
     pub(super) fn new() -> Self {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let keys = Arc::new(Credentials::default());
         let registry = MobileIdentityRegistry::new(
-            root().to_str().unwrap().into(),
+            test_dir.to_path_buf().to_str().unwrap().into(),
             MobileSlotLayout::Android,
             keys.clone(),
         );
@@ -59,6 +61,7 @@ impl Fixture {
             worker,
             keys,
             cached,
+            _test_dir: test_dir,
         }
     }
 
@@ -206,8 +209,9 @@ fn malformed_targets_and_missing_network_leave_the_original_directory_unchanged(
 
 #[test]
 fn constructor_refuses_an_uninitialized_slot_without_bootstrapping_chat_keys() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let registry = MobileIdentityRegistry::new(
-        root().to_str().unwrap().into(),
+        test_dir.to_path_buf().to_str().unwrap().into(),
         MobileSlotLayout::Android,
         Arc::new(Credentials::default()),
     );

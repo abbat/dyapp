@@ -2,7 +2,7 @@ mod concurrency;
 mod existing;
 mod recovery;
 
-use super::{root, slot, FIRST};
+use super::{slot, FIRST};
 use crate::identity_slots::{ChatKeyKind, ChatKeyStore, KeyReader, Layout, Registry, Slot};
 use dyapp_identity::Identity;
 use std::cell::{Cell, RefCell};
@@ -69,8 +69,9 @@ impl ChatKeyStore for Wrapping {
     }
 }
 
-fn fixture(layout: Layout) -> (PathBuf, Registry, Wrapping) {
-    let root = root();
+fn fixture(layout: Layout) -> (dyapp_test_support::TestDir, PathBuf, Registry, Wrapping) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let directory = slot(&root, FIRST, b"ready\n");
     let owner = Identity::try_generate().unwrap();
     let wrapped: Vec<_> = owner.secret().iter().map(|byte| byte ^ 0x5a).collect();
@@ -87,13 +88,13 @@ fn fixture(layout: Layout) -> (PathBuf, Registry, Wrapping) {
         fail: Cell::new(None),
         mismatch: Cell::new(false),
     };
-    (directory, Registry::new(root, layout), wrapping)
+    (test_dir, directory, Registry::new(root, layout), wrapping)
 }
 
 #[test]
 fn wrapped_mobile_bootstrap_reuses_both_keys_and_holds_operation_locks() {
     for layout in [Layout::Android, Layout::Ios] {
-        let (dir, registry, wrapping) = fixture(layout);
+        let (_test_dir, dir, registry, wrapping) = fixture(layout);
         let peer = wrapping.owner.peer_id();
         let operation = registry
             .chat_operation(FIRST, &peer, &wrapping, &wrapping)
@@ -126,7 +127,7 @@ fn wrapped_mobile_bootstrap_reuses_both_keys_and_holds_operation_locks() {
 
 #[test]
 fn a_state_wrap_failure_keeps_the_verified_device_key_for_retry() {
-    let (dir, registry, wrapping) = fixture(Layout::Android);
+    let (_test_dir, dir, registry, wrapping) = fixture(Layout::Android);
     wrapping.fail.set(Some(ChatKeyKind::State));
     let peer = wrapping.owner.peer_id();
     assert!(registry
@@ -148,7 +149,7 @@ fn a_state_wrap_failure_keeps_the_verified_device_key_for_retry() {
 
 #[test]
 fn a_wrapped_key_that_does_not_reopen_is_not_persisted() {
-    let (dir, registry, wrapping) = fixture(Layout::Android);
+    let (_test_dir, dir, registry, wrapping) = fixture(Layout::Android);
     wrapping.mismatch.set(true);
     assert!(registry
         .chat_operation(FIRST, &wrapping.owner.peer_id(), &wrapping, &wrapping)

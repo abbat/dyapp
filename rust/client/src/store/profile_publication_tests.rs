@@ -1,5 +1,4 @@
 use super::*;
-use crate::store::tests::temp_db_path;
 
 fn owner() -> Identity {
     Identity::from_secret(&[7; 32])
@@ -14,8 +13,9 @@ fn accepted(attempt: &ProfilePublication) -> Profile {
 
 #[test]
 fn unchanged_baseline_accepts_unsaved_request_and_keeps_exact_output() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     store.save_profile_draft(&Profile::default()).unwrap();
     let mut attempt = store.prepare_profile_publication(&identity).unwrap();
     attempt.draft_mut().name = "request".into();
@@ -31,8 +31,9 @@ fn unchanged_baseline_accepts_unsaved_request_and_keeps_exact_output() {
 
 #[test]
 fn newer_edit_is_pending_not_fabricated_as_published() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let base = Profile {
         name: "base".into(),
         profession: "base job".into(),
@@ -69,8 +70,9 @@ fn newer_edit_is_pending_not_fabricated_as_published() {
 
 #[test]
 fn coupled_groups_and_removed_devices_do_not_mix_or_resurrect() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let key = Identity::from_secret(&[8; 32]);
     let device = dyapp_messaging::mls::Device::new(&identity, key.public_key(), 1).unwrap();
     let base = Profile {
@@ -118,8 +120,9 @@ fn coupled_groups_and_removed_devices_do_not_mix_or_resurrect() {
 
 #[test]
 fn current_photo_bytes_and_published_refs_survive_atomic_pruning() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     store
         .add_profile_photo(&[0xFF, 0xD8, 0xFF, 1], &[0xFF, 0xD8, 0xFF, 2])
         .unwrap();
@@ -144,8 +147,9 @@ fn current_photo_bytes_and_published_refs_survive_atomic_pruning() {
 
 #[test]
 fn stronger_proof_survives_without_running_solver_in_completion() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let attempt = store.prepare_profile_publication(&identity).unwrap();
     let published = accepted(&attempt);
     let work = store.prepare_profile_work(&identity, 1, 1024).unwrap();
@@ -164,8 +168,9 @@ fn stronger_proof_survives_without_running_solver_in_completion() {
 
 #[test]
 fn first_draft_proof_progress_does_not_erase_in_memory_device_enrichment() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let mut attempt = store.prepare_profile_publication(&identity).unwrap();
     let key = Identity::from_secret(&[8; 32]);
     let device = dyapp_messaging::mls::Device::new(&identity, key.public_key(), 1).unwrap();
@@ -188,8 +193,9 @@ fn first_draft_proof_progress_does_not_erase_in_memory_device_enrichment() {
 
 #[test]
 fn newer_hide_supersedes_publication_without_removing_its_tombstone() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let attempt = store.prepare_profile_publication(&identity).unwrap();
     let published = accepted(&attempt);
     let hidden = store
@@ -207,8 +213,9 @@ fn newer_hide_supersedes_publication_without_removing_its_tombstone() {
 
 #[test]
 fn older_completion_leaves_current_projection_unchanged() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let old = store.prepare_profile_publication(&identity).unwrap();
     let first = accepted(&old);
     store
@@ -233,8 +240,9 @@ fn older_completion_leaves_current_projection_unchanged() {
 
 #[test]
 fn hidden_relist_commits_tombstone_and_pending_edits_in_one_transaction() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     store.set_profile_hidden(true).unwrap();
     let attempt = store.prepare_profile_publication(&identity).unwrap();
     let published = accepted(&attempt);
@@ -265,8 +273,9 @@ fn hidden_relist_commits_tombstone_and_pending_edits_in_one_transaction() {
 
 #[test]
 fn final_prune_failure_rolls_back_draft_search_and_visibility() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     store
         .add_profile_photo(&[0xFF, 0xD8, 0xFF, 1], &[0xFF, 0xD8, 0xFF, 2])
         .unwrap();
@@ -295,8 +304,9 @@ fn final_prune_failure_rolls_back_draft_search_and_visibility() {
 
 #[test]
 fn a_same_version_fork_does_not_replace_the_first_completion() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let first = store.prepare_profile_publication(&identity).unwrap();
     let mut fork = store.prepare_profile_publication(&identity).unwrap();
     fork.draft_mut().name = "fork".into();
@@ -317,8 +327,9 @@ fn a_same_version_fork_does_not_replace_the_first_completion() {
 
 #[test]
 fn writer_admission_precedes_reading_current_draft() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let path = temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let first = Store::open(&path, &identity).unwrap();
     let second = Store::open(&path, &identity).unwrap();
     second.db.busy_timeout(std::time::Duration::ZERO).unwrap();
@@ -335,8 +346,9 @@ fn writer_admission_precedes_reading_current_draft() {
 
 #[test]
 fn post_network_snapshot_keeps_exact_output_and_observes_later_hide_and_edits() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let attempt = store.prepare_profile_publication(&identity).unwrap();
     let published = accepted(&attempt);
     store
@@ -365,8 +377,9 @@ fn post_network_snapshot_keeps_exact_output_and_observes_later_hide_and_edits() 
 
 #[test]
 fn current_publication_snapshot_refuses_missing_draft_or_wrong_owner() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let published = Profile {
         version: 1,
         ..Default::default()
@@ -383,8 +396,9 @@ fn current_publication_snapshot_refuses_missing_draft_or_wrong_owner() {
 
 #[test]
 fn prepared_owner_and_exact_readback_are_checked_before_projection() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let attempt = store.prepare_profile_publication(&identity).unwrap();
     let published = accepted(&attempt);
     let stranger = Identity::from_secret(&[9; 32]);
@@ -396,7 +410,7 @@ fn prepared_owner_and_exact_readback_are_checked_before_projection() {
         store.commit_profile_publication(&stranger, &attempt, &published, false),
         Err(Error::WrongIdentity)
     ));
-    let other = Store::open(&temp_db_path(), &stranger).unwrap();
+    let other = Store::open(&test_dir.path().join("client-2.db"), &stranger).unwrap();
     let foreign = other.prepare_profile_publication(&stranger).unwrap();
     assert!(matches!(
         store.commit_profile_publication(&identity, &foreign, &accepted(&foreign), false),

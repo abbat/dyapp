@@ -2,7 +2,8 @@ use super::*;
 
 #[test]
 fn only_own_verified_send_grants_exact_peer_pack_and_survives_clear_restart() {
-    let path = temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let owner = Identity::try_generate().unwrap();
     let own = owner.peer_id();
     let peer = Identity::try_generate().unwrap().peer_id();
@@ -55,9 +56,10 @@ fn only_own_verified_send_grants_exact_peer_pack_and_survives_clear_restart() {
 
 #[test]
 fn own_device_group_does_not_grant_pack_sharing() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::try_generate().unwrap();
     let own = owner.peer_id();
-    let mut store = Store::open(&temp_db_path(), &owner).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
     catalog_group(&mut store, &[9], &own);
     store
         .record_chat_sticker(sender(&own), &sticker(1, false), false)
@@ -73,10 +75,11 @@ fn own_device_group_does_not_grant_pack_sharing() {
 
 #[test]
 fn failed_sharing_commit_rolls_back_sticker_projection() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::try_generate().unwrap();
     let own = owner.peer_id();
     let peer = Identity::try_generate().unwrap().peer_id();
-    let mut store = Store::open(&temp_db_path(), &owner).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
     catalog_group(&mut store, &[9], &peer);
     store
         .db

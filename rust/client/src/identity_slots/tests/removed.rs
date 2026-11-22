@@ -1,4 +1,4 @@
-use super::{root, slot, FIRST};
+use super::{slot, FIRST};
 use crate::identity_slots::{
     KeyReader, Layout, RecoveryReason, Registry, Resolution, Slot, State, Storage,
 };
@@ -19,8 +19,9 @@ impl KeyReader for NoCredentials {
 
 #[test]
 fn hidden_interrupted_removal_is_recovery_even_after_markers_were_cleaned() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     for layout in [Layout::Android, Layout::Desktop] {
-        let root = root();
+        let root = test_dir.to_path_buf();
         let hidden = root.join("profiles").join(format!(".{FIRST}.removed"));
         fs::create_dir_all(&hidden).unwrap();
         fs::write(hidden.join("client.db"), b"preserve encrypted data").unwrap();
@@ -47,8 +48,9 @@ fn hidden_interrupted_removal_is_recovery_even_after_markers_were_cleaned() {
 
 #[test]
 fn visible_and_hidden_identity_collision_is_damaged_in_both_creation_orders() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     for hidden_first in [true, false] {
-        let root = root();
+        let root = test_dir.to_path_buf();
         let hidden = format!(".{FIRST}.removed");
         let names = if hidden_first {
             [hidden.as_str(), FIRST]
@@ -74,7 +76,8 @@ fn visible_and_hidden_identity_collision_is_damaged_in_both_creation_orders() {
 
 #[test]
 fn malformed_hidden_names_are_foreign_and_hidden_regular_files_are_broken() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     for name in [format!("{FIRST}.removed"), ".not-a-uuid.removed".to_owned()] {
         slot(&root, &name, b"ready\n");
     }
@@ -88,7 +91,8 @@ fn malformed_hidden_names_are_foreign_and_hidden_regular_files_are_broken() {
 
 #[test]
 fn apple_tombstone_keeps_a_partially_cleaned_regular_directory_recoverable() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let dir = root.join("profiles").join(FIRST);
     fs::create_dir_all(&dir).unwrap();
     fs::write(
@@ -108,7 +112,8 @@ fn apple_tombstone_keeps_a_partially_cleaned_regular_directory_recoverable() {
 #[cfg(unix)]
 #[test]
 fn apple_tombstone_never_upgrades_a_symlinked_slot_to_deleting() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let outside = root.join("outside");
     fs::create_dir(&outside).unwrap();
     fs::write(outside.join("identity.key"), b"untouched").unwrap();
@@ -137,7 +142,8 @@ fn apple_tombstone_never_upgrades_a_symlinked_slot_to_deleting() {
 #[cfg(unix)]
 #[test]
 fn hidden_symlink_is_not_followed() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let outside = root.join("outside");
     fs::create_dir(&outside).unwrap();
     fs::write(outside.join("identity.key"), b"untouched").unwrap();

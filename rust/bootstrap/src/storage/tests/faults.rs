@@ -7,12 +7,11 @@ const MAILBOX: [u8; 32] = [5; 32];
 const CRASH_DIR: &str = "DYAPP_TEST_ACK_CRASH_DIR";
 const CRASH_TEST: &str = "storage::tests::faults::mailbox_ack_crash_rolls_back_on_reopen";
 
-fn fault_store() -> (PathBuf, BootstrapStore) {
-    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../build/storage-faults")
-        .join(uuid::Uuid::new_v4().to_string());
+fn fault_store() -> (dyapp_test_support::TestDir, PathBuf, BootstrapStore) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().join(uuid::Uuid::new_v4().to_string());
     let store = BootstrapStore::new(dir.to_str().unwrap()).unwrap();
-    (dir, store)
+    (test_dir, dir, store)
 }
 
 fn put(store: &BootstrapStore, id: u8, bytes: usize) {
@@ -50,7 +49,7 @@ fn ack_ids(store: &BootstrapStore) -> Vec<Vec<u8>> {
 
 #[test]
 fn profile_replica_apply_failure_keeps_reads_and_survives_reopen() {
-    let (dir, store) = fault_store();
+    let (_test_dir_1, dir, store) = fault_store();
     let owner = Identity::from_secret(&[7; 32]);
     let record = Profile {
         version: 1,
@@ -75,7 +74,7 @@ fn profile_replica_apply_failure_keeps_reads_and_survives_reopen() {
 #[test]
 fn every_mailbox_ack_delete_is_atomic_across_reopen() {
     for target in 1..=2 {
-        let (dir, store) = fault_store();
+        let (_test_dir_2, dir, store) = fault_store();
         seed_ack(&store);
         {
             let db = lock(&store.messages).unwrap();
@@ -91,7 +90,7 @@ fn every_mailbox_ack_delete_is_atomic_across_reopen() {
 
 #[test]
 fn full_and_read_only_stores_report_write_errors_and_serve_reads() {
-    let (_, store) = fault_store();
+    let (_test_dir_3, _, store) = fault_store();
     seed_ack(&store);
     let pages = {
         let db = lock(&store.messages).unwrap();
@@ -112,7 +111,7 @@ fn full_and_read_only_stores_report_write_errors_and_serve_reads() {
         .is_err());
     assert_eq!(ack_ids(&store), [vec![1], vec![2]]);
 
-    let (_, store) = fault_store();
+    let (_test_dir_4, _, store) = fault_store();
     seed_ack(&store);
     lock(&store.messages)
         .unwrap()
@@ -126,6 +125,7 @@ fn full_and_read_only_stores_report_write_errors_and_serve_reads() {
 
 #[test]
 fn mailbox_ack_crash_rolls_back_on_reopen() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     if let Ok(dir) = std::env::var(CRASH_DIR) {
         let store = BootstrapStore::new(&dir).unwrap();
         seed_ack(&store);
@@ -137,9 +137,7 @@ fn mailbox_ack_crash_rolls_back_on_reopen() {
         std::process::abort();
     }
 
-    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../build/storage-faults")
-        .join(uuid::Uuid::new_v4().to_string());
+    let dir = test_dir.path().join(uuid::Uuid::new_v4().to_string());
     let status = std::process::Command::new(std::env::current_exe().unwrap())
         .args([CRASH_TEST, "--exact", "--test-threads=1"])
         .env(CRASH_DIR, &dir)

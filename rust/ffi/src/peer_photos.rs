@@ -232,9 +232,10 @@ mod tests {
 
     #[test]
     fn cached_photos_survive_only_in_memory_without_retaining_an_identity_lease() {
-        use crate::slot_registry_tests::{root, Credentials};
+        use crate::slot_registry_tests::Credentials;
         use crate::{MobileIdentityRegistry, MobileSlotLayout};
-        let root = root();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let root = test_dir.to_path_buf();
         let registry = MobileIdentityRegistry::new(
             root.to_str().unwrap().to_owned(),
             MobileSlotLayout::Android,
@@ -259,7 +260,8 @@ mod tests {
 
     #[test]
     fn an_external_context_clear_hides_cached_photo_bytes() {
-        let dir = crate::slot_registry_tests::root();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir.to_path_buf();
         std::fs::create_dir_all(&dir).unwrap();
         let worker = ProfileSearcher::new(dir.to_str().unwrap().to_owned()).unwrap();
         let hash = [7; 32];
@@ -293,7 +295,8 @@ mod tests {
 
     #[test]
     fn checked_switch_back_and_reactivation_refuse_late_photo_completions() {
-        let dir = crate::slot_registry_tests::root();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir.to_path_buf();
         std::fs::create_dir_all(dir.join("child")).unwrap();
         let worker = ProfileSearcher::new(dir.to_str().unwrap().to_owned()).unwrap();
         let alias = dir.join("child").join("..");
@@ -330,8 +333,9 @@ mod tests {
 
     #[test]
     fn only_a_missing_well_formed_hash_needs_the_network() {
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../build/native-peer-photo-tests")
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir
+            .path()
             .join(IdentityKey::generate().unwrap().peer_id());
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.to_str().unwrap().to_owned();

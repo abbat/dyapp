@@ -3,13 +3,14 @@ use super::*;
 
 #[tokio::test]
 async fn adoption_refuses_another_owner_before_applying_the_private_prefix() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
     let stranger = Identity::from_secret(&[8; 32]);
-    let source = Store::open(&temp_db_path(), &stranger).unwrap();
+    let source = Store::open(&test_dir.path().join("client-1.db"), &stranger).unwrap();
     source.set_blocked("carol", true).unwrap();
     source.set_profile_hidden(true).unwrap();
     let state = source.link_state().unwrap();
-    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-2.db"), &identity).unwrap();
     store.set_link_pending(&state).unwrap();
     let before = store.link_state().unwrap();
     let (mut node, _) = profile_node(Vec::new()).await;
@@ -23,8 +24,9 @@ async fn adoption_refuses_another_owner_before_applying_the_private_prefix() {
 
 #[tokio::test]
 async fn review_refuses_wrong_owner_deleted_remote_and_missing_pending_link() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let local = Profile {
         name: "keep".into(),
         ..Default::default()
@@ -46,7 +48,7 @@ async fn review_refuses_wrong_owner_deleted_remote_and_missing_pending_link() {
         crate::publish::review_adoption(&store, &mut node, &identity).await,
         Err(Failure::AdoptionReviewRequired)
     ));
-    let fresh = Store::open(&temp_db_path(), &identity).unwrap();
+    let fresh = Store::open(&test_dir.path().join("client-2.db"), &identity).unwrap();
     assert!(matches!(
         crate::publish::review_adoption(&fresh, &mut node, &identity).await,
         Err(Failure::Node(Error::Input(
@@ -63,8 +65,9 @@ async fn review_refuses_wrong_owner_deleted_remote_and_missing_pending_link() {
 
 #[tokio::test]
 async fn review_freezes_local_state_before_the_remote_reply_without_replacing_newer_edits() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let path = temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let store = Store::open(&path, &identity).unwrap();
     let local = Profile {
         version: 1,
@@ -73,8 +76,7 @@ async fn review_freezes_local_state_before_the_remote_reply_without_replacing_ne
     };
     store.save_profile_draft(&local).unwrap();
     store.set_link_pending(b"pending state").unwrap();
-    let copy = Identity::from_secret(&identity.secret());
-    let mut pending = Some((path, copy));
+    let mut pending = Some((path, Identity::from_secret(&identity.secret())));
     let (mut node, held) = profile_node_observed(Vec::new(), move |request, _| {
         if !matches!(request, Request::Get(_)) {
             return;
@@ -117,8 +119,9 @@ async fn review_freezes_local_state_before_the_remote_reply_without_replacing_ne
 
 #[tokio::test]
 async fn adoption_keeps_edits_made_during_its_initial_remote_read() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let path = temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let mut store = Store::open(&path, &identity).unwrap();
     let baseline = Profile {
         version: 1,
@@ -127,7 +130,7 @@ async fn adoption_keeps_edits_made_during_its_initial_remote_read() {
         ..Default::default()
     };
     store.save_profile_draft(&baseline).unwrap();
-    let link_state = Store::open(&temp_db_path(), &identity)
+    let link_state = Store::open(&test_dir.path().join("client-2.db"), &identity)
         .unwrap()
         .link_state()
         .unwrap();

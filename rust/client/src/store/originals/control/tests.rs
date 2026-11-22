@@ -2,18 +2,18 @@ use super::*;
 use dyapp_identity::Identity;
 use std::fs;
 
-fn fixture() -> (Store, std::path::PathBuf) {
+fn fixture() -> (dyapp_test_support::TestDir, Store, std::path::PathBuf) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::try_generate().unwrap();
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../build/test-media-cache-control")
-        .join(owner.peer_id());
+    let dir = test_dir.path().join(owner.peer_id());
     fs::create_dir_all(dir.join("originals")).unwrap();
-    (Store::open(&dir.join("state.sqlite"), &owner).unwrap(), dir)
+    let store = Store::open(&dir.join("state.sqlite"), &owner).unwrap();
+    (test_dir, store, dir)
 }
 
 #[test]
 fn confirmation_rechecks_current_budget_and_leaves_files_untouched_until_accepted() {
-    let (store, dir) = fixture();
+    let (_test_dir, store, dir) = fixture();
     fs::write(dir.join("originals/a"), b"original").unwrap();
     let before = store.media_cache_snapshot(&dir).unwrap();
     let change = MediaCacheChange::Budget("128".into());
@@ -37,7 +37,7 @@ fn confirmation_rechecks_current_budget_and_leaves_files_untouched_until_accepte
 
 #[test]
 fn retention_preserves_actual_budget_and_clear_preserves_settings_and_unrelated_data() {
-    let (store, dir) = fixture();
+    let (_test_dir, store, dir) = fixture();
     let budget = MediaCacheChange::Budget("1.5".into());
     store.change_media_cache(&dir, &budget, true).unwrap();
     let off = MediaCacheChange::Retention(false);
@@ -70,7 +70,7 @@ fn retention_preserves_actual_budget_and_clear_preserves_settings_and_unrelated_
 
 #[test]
 fn invalid_budget_and_unknown_directory_do_not_mutate_the_setting_or_files() {
-    let (store, dir) = fixture();
+    let (_test_dir, store, dir) = fixture();
     let before = store.media_cache_snapshot(&dir).unwrap();
     let invalid = MediaCacheChange::Budget("1.0000001".into());
     assert!(matches!(

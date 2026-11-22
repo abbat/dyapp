@@ -1,5 +1,5 @@
 use super::*;
-use crate::identity_slots::tests::{link::WrappedKeys, root};
+use crate::identity_slots::tests::link::WrappedKeys;
 use crate::identity_slots::{Layout, Registry, Slot, Storage};
 use crate::link::Linked;
 use dyapp_identity::Identity;
@@ -11,11 +11,13 @@ struct Fixture {
     peer: String,
     view: ProfileView,
     receiver: LinkReceiver<String, String>,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 impl Fixture {
     fn new() -> Self {
-        let registry = Registry::new(root(), Layout::Android);
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let registry = Registry::new(test_dir.to_path_buf(), Layout::Android);
         let keys = WrappedKeys::default();
         let (source, owner, _) = registry.create(Storage::Wrapped, &keys).unwrap();
         let peer = owner.peer_id();
@@ -34,6 +36,7 @@ impl Fixture {
             peer,
             view,
             receiver,
+            _test_dir: test_dir,
         }
     }
 

@@ -243,9 +243,25 @@ async fn foreign_identify_address_stays_out_of_both_dhts() {
     advertiser_task.abort();
 }
 
+pub(super) fn spawn_node(
+    swarm: Swarm<Behaviour>,
+    service: std::sync::Arc<Service>,
+    test_dir: dyapp_test_support::TestDir,
+) {
+    tokio::spawn(async move {
+        let _test_dir = test_dir;
+        Box::pin(node::run(swarm, service)).await;
+    });
+}
+
 async fn start_dht_node() -> (Multiaddr, PeerId) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     dyapp_p2p_net::set_id_pow_bits(0);
-    let dir = format!("/tmp/ai/test-address-admission-{}", uuid::Uuid::new_v4());
+    let dir = test_dir
+        .path()
+        .join("case-7960")
+        .to_string_lossy()
+        .into_owned();
     let mut config = NodeConfig::default();
     config.storage.dir = dir.clone().into();
     config.network.id_pow_bits = 0;
@@ -272,7 +288,10 @@ async fn start_dht_node() -> (Multiaddr, PeerId) {
     };
     // An explicitly confirmed local address makes Auto-mode Kademlia answer test queries.
     swarm.add_external_address(address.clone());
-    tokio::spawn(node::run(swarm, std::sync::Arc::new(service)));
+    tokio::spawn(async move {
+        let _test_dir = test_dir;
+        Box::pin(node::run(swarm, std::sync::Arc::new(service))).await;
+    });
     (address, peer)
 }
 

@@ -81,7 +81,7 @@ fn generation_safe_retry(
 
 #[test]
 fn waiting_answer_failure_and_generation_safe_retry_survive_restart() {
-    let (mut store, owner, path, peer) = database();
+    let (_test_dir, mut store, owner, path, peer) = database();
     let (pending, answer) = request(&mut store, &peer, 1);
     let waiting = download_state(&store, &peer, &answer.pack_id).unwrap();
     assert!(!waiting.has_answer && waiting.failure.is_none());
@@ -109,7 +109,7 @@ fn waiting_answer_failure_and_generation_safe_retry_survive_restart() {
 
 #[test]
 fn download_failure_codes_and_retry_cap_are_bounded_without_sleep() {
-    let (mut store, _, _, peer) = database();
+    let (_test_dir, mut store, _, _, peer) = database();
     let (_, answer) = request(&mut store, &peer, 1);
     admit(&mut store, &peer, 1, &answer);
     let job = store.due_sticker_pack_downloads(0).unwrap().remove(0);
@@ -157,7 +157,7 @@ fn download_failure_codes_and_retry_cap_are_bounded_without_sleep() {
 
 #[test]
 fn due_download_list_never_mounts_more_than_32_admitted_jobs() {
-    let (mut store, _, _, peer) = database();
+    let (_test_dir, mut store, _, _, peer) = database();
     for id in 1..=64 {
         let (_, answer) = request(&mut store, &peer, id);
         admit(&mut store, &peer, id, &answer);

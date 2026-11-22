@@ -1,5 +1,5 @@
 //! Resends through another node once a receipt shows the first one dropped a write.
-use super::chat::{store_path, Person};
+use super::chat::Person;
 use super::*;
 use dyapp_client::chat::{self, Body};
 use dyapp_client::interactions::Kind;
@@ -45,7 +45,7 @@ async fn a_receipt_through_another_node_resends_what_the_first_one_dropped() {
     let (first, second) = (store_node().await, store_node().await);
     let mut alice = Person::new(&first).await;
     let mut bob = Person::new(&first).await;
-    let (mut alice_session, mut bob_session, profiles, group_id) =
+    let (_test_dir, mut alice_session, mut bob_session, profiles, group_id) =
         open_matched_delivery(&mut alice, &mut bob).await;
 
     // The first node accepts "one", but Bob reads only the second from now on: it dropped it.
@@ -97,12 +97,13 @@ async fn open_matched_delivery(
     alice: &mut Person,
     bob: &mut Person,
 ) -> (
+    dyapp_test_support::TestDir,
     Session,
     Session,
     Vec<dyapp_profile::VerifiedProfile>,
     Vec<u8>,
 ) {
-    let (mut alice_session, mut bob_session, profiles, group_id) =
+    let (test_dir, mut alice_session, mut bob_session, profiles, group_id) =
         open_delivery_sessions(alice, bob).await;
     match_delivery_chat(
         alice,
@@ -113,7 +114,7 @@ async fn open_matched_delivery(
         &group_id,
     )
     .await;
-    (alice_session, bob_session, profiles, group_id)
+    (test_dir, alice_session, bob_session, profiles, group_id)
 }
 
 async fn send_one(session: &mut Session, alice: &mut Person, group_id: &[u8]) -> PeerId {
@@ -142,11 +143,13 @@ async fn open_delivery_sessions(
     alice: &mut Person,
     bob: &mut Person,
 ) -> (
+    dyapp_test_support::TestDir,
     Session,
     Session,
     Vec<dyapp_profile::VerifiedProfile>,
     Vec<u8>,
 ) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let bob_owner = bob.identity.peer_id();
     chat::publish_key_packages(&mut bob.node, &bob.device_key, &bob.device, &bob_owner, 1)
         .await
@@ -161,18 +164,18 @@ async fn open_delivery_sessions(
         .unwrap();
     chat::send(&mut alice.node, &welcome).await.unwrap();
     let group_id = group.id().to_vec();
-    let mut store = Store::open(&store_path("drop-alice"), &alice.identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("drop-alice.db"), &alice.identity).unwrap();
     let sealed = alice.device.seal(&SEAL).unwrap();
     store
         .stage_group(&group, &profiles[1], &sealed, &[])
         .unwrap();
     let alice_session = Session::open(store, &SEAL).unwrap();
-    let mut store = Store::open(&store_path("drop-bob"), &bob.identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("drop-bob.db"), &bob.identity).unwrap();
     store
         .stage_outbound(&bob.device.seal(&SEAL).unwrap(), &[])
         .unwrap();
     let bob_session = Session::open(store, &SEAL).unwrap();
-    (alice_session, bob_session, profiles, group_id)
+    (test_dir, alice_session, bob_session, profiles, group_id)
 }
 
 async fn match_delivery_chat(

@@ -429,7 +429,6 @@ fn utc_day(wall_ms: u64) -> Result<i64, Error> {
 mod tests {
     use super::Likes;
     use crate::interactions::{Interaction, Kind};
-    use crate::store::tests::temp_db_path;
     use crate::store::{Error, Store};
     use crate::{prepare_put, PreparedEnvelope};
     use dyapp_identity::{Domain, Identity, SignedRecord};
@@ -471,7 +470,8 @@ mod tests {
 
     #[test]
     fn interactions_order_likes_and_derive_matches_across_restart() {
-        let path = temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let alice = Identity::try_generate().unwrap();
         let (a, b) = (alice.peer_id(), Identity::try_generate().unwrap().peer_id());
         let mut store = Store::open(&path, &alice).unwrap();
@@ -503,6 +503,7 @@ mod tests {
 
     #[test]
     fn liked_you_lists_unanswered_likes_of_unblocked_peers() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let alice = Identity::try_generate().unwrap();
         let a = alice.peer_id();
         let mut peers: Vec<_> = (0..3)
@@ -512,7 +513,7 @@ mod tests {
         let [b, c, d] = &peers[..] else {
             unreachable!()
         };
-        let mut store = Store::open(&temp_db_path(), &alice).unwrap();
+        let mut store = Store::open(&test_dir.path().join("client-1.db"), &alice).unwrap();
         for (id, peer) in (1..).zip(&peers) {
             put(&mut store, peer, &a, b"p", event(Kind::Like, id, 10));
         }
@@ -527,10 +528,11 @@ mod tests {
 
     #[test]
     fn a_pass_leaves_liked_you_until_it_is_undone() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let alice = Identity::try_generate().unwrap();
         let a = alice.peer_id();
         let b = Identity::try_generate().unwrap().peer_id();
-        let mut store = Store::open(&temp_db_path(), &alice).unwrap();
+        let mut store = Store::open(&test_dir.path().join("client-1.db"), &alice).unwrap();
         put(&mut store, &b, &a, b"p", event(Kind::Like, 1, 10));
         assert!(store.pass(&b, true, 1_000).unwrap());
         assert_eq!(store.liked_by().unwrap(), [] as [std::string::String; 0]);
@@ -608,7 +610,8 @@ mod tests {
 
     #[test]
     fn staged_interaction_rolls_back_with_outbox_and_survives_restart() {
-        let path = temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let alice = Identity::try_generate().unwrap();
         let bob = Identity::try_generate().unwrap().peer_id();
         let mut store = Store::open(&path, &alice).unwrap();
@@ -639,13 +642,14 @@ mod tests {
 
     #[test]
     fn conflicting_or_foreign_interactions_change_nothing() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let alice = Identity::try_generate().unwrap();
         let (a, b, c) = (
             alice.peer_id(),
             Identity::try_generate().unwrap().peer_id(),
             Identity::try_generate().unwrap().peer_id(),
         );
-        let mut store = Store::open(&temp_db_path(), &alice).unwrap();
+        let mut store = Store::open(&test_dir.path().join("client-1.db"), &alice).unwrap();
         assert!(put(&mut store, &b, &a, b"b1", event(Kind::Like, 1, 10)));
         for (sender, target, device, kind) in [
             (b.as_str(), a.as_str(), b"b1", Kind::Unlike),
@@ -673,6 +677,7 @@ mod tests {
 
     #[test]
     fn devices_converge_on_the_same_events_in_any_order() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let alice = Identity::try_generate().unwrap();
         let (a, b) = (alice.peer_id(), Identity::try_generate().unwrap().peer_id());
         let events = [
@@ -684,7 +689,7 @@ mod tests {
         ];
         let mut results = Vec::new();
         for order in [[0, 1, 2, 3, 4], [4, 3, 2, 1, 0], [2, 4, 0, 3, 1]] {
-            let mut store = Store::open(&temp_db_path(), &alice).unwrap();
+            let mut store = Store::open(&test_dir.path().join("client-1.db"), &alice).unwrap();
             for index in order {
                 let (sender, target, device, event) = events[index];
                 put(&mut store, sender, target, device, event);
@@ -708,7 +713,8 @@ mod tests {
 
     #[test]
     fn own_clock_survives_restart_and_skewed_events_change_nothing() {
-        let path = temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let alice = Identity::try_generate().unwrap();
         let b = Identity::try_generate().unwrap().peer_id();
         let mut store = Store::open(&path, &alice).unwrap();
@@ -744,9 +750,10 @@ mod tests {
 
     #[test]
     fn blocked_peer_cannot_receive_new_interactions_or_outbox_writes() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let alice = Identity::try_generate().unwrap();
         let bob = Identity::try_generate().unwrap().peer_id();
-        let mut store = Store::open(&temp_db_path(), &alice).unwrap();
+        let mut store = Store::open(&test_dir.path().join("client-1.db"), &alice).unwrap();
         let draft = store
             .draft_interaction(&bob, Kind::Like, 1_000)
             .unwrap()
@@ -775,9 +782,10 @@ mod tests {
 
     #[test]
     fn a_blocked_sender_changes_nothing() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let alice = Identity::try_generate().unwrap();
         let (a, b) = (alice.peer_id(), Identity::try_generate().unwrap().peer_id());
-        let mut store = Store::open(&temp_db_path(), &alice).unwrap();
+        let mut store = Store::open(&test_dir.path().join("client-1.db"), &alice).unwrap();
         store.set_blocked(&b, true).unwrap();
         let like = event(Kind::Like, 1, hlc(5_000, 0));
         assert!(!store.receive_interaction(&b, b"b1", like, 5_000).unwrap());
@@ -796,13 +804,14 @@ mod tests {
     #[test]
     fn views_are_sent_once_per_peer_per_utc_day_and_always_received() {
         const DAY: u64 = 86_400_000;
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let alice = Identity::try_generate().unwrap();
         let (a, b, c) = (
             alice.peer_id(),
             Identity::try_generate().unwrap().peer_id(),
             Identity::try_generate().unwrap().peer_id(),
         );
-        let mut store = Store::open(&temp_db_path(), &alice).unwrap();
+        let mut store = Store::open(&test_dir.path().join("client-1.db"), &alice).unwrap();
         assert_eq!(own(&mut store, &b, Kind::View, DAY), None);
         assert!(!store.viewed_on(&a, &b, DAY).unwrap());
 

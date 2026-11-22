@@ -1,4 +1,3 @@
-use super::tests::temp_dir;
 use super::*;
 
 fn search(change: fn(&mut Search)) -> anyhow::Result<()> {
@@ -8,8 +7,9 @@ fn search(change: fn(&mut Search)) -> anyhow::Result<()> {
 }
 
 fn invalid(edit: impl FnOnce(&mut NodeConfig)) -> bool {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut config = NodeConfig::default();
-    config.storage.dir = temp_dir();
+    config.storage.dir = test_dir.path().join("config-1");
     edit(&mut config);
     config.validate().is_err()
 }
@@ -59,8 +59,9 @@ fn check_search_newcomer_limits() {
 
 #[test]
 fn store_profile_pow_minimum_is_validated_without_search() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut config = NodeConfig::default();
-    config.storage.dir = temp_dir();
+    config.storage.dir = test_dir.path().join("config-1");
     config.roles = vec![Role::Store];
     assert_eq!(config.search.min_profile_pow_bits, 11);
     config.search.max_scan_rows = 0; // Search-only checks remain inactive.
@@ -80,8 +81,9 @@ fn store_profile_pow_minimum_is_validated_without_search() {
 
 #[test]
 fn incoming_group_and_coarse_settings_validate_boundaries() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut config = NodeConfig::default();
-    config.storage.dir = temp_dir();
+    config.storage.dir = test_dir.path().join("config-1");
     assert_eq!(config.limits.max_connections_per_ip_group, 32);
     assert_eq!(config.limits.coarse_ipv4_prefix, 16);
     assert_eq!(config.limits.coarse_ipv6_prefix, 32);
@@ -246,8 +248,9 @@ fn check_invalid_limits() {
 
 #[test]
 fn network_names_validate_without_normalization_and_load_as_literal_strings() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut config = NodeConfig::default();
-    config.storage.dir = temp_dir();
+    config.storage.dir = test_dir.path().join("config-1");
     assert_eq!(config.network.name, "");
     for name in ["", "City", "city", "a b", "00123", &"a".repeat(64)] {
         config.network.name = name.into();
@@ -259,7 +262,7 @@ fn network_names_validate_without_normalization_and_load_as_literal_strings() {
         let expected = dyapp_p2p_net::Protocols::new(name).unwrap_err().to_string();
         assert_eq!(config.validate().unwrap_err().to_string(), expected);
     }
-    let dir = temp_dir();
+    let dir = test_dir.path().join("config-2");
     fs::create_dir_all(&dir).unwrap();
     let path = dir.join("network.toml");
     fs::write(&path, "[network]\nname = \"file\"\n").unwrap();

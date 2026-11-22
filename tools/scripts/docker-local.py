@@ -1,6 +1,7 @@
 """Serialize local Docker work; share one build budget of at most 4 CPUs."""
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
 import fcntl
 import json
 import os
@@ -366,13 +367,15 @@ def build_images(
     return 0
 
 
-def make_bind_directories(arguments: Sequence[str]) -> None:
+def make_bind_directories(
+    arguments: Sequence[str], root: Path | None = None
+) -> None:
     """Create the build/ bind mounts of the given compose files.
 
     So build/ can be deleted. Made here, they are the host user's; Docker
     would create a missing one as root.
     """
-    root = Path(__file__).resolve().parents[2]
+    root = root or Path(__file__).resolve().parents[2]
     files = [
         arguments[i + 1]
         for i, value in enumerate(arguments[:-1])
@@ -383,6 +386,74 @@ def make_bind_directories(arguments: Sequence[str]) -> None:
         for name in re.findall(r"\.\./\.\./(build/[^:\s]+):", text):
             directory = root / name
             directory.mkdir(parents=True, exist_ok=True)
+
+
+def compose_files(root: Path, arguments: Sequence[str]) -> list[Path]:
+    return [
+        root / arguments[i + 1]
+        for i, value in enumerate(arguments[:-1])
+        if value in ("-f", "--file")
+    ]
+
+
+def compose_services(root: Path, arguments: Sequence[str]) -> set[str]:
+    services = set()
+    for file in compose_files(root, arguments):
+        for line in file.read_text().splitlines():
+            match = re.match(r"^  ([a-zA-Z0-9_-]+):$", line)
+            if match:
+                services.add(match.group(1))
+    return services
+
+
+def worktree_git_override(root: Path, services: set[str]) -> str | None:
+    """Mount main-checkout git metadata at the path a worktree references."""
+    marker = root / ".git"
+    if not marker.is_file():
+        return None
+    text = marker.read_text().strip()
+    if not text.startswith("gitdir:"):
+        return None
+    gitdir = Path(text.removeprefix("gitdir:").strip())
+    if not gitdir.is_absolute():
+        gitdir = (root / gitdir).resolve()
+    if (
+        gitdir.parent.name != "worktrees"
+        or gitdir.parent.parent.name != ".git"
+    ):
+        return None
+    common = gitdir.parent.parent
+    selected = sorted(services & {"dev", "quality", "coverage", "security"})
+    if not selected:
+        return None
+    mount = json.dumps(f"{common}:{common}:ro")
+    return "services:\n" + "".join(
+        f"  {service}:\n    volumes: [{mount}]\n" for service in selected
+    )
+
+
+@contextmanager
+def worktree_arguments(
+    root: Path, arguments: list[str], temporary: Path
+) -> Iterator[list[str]]:
+    text = worktree_git_override(root, compose_services(root, arguments))
+    if text is None:
+        yield arguments
+        return
+    override = temporary / f"dyapp-worktree-{uuid.uuid4().hex}.yml"
+    override.write_text(text)
+    try:
+        index = next(
+            (
+                i
+                for i, argument in enumerate(arguments)
+                if argument in ("build", "run")
+            ),
+            len(arguments),
+        )
+        yield [*arguments[:index], "-f", str(override), *arguments[index:]]
+    finally:
+        override.unlink(missing_ok=True)
 
 
 def main() -> int:
@@ -403,7 +474,12 @@ def main() -> int:
         "DYAPP_GID": os.environ.get("DYAPP_GID", "") or gid,
         "DYAPP_EMULATOR_CPUS": str(max(1, CPUS - 1)),
     }
-    with (temporary / "dyapp-docker.lock").open("a") as lock:
+    with (
+        worktree_arguments(
+            Path(__file__).resolve().parents[2], arguments, temporary
+        ) as arguments,
+        (temporary / "dyapp-docker.lock").open("a") as lock,
+    ):
         fcntl.flock(lock, fcntl.LOCK_EX)
         if "build" in arguments and "run" not in arguments:
             return build_images(arguments, environment, log_file)

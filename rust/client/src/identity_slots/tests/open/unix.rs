@@ -1,11 +1,12 @@
-use super::{key_file, recovery, root, slot, Reader, FIRST};
+use super::{key_file, recovery, slot, Reader, FIRST};
 use crate::identity_slots::{resolve, Layout, RecoveryReason};
 use std::fs;
 use std::os::unix::fs::{symlink, PermissionsExt};
 
 #[test]
 fn a_raw_key_readable_by_other_users_is_not_opened() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let dir = slot(&root, FIRST, b"ready\n");
     fs::write(dir.join("storage-mode"), b"file\n").unwrap();
     key_file(&dir, &[7; 32]);
@@ -19,7 +20,8 @@ fn a_raw_key_readable_by_other_users_is_not_opened() {
 
 #[test]
 fn symlinked_wrapped_key_never_reaches_the_platform_decoder() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let dir = slot(&root, FIRST, b"ready\n");
     let outside = root.join("outside");
     fs::create_dir(&outside).unwrap();

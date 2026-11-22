@@ -50,6 +50,7 @@ struct NativePeer {
     key: Arc<IdentityKey>,
     device: Arc<IdentityKey>,
     state_key: Vec<u8>,
+    test_dir: dyapp_test_support::TestDir,
 }
 
 impl NativePeer {
@@ -67,7 +68,8 @@ impl NativePeer {
 
 /// An identity folder on the node's network whose device is published with `KeyPackages`.
 fn retained_person(address: &Multiaddr) -> NativePeer {
-    let dir = protocol_build_path("ffi-chats");
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.to_path_buf();
     std::fs::create_dir_all(&dir).unwrap();
     let active = Network {
         seeds: vec![seed_row(address)],
@@ -94,14 +96,23 @@ fn retained_person(address: &Multiaddr) -> NativePeer {
         key,
         device: IdentityKey::generate().unwrap(),
         state_key,
+        test_dir,
     };
     peer.open().publish_profile(true).unwrap();
     peer
 }
 
-fn person(address: &Multiaddr) -> (Arc<IdentityKey>, Arc<ChatSession>) {
+fn person(
+    address: &Multiaddr,
+) -> (
+    dyapp_test_support::TestDir,
+    Arc<IdentityKey>,
+    Arc<ChatSession>,
+) {
     let peer = retained_person(address);
-    (peer.key.clone(), peer.open())
+    let key = peer.key.clone();
+    let chats = peer.open();
+    (peer.test_dir, key, chats)
 }
 
 fn receive_events(chats: &ChatSession) {
@@ -149,8 +160,8 @@ fn store_node() -> (tokio::runtime::Runtime, Multiaddr) {
 #[test]
 fn a_like_reaches_the_peer_and_a_mutual_like_opens_the_chat() {
     let (_runtime, address) = store_node();
-    let (alice_key, alice) = person(&address);
-    let (bob_key, bob) = person(&address);
+    let (_alice_test_dir, alice_key, alice) = person(&address);
+    let (_bob_test_dir, bob_key, bob) = person(&address);
     let (alice_id, bob_id) = (alice_key.peer_id(), bob_key.peer_id());
     let likes = |ours, matched| ChatLikes {
         ours,
@@ -187,8 +198,8 @@ fn a_like_reaches_the_peer_and_a_mutual_like_opens_the_chat() {
 #[test]
 fn two_chat_sessions_exchange_a_text_and_list_it() {
     let (_runtime, address) = store_node();
-    let (alice_key, alice) = person(&address);
-    let (bob_key, bob) = person(&address);
+    let (_alice_test_dir, alice_key, alice) = person(&address);
+    let (_bob_test_dir, bob_key, bob) = person(&address);
     let (alice_id, bob_id) = (alice_key.peer_id(), bob_key.peer_id());
 
     alice.send_text(bob_id.clone(), "hello bob".into()).unwrap();
@@ -221,8 +232,8 @@ fn two_chat_sessions_exchange_a_text_and_list_it() {
 #[test]
 fn an_own_text_is_edited_and_deleted_and_a_chat_cleared_and_blocked() {
     let (_runtime, address) = store_node();
-    let (alice_key, alice) = person(&address);
-    let (bob_key, bob) = person(&address);
+    let (_alice_test_dir, alice_key, alice) = person(&address);
+    let (_bob_test_dir, bob_key, bob) = person(&address);
     let (alice_id, bob_id) = (alice_key.peer_id(), bob_key.peer_id());
     let id = alice.send_text(bob_id.clone(), "hello bob".into()).unwrap();
     receive_events(&bob);

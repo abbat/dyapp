@@ -1,5 +1,5 @@
 use super::*;
-use crate::slot_registry_tests::{root, Credentials};
+use crate::slot_registry_tests::Credentials;
 use crate::{MobileSlotLayout, MobileSlotSelection};
 use dyapp_profile::Profile;
 use std::path::PathBuf;
@@ -13,10 +13,12 @@ struct Fixture {
     selected: MobileSlotSelection,
     worker: Arc<MobileSearchOutbox>,
     dir: PathBuf,
+    _test_dir: dyapp_test_support::TestDir,
 }
 impl Fixture {
     fn new(layout: MobileSlotLayout) -> Self {
-        let root = root();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let root = test_dir.to_path_buf();
         let keys = Arc::new(Credentials::default());
         let registry =
             MobileIdentityRegistry::new(root.to_str().unwrap().into(), layout, keys.clone());
@@ -35,6 +37,7 @@ impl Fixture {
             selected,
             worker,
             dir,
+            _test_dir: test_dir,
         }
     }
     fn store(&self) -> Store {

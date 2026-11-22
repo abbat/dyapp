@@ -7,9 +7,18 @@ use crate::{
 };
 use dyapp_identity::Identity;
 
-fn fixture() -> (Store, Identity, PathBuf, String, Pack, Sticker, Vec<u8>) {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../build/sticker-originals-tests");
-    fs::create_dir_all(&root).unwrap();
+fn fixture() -> (
+    dyapp_test_support::TestDir,
+    Store,
+    Identity,
+    PathBuf,
+    String,
+    Pack,
+    Sticker,
+    Vec<u8>,
+) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.path();
     let owner = Identity::try_generate().unwrap();
     let dir = root.join(owner.peer_id());
     fs::create_dir(&dir).unwrap();
@@ -34,7 +43,7 @@ fn fixture() -> (Store, Identity, PathBuf, String, Pack, Sticker, Vec<u8>) {
         pack_name: pack.name().into(),
         attachment: Some(descriptor),
     };
-    (store, owner, dir, peer, pack, sticker, bytes)
+    (test_dir, store, owner, dir, peer, pack, sticker, bytes)
 }
 fn sender<'a>(peer: &'a str, group: &'a [u8]) -> VerifiedChatSender<'a> {
     VerifiedChatSender {
@@ -46,7 +55,7 @@ fn sender<'a>(peer: &'a str, group: &'a [u8]) -> VerifiedChatSender<'a> {
 
 #[test]
 fn sealed_sticker_original_survives_restart_and_follows_last_history_reference() {
-    let (mut store, owner, dir, peer, pack, sticker, bytes) = fixture();
+    let (_test_dir, mut store, owner, dir, peer, pack, sticker, bytes) = fixture();
     store
         .record_chat_sticker(sender(&peer, &[9]), &sticker, true)
         .unwrap();
@@ -100,7 +109,7 @@ fn cached_photos(store: &mut Store, dir: &Path, peer: &str) -> Vec<Attachment> {
 
 #[test]
 fn stickers_share_photo_lru_and_off_setting_but_saved_packs_are_never_evicted() {
-    let (mut store, _, dir, peer, pack, sticker, bytes) = fixture();
+    let (_test_dir, mut store, _, dir, peer, pack, sticker, bytes) = fixture();
     store
         .record_chat_sticker(sender(&peer, &[9]), &sticker, true)
         .unwrap();

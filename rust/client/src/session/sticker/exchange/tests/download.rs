@@ -4,8 +4,14 @@ use crate::store::sticker_packs::exchange::download::{
     PackDownloadFailure as Failure, PackDownloadJob,
 };
 
-pub(super) fn admitted() -> (Invite, std::path::PathBuf, Pack, PackDownloadJob) {
-    let (mut pair, path) = pair();
+pub(super) fn admitted() -> (
+    dyapp_test_support::TestDir,
+    Invite,
+    std::path::PathBuf,
+    Pack,
+    PackDownloadJob,
+) {
+    let (test_dir, mut pair, path) = pair();
     let pack = sticker_packs::tests::pack("Cats");
     let key = selected(&mut pair, &pack);
     let peer = pair.alice_id.peer_id();
@@ -28,7 +34,7 @@ pub(super) fn admitted() -> (Invite, std::path::PathBuf, Pack, PackDownloadJob) 
         .due_sticker_pack_downloads(0)
         .unwrap()
         .remove(0);
-    (pair, path, pack, job)
+    (test_dir, pair, path, pack, job)
 }
 
 async fn download_count(session: &mut Session, seal_key: &[u8; 32]) -> usize {
@@ -55,7 +61,7 @@ fn not_saved(pair: &Invite, pack_id: &[u8; 32]) {
 
 #[tokio::test]
 async fn offline_failure_survives_restart_and_explicit_retry_finishes_from_saved_file() {
-    let (mut pair, path, pack, job) = admitted();
+    let (_test_dir_63, mut pair, path, pack, job) = admitted();
     let snapshot = pair.session.store.sealed_device().unwrap();
     let count = pair.session.due_outbound(i64::MAX).unwrap().len();
     assert_eq!(download_count(&mut pair.session, &SEAL).await, 0);
@@ -100,7 +106,7 @@ async fn offline_failure_survives_restart_and_explicit_retry_finishes_from_saved
 
 #[tokio::test]
 async fn stop_and_block_prevent_fetch_or_save_without_chat_or_mls_mutation() {
-    let (mut pair, _, pack, job) = admitted();
+    let (_test_dir_108, mut pair, _, pack, job) = admitted();
     let snapshot = pair.session.store.sealed_device().unwrap();
     assert_eq!(
         pair.session

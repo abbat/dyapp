@@ -10,7 +10,7 @@ use std::sync::Arc;
 /// Reading on before going back would open later texts first and lose that page for good.
 #[tokio::test]
 async fn a_backlog_longer_than_a_page_survives_a_cold_profile_cache() {
-    let (mut bob, mut session, alice_profile, bob_profile, seal_key) =
+    let (_test_dir, mut bob, mut session, alice_profile, bob_profile, seal_key) =
         Box::pin(backlog_case()).await;
     drain_backlog(
         &mut bob,
@@ -26,7 +26,7 @@ async fn a_backlog_longer_than_a_page_survives_a_cold_profile_cache() {
 
 #[tokio::test]
 async fn a_profile_cached_between_passes_rewinds_the_unresolved_page() {
-    let (mut bob, mut session, alice_profile, bob_profile, seal_key) =
+    let (_test_dir, mut bob, mut session, alice_profile, bob_profile, seal_key) =
         Box::pin(backlog_case()).await;
     let mut profiles = vec![bob_profile];
     let (events, more) = session
@@ -79,12 +79,14 @@ async fn a_profile_cached_between_passes_rewinds_the_unresolved_page() {
 }
 
 async fn backlog_case() -> (
+    dyapp_test_support::TestDir,
     Person,
     Session,
     dyapp_profile::VerifiedProfile,
     dyapp_profile::VerifiedProfile,
     [u8; 32],
 ) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let address = start_config(|config| {
         config.roles = vec![Role::Store];
         config.limits.requests_per_second = 1000;
@@ -104,7 +106,7 @@ async fn backlog_case() -> (
         .get_profile(&alice.identity.peer_id())
         .await
         .unwrap();
-    let bob_path = protocol_build_path("bob-backlog").with_extension("sqlite3");
+    let bob_path = test_dir.to_path_buf().with_extension("sqlite3");
     let seal_key = [7; 32];
     Store::open(&bob_path, &bob.identity)
         .unwrap()
@@ -119,7 +121,7 @@ async fn backlog_case() -> (
         &seal_key,
     )
     .await;
-    (bob, session, alice_profile, bob_profile, seal_key)
+    (test_dir, bob, session, alice_profile, bob_profile, seal_key)
 }
 
 async fn establish_backlog(
@@ -209,10 +211,11 @@ async fn unresolved_head_does_not_hide_later_mail_after_restart_and_holder_switc
 }
 
 async fn run_paged_mail_scenario(first_address: Multiaddr, second_address: Multiaddr) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let (mut unknown, mut known, mut bob, unknown_profile, known_profile, bob_profile) =
         Box::pin(paged_people(&first_address)).await;
     let bob_owner = bob.identity.peer_id();
-    let bob_path = protocol_build_path("bob-paged").with_extension("sqlite3");
+    let bob_path = test_dir.to_path_buf().with_extension("sqlite3");
     let seal_key = [7; 32];
     Store::open(&bob_path, &bob.identity)
         .unwrap()

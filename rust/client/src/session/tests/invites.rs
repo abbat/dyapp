@@ -41,8 +41,9 @@ fn accept_concurrent_invite(invite: Invite, own: &[u8], seal_key: &[u8; 32]) {
 
 #[test]
 fn a_first_text_invites_and_the_pair_then_sends_to_its_lowest_group() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let seal_key = [5; 32];
-    let path = temp_path();
+    let path = test_dir.path().join("session-1.db");
     let mut invite = bob_invited(&path, &seal_key);
     let alice_peer = invite.alice_id.peer_id();
     let alice_key: [u8; 32] = invite.alice.device_key().unwrap().try_into().unwrap();
@@ -86,8 +87,9 @@ fn a_first_text_invites_and_the_pair_then_sends_to_its_lowest_group() {
 
 #[test]
 fn a_first_like_invites_and_stages_the_like_with_the_welcome() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let seal_key = [5; 32];
-    let path = temp_path();
+    let path = test_dir.path().join("session-1.db");
     let Invite {
         session,
         bob_id,
