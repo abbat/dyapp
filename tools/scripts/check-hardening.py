@@ -264,8 +264,81 @@ def elf_import_names(
         raise ValueError("dynamic symbol table disagrees with loader")
     if elf_loaded_offset(address, size, segments) != offset:
         raise ValueError("dynamic symbol table offset disagrees with loader")
+    if elf_hash_count(data, sections, segments, tags) != size // entry:
+        raise ValueError("symbol count disagrees with loader hash tables")
     strings = elf_linked_strings(data, sections, link, segments, tags)
     return elf_undefined_symbols(data, offset, size, strings)
+
+
+def elf_hash_count(
+    data: bytes,
+    sections: list[tuple[int, ...]],
+    segments: list[Segment],
+    tags: dict[int, int],
+) -> int:
+    counts = set()
+    for tag, kind in ((4, 5), (0x6FFFFEF5, 0x6FFFFFF6)):
+        if tag not in tags:
+            continue
+        tables = [section for section in sections if section[1] == kind]
+        if len(tables) != 1:
+            raise ValueError("missing or duplicate loader hash section")
+        _, _, flags, address, offset, size, _, _, _, _ = tables[0]
+        if not flags & 2 or address != tags[tag] or size < 8:
+            raise ValueError("invalid loader hash section")
+        if elf_loaded_offset(address, size, segments) != offset:
+            raise ValueError("hash section offset disagrees with loader")
+        body = data[offset : offset + size]
+        counts.add(elf_sysv_count(body) if tag == 4 else elf_gnu_count(body))
+    if len(counts) != 1:
+        raise ValueError("missing or inconsistent loader hash symbol count")
+    return counts.pop()
+
+
+def elf_sysv_count(body: bytes) -> int:
+    buckets, count = struct.unpack_from("<II", body)
+    if not buckets or not count or len(body) != 8 + 4 * (buckets + count):
+        raise ValueError("invalid SYSV hash dimensions")
+    indices = struct.unpack_from(f"<{buckets + count}I", body, 8)
+    if any(index >= count for index in indices):
+        raise ValueError("SYSV hash index outside dynamic symbols")
+    return int(count)
+
+
+def elf_gnu_count(body: bytes) -> int:
+    if len(body) < 16:
+        raise ValueError("truncated GNU hash header")
+    buckets, first, bloom, _ = struct.unpack_from("<IIII", body)
+    start = 16 + 8 * bloom
+    chains_at = start + 4 * buckets
+    if not buckets or not first or not bloom or bloom & (bloom - 1):
+        raise ValueError("invalid GNU hash dimensions")
+    if chains_at > len(body) or (len(body) - chains_at) % 4:
+        raise ValueError("truncated GNU hash arrays")
+    heads = struct.unpack_from(f"<{buckets}I", body, start)
+    chains = struct.unpack_from(
+        f"<{(len(body) - chains_at) // 4}I", body, chains_at
+    )
+    return elf_gnu_chain_count(heads, chains, first)
+
+
+def elf_gnu_chain_count(
+    heads: tuple[int, ...], chains: tuple[int, ...], first: int
+) -> int:
+    position = first
+    for head in sorted(head for head in heads if head):
+        if head != position:
+            raise ValueError("GNU hash chain coverage is inconsistent")
+        while True:
+            if position - first >= len(chains):
+                raise ValueError("unterminated GNU hash chain")
+            terminal = chains[position - first] & 1
+            position += 1
+            if terminal:
+                break
+    if position - first != len(chains):
+        raise ValueError("unreachable GNU hash chain entries")
+    return position
 
 
 def elf_linked_strings(

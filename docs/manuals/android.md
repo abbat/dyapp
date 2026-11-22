@@ -161,6 +161,8 @@ prebuilt third-party libraries retain their independent build provenance. Androi
 read undefined callable dynamic symbols and cross-check their symbol/string section addresses,
 sizes and offsets against the loader metadata and file-backed load segments. Missing or malformed
 inventories fail closed; exported names, unused strings and data imports are not evidence of calls.
+The symbol count must also agree with the loader's SYSV/GNU hash inventory; missing, conflicting
+or incomplete chain coverage cannot hide imports behind a shortened section.
 
 The same job runs `zipalign -c -P 16 4 SIGNED.apk` from the selected signing
 Build-Tools directory, checking packaging alignment independently of ELF alignment.

@@ -17,7 +17,9 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "tools/scripts/check-hardening.py"
 
 
-def shared_elf(machine: int = 62, **changes: Unpack[ElfOptions]) -> bytes:
+def shared_elf(
+    machine: int = 62, hash_style: str = "sysv", **changes: Unpack[ElfOptions]
+) -> bytes:
     options: ElfOptions = {**GOOD, "interp": False, **changes}
     body = bytearray(elf(**options))
     struct.pack_into("<H", body, 18, machine)
@@ -27,10 +29,10 @@ def shared_elf(machine: int = 62, **changes: Unpack[ElfOptions]) -> bytes:
         at = phoff + index * stride
         if struct.unpack_from("<I", body, at)[0] == 1:
             struct.pack_into("<Q", body, at + 48, 16384)
-    return with_symbol_table(body)
+    return with_symbol_table(body, hash_style)
 
 
-def with_symbol_table(body: bytearray) -> bytes:
+def with_symbol_table(body: bytearray, hash_style: str) -> bytes:
     """Materialize real loader-linked dynsym entries, not just name strings."""
     phoff = struct.unpack_from("<Q", body, 32)[0]
     stride, count = struct.unpack_from("<HH", body, 54)
@@ -53,7 +55,18 @@ def with_symbol_table(body: bytearray) -> bytes:
         name += len(value) + 1
     symbol_at = len(body)
     body.extend(symbols)
-    tags.update({6: symbol_at, 11: 24})
+    hash_at = len(body)
+    symbol_count = len(symbols) // 24
+    if hash_style == "gnu":
+        hash_data = struct.pack("<IIIIQI", 1, symbol_count, 1, 6, 0, 0)
+        tag, kind = 0x6FFFFEF5, 0x6FFFFFF6
+    else:
+        hash_data = struct.pack("<II", 1, symbol_count) + bytes(
+            4 * (1 + symbol_count)
+        )
+        tag, kind = 4, 5
+    body.extend(hash_data)
+    tags.update({6: symbol_at, 11: 24, tag: hash_at})
     dynamic_at = len(body)
     entries = b"".join(
         struct.pack("<qQ", tag, value) for tag, value in tags.items()
@@ -82,8 +95,23 @@ def with_symbol_table(body: bytearray) -> bytes:
             24,
         )
     )
+    body.extend(
+        struct.pack(
+            "<IIQQQQIIQQ",
+            0,
+            kind,
+            2,
+            hash_at,
+            hash_at,
+            len(hash_data),
+            2,
+            0,
+            4,
+            4,
+        )
+    )
     struct.pack_into("<Q", body, 40, section_at)
-    struct.pack_into("<HH", body, 58, 64, 3)
+    struct.pack_into("<HH", body, 58, 64, 4)
     struct.pack_into("<QQ", body, dynamic + 8, dynamic_at, dynamic_at)
     struct.pack_into("<QQ", body, dynamic + 32, len(entries), len(entries))
     for at in headers:
@@ -220,8 +248,14 @@ class AndroidHardening(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("protector", result.stdout)
 
+    def test_gnu_only_inventory_accepts_undefined_symbol_prefix(self) -> None:
+        result = self.run_apk(
+            {"lib/x86_64/libdyapp_ffi.so": shared_elf(hash_style="gnu")}
+        )
+        self.assertEqual(result.returncode, 0, result.stdout)
+
     def test_invalid_import_inventory_fails_closed(self) -> None:
-        for case in ("missing", "address", "entry", "link", "name"):
+        for case in ("missing", "address", "entry", "link", "name", "short"):
             with self.subTest(case=case):
                 body = bytearray(shared_elf())
                 sections = struct.unpack_from("<Q", body, 40)[0]
@@ -235,6 +269,8 @@ class AndroidHardening(unittest.TestCase):
                     struct.pack_into("<Q", body, table + 56, 0)
                 elif case == "link":
                     struct.pack_into("<I", body, table + 40, 99)
+                elif case == "short":
+                    struct.pack_into("<Q", body, table + 32, 24)
                 else:
                     struct.pack_into("<I", body, symbols + 24, len(body))
                 result = self.run_apk(
