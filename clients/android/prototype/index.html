@@ -788,7 +788,7 @@ search providers asked: 0 of 3</pre>
       </div>
     </div>
   </div>
-  <div class="scrim" data-on="owner-confirm owner-confirm-expired owner-sending owner-send-error owner-send-expired owner-sent">
+  <div class="scrim" data-on="owner-confirm owner-confirm-expired owner-sending owner-send-error owner-send-expired owner-send-check-error owner-sent">
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="owner-confirm-title">
       <h2 id="owner-confirm-title" data-t="devices.confirm.title"></h2>
       <p class="caption" data-t="owner.identity"></p><code id="owner-identity"></code>
@@ -796,13 +796,14 @@ search providers asked: 0 of 3</pre>
       <p data-t="devices.confirm.text"></p>
       <p class="notice" data-t="devices.confirm.warn"></p>
       <p class="notice" role="status" data-on="owner-sending" data-t="owner.sending"></p>
-      <p class="notice error" role="status" data-on="owner-send-error owner-send-expired" data-t="devices.code.offline"></p>
+      <p class="notice error" role="status" data-on="owner-send-error owner-send-expired owner-send-check-error" data-t="devices.code.offline"></p>
       <p class="notice error" data-on="owner-confirm-expired owner-send-expired" data-t="devices.code.expired"></p>
+      <p class="notice error" role="status" data-on="owner-send-check-error" data-t="owner.unavailable"></p>
       <p class="notice" role="status" data-on="owner-sent" data-t="devices.sent"></p>
       <div class="actions">
         <button type="button" class="btn text" id="owner-confirm-cancel" data-go="devices-ready" data-off="owner-sent" data-disabled="owner-sending" data-t="action.cancel"></button>
-        <button type="button" class="btn text danger" id="owner-send" data-go="owner-sending" data-off="owner-sent owner-send-error owner-send-expired" data-disabled="owner-sending owner-confirm-expired" data-t="devices.confirm.action"></button>
-        <button type="button" class="btn text danger" id="owner-retry" data-go="owner-sending" data-on="owner-send-error" data-t="action.retry"></button>
+        <button type="button" class="btn text danger" id="owner-send" data-go="owner-sending" data-off="owner-sent owner-send-error owner-send-expired owner-send-check-error" data-disabled="owner-sending owner-confirm-expired" data-t="devices.confirm.action"></button>
+        <button type="button" class="btn text danger" id="owner-retry" data-go="owner-sending" data-on="owner-send-error owner-send-check-error" data-disabled="owner-send-check-error" data-t="action.retry"></button>
         <button type="button" class="btn text" id="owner-done" data-go="devices-ready" data-on="owner-sent" data-t="nav.back"></button>
       </div>
     </div>

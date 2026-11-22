@@ -12,6 +12,7 @@ export const checkOwnerFixture = async () => {
     'owner-sending',
     'owner-send-error',
     'owner-send-expired',
+    'owner-send-check-error',
     'owner-sent',
   ].includes(screen);
   const dialog = node(pastPreparation ? 'owner-confirm-title' : 'owner-code-title').closest(
@@ -45,7 +46,10 @@ export const checkOwnerFixture = async () => {
   if (Boolean(submit.length) !== sendAllowed || submit.length > 1)
     throw new Error('Send admission does not match the named core outcome');
   const uncertain = dialog.querySelector('[data-t="devices.code.offline"]');
-  if (isVisible(uncertain) !== ['owner-send-error', 'owner-send-expired'].includes(screen))
+  if (
+    isVisible(uncertain) !==
+    ['owner-send-error', 'owner-send-expired', 'owner-send-check-error'].includes(screen)
+  )
     throw new Error('Partial delivery uncertainty was lost or fabricated');
   const expired = dialog.querySelector('[data-t="devices.code.expired"]');
   if (
@@ -56,5 +60,15 @@ export const checkOwnerFixture = async () => {
   const controls = [...dialog.querySelectorAll('button, textarea')].filter(
     (control) => isVisible(control) && !control.disabled,
   );
+  checkUnavailable(dialog, screen);
   await checkControls(controls);
+};
+
+const checkUnavailable = (dialog, screen) => {
+  const unavailable = dialog.querySelector('[data-t="owner.unavailable"]');
+  const failed = screen === 'owner-send-check-error';
+  if (isVisible(unavailable) !== failed)
+    throw new Error('Unavailable code check is missing or fabricated');
+  if (failed && (!node('owner-retry').disabled || !isVisible(node('owner-retry'))))
+    throw new Error('Unavailable code check must retain a disabled Retry');
 };

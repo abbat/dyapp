@@ -274,6 +274,7 @@ The IDs inside each section are the desktop ones; only the frame differs.
   and physical-possession warnings. `owner-confirm-expired` refuses sending; `owner-sending`
   disables dismissal and repeat submission. `owner-send-error` retains the target and explicit Retry;
   `owner-send-expired` preserves both expiry and potentially partial encrypted delivery.
+  `owner-send-check-error` retains that uncertainty alongside an unavailable code check and disabled Retry.
   `owner-sent` acknowledges sending, never recipient installation. Closing cannot recall delivered
   data. Native Devices now opens the same flow through its retained IO worker, with scrollable
   confirmation, public owner/code copy actions and WindowInfo-driven Cancel focus. Preparation can

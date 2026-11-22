@@ -494,6 +494,7 @@ ANDROID = [
     "owner-sending",
     "owner-send-error",
     "owner-send-expired",
+    "owner-send-check-error",
     "owner-sent",
     "lock-settings",
     "switcher",

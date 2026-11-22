@@ -6,6 +6,8 @@ Object.assign(STRINGS.en, {
   'owner.preparing': 'Preparing confirmation. No private data has been sent.',
   'owner.prepareError': 'Could not prepare confirmation. No private data has been sent.',
   'owner.sending': 'Sending encrypted profile data. Wait for confirmation.',
+  'owner.unavailable':
+    'Could not continue this attempt. Check the current result before starting again.',
   'devices.this': 'This device',
   'devices.revoking': 'Disconnecting this device. Wait for confirmation.',
   'devices.read.loading': 'Reading the saved device list…',
@@ -123,6 +125,8 @@ Object.assign(STRINGS.ru, {
   'owner.preparing': 'Подготовка подтверждения. Приватные данные ещё не отправлялись.',
   'owner.prepareError': 'Не удалось подготовить подтверждение. Приватные данные не отправлялись.',
   'owner.sending': 'Отправка зашифрованных данных профиля. Дождитесь подтверждения.',
+  'owner.unavailable':
+    'Не удалось продолжить эту попытку. Проверьте текущий результат перед новой попыткой.',
   'devices.this': 'Это устройство',
   'devices.revoking': 'Устройство отключается. Дождитесь подтверждения.',
   'devices.read.loading': 'Чтение сохранённого списка устройств…',
