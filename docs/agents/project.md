@@ -6,6 +6,9 @@ automatically. This page holds the details. **The user's own instructions (globa
 
 ## Layout
 
+Workspace helper crates inherit `license.workspace = true`, including unpublished test support.
+`cargo deny` checks their license metadata even when `publish = false`.
+
 A Rust module loaded with `#[path]` needs explicit paths for its nested file modules, including
 `#[cfg(test)]` children, when their files live in a subdirectory. The native desktop crates are
 outside root quality compilation; a dependency-free rustc fixture can verify module resolution.

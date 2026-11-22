@@ -15,9 +15,9 @@ fn review_revalidation_inside_writer_is_read_only_and_observes_rollback() {
         Err(Error::InvalidSetting)
     ));
     let writer = Transaction::new_unchecked(&store.db, TransactionBehavior::Immediate).unwrap();
-    let writes = store.db.total_changes();
+    let changes_before = store.db.total_changes();
     assert!(review.is_current_in_snapshot(&store, &identity).unwrap());
-    assert_eq!(store.db.total_changes(), writes);
+    assert_eq!(store.db.total_changes(), changes_before);
     let other = Identity::from_secret(&[9; 32]);
     assert!(matches!(
         review.is_current_in_snapshot(&store, &other),
