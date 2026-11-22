@@ -1,7 +1,7 @@
 # CI Matrix and Workflow Inventory
 
-> **Status:** derived from `.github/workflows/*.yml` on 2026-11-09. Nothing here was run for this
-> document; "Expected" notes come from reading the YAML and scripts, not from CI logs.
+> Workflow inventory follows `.github/workflows/*.yml`; configured checks are not runtime proof.
+> Inspect source-bound job results and artifact receipts for acceptance.
 > Branch protection lives in GitHub settings, not in the repository, so **which checks are
 > required for merge is unknown** (see [Required checks](#required-checks)).
 
@@ -45,7 +45,7 @@ cache past its 10 GB limit.
 | `core` | — | Calls [ci-base.yml](ci-base.md) | `rust-workspace-coverage` | Working pipeline |
 | `linux` → **native - linux** | ubuntu-24.04 | `ci-setup.sh linux` (apt packages mirroring `tests/docker/Dockerfile.linux-test`, toolchain 1.99.0), rust-cache, `linux-test.sh`: builds `clients/linux/` with `--features ui-smoke` and writes `build/unit-build.json`, runs the unit binaries, then `desktop-smoke.py` on the Tauri app under Xvfb | none (logs only) | Shell app |
 | `docker` → **docker - android** | ubuntu-24.04 | Build `dyapp:android-tools` with the BuildKit GHA cache; restore Gradle/cargo dependency downloads and save them immediately after a successful build/unit step; compile the x86_64 FFI and bindings, build/lint APKs and run JUnit checks. Publish the base/upgrade/test APKs, `dyappd` and the host PNG client example for the emulator jobs. | `android-runtime-packages`, `android-build-check-output` | Shell app |
-| `docker-emulators` (API 31 / API 37 matrix) | ubuntu-24.04 | After `docker`, run API 31 and API 37 lanes in parallel on separate runners with `fail-fast: false`. Download the same runtime packages and build only the required cached toolchain image. API 31 keeps the full instrumentation, real host-to-Android PNG phase, worker lifecycle and legacy LAN coverage; API 37 keeps isolated grant/deny/regrant/revoke coverage against LAN and non-LAN destinations of the same node, with restored-profile and route/identity receipts, then actual foreground denial/retry/grant dialogs through MainActivity. The foreground run restores permission even on failure and retains its own JUnit report. Its second bridge uses the reserved TEST-NET range without Internet access or added privileges. The per-lane test budgets are 30 and 15 minutes. | `android-check-output`, `android-permission-check-output` | Shell app |
+| `docker-emulators` → **docker - android-emulator** / **docker - android-permissions** (API 31 / API 37) | ubuntu-24.04 | After `docker`, run API 31 and API 37 lanes in parallel on separate runners with `fail-fast: false`. Download the same runtime packages and build only the required cached toolchain image. API 31 keeps the full instrumentation, real host-to-Android PNG phase, worker lifecycle and legacy LAN coverage; API 37 keeps isolated grant/deny/regrant/revoke coverage against LAN and non-LAN destinations of the same node, with restored-profile and route/identity receipts, then actual foreground denial/retry/grant dialogs through MainActivity. The foreground run restores permission even on failure and retains its own JUnit report. Its second bridge uses the reserved TEST-NET range without Internet access or added privileges. The per-lane test budgets are 30 and 15 minutes. | `android-check-output`, `android-permission-check-output` | Shell app |
 | `apple` → **native - ios** / **native - macos** | macos-15 | iOS: XCFramework, XcodeGen and XCTest/XCUITest. macOS: Cargo unit tests with login Keychain enabled, `build-macos-client.py --profile debug --features ui-smoke`, then shared `desktop-smoke.py` on the bundled executable with pinned axe-core. | `apple-ios`, `apple-macos` (native logs and test artifacts) | Native clients |
 | `windows` → **native - windows** | windows-2022 | Rust 1.99.0; `cargo build` + `cargo test` with `--features ui-smoke` of `clients/windows/Cargo.toml`; full `desktop-smoke.py` on the test-enabled exe | `windows-app-and-ui` (exe + `desktop-ui-results.json`) | Shell app |
 | `summary` → **required** | ubuntu-24.04 | Requires every job to succeed | — | Working |
@@ -54,21 +54,18 @@ The Android, Linux, Windows, iOS and macOS UI suites exercise Russian strings as
 existing English or pseudo-locale cases. The `quality` job checks Russian catalogue parity with
 English, so adding a visible UI key without its translation fails before release.
 
-### What the platform jobs do **not** validate
+### Acceptance limits
 
-The apps are shells that call one core function at most:
+The Android build job packages the shared Rust JNI library and generated bindings in base,
+upgrade and test APKs. The emulator jobs install those exact packages and execute their
+instrumentation and lifecycle phases; inspect named first-pass results before closing a task.
+Desktop jobs compile and exercise their actual native clients. A green job establishes its
+recorded checks, not complete Linux feature parity or the separate visual review.
 
-- `clients/android/` loads `libdyapp_ffi.so` through the UniFFI Kotlin bindings and shows the peer ID
-  of its stored `IdentityKey`.
-- `clients/ios/` links `DyappFFI.xcframework` through the UniFFI Swift bindings and show
-  the peer ID of their stored `IdentityKey`.
-- `clients/linux/`, `clients/windows/` and `clients/macos/` are Tauri 2.12 apps (webkit2gtk-4.1 on Linux) that depend on
-  `rust/identity` and their platform credential provider to create and reopen a chosen identity key.
-
-So a green matrix means "the shells build and their own tests pass". It does **not** mean an
-APK/AAB, `.app` or installer containing the Rust core was built, signed or tested. No job
-produces release artifacts or a standalone browser client release. See [build.md](build.md) and
-[ffi-bindings.md](ffi-bindings.md) for the missing pieces.
+The push matrix does not prove production signing or final release-byte hardening.
+Unsigned release-size/reproducibility producers and protected signing workflows retain those
+separate obligations; a debug APK or native smoke result cannot satisfy them. See
+[build.md](build.md) and [ffi-bindings.md](ffi-bindings.md).
 
 ## Other workflows
 

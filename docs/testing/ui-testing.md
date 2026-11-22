@@ -1004,9 +1004,9 @@ artifacts, not a local native build.
 
 ## What is tested
 
-The UI suites test the **platform shells** (`clients/android/`, `clients/ios/`, `clients/macos/`, `clients/linux/`, `clients/windows/`).
-The shells call the Rust core for a peer ID (see
-[ci-matrix.md](../development/ci-matrix.md#what-the-platform-jobs-do-not-validate)); shared
+The UI suites exercise the native clients (`clients/android/`, `clients/ios/`, `clients/macos/`,
+`clients/linux/`, `clients/windows/`). Named test results establish their scoped acceptance, not
+complete feature parity (see [ci-matrix.md](../development/ci-matrix.md#acceptance-limits)). Shared
 iOS unit tests also check per-slot Keychain wrapping account isolation and network draft
 file separation/corruption. They verify that erasing one UUID wrapping item leaves another slot
 and the legacy account readable, and that a valid deleting tombstone remains visible when its

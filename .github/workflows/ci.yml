@@ -108,6 +108,7 @@ jobs:
 
   # Default job-id naming also stays readable when GitHub skips the matrix before expansion.
   docker-emulators:
+    name: docker - ${{ matrix.lane }}
     needs: docker
     runs-on: ubuntu-24.04
     timeout-minutes: 45
