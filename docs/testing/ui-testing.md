@@ -17,6 +17,10 @@ fresh rendered acceptance until the corresponding source-bound Android CI has ex
 controller with explicitly released promises: core page/cursor pass-through, pending-action refusal,
 refresh failure retention, query replacement and retired completions. The controller owns UI request
 lifetime only; the shared Rust pager retains filtering, counts and cursor policy.
+The Tauri received-view smoke drives the actual Privacy pane: read-only loading, unchanged native
+cursors/dates, query reset, failure retention, explicit profile opening and Back focus after read
+completion. A held refresh completes after leaving the pane and must not replace known rows or
+admit a captured old row. These native webview checks run in desktop CI.
 
 Native receiving completion checks retain a recovery review prepared before setup finishes:
 preparing another review after the pending link has been cleared is correctly refused. Publication
