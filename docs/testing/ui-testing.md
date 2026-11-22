@@ -1216,7 +1216,7 @@ real IME/editor scrolling.
 The phase-only `OwnerApprovalVisualTests` requires instrumentation arguments `ownerVisual=1`,
 `sourceSha=<40-hex producer commit>` and `expectedWidth=360|412`; ordinary instrumentation excludes
 it. A fresh device is required for each width. EN/RU, light/dark and 100/200% font variants produce
-top/bottom dialog PNGs and a completion manifest under `files/owner-approval-visual/<width>/`.
+top/bottom dialog PNG images and a completion manifest under `files/owner-approval-visual/<width>/`.
 Compose PixelCopy captures the dialog. Actual paragraph layouts and live scroll viewports establish
 text geometry; public identifier semantics retain raw copy values while exposing grouped glyph layout.
 Each preparation/operation transition moves safe focus back to Cancel before subsequent input.

@@ -17,7 +17,7 @@ internal data class OwnerImeMeasurement(
     val next: RectF
 )
 
-/** Dialog PNGs plus measured native IME/glyph/control coordinates; no guessed editor padding. */
+/** Dialog PNG images plus measured native IME/glyph/control coordinates; no guessed editor padding. */
 internal class OwnerImeEvidence(private val source: String, private val width: Int) {
     private val directory = File(
         InstrumentationRegistry.getInstrumentation().targetContext.filesDir,

@@ -182,7 +182,10 @@ Raw `onNode`/`onAllNodes` are receiver members: call `compose.onNode(...)`/
 `assertDoesNotExist` are `SemanticsNodeInteraction` members; retain their node calls without
 `androidx.compose.ui.test` imports. Main-source CodeQL compilation does not validate androidTest
 imports; the Android test-APK compiler remains the authoritative check. Named helpers such as
-`onNodeWithTag` remain extensions requiring imports.
+`onNodeWithTag` remain extensions requiring imports. Create Compose rules through
+`androidx.compose.ui.test.junit4.v2.createComposeRule` (or its Android rule counterpart): the old
+factory is deprecated and `-Werror` rejects it. V2 queues coroutine effects with StandardTestDispatcher;
+await actual state/UI readiness rather than depending on immediate effect execution.
 Localized instrumentation content uses `LocalizedTestContext` so context/configuration/resources
 agree and the actual Activity picker registry survives the configuration-context substitution.
 Use its font-scale argument for geometry cases; retain the original locale and text-layout assertions.
