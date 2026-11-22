@@ -1228,6 +1228,12 @@ before a planned visual runner installs anything. It requires a same-repository 
 `ci.yml` run, exactly one successful matching Android build and an unexpired source-matching runtime
 artifact with its digest. Unrelated queued Apple jobs do not prevent this validation; the whole
 workflow need not have finished. Keep the API receipts beside `validated.json` for provenance.
+`tests/scripts/android_visual_archive.py` reads the collected native tar into a fresh directory,
+allowing only regular PNG/manifest files for the requested width with bounded sizes and no duplicate
+paths or links. It retains partial safe frames before rejecting an incomplete manifest. Successful
+validation requires all twelve states × two languages × two themes × two font sizes × two scroll
+edges (192 frames per width), matching source/viewport and PNG header dimensions. This checks evidence
+integrity and coverage, not the visual quality of the rendered screens or the real IME behavior.
 `DeviceDirectoryWorkerTests` and `DeviceDirectoryFailureTests` exercise the presentation adapter with
 controlled native-shaped completions. They retain original public targets across mutable DTO input,
 reject stale/forged confirmation openings, retire a view during an admitted call, cancel its UI waiter
