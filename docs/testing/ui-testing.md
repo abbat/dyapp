@@ -77,7 +77,11 @@ Desktop outcome-to-source navigation restores the original peer, header/avatar a
 its reopening calibration checks both sent and queued outcomes before exercising retired callbacks.
 Run the on-demand `prototype-review` workflow with `platform=android` for the complete Android
 inventory and layout checks; its default `platform=desktop` retains desktop capture and criteria.
-The artifact records the selected platform, exact source and input hashes. Ordinary APK CI does
+The artifact records the selected platform, exact source and input hashes. Android owner-approval
+prototype checks preserve the original public owner/code, distinguish read-only preparation from
+admitted sending, retain partial-delivery uncertainty after expiry and use the shared current-geometry
+control reachability checks. These static outcomes do not prove native authorization or delivery.
+Ordinary APK CI does
 not execute the HTML-prototype capture. After capture, browser checks verify
 state-specific admission, received-menu permissions and destination-only history/avatar. Each ready
 dialog snapshot also checks the actual 32+8 pagination, full-ID search, retained selection across

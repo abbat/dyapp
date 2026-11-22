@@ -484,6 +484,17 @@ ANDROID = [
     "devices-revoking",
     "devices-uncertain",
     "devices-gone",
+    "owner-code",
+    "owner-malformed",
+    "owner-expired",
+    "owner-preparing",
+    "owner-prepare-error",
+    "owner-confirm",
+    "owner-confirm-expired",
+    "owner-sending",
+    "owner-send-error",
+    "owner-send-expired",
+    "owner-sent",
     "lock-settings",
     "switcher",
     "remove-dialog",
@@ -763,6 +774,8 @@ def audited(_view: WebKit2.WebView, result: Gio.AsyncResult) -> None:
 
 
 def android_fixture(screen: str) -> tuple[str, str] | None:
+    if screen.startswith("owner-"):
+        return "owner", "checkOwnerFixture"
     if screen.startswith("devices-"):
         return "devices", "checkDevicesFixture"
     if screen.startswith("link-review-"):

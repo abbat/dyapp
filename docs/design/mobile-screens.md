@@ -225,8 +225,9 @@ The IDs inside each section are the desktop ones; only the frame differs.
   the mailbox every minute while it is in the foreground, on every section and in a chat, and a
   background job about every 15 minutes otherwise ([privacy](../security/privacy.md#local-notices)); failures
   stay quiet.
-- Linking a phone to an identity and the Devices list are planned; the desktop screens define the
-  flow, see [desktop-screens.md](desktop-screens.md#linking-this-computer).
+- Profile receiving and Devices have native implementations described below; owner approval remains
+  a prototype pending native widgets. The desktop defines the shared linking contract, see
+  [desktop-screens.md](desktop-screens.md#linking-this-computer).
 - Settings, `settings`: a fixed category hub, with no identity/peer rows or destructive actions.
   Categories are `settings-appearance`, `settings-privacy`, `settings-notifications`,
   `settings-photos`, `settings-account` and `settings-about`. Each has a
@@ -265,9 +266,14 @@ The IDs inside each section are the desktop ones; only the frame differs.
   names the immutable original key before its consequences; admitted work disables Cancel/Back.
   Acknowledged revoke and subsequent cache-read failure remain separate visible results. Generated
   bindings, real JNI and full native EN/RU visual acceptance still require CI.
-  Owner-side approval remains planned. Its generic send failure must disclose potentially partial
-  encrypted delivery and preserve explicit confirmation of the original code; it must never promise
-  that nothing was sent or that closing the result recalls delivered data.
+  The owner approval prototype opens through `owner-open`: `owner-code`, `owner-malformed`,
+  `owner-expired`, `owner-preparing` and `owner-prepare-error` show input and read-only preparation.
+  `owner-confirm` displays the original owner and public recipient code before the full-control
+  and physical-possession warnings. `owner-confirm-expired` refuses sending; `owner-sending`
+  disables dismissal and repeat submission. `owner-send-error` retains the target and explicit Retry;
+  `owner-send-expired` preserves both expiry and potentially partial encrypted delivery.
+  `owner-sent` acknowledges sending, never recipient installation. Closing cannot recall delivered
+  data. Native owner approval widgets remain planned; static outcomes perform no validation or writes.
 - Account links to `settings-identities-screen`. Its `settings-identities` list preserves
   `settings-remove`, `settings-remove-2` and `settings-create`. Blocked and passed have
   `blocked-list` and `passed-list` in the `blocked` and `passed` cards:

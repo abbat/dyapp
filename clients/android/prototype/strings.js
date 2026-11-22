@@ -1,6 +1,11 @@
 // Android wording over the desktop prototype strings (loaded first); the shipped strings live in
 // app/src/main/res. Only keys that differ on Android or exist only here.
 Object.assign(STRINGS.en, {
+  'owner.intro': 'On the new device choose Receive a profile, then paste its code here.',
+  'owner.identity': 'Identity giving full control',
+  'owner.preparing': 'Preparing confirmation. No private data has been sent.',
+  'owner.prepareError': 'Could not prepare confirmation. No private data has been sent.',
+  'owner.sending': 'Sending encrypted profile data. Wait for confirmation.',
   'devices.this': 'This device',
   'devices.revoking': 'Disconnecting this device. Wait for confirmation.',
   'devices.read.loading': 'Reading the saved device list…',
@@ -113,6 +118,11 @@ Object.assign(STRINGS.en, {
     'A block hides someone from your search and chats and revokes their network tokens. They are not told. Retry the revocation if it is still pending.',
 });
 Object.assign(STRINGS.ru, {
+  'owner.intro': 'На новом устройстве выберите «Получить профиль» и вставьте сюда его код.',
+  'owner.identity': 'Идентичность, передающая полный контроль',
+  'owner.preparing': 'Подготовка подтверждения. Приватные данные ещё не отправлялись.',
+  'owner.prepareError': 'Не удалось подготовить подтверждение. Приватные данные не отправлялись.',
+  'owner.sending': 'Отправка зашифрованных данных профиля. Дождитесь подтверждения.',
   'devices.this': 'Это устройство',
   'devices.revoking': 'Устройство отключается. Дождитесь подтверждения.',
   'devices.read.loading': 'Чтение сохранённого списка устройств…',
