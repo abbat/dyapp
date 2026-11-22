@@ -89,6 +89,24 @@ class ReceivedViewsCollectionTests {
     }
 
     @Test
+    fun aRowRemovedBySearchCannotStartAnotherProfileOpening() {
+        show()
+        read(1, rows.take(2))
+        compose.awaitNode(hasText(rows.first().peerId))
+        val oldOpen = compose.onNodeWithTag("received-view-open-1")
+            .fetchSemanticsNode()
+            .config[applicationClickKey]
+        compose.onNodeWithTag("collection-query").performScrollTo()
+            .performTextReplacement(rows[1].peerId)
+        compose.awaitNode(hasText(rows[1].peerId))
+        compose.onNode(hasText(rows.first().peerId)).assertDoesNotExist()
+        compose.runOnIdle { oldOpen.invoke() }
+        compose.runOnIdle { assertEquals(emptyList<String>(), opened) }
+        click("received-view-open-1")
+        compose.runOnIdle { assertEquals(listOf(rows[1].peerId), opened) }
+    }
+
+    @Test
     fun anOldRowCallbackCannotOpenAProfileForTheReplacementOwner() {
         show()
         read(1, rows.take(1))

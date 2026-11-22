@@ -10,7 +10,8 @@ desktop smoke additionally drives the actual profile page and verifies close/are
 none of these controls substitutes for encrypted two-peer delivery and received-list acceptance.
 `ReceivedViewsCollectionTests` renders the production Android collection and native pager with
 controlled read completions: loading, exact-target search, failed-refresh retention, explicit retry
-and retired-owner actions. The shared collection-row geometry matrix includes its full identifier
+and retired-owner actions. Captured row callbacks must also refuse after query replacement removes
+the row, while the current target still opens. The shared collection-row geometry matrix includes its full identifier
 and UTC date/Open action in EN/RU, light/dark themes, at normal and enlarged text. The identifier
 layout must expose the actual requested native font scale, and the full date must fit below it. These are runtime checks, not evidence of
 fresh rendered acceptance until the corresponding source-bound Android CI has executed them.

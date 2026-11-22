@@ -7,9 +7,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -79,7 +83,17 @@ private fun ReceivedViewsRows(state: ReceivedViewsState, refresh: () -> Unit, op
 
 /** Reuse the full-identifier row and stack the date/action at the current width. */
 @Composable
-internal fun ReceivedViewRow(entry: LocalCollectionEntry, number: Int, enabled: Boolean, open: () -> Unit) {
+internal fun ReceivedViewRow(
+    entry: LocalCollectionEntry,
+    number: Int,
+    enabled: Boolean,
+    open: () -> Unit
+) = key(entry.target) {
+    var present by remember { mutableStateOf(true) }
+    val available by rememberUpdatedState(enabled)
+    val callback by rememberUpdatedState(open)
+    DisposableEffect(Unit) { onDispose { present = false } }
+    val onOpen = { if (present && available) callback() }
     val action = stringResource(R.string.profile_views_open_named, shortPeerId(entry.target))
     PeopleCollectionRow(entry.target, number) { _, _ ->
         Column(Modifier.fillMaxWidth()) {
@@ -88,8 +102,8 @@ internal fun ReceivedViewRow(entry: LocalCollectionEntry, number: Int, enabled: 
                 Modifier.testTag("received-view-date-$number")
             )
             TextButton(
-                open,
-                Modifier.fillMaxWidth().testTag("received-view-open-$number").applicationClick(open)
+                onOpen,
+                Modifier.fillMaxWidth().testTag("received-view-open-$number").applicationClick(onOpen)
                     .semantics { contentDescription = action },
                 enabled = enabled
             ) { Text(stringResource(R.string.profile_views_open)) }
