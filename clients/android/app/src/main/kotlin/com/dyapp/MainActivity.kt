@@ -30,8 +30,9 @@ internal const val APP_READY_TAG = "app-ready"
  * offers first-launch PIN setup. PIN work runs on a background dispatcher.
  */
 class MainActivity : ComponentActivity() {
-    // Fail closed until onCreate reads the saved lock choice.
-    private var appLock = AppLockLifecycle(true, SystemClock::elapsedRealtime)
+    // Fail closed until asynchronous startup reads the saved lock choice.
+    private val appLock = AppLockLifecycle(true, SystemClock::elapsedRealtime)
+    private var lockReady = false
     private val networkAccess = LocalNetworkAccess(this)
     private val content = PrivateContent()
     private val timer = Handler(Looper.getMainLooper())
@@ -88,12 +89,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         window.callback = WindowKeyGate(requireNotNull(window.callback), ::consumeKey)
         loadTheme()
-        // An unreadable verifier must fail closed, never start a new unlocked session.
-        lock = runCatching { store.mode() }.getOrDefault(StoredLock.PIN)
-        val lockOn = lock == StoredLock.PIN || lock == StoredLock.BIOMETRIC
-        appLock.close()
-        appLock = AppLockLifecycle(lockOn, SystemClock::elapsedRealtime)
-        obscureSnapshot(lockOn)
+        // Protect the window before asynchronous storage admission, including on a cold launch.
+        obscureSnapshot(true)
         refreshLock()
         // A locked relaunch drops this at the next refresh, as any return past the lock screen.
         returnTo = takeRelaunchTarget()
@@ -101,6 +98,14 @@ class MainActivity : ComponentActivity() {
     }
 
     private inner class PrivateContent {
+        fun initializeLock(mode: StoredLock) {
+            lock = mode
+            if (mode == StoredLock.NEW || mode == StoredLock.OFF) appLock.onPinCleared()
+            obscureSnapshot(mode == StoredLock.PIN || mode == StoredLock.BIOMETRIC)
+            lockReady = true
+            refreshLock()
+        }
+
         @Composable
         fun Show() {
             LaunchedEffect(locked, lock) {
@@ -117,15 +122,22 @@ class MainActivity : ComponentActivity() {
         @Composable
         private fun PrivateScreens() {
             DYAppTheme(chosenDarkTheme()) {
-                when {
-                    locked -> Locked()
-                    lock == StoredLock.NEW -> SetupScreen(
-                        device,
-                        skipLock
-                    ) { setPin(null, it) == PinAttempt.UNLOCKED }
-                    settings -> LockSettingsScreen(lockMode, device, ::setPin, leaveSettings)
-                    else -> Main()
+                AppLockStartup(this@MainActivity, { store.mode() }, ::initializeLock) {
+                    ReadyScreens()
                 }
+            }
+        }
+
+        @Composable
+        private fun ReadyScreens() {
+            when {
+                locked -> Locked()
+                lock == StoredLock.NEW -> SetupScreen(
+                    device,
+                    skipLock
+                ) { setPin(null, it) == PinAttempt.UNLOCKED }
+                settings -> LockSettingsScreen(lockMode, device, ::setPin, leaveSettings)
+                else -> Main()
             }
         }
 
@@ -219,7 +231,7 @@ class MainActivity : ComponentActivity() {
         locked = appLock.isLocked
         if (locked) {
             recovered = false
-            returnTo = null
+            if (lockReady) returnTo = null
         }
         timer.removeCallbacks(deadline)
         if (!locked) remaining?.let { timer.postDelayed(deadline, it) }

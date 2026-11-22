@@ -1,5 +1,8 @@
 # Android client
 
+Startup waits for the saved app-lock choice behind a protected loading screen. An unreadable
+choice keeps the app locked; profile setup and private content are not shown while it is pending.
+
 On first run, **Receive my existing profile** explicitly creates this phone’s initial identity,
 then opens network setup. Check and activate the same network as the other device; this step cannot
 be skipped for receiving. Cancel keeps the created identity and any saved network draft.

@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -36,14 +37,14 @@ class LockSetupTests {
 
     @Test
     fun firstLaunchOffersSetupBeforeIdentityAndRemembersSkip() {
-        compose.onNodeWithTag("lock-setup").assertIsDisplayed()
+        compose.awaitNode(hasTestTag("lock-setup")).assertIsDisplayed()
         compose.onNodeWithTag("peer-id").assertDoesNotExist()
         compose.onNodeWithTag("lock-skip").performClick()
         compose.skipNetworkEntry()
         compose.onNodeWithTag("app-ready").assertIsDisplayed()
         compose.activityRule.scenario.recreate()
-        compose.onNodeWithTag("lock-setup").assertDoesNotExist()
         compose.skipNetworkEntry()
+        compose.onNodeWithTag("lock-setup").assertDoesNotExist()
         compose.onNodeWithTag("app-ready").assertIsDisplayed()
     }
 }

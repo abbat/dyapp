@@ -1490,7 +1490,9 @@ from foreign code. Rust turns it, and anything else the app throws, into
   synchronously on the calling thread. Storage callbacks must not reenter the same app-lock
   object. Callback failures use structured errors (`WrapError`/`AppLockStorageError`), including
   unexpected foreign exceptions; flat `CoreError` cannot carry errors thrown by a callback.
-  No async exports exist.
+  No async exports exist. Android reads the saved app-lock mode through an owned IO read before
+  composing setup, unlock or private screens. Pending storage keeps a protected loading surface;
+  failure selects the protected mode, and a retired Activity cannot publish its late result.
 
 ## Security boundary
 

@@ -104,6 +104,7 @@ class AppLockUITests {
         store.enroll("123456")
         try {
             compose.activityRule.scenario.recreate()
+            waitForTag("app-locked")
             compose.onNodeWithTag("app-locked").assertIsDisplayed()
             check(secure()) { "A configured lock left the snapshot visible" }
             compose.onNodeWithTag("peer-id").assertDoesNotExist()
