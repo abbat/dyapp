@@ -1211,8 +1211,17 @@ The owner visual fixtures provide twelve controlled native-shaped outcomes throu
 dialog controls, one reusable Compose root, matching EN/RU resources and font configuration, and
 completion-owned worker retirement. They never overwrite presentation StateFlows or host a node.
 This foundation does not establish native authorization, transfer, rendered visual acceptance or
-real IME/editor scrolling. The phase-only capture test and its artifact-consuming CI runner remain
-planned; source lint cannot establish runtime success.
+real IME/editor scrolling.
+The phase-only `OwnerApprovalVisualTests` requires instrumentation arguments `ownerVisual=1`,
+`sourceSha=<40-hex producer commit>` and `expectedWidth=360|412`; ordinary instrumentation excludes
+it. A fresh device is required for each width. EN/RU, light/dark and 100/200% font variants produce
+top/bottom dialog PNGs and a completion manifest under `files/owner-approval-visual/<width>/`.
+Compose PixelCopy captures the dialog. Actual paragraph layouts and live scroll viewports establish
+text geometry; public identifier semantics retain raw copy values while exposing grouped glyph layout.
+Each preparation/operation transition moves safe focus back to Cancel before subsequent input.
+The keyboard-disabled baseline does not establish real IME or internal editor scrolling, native
+authorization, transfer, or completed visual acceptance. The artifact-consuming CI runner and
+source-bound image review remain planned; source lint cannot establish runtime success.
 `DeviceDirectoryWorkerTests` and `DeviceDirectoryFailureTests` exercise the presentation adapter with
 controlled native-shaped completions. They retain original public targets across mutable DTO input,
 reject stale/forged confirmation openings, retire a view during an admitted call, cancel its UI waiter

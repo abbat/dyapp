@@ -8,14 +8,19 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.AccessibilityAction
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import java.util.concurrent.atomic.AtomicReference
 
 private const val DEVICE_KEY_GROUP = 8
 
@@ -38,12 +43,19 @@ internal fun DeviceDirectoryMenu(opened: Opened.Ready, route: MutableState<Setti
 /** Group display characters only; the dedicated copy action always receives the unchanged raw key. */
 @Composable
 internal fun DeviceIdentifier(raw: String, tag: String, label: Int = R.string.devices_key) {
+    val measured = remember(raw) { AtomicReference<TextLayoutResult>() }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Caption(stringResource(label))
         Text(
             raw.chunked(DEVICE_KEY_GROUP).joinToString(" "),
-            Modifier.testTag(tag).clearAndSetSemantics { text = AnnotatedString(raw) },
-            fontFamily = FontFamily.Monospace
+            Modifier.testTag(tag).clearAndSetSemantics {
+                text = AnnotatedString(raw)
+                this[SemanticsActions.GetTextLayoutResult] = AccessibilityAction(null) { results ->
+                    measured.get()?.let { results.add(it) } ?: false
+                }
+            },
+            fontFamily = FontFamily.Monospace,
+            onTextLayout = measured::set
         )
         CopyButton(raw, "copy-$tag")
     }

@@ -7,6 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -35,6 +36,7 @@ internal class LinkApprovalUIFixture(private val compose: ComposeContentTestRule
 
     fun enterCode() {
         compose.awaitNode(hasTestTag("owner-open")).performClick()
+        compose.awaitNode(hasTestTag("owner-cancel") and isFocused())
         compose.awaitNode(hasTestTag("owner-code-input")).performTextInput("original pasted input")
         compose.onNodeWithTag("owner-code-next").performClick()
         compose.awaitNode(hasTestTag("owner-recipient"))

@@ -56,5 +56,5 @@ internal fun LinkApprovalDismiss(view: LinkApprovalViewState, dismiss: () -> Uni
             .applicationClick(dismiss),
         view.operation != LinkApprovalOperation.SEND && !view.retired
     ) { Text(stringResource(if (sent) R.string.owner_done else R.string.remove_cancel)) }
-    LaunchedEffect(ready, view.opening, sent) { if (ready) focus.requestFocus() }
+    LaunchedEffect(ready, view.opening, view.operation, sent) { if (ready) focus.requestFocus() }
 }
