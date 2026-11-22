@@ -803,6 +803,7 @@ const GENERATED_COMMAND_HANDLER: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = ta
     chats::profile_view::prepare_profile_view,
     chats::profile_view::submit_profile_view,
     chats::profile_view::retire_profile_view,
+    chats::profile_view_list::received_profile_views,
     chats::commands::liked_you,
     chats::share::shared_profile,
     chats::share::share_profile,

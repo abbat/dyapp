@@ -32,6 +32,8 @@ mod privacy;
 mod profile_share;
 #[path = "tests/profile_view.rs"]
 mod profile_view;
+#[path = "tests/profile_view_list.rs"]
+mod profile_view_list;
 #[path = "tests/saved_sticker.rs"]
 mod saved_sticker;
 #[path = "tests/sticker_collection.rs"]

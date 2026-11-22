@@ -78,6 +78,8 @@ pub use sticker_view::ChatSticker;
 mod profile_share;
 mod profile_view;
 pub use profile_view::ProfileViewOpening;
+mod profile_view_list;
+pub use profile_view_list::ReceivedProfileView;
 mod reads;
 mod send_photo;
 mod send_sticker;

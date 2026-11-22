@@ -32,7 +32,12 @@ context, waits for a shown profile, and submits once on IO. Disposal retires the
 releasing an admitted native identity lease. Core owns privacy, daily deduplication and immutable
 target/network admission; Compose only supplies readiness and lifetime. Shared Tauri profile pages
 use opaque prepare/submit/retire commands over the same core opening and staging. Received-view
-UI is still planned; native compilation/runtime acceptance remains source-bound. Typing delivery is deferred until a direct client path exists; its saved preference
+UI is still planned; native compilation/runtime acceptance remains source-bound.
+`ChatSession.received_profile_views` transports the common bounded sender/UTC-date rows without
+fetching or sending. Android can pass their raw targets and date labels through the existing
+common `local_collection_page` projection. Tauri's `received_profile_views(query, cursor)` uses
+the same Store rows and core pager, returning only the bounded page and opaque query-bound
+navigation; it performs no JavaScript matching, sorting, date arithmetic or offset calculation. Typing delivery is deferred until a direct client path exists; its saved preference
 never authorizes mailbox typing ([contract](../design/read-receipts.md#typing-indicators)).
 
 `ChatSession.active_chat_peers` is a read-only common-core projection of fresh authenticated
