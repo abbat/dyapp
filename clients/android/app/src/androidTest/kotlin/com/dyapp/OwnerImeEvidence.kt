@@ -62,6 +62,7 @@ internal class OwnerImeEvidence(private val source: String, private val width: I
     private fun manifest(complete: Boolean) {
         val data = JSONObject().put("source_sha", source).put("width_dp", width)
             .put("complete", complete)
+            .put("code_length", OWNER_VISUAL_CODE.length)
             .put("scope", "real IME editor geometry; controlled preparation, no native transfer")
             .put("frames", frames)
         File(directory, "manifest.json").writeText(data.toString(2) + "\n")

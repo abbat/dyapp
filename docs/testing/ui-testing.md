@@ -1249,8 +1249,10 @@ selects the beginning/middle/end of the unchanged full code, and waits for nativ
 Android accessibility character-location rectangles and the real dialog window origin/visible frame
 establish glyph and control positions; no inferred TextField padding is used. Each width records
 24 dialog frames plus measured screen coordinates under `files/owner-approval-ime/<width>/`.
-Its preparation fixture rejects any changed input. Real-IME CI invocation and collection remain
-planned; authoring these checks does not establish that the runtime passed.
+Its preparation fixture rejects any changed input. The manual workflow enables and selects the
+native LatinIME for this separate phase, retains its own instrumentation log and tar, and validates
+24 complete frames with finite, nonempty glyph/control rectangles inside the recorded visible frame.
+Authoring these checks does not establish that the runtime passed.
 `DeviceDirectoryWorkerTests` and `DeviceDirectoryFailureTests` exercise the presentation adapter with
 controlled native-shaped completions. They retain original public targets across mutable DTO input,
 reject stale/forged confirmation openings, retire a view during an admitted call, cancel its UI waiter

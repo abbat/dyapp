@@ -122,6 +122,62 @@ class AndroidVisualArchive(TestCase):
             with self.assertRaises(ValueError):
                 ARCHIVE.validate(output, 360, SOURCE)
 
+    def test_real_ime_matrix_rejects_hidden_or_invalid_geometry(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "ime.tar"
+            frames: list[dict[str, object]] = []
+            with tarfile.open(source, "w") as archive:
+                folder = tarfile.TarInfo("files/owner-approval-ime")
+                folder.type = tarfile.DIRTYPE
+                archive.addfile(folder)
+                for language, theme, font, index in product(
+                    ("en", "ru"), ("light", "dark"), (100, 200), (0, 4, 8)
+                ):
+                    name = (
+                        f"owner-ime-{language}-360-{theme}-{font}-{index}.png"
+                    )
+                    add(archive, f"files/owner-approval-ime/360/{name}", PNG)
+                    frames.append(
+                        {
+                            "file": name,
+                            "selection": index,
+                            "visible_screen_px": [0, 0, 360, 500],
+                            "glyph_screen_px": [10, 30, 20, 45],
+                            "cancel_screen_px": [10, 450, 90, 490],
+                            "next_screen_px": [100, 450, 220, 490],
+                        }
+                    )
+                manifest = {
+                    "source_sha": SOURCE,
+                    "width_dp": 360,
+                    "code_length": 8,
+                    "complete": True,
+                    "frames": frames,
+                }
+                add(
+                    archive,
+                    "files/owner-approval-ime/360/manifest.json",
+                    json.dumps(manifest).encode(),
+                )
+            output = root / "output"
+            ARCHIVE.unpack(source, output, 360, "ime")
+            self.assertEqual(ARCHIVE.validate_ime(output, 360, SOURCE), 24)
+            for geometry in (
+                [10, 501, 20, 510],
+                [0, 0, 0, 0],
+                [0, 0, float("nan"), 20],
+            ):
+                frames[0]["glyph_screen_px"] = geometry
+                (output / "manifest.json").write_text(json.dumps(manifest))
+                with self.assertRaises(ValueError):
+                    ARCHIVE.validate_ime(output, 360, SOURCE)
+            frames[0]["glyph_screen_px"] = [10, 30, 20, 45]
+            frames.append(frames[0])
+            (output / "manifest.json").write_text(json.dumps(manifest))
+            with self.assertRaises(ValueError):
+                ARCHIVE.validate_ime(output, 360, SOURCE)
+
 
 if __name__ == "__main__":
     main()

@@ -109,6 +109,13 @@ jobs:
             --archive "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/native.tar" \
             --output "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/frames" \
             --width "$DYAPP_VISUAL_WIDTH" --source "$DYAPP_VISUAL_SOURCE"
+      - name: validate real IME matrix
+        if: always()
+        run: |
+          python3 -B tests/scripts/android_visual_archive.py --kind ime \
+            --archive "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/ime.tar" \
+            --output "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/ime-frames" \
+            --width "$DYAPP_VISUAL_WIDTH" --source "$DYAPP_VISUAL_SOURCE"
       - name: native evidence and diagnostics
         if: always()
         run: |

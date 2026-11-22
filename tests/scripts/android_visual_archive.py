@@ -3,6 +3,7 @@
 import argparse
 from itertools import product
 import json
+import math
 from pathlib import Path
 import re
 import struct
@@ -25,32 +26,48 @@ SCREENS = (
 MAX_BYTES = 512 * 1024 * 1024
 
 
-def unpack(archive: Path, output: Path, width: int) -> None:
+def allowed_size(
+    member: tarfile.TarInfo, folders: set[str], pattern: re.Pattern[str]
+) -> int:
+    name = member.name.rstrip("/")
+    if member.isdir() and name in folders:
+        return 0
+    if not member.isfile() or pattern.fullmatch(name) is None:
+        raise ValueError("Unexpected native archive entry")
+    limit = 1024 * 1024 if name.endswith(".json") else 16 * 1024 * 1024
+    if not 0 < member.size <= limit:
+        raise ValueError("Native archive entry exceeds its limit")
+    return member.size
+
+
+def unpack(
+    archive: Path, output: Path, width: int, kind: str = "visual"
+) -> None:
     if archive.stat().st_size > MAX_BYTES:
         raise ValueError("Native visual archive exceeds its limit")
-    prefix = f"files/owner-approval-visual/{width}"
-    folders = {"files", "files/owner-approval-visual", prefix}
+    if kind not in ("visual", "ime"):
+        raise ValueError("Unknown native evidence kind")
+    prefix = f"files/owner-approval-{kind}/{width}"
+    folders = {"files", f"files/owner-approval-{kind}", prefix}
+    suffix = r"[0-9]{1,4}" if kind == "ime" else r"(top|bottom)"
     pattern = re.compile(
         re.escape(prefix)
         + r"/(manifest\.json|owner-[a-z-]+-(en|ru)-"
         + str(width)
-        + r"-(light|dark)-(100|200)-(top|bottom)\.png)"
+        + r"-(light|dark)-(100|200)-"
+        + suffix
+        + r"\.png)"
     )
     with tarfile.open(archive, "r:") as source:
         members = source.getmembers()
         names = [member.name.rstrip("/") for member in members]
         if len(members) > 256 or len(names) != len(set(names)):
             raise ValueError("Duplicate or excessive archive members")
-        total = 0
-        for member, name in zip(members, names, strict=True):
-            if member.isdir() and name in folders:
-                continue
-            if not member.isfile() or pattern.fullmatch(name) is None:
-                raise ValueError("Unexpected native archive entry")
-            limit = 1024 * 1024 if name.endswith(".json") else 16 * 1024 * 1024
-            total += member.size
-            if not 0 < member.size <= limit or total > MAX_BYTES:
-                raise ValueError("Native archive entry exceeds its limit")
+        total = sum(
+            allowed_size(member, folders, pattern) for member in members
+        )
+        if total > MAX_BYTES:
+            raise ValueError("Native archive exceeds its content limit")
         output.mkdir(parents=True, exist_ok=False)
         for member in members:
             if member.isfile():
@@ -106,17 +123,97 @@ def validate(output: Path, width: int, source: str) -> int:
     return len(actual)
 
 
+def rectangle(value: object) -> list[float]:
+    if not isinstance(value, list) or len(value) != 4:
+        raise ValueError("Missing native screen rectangle")
+    result = []
+    for item in value:
+        if (
+            isinstance(item, bool)
+            or not isinstance(item, (int, float))
+            or not math.isfinite(item)
+        ):
+            raise ValueError("Invalid native screen coordinate")
+        result.append(float(item))
+    if result[0] >= result[2] or result[1] >= result[3]:
+        raise ValueError("Empty native screen rectangle")
+    return result
+
+
+def ime_geometry(frame: dict[str, object]) -> None:
+    visible = rectangle(frame.get("visible_screen_px"))
+    for key in ("glyph_screen_px", "cancel_screen_px", "next_screen_px"):
+        bounds = rectangle(frame.get(key))
+        if not (
+            visible[0] <= bounds[0] < bounds[2] <= visible[2]
+            and visible[1] <= bounds[1] < bounds[3] <= visible[3]
+        ):
+            raise ValueError("Native IME hides a glyph or action")
+
+
+def ime_frame(output: Path, frame: dict[str, object], name: str) -> None:
+    if frame.get("selection") != int(name.rsplit("-", 1)[1][:-4]):
+        raise ValueError("Real-IME selection mismatch")
+    ime_geometry(frame)
+    data = (output / name).read_bytes()
+    if data[:16] != b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR":
+        raise ValueError("Invalid real-IME PNG header")
+    if min(struct.unpack(">II", data[16:24])) <= 0:
+        raise ValueError("Invalid real-IME PNG dimensions")
+
+
+def validate_ime(output: Path, width: int, source: str) -> int:
+    manifest = json.loads((output / "manifest.json").read_text())
+    length = manifest.get("code_length")
+    if (
+        manifest.get("source_sha") != source
+        or manifest.get("width_dp") != width
+        or manifest.get("complete") is not True
+        or not isinstance(length, int)
+        or not 2 <= length <= 4096
+    ):
+        raise ValueError("Incomplete or mismatched real-IME manifest")
+    expected = {
+        f"owner-ime-{language}-{width}-{theme}-{font}-{index}.png"
+        for language, theme, font, index in product(
+            ("en", "ru"),
+            ("light", "dark"),
+            (100, 200),
+            (0, length // 2, length),
+        )
+    }
+    frames = manifest.get("frames")
+    if not isinstance(frames, list):
+        raise ValueError("Missing real-IME frame inventory")
+    actual = set()
+    for frame in frames:
+        if not isinstance(frame, dict):
+            raise ValueError("Invalid real-IME frame")
+        name = frame.get("file")
+        if not isinstance(name, str) or name not in expected or name in actual:
+            raise ValueError("Unexpected or duplicate real-IME frame")
+        actual.add(name)
+        ime_frame(output, frame, name)
+    if actual != expected or {p.name for p in output.iterdir()} != expected | {
+        "manifest.json"
+    }:
+        raise ValueError("Incomplete real-IME matrix")
+    return len(actual)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--width", type=int, choices=(360, 412), required=True)
     parser.add_argument("--source", required=True)
+    parser.add_argument("--kind", choices=("visual", "ime"), default="visual")
     args = parser.parse_args()
     if re.fullmatch(r"[0-9a-f]{40}", args.source) is None:
         parser.error("Source must be an exact commit SHA")
-    unpack(args.archive, args.output, args.width)
-    count = validate(args.output, args.width, args.source)
+    unpack(args.archive, args.output, args.width, args.kind)
+    check = validate_ime if args.kind == "ime" else validate
+    count = check(args.output, args.width, args.source)
     print(f"OK native visual matrix: {count} frames")
 
 

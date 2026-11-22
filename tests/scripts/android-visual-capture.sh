@@ -13,6 +13,8 @@ collect() {
     timeout 30 adb -s emulator-5554 logcat -d > "$report/logcat.txt" 2>&1 || true
     timeout 60 adb -s emulator-5554 exec-out run-as com.dyapp \
         tar -cf - files/owner-approval-visual > "$report/native.tar" 2> "$report/collection-error.txt" || true
+    timeout 60 adb -s emulator-5554 exec-out run-as com.dyapp \
+        tar -cf - files/owner-approval-ime > "$report/ime.tar" 2> "$report/ime-collection-error.txt" || true
     exit "$code"
 }
 trap collect EXIT
@@ -40,3 +42,11 @@ python3 /runner/tests/scripts/android_instrumentation.py \
     -e ownerVisual 1 -e sourceSha "$source_sha" -e expectedWidth "$width" \
     -e class com.dyapp.OwnerApprovalVisualTests com.dyapp.test/androidx.test.runner.AndroidJUnitRunner
 python3 /runner/tests/scripts/check-instrumentation-results.py "$report/instrumentation.txt" 1
+timeout 30 adb -s emulator-5554 shell ime enable com.android.inputmethod.latin/.LatinIME
+timeout 30 adb -s emulator-5554 shell ime set com.android.inputmethod.latin/.LatinIME
+python3 /runner/tests/scripts/android_instrumentation.py \
+    --report "$report/ime-instrumentation.txt" --deadline 900 -- \
+    adb -s emulator-5554 shell am instrument -w -r \
+    -e ownerIme 1 -e sourceSha "$source_sha" -e expectedWidth "$width" \
+    -e class com.dyapp.OwnerApprovalImeTests com.dyapp.test/androidx.test.runner.AndroidJUnitRunner
+python3 /runner/tests/scripts/check-instrumentation-results.py "$report/ime-instrumentation.txt" 1
