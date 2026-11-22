@@ -50,7 +50,7 @@ class OwnerApprovalVisualTests {
             OwnerVisualDriver(compose).show(scene.backend)
             checkOwnerVisualState(compose, scene.backend.state)
             awaitSafeFocus(scene.backend.state)
-            val geometry = OwnerVisualGeometry(host)
+            val geometry = NativeVisualGeometry(compose, "owner-dialog")
             geometry.first()
             output.capture(host, scene, "top")
             geometry.check()
