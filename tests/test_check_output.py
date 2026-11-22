@@ -143,6 +143,36 @@ class CheckOutput(unittest.TestCase):
                     self.assertIn(diagnostic, result.stdout)
                     self.assertNotIn("Checking output-fixture", result.stdout)
 
+    def test_typos_locations_survive_ascii_and_unicode_renderers(self) -> None:
+        location = "./docs/testing/ui-testing.md:38:10"
+        word = "".join(("P", "N"))
+        error = f"error: `{word}` should be `ON`"
+        for marker in ("   --> ", "   ╭▸ "):
+            with (
+                self.subTest(marker=marker),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                payload = "\n".join(
+                    (
+                        "passing progress",
+                        error,
+                        marker + location,
+                        "complete source context",
+                    )
+                )
+                result = self.run_check(
+                    directory,
+                    "typos",
+                    [sys.executable, "-c", f"print({payload!r}); exit(2)"],
+                )
+                self.assertEqual(result.returncode, 2)
+                self.assertIn(error, result.stdout)
+                self.assertIn(location, result.stdout)
+                self.assertNotIn("passing progress", result.stdout)
+                self.assertNotIn("complete source context", result.stdout)
+                (log,) = Path(directory).glob("*.log")
+                self.assertIn(payload, log.read_text())
+
     def test_large_unknown_failure_retains_raw_output(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             result = self.run_check(

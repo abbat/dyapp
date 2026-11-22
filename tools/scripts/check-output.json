@@ -4,7 +4,7 @@
   "docs-sync": {"fix":"docs/development/code-quality.md#docs-change-with-the-code","format":"lines","pattern":"^(?:docs-sync failed:|[0-9a-f]{12}: )"},
   "zizmor": {"fix":"docs/development/ci-base.md#quality--quality","format":"lines","pattern":"^(?:error|warning|note)(?:\\[[^]]+\\])?:|^\\s*(?:╭─|┌─|-->)"},
   "gitleaks": {"fix":"docs/development/ci-base.md#quality--quality","format":"lines","pattern":"^\\s*(?:Finding|Secret|RuleID|File|Line|Commit):|\\b(?:ERR|FTL)\\b"},
-  "typos": {"fix":"docs/development/linting.md#common-fixes","format":"lines","pattern":"^(?:error:|\\s*-->\\s)"},
+  "typos": {"fix":"docs/development/linting.md#common-fixes","format":"lines","pattern":"^(?:error:|\\s*(?:-->|╭▸)\\s)"},
   "taplo": {"fix":"docs/development/ci-base.md#quality--quality","format":"lines","pattern":"\\bERROR\\b|^error:"},
   "ruff-format": {"fix":"docs/development/linting.md#python","format":"lines","pattern":"^unformatted:|^\\s*--> |^[0-9]+ files? would be reformatted|^error:"},
   "web-css": {"fix":"docs/development/linting.md#web-biomejsonc","format":"lines","pattern":"^clients/desktop/|^L2 spacing|^Remove stale CSS|^Repeated value"},

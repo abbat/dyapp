@@ -77,7 +77,7 @@ Android `remove-offline` captures also run `remove-fixture-tests.js` after captu
 that the translated uncertainty warning and all three actions are reachable using actual
 scroll/focus completion, current bounds and hit testing, including enlarged text. Hidden,
 covered and off-screen counterexamples calibrate the shared reachability check. Initial
-viewport PNGs alone do not show the entire long dialog or prove native removal behavior.
+viewport PNG images alone do not show the entire long dialog or prove native removal behavior.
 
 `LinkEnrollmentNoticeTests` exercises the production enrollment notices and controls in EN/RU.
 Uncertain authorization, private-state review, revoked and unlisted outcomes remain distinct and
