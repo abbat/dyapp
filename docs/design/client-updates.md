@@ -9,6 +9,15 @@ and `updates/feed.rs`. These have no network or storage side effects. Shared-cor
 remain planned. Platform adapters still need lifecycle/timer hooks to invoke that
 API after live-feed verification, before enabling controls.
 
+The pure `updates::coordinator::Coordinator` now owns simultaneous-trigger admission and attempt
+completion for one installation. Its opaque ticket is consumed by completion; dropping it is
+reaped once as failure. A checkpoint records an in-flight request so restore applies interrupted
+request backoff, and clock rollback admits one catch-up without a retry loop. The future shared
+checker must persist checkpoints before HTTP and after completion, and must validate transport
+and feed/cache trust before recording `Completion::Validated`. This enum is not a native caller's
+assertion of trust. Durable storage, cross-process exclusion, HTTP/TLS, FFI and activation remain
+pending; these pure helpers perform no check or installation themselves.
+
 ## Goal and boundary
 
 For v0.0.1, notify a client when a newer release of that *client platform* is
