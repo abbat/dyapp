@@ -201,7 +201,6 @@ fn later_than_mark(
 mod tests {
     use crate::prepare_put;
     use crate::store::messages::MessageKey;
-    use crate::store::tests::temp_db_path;
     use crate::store::{Error, Store};
     use dyapp_identity::Identity;
 
@@ -218,7 +217,8 @@ mod tests {
 
     #[test]
     fn read_receipts_are_opt_in_skip_duplicates_and_blocked_peers() {
-        let path = temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let alice = Identity::try_generate().unwrap();
         let b = Identity::try_generate().unwrap().peer_id();
         let mut store = Store::open(&path, &alice).unwrap();
@@ -253,7 +253,8 @@ mod tests {
 
     #[test]
     fn received_read_mark_moves_forward_over_own_texts_only() {
-        let path = temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let alice = Identity::try_generate().unwrap();
         let (a, b) = (alice.peer_id(), Identity::try_generate().unwrap().peer_id());
         let mut store = Store::open(&path, &alice).unwrap();

@@ -1,4 +1,4 @@
-use super::{root, slot, FIRST, SECOND};
+use super::{slot, FIRST, SECOND};
 use crate::identity_slots::{Active, KeyReader, Layout, Registry, Slot};
 use dyapp_identity::Identity;
 use std::collections::BTreeSet;
@@ -36,7 +36,8 @@ impl KeyReader for Keys {
 
 #[test]
 fn review_uses_the_original_peer_and_only_ready_readable_local_copies() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let original = slot(&root, FIRST, b"ready\n");
     let other = slot(&root, SECOND, b"ready\n");
     fs::write(original.join("identity.key"), b"wrapped fixture").unwrap();
@@ -80,7 +81,8 @@ fn review_uses_the_original_peer_and_only_ready_readable_local_copies() {
 
 #[test]
 fn review_rejects_unknown_targets_and_keeps_explicit_missing_key_cleanup() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let candidate = slot(&root, FIRST, b"ready\n");
     let registry = Registry::new(root.clone(), Layout::Android);
     let keys = Keys::default();

@@ -57,7 +57,7 @@ fn cross_peer(store: &mut Store) -> String {
 
 #[test]
 fn unsolicited_cross_peer_blocked_and_closed_answers_only_commit_ack() {
-    let (mut store, _, _, peer) = database();
+    let (_test_dir, mut store, _, _, peer) = database();
     let answer = answer();
     assert!(!stage(&mut store, b"drop", 1, &peer, &answer).unwrap());
     assert!(store
@@ -109,7 +109,7 @@ fn unsolicited_cross_peer_blocked_and_closed_answers_only_commit_ack() {
 
 #[test]
 fn first_answer_survives_replay_conflict_restart_and_token_checks() {
-    let (mut store, owner, path, peer) = database();
+    let (_test_dir, mut store, owner, path, peer) = database();
     let selected = selected(&mut store, &peer, 1);
     let request = store.sticker_pack_request(&[9], &selected).unwrap();
     let pending = store
@@ -160,7 +160,7 @@ fn first_answer_survives_replay_conflict_restart_and_token_checks() {
 
 #[test]
 fn descriptor_write_failure_rolls_back_mls_inbox_and_ack() {
-    let (mut store, _, _, peer) = database();
+    let (_test_dir, mut store, _, _, peer) = database();
     let selected = selected(&mut store, &peer, 1);
     let request = store.sticker_pack_request(&[9], &selected).unwrap();
     let pending = store

@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn existing_admission_refuses_uninitialized_storage_without_generating_credentials() {
     for layout in [Layout::Android, Layout::Ios] {
-        let (dir, registry, wrapping) = fixture(layout);
+        let (_test_dir, dir, registry, wrapping) = fixture(layout);
         assert!(registry
             .existing_chat_operation(FIRST, &wrapping.owner.peer_id(), &wrapping, &wrapping)
             .is_err());
@@ -17,7 +17,7 @@ fn existing_admission_refuses_uninitialized_storage_without_generating_credentia
 #[test]
 fn existing_admission_reopens_the_same_device_and_releases_all_locks_when_idle() {
     for layout in [Layout::Android, Layout::Ios] {
-        let (dir, registry, wrapping) = fixture(layout);
+        let (_test_dir, dir, registry, wrapping) = fixture(layout);
         recovery::initialize(&registry, &wrapping);
         let generated = wrapping.generated.borrow().clone();
         let operation = registry
@@ -50,7 +50,7 @@ fn existing_admission_reopens_the_same_device_and_releases_all_locks_when_idle()
 #[test]
 fn missing_existing_credentials_or_database_are_not_recreated() {
     for name in ["device.key", "chat-state.key", "client.db"] {
-        let (dir, registry, wrapping) = fixture(Layout::Android);
+        let (_test_dir, dir, registry, wrapping) = fixture(Layout::Android);
         recovery::initialize(&registry, &wrapping);
         let generated = wrapping.generated.borrow().clone();
         fs::rename(dir.join(name), dir.join(format!("{name}.saved"))).unwrap();
@@ -64,7 +64,7 @@ fn missing_existing_credentials_or_database_are_not_recreated() {
 
 #[test]
 fn empty_databases_are_not_initialized_by_existing_admission() {
-    let (dir, registry, wrapping) = fixture(Layout::Android);
+    let (_test_dir, dir, registry, wrapping) = fixture(Layout::Android);
     let path = dir.join("client.db");
     fs::write(&path, []).unwrap();
     assert!(registry
@@ -77,7 +77,7 @@ fn empty_databases_are_not_initialized_by_existing_admission() {
 #[test]
 fn changed_existing_credentials_or_lifecycle_fail_without_regeneration() {
     for name in ["device.key", "chat-state.key", "identity.key", "state"] {
-        let (dir, registry, wrapping) = fixture(Layout::Android);
+        let (_test_dir, dir, registry, wrapping) = fixture(Layout::Android);
         recovery::initialize(&registry, &wrapping);
         let generated = wrapping.generated.borrow().clone();
         let changed = if name == "state" {

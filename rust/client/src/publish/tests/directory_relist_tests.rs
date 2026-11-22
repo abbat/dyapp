@@ -20,8 +20,9 @@ fn local(store: &Store, remote: &Profile) -> Profile {
 
 #[tokio::test]
 async fn directory_only_completion_keeps_existing_pending_fields_and_photo_bytes() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let remote = Profile {
         version: 3,
         name: "public".into(),
@@ -54,10 +55,11 @@ async fn directory_only_completion_keeps_existing_pending_fields_and_photo_bytes
 
 #[tokio::test]
 async fn changed_remote_authorization_below_the_local_version_floor_is_not_overwritten() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
     let key = Identity::from_secret(&[8; 32]);
     let device = dyapp_messaging::mls::Device::new(&identity, key.public_key(), 1).unwrap();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let remote = Profile {
         version: 3,
         name: "public".into(),
@@ -88,8 +90,9 @@ async fn changed_remote_authorization_below_the_local_version_floor_is_not_overw
 
 #[tokio::test]
 async fn directory_completion_also_preserves_a_later_response_boundary_edit() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let path = temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let store = Store::open(&path, &identity).unwrap();
     let remote = Profile {
         version: 3,

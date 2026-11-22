@@ -8,6 +8,7 @@ members = [
     "rust/video",
     "rust/bootstrap",
     "rust/ffi",
+    "rust/test-support",
 ]
 exclude = ["tests/fuzz", "clients/linux", "clients/windows", "clients/macos"]
 resolver = "2"

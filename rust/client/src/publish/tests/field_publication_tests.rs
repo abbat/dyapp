@@ -14,6 +14,7 @@ struct Subject {
     session: Session,
     authority: Profile,
     path: std::path::PathBuf,
+    _test_dir: dyapp_test_support::TestDir,
 }
 impl Subject {
     fn attempt(&self) -> crate::store::ProfilePublication {
@@ -24,6 +25,7 @@ impl Subject {
     }
 
     fn new(known_listing: bool) -> Self {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let identity = Identity::from_secret(&[7; 32]);
         let device_key = Identity::from_secret(&[8; 32]);
         let device = Device::new(&identity, device_key.public_key(), 1).unwrap();
@@ -48,7 +50,7 @@ impl Subject {
         authority.version = 2;
         authority.name = "public".into();
         unlist_device(&mut authority, &other_key.public_key()).unwrap();
-        let path = temp_db_path();
+        let path = test_dir.path().join("client-1.db");
         let mut store = Store::open(&path, &identity).unwrap();
         store.save_profile_draft(&baseline).unwrap();
         store.set_profile_hidden(true).unwrap();
@@ -67,6 +69,7 @@ impl Subject {
             session: Session::open(store, &[3; 32]).unwrap(),
             authority,
             path,
+            _test_dir: test_dir,
         }
     }
 }

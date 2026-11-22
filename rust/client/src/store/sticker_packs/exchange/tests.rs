@@ -4,10 +4,15 @@ use crate::chat::sticker::Sticker;
 use crate::store::{messages::VerifiedChatSender, tests::catalog_group};
 use dyapp_identity::Identity;
 
-pub(super) fn database() -> (Store, Identity, std::path::PathBuf, String) {
-    let root =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../build/pack-exchange-tests");
-    std::fs::create_dir_all(&root).unwrap();
+pub(super) fn database() -> (
+    dyapp_test_support::TestDir,
+    Store,
+    Identity,
+    std::path::PathBuf,
+    String,
+) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.path();
     let mut random = [0; 16];
     getrandom::fill(&mut random).unwrap();
     // Store media belongs to the database's parent, so each identity needs its own folder.
@@ -25,7 +30,7 @@ pub(super) fn database() -> (Store, Identity, std::path::PathBuf, String) {
             [&peer],
         )
         .unwrap();
-    (store, owner, path, peer)
+    (test_dir, store, owner, path, peer)
 }
 pub(super) fn selected(store: &mut Store, peer: &str, id: u8) -> MessageKey {
     store
@@ -56,7 +61,7 @@ pub(super) fn selected(store: &mut Store, peer: &str, id: u8) -> MessageKey {
 
 #[test]
 fn request_restart_retry_and_generation_keep_clicked_hash_and_exact_outbox() {
-    let (mut store, owner, path, peer) = database();
+    let (_test_dir, mut store, owner, path, peer) = database();
     let key = selected(&mut store, &peer, 1);
     let request = store.sticker_pack_request(&[9], &key).unwrap();
     let write = crate::prepare_put(&[1; 32], vec![9]).unwrap();
@@ -97,7 +102,7 @@ fn request_restart_retry_and_generation_keep_clicked_hash_and_exact_outbox() {
 
 #[test]
 fn mls_and_conflicting_outbox_failures_roll_back_pending_intent() {
-    let (mut store, _, _, peer) = database();
+    let (_test_dir, mut store, _, _, peer) = database();
     let key = selected(&mut store, &peer, 1);
     let request = store.sticker_pack_request(&[9], &key).unwrap();
     assert!(store

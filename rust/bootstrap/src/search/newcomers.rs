@@ -24,7 +24,7 @@ fn n(counts: &Counts, place: &str) -> i64 {
 #[test]
 fn newcomers_past_the_quota_evict_the_oldest_heartbeat() {
     // The file is never full: only the quota for 20 records evicts.
-    let index = quota(1 << 40, records(20));
+    let (_index_test_dir, index) = quota(1 << 40, records(20));
     let late = index.created() + 31 * DAY;
     let first = put_at(&index, "2950159", 20, late, true);
     let more = put_at(&index, "2950159", 5, late + 100, true);
@@ -38,7 +38,7 @@ fn newcomers_past_the_quota_evict_the_oldest_heartbeat() {
 
 #[test]
 fn newcomers_graduate_after_newcomer_days() {
-    let index = quota(1 << 40, records(10));
+    let (_index_test_dir, index) = quota(1 << 40, records(10));
     assert_eq!(index.newcomer_seconds, 30 * DAY);
     let t = index.created() + 31 * DAY;
     let old = put_at(&index, "2950159", 10, t, true);
@@ -50,7 +50,7 @@ fn newcomers_graduate_after_newcomer_days() {
 
 #[test]
 fn grace_covers_only_replicas_in_the_first_days() {
-    let index = index();
+    let (_index_test_dir, index) = index();
     let t = index.created() + 1;
     let first_seen = |limit: bool, now: i64| -> i64 {
         let key = put_at(&index, "", 1, now, limit)[0];
@@ -75,9 +75,9 @@ fn water_filling_spares_small_places() {
         }
         put_at(index, big, big_keys, index.created() + 1, false);
     };
-    let probe = index();
+    let (_probe_test_dir, probe) = index();
     fill(&probe, 300);
-    let index = sized(probe.usage().unwrap());
+    let (_index_test_dir, index) = sized(probe.usage().unwrap());
     fill(&index, 900);
     let counts = index.place_counts();
     assert!(small.iter().all(|place| n(&counts, place) == 3));
@@ -94,7 +94,7 @@ fn the_larger_country_bucket_goes_first() {
         put_at(index, "", 400, index.created() + 1, false);
         put_at(index, "2950159", 200, index.created() + 1, false);
     };
-    let index = index();
+    let (_index_test_dir, index) = index();
     fill(&index);
     let removed = index.evict_established(index.created() + 1).unwrap();
     assert!(removed > 0);
@@ -107,12 +107,12 @@ fn the_larger_country_bucket_goes_first() {
 fn size_eviction_keeps_tombstones_and_newcomers() {
     let id = Identity::try_generate().unwrap();
     let (key, tomb, rt) = signed(&id, Profile::tombstone(1, 0, 0));
-    let probe = index();
+    let (_probe_test_dir, probe) = index();
     probe
         .put(&key, &tomb, &rt, probe.created() + 1, false)
         .unwrap();
     put_at(&probe, "", 300, probe.created() + 1, false);
-    let index = sized(probe.usage().unwrap());
+    let (_index_test_dir, index) = sized(probe.usage().unwrap());
     let t = index.created() + 1;
     index.put(&key, &tomb, &rt, t, false).unwrap();
     // Five newcomers, well under the quota, then established keys overflow the file.
@@ -135,7 +135,7 @@ fn eviction_falls_back_past_newcomer_places() {
             .collect();
         (established, newcomers)
     };
-    let index = index();
+    let (_index_test_dir, index) = index();
     let (established, newcomers) = fill(&index);
     // Exercise the fallback directly: SQLite page allocation varies with schema size.
     assert_eq!(index.evict_established(index.created() + 1).unwrap(), 2);

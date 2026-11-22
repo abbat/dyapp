@@ -29,8 +29,9 @@ pub(super) fn at_readback(
 
 #[tokio::test]
 async fn prepared_baseline_covers_edits_during_the_earlier_connection_await() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let path = temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let store = Store::open(&path, &identity).unwrap();
     store
         .save_profile_draft(&Profile {
@@ -80,8 +81,9 @@ pub(super) fn edit_at_readback(
 
 #[tokio::test]
 async fn readback_keeps_pending_fields_photos_proof_and_device_removal() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let path = temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let store = Store::open(&path, &identity).unwrap();
     let key = Identity::from_secret(&[8; 32]);
     let device = dyapp_messaging::mls::Device::new(&identity, key.public_key(), 1).unwrap();
@@ -126,8 +128,9 @@ async fn readback_keeps_pending_fields_photos_proof_and_device_removal() {
 
 #[tokio::test]
 async fn prepared_hidden_relist_distinguishes_published_and_search_versions() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     store.set_profile_hidden(true).unwrap();
     let attempt = store.prepare_profile_publication(&identity).unwrap();
     let (mut node, held) = profile_node(Vec::new()).await;
@@ -157,8 +160,9 @@ async fn prepared_hidden_relist_distinguishes_published_and_search_versions() {
 
 #[tokio::test]
 async fn hide_at_readback_cannot_be_undone_by_the_older_publish_completion() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let path = temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let store = Store::open(&path, &identity).unwrap();
     let attempt = store.prepare_profile_publication(&identity).unwrap();
     let copy = Identity::from_secret(&identity.secret());

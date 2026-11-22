@@ -11,11 +11,13 @@ struct Fixture {
     peer: String,
     view: ProfileView,
     code: Code,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 impl Fixture {
     fn new() -> Self {
-        let root = root();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let root = test_dir.to_path_buf();
         let registry = Registry::new(root.clone(), Layout::Desktop);
         let (source, owner, _) = registry.create(Storage::File, &Files).unwrap();
         let peer = owner.peer_id();
@@ -26,6 +28,7 @@ impl Fixture {
             peer,
             view: ProfileView::default(),
             code: *Invite::new([7; 32], 100).unwrap().code(),
+            _test_dir: test_dir,
         }
     }
 

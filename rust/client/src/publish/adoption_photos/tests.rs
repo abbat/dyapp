@@ -1,5 +1,4 @@
 use super::*;
-use crate::store::tests::temp_db_path;
 use dyapp_identity::Identity;
 use dyapp_profile::{Photo, Profile};
 
@@ -20,9 +19,13 @@ fn reference(bytes: &[u8]) -> Photo {
     }
 }
 
-fn frozen(local: &Profile, remote: Profile) -> (AdoptionReview, Store) {
+fn frozen(
+    local: &Profile,
+    remote: Profile,
+) -> (dyapp_test_support::TestDir, AdoptionReview, Store) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     store.save_profile_draft(local).unwrap();
     store
         .set_link_pending(b"original pending comparison")
@@ -31,7 +34,7 @@ fn frozen(local: &Profile, remote: Profile) -> (AdoptionReview, Store) {
         .prepare_profile_adoption_context(&identity)
         .unwrap()
         .unwrap();
-    (AdoptionReview { context, remote }, store)
+    (test_dir, AdoptionReview { context, remote }, store)
 }
 
 #[test]
@@ -46,7 +49,7 @@ fn cached_sources_keep_frozen_order_and_do_not_write_or_select_fields() {
         photos: vec![reference(&second)],
         ..Default::default()
     };
-    let (review, store) = frozen(&local, remote.clone());
+    let (_test_dir, review, store) = frozen(&local, remote.clone());
     store.save_profile_blob(&first).unwrap();
     store.save_profile_blob(&second).unwrap();
     let changed = Profile {
@@ -87,7 +90,7 @@ async fn unavailable_or_invalid_references_never_become_an_empty_photo_group() {
         }],
         ..Default::default()
     };
-    let (review, store) = frozen(&local, remote.clone());
+    let (_test_dir, review, store) = frozen(&local, remote.clone());
     assert_eq!(
         review
             .cached_thumbnail(&store, AdoptionSource::Local, 0)

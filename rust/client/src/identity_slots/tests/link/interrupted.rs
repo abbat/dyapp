@@ -40,7 +40,8 @@ fn check_marker(
 
 #[test]
 fn wrapped_link_separates_source_rejection_from_unconfirmed_reservation() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = Registry::new(root.clone(), Layout::Android);
     let keys = WrappedKeys::default();
     let (source, owner, _) = registry.create(Storage::Wrapped, &keys).unwrap();
@@ -64,6 +65,7 @@ fn wrapped_link_separates_source_rejection_from_unconfirmed_reservation() {
 
 #[test]
 fn known_destination_failures_report_the_exact_slot_without_claiming_rollback() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     for (failure, expected_state, stored_state) in [
         (Failure::Wrap, State::Pending, false),
         (Failure::BlockStore, State::Pending, false),
@@ -71,7 +73,7 @@ fn known_destination_failures_report_the_exact_slot_without_claiming_rollback() 
         (Failure::BlockReady, State::Pending, true),
         (Failure::BlockSelection, State::Ready, true),
     ] {
-        let root = root();
+        let root = test_dir.to_path_buf();
         let registry = Registry::new(root.clone(), Layout::Android);
         let keys = WrappedKeys::default();
         let (source, owner, _) = registry.create(Storage::Wrapped, &keys).unwrap();

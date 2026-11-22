@@ -1,10 +1,13 @@
 use super::*;
-use crate::store::tests::temp_db_path;
 use dyapp_profile::Photo;
 
-fn frozen(local: &Profile, remote: Profile) -> (AdoptionReview, Store) {
+fn frozen(
+    local: &Profile,
+    remote: Profile,
+) -> (dyapp_test_support::TestDir, AdoptionReview, Store) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     store.save_profile_draft(local).unwrap();
     store.set_profile_hidden(true).unwrap();
     store.set_link_pending(b"fixture link").unwrap();
@@ -12,7 +15,7 @@ fn frozen(local: &Profile, remote: Profile) -> (AdoptionReview, Store) {
         .prepare_profile_adoption_context(&identity)
         .unwrap()
         .unwrap();
-    (AdoptionReview { context, remote }, store)
+    (test_dir, AdoptionReview { context, remote }, store)
 }
 
 #[test]
@@ -31,7 +34,7 @@ fn explicit_sources_form_a_preview_without_changing_either_snapshot_or_storage()
         height: Some(170),
         ..Default::default()
     };
-    let (review, store) = frozen(&local, remote.clone());
+    let (_test_dir, review, store) = frozen(&local, remote.clone());
     assert_eq!(
         review.differences(),
         vec![
@@ -67,7 +70,7 @@ fn incomplete_duplicate_and_unoffered_decisions_are_rejected_without_defaults() 
         name: "remote".into(),
         ..Default::default()
     };
-    let (review, store) = frozen(&local, remote.clone());
+    let (_test_dir, review, store) = frozen(&local, remote.clone());
     assert_eq!(
         review.select_fields(&[]),
         Err(AdoptionSelectionError::Incomplete)
@@ -120,7 +123,7 @@ fn dates_location_income_and_seeking_are_selected_as_complete_groups() {
         seeking_age_to: Some(35),
         ..Default::default()
     };
-    let (review, _) = frozen(&local, remote);
+    let (_test_dir, review, _) = frozen(&local, remote);
     assert_eq!(
         review.differences(),
         vec![
@@ -166,7 +169,7 @@ fn local_photos_and_interests_never_restore_local_device_authorization() {
         interests: vec!["remote".into()],
         ..Default::default()
     };
-    let (review, _) = frozen(&local, remote.clone());
+    let (_test_dir, review, _) = frozen(&local, remote.clone());
     assert_eq!(
         review.differences(),
         vec![AdoptionField::Interests, AdoptionField::Photos]

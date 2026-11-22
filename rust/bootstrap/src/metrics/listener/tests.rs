@@ -4,7 +4,12 @@ use crate::metrics::tests::service;
 async fn start() -> (SocketAddr, tokio::task::JoinHandle<()>) {
     let listeners = bind(&["127.0.0.1:0".parse().unwrap()]).await.unwrap();
     let address = listeners[0].local_addr().unwrap();
-    (address, tokio::spawn(serve(listeners, Arc::new(service()))))
+    let (test_dir, service) = service();
+    let task = tokio::spawn(async move {
+        let _test_dir = test_dir;
+        serve(listeners, Arc::new(service)).await;
+    });
+    (address, task)
 }
 
 async fn ask(address: SocketAddr, request: &[u8]) -> String {
@@ -85,7 +90,11 @@ async fn every_open_address_is_served() {
     let addresses = ["[::1]:0".parse().unwrap(), "127.0.0.1:0".parse().unwrap()];
     let listeners = bind(&addresses).await.unwrap();
     let opened: Vec<_> = listeners.iter().map(|l| l.local_addr().unwrap()).collect();
-    let _task = tokio::spawn(serve(listeners, Arc::new(service())));
+    let (test_dir, service) = service();
+    let _task = tokio::spawn(async move {
+        let _test_dir = test_dir;
+        serve(listeners, Arc::new(service)).await;
+    });
     for address in opened {
         let reply = ask(address, b"GET /metrics HTTP/1.1\r\n\r\n").await;
         assert!(reply.starts_with("HTTP/1.1 200 OK\r\n"), "{address}");

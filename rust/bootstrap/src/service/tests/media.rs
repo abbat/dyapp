@@ -6,10 +6,10 @@ mod memory;
 
 pub(in crate::service) fn media_service(
     change: impl FnOnce(&mut crate::config::Limits),
-) -> Service {
-    let mut s = service_with(change);
+) -> (dyapp_test_support::TestDir, Service) {
+    let (s_test_dir, mut s) = service_with(change);
     s.media = Some(MediaStore::open(&s.config.storage.dir).unwrap());
-    s
+    (s_test_dir, s)
 }
 
 fn media_replica(owner: &Identity, data: Vec<u8>, version: u64) -> proto::MediaReplicaPut {
@@ -29,7 +29,7 @@ fn media_replica(owner: &Identity, data: Vec<u8>, version: u64) -> proto::MediaR
 
 #[test]
 fn media_size_hints_preserve_object_boundaries() {
-    let s = media_service(|l| {
+    let (_s_test_dir, s) = media_service(|l| {
         l.media_requests_per_second = 100;
         l.bytes_per_second = 0;
     });
@@ -149,7 +149,7 @@ fn check_authorization_size_hint(
 #[test]
 fn media_authorization_records_are_bounded_before_storage() {
     use proto::media_replica_put::Authorization;
-    let s = media_service(|_| {});
+    let (_s_test_dir, s) = media_service(|_| {});
     let peer = peer("media-proof-limit");
     let record = SignedRecord {
         payload: vec![0; crate::replication::MEDIA_OBJECT_BYTES],
@@ -188,7 +188,7 @@ fn media_authorization_records_are_bounded_before_storage() {
 
 #[test]
 fn media_replicas_verify_proofs_and_never_restore_dropped_hashes() {
-    let mut s = media_service(|_| {});
+    let (_s_test_dir, mut s) = media_service(|_| {});
     let owner = Identity::try_generate().unwrap();
     let replica = media_replica(&owner, b"replica".to_vec(), 1);
     let hash = dyapp_identity::sha256(&replica.data);
@@ -315,7 +315,7 @@ fn check_attachment_lifecycle(
 
 #[test]
 fn deny_list_refuses_replica_and_shard_restoration() {
-    let s = media_service(|_| {});
+    let (_s_test_dir, s) = media_service(|_| {});
     let owner = Identity::try_generate().unwrap();
     let whole = media_replica(&owner, b"blocked whole".to_vec(), 1);
     let hash = dyapp_identity::sha256(&whole.data);
@@ -356,7 +356,7 @@ fn deny_list_refuses_replica_and_shard_restoration() {
 
 #[test]
 fn media_bills_whole_copy_puts_five_times_and_gets_by_reply_bytes() {
-    let mut s = media_service(|l| l.bytes_per_second = 10_000);
+    let (_s_test_dir, mut s) = media_service(|l| l.bytes_per_second = 10_000);
     let owner = Identity::try_generate().unwrap();
     let put = check_whole_copy_billing(&mut s, &owner);
     check_get_reply_billing(&mut s, &put);
@@ -445,7 +445,7 @@ fn check_replica_billing(s: &mut Service, owner: &Identity, put: &proto::MediaPu
 
 #[test]
 fn media_whole_copy_owner_quota_includes_five_copies() {
-    let s = media_service(|l| l.media_per_owner_mb = 1);
+    let (_s_test_dir, s) = media_service(|l| l.media_per_owner_mb = 1);
     let owner = Identity::try_generate().unwrap();
     let replica = media_replica(&owner, vec![1; 210_000], 1);
     assert_eq!(
@@ -484,7 +484,7 @@ fn media_whole_copy_owner_quota_includes_five_copies() {
 
 #[test]
 fn media_manifests_shards_quota_and_corruption() {
-    let s = media_service(|_| {});
+    let (_s_test_dir, s) = media_service(|_| {});
     let owner = Identity::try_generate().unwrap();
     let data = vec![7; (1 << 20) + 1];
     let mut replica = media_replica(&owner, data.clone(), 1);
@@ -606,7 +606,7 @@ fn check_wrong_manifest_cleanup(
     );
     assert_eq!(persisted.manifest(&wrong.hash).unwrap(), None);
     assert_eq!(persisted.shard(&wrong.hash, 5).unwrap(), None);
-    let quota = media_service(|l| l.media_per_owner_mb = 1);
+    let (_quota_test_dir, quota) = media_service(|l| l.media_per_owner_mb = 1);
     assert_eq!(
         quota
             .store_media(put.replica.as_ref().unwrap())
@@ -618,7 +618,7 @@ fn check_wrong_manifest_cleanup(
 
 #[test]
 fn a_verified_whole_copy_wins_and_sharded_uploads_pay_their_ratio() {
-    let mut s = media_service(|l| l.bytes_per_second = 4 << 20);
+    let (_s_test_dir, mut s) = media_service(|l| l.bytes_per_second = 4 << 20);
     let owner = Identity::try_generate().unwrap();
     let small = media_replica(&owner, b"whole".to_vec(), 1);
     let (proof, manifest) = check_verified_whole_copy(&s, &small);
@@ -656,7 +656,7 @@ fn check_whole_copy_replaces_manifest(
     manifest: &proto::MediaManifest,
 ) {
     // A manifest already held must not suppress a later verified whole-copy put.
-    let second = media_service(|_| {});
+    let (_second_test_dir, second) = media_service(|_| {});
     assert_eq!(
         second.store_media(proof).unwrap().status,
         i32::from(Status::Ok)
@@ -712,13 +712,18 @@ fn check_sharded_upload_ratio(s: &mut Service, owner: &Identity) {
 
 #[test]
 fn media_keep_put_get() {
-    let mut service = service();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let (_service_test_dir, mut service) = service();
     assert_eq!(
         call_media(&service, media_get(&[0; 32])).0,
         Status::Unsupported
     );
 
-    let dir = format!("/tmp/ai/test-service-media-{}", uuid::Uuid::new_v4());
+    let dir = test_dir
+        .path()
+        .join("case-23808")
+        .to_string_lossy()
+        .into_owned();
     service.media = Some(MediaStore::open(std::path::Path::new(&dir)).unwrap());
     let identity = Identity::try_generate().unwrap();
     let owner = dyapp_identity::key_hash(&identity.public_key()).to_vec();

@@ -1,8 +1,14 @@
 use super::*;
 use dyapp_profile::DeviceCertificate;
 
-fn setup() -> (Service, Identity, Identity, Vec<u8>) {
-    let service = service();
+fn setup() -> (
+    dyapp_test_support::TestDir,
+    Service,
+    Identity,
+    Identity,
+    Vec<u8>,
+) {
+    let (service_test_dir, service) = service();
     let owner = Identity::try_generate().unwrap();
     let device = Identity::try_generate().unwrap();
     let mls = Identity::try_generate().unwrap();
@@ -25,7 +31,7 @@ fn setup() -> (Service, Identity, Identity, Vec<u8>) {
         Status::Ok
     );
     let mailbox = dyapp_identity::key_hash(&device.public_key()).to_vec();
-    (service, owner, device, mailbox)
+    (service_test_dir, service, owner, device, mailbox)
 }
 
 fn package(
@@ -66,7 +72,7 @@ fn fetch(owner: &Identity, mailbox: &[u8], slot: u8) -> proto::KeyPackageRequest
 
 #[test]
 fn publication_requires_current_certificate_and_device_signature() {
-    let (service, owner, device, mailbox) = setup();
+    let (_test_dir, service, owner, device, mailbox) = setup();
     let good = package(&owner, &device, &mailbox, 1, false);
     assert_eq!(
         status_of(service.store_keypackage(&good).unwrap().status),
@@ -101,7 +107,7 @@ fn publication_requires_current_certificate_and_device_signature() {
 
 #[test]
 fn ordinary_package_is_consumed_once_and_last_resort_is_reused() {
-    let (service, owner, device, mailbox) = setup();
+    let (_test_dir, service, owner, device, mailbox) = setup();
     let ordinary = package(&owner, &device, &mailbox, 1, false);
     let bytes = proto::KeyPackageRecord::decode(ordinary.payload.as_slice())
         .unwrap()
@@ -136,7 +142,7 @@ fn ordinary_package_is_consumed_once_and_last_resort_is_reused() {
 
 #[test]
 fn stock_is_bounded_and_removed_device_cannot_publish_or_fetch() {
-    let (service, owner, device, mailbox) = setup();
+    let (_test_dir, service, owner, device, mailbox) = setup();
     for suffix in 0..20 {
         assert_eq!(
             status_of(

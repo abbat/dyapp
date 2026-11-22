@@ -108,7 +108,8 @@ fn assert_counters(store: &BootstrapStore) {
 
 #[test]
 fn a_single_group_spammer_evicts_only_itself() {
-    let store = temp_store();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let store = temp_store(test_dir.path());
     let pool = Some(4 * small());
     assert_eq!(
         put(&store, 1, 0, false, (None, b"v", b"first"), u64::MAX, pool),
@@ -148,7 +149,8 @@ fn a_single_group_spammer_evicts_only_itself() {
 
 #[test]
 fn many_labels_through_one_via_do_not_evict_another_via() {
-    let store = temp_store();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let store = temp_store(test_dir.path());
     let pool = Some(4 * small());
     put(&store, 1, 0, false, (None, b"local", b"g"), u64::MAX, pool);
     for id in 1..=1000u16 {
@@ -170,7 +172,8 @@ fn many_labels_through_one_via_do_not_evict_another_via() {
 
 #[test]
 fn an_incoming_victim_is_dropped_and_nothing_deleted() {
-    let store = temp_store();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let store = temp_store(test_dir.path());
     let pool = 3 * small();
     for id in 0..3 {
         put(
@@ -200,7 +203,8 @@ fn an_incoming_victim_is_dropped_and_nothing_deleted() {
 
 #[test]
 fn tokenless_signals_never_evict_tokened_ones() {
-    let store = temp_store();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let store = temp_store(test_dir.path());
     let max = 3 * small();
     let (k1, k2): (&[u8], &[u8]) = (b"k1", b"k2");
     assert_eq!(
@@ -229,7 +233,8 @@ fn tokenless_signals_never_evict_tokened_ones() {
 
 #[test]
 fn counters_stay_exact_across_ack_expiry_and_eviction() {
-    let store = temp_store();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let store = temp_store(test_dir.path());
     let key: &[u8] = b"key";
     for id in 0..20u16 {
         let from = if id % 3 == 0 {
@@ -270,7 +275,8 @@ fn counters_stay_exact_across_ack_expiry_and_eviction() {
 
 #[test]
 fn the_store_wide_share_evicts_the_largest_mailbox_and_never_tokened() {
-    let store = temp_store();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let store = temp_store(test_dir.path());
     let key: &[u8] = b"key";
     put(&store, 1, 0, true, (Some(key), b"", b""), u64::MAX, None);
     for id in 1..=5 {
@@ -296,7 +302,8 @@ fn the_store_wide_share_evicts_the_largest_mailbox_and_never_tokened() {
 
 #[test]
 fn put_path_queries_use_indexes() {
-    let store = temp_store();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let store = temp_store(test_dir.path());
     let db = lock(&store.messages).unwrap();
     for sql in [
         EXISTS,
@@ -328,7 +335,8 @@ fn put_path_queries_use_indexes() {
 
 #[test]
 fn put_with_eviction_over_100k_envelopes() {
-    let store = temp_store();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let store = temp_store(test_dir.path());
     // 100 mailboxes of 1000 tokenless messages of 100 bytes each.
     lock(&store.messages)
         .unwrap()

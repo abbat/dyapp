@@ -11,6 +11,11 @@ Multi-layer testing. Rust line coverage is a ratchet: the workspace total never 
 iOS UI launch flows are grouped in `LaunchFlows.swift` alongside `LaunchTests.swift`.
 Identity-slot recovery tests live in `clients/ios/Tests/IdentitySlotRecoveryTests.swift`.
 Shared test fixtures remain test-module helpers; production APIs are unchanged.
+Rust tests that need a real database or data directory use `dyapp_test_support::test_dir()` and
+keep the returned guard alive for every open file, reopen and fixture use. A fixture that returns
+such a resource must also return or store the guard; dropping it removes the directory, including
+when the test fails. Do not create parallel `temp_*` helpers or ad hoc paths under `build/` or the
+system temporary directory.
 Native iOS CI compiles and runs these tests. macOS uses the shared Rust desktop tests.
 
 ## Deterministic tests

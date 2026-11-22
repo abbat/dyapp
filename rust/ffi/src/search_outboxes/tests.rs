@@ -1,5 +1,5 @@
 use super::*;
-use crate::slot_registry_tests::{root, Credentials};
+use crate::slot_registry_tests::Credentials;
 use crate::{IdentityKey, MobileSlotKeys, MobileSlotLayout, MobileSlotSelection, WrapError};
 use dyapp_client::store::Store;
 use dyapp_profile::Profile;
@@ -59,10 +59,14 @@ fn set_queue(selected: &MobileSlotSelection, deadline: u64) {
 
 #[test]
 fn all_owner_queues_are_visited_without_changing_selection() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     for layout in [MobileSlotLayout::Android, MobileSlotLayout::Ios] {
         let keys = Arc::new(Keys::default());
-        let registry =
-            MobileIdentityRegistry::new(root().to_str().unwrap().into(), layout, keys.clone());
+        let registry = MobileIdentityRegistry::new(
+            test_dir.to_path_buf().to_str().unwrap().into(),
+            layout,
+            keys.clone(),
+        );
         let first = queue(&registry, u64::MAX - 1);
         let second = queue(&registry, u64::MAX);
         keys.opened.lock().unwrap().clear();
@@ -84,10 +88,14 @@ fn all_owner_queues_are_visited_without_changing_selection() {
 
 #[test]
 fn a_failed_due_owner_does_not_prevent_another_owner_from_being_visited() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     for layout in [MobileSlotLayout::Android, MobileSlotLayout::Ios] {
         let keys = Arc::new(Keys::default());
-        let registry =
-            MobileIdentityRegistry::new(root().to_str().unwrap().into(), layout, keys.clone());
+        let registry = MobileIdentityRegistry::new(
+            test_dir.to_path_buf().to_str().unwrap().into(),
+            layout,
+            keys.clone(),
+        );
         let first = registry.create().unwrap();
         let second = registry.create().unwrap();
         let (failed, waiting) = if registry.list().unwrap()[0].id == first.slot.id {

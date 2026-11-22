@@ -1,5 +1,5 @@
 use super::{revision, PhotoEdit};
-use crate::store::{tests::temp_db_path, Error, Store};
+use crate::store::{Error, Store};
 use dyapp_identity::Identity;
 
 fn photo(store: &mut Store, original: u8) -> dyapp_profile::Profile {
@@ -11,7 +11,11 @@ fn photo(store: &mut Store, original: u8) -> dyapp_profile::Profile {
 
 #[test]
 fn stale_edits_refuse_even_when_reordered_originals_have_identical_previews() {
-    let (path, owner) = (temp_db_path(), Identity::try_generate().unwrap());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let (path, owner) = (
+        test_dir.path().join("client-1.db"),
+        Identity::try_generate().unwrap(),
+    );
     let mut displayed = Store::open(&path, &owner).unwrap();
     let mut other = Store::open(&path, &owner).unwrap();
     photo(&mut displayed, 1);
@@ -39,7 +43,11 @@ fn stale_edits_refuse_even_when_reordered_originals_have_identical_previews() {
 
 #[test]
 fn unrelated_fields_and_equivalent_duplicates_do_not_invalidate_the_snapshot() {
-    let (path, owner) = (temp_db_path(), Identity::try_generate().unwrap());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let (path, owner) = (
+        test_dir.path().join("client-1.db"),
+        Identity::try_generate().unwrap(),
+    );
     let mut displayed = Store::open(&path, &owner).unwrap();
     let mut other = Store::open(&path, &owner).unwrap();
     photo(&mut displayed, 1);

@@ -6,12 +6,17 @@ use crate::{
 };
 use dyapp_identity::Identity;
 
-fn fixture() -> (Store, Identity, std::path::PathBuf, String) {
+fn fixture() -> (
+    dyapp_test_support::TestDir,
+    Store,
+    Identity,
+    std::path::PathBuf,
+    String,
+) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::try_generate().unwrap();
     let peer = Identity::try_generate().unwrap().peer_id();
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../build/recent-sticker-tests")
-        .join(owner.peer_id());
+    let root = test_dir.path().join(owner.peer_id());
     std::fs::create_dir_all(&root).unwrap();
     let path = root.join("client.db");
     let mut store = Store::open(&path, &owner).unwrap();
@@ -23,7 +28,7 @@ fn fixture() -> (Store, Identity, std::path::PathBuf, String) {
             [&peer],
         )
         .unwrap();
-    (store, owner, path, peer)
+    (test_dir, store, owner, path, peer)
 }
 fn send(
     store: &mut Store,
@@ -58,7 +63,7 @@ fn send(
 
 #[test]
 fn twenty_recent_local_sends_reorder_without_replay_or_received_copy_changes() {
-    let (mut store, owner, path, peer) = fixture();
+    let (_test_dir, mut store, owner, path, peer) = fixture();
     for index in 1..=21 {
         send(&mut store, index, index, b"sent").unwrap();
     }
@@ -109,7 +114,7 @@ fn twenty_recent_local_sends_reorder_without_replay_or_received_copy_changes() {
 
 #[test]
 fn failed_recent_insert_or_trim_rolls_back_history_mls_hlc_and_outbox() {
-    let (mut store, _, _, peer) = fixture();
+    let (_test_dir, mut store, _, _, peer) = fixture();
     for index in 1..=20 {
         send(&mut store, index, index, b"before").unwrap();
     }
@@ -152,7 +157,7 @@ fn failed_recent_insert_or_trim_rolls_back_history_mls_hlc_and_outbox() {
 
 #[test]
 fn shared_image_hash_retains_each_selected_label_and_reorders_the_exact_choice() {
-    let (mut store, owner, path, _) = fixture();
+    let (_test_dir, mut store, owner, path, _) = fixture();
     let (mut sticker, _) = send(&mut store, 1, 10, b"first").unwrap();
     sticker.id = [2; 16];
     sticker.hlc = store.draft_chat_text(1000).unwrap();
@@ -199,7 +204,7 @@ fn shared_image_hash_retains_each_selected_label_and_reorders_the_exact_choice()
 
 #[test]
 fn corrupt_recent_label_is_not_projected_to_picker() {
-    let (mut store, _, _, _) = fixture();
+    let (_test_dir, mut store, _, _, _) = fixture();
     send(&mut store, 1, 10, b"sent").unwrap();
     store
         .db

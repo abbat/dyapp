@@ -282,7 +282,6 @@ pub fn answer(
 mod tests {
     use super::{accept, answer, request, ANSWER_BYTES};
     use crate::chat::{pad, Body, TokenAnswer, TokenAsk, TokenRequest, MAX_TOKENS};
-    use crate::store::tests::temp_db_path;
     use crate::store::Store;
     use dyapp_identity::{Domain, Identity, SignedRecord};
     use dyapp_p2p_net::proto;
@@ -313,9 +312,14 @@ mod tests {
 
     #[test]
     fn signs_own_mailbox_in_window_and_records_the_contact() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let device_key = Identity::try_generate().unwrap();
         let own = crate::mailbox(&device_key.public_key());
-        let store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
+        let store = Store::open(
+            &test_dir.path().join("client-1.db"),
+            &Identity::try_generate().unwrap(),
+        )
+        .unwrap();
         let today = 20_000;
         let asks = vec![
             ask(own, today - 1, 1),
@@ -362,12 +366,21 @@ mod tests {
 
     #[test]
     fn contact_asks_for_missing_days_and_refills_under_the_threshold() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let owner = Identity::try_generate().unwrap();
         let own = crate::mailbox(&owner.public_key());
         let seal = [7; 32];
         let today = 20_000;
-        let mut contact = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
-        let issuer = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
+        let mut contact = Store::open(
+            &test_dir.path().join("client-1.db"),
+            &Identity::try_generate().unwrap(),
+        )
+        .unwrap();
+        let issuer = Store::open(
+            &test_dir.path().join("client-2.db"),
+            &Identity::try_generate().unwrap(),
+        )
+        .unwrap();
         let Some(Body::TokenRequest(first)) = request(&mut contact, &[own], today, &seal).unwrap()
         else {
             panic!("no request");
@@ -404,11 +417,16 @@ mod tests {
 
     #[test]
     fn contact_refuses_tokens_it_cannot_use() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let owner = Identity::try_generate().unwrap();
         let own = crate::mailbox(&owner.public_key());
         let seal = [7; 32];
         let today = 20_000;
-        let mut contact = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
+        let mut contact = Store::open(
+            &test_dir.path().join("client-1.db"),
+            &Identity::try_generate().unwrap(),
+        )
+        .unwrap();
         let key = contact.token_key(&own, today, &seal).unwrap();
         let sign = |signer: &Identity, mailbox: [u8; 32], token_key: [u8; 32], epoch| {
             let token = proto::WriteToken {
@@ -449,9 +467,14 @@ mod tests {
 
     #[test]
     fn a_large_answer_splits_into_envelope_sized_bodies() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let device_key = Identity::try_generate().unwrap();
         let own = crate::mailbox(&device_key.public_key());
-        let store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
+        let store = Store::open(
+            &test_dir.path().join("client-1.db"),
+            &Identity::try_generate().unwrap(),
+        )
+        .unwrap();
         let today = 20_000;
         let asks = (0..MAX_TOKENS)
             .map(|i| TokenAsk {

@@ -450,8 +450,9 @@ fn status(status: Status, retry_after: u64) -> SearchResponse {
 
 #[tokio::test]
 async fn publishes_the_held_profile_once_due_and_waits_out_rate_limits() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let alice = Identity::try_generate().unwrap();
-    let store = Store::open(&crate::store::tests::temp_db_path(), &alice).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &alice).unwrap();
     let first = record(&alice, 1, 30);
     let busy = [
         (Status::RateLimited, 60),
@@ -497,8 +498,9 @@ async fn publishes_the_held_profile_once_due_and_waits_out_rate_limits() {
 
 #[tokio::test]
 async fn beats_once_a_day_with_a_proof_for_the_day() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let alice = Identity::try_generate().unwrap();
-    let store = Store::open(&crate::store::tests::temp_db_path(), &alice).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &alice).unwrap();
     let answers = [Status::Denied, Status::RateLimited, Status::Ok];
     let mut answers = answers.map(|s| status(s, 60)).into_iter();
     let (node, asked) = fake(move |_| answers.next().unwrap()).await;

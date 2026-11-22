@@ -1,5 +1,5 @@
 use super::*;
-use crate::slot_registry_tests::{root, Credentials};
+use crate::slot_registry_tests::Credentials;
 use crate::{MobileLinkReceiver, MobileSlotLayout};
 
 #[test]
@@ -37,7 +37,8 @@ fn code_status_preserves_malformed_expired_and_valid_input_without_transferring(
 
 #[test]
 fn prepared_native_approval_is_idle_and_profile_aba_refuses_before_private_snapshot() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = MobileIdentityRegistry::new(
         root.to_str().unwrap().into(),
         MobileSlotLayout::Android,

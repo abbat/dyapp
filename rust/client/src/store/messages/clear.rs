@@ -144,7 +144,8 @@ mod tests {
 
     #[test]
     fn read_and_clear_apply_to_attachments_across_groups_and_restart() {
-        let path = crate::store::tests::temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let owner = Identity::try_generate().unwrap();
         let own = owner.peer_id();
         let peer = Identity::try_generate().unwrap().peer_id();
@@ -231,7 +232,8 @@ mod tests {
 
     #[test]
     fn cleared_messages_stay_gone_while_new_ones_and_other_groups_show() {
-        let path = crate::store::tests::temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let owner = Identity::try_generate().unwrap();
         let (own, peer) = (owner.peer_id(), Identity::try_generate().unwrap().peer_id());
         let (cleared, other, device) = ([3], [4], [5; 32]);
@@ -358,7 +360,8 @@ mod tests {
 
     #[test]
     fn clearing_pair_removes_every_group_but_keeps_other_peer_and_replay_marks() {
-        let path = crate::store::tests::temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let owner = Identity::try_generate().unwrap();
         let own = owner.peer_id();
         let peer = Identity::try_generate().unwrap().peer_id();

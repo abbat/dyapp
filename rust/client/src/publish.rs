@@ -663,7 +663,7 @@ mod tests {
         check, device_keys, hide, list_device, publish, unlist_device, withdraw, work, Block,
         Failure,
     };
-    use crate::store::{tests::temp_db_path, Store};
+    use crate::store::Store;
     use crate::{Error, Node};
     use dyapp_identity::{Identity, SignedRecord};
     use dyapp_p2p_net::proto::{self, profile_request::Request, Status};
@@ -827,8 +827,9 @@ mod tests {
 
     #[tokio::test]
     async fn a_refused_publish_keeps_the_draft_and_a_retry_reads_back_the_preview() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let alice = Identity::try_generate().unwrap();
-        let store = Store::open(&temp_db_path(), &alice).unwrap();
+        let store = Store::open(&test_dir.path().join("client-1.db"), &alice).unwrap();
         let preview = draft(None, Some(5), None);
         store.save_profile_draft(&preview).unwrap();
         let (mut node, held) = profile_node(vec![Status::Denied]).await;
@@ -851,7 +852,7 @@ mod tests {
         assert_eq!(dyapp_profile::verify(&record).unwrap().profile, published);
         assert_eq!(store.due_search_profile(u64::MAX).unwrap(), Some(record));
         // A lost reply: the retry finds this version already held and succeeds.
-        let again = Store::open(&temp_db_path(), &alice).unwrap();
+        let again = Store::open(&test_dir.path().join("client-2.db"), &alice).unwrap();
         assert_eq!(
             publish(&again, &mut node, &alice, &preview).await.unwrap(),
             published
@@ -860,8 +861,9 @@ mod tests {
 
     #[tokio::test]
     async fn hide_only_withdraws_search_and_publish_shows_again() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let alice = Identity::try_generate().unwrap();
-        let store = Store::open(&temp_db_path(), &alice).unwrap();
+        let store = Store::open(&test_dir.path().join("client-1.db"), &alice).unwrap();
         let (mut node, held) = profile_node(Vec::new()).await;
         let shown = draft(None, None, None);
         let shown = publish(&store, &mut node, &alice, &shown).await.unwrap();
@@ -904,8 +906,9 @@ mod tests {
 
     #[tokio::test]
     async fn a_newer_version_from_another_device_replaces_the_draft() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let alice = Identity::try_generate().unwrap();
-        let store = Store::open(&temp_db_path(), &alice).unwrap();
+        let store = Store::open(&test_dir.path().join("client-1.db"), &alice).unwrap();
         let (mut node, held) = profile_node(Vec::new()).await;
         let other = Profile {
             version: 5,

@@ -9,11 +9,17 @@ const T: u64 = 1_800_000_000;
 struct Node {
     service: Service,
     identity: Identity,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 impl Node {
     fn new(manual: &Arc<Manual>) -> Self {
-        let dir = format!("/tmp/ai/test-service-{}", uuid::Uuid::new_v4());
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir
+            .path()
+            .join("case-502")
+            .to_string_lossy()
+            .into_owned();
         let mut config = NodeConfig::default();
         config.storage.dir = dir.clone().into();
         config.network.id_pow_bits = 0;
@@ -22,6 +28,7 @@ impl Node {
         Self {
             service: Service::with_clock(store, config, manual.clock()).unwrap(),
             identity: Identity::try_generate().unwrap(),
+            _test_dir: test_dir,
         }
     }
 

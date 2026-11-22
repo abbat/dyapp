@@ -1,4 +1,4 @@
-use super::{root, Credentials};
+use super::Credentials;
 use crate::{
     identity_removal_allowed, MobileIdentityRegistry, MobileSlotLayout, MobileSlotRecovery,
 };
@@ -6,7 +6,8 @@ use std::sync::{atomic::Ordering, Arc};
 
 #[test]
 fn exported_removal_review_preserves_selection_and_credentials_and_checks_displayed_peer() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let keys = Arc::new(Credentials::default());
     let registry = MobileIdentityRegistry::new(
         root.to_str().unwrap().to_owned(),

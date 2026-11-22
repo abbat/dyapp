@@ -98,7 +98,7 @@ fn configured_connection_refusal_queues_and_native_receive_delivers_after_reopen
     let (runtime, address) = store_node();
     let owner = retained_person(&address);
     let alice = owner.open();
-    let (bob_key, bob) = person(&address);
+    let (_bob_test_dir, bob_key, bob) = person(&address);
     let (alice_id, bob_id) = (owner.key.peer_id(), bob_key.peer_id());
     matched(&alice, &bob, &alice_id, &bob_id);
     set_seed(&owner, refusing_seed(&runtime));

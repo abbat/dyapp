@@ -2,8 +2,9 @@ use super::*;
 
 #[tokio::test]
 async fn withdrawal_uses_independent_conditional_media_revisions() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::try_generate().unwrap();
-    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let request = Profile {
         version: 7,
         ..Default::default()

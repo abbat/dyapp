@@ -2,7 +2,8 @@ use super::*;
 
 #[test]
 fn keep_put_get_and_drop() {
-    let dir = PathBuf::from(format!("/tmp/ai/test-media-{}", uuid::Uuid::new_v4()));
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().join("case-117");
     let media = MediaStore::open(&dir).unwrap();
     let (a, b) = (vec![1u8; 100], vec![2u8; 300]);
     let (ha, hb) = (
@@ -53,7 +54,8 @@ fn check_shared_blob_lifecycle(media: &MediaStore, a: Vec<u8>, ha: &[u8], hb: Ve
 
 #[test]
 fn keep_refresh_uses_signed_time_and_preserves_the_list() {
-    let dir = PathBuf::from(format!("/tmp/ai/test-media-{}", uuid::Uuid::new_v4()));
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().join("case-2056");
     let media = MediaStore::open(&dir).unwrap();
     let hashes = vec![vec![1; 32]];
     assert_eq!(
@@ -80,7 +82,8 @@ fn keep_refresh_uses_signed_time_and_preserves_the_list() {
 
 #[test]
 fn expiry_keeps_shared_and_attached_blobs_and_honours_refresh() {
-    let dir = PathBuf::from(format!("/tmp/ai/test-media-{}", uuid::Uuid::new_v4()));
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().join("case-3026");
     let media = MediaStore::open(&dir).unwrap();
     let data = vec![1; 100];
     let hash = dyapp_identity::sha256(&data).to_vec();
@@ -109,7 +112,8 @@ fn expiry_keeps_shared_and_attached_blobs_and_honours_refresh() {
 
 #[test]
 fn eviction_drops_attachments_then_oldest_keeps_and_stops_at_target() {
-    let dir = PathBuf::from(format!("/tmp/ai/test-media-{}", uuid::Uuid::new_v4()));
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().join("case-4363");
     let media = MediaStore::open(&dir).unwrap();
     let blobs: Vec<Vec<u8>> = (1..=4).map(|byte| vec![byte; 100]).collect();
     let hashes: Vec<Vec<u8>> = blobs
@@ -151,7 +155,8 @@ fn eviction_drops_attachments_then_oldest_keeps_and_stops_at_target() {
 
 #[test]
 fn assembled_blobs_expire_when_idle_and_go_first_under_the_disk_guard() {
-    let dir = PathBuf::from(format!("/tmp/ai/test-media-{}", uuid::Uuid::new_v4()));
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().join("case-6143");
     let media = MediaStore::open(&dir).unwrap();
     let attached = vec![1u8; 100];
     let hash = dyapp_identity::sha256(&attached).to_vec();
@@ -189,7 +194,8 @@ fn assembled_blobs_expire_when_idle_and_go_first_under_the_disk_guard() {
 
 #[test]
 fn attach_put_release_and_expire() {
-    let dir = PathBuf::from(format!("/tmp/ai/test-media-{}", uuid::Uuid::new_v4()));
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().join("case-7596");
     let media = MediaStore::open(&dir).unwrap();
     let (a, b) = (vec![1u8; 100], vec![2u8; 300]);
     let (ha, hb) = (
@@ -247,7 +253,8 @@ fn check_attached_blob_expiry(media: &MediaStore, b: Vec<u8>, hb: &[u8], r2: [u8
 
 #[test]
 fn a_released_attachment_is_refused_until_its_expiry() {
-    let dir = PathBuf::from(format!("/tmp/ai/test-media-{}", uuid::Uuid::new_v4()));
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().join("case-9835");
     let media = MediaStore::open(&dir).unwrap();
     let data = vec![1u8; 100];
     let hashes = [dyapp_identity::sha256(&data).to_vec()];
@@ -274,7 +281,8 @@ fn a_released_attachment_is_refused_until_its_expiry() {
 
 #[test]
 fn keeps_after_resumes_skips_unsigned_and_uses_an_index() {
-    let dir = PathBuf::from(format!("/tmp/ai/test-media-{}", uuid::Uuid::new_v4()));
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().join("case-11013");
     let media = MediaStore::open(&dir).unwrap();
     let record = |n: u8| SignedRecord {
         payload: vec![n],
@@ -303,15 +311,10 @@ fn keeps_after_resumes_skips_unsigned_and_uses_an_index() {
     crate::storage::assert_indexed(&lock(&media.db).unwrap(), KEEPS_AFTER);
 }
 
-fn durability_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../build/media-durability")
-        .join(uuid::Uuid::new_v4().to_string())
-}
-
 #[test]
 fn directory_sync_covers_new_ancestors_before_metadata_commit() {
-    let media = MediaStore::open(&durability_dir()).unwrap();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let media = MediaStore::open(&test_dir).unwrap();
     let data = vec![7; 100];
     let hash = dyapp_identity::sha256(&data).to_vec();
     media
@@ -339,7 +342,8 @@ fn directory_sync_covers_new_ancestors_before_metadata_commit() {
 
 #[test]
 fn directory_sync_failure_leaves_no_durable_metadata_and_retry_succeeds() {
-    let media = MediaStore::open(&durability_dir()).unwrap();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let media = MediaStore::open(&test_dir).unwrap();
     let data = vec![8; 100];
     let hash = dyapp_identity::sha256(&data).to_vec();
     media
@@ -357,7 +361,8 @@ fn directory_sync_failure_leaves_no_durable_metadata_and_retry_succeeds() {
 
 #[test]
 fn database_failure_after_sync_does_not_publish_blob_metadata() {
-    let dir = durability_dir();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.to_path_buf();
     let media = MediaStore::open(&dir).unwrap();
     let data = vec![10; 100];
     let hash = dyapp_identity::sha256(&data).to_vec();
@@ -392,7 +397,8 @@ fn database_failure_after_sync_does_not_publish_blob_metadata() {
 
 #[test]
 fn reopen_clears_missing_blob_accounting_and_requests_reupload() {
-    let dir = durability_dir();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.to_path_buf();
     let media = MediaStore::open(&dir).unwrap();
     let data = vec![9; 100];
     let hash = dyapp_identity::sha256(&data).to_vec();
@@ -417,7 +423,8 @@ fn reopen_clears_missing_blob_accounting_and_requests_reupload() {
 
 #[test]
 fn only_a_missing_file_reads_as_absent() {
-    let dir = PathBuf::from(format!("/tmp/ai/test-media-{}", uuid::Uuid::new_v4()));
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().join("case-15755");
     let media = MediaStore::open(&dir).unwrap();
     let hash = [4u8; 32];
     media.cache(&hash, &[4; 50], 100).unwrap();
@@ -437,9 +444,8 @@ fn only_a_missing_file_reads_as_absent() {
 
 #[test]
 fn expiry_keeps_metadata_until_file_removal_and_recovers_after_reopen() {
-    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../build/media-cache-faults")
-        .join(uuid::Uuid::new_v4().to_string());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().join(uuid::Uuid::new_v4().to_string());
     let media = MediaStore::open(&dir).unwrap();
     let hash = [6u8; 32];
     let path = media.cache.join(hex(&hash));
@@ -474,9 +480,8 @@ fn expiry_keeps_metadata_until_file_removal_and_recovers_after_reopen() {
 
 #[test]
 fn disk_guard_retries_metadata_deletion_after_the_file_is_gone() {
-    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../build/media-cache-faults")
-        .join(uuid::Uuid::new_v4().to_string());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().join(uuid::Uuid::new_v4().to_string());
     let media = MediaStore::open(&dir).unwrap();
     let hash = [7u8; 32];
     let path = media.cache.join(hex(&hash));

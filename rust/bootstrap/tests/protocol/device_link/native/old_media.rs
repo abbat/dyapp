@@ -1,6 +1,6 @@
 //! Old protected media must not become history on a newly enrolled native receiver.
 use super::super::super::media::{match_media_chat, media_node_at};
-use super::{native_at, protocol_build_path, ExistingChat, SEAL};
+use super::{native_at, ExistingChat, SEAL};
 use dyapp_client::attachment::{self, Attachment};
 use dyapp_client::chat::sticker::Sticker;
 use dyapp_client::store::messages::ChatItem;
@@ -126,6 +126,7 @@ async fn seed_old_media(chat: &mut ExistingChat) -> [(Attachment, Vec<u8>); 2] {
 
 #[test]
 fn native_linked_receiver_excludes_old_photo_and_sticker_but_receives_new_traffic() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
@@ -136,7 +137,7 @@ fn native_linked_receiver_excludes_old_photo_and_sticker_but_receives_new_traffi
     let originals = runtime.block_on(seed_old_media(&mut chat));
     let laptop = runtime.block_on(chat.link());
     runtime.block_on(protected_originals(&mut chat, &originals));
-    let dir = protocol_build_path("native-no-old-media");
+    let dir = test_dir.to_path_buf();
     std::fs::create_dir_all(&dir).unwrap();
     let peer = chat.bob.identity.peer_id();
     let receiver = native_at(&laptop, &chat.address, &dir);

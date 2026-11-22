@@ -315,14 +315,14 @@ fn aad(mailbox: &[u8; 32], epoch: u32) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::tests::temp_db_path;
     use super::super::{Error, Store};
     use crate::prepare_put;
     use dyapp_identity::Identity;
 
     #[test]
     fn refill_due_survives_restart_and_stays_due_after_failure() {
-        let path = temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let owner = Identity::try_generate().unwrap();
         let store = Store::open(&path, &owner).unwrap();
         assert!(store.token_refill_due(100).unwrap());
@@ -338,7 +338,8 @@ mod tests {
 
     #[test]
     fn held_key_is_sealed_stable_and_bound_to_its_row() {
-        let path = temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let alice = Identity::try_generate().unwrap();
         let (seal, mailbox) = ([7; 32], [1; 32]);
         let mut store = Store::open(&path, &alice).unwrap();
@@ -386,9 +387,10 @@ mod tests {
 
     #[test]
     fn epochs_list_only_answered_days_and_prune_drops_expired_ones() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let alice = Identity::try_generate().unwrap();
         let (seal, mailbox) = ([7; 32], [1; 32]);
-        let mut store = Store::open(&temp_db_path(), &alice).unwrap();
+        let mut store = Store::open(&test_dir.path().join("client-1.db"), &alice).unwrap();
         for epoch in [9, 10, 11, 12] {
             store.token_key(&mailbox, epoch, &seal).unwrap();
             if epoch != 11 {
@@ -409,8 +411,9 @@ mod tests {
 
     #[test]
     fn revoking_a_contact_returns_its_live_keys_only() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let alice = Identity::try_generate().unwrap();
-        let store = Store::open(&temp_db_path(), &alice).unwrap();
+        let store = Store::open(&test_dir.path().join("client-1.db"), &alice).unwrap();
         let (bob, carol) = ("bob", "carol");
         let mailbox = [1; 32];
         store.record_issued(bob, &mailbox, &[3; 32], 8).unwrap();
@@ -438,7 +441,12 @@ mod tests {
 
     #[test]
     fn a_refused_write_is_swapped_for_its_replacement_once() {
-        let mut store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let mut store = Store::open(
+            &test_dir.path().join("client-1.db"),
+            &Identity::try_generate().unwrap(),
+        )
+        .unwrap();
         let refused = prepare_put(&[1; 32], vec![9]).unwrap();
         store
             .stage_outbound(b"mls", std::slice::from_ref(&refused))

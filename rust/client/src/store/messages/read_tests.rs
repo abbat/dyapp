@@ -86,7 +86,8 @@ fn assert_restarted_pair_history(store: &mut Store, own: &str, peer: &str, other
 
 #[test]
 fn pair_history_orders_legacy_and_timed_current_messages_across_groups() {
-    let path = crate::store::tests::temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let owner = Identity::try_generate().unwrap();
     let own = owner.peer_id();
     let peer = Identity::try_generate().unwrap().peer_id();

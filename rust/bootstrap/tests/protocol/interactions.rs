@@ -1,5 +1,5 @@
 //! Likes travel as opaque signal envelopes and match once both owners like each other.
-use super::chat::{store_path, Person};
+use super::chat::Person;
 use super::*;
 use dyapp_client::chat::{self, Event};
 use dyapp_client::interactions::Kind;
@@ -28,12 +28,17 @@ async fn receive(
 }
 
 /// `person`'s session over a fresh store holding their device.
-fn open(person: &Person, name: &str) -> Session {
-    let mut store = Store::open(&store_path(name), &person.identity).unwrap();
+fn open(person: &Person, name: &str) -> (dyapp_test_support::TestDir, Session) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let mut store = Store::open(
+        &test_dir.path().join(format!("{name}.db")),
+        &person.identity,
+    )
+    .unwrap();
     store
         .stage_outbound(&person.device.seal(&SEAL).unwrap(), &[])
         .unwrap();
-    Session::open(store, &SEAL).unwrap()
+    (test_dir, Session::open(store, &SEAL).unwrap())
 }
 
 /// The ID of the group `events` joined.
@@ -100,9 +105,9 @@ async fn a_first_like_and_a_first_text_invite_a_found_peer() {
     let carol_owner = carol.identity.peer_id();
     let (pair, others) =
         interaction_profiles(&mut alice, &alice_owner, &bob_owner, &carol_owner).await;
-    let mut alice_session = open(&alice, "first-alice");
-    let mut bob_session = open(&bob, "first-bob");
-    let mut carol_session = open(&carol, "first-carol");
+    let (_test_dir_107, mut alice_session) = open(&alice, "first-alice");
+    let (_test_dir_108, mut bob_session) = open(&bob, "first-bob");
+    let (_test_dir_109, mut carol_session) = open(&carol, "first-carol");
     publish_packages(&mut bob, &mut bob_session).await;
     publish_packages(&mut carol, &mut carol_session).await;
 
@@ -154,7 +159,7 @@ async fn likes_match_unlike_and_retry_as_opaque_signals() {
     let mut alice = Person::new(&address).await;
     let mut bob = Person::new(&address).await;
     let (alice_owner, bob_owner) = (alice.identity.peer_id(), bob.identity.peer_id());
-    let (mut alice_session, mut bob_session, profiles, group_id, bob_path) =
+    let (_test_dir, mut alice_session, mut bob_session, profiles, group_id, bob_path) =
         open_like_sessions(&mut alice, &mut bob, &bob_owner).await;
     assert_opaque_signal(
         &mut alice,
@@ -217,12 +222,14 @@ async fn open_like_sessions(
     bob: &mut Person,
     bob_owner: &str,
 ) -> (
+    dyapp_test_support::TestDir,
     Session,
     Session,
     Vec<dyapp_profile::VerifiedProfile>,
     Vec<u8>,
     std::path::PathBuf,
 ) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let profiles = like_profiles(alice, bob, bob_owner).await;
     let alice_mailbox = alice.mailbox();
     let (group, welcome) = chat::invite(&mut alice.node, &alice.device, &alice_mailbox, &profiles)
@@ -230,14 +237,14 @@ async fn open_like_sessions(
         .unwrap();
     chat::send(&mut alice.node, &welcome).await.unwrap();
     let group_id = group.id().to_vec();
-    let mut store = Store::open(&store_path("likes-alice"), &alice.identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("likes-alice.db"), &alice.identity).unwrap();
     store.set_send_profile_views(true).unwrap();
     let sealed = alice.device.seal(&SEAL).unwrap();
     store
         .stage_group(&group, &profiles[1], &sealed, &[])
         .unwrap();
     let mut alice_session = Session::open(store, &SEAL).unwrap();
-    let bob_path = store_path("likes-bob");
+    let bob_path = test_dir.path().join("likes-bob.db");
     let mut store = Store::open(&bob_path, &bob.identity).unwrap();
     store
         .stage_outbound(&bob.device.seal(&SEAL).unwrap(), &[])
@@ -247,7 +254,14 @@ async fn open_like_sessions(
         receive(&mut bob_session, bob, &profiles).await;
         receive(&mut alice_session, alice, &profiles).await;
     }
-    (alice_session, bob_session, profiles, group_id, bob_path)
+    (
+        test_dir,
+        alice_session,
+        bob_session,
+        profiles,
+        group_id,
+        bob_path,
+    )
 }
 
 async fn send_interaction(

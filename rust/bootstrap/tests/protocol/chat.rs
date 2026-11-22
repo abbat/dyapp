@@ -526,16 +526,6 @@ async fn assert_revocation_delivery(
 #[path = "chat/hidden_commit.rs"]
 mod hidden_commit;
 
-/// A fresh database path for one person's client store.
-pub(super) fn store_path(name: &str) -> std::path::PathBuf {
-    let mut random = [0; 16];
-    getrandom::fill(&mut random).unwrap();
-    std::env::temp_dir().join(format!(
-        "dyapp-{name}-{:032x}.sqlite3",
-        u128::from_be_bytes(random)
-    ))
-}
-
 /// Make every MLS state write in the database at `path` fail until `heal`.
 fn break_mls_writes(path: &std::path::Path) {
     rusqlite::Connection::open(path)
@@ -558,6 +548,7 @@ fn heal(path: &std::path::Path) {
 #[tokio::test]
 async fn key_packages_past_a_full_stock_publish_as_done() {
     use dyapp_client::session::Session;
+    let test_dir = dyapp_test_support::test_dir().unwrap();
 
     let address = start_config(|config| {
         config.roles = vec![Role::Store];
@@ -566,7 +557,7 @@ async fn key_packages_past_a_full_stock_publish_as_done() {
     })
     .await;
     let mut bob = Person::new(&address).await;
-    let (path, key) = (store_path("full-stock"), [3; 32]);
+    let (path, key) = (test_dir.path().join("full-stock.db"), [3; 32]);
     Store::open(&path, &bob.identity)
         .unwrap()
         .stage_outbound(&bob.device.seal(&key).unwrap(), &[])
@@ -582,13 +573,17 @@ async fn key_packages_past_a_full_stock_publish_as_done() {
 
 #[tokio::test]
 async fn durable_chat_survives_restarts_storage_faults_and_retries() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let address = start_config(|config| {
         config.roles = vec![Role::Store];
         config.limits.requests_per_second = 1000;
         config.limits.min_free_mb = 0;
     })
     .await;
-    let (alice_path, bob_path) = (store_path("alice"), store_path("bob"));
+    let (alice_path, bob_path) = (
+        test_dir.path().join("alice.db"),
+        test_dir.path().join("bob.db"),
+    );
     let (mut alice, mut bob, profiles) = Box::pin(durable_chat_people(&address, &bob_path)).await;
     let (group_id, writes) =
         stage_durable_group(&mut alice, &mut bob, &profiles, &alice_path).await;
@@ -938,6 +933,7 @@ fn assert_token_month(store: &Store, mailbox: [u8; 32], day: u32) {
 
 #[tokio::test]
 async fn contacts_trade_a_month_of_write_tokens_after_join_and_refill_them() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let address = start_config(|config| {
         config.roles = vec![Role::Store];
         config.limits.requests_per_second = 1000;
@@ -954,8 +950,8 @@ async fn contacts_trade_a_month_of_write_tokens_after_join_and_refill_them() {
     for owner in [alice.identity.peer_id(), bob_owner] {
         profiles.push(alice.node.get_profile(&owner).await.unwrap());
     }
-    let mut alice_store = Store::open(&store_path("alice"), &alice.identity).unwrap();
-    let mut bob_store = Store::open(&store_path("bob"), &bob.identity).unwrap();
+    let mut alice_store = Store::open(&test_dir.path().join("alice.db"), &alice.identity).unwrap();
+    let mut bob_store = Store::open(&test_dir.path().join("bob.db"), &bob.identity).unwrap();
     let (alice_seal, bob_seal) = ([1; 32], [2; 32]);
 
     let alice_mailbox = alice.mailbox();

@@ -8,11 +8,13 @@ struct Fixture {
     root: PathBuf,
     registry: Arc<MobileIdentityRegistry>,
     selected: MobileSlotSelection,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 impl Fixture {
     fn new(layout: MobileSlotLayout) -> Self {
-        let root = root();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let root = test_dir.to_path_buf();
         let registry = MobileIdentityRegistry::new(
             root.to_str().unwrap().to_owned(),
             layout,
@@ -23,6 +25,7 @@ impl Fixture {
             root,
             registry,
             selected,
+            _test_dir: test_dir,
         }
     }
 

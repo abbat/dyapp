@@ -1,6 +1,6 @@
 use super::*;
 use crate::slot_registry_tests::workers::{Gate, WorkerCredentials};
-use crate::slot_registry_tests::{root, Wrapping};
+use crate::slot_registry_tests::Wrapping;
 use crate::{MobileIdentityRegistry, MobileSlotLayout, MobileSlotSelection};
 use std::fs::{self, File, OpenOptions, TryLockError};
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -32,11 +32,13 @@ struct Fixture {
     created: MobileSlotSelection,
     worker: Arc<ProfileSearcher>,
     keys: Arc<WorkerCredentials>,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 impl Fixture {
     fn new(layout: MobileSlotLayout) -> Self {
-        let root = root();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let root = test_dir.to_path_buf();
         let keys = Arc::new(WorkerCredentials::default());
         let registry =
             MobileIdentityRegistry::new(root.to_str().unwrap().to_owned(), layout, keys.clone());
@@ -53,6 +55,7 @@ impl Fixture {
             created,
             worker,
             keys,
+            _test_dir: test_dir,
         }
     }
 
@@ -176,7 +179,8 @@ fn a_bound_searcher_refuses_replacement_before_reading_its_database() {
 
 #[test]
 fn keyless_calls_on_unbound_searchers_never_invent_an_identity() {
-    let dir = directory("unbound");
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.to_path_buf();
     let worker = ProfileSearcher::new(dir.to_str().unwrap().to_owned()).unwrap();
     assert!(worker.search_slot(vec![], SearchEmployer::Any, 0).is_err());
     assert!(worker.contact_names_slot(vec![]).is_err());

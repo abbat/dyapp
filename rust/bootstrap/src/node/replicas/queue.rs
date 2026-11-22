@@ -215,12 +215,9 @@ mod tests {
     use super::*;
     use crate::node::{MediaRepair, PendingPut, PutRecord, ReplicaCap, SignedRecord};
 
-    fn service() -> Service {
-        let dir = format!(
-            "{}/../../build/test-replica-queue-{}",
-            env!("CARGO_MANIFEST_DIR"),
-            uuid::Uuid::new_v4()
-        );
+    fn service() -> (dyapp_test_support::TestDir, Service) {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir.path().to_string_lossy().into_owned();
         let mut config = crate::NodeConfig::default();
         config.storage.dir = dir.clone().into();
         config.limits.bytes_per_second = 10_000;
@@ -232,7 +229,7 @@ mod tests {
         )
         .unwrap();
         service.media = Some(crate::media::MediaStore::open(&service.config.storage.dir).unwrap());
-        service
+        (test_dir, service)
     }
 
     fn store_repair_media(service: &Service) -> (SignedRecord, Vec<u8>) {
@@ -300,7 +297,7 @@ mod tests {
 
     #[test]
     fn local_repair_dispatches_inventory_and_both_write_variants() {
-        let service = service();
+        let (_service_test_dir, service) = service();
         for request in [
             proto::media_request::Request::Have(proto::MediaHave::default()),
             proto::media_request::Request::ReplicaPut(proto::MediaReplicaPut::default()),
@@ -340,7 +337,7 @@ mod tests {
     #[test]
     fn repair_traffic_and_cap_refusals_are_independent() {
         for exhaust_cap in [false, true] {
-            let service = service();
+            let (_service_test_dir, service) = service();
             let to = PeerId::random();
             let (repair, job) = repair_write(&service, to);
             let mut replicas = Replicas {
@@ -368,7 +365,7 @@ mod tests {
 
     #[test]
     fn whole_media_put_tracks_reply_and_excludes_prepaid_payload_bytes() {
-        let service = service();
+        let (_service_test_dir, service) = service();
         let mut swarm = dyapp_p2p_net::build_swarm(
             libp2p::identity::Keypair::generate_ed25519(),
             dyapp_p2p_net::Mode::Auto,

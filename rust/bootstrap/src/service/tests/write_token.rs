@@ -54,7 +54,7 @@ fn client_put_denies_forged_tokens_with_a_strike_and_expired_without() {
     let mailbox = mailbox_of(&owner);
     let other = mailbox_of(&stranger);
     let valid = token(&owner, &mailbox, &contact, today());
-    let service = service_with(|l| l.strikes_to_ban = 1);
+    let (_service_test_dir, service) = service_with(|l| l.strikes_to_ban = 1);
     assert_eq!(
         put(
             &service,
@@ -110,7 +110,7 @@ fn check_forged_tokens(
         signed_put(stranger, &envelope(3, mailbox, valid.clone())),
     ];
     for (i, request) in forged.into_iter().enumerate() {
-        let service = service_with(|l| l.strikes_to_ban = 1);
+        let (_service_test_dir, service) = service_with(|l| l.strikes_to_ban = 1);
         assert_eq!(put(&service, &peer("p"), request), Status::Denied, "{i}");
         assert!(service.reputation.banned("p"), "{i}");
         assert_eq!(service.held_ids(mailbox).unwrap().len(), 0);
@@ -125,7 +125,7 @@ fn replica_put_drops_bad_tokens_without_a_strike() {
         Identity::try_generate().unwrap(),
     );
     let mailbox = mailbox_of(&owner);
-    let service = service_with(|l| l.strikes_to_ban = 1);
+    let (_service_test_dir, service) = service_with(|l| l.strikes_to_ban = 1);
     let good = token(&owner, &mailbox, &contact, today());
     let batch = proto::Envelopes {
         envelopes: [
@@ -160,7 +160,7 @@ fn replica_put_drops_bad_tokens_without_a_strike() {
     // hour of grace on replica paths.
     let since = crate::clock::Clock::system().timestamp() - i64::from(today() - 1) * 86_400;
     let hours = u32::try_from(since / 3600).unwrap();
-    let service = service_with(|l| l.message_ttl_hours = hours);
+    let (_service_test_dir, service) = service_with(|l| l.message_ttl_hours = hours);
     let late = token(&owner, &mailbox, &contact, today() - 2);
     let batch = proto::Envelopes {
         envelopes: vec![contact.sign(
@@ -237,7 +237,9 @@ fn tokenless_bytes(service: &Service, mailbox: &[u8]) -> usize {
         .sum()
 }
 
-fn pooled_service(change: impl FnOnce(&mut crate::config::Limits)) -> Service {
+fn pooled_service(
+    change: impl FnOnce(&mut crate::config::Limits),
+) -> (dyapp_test_support::TestDir, Service) {
     service_with(|l| {
         l.require_write_tokens = true;
         l.mailbox_pool_kb = 101;
@@ -256,7 +258,7 @@ fn a_tokenless_flood_stays_in_the_pool_and_spares_other_groups_and_tokens() {
         Identity::try_generate().unwrap(),
     );
     let mailbox = mailbox_of(&owner);
-    let service = pooled_service(|_| {});
+    let (_test_dir, service) = pooled_service(|_| {});
     let put = |envelope: proto::Envelope, by: &Identity, group| {
         let record = by.sign(Domain::Envelope, envelope.encode_to_vec());
         let response = service
@@ -295,7 +297,7 @@ fn sprayed_replica_labels_evict_only_that_replicas_envelopes() {
         Identity::try_generate().unwrap(),
     );
     let mailbox = mailbox_of(&owner);
-    let service = pooled_service(|_| {});
+    let (_test_dir, service) = pooled_service(|_| {});
     let sign = |envelope: &proto::Envelope| sender.sign(Domain::Envelope, envelope.encode_to_vec());
     let local = plain(0, &mailbox, Message, 1_000);
     let response = service.store_mailbox(&sign(&local), "node", &[7; 8]);
@@ -347,7 +349,7 @@ fn a_tokened_write_does_not_evict_the_tokenless_share() {
         Identity::try_generate().unwrap(),
     );
     let mailbox = mailbox_of(&owner);
-    let service = pooled_service(|l| {
+    let (_test_dir, service) = pooled_service(|l| {
         l.messages_max_mb = 1;
         l.mailbox_pool_kb = 1024;
         l.tokenless_share_pct = 10;
@@ -392,7 +394,7 @@ fn the_store_wide_share_evicts_tokenless_signals_and_with_tokens_messages() {
     use mailbox_role::{Group, Source};
     use proto::EnvelopeClass::{Message, Signal};
     for tokens in [false, true] {
-        let service = pooled_service(|l| {
+        let (_test_dir, service) = pooled_service(|l| {
             l.require_write_tokens = tokens;
             l.messages_max_mb = 1;
             l.tokenless_share_pct = 1;
@@ -447,7 +449,7 @@ fn a_tokened_envelope_fits_the_same_100_kib() {
     let overhead = tokened.encoded_len() - tokened.ciphertext.len();
     tokened.ciphertext.resize(MAX_ENVELOPE_BYTES - overhead, 0);
     assert_eq!(tokened.encoded_len(), MAX_ENVELOPE_BYTES);
-    let service = service();
+    let (_service_test_dir, service) = service();
     let request =
         mailbox_request::Request::Put(contact.sign(Domain::Envelope, tokened.encode_to_vec()));
     assert_eq!(put(&service, &peer("p"), request), Status::Ok);

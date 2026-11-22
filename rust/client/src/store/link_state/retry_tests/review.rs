@@ -52,9 +52,10 @@ fn require_selected_values(selected: &[crate::store::LinkSelectedPreference]) {
 
 #[test]
 fn complete_explicit_choices_preview_frozen_values_without_importing_or_granting_progress() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
     let state = source(&identity);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     private_choices(&store, false, 2_000);
     legacy(&store, &state);
     let before = store.link_state().unwrap();
@@ -79,8 +80,9 @@ fn complete_explicit_choices_preview_frozen_values_without_importing_or_granting
 
 #[test]
 fn incomplete_duplicate_and_unoffered_preference_choices_fail_without_writes() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     legacy(&store, &source(&identity));
     let review = store.prepare_link_state_review(&identity).unwrap().unwrap();
     let mut selected = choices(&review, Source::Local);
@@ -118,9 +120,10 @@ fn legacy(store: &Store, state: &[u8]) {
 
 #[test]
 fn comparison_offers_only_owner_preferences_without_writes_or_import_progress() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
     let state = source(&identity);
-    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     private_choices(&store, false, 2_000);
     store
         .interact("dave", Kind::Like, b"laptop", 1_000)
@@ -156,7 +159,8 @@ fn comparison_offers_only_owner_preferences_without_writes_or_import_progress() 
 fn all_likes_trust_observations_and_unknown_fields_are_not_preference_choices() {
     let identity = Identity::from_secret(&[7; 32]);
     for case in 0..4 {
-        let store = Store::open(&temp_db_path(), &identity).unwrap();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
         private_choices(&store, false, 2_000);
         let mut pending = snapshot(&store);
         match case {
@@ -196,10 +200,11 @@ fn snapshot(store: &Store) -> LinkState {
 
 #[test]
 fn comparison_refuses_other_owners_databases_and_changed_private_context() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
     let other = Identity::from_secret(&[9; 32]);
     let state = source(&identity);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     legacy(&store, &state);
     assert!(matches!(
         store.prepare_link_state_review(&other),
@@ -210,7 +215,7 @@ fn comparison_refuses_other_owners_databases_and_changed_private_context() {
         review.is_current(&store, &other),
         Err(Error::WrongIdentity)
     ));
-    let second = Store::open(&temp_db_path(), &identity).unwrap();
+    let second = Store::open(&test_dir.path().join("client-2.db"), &identity).unwrap();
     legacy(&second, &state);
     assert!(!review.is_current(&second, &identity).unwrap());
     store.set_profile_hidden(true).unwrap();
@@ -219,9 +224,10 @@ fn comparison_refuses_other_owners_databases_and_changed_private_context() {
 
 #[test]
 fn replacement_progress_and_duplicate_rows_cannot_reuse_a_review() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
     let state = source(&identity);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     assert!(store
         .prepare_link_state_review(&identity)
         .unwrap()
@@ -236,7 +242,7 @@ fn replacement_progress_and_duplicate_rows_cannot_reuse_a_review() {
         .prepare_link_state_review(&identity)
         .unwrap()
         .is_none());
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-2.db"), &identity).unwrap();
     let mut duplicate = LinkState::decode(state.as_slice()).unwrap();
     duplicate.peers.push(duplicate.peers[0].clone());
     legacy(&store, &duplicate.encode_to_vec());

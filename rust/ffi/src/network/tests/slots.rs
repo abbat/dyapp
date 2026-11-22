@@ -1,20 +1,26 @@
 use super::*;
-use crate::slot_registry_tests::{root, Credentials};
+use crate::slot_registry_tests::Credentials;
 use crate::{IdentityKey, MobileIdentityRegistry, MobileSlotLayout, MobileSlotSelection};
 use std::fs::{self, OpenOptions, TryLockError};
 use std::sync::mpsc::{self, Receiver, Sender};
 
 fn fixture(
     layout: MobileSlotLayout,
-) -> (Arc<MobileIdentityRegistry>, MobileSlotSelection, PathBuf) {
-    let root = root();
+) -> (
+    dyapp_test_support::TestDir,
+    Arc<MobileIdentityRegistry>,
+    MobileSlotSelection,
+    PathBuf,
+) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = MobileIdentityRegistry::new(
         root.to_str().unwrap().to_owned(),
         layout,
         Arc::new(Credentials::default()),
     );
     let created = registry.create().unwrap();
-    (registry, created, root)
+    (test_dir, registry, created, root)
 }
 
 struct RunningCheck {
@@ -49,7 +55,7 @@ impl RunningCheck {
 #[test]
 fn registered_network_work_retains_protection_through_cancellation_only() {
     for layout in [MobileSlotLayout::Android, MobileSlotLayout::Ios] {
-        let (registry, created, root) = fixture(layout);
+        let (_test_dir, registry, created, root) = fixture(layout);
         let check = ConnectionCheck::for_slot(
             registry.clone(),
             created.slot.id.clone(),
@@ -117,7 +123,7 @@ fn remove_with_idle_check(
 #[test]
 fn checked_network_cannot_activate_or_overwrite_draft_after_identity_replacement() {
     for layout in [MobileSlotLayout::Android, MobileSlotLayout::Ios] {
-        let (registry, created, _) = fixture(layout);
+        let (_test_dir, registry, created, _) = fixture(layout);
         let check =
             ConnectionCheck::for_slot(registry, created.slot.id, created.key.peer_id()).unwrap();
         let directory = PathBuf::from(created.slot.directory);
@@ -157,7 +163,7 @@ fn checked_network_cannot_activate_or_overwrite_draft_after_identity_replacement
 
 #[test]
 fn probing_needs_no_view_guard_but_activation_invalidates_its_generation() {
-    let (registry, created, _) = fixture(MobileSlotLayout::Android);
+    let (_test_dir, registry, created, _) = fixture(MobileSlotLayout::Android);
     let check = ConnectionCheck::for_slot(registry.clone(), created.slot.id, created.key.peer_id())
         .unwrap();
     let (port, peer) = node();
@@ -185,7 +191,7 @@ fn probing_needs_no_view_guard_but_activation_invalidates_its_generation() {
 
 #[test]
 fn an_unchecked_activation_invalidates_the_view_without_writing_settings() {
-    let (registry, created, _) = fixture(MobileSlotLayout::Android);
+    let (_test_dir, registry, created, _) = fixture(MobileSlotLayout::Android);
     let check = ConnectionCheck::for_slot(registry.clone(), created.slot.id, created.key.peer_id())
         .unwrap();
     let generation = registry.view.current().unwrap().generation();
@@ -198,7 +204,7 @@ fn an_unchecked_activation_invalidates_the_view_without_writing_settings() {
 
 #[test]
 fn binding_a_checker_refuses_another_identity_without_writing_settings() {
-    let (registry, created, _) = fixture(MobileSlotLayout::Android);
+    let (_test_dir, registry, created, _) = fixture(MobileSlotLayout::Android);
     assert!(ConnectionCheck::for_slot(registry, created.slot.id, "wrong peer".into()).is_err());
     let directory = PathBuf::from(created.slot.directory);
     assert!(!directory.join("network-draft").exists());

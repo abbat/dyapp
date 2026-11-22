@@ -1,4 +1,4 @@
-use super::{root, slot, FIRST};
+use super::{slot, FIRST};
 use crate::identity_slots::{KeyReader, Layout, Registry, Slot};
 use dyapp_identity::Identity;
 use std::fs::{self, File, OpenOptions, TryLockError};
@@ -34,20 +34,21 @@ impl KeyReader for Keys {
     }
 }
 
-fn fixture() -> (Registry, Keys) {
-    let root = root();
+fn fixture() -> (dyapp_test_support::TestDir, Registry, Keys) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let dir = slot(&root, FIRST, b"ready\n");
     fs::write(dir.join("identity.key"), b"wrapped").unwrap();
     let keys = Keys {
         identity: Identity::try_generate().unwrap(),
         lock: root.join("profiles.lock"),
     };
-    (Registry::new(root, Layout::Android), keys)
+    (test_dir, Registry::new(root, Layout::Android), keys)
 }
 
 #[test]
 fn multiple_operations_and_inventory_share_read_access_until_the_last_guard_drops() {
-    let (registry, keys) = fixture();
+    let (_test_dir, registry, keys) = fixture();
     let peer = keys.identity.peer_id();
     let first = registry.operation(FIRST, &peer, &keys).unwrap();
     let second = registry.operation(FIRST, &peer, &keys).unwrap();
@@ -66,7 +67,7 @@ fn multiple_operations_and_inventory_share_read_access_until_the_last_guard_drop
 
 #[test]
 fn refused_operations_release_the_lock_and_never_admit_a_changed_identity() {
-    let (registry, keys) = fixture();
+    let (_test_dir, registry, keys) = fixture();
     assert!(registry.operation(FIRST, "different peer", &keys).is_err());
     assert!(registry
         .operation("../outside", &keys.identity.peer_id(), &keys)
@@ -82,7 +83,7 @@ fn refused_operations_release_the_lock_and_never_admit_a_changed_identity() {
 
 #[test]
 fn worker_retains_operation_protection_until_completion_signal() {
-    let (registry, keys) = fixture();
+    let (_test_dir, registry, keys) = fixture();
     let operation = registry
         .operation(FIRST, &keys.identity.peer_id(), &keys)
         .unwrap();

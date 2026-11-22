@@ -3,24 +3,22 @@ use super::*;
 use crate::{media::MediaStore, replication::media_encode, BootstrapStore, NodeConfig};
 use dyapp_p2p_net::proto::{media_request::Request, MediaRequest};
 
-fn service() -> Service {
-    let dir = std::path::PathBuf::from(format!(
-        "{}/../../build/test-deny-{}",
-        env!("CARGO_MANIFEST_DIR"),
-        uuid::Uuid::new_v4()
-    ));
+fn service() -> (dyapp_test_support::TestDir, Service) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().to_path_buf();
     let mut config = NodeConfig::default();
     config.storage.dir = dir.clone();
     config.limits.min_free_mb = 0;
     let mut service =
         Service::new(BootstrapStore::new(dir.to_str().unwrap()).unwrap(), config).unwrap();
     service.media = Some(MediaStore::open(&dir).unwrap());
-    service
+    (test_dir, service)
 }
 
 #[tokio::test]
 async fn a_lock_panic_does_not_disable_the_next_request() {
-    let service = Arc::new(service());
+    let (_service_test_dir, service) = service();
+    let service = Arc::new(service);
     let mut queue = jobs::FairQueue::default();
     let mut nonces = HashMap::new();
     let (finished, mut done) = tokio::sync::mpsc::unbounded_channel();
@@ -114,7 +112,7 @@ fn purges(db: &rusqlite::Connection) -> i64 {
 
 #[test]
 fn reloading_deny_purges_whole_and_sharded_blobs_without_dropping_keeps() {
-    let service = service();
+    let (_service_test_dir, service) = service();
     let media = service.media.as_ref().unwrap();
     let (whole_hash, manifest) = hold(media);
     let hashes = vec![whole_hash.clone(), manifest.hash.clone()];
@@ -143,7 +141,7 @@ fn reloading_deny_purges_whole_and_sharded_blobs_without_dropping_keeps() {
 
 #[test]
 fn outgoing_media_requests_skip_listed_blobs() {
-    let service = service();
+    let (_service_test_dir, service) = service();
     let data = b"repair payload".to_vec();
     let hash = dyapp_identity::sha256(&data);
     let entry: String = dyapp_identity::hex(&hash);
@@ -203,7 +201,7 @@ proptest::proptest! {
     fn operator_edits_and_node_reloads_interleave(
         edits in proptest::collection::vec((0usize..6, proptest::bool::ANY), 1..60),
     ) {
-        let service = service();
+        let (_service_test_dir, service) = service();
         let blobs: Vec<Vec<u8>> = (0..6u8).map(|i| vec![i; 8]).collect();
         let entry = |i: usize| dyapp_identity::hex(&dyapp_identity::sha256(&blobs[i]));
         let path = service.config.storage.deny_path();

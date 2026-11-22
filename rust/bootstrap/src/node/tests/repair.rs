@@ -76,7 +76,12 @@ fn check_repair_budget(
 
 #[tokio::test]
 async fn profile_repair_only_fills_gaps_once_an_hour_within_budget() {
-    let dir = format!("/tmp/ai/test-profile-repair-{}", uuid::Uuid::new_v4());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir
+        .path()
+        .join("case-2290")
+        .to_string_lossy()
+        .into_owned();
     let mut config = crate::config::NodeConfig::default();
     config.storage.dir = dir.clone().into();
     config.limits.bytes_per_second = 10_000;
@@ -121,4 +126,40 @@ async fn profile_repair_only_fills_gaps_once_an_hour_within_budget() {
     );
     check_gap_statuses(&mut replicas, &mut swarm, &service, remote, &record);
     check_repair_budget(&mut replicas, &mut swarm, &service, remote, record);
+}
+
+#[tokio::test]
+async fn background_media_repair_holds_no_channel() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().to_string_lossy().into_owned();
+    let mut config = crate::NodeConfig::default();
+    config.storage.dir = dir.clone().into();
+    let mut service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config).unwrap();
+    service.media = Some(crate::media::MediaStore::open(&service.config.storage.dir).unwrap());
+    let mut swarm = swarm(
+        Keypair::generate_ed25519(),
+        &service.config.limits,
+        &service.config.roles,
+    )
+    .unwrap();
+    let owner = dyapp_identity::Identity::try_generate().unwrap();
+    let hash = dyapp_identity::sha256(b"unavailable blob").to_vec();
+    let keep = proto::MediaKeep {
+        version: 1,
+        hashes: vec![hash.clone()],
+        time: crate::clock::Clock::system().timestamp().unsigned_abs(),
+    };
+    let record = owner.sign(dyapp_identity::Domain::MediaKeep, keep.encode_to_vec());
+    let mut replicas = Replicas::default();
+    let now = Instant::now();
+    let id = replicas
+        .start_media_repair(&mut swarm, &service, record, now)
+        .expect("background repair starts");
+    assert!(replicas.media_repairs[&id].1.is_none());
+    assert_eq!(
+        replicas.finish_media_repairs(&mut swarm, &service, now + crate::media_repair::TIMEOUT),
+        vec![(id, false)],
+    );
+    assert!(!replicas.media_repairs.contains_key(&id));
+    assert_eq!(replicas.media_repaired.result(&hash, now), Some(true));
 }

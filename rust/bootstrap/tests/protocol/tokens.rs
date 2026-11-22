@@ -1,5 +1,5 @@
 //! Sending with a held write token, and the fallbacks when the node refuses it.
-use super::chat::{store_path, Person};
+use super::chat::Person;
 use super::*;
 use dyapp_client::interactions::Kind;
 use dyapp_client::store::Store;
@@ -33,6 +33,7 @@ fn current_day() -> (u32, u64) {
 
 #[tokio::test]
 async fn a_held_token_is_used_and_a_refused_one_falls_back() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let address = start_config(|config| {
         config.roles = vec![Role::Store];
         config.limits.requests_per_second = 1000;
@@ -41,7 +42,7 @@ async fn a_held_token_is_used_and_a_refused_one_falls_back() {
     .await;
     let mut owner = Person::new(&address).await;
     let mut contact = Person::new(&address).await;
-    let mut store = Store::open(&store_path("contact"), &contact.identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("contact.db"), &contact.identity).unwrap();
     let mailbox = owner.mailbox();
     let (today, now) = current_day();
     // A put's sender key: the token key, or a one-off key for a tokenless write.
@@ -95,6 +96,7 @@ async fn a_held_token_is_used_and_a_refused_one_falls_back() {
 
 #[tokio::test]
 async fn a_revoked_contact_token_is_denied_and_the_write_goes_tokenless() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let address = start_config(|config| {
         config.roles = vec![Role::Store];
         config.limits.requests_per_second = 1000;
@@ -103,8 +105,13 @@ async fn a_revoked_contact_token_is_denied_and_the_write_goes_tokenless() {
     .await;
     let mut owner = Person::new(&address).await;
     let mut contact = Person::new(&address).await;
-    let owner_store = Store::open(&store_path("revoking-owner"), &owner.identity).unwrap();
-    let mut store = Store::open(&store_path("revoked-contact"), &contact.identity).unwrap();
+    let owner_store =
+        Store::open(&test_dir.path().join("revoking-owner.db"), &owner.identity).unwrap();
+    let mut store = Store::open(
+        &test_dir.path().join("revoked-contact.db"),
+        &contact.identity,
+    )
+    .unwrap();
     let mailbox = owner.mailbox();
     let today = u32::try_from(dyapp_client::now() / 86_400).unwrap();
     let key = hold(&mut store, &owner.device_key, &mailbox, today);
@@ -159,7 +166,8 @@ async fn a_session_sends_with_a_held_token_and_swaps_a_revoked_one_in_its_outbox
     .await;
     let mut alice = Person::new(&address).await;
     let mut bob = Person::new(&address).await;
-    let (mut session, group_id, key) = open_token_session(&mut alice, &mut bob).await;
+    let (_test_dir_168, mut session, group_id, key) =
+        open_token_session(&mut alice, &mut bob).await;
     send_session_text(&mut session, &mut alice, &group_id, b"one").await;
     assert_eq!(senders(&mut bob).await, [key.to_vec()]);
 
@@ -192,7 +200,11 @@ async fn token_profiles(
     profiles
 }
 
-async fn open_token_session(alice: &mut Person, bob: &mut Person) -> (Session, Vec<u8>, [u8; 32]) {
+async fn open_token_session(
+    alice: &mut Person,
+    bob: &mut Person,
+) -> (dyapp_test_support::TestDir, Session, Vec<u8>, [u8; 32]) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let profiles = token_profiles(alice, bob).await;
     let alice_mailbox = alice.mailbox();
     let (group, welcome) = chat::invite(&mut alice.node, &alice.device, &alice_mailbox, &profiles)
@@ -202,7 +214,8 @@ async fn open_token_session(alice: &mut Person, bob: &mut Person) -> (Session, V
     assert_eq!(senders(bob).await.len(), 1);
     let group_id = group.id().to_vec();
     let today = u32::try_from(dyapp_client::now() / 86_400).unwrap();
-    let mut store = Store::open(&store_path("token-session"), &alice.identity).unwrap();
+    let mut store =
+        Store::open(&test_dir.path().join("token-session.db"), &alice.identity).unwrap();
     store
         .stage_group(
             &group,
@@ -223,7 +236,8 @@ async fn open_token_session(alice: &mut Person, bob: &mut Person) -> (Session, V
             .unwrap();
         store.apply_interaction(sender, target, &[1], like).unwrap();
     }
-    (Session::open(store, &SEAL).unwrap(), group_id, key)
+    let session = Session::open(store, &SEAL).unwrap();
+    (test_dir, session, group_id, key)
 }
 
 async fn send_session_text(
@@ -244,7 +258,9 @@ async fn send_session_text(
 }
 
 async fn revoke_contact_token(bob: &mut Person, mailbox: &[u8; 32], key: &[u8; 32], today: u32) {
-    let mut store = Store::open(&store_path("token-session-bob"), &bob.identity).unwrap();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let mut store =
+        Store::open(&test_dir.path().join("token-session-bob.db"), &bob.identity).unwrap();
     store.record_issued("alice", mailbox, key, today).unwrap();
     store
         .stage_outbound(&bob.device.seal(&SEAL).unwrap(), &[])
@@ -278,6 +294,7 @@ async fn receive(
 
 #[tokio::test]
 async fn two_sessions_trade_tokens_after_a_match_and_a_message_passes_a_full_pool() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     // Default limits: require_write_tokens is on.
     let address = start_config(|config| {
         config.roles = vec![Role::Store];
@@ -288,7 +305,10 @@ async fn two_sessions_trade_tokens_after_a_match_and_a_message_passes_a_full_poo
     let mut alice = Person::new(&address).await;
     let mut bob = Person::new(&address).await;
     let alice_mailbox = alice.mailbox();
-    let (alice_path, bob_path) = (store_path("trade-alice"), store_path("trade-bob"));
+    let (alice_path, bob_path) = (
+        test_dir.path().join("trade-alice.db"),
+        test_dir.path().join("trade-bob.db"),
+    );
     let (mut alice_session, mut bob_session, profiles, group_id) =
         open_trade_sessions(&mut alice, &mut bob, &alice_path, &bob_path).await;
     trade_tokens(

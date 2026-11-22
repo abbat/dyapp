@@ -3,7 +3,7 @@ use super::*;
 
 #[test]
 fn legacy_keep_admits_exact_version_hash_and_clock_boundaries() {
-    let mut s = media_service(|_| {});
+    let (_s_test_dir, mut s) = media_service(|_| {});
     let manual = crate::clock::Manual::at(1_800_000_000);
     s.clock = manual.clock();
     let now = s.clock.timestamp().unsigned_abs();
@@ -53,7 +53,7 @@ fn legacy_keep_admits_exact_version_hash_and_clock_boundaries() {
 
 #[test]
 fn conditional_keep_admits_exact_clock_boundaries() {
-    let mut s = media_service(|_| {});
+    let (_s_test_dir, mut s) = media_service(|_| {});
     let manual = crate::clock::Manual::at(1_800_000_000);
     s.clock = manual.clock();
     let now = s.clock.timestamp().unsigned_abs();
@@ -97,7 +97,7 @@ fn conditional_keep_admits_exact_clock_boundaries() {
 
 #[test]
 fn attachment_admits_the_exact_future_clock_boundary() {
-    let mut s = media_service(|_| {});
+    let (_s_test_dir, mut s) = media_service(|_| {});
     let manual = crate::clock::Manual::at(1_800_000_000);
     s.clock = manual.clock();
     let now = s.clock.timestamp().unsigned_abs();

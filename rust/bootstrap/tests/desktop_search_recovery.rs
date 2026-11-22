@@ -19,11 +19,15 @@ struct Fixture {
     dir: PathBuf,
     gate: Arc<IdentityGate<Active>>,
     reviews: RecoveryState,
+    _test_dir: dyapp_test_support::TestDir,
 }
 impl Fixture {
     fn new() -> Self {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let key = Arc::new(Identity::try_generate().unwrap());
-        let dir = std::env::temp_dir().join(format!("dyapp-desktop-search-{}", key.peer_id()));
+        let dir = test_dir
+            .path()
+            .join(format!("dyapp-desktop-search-{}", key.peer_id()));
         std::fs::create_dir_all(&dir).unwrap();
         let store = Store::open(&dir.join("client.db"), &key).unwrap();
         store
@@ -42,6 +46,7 @@ impl Fixture {
             key,
             dir,
             reviews: RecoveryState::default(),
+            _test_dir: test_dir,
         }
     }
     fn store(&self) -> Store {

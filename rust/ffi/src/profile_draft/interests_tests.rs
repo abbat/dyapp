@@ -1,15 +1,17 @@
 //! Optional native edits must not erase tags from older callers.
 use super::*;
 
-fn fixture() -> (String, Arc<IdentityKey>) {
+fn fixture() -> (dyapp_test_support::TestDir, String, Arc<IdentityKey>) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut nonce = [0; 16];
     getrandom::fill(&mut nonce).unwrap();
-    let root = std::env::temp_dir().join(format!(
+    let root = test_dir.path().join(format!(
         "native-interests-{:032x}",
         u128::from_be_bytes(nonce)
     ));
     std::fs::create_dir(&root).unwrap();
     (
+        test_dir,
         root.to_str().unwrap().to_owned(),
         IdentityKey::generate().unwrap(),
     )
@@ -17,7 +19,7 @@ fn fixture() -> (String, Arc<IdentityKey>) {
 
 #[test]
 fn native_interest_save_is_canonical_and_omission_preserves_while_empty_clears() {
-    let (dir, owner) = fixture();
+    let (_test_dir, dir, owner) = fixture();
     let draft = PublicProfileDraft {
         interests: Some(vec!["  Музыка ".into(), " E\u{301}COLE ".into()]),
         ..Default::default()
@@ -77,7 +79,7 @@ fn optional_interest_projection_preserves_unmentioned_tags_and_version() {
 
 #[test]
 fn rejected_native_interest_edits_leave_all_stored_fields_unchanged() {
-    let (dir, owner) = fixture();
+    let (_test_dir, dir, owner) = fixture();
     save_profile_draft(
         dir.clone(),
         owner.clone(),

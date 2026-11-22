@@ -66,12 +66,12 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::store::tests::temp_db_path;
     use dyapp_identity::Identity;
 
     #[test]
     fn daily_and_gap_due_state_survives_restart() {
-        let path = temp_db_path();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let path = test_dir.path().join("client-1.db");
         let owner = Identity::try_generate().unwrap();
         let store = Store::open(&path, &owner).unwrap();
         assert!(store.mailbox_cross_check_due(100).unwrap());
@@ -92,7 +92,12 @@ mod tests {
 
     #[test]
     fn malformed_schedule_fails_closed_as_an_error() {
-        let store = Store::open(&temp_db_path(), &Identity::try_generate().unwrap()).unwrap();
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let store = Store::open(
+            &test_dir.path().join("client-1.db"),
+            &Identity::try_generate().unwrap(),
+        )
+        .unwrap();
         store
             .db
             .execute(

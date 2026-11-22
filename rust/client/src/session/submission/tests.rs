@@ -22,6 +22,7 @@ struct Fixture {
     group: Vec<u8>,
     path: PathBuf,
     seal: [u8; 32],
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 fn person() -> (Identity, Device, VerifiedProfile) {
@@ -37,6 +38,7 @@ fn person() -> (Identity, Device, VerifiedProfile) {
 }
 
 fn fixture() -> Fixture {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let (owner, device, own) = person();
     let (peer_key, peer_device, peer) = person();
     let profiles = vec![own, peer.clone()];
@@ -44,7 +46,7 @@ fn fixture() -> Fixture {
         .create_group(&[peer_device.key_package(false).unwrap()], &profiles)
         .unwrap();
     let seal = [7; 32];
-    let path = crate::store::tests::temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let mut store = Store::open(&path, &owner).unwrap();
     store
         .stage_group(&group, &peer, &device.seal(&seal).unwrap(), &[])
@@ -58,6 +60,7 @@ fn fixture() -> Fixture {
         group: group.id().to_vec(),
         path,
         seal,
+        _test_dir: test_dir,
     }
 }
 

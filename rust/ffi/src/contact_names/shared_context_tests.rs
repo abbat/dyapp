@@ -2,15 +2,6 @@
 use super::*;
 use dyapp_identity::Identity;
 use dyapp_profile::Profile;
-use std::path::PathBuf;
-
-fn directory() -> PathBuf {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../build/native-contact-context-tests")
-        .join(Identity::try_generate().unwrap().peer_id());
-    std::fs::create_dir_all(&path).unwrap();
-    path
-}
 
 fn key(secret: u8) -> Arc<IdentityKey> {
     Arc::new(IdentityKey {
@@ -32,7 +23,8 @@ fn profile(name: &str, version: u64) -> VerifiedProfile {
 
 #[test]
 fn native_workers_share_current_names_clear_together_and_isolate_other_identities() {
-    let dir = directory();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.to_path_buf();
     let owner = key(1);
     let first = ProfileSearcher::new(dir.to_str().unwrap().into()).unwrap();
     let second = ProfileSearcher::new(dir.join(".").to_str().unwrap().into()).unwrap();
@@ -50,7 +42,8 @@ fn native_workers_share_current_names_clear_together_and_isolate_other_identitie
     };
     assert_eq!(read(&second).name, "Current");
     assert_eq!(read(&second).verified, Some(true));
-    let other_dir = directory();
+    let other_dir = test_dir.path().join("other");
+    std::fs::create_dir_all(&other_dir).unwrap();
     let other = ProfileSearcher::new(other_dir.to_str().unwrap().into()).unwrap();
     assert_ne!(owner.peer_id(), key(3).peer_id());
     assert_eq!(
@@ -82,7 +75,8 @@ fn native_workers_share_current_names_clear_together_and_isolate_other_identitie
 
 #[test]
 fn a_context_change_during_fetch_rejects_all_late_results() {
-    let dir = directory();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.to_path_buf();
     let worker = ProfileSearcher::new(dir.to_str().unwrap().into()).unwrap();
     let shared = Arc::clone(&worker.cache);
     let result = worker.fetch_and_cache(|| {
@@ -95,7 +89,8 @@ fn a_context_change_during_fetch_rejects_all_late_results() {
 
 #[test]
 fn concurrent_newer_authority_is_neither_replaced_nor_projected_as_the_old_result() {
-    let dir = directory();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.to_path_buf();
     let worker = ProfileSearcher::new(dir.to_str().unwrap().into()).unwrap();
     let shared = Arc::clone(&worker.cache);
     let newer = profile("Newer", 4);
@@ -122,7 +117,8 @@ fn concurrent_newer_authority_is_neither_replaced_nor_projected_as_the_old_resul
 
 #[test]
 fn concurrent_tombstones_prevent_a_later_live_result_from_reappearing() {
-    let dir = directory();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.to_path_buf();
     let worker = ProfileSearcher::new(dir.to_str().unwrap().into()).unwrap();
     let owner = Identity::from_secret(&[2; 32]);
     let source = Profile {
@@ -165,7 +161,8 @@ fn concurrent_tombstones_prevent_a_later_live_result_from_reappearing() {
 
 #[test]
 fn bulk_fetch_releases_the_context_guard_and_preserves_failed_fetch_authority() {
-    let dir = directory();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.to_path_buf();
     let worker = ProfileSearcher::new(dir.to_str().unwrap().into()).unwrap();
     let shared = dyapp_client::contact_verification::shared(&dir).unwrap();
     let fetched = profile("Current", 3);

@@ -304,6 +304,7 @@ async fn hits(node: &mut dyapp_client::Node) -> usize {
 
 #[tokio::test]
 async fn search_tombstone_keeps_the_direct_profile() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     dyapp_p2p_net::set_id_pow_bits(0);
     let address = start_search(None).await;
     let protocols = std::sync::Arc::new(dyapp_p2p_net::Protocols::public());
@@ -325,7 +326,7 @@ async fn search_tombstone_keeps_the_direct_profile() {
     assert_eq!(hits(&mut node).await, 1);
 
     let store =
-        dyapp_client::store::Store::open(&super::chat::store_path("hide-replay"), &owner).unwrap();
+        dyapp_client::store::Store::open(&test_dir.path().join("hide-replay.db"), &owner).unwrap();
     store.save_profile_draft(&profile).unwrap();
     store.hide_profile_draft(&owner, &profile).unwrap();
     let withdrawal = store.due_search_profile(u64::MAX).unwrap().unwrap();
@@ -349,6 +350,7 @@ async fn search_tombstone_keeps_the_direct_profile() {
 #[tokio::test]
 async fn hiding_withdraws_the_profile_from_search_and_stops_heartbeats() {
     use dyapp_client::{publish, search};
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     dyapp_p2p_net::set_id_pow_bits(0);
     let a = start_search(None).await;
     // A lone node that never saw the tombstone, so it takes the unhidden version at once.
@@ -358,7 +360,7 @@ async fn hiding_withdraws_the_profile_from_search_and_stops_heartbeats() {
     let mut node = connect(a.clone()).await.unwrap();
     let mut nodes = vec![connect(a).await.unwrap()];
     let alice = Identity::try_generate().unwrap();
-    let store = dyapp_client::store::Store::open(&super::chat::store_path("hide"), &alice).unwrap();
+    let store = dyapp_client::store::Store::open(&test_dir.path().join("hide.db"), &alice).unwrap();
     let mut draft = Profile {
         birth_year: Some(1990),
         ..Profile::default()

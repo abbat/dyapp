@@ -34,7 +34,7 @@ fn invalid_fresh_requests(
 
 #[test]
 fn fresh_request_rotates_generation_with_exact_outbox_and_preserves_clicked_hash() {
-    let (mut store, owner, path, peer) = database();
+    let (_test_dir, mut store, owner, path, peer) = database();
     let (_, answer) = request(&mut store, &peer, 1);
     admit(&mut store, &peer, 1, &answer);
     let job = store.due_sticker_pack_downloads(0).unwrap().remove(0);
@@ -74,7 +74,7 @@ fn fresh_request_rotates_generation_with_exact_outbox_and_preserves_clicked_hash
 
 #[test]
 fn outbox_failure_rolls_back_answer_reset_and_policy_refusal_keeps_generation() {
-    let (mut store, _, _, peer) = database();
+    let (_test_dir, mut store, _, _, peer) = database();
     let (_, answer) = request(&mut store, &peer, 1);
     admit(&mut store, &peer, 1, &answer);
     let job = store.due_sticker_pack_downloads(0).unwrap().remove(0);

@@ -66,7 +66,7 @@ fn beat(identity: &Identity, version: u64, time: u64) -> SignedRecord {
 
 #[test]
 fn search_publish_query_get() {
-    let s = search_service();
+    let (_s_test_dir, s) = search_service();
     let id = Identity::try_generate().unwrap();
     let record = proven(
         &id,
@@ -176,11 +176,12 @@ fn check_search_info(s: &Service) {
     assert!(info
         .capabilities
         .contains(&proto::Capability::SearchPuzzle.into()));
+    let (_heartbeat_test_dir, heartbeat) = service();
     assert_eq!(
-        service().info().capabilities,
+        heartbeat.info().capabilities,
         [i32::from(proto::Capability::ProfileHeartbeat)]
     );
-    let mut store_only = service();
+    let (_store_only_test_dir, mut store_only) = service();
     store_only.config.roles = vec![Role::Store];
     store_only.config.search.min_profile_pow_bits = 11;
     assert_eq!(store_only.info().min_profile_pow, 11);
@@ -208,7 +209,7 @@ fn r_key(s: &Service) -> Vec<u8> {
 
 #[test]
 fn search_puzzle_under_load() {
-    let s = search_service();
+    let (_s_test_dir, s) = search_service();
     s.puzzle.set_bits(12);
     let me = peer("me");
     let query = |puzzle| {
@@ -265,7 +266,7 @@ fn publish_request(record: SignedRecord) -> SearchRequest {
 
 #[test]
 fn search_network_accepts_records_above_local_send_limit_and_bounds_the_network() {
-    let mut s = search_service();
+    let (_s_test_dir, mut s) = search_service();
     s.config.search.max_profile_bytes = 4096;
     s.config.search.min_profile_pow_bits = 0;
     let owner = Identity::try_generate().unwrap();
@@ -326,7 +327,7 @@ fn check_large_profile_publish(s: &Service, record: &SignedRecord) {
 
 #[test]
 fn low_pow_heartbeat_does_not_refresh_or_remove_the_stored_record() {
-    let mut s = search_service();
+    let (_s_test_dir, mut s) = search_service();
     s.config.search.min_profile_pow_bits = 0;
     let owner = Identity::try_generate().unwrap();
     let record = Profile {
@@ -450,7 +451,7 @@ fn check_other_heartbeats(s: &Service) {
 
 #[test]
 fn search_pow_hint_is_specific_to_insufficient_difficulty() {
-    let s = search_service();
+    let (_s_test_dir, s) = search_service();
     let owner = Identity::try_generate().unwrap();
     let weak = Profile {
         version: 1,
@@ -491,11 +492,12 @@ fn search_pow_hint_is_specific_to_insufficient_difficulty() {
 
 #[test]
 fn search_refusals_and_gossip() {
-    let unsupported = service()
+    let (_unsupported_test_dir, unsupported_service) = service();
+    let unsupported = unsupported_service
         .search(&peer("p"), SearchRequest::default())
         .unwrap();
     assert!(matches!(unsupported, Search::Reply(r) if search_status(&r) == Status::Unsupported));
-    let s = search_service();
+    let (_s_test_dir, s) = search_service();
     let unknown = s.search(&peer("p"), SearchRequest::default()).unwrap();
     assert!(matches!(unknown, Search::Reply(r) if search_status(&r) == Status::Unsupported));
     let id = Identity::try_generate().unwrap();
@@ -543,7 +545,7 @@ fn search_refusals_and_gossip() {
 #[test]
 fn search_profile_pow() {
     // One strike bans, so both a missing strike and a given one are visible.
-    let mut s = service_with(|l| {
+    let (_s_test_dir, mut s) = service_with(|l| {
         l.bytes_per_second = 1 << 20;
         l.strikes_to_ban = 1;
     });
@@ -601,7 +603,7 @@ fn search_profile_pow() {
 
 #[test]
 fn search_peers_sync_on_their_own_budget() {
-    let s = search_service();
+    let (_s_test_dir, s) = search_service();
     let id = Identity::try_generate().unwrap();
     let record = proven(
         &id,
@@ -696,7 +698,8 @@ fn check_search_digest(s: &Service, sync: &Peer, key: &[u8; 32]) {
     );
     assert_eq!(status_of(digest(16, None).status), Status::Invalid);
     assert_eq!(status_of(digest(0, Some(256)).status), Status::Invalid);
-    let none = service().search_digest(sync, DigestRequest::default());
+    let (_none_test_dir, none_service) = service();
+    let none = none_service.search_digest(sync, DigestRequest::default());
     assert_eq!(status_of(none.unwrap().status), Status::Unsupported);
 }
 
@@ -732,8 +735,8 @@ fn beat_with(id: &Identity, time: u64, day: u32, nonce: u64, bits: u32) -> Signe
 }
 
 /// A search service with one indexed profile of `id` and 2-bit profile and heartbeat proofs.
-fn beat_service(id: &Identity) -> Service {
-    let mut s = service_with(|l| {
+fn beat_service(id: &Identity) -> (dyapp_test_support::TestDir, Service) {
+    let (s_test_dir, mut s) = service_with(|l| {
         l.bytes_per_second = 1 << 20;
         l.strikes_to_ban = 1;
     });
@@ -748,13 +751,13 @@ fn beat_service(id: &Identity) -> Service {
     };
     let r = search(&s, search_request::Request::Publish(proven(id, v1, 2)));
     assert_eq!(search_status(&r), Status::Ok);
-    s
+    (s_test_dir, s)
 }
 
 #[test]
 fn search_heartbeat_pow() {
     let id = Identity::try_generate().unwrap();
-    let s = beat_service(&id);
+    let (_test_dir, s) = beat_service(&id);
     let send = |who: &str, r: SignedRecord| {
         search_status(&search_as(
             &s,
@@ -804,7 +807,7 @@ fn search_heartbeat_pow() {
 #[test]
 fn heartbeat_just_before_midnight_passes() {
     let id = Identity::try_generate().unwrap();
-    let s = beat_service(&id);
+    let (_test_dir, s) = beat_service(&id);
     let day = u32::try_from(crate::clock::Clock::system().timestamp() / 86_400).unwrap() + 1;
     let now = i64::from(day) * 86_400 + 86_370;
     let nonce = dyapp_profile::solve_heartbeat(&id.public_key(), day, 2, 0, 100_000).unwrap();

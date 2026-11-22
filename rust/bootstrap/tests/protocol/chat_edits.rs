@@ -1,4 +1,4 @@
-use super::chat::{store_path, Person};
+use super::chat::Person;
 use super::*;
 use dyapp_client::chat::{self, Body, Event};
 use dyapp_client::session::Session;
@@ -245,9 +245,11 @@ struct EditFixture {
     group_id: Vec<u8>,
     alice_session: Session,
     bob_session: Session,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 async fn open_edit_fixture(label: &str) -> EditFixture {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let address = start_config(|config| {
         config.roles = vec![Role::Store];
         config.limits.requests_per_second = 1000;
@@ -265,8 +267,8 @@ async fn open_edit_fixture(label: &str) -> EditFixture {
     for owner in [&alice_owner, &bob_owner] {
         profiles.push(alice.node.get_profile(owner).await.unwrap());
     }
-    let alice_path = store_path(&format!("alice-{label}"));
-    let bob_path = store_path(&format!("bob-{label}"));
+    let alice_path = test_dir.path().join(format!("alice-{label}.db"));
+    let bob_path = test_dir.path().join(format!("bob-{label}.db"));
     let (group_id, welcome) =
         stage_edit_group(&mut alice, &bob, &profiles, &alice_path, &bob_path).await;
     let (alice_session, bob_session) = open_edit_sessions(
@@ -288,6 +290,7 @@ async fn open_edit_fixture(label: &str) -> EditFixture {
         group_id,
         alice_session,
         bob_session,
+        _test_dir: test_dir,
     }
 }
 

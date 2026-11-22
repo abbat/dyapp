@@ -84,11 +84,10 @@ fn check(
     switch: usize,
 ) -> std::result::Result<(), TestCaseError> {
     // Enough rows for several copy batches; fewer than the query limit with the three keys.
-    let base = {
-        let index = index();
-        fill(&index, 150, index.created());
-        index.path.clone()
-    };
+    let (_index_test_dir, index) = index();
+    fill(&index, 150, index.created());
+    let base = index.path.clone();
+    drop(index);
     let index = SearchIndex::open_target(&base, &crate::config::Search::default(), NEXT).unwrap();
     let keys = owners
         .each_ref()

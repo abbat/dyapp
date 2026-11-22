@@ -3,8 +3,11 @@ use dyapp_identity::Identity;
 
 #[test]
 fn snapshot_edits_keep_stale_refusal_typed_at_the_native_boundary() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::try_generate().unwrap();
-    let path = std::env::temp_dir().join(format!("photo-edits-{}", owner.peer_id()));
+    let path = test_dir
+        .path()
+        .join(format!("photo-edits-{}", owner.peer_id()));
     std::fs::create_dir_all(&path).unwrap();
     let dir = path.to_str().unwrap().to_owned();
     let key = Arc::new(IdentityKey { identity: owner });

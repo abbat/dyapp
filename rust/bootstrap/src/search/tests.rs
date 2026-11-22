@@ -2,23 +2,32 @@
 use super::*;
 use dyapp_identity::Identity;
 
-pub(super) fn index() -> SearchIndex {
+pub(super) fn index() -> (dyapp_test_support::TestDir, SearchIndex) {
     sized(1 << 40)
 }
 
-pub(super) fn sized(max_bytes: u64) -> SearchIndex {
+pub(super) fn sized(max_bytes: u64) -> (dyapp_test_support::TestDir, SearchIndex) {
     quota(max_bytes, 0.10)
 }
 
-pub(super) fn quota(max_bytes: u64, newcomer_share: f64) -> SearchIndex {
-    let dir = format!("/tmp/ai/test-search-{}", uuid::Uuid::new_v4());
+pub(super) fn quota(
+    max_bytes: u64,
+    newcomer_share: f64,
+) -> (dyapp_test_support::TestDir, SearchIndex) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir
+        .path()
+        .join("case-352")
+        .to_string_lossy()
+        .into_owned();
     std::fs::create_dir_all(&dir).unwrap();
     let search = crate::config::Search {
         max_bytes,
         newcomer_share,
         ..crate::config::Search::default()
     };
-    SearchIndex::open(&Path::new(&dir).join("profiles-idx.db"), &search).unwrap()
+    let index = SearchIndex::open(&Path::new(&dir).join("profiles-idx.db"), &search).unwrap();
+    (test_dir, index)
 }
 
 /// Puts `n` new keys at `place` from `now` on; `limit = false` inside the first
@@ -131,7 +140,7 @@ pub(super) fn assert_digest_consistent(index: &SearchIndex) {
 
 #[test]
 fn digest_rebuilt_on_open() {
-    let index = index();
+    let (_index_test_dir, index) = index();
     fill(&index, 20, 0);
     let path = index.path.clone();
     lock(&index.db)
@@ -152,7 +161,7 @@ fn digest_rebuilt_on_open() {
 
 #[test]
 fn unknown_places_go_to_the_country_bucket() {
-    let index = index();
+    let (_index_test_dir, index) = index();
     let mut keys = vec![];
     for place in ["2950159", "999999999", "berlin", ""] {
         let profile = Profile {
@@ -177,7 +186,7 @@ fn unknown_places_go_to_the_country_bucket() {
 
 #[test]
 fn place_counts_follow_put_remove_and_expiry() {
-    let index = index();
+    let (_index_test_dir, index) = index();
     let id = Identity::try_generate().unwrap();
     let (key, p, r) = signed(&id, profile(1));
     index.put(&key, &p, &r, 1_000, true).unwrap();
@@ -200,7 +209,7 @@ fn place_counts_follow_put_remove_and_expiry() {
 
 #[test]
 fn first_seen_and_bytes_are_kept() {
-    let index = index();
+    let (_index_test_dir, index) = index();
     let id = Identity::try_generate().unwrap();
     let (key, p, r) = signed(&id, profile(1));
     index.put(&key, &p, &r, 1_000, true).unwrap();
@@ -214,7 +223,7 @@ fn first_seen_and_bytes_are_kept() {
 
 #[test]
 fn maintenance_frees_expired_pages_of_the_index() {
-    let index = index();
+    let (_index_test_dir, index) = index();
     put_at(&index, "2950159", 300, 1, false);
     assert_eq!(index.expire(i64::MAX).unwrap(), 300);
     let free = index.maintain(1).unwrap();

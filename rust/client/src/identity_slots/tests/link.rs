@@ -5,7 +5,6 @@ mod retained_platform;
 mod sender;
 mod wrapped;
 
-use super::root;
 use crate::identity_slots::*;
 use crate::link::Linked;
 use crate::store::Store;
@@ -105,8 +104,9 @@ impl KeyRemover for WrappedKeys {
 
 #[test]
 fn selected_android_link_refuses_missing_or_wrong_reopened_wrapping_keys() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     for failure in [WrappedFailure::Missing, WrappedFailure::WrongOwner] {
-        let root = root();
+        let root = test_dir.to_path_buf();
         let registry = Registry::new(root.clone(), Layout::Android);
         let keys = WrappedKeys::default();
         let (source, owner, _) = registry.create(Storage::Wrapped, &keys).unwrap();
@@ -149,7 +149,8 @@ fn selected_android_link_refuses_missing_or_wrong_reopened_wrapping_keys() {
 
 /// Links into a fresh registry; returns whether the waiting slot was kept.
 fn run(wizard: bool, published: bool) -> bool {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = Registry::new(root.clone(), Layout::Desktop);
     let (old, current, _) = registry.create(Storage::File, &Files).unwrap();
     let rows = Network {
@@ -206,7 +207,8 @@ fn a_record_makes_a_ready_slot_and_only_an_empty_wizard_slot_goes() {
 
 #[test]
 fn a_failed_device_key_leaves_the_new_slot_pending_and_the_selection_alone() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = Registry::new(root.clone(), Layout::Desktop);
     let (old, _, _) = registry.create(Storage::File, &Files).unwrap();
     let linked = Linked {
@@ -245,7 +247,8 @@ fn refused_selected_link(
     change: impl FnOnce(&Registry, &Slot, &Identity) -> String,
     expected: &str,
 ) {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = Registry::new(root.clone(), Layout::Desktop);
     let (source, owner, _) = registry.create(Storage::File, &Files).unwrap();
     let expected_peer = change(&registry, &source, &owner);
@@ -320,7 +323,8 @@ fn selected_link_refuses_a_source_that_is_no_longer_ready() {
 
 #[test]
 fn selected_link_reuses_the_writer_and_removes_only_its_empty_wizard_source() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = Registry::new(root.clone(), Layout::Desktop);
     let (source, owner, _) = registry.create(Storage::File, &Files).unwrap();
     let linked = incoming();

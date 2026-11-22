@@ -15,7 +15,12 @@ fn catch_up_asks_two_distinct_peers_per_topic() {
 
 #[tokio::test]
 async fn hourly_status_reports_and_resets_wire_bytes_and_failed_gossip_adds_none() {
-    let dir = format!("/tmp/ai/test-wire-status-{}", uuid::Uuid::new_v4());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir
+        .path()
+        .join("case-635")
+        .to_string_lossy()
+        .into_owned();
     let mut config = crate::NodeConfig::default();
     config.storage.dir = dir.clone().into();
     let service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config).unwrap();
@@ -79,46 +84,13 @@ mod replica_mutants;
 mod republish;
 
 #[tokio::test]
-async fn background_media_repair_holds_no_channel() {
-    let dir = format!(
-        "/tmp/ai/test-background-media-repair-{}",
-        uuid::Uuid::new_v4()
-    );
-    let mut config = crate::NodeConfig::default();
-    config.storage.dir = dir.clone().into();
-    let mut service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config).unwrap();
-    service.media = Some(crate::media::MediaStore::open(&service.config.storage.dir).unwrap());
-    let mut swarm = swarm(
-        Keypair::generate_ed25519(),
-        &service.config.limits,
-        &service.config.roles,
-    )
-    .unwrap();
-    let owner = dyapp_identity::Identity::try_generate().unwrap();
-    let hash = dyapp_identity::sha256(b"unavailable blob").to_vec();
-    let keep = proto::MediaKeep {
-        version: 1,
-        hashes: vec![hash.clone()],
-        time: crate::clock::Clock::system().timestamp().unsigned_abs(),
-    };
-    let record = owner.sign(dyapp_identity::Domain::MediaKeep, keep.encode_to_vec());
-    let mut replicas = Replicas::default();
-    let now = Instant::now();
-    let id = replicas
-        .start_media_repair(&mut swarm, &service, record, now)
-        .expect("background repair starts");
-    assert!(replicas.media_repairs[&id].1.is_none());
-    assert_eq!(
-        replicas.finish_media_repairs(&mut swarm, &service, now + crate::media_repair::TIMEOUT),
-        vec![(id, false)],
-    );
-    assert!(!replicas.media_repairs.contains_key(&id));
-    assert_eq!(replicas.media_repaired.result(&hash, now), Some(true));
-}
-
-#[tokio::test]
 async fn media_queue_drops_capped_writes_without_tracking_or_trust_penalties() {
-    let dir = format!("/tmp/ai/test-media-cap-{}", uuid::Uuid::new_v4());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir
+        .path()
+        .join("case-4471")
+        .to_string_lossy()
+        .into_owned();
     let mut config = crate::NodeConfig::default();
     config.storage.dir = dir.clone().into();
     let mut service = Service::new(crate::BootstrapStore::new(&dir).unwrap(), config).unwrap();
@@ -252,8 +224,15 @@ async fn receive_repair_batch(
 
 #[tokio::test]
 async fn mailbox_repair_over_fifty_envelopes_makes_progress_after_refill() {
-    let service = || {
-        let dir = format!("/tmp/ai/test-repair-cap-{}", uuid::Uuid::new_v4());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let mut sequence = 0;
+    let mut service = || {
+        sequence += 1;
+        let dir = test_dir
+            .path()
+            .join(format!("case-{sequence}"))
+            .to_string_lossy()
+            .into_owned();
         let mut config = crate::config::NodeConfig::default();
         config.storage.dir = dir.clone().into();
         config.network.id_pow_bits = 0;
@@ -375,7 +354,12 @@ async fn check_repair_refill(
 
 #[tokio::test]
 async fn repair_sends_no_signals_but_lists_them() {
-    let dir = format!("/tmp/ai/test-repair-signals-{}", uuid::Uuid::new_v4());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir
+        .path()
+        .join("case-13724")
+        .to_string_lossy()
+        .into_owned();
     let mut config = crate::config::NodeConfig::default();
     config.storage.dir = dir.clone().into();
     config.network.id_pow_bits = 0;
@@ -432,7 +416,12 @@ fn replica_cap_has_atomic_burst_separate_destinations_and_refill() {
 
 #[tokio::test]
 async fn mailbox_profile_and_profile_repair_share_the_sender_cap() {
-    let dir = format!("/tmp/ai/test-replica-cap-{}", uuid::Uuid::new_v4());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir
+        .path()
+        .join("case-16187")
+        .to_string_lossy()
+        .into_owned();
     let mut config = crate::config::NodeConfig::default();
     config.storage.dir = dir.clone().into();
     config.search.min_profile_pow_bits = 0;
@@ -554,7 +543,12 @@ fn check_other_profile_receivers(
 
 #[tokio::test]
 async fn media_inventory_requires_near_trusted_peers_and_budget() {
-    let dir = format!("/tmp/ai/test-media-inventory-{}", uuid::Uuid::new_v4());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir
+        .path()
+        .join("case-20135")
+        .to_string_lossy()
+        .into_owned();
     let mut config = crate::config::NodeConfig::default();
     config.storage.dir = dir.clone().into();
     config.limits.bytes_per_second = 10_000;
@@ -653,6 +647,7 @@ fn put_ack_counts_distinct_holders_and_times_out() {
 
 #[tokio::test]
 async fn sharded_writes_require_k_indices_and_queue_two_streams_per_peer() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let (manifest, shards) = crate::replication::media_encode(&vec![1; (1 << 20) + 1]).unwrap();
     let replica = proto::MediaReplicaPut {
         manifest: Some(manifest),
@@ -672,11 +667,7 @@ async fn sharded_writes_require_k_indices_and_queue_two_streams_per_peer() {
     put.shard_stored.insert(1);
     assert_eq!(put.result(Instant::now()), Some(Status::Ok));
     let service = Service::new(
-        crate::BootstrapStore::new(&format!(
-            "/tmp/ai/test-shard-queue-{}",
-            uuid::Uuid::new_v4()
-        ))
-        .unwrap(),
+        crate::BootstrapStore::new(test_dir.path().to_str().unwrap()).unwrap(),
         crate::NodeConfig::default(),
     )
     .unwrap();
@@ -709,12 +700,9 @@ fn pending_media(latest: bool) -> PendingPut {
 
 #[tokio::test]
 async fn media_holder_status_counts_distinct_confirmations_for_the_latest_write() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let service = Service::new(
-        crate::BootstrapStore::new(&format!(
-            "/tmp/ai/test-media-holders-{}",
-            uuid::Uuid::new_v4()
-        ))
-        .unwrap(),
+        crate::BootstrapStore::new(test_dir.path().to_str().unwrap()).unwrap(),
         crate::NodeConfig::default(),
     )
     .unwrap();
@@ -780,7 +768,8 @@ fn stale_profile_confirmation_must_verify_the_owner_and_version() {
 
 #[tokio::test]
 async fn holders_store_once_and_replica_puts_never_fan_out() {
-    let dir = format!("/tmp/ai/test-fanout-{}", uuid::Uuid::new_v4());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().to_string_lossy().into_owned();
     let mut config = crate::config::NodeConfig::default();
     config.storage.dir = dir.clone().into();
     let service = Service::new(crate::storage::BootstrapStore::new(&dir).unwrap(), config).unwrap();
@@ -880,7 +869,10 @@ fn holder_selection_includes_local_and_handles_unsorted_lookup_results() {
 
 #[test]
 fn damaged_peer_cache_lines_are_skipped() {
-    let dir = std::env::temp_dir().join(format!("dyapp-peers-{}", std::process::id()));
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir
+        .path()
+        .join(format!("dyapp-peers-{}", std::process::id()));
     assert_eq!(cached_peers(&dir), [] as [libp2p::Multiaddr; 0]);
     fs::write(&dir, "/ip4/1.2.3.4/tcp/1\ngarbage\n").unwrap();
     assert_eq!(cached_peers(&dir), ["/ip4/1.2.3.4/tcp/1".parse().unwrap()]);

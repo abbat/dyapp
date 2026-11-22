@@ -1,11 +1,11 @@
 use super::*;
-use crate::store::tests::temp_db_path;
 use dyapp_identity::Identity;
 
 #[test]
 fn preparation_exceeds_every_known_version_and_refuses_exhaustion() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     store
         .save_profile_draft(&Profile {
             version: 2,
@@ -53,8 +53,9 @@ fn preparation_exceeds_every_known_version_and_refuses_exhaustion() {
 
 #[test]
 fn completion_preserves_latest_fields_photos_devices_and_stronger_proof() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let request = Profile {
         name: "old".into(),
         ..Default::default()
@@ -99,8 +100,9 @@ fn completion_preserves_latest_fields_photos_devices_and_stronger_proof() {
 
 #[test]
 fn request_proof_and_fields_are_a_fallback_when_no_draft_exists() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let mut request = Profile {
         name: "fallback".into(),
         ..Default::default()
@@ -126,8 +128,9 @@ fn request_proof_and_fields_are_a_fallback_when_no_draft_exists() {
 #[test]
 fn newer_draft_search_or_observation_refuses_completion_without_mutation() {
     for source in ["draft", "search", "seen"] {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let identity = Identity::from_secret(&[7; 32]);
-        let store = Store::open(&temp_db_path(), &identity).unwrap();
+        let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
         let request = Profile::default();
         let prepared = store
             .prepare_profile_withdrawal(&identity, &request, 0)
@@ -159,8 +162,9 @@ fn newer_draft_search_or_observation_refuses_completion_without_mutation() {
 
 #[test]
 fn same_version_fork_rolls_back_draft_and_visibility() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let request = Profile {
         name: "keep".into(),
         ..Default::default()
@@ -186,8 +190,9 @@ fn same_version_fork_rolls_back_draft_and_visibility() {
 
 #[test]
 fn equal_version_ordinary_draft_is_not_overwritten_before_its_search_write() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let request = Profile::default();
     let prepared = store
         .prepare_profile_withdrawal(&identity, &request, 0)
@@ -209,8 +214,9 @@ fn equal_version_ordinary_draft_is_not_overwritten_before_its_search_write() {
 
 #[test]
 fn equal_version_hidden_completion_is_idempotent_after_search_ack() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let request = Profile::default();
     let prepared = store
         .prepare_profile_withdrawal(&identity, &request, 0)
@@ -232,8 +238,9 @@ fn equal_version_hidden_completion_is_idempotent_after_search_ack() {
 
 #[test]
 fn final_flag_failure_rolls_back_all_projection_rows() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let request = Profile {
         version: 1,
         ..Default::default()
@@ -263,8 +270,9 @@ fn final_flag_failure_rolls_back_all_projection_rows() {
 
 #[test]
 fn owner_and_canonical_tombstone_checks_precede_writes() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let request = Profile::default();
     let prepared = Profile::tombstone(1, 0, 0);
     let stranger = Identity::try_generate().unwrap();
@@ -293,8 +301,9 @@ fn owner_and_canonical_tombstone_checks_precede_writes() {
 
 #[test]
 fn completion_acquires_writer_before_reading_current_draft() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let path = temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let first = Store::open(&path, &identity).unwrap();
     let second = Store::open(&path, &identity).unwrap();
     second.db.busy_timeout(std::time::Duration::ZERO).unwrap();

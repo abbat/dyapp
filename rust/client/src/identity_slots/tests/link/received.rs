@@ -12,7 +12,8 @@ fn mutation_available(root: &std::path::Path) {
 
 #[test]
 fn a_received_record_never_retries_an_interrupted_destination_implicitly() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = Registry::new(root.clone(), Layout::Android);
     let keys = WrappedKeys::default();
     let (source, owner, _) = registry.create(Storage::Wrapped, &keys).unwrap();
@@ -50,7 +51,8 @@ fn a_received_record_never_retries_an_interrupted_destination_implicitly() {
 
 #[test]
 fn a_platform_unwind_keeps_an_unconfirmed_outcome_instead_of_retrying() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = Registry::new(root.clone(), Layout::Android);
     let keys = WrappedKeys::default();
     let (source, owner, _) = registry.create(Storage::Wrapped, &keys).unwrap();
@@ -82,7 +84,8 @@ fn a_platform_unwind_keeps_an_unconfirmed_outcome_instead_of_retrying() {
 
 #[test]
 fn a_completed_received_link_returns_its_receipt_without_another_installation() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = Registry::new(root.clone(), Layout::Android);
     let keys = WrappedKeys::default();
     let (source, owner, _) = registry.create(Storage::Wrapped, &keys).unwrap();

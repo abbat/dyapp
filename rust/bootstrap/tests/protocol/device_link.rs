@@ -3,7 +3,7 @@
 #[path = "device_link/mailbox_failure.rs"]
 mod mailbox_failure;
 
-use super::chat::{store_path, Person};
+use super::chat::Person;
 use super::*;
 use dyapp_client::chat::{self, Body, Event, PeerChange};
 use dyapp_client::interactions::Kind;
@@ -29,13 +29,14 @@ const SEAL: [u8; 32] = [6; 32];
 /// One device's turn to commit to a group.
 const ADD_TURN_SECONDS: u64 = 3600;
 
-fn session(person: &Person, name: &str) -> Session {
-    let path = store_path(name);
+fn session(person: &Person, name: &str) -> (dyapp_test_support::TestDir, Session) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join(format!("{name}.db"));
     let mut store = Store::open(&path, &person.identity).unwrap();
     store
         .stage_outbound(&person.device.seal(&SEAL).unwrap(), &[])
         .unwrap();
-    Session::open(store, &SEAL).unwrap()
+    (test_dir, Session::open(store, &SEAL).unwrap())
 }
 
 async fn link_node() -> Multiaddr {
@@ -80,9 +81,9 @@ async fn a_linked_device_joins_a_chat_and_a_stale_contact_catches_up() {
         held.push(alice.node.get_profile(peer).await.unwrap());
     }
 
-    let (mut alice_session, mut bob_session, group_id) =
+    let (_test_dir, _bob_test_dir, mut alice_session, mut bob_session, group_id) =
         begin_chat(&mut alice, &mut bob, &held).await;
-    let (mut laptop, mut laptop_session, linked) =
+    let (_laptop_test_dir, mut laptop, mut laptop_session, linked) =
         Box::pin(publish_laptop(&mut alice, &address, &held)).await;
     let now = 1_000_000;
     check_added_devices((&mut alice_session, &mut alice), &linked, now).await;
@@ -125,8 +126,17 @@ async fn begin_chat(
     alice: &mut Person,
     bob: &mut Person,
     held: &[dyapp_profile::VerifiedProfile],
-) -> (Session, Session, Vec<u8>) {
-    begin_chat_at(alice, bob, held, &store_path("link-alice")).await
+) -> (
+    dyapp_test_support::TestDir,
+    dyapp_test_support::TestDir,
+    Session,
+    Session,
+    Vec<u8>,
+) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let (bob_test_dir, alice, bob, group) =
+        begin_chat_at(alice, bob, held, &test_dir.path().join("link-alice.db")).await;
+    (test_dir, bob_test_dir, alice, bob, group)
 }
 
 async fn begin_chat_at(
@@ -134,7 +144,7 @@ async fn begin_chat_at(
     bob: &mut Person,
     held: &[dyapp_profile::VerifiedProfile],
     alice_path: &std::path::Path,
-) -> (Session, Session, Vec<u8>) {
+) -> (dyapp_test_support::TestDir, Session, Session, Vec<u8>) {
     // The chat begins with one device on each side.
     let alice_mailbox = alice.mailbox();
     let (group, welcome) = chat::invite(&mut alice.node, &alice.device, &alice_mailbox, held)
@@ -156,21 +166,26 @@ async fn begin_chat_at(
         .unwrap();
     let alice_session =
         Session::open(Store::open(alice_path, &alice.identity).unwrap(), &SEAL).unwrap();
-    let mut bob_session = session(bob, "link-bob");
+    let (test_dir_162, mut bob_session) = session(bob, "link-bob");
     alice.node.put_prepared(&welcome[0]).await.unwrap();
     bob_session
         .receive(from_mut(&mut bob.node), &bob.device_key, held, &SEAL)
         .await
         .unwrap();
 
-    (alice_session, bob_session, group_id)
+    (test_dir_162, alice_session, bob_session, group_id)
 }
 
 async fn publish_laptop(
     alice: &mut Person,
     address: &Multiaddr,
     held: &[dyapp_profile::VerifiedProfile],
-) -> (Person, Session, Vec<dyapp_profile::VerifiedProfile>) {
+) -> (
+    dyapp_test_support::TestDir,
+    Person,
+    Session,
+    Vec<dyapp_profile::VerifiedProfile>,
+) {
     let owner = alice.identity.peer_id();
     // The owner links a laptop: it publishes a profile that lists it, then its KeyPackages.
     let identity = Identity::from_secret(&alice.identity.secret());
@@ -197,13 +212,13 @@ async fn publish_laptop(
     )
     .await
     .unwrap();
-    let laptop_session = session(&laptop, "link-laptop");
+    let (test_dir_203, laptop_session) = session(&laptop, "link-laptop");
     let linked = vec![
         alice.node.get_profile(&owner).await.unwrap(),
         held[1].clone(),
     ];
 
-    (laptop, laptop_session, linked)
+    (test_dir_203, laptop, laptop_session, linked)
 }
 
 async fn confirm_linked_delivery(
@@ -418,12 +433,13 @@ async fn check_removal_turns(
 
 #[tokio::test]
 async fn a_device_that_missed_an_edit_never_overwrites_it() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let address = link_node().await;
     let mut alice = Person::new(&address).await;
     let owner = alice.identity.peer_id();
     let held = alice.node.get_profile(&owner).await.unwrap().profile;
-    let laptop = Store::open(&store_path("publish-laptop"), &alice.identity).unwrap();
-    let phone = Store::open(&store_path("publish-phone"), &alice.identity).unwrap();
+    let laptop = Store::open(&test_dir.path().join("publish-laptop.db"), &alice.identity).unwrap();
+    let phone = Store::open(&test_dir.path().join("publish-phone.db"), &alice.identity).unwrap();
 
     let edit = |year, base: &Profile| Profile {
         birth_year: Some(year),
@@ -493,12 +509,13 @@ async fn check_old_draft_withdrawal(
 
 #[tokio::test]
 async fn own_devices_share_a_group_that_is_not_a_chat() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let address = link_node().await;
     let (mut first, mut second, own) = Box::pin(own_device_pair(&address)).await;
     let held = [own.clone()];
     let now = 1_000_000;
-    let mut first_session = session(&first, "own-first");
-    let second_path = store_path("own-second");
+    let (_first_test_dir, mut first_session) = session(&first, "own-first");
+    let second_path = test_dir.path().join("own-second.db");
     let mut store = Store::open(&second_path, &second.identity).unwrap();
     store
         .stage_outbound(&second.device.seal(&SEAL).unwrap(), &[])
@@ -666,10 +683,10 @@ fn assert_first_private_sync(synced: &Store, peer: &str) {
 async fn any_own_device_revokes_another_and_it_stays_out() {
     let address = link_node().await;
     let mut alice = Person::new(&address).await;
-    let alice_session = session(&alice, "revoke-alice");
+    let (_test_dir_674, alice_session) = session(&alice, "revoke-alice");
     let mut laptop =
         Person::device(&address, Identity::from_secret(&alice.identity.secret()), 2).await;
-    let mut laptop_session = session(&laptop, "revoke-laptop");
+    let (_test_dir_677, mut laptop_session) = session(&laptop, "revoke-laptop");
     let laptop_key = laptop.device_key.public_key();
 
     let (listed, before_laptop) = check_device_listing(
@@ -796,10 +813,12 @@ fn check_cannot_relist(
 #[tokio::test]
 async fn a_link_record_crosses_a_node_and_restores_the_owner() {
     const NOW: u64 = 1_000_000;
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let address = link_node().await;
     let mut alice = Person::new(&address).await;
     let owner = alice.identity.peer_id();
-    let mut phone = Store::open(&store_path("restore-phone"), &alice.identity).unwrap();
+    let mut phone =
+        Store::open(&test_dir.path().join("restore-phone.db"), &alice.identity).unwrap();
     phone.set_blocked("bob", true).unwrap();
     phone.set_local_name("carol", "Carrie").unwrap();
     phone.pass("erin", true, 1_000).unwrap();
@@ -851,11 +870,13 @@ async fn check_restored_owner(
     linked: dyapp_client::link::Linked,
     now: u64,
 ) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = alice.identity.peer_id();
     // The fresh store takes the state and the live profile, and the laptop lists itself.
     let mut laptop =
         Person::device(address, Identity::from_secret(&linked.identity.secret()), 2).await;
-    let mut store = Store::open(&store_path("restore-laptop"), &laptop.identity).unwrap();
+    let mut store =
+        Store::open(&test_dir.path().join("restore-laptop.db"), &laptop.identity).unwrap();
     let live = alice.node.get_profile(&owner).await.unwrap().profile;
     let adopted = publish::adopt(
         &mut store,
@@ -904,12 +925,12 @@ async fn finish_pending(
 
 #[tokio::test]
 async fn a_linked_device_finishes_after_a_failed_step_without_spending_a_version() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let address = link_node().await;
     let mut alice = Person::new(&address).await;
-    let owner = alice.identity.peer_id();
     let device_key = Identity::try_generate().unwrap();
     let copy = Identity::from_secret(&alice.identity.secret());
-    let path = store_path("finish-laptop");
+    let path = test_dir.path().join("finish-laptop.db");
     let mut laptop = Person::device(&address, copy, 2).await;
     let identity = Identity::from_secret(&alice.identity.secret());
     let store = Store::open(&path, &identity).unwrap();
@@ -920,7 +941,7 @@ async fn a_linked_device_finishes_after_a_failed_step_without_spending_a_version
 
     // A step fails: no profile answers, and the state stays for the next pass.
     let store = Store::open(&path, &identity).unwrap();
-    let phone = Store::open(&store_path("finish-phone"), &identity).unwrap();
+    let phone = Store::open(&test_dir.path().join("finish-phone.db"), &identity).unwrap();
     phone.set_blocked("bob", true).unwrap();
     store
         .set_link_pending(&phone.link_state().unwrap())
@@ -932,31 +953,17 @@ async fn a_linked_device_finishes_after_a_failed_step_without_spending_a_version
             .is_err()
     );
 
-    let store = Store::open(&path, &identity).unwrap();
-    assert!(store.link_pending().unwrap().is_some());
-    let live = alice.node.get_profile(&owner).await.unwrap().profile;
-    assert!(
-        finish_pending(store, &mut laptop.node, &identity, &device_key)
-            .await
-            .unwrap()
-    );
-    let listed = alice.node.get_profile(&owner).await.unwrap().profile;
-    assert_eq!(listed.version, live.version + 1);
-    assert_eq!(listed.devices.len(), live.devices.len() + 1);
+    let listed =
+        finish::finish_live_link(&mut alice, &mut laptop, &identity, &device_key, &path).await;
 
-    // Everything is done but the row: a repeat ends it and leaves the profile alone.
-    let store = Store::open(&path, &identity).unwrap();
-    assert!(store.link_pending().unwrap().is_none());
-    assert!(store.blocked("bob").unwrap());
-    assert_eq!(store.device_listed().unwrap(), listed.version);
-    store
-        .set_link_pending(&phone.link_state().unwrap())
-        .unwrap();
-    assert!(
-        finish_pending(store, &mut laptop.node, &identity, &device_key)
-            .await
-            .unwrap()
-    );
-    let served = alice.node.get_profile(&owner).await.unwrap().profile;
-    assert_eq!(served.version, listed.version);
+    finish::finish_completed_link(
+        &mut alice,
+        &mut laptop,
+        &identity,
+        &device_key,
+        &path,
+        &phone,
+        listed,
+    )
+    .await;
 }

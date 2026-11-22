@@ -1,8 +1,5 @@
 //! Catalog persistence, admission and rollback fixtures.
-use super::{
-    tests::{person, temp_db_path},
-    Error, Store,
-};
+use super::{tests::person, Error, Store};
 use crate::{prepare_put, PreparedEnvelope};
 use dyapp_identity::Identity;
 use dyapp_messaging::mls::Device;
@@ -42,8 +39,9 @@ fn group_fixture() -> GroupFixture {
 
 #[test]
 fn failed_group_staging_rolls_back_catalog_and_outbox() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let f = group_fixture();
-    let mut store = Store::open(&temp_db_path(), &f.identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &f.identity).unwrap();
     store
         .db
         .execute_batch(
@@ -65,8 +63,9 @@ fn failed_group_staging_rolls_back_catalog_and_outbox() {
 
 #[test]
 fn group_catalog_and_outbox_reopen_with_the_sealed_device() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let f = group_fixture();
-    let path = temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let mut store = Store::open(&path, &f.identity).unwrap();
     let sealed = f.alice.seal(&[9; 32]).unwrap();
     store
@@ -95,8 +94,9 @@ fn group_catalog_and_outbox_reopen_with_the_sealed_device() {
 
 #[test]
 fn established_partner_binding_reopens_after_its_last_device_is_revoked() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut f = group_fixture();
-    let path = temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let mut store = Store::open(&path, &f.identity).unwrap();
     let sealed = f.alice.seal(&[9; 32]).unwrap();
     store
@@ -120,7 +120,7 @@ fn established_partner_binding_reopens_after_its_last_device_is_revoked() {
     assert_eq!(loaded[0].1, f.bob_profile.peer_id);
     assert_eq!(loaded[0].0.members().unwrap(), vec![f.identity.peer_id()]);
     // This restoration exception must not register a new owner-only group for another peer.
-    let mut fresh = Store::open(&temp_db_path(), &f.identity).unwrap();
+    let mut fresh = Store::open(&test_dir.path().join("client-2.db"), &f.identity).unwrap();
     assert!(matches!(
         fresh.stage_group(&f.group, &f.bob_profile, &sealed, &[]),
         Err(Error::GroupConflict)
@@ -129,9 +129,10 @@ fn established_partner_binding_reopens_after_its_last_device_is_revoked() {
 
 #[test]
 fn group_catalog_rejects_wrong_peers_and_missing_device_groups() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let f = group_fixture();
     let (_, _, carol_profile) = person();
-    let mut store = Store::open(&temp_db_path(), &f.identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &f.identity).unwrap();
     let sealed = f.alice.seal(&[9; 32]).unwrap();
     for wrong in [&carol_profile, &f.alice_profile] {
         assert!(matches!(

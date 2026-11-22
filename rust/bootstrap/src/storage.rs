@@ -680,8 +680,8 @@ mod tests {
     mod interleavings;
     mod records;
 
-    pub(super) fn temp_store() -> BootstrapStore {
-        BootstrapStore::new(&format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4())).unwrap()
+    pub(super) fn temp_store(dir: &Path) -> BootstrapStore {
+        BootstrapStore::new(dir.to_str().unwrap()).unwrap()
     }
 
     impl BootstrapStore {
@@ -702,8 +702,9 @@ mod tests {
 
     #[test]
     fn free_space_accepts_directories_and_files_and_rejects_invalid_paths() {
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../build")
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir
+            .path()
             .join(format!("free-space-кириллица-{}", Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("store.db");
@@ -717,7 +718,12 @@ mod tests {
 
     #[test]
     fn profiles_expire_after_the_owner_was_last_seen() {
-        let dir = format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4());
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir
+            .path()
+            .join("case-27307")
+            .to_string_lossy()
+            .into_owned();
         std::fs::create_dir_all(&dir).unwrap();
         let store = BootstrapStore::new(&dir).unwrap();
         let now = crate::clock::Clock::system().timestamp();
@@ -739,6 +745,7 @@ mod tests {
     fn a_newer_store_file_is_refused_and_left_untouched() {
         use crate::{config::Search, deny::DenyStore, media::MediaStore, search::SearchIndex};
         type Open = fn(&Path) -> Result<()>;
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let stores: [(&str, Open); 5] = [
             ("profiles.db", |dir| {
                 BootstrapStore::new(dir.to_str().unwrap()).map(drop)
@@ -755,7 +762,7 @@ mod tests {
             }),
         ];
         for (file, open) in stores {
-            let dir = Path::new("/tmp/ai").join(format!("test-bootstrap-{}", Uuid::new_v4()));
+            let dir = test_dir.path().join(file);
             std::fs::create_dir_all(&dir).unwrap();
             open(&dir).unwrap();
             let path = dir.join(file);
@@ -775,8 +782,9 @@ mod tests {
 
     #[test]
     fn sqlite_value_limit_applies_to_corrupt_existing_rows() {
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../build")
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir
+            .path()
             .join(format!("sqlite-value-limit-{}", Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("values.db");
@@ -820,7 +828,12 @@ mod tests {
 
     #[test]
     fn the_envelope_lookups_use_the_class_index() {
-        let dir = format!("/tmp/ai/test-bootstrap-{}", Uuid::new_v4());
+        let test_dir = dyapp_test_support::test_dir().unwrap();
+        let dir = test_dir
+            .path()
+            .join("case-31627")
+            .to_string_lossy()
+            .into_owned();
         let store = BootstrapStore::new(&dir).unwrap();
         let db = lock(&store.messages).unwrap();
         let plan = |sql: &str| -> String {

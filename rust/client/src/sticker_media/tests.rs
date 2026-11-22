@@ -38,15 +38,15 @@ pub(crate) struct Fixture {
     pub(crate) key: MessageKey,
     bytes: Vec<u8>,
     pub(crate) pack: crate::sticker_pack::Pack,
+    _test_dir: dyapp_test_support::TestDir,
 }
 
 impl Fixture {
     pub(crate) fn new(open: bool, attached: bool) -> Self {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let owner = dyapp_identity::Identity::try_generate().unwrap();
         let peer = dyapp_identity::Identity::try_generate().unwrap().peer_id();
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../build/sticker-media-core-tests")
-            .join(owner.peer_id());
+        let dir = test_dir.path().join(owner.peer_id());
         std::fs::create_dir_all(&dir).unwrap();
         let mut store = Store::open(&dir.join("client.db"), &owner).unwrap();
         let pack = crate::store::sticker_packs::tests::pack("Cats");
@@ -78,6 +78,7 @@ impl Fixture {
             key,
             bytes,
             pack,
+            _test_dir: test_dir,
         }
     }
 

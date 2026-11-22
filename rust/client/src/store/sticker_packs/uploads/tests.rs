@@ -3,15 +3,20 @@ mod adversarial;
 mod packs;
 use dyapp_identity::Identity;
 
-fn database() -> (Store, Identity, std::path::PathBuf) {
-    let root =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../build/sticker-upload-tests");
-    std::fs::create_dir_all(&root).unwrap();
+fn database() -> (
+    dyapp_test_support::TestDir,
+    Store,
+    Identity,
+    std::path::PathBuf,
+) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.path();
     let mut random = [0; 16];
     getrandom::fill(&mut random).unwrap();
     let path = root.join(format!("{:032x}.db", u128::from_be_bytes(random)));
     let owner = Identity::try_generate().unwrap();
-    (Store::open(&path, &owner).unwrap(), owner, path)
+    let store = Store::open(&path, &owner).unwrap();
+    (test_dir, store, owner, path)
 }
 fn candidate(byte: u8, size: usize) -> Attachment {
     let (mut attachment, _) = attachment::seal(&vec![byte; size]).unwrap();
@@ -44,7 +49,7 @@ fn charged_quota_includes_gcm_overhead_and_exact_integer_boundary() {
         encode(&candidate(1, 262_144), Kind::Sticker).unwrap().1,
         1_311_040
     );
-    let (mut store, _, _) = database();
+    let (_test_dir, mut store, _, _) = database();
     for index in 0..12 {
         upload(
             store
@@ -67,7 +72,7 @@ fn charged_quota_includes_gcm_overhead_and_exact_integer_boundary() {
 
 #[test]
 fn restart_refresh_resume_expiry_and_stale_completion_keep_one_descriptor() {
-    let (mut store, owner, path) = database();
+    let (_test_dir, mut store, owner, path) = database();
     let first = candidate(1, 100);
     let newer = candidate(1, 100);
     let reserved = upload(store.plan_sticker_upload(&first, 100).unwrap());

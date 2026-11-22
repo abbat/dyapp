@@ -3,7 +3,7 @@ use super::*;
 
 #[test]
 fn fresh_request_survives_single_group_cleanup_and_rejects_old_generation_before_mls() {
-    let (mut pair, path, pack, job) = admitted();
+    let (_test_dir_5, mut pair, path, pack, job) = admitted();
     // Low-level group cleanup retains pair intent; full user Clear chat cancels it.
     pair.session.store.clear_chat(pair.group.id()).unwrap();
     let (next, writes) = pair
@@ -35,7 +35,7 @@ fn fresh_request_survives_single_group_cleanup_and_rejects_old_generation_before
 
 #[test]
 fn failed_fresh_request_commit_invalidates_only_advanced_memory_and_keeps_old_answer() {
-    let (mut pair, path, _, job) = admitted();
+    let (_test_dir_37, mut pair, path, _, job) = admitted();
     let answer = pair
         .session
         .store

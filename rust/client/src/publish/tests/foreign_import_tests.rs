@@ -3,8 +3,9 @@ use super::*;
 
 #[tokio::test]
 async fn foreign_import_keeps_only_post_prepare_edits_and_the_exact_remote_version() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let path = temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let store = Store::open(&path, &identity).unwrap();
     let baseline = Profile {
         version: 1,

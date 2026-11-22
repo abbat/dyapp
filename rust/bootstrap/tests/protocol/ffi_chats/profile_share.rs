@@ -5,8 +5,8 @@ use dyapp_ffi::ChatSubmission;
 #[test]
 fn native_profile_share_reaches_an_open_peer_as_one_ordinary_canonical_link() {
     let (_runtime, address) = store_node();
-    let (alice_key, alice) = person(&address);
-    let (bob_key, bob) = person(&address);
+    let (_alice_test_dir, alice_key, alice) = person(&address);
+    let (_bob_test_dir, bob_key, bob) = person(&address);
     let (alice_id, bob_id) = (alice_key.peer_id(), bob_key.peer_id());
     assert_eq!(
         alice

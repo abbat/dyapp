@@ -171,11 +171,12 @@ mod tests {
 
     #[test]
     fn the_editor_adds_moves_and_removes_jpegs_within_the_bounds() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let path = std::env::temp_dir().join(format!("dyapp-ffi-photos-{nanos}"));
+        let path = test_dir.path().join(format!("dyapp-ffi-photos-{nanos}"));
         std::fs::create_dir_all(&path).unwrap();
         let dir = path.to_str().unwrap().to_owned();
         let key = IdentityKey::generate().unwrap();

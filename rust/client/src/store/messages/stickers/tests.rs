@@ -1,7 +1,7 @@
 use super::*;
 mod sharing;
 use crate::chat::{AttachmentMessage, Body};
-use crate::store::tests::{catalog_group, temp_db_path};
+use crate::store::tests::catalog_group;
 use dyapp_identity::Identity;
 
 fn sender(peer: &str) -> VerifiedChatSender<'_> {
@@ -36,7 +36,8 @@ fn sticker(id: u8, attached: bool) -> Sticker {
 
 #[test]
 fn fallback_survives_restart_read_and_clear_without_resurrection() {
-    let path = temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let owner = Identity::try_generate().unwrap();
     let peer = Identity::try_generate().unwrap().peer_id();
     let mut store = Store::open(&path, &owner).unwrap();
@@ -104,9 +105,10 @@ fn assert_verified_context_cannot_be_reused(store: &mut Store, owner: &Identity,
 
 #[test]
 fn media_ids_and_verified_context_cannot_be_reused() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::try_generate().unwrap();
     let peer = Identity::try_generate().unwrap().peer_id();
-    let mut store = Store::open(&temp_db_path(), &owner).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
     catalog_group(&mut store, &[9], &peer);
     let message = sticker(1, true);
     assert!(store
@@ -148,9 +150,10 @@ fn media_ids_and_verified_context_cannot_be_reused() {
 
 #[test]
 fn shared_media_references_follow_history_and_hash_binding() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::try_generate().unwrap();
     let peer = Identity::try_generate().unwrap().peer_id();
-    let mut store = Store::open(&temp_db_path(), &owner).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
     catalog_group(&mut store, &[9], &peer);
     catalog_group(&mut store, &[10], &peer);
     let message = sticker(1, true);
@@ -178,9 +181,10 @@ fn shared_media_references_follow_history_and_hash_binding() {
 #[test]
 fn merged_history_keeps_fallback_between_legacy_text_and_later_photo() {
     use super::super::ChatItem;
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::try_generate().unwrap();
     let peer = Identity::try_generate().unwrap().peer_id();
-    let mut store = Store::open(&temp_db_path(), &owner).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
     catalog_group(&mut store, &[9], &peer);
     store
         .record_chat_text(
@@ -224,9 +228,10 @@ fn corrupt_persisted_context_and_payload_fail_closed() {
         "UPDATE `chat_attachments` SET `delivery_state` = 0, `delivery_generation` = `message_id`",
         "UPDATE `chat_attachments` SET `author` = 'stranger'",
     ] {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let owner = Identity::try_generate().unwrap();
         let peer = Identity::try_generate().unwrap().peer_id();
-        let mut store = Store::open(&temp_db_path(), &owner).unwrap();
+        let mut store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
         catalog_group(&mut store, &[9], &peer);
         store
             .record_chat_sticker(sender(&peer), &sticker(1, false), true)

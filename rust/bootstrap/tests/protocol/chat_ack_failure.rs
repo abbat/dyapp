@@ -12,7 +12,7 @@ use rusqlite::{params, Connection};
 
 #[tokio::test]
 async fn ack_marker_failure_keeps_projection_and_retries_without_duplicate_event() {
-    let (mut fixture, mut session) = Box::pin(open_ack_failure_fixture()).await;
+    let (_test_dir, mut fixture, mut session) = Box::pin(open_ack_failure_fixture()).await;
     let (text, key) = queue_ack_failure_message(&mut fixture, &mut session).await;
     let db = fail_ack_marker(&mut fixture, session, &key).await;
     retry_ack_after_marker_recovery(&mut fixture, &db, &text, &key).await;
@@ -28,7 +28,8 @@ struct AckFailureFixture {
     group: Group,
 }
 
-async fn open_ack_failure_fixture() -> (AckFailureFixture, Session) {
+async fn open_ack_failure_fixture() -> (dyapp_test_support::TestDir, AckFailureFixture, Session) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let address = start_config(|config| {
         config.roles = vec![Role::Store];
         config.limits.requests_per_second = 1000;
@@ -50,13 +51,14 @@ async fn open_ack_failure_fixture() -> (AckFailureFixture, Session) {
             .unwrap(),
         bob.node.get_profile(&bob_owner).await.unwrap(),
     ];
-    let path = protocol_build_path("bob-ack-failure").with_extension("sqlite3");
+    let path = test_dir.to_path_buf().with_extension("sqlite3");
     Store::open(&path, &bob.identity)
         .unwrap()
         .stage_outbound(&bob.device.seal(&ACK_FAILURE_SEAL).unwrap(), &[])
         .unwrap();
     let (group, session) = join_ack_failure_group(&mut alice, &mut bob, &profiles, &path).await;
     (
+        test_dir,
         AckFailureFixture {
             alice,
             bob,

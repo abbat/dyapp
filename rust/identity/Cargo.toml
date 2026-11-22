@@ -20,6 +20,9 @@ proptest-derive = { workspace = true, optional = true }
 [package.metadata.cargo-shear]
 ignored = ["prost"]
 
+[dev-dependencies]
+dyapp-test-support = { path = "../test-support" }
+
 [build-dependencies]
 prost-build.workspace = true
 protox.workspace = true

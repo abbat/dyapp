@@ -76,8 +76,8 @@ async fn join_third(
     third: &mut Person,
     own: &dyapp_profile::VerifiedProfile,
     group: &[u8],
-) -> Session {
-    let mut session = session(third, "third-own-new");
+) -> (dyapp_test_support::TestDir, Session) {
+    let (test_dir, mut session) = session(third, "third-own-new");
     let held = [own.clone()];
     let events = session
         .receive(from_mut(&mut third.node), &third.device_key, &held, &SEAL)
@@ -91,15 +91,15 @@ async fn join_third(
         .maintain_own_devices(from_mut(&mut third.node), own, &held, 1_000_000, &SEAL)
         .await
         .unwrap();
-    session
+    (test_dir, session)
 }
 
 #[tokio::test]
 async fn a_third_own_device_reuses_the_private_group_and_syncs_both_directions() {
     let address = link_node().await;
     let (mut first, mut second, own) = Box::pin(own_device_pair(&address)).await;
-    let mut first_session = session(&first, "third-own-first");
-    let mut second_session = session(&second, "third-own-second");
+    let (_test_dir_100, mut first_session) = session(&first, "third-own-first");
+    let (_test_dir_101, mut second_session) = session(&second, "third-own-second");
     check_own_group_join(
         (&mut first_session, &mut first),
         (&mut second_session, &mut second),
@@ -125,7 +125,7 @@ async fn a_third_own_device_reuses_the_private_group_and_syncs_both_directions()
         &own,
     )
     .await;
-    let mut third_session = join_third(&mut third, &own, &group).await;
+    let (_test_dir, mut third_session) = join_third(&mut third, &own, &group).await;
     let held = [own];
     sync_own_private_state(
         (&mut first_session, &mut first),

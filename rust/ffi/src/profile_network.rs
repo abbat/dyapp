@@ -396,11 +396,12 @@ mod tests {
 
     #[test]
     fn only_active_settings_can_supply_a_publisher_node() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let dir = std::env::temp_dir().join(format!("dyapp-ffi-publisher-{nanos}"));
+        let dir = test_dir.path().join(format!("dyapp-ffi-publisher-{nanos}"));
         std::fs::create_dir_all(&dir).unwrap();
         let publisher = ProfilePublisher::new(dir.to_str().unwrap().to_owned()).unwrap();
         let network = Network {
@@ -422,11 +423,12 @@ mod tests {
 
     #[test]
     fn a_held_profile_no_search_node_takes_stays_held() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let dir = std::env::temp_dir().join(format!("dyapp-ffi-send-held-{nanos}"));
+        let dir = test_dir.path().join(format!("dyapp-ffi-send-held-{nanos}"));
         std::fs::create_dir_all(&dir).unwrap();
         let key = IdentityKey::generate().unwrap();
         let store = Store::open(&dir.join("client.db"), &key.identity).unwrap();
@@ -468,6 +470,7 @@ mod tests {
 
     #[test]
     fn hide_needs_a_node_and_keeps_the_draft_fields() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let (port, peer) = crate::network::tests::node();
         for (interests, canonical) in [
             (None, vec![]),
@@ -478,9 +481,7 @@ mod tests {
             ),
         ] {
             let key = IdentityKey::generate().unwrap();
-            let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../build/native-profile-hide")
-                .join(key.peer_id());
+            let dir = test_dir.path().join(key.peer_id());
             std::fs::create_dir_all(&dir).unwrap();
             let path = dir.to_str().unwrap().to_owned();
             let shown = ProfileVisibility {
@@ -552,11 +553,12 @@ mod tests {
 
     #[test]
     fn withdraw_without_a_node_changes_nothing() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let dir = std::env::temp_dir().join(format!("dyapp-ffi-withdraw-{nanos}"));
+        let dir = test_dir.path().join(format!("dyapp-ffi-withdraw-{nanos}"));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.to_str().unwrap().to_owned();
         let key = IdentityKey::generate().unwrap();
@@ -576,11 +578,12 @@ mod tests {
 
     #[test]
     fn blocked_or_unconnected_publish_keeps_the_saved_draft() {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let dir = std::env::temp_dir().join(format!("dyapp-ffi-publish-{nanos}"));
+        let dir = test_dir.path().join(format!("dyapp-ffi-publish-{nanos}"));
         std::fs::create_dir_all(&dir).unwrap();
         let key = IdentityKey::generate().unwrap();
         crate::save_profile_draft(

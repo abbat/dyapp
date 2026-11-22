@@ -4,9 +4,10 @@ use dyapp_identity::Identity;
 
 #[test]
 fn text_projection_survives_restart_and_refuses_conflicts() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let mut random = [0; 16];
     getrandom::fill(&mut random).unwrap();
-    let path = std::env::temp_dir().join(format!(
+    let path = test_dir.path().join(format!(
         "dyapp-chat-{:032x}.db",
         u128::from_be_bytes(random)
     ));
@@ -38,7 +39,8 @@ fn text_projection_survives_restart_and_refuses_conflicts() {
 
 #[test]
 fn legacy_arrival_order_is_not_reused_after_clear_and_restart() {
-    let path = crate::store::tests::temp_db_path();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let path = test_dir.path().join("client-1.db");
     let owner = Identity::try_generate().unwrap();
     let key = |id| MessageKey {
         group: vec![3],

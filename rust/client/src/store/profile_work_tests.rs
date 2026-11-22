@@ -1,5 +1,4 @@
 use super::*;
-use crate::store::tests::temp_db_path;
 use dyapp_profile::Profile;
 
 fn owner() -> Identity {
@@ -13,7 +12,8 @@ fn solve(store: &mut Store, identity: &Identity, bits: u32) {
 
 #[test]
 fn prepared_work_preserves_fields_and_photos_and_does_not_acquire_the_writer() {
-    let (path, identity) = (temp_db_path(), owner());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let (path, identity) = (test_dir.path().join("client-1.db"), owner());
     let mut editor = Store::open(&path, &identity).unwrap();
     let mut worker = Store::open(&path, &identity).unwrap();
     worker.db.busy_timeout(std::time::Duration::ZERO).unwrap();
@@ -40,7 +40,8 @@ fn prepared_work_preserves_fields_and_photos_and_does_not_acquire_the_writer() {
 
 #[test]
 fn resume_cursors_are_monotonic_per_target_and_do_not_invalidate_a_lower_proof() {
-    let (path, identity) = (temp_db_path(), owner());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let (path, identity) = (test_dir.path().join("client-1.db"), owner());
     let mut first = Store::open(&path, &identity).unwrap();
     let mut second = Store::open(&path, &identity).unwrap();
     solve(&mut first, &identity, 2);
@@ -69,7 +70,8 @@ fn resume_cursors_are_monotonic_per_target_and_do_not_invalidate_a_lower_proof()
 
 #[test]
 fn a_late_weaker_solution_cannot_downgrade_a_stronger_solution() {
-    let (path, identity) = (temp_db_path(), owner());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let (path, identity) = (test_dir.path().join("client-1.db"), owner());
     let mut first = Store::open(&path, &identity).unwrap();
     let mut second = Store::open(&path, &identity).unwrap();
     let weak = first.prepare_profile_work(&identity, 1, 1024).unwrap();
@@ -83,7 +85,8 @@ fn a_late_weaker_solution_cannot_downgrade_a_stronger_solution() {
 
 #[test]
 fn a_late_pending_step_observes_a_concurrent_completed_proof() {
-    let (path, identity) = (temp_db_path(), owner());
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let (path, identity) = (test_dir.path().join("client-1.db"), owner());
     let mut first = Store::open(&path, &identity).unwrap();
     let mut second = Store::open(&path, &identity).unwrap();
     let pending = first.prepare_profile_work(&identity, 2, 0).unwrap();
@@ -95,10 +98,11 @@ fn a_late_pending_step_observes_a_concurrent_completed_proof() {
 
 #[test]
 fn work_cannot_be_prepared_or_committed_for_another_owner() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
     let other = Identity::from_secret(&[9; 32]);
-    let first = Store::open(&temp_db_path(), &identity).unwrap();
-    let mut second = Store::open(&temp_db_path(), &other).unwrap();
+    let first = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
+    let mut second = Store::open(&test_dir.path().join("client-2.db"), &other).unwrap();
     assert!(matches!(
         first.prepare_profile_work(&other, 257, 0),
         Err(Error::WrongIdentity)
@@ -113,8 +117,9 @@ fn work_cannot_be_prepared_or_committed_for_another_owner() {
 
 #[test]
 fn corrupt_cursor_refuses_a_commit_without_replacing_the_draft() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let before = Profile {
         version: 7,
         ..Profile::default()
@@ -141,8 +146,9 @@ fn corrupt_cursor_refuses_a_commit_without_replacing_the_draft() {
 
 #[test]
 fn draft_write_refusal_rolls_back_the_resume_cursor() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = owner();
-    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let before = Profile {
         version: 7,
         ..Profile::default()

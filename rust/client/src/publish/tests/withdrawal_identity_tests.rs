@@ -2,8 +2,9 @@ use super::*;
 
 #[test]
 fn remembered_withdrawal_is_distinct_from_foreign_equal_version_tombstone() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let mut draft = Profile {
         version: 7,
         ..Default::default()

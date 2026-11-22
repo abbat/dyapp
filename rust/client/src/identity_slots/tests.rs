@@ -17,14 +17,6 @@ use std::path::Path;
 const FIRST: &str = "11111111-1111-1111-1111-111111111111";
 const SECOND: &str = "22222222-2222-2222-2222-222222222222";
 
-pub(super) fn root() -> PathBuf {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../build/slot-registry-tests")
-        .join(format!("{:016x}", getrandom::u64().expect("fixture nonce")));
-    fs::create_dir_all(&root).unwrap();
-    root
-}
-
 fn slot(root: &Path, id: &str, state: &[u8]) -> PathBuf {
     let dir = root.join("profiles").join(id);
     fs::create_dir_all(&dir).unwrap();
@@ -34,7 +26,8 @@ fn slot(root: &Path, id: &str, state: &[u8]) -> PathBuf {
 
 #[test]
 fn existing_desktop_system_and_file_layouts_remain_readable_without_keys_moving() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     fs::write(root.join("identity-storage"), b"system\n").unwrap();
     let second = slot(&root, SECOND, b"ready\n");
     fs::write(second.join("storage-mode"), b"file\n").unwrap();
@@ -65,8 +58,9 @@ fn existing_desktop_system_and_file_layouts_remain_readable_without_keys_moving(
 
 #[test]
 fn wrapped_layouts_need_no_desktop_mode_marker_and_keep_legacy_bytes() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     for layout in [Layout::Android, Layout::Ios] {
-        let root = root();
+        let root = test_dir.to_path_buf();
         fs::write(root.join("identity.key"), b"existing wrapped bytes").unwrap();
         slot(&root, FIRST, b"ready\n");
         let slots = list(&root, layout).unwrap();
@@ -87,7 +81,8 @@ fn wrapped_layouts_need_no_desktop_mode_marker_and_keep_legacy_bytes() {
 
 #[test]
 fn malformed_entries_never_become_ready_and_foreign_names_are_ignored() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     slot(&root, FIRST, b"ready");
     fs::write(root.join("profiles").join(SECOND), b"not a directory").unwrap();
     slot(&root, "unrelated", b"ready\n");
@@ -100,7 +95,8 @@ fn malformed_entries_never_become_ready_and_foreign_names_are_ignored() {
 
 #[test]
 fn apple_deletion_markers_override_slots_and_survive_directory_removal() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     slot(&root, FIRST, b"ready\n");
     for id in [FIRST, SECOND] {
         fs::write(
@@ -117,7 +113,8 @@ fn apple_deletion_markers_override_slots_and_survive_directory_removal() {
 
 #[test]
 fn pointer_formats_preserve_selection_clearing_and_android_missing_newline() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     for layout in [Layout::Desktop, Layout::Android, Layout::Ios] {
         fs::write(root.join("active-profile"), format!("{FIRST}\n")).unwrap();
         assert_eq!(active(&root, layout), Active::Selected(FIRST.into()));
@@ -144,7 +141,8 @@ fn pointer_formats_preserve_selection_clearing_and_android_missing_newline() {
 #[test]
 fn symlinked_markers_slots_and_inventory_roots_are_not_followed() {
     use std::os::unix::fs::symlink;
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let outside = slot(&root, "outside", b"ready\n");
     symlink(&outside, root.join("profiles").join(FIRST)).unwrap();
     let second = slot(&root, SECOND, b"pending\n");

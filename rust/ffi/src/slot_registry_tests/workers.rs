@@ -78,8 +78,9 @@ impl RunningStep {
 
 #[test]
 fn profile_worker_holds_admission_through_cancellation_but_not_between_steps() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     for layout in [MobileSlotLayout::Android, MobileSlotLayout::Ios] {
-        let root = root();
+        let root = test_dir.to_path_buf();
         let keys = Arc::new(WorkerCredentials::default());
         let registry =
             MobileIdentityRegistry::new(root.to_str().unwrap().to_owned(), layout, keys.clone());
@@ -131,7 +132,8 @@ fn profile_worker_holds_admission_through_cancellation_but_not_between_steps() {
 
 #[test]
 fn profile_worker_refuses_replaced_keys_before_touching_the_database() {
-    let root = root();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf();
     let registry = MobileIdentityRegistry::new(
         root.to_str().unwrap().to_owned(),
         MobileSlotLayout::Android,

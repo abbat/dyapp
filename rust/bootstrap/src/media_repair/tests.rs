@@ -7,12 +7,9 @@ mod ancestry;
 #[path = "tests/shard_ack.rs"]
 mod shard_ack;
 
-fn service() -> Service {
-    let dir = format!(
-        "{}/../../build/media-repair-{}",
-        env!("CARGO_MANIFEST_DIR"),
-        uuid::Uuid::new_v4()
-    );
+fn service() -> (dyapp_test_support::TestDir, Service) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let dir = test_dir.path().to_string_lossy().into_owned();
     let mut config = NodeConfig::default();
     config.storage.dir = dir.clone().into();
     config.network.id_pow_bits = 0;
@@ -21,7 +18,7 @@ fn service() -> Service {
     config.limits.media_requests_per_second = 10_000;
     let mut service = Service::new(BootstrapStore::new(&dir).unwrap(), config).unwrap();
     service.media = Some(MediaStore::open(std::path::Path::new(&dir)).unwrap());
-    service
+    (test_dir, service)
 }
 
 fn assert_ok(response: &proto::MediaResponse) {
@@ -174,7 +171,8 @@ fn drive(
 
 #[test]
 fn locally_refused_repair_write_releases_the_job_and_preserves_recoverability() {
-    let (origin, target) = (service(), service());
+    let (_origin_test_dir, origin) = service();
+    let (_target_test_dir, target) = service();
     let (me, remote) = (PeerId::random(), PeerId::random());
     let data = b"capped repair".to_vec();
     let hash = dyapp_identity::sha256(&data).to_vec();
@@ -216,7 +214,8 @@ fn locally_refused_repair_write_releases_the_job_and_preserves_recoverability() 
 
 #[test]
 fn whole_copy_repair_batches_by_holder_and_only_writes_the_gap() {
-    let (origin, target) = (service(), service());
+    let (_origin_test_dir, origin) = service();
+    let (_target_test_dir, target) = service();
     let (me, remote) = (PeerId::random(), PeerId::random());
     let data = b"whole repair".to_vec();
     let hash = dyapp_identity::sha256(&data).to_vec();
@@ -266,7 +265,9 @@ fn whole_copy_repair_batches_by_holder_and_only_writes_the_gap() {
 
 #[test]
 fn unknown_layout_is_discovered_and_only_the_missing_shard_is_rebuilt() {
-    let (origin, source, target) = (service(), service(), service());
+    let (_origin_test_dir, origin) = service();
+    let (_source_test_dir, source) = service();
+    let (_target_test_dir, target) = service();
     let (me, from, to) = (PeerId::random(), PeerId::random(), PeerId::random());
     let data = vec![7; MEDIA_OBJECT_BYTES + 1];
     let (manifest, shards) = media_encode(&data).unwrap();
@@ -315,7 +316,7 @@ fn unknown_layout_is_discovered_and_only_the_missing_shard_is_rebuilt() {
 
 #[test]
 fn missing_or_invalid_inventory_reports_a_blob_for_reupload() {
-    let origin = service();
+    let (_origin_test_dir, origin) = service();
     let (me, remote) = (PeerId::random(), PeerId::random());
     let hash = vec![8; 32];
     let record = proof(hash.clone());
@@ -363,7 +364,7 @@ fn missing_or_invalid_inventory_reports_a_blob_for_reupload() {
 
 #[test]
 fn an_inventory_is_ignored_unless_every_entry_was_requested_and_bounded() {
-    let origin = service();
+    let (_origin_test_dir, origin) = service();
     let remote = PeerId::random();
     let (manifest, _) = media_encode(&vec![7; MEDIA_OBJECT_BYTES + 1]).unwrap();
     let hash = manifest.hash.clone();
@@ -418,7 +419,7 @@ fn an_inventory_is_ignored_unless_every_entry_was_requested_and_bounded() {
 
 #[test]
 fn shard_sources_count_only_under_the_adopted_manifest() {
-    let origin = service();
+    let (_origin_test_dir, origin) = service();
     let remote = PeerId::random();
     let (manifest, _) = media_encode(&vec![7; MEDIA_OBJECT_BYTES + 1]).unwrap();
     let hash = manifest.hash.clone();
@@ -468,7 +469,7 @@ fn local_copies_count_only_when_they_verify() {
         missing
     };
     // A whole copy whose bytes no longer match its hash is not a source.
-    let origin = service();
+    let (_origin_test_dir, origin) = service();
     let data = b"rotting".to_vec();
     let hash = dyapp_identity::sha256(&data).to_vec();
     let record = proof(hash.clone());
@@ -483,7 +484,7 @@ fn local_copies_count_only_when_they_verify() {
     assert!(Repair::new(&origin, record.clone(), vec![hash], Instant::now()).is_err());
 
     // Enough verified local shards make a sharded blob recoverable without peers.
-    let origin = service();
+    let (_origin_test_dir, origin) = service();
     let (manifest, shards) = media_encode(&vec![7; MEDIA_OBJECT_BYTES + 1]).unwrap();
     let hash = manifest.hash.clone();
     let record = proof(hash.clone());
@@ -505,7 +506,7 @@ fn local_copies_count_only_when_they_verify() {
 
 #[test]
 fn a_whole_copy_listed_by_this_node_falls_through_to_the_next_source() {
-    let origin = service();
+    let (_origin_test_dir, origin) = service();
     let (me, other, lacking) = (PeerId::random(), PeerId::random(), PeerId::random());
     let hash = vec![8; 32];
     let record = proof(hash.clone());
@@ -549,7 +550,10 @@ fn a_whole_copy_listed_by_this_node_falls_through_to_the_next_source() {
 
 #[test]
 fn a_bad_source_is_retried_and_fetches_are_hash_checked() {
-    let (origin, source, second, target) = (service(), service(), service(), service());
+    let (_origin_test_dir, origin) = service();
+    let (_source_test_dir, source) = service();
+    let (_second_test_dir, second) = service();
+    let (_target_test_dir, target) = service();
     let (me, a, b, to) = (
         PeerId::random(),
         PeerId::random(),
@@ -600,7 +604,9 @@ fn a_bad_source_is_retried_and_fetches_are_hash_checked() {
 
 #[test]
 fn a_manifest_with_fewer_than_k_shards_and_a_bad_decode_are_missing() {
-    let (origin, source, target) = (service(), service(), service());
+    let (_origin_test_dir, origin) = service();
+    let (_source_test_dir, source) = service();
+    let (_target_test_dir, target) = service();
     let (me, from, to) = (PeerId::random(), PeerId::random(), PeerId::random());
     let (mut manifest, shards) = media_encode(&vec![3; MEDIA_OBJECT_BYTES + 1]).unwrap();
     manifest.hash[0] ^= 1;

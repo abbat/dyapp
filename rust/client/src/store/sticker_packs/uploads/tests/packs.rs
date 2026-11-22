@@ -23,7 +23,7 @@ fn sealed_pack_limit_and_single_sticker_budget_are_independent() {
     invalid = descriptor.clone();
     invalid.width = 1;
     assert!(encode(&invalid, Kind::Pack).is_err());
-    let (mut store, _, _) = database();
+    let (_test_dir, mut store, _, _) = database();
     for index in 0..12 {
         upload(
             store
@@ -46,7 +46,7 @@ fn sealed_pack_limit_and_single_sticker_budget_are_independent() {
 
 #[test]
 fn pack_descriptor_reuses_after_restart_and_refresh_keeps_immutable_blob() {
-    let (mut store, owner, path) = database();
+    let (_test_dir, mut store, owner, path) = database();
     let first = pack_candidate();
     let newer = pack_candidate();
     let reserved = upload(store.plan_sticker_pack_upload(&first, 100).unwrap());
@@ -80,7 +80,7 @@ fn equal_plaintext_hash_cannot_cross_upload_kind_or_confirmation() {
     let image = candidate(1, 100);
     let pack = as_pack(candidate(1, 100));
     assert_eq!(image.plaintext_sha256, pack.plaintext_sha256);
-    let (mut store, _, _) = database();
+    let (_test_dir, mut store, _, _) = database();
     let image_pending = upload(store.plan_sticker_upload(&image, 100).unwrap());
     let pack_pending = upload(store.plan_sticker_pack_upload(&pack, 100).unwrap());
     store

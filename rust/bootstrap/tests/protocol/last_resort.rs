@@ -1,6 +1,6 @@
 //! The last-resort `KeyPackage` outlives the single-use stock, a lost reply, a rotation and a
 //! restart of the invited device.
-use super::chat::{store_path, Person};
+use super::chat::Person;
 use super::*;
 use dyapp_client::chat;
 use dyapp_client::session::Session;
@@ -12,6 +12,7 @@ const ROTATE_AFTER: u64 = 21 * 86_400;
 
 #[tokio::test]
 async fn invites_work_from_one_last_resort_package_across_lost_replies_and_rotation() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let address = start_config(|config| {
         config.roles = vec![Role::Store];
         config.limits.requests_per_second = 1000;
@@ -22,7 +23,7 @@ async fn invites_work_from_one_last_resort_package_across_lost_replies_and_rotat
     let mut alice = Person::new(&address).await;
     let mut bob = Person::new(&address).await;
     let owner = bob.identity.peer_id();
-    let path = store_path("last-resort-bob");
+    let path = test_dir.path().join("last-resort-bob.db");
     let mut store = Store::open(&path, &bob.identity).unwrap();
     store
         .stage_outbound(&bob.device.seal(&SEAL).unwrap(), &[])

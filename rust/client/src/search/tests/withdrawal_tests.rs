@@ -2,8 +2,9 @@ use super::*;
 
 #[tokio::test]
 async fn legacy_pending_hide_requires_review_before_any_network_request() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&crate::store::tests::temp_db_path(), &owner).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
     let legacy = Profile::tombstone(2, 0, 0).sign(&owner);
     store.hold_search_profile(&legacy).unwrap();
     let before = store.link_state().unwrap();
@@ -19,8 +20,9 @@ async fn legacy_pending_hide_requires_review_before_any_network_request() {
 
 #[tokio::test]
 async fn unsupported_search_withdrawal_preserves_the_queue_without_downgrading() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::from_secret(&[7; 32]);
-    let store = Store::open(&crate::store::tests::temp_db_path(), &owner).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &owner).unwrap();
     let hidden = Profile::search_tombstone(2, 0, 0).sign(&owner);
     store.hold_search_profile(&hidden).unwrap();
     let before = store.link_state().unwrap();
@@ -40,8 +42,9 @@ async fn unsupported_search_withdrawal_preserves_the_queue_without_downgrading()
 
 #[tokio::test]
 async fn search_withdrawal_respects_server_backoff_across_reopening() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::from_secret(&[7; 32]);
-    let path = crate::store::tests::temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let store = Store::open(&path, &owner).unwrap();
     let hidden = Profile::search_tombstone(2, 0, 0).sign(&owner);
     store.hold_search_profile(&hidden).unwrap();
@@ -76,8 +79,10 @@ async fn search_withdrawal_respects_server_backoff_across_reopening() {
     assert_eq!(store.due_search_profile(u64::MAX).unwrap(), None);
 }
 
-fn hidden_legacy(owner: &Identity) -> Store {
-    hidden_legacy_at(owner, &crate::store::tests::temp_db_path())
+fn hidden_legacy(owner: &Identity) -> (dyapp_test_support::TestDir, Store) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let store = hidden_legacy_at(owner, &test_dir.path().join("client-1.db"));
+    (test_dir, store)
 }
 
 fn hidden_legacy_at(owner: &Identity, path: &std::path::Path) -> Store {
@@ -99,7 +104,7 @@ fn hidden_legacy_at(owner: &Identity, path: &std::path::Path) -> Store {
 #[tokio::test]
 async fn owner_recovery_retries_only_the_new_withdrawal_and_keeps_unsupported_heads() {
     let owner = Identity::from_secret(&[7; 32]);
-    let store = hidden_legacy(&owner);
+    let (_test_dir, store) = hidden_legacy(&owner);
     let plan = store.prepare_search_withdrawal_recovery().unwrap().unwrap();
     let mut replies = [Status::Unsupported, Status::RateLimited, Status::Ok].into_iter();
     let (node, asked) = fake(move |request| {
@@ -165,8 +170,9 @@ fn assert_confirmed(
 
 #[tokio::test]
 async fn recovery_ack_preserves_a_newer_queue_created_by_the_request_callback() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let owner = Identity::from_secret(&[7; 32]);
-    let path = crate::store::tests::temp_db_path();
+    let path = test_dir.path().join("client-1.db");
     let store = hidden_legacy_at(&owner, &path);
     let plan = store.prepare_search_withdrawal_recovery().unwrap().unwrap();
     store

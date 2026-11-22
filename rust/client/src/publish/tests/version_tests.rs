@@ -3,8 +3,9 @@ use super::*;
 
 #[tokio::test]
 async fn publication_refuses_max_but_accepts_the_last_representable_successor() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::try_generate().unwrap();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let exhausted = Profile {
         version: u64::MAX,
         name: "keep".into(),
@@ -18,7 +19,7 @@ async fn publication_refuses_max_but_accepts_the_last_representable_successor() 
     ));
     assert_eq!(store.profile_draft().unwrap(), Some(exhausted));
     assert!(held.lock().unwrap().is_none());
-    let other = Store::open(&temp_db_path(), &identity).unwrap();
+    let other = Store::open(&test_dir.path().join("client-2.db"), &identity).unwrap();
     let last = Profile {
         version: u64::MAX - 1,
         ..Default::default()
@@ -33,15 +34,17 @@ async fn publication_refuses_max_but_accepts_the_last_representable_successor() 
 }
 
 fn state(identity: &Identity, hidden: bool) -> Vec<u8> {
-    let source = Store::open(&temp_db_path(), identity).unwrap();
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let source = Store::open(&test_dir.path().join("client-1.db"), identity).unwrap();
     source.set_profile_hidden(hidden).unwrap();
     source.link_state().unwrap()
 }
 
 #[tokio::test]
 async fn hidden_adoption_refuses_exhaustion_without_replacing_the_existing_draft() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::try_generate().unwrap();
-    let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+    let mut store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let before = Profile {
         version: 4,
         name: "local".into(),
@@ -76,8 +79,9 @@ async fn hidden_adoption_refuses_exhaustion_without_replacing_the_existing_draft
 #[tokio::test]
 async fn visible_max_and_hidden_last_successor_adoption_remain_supported() {
     for (hidden, version) in [(false, u64::MAX), (true, u64::MAX - 1)] {
+        let test_dir = dyapp_test_support::test_dir().unwrap();
         let identity = Identity::try_generate().unwrap();
-        let mut store = Store::open(&temp_db_path(), &identity).unwrap();
+        let mut store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
         let (mut node, held) = profile_node(Vec::new()).await;
         *held.lock().unwrap() = Some(
             Profile {
@@ -106,8 +110,9 @@ async fn visible_max_and_hidden_last_successor_adoption_remain_supported() {
 }
 
 async fn renew_empty_media(remote: u64) -> (Result<(), Failure>, Vec<u64>) {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
     let identity = Identity::try_generate().unwrap();
-    let store = Store::open(&temp_db_path(), &identity).unwrap();
+    let store = Store::open(&test_dir.path().join("client-1.db"), &identity).unwrap();
     let versions = Arc::new(Mutex::new(Vec::new()));
     let observed = Arc::clone(&versions);
     let (mut node, held) = node::observed(

@@ -22,6 +22,7 @@ max_lines = 400
 "dyapp-messaging" = 0
 "dyapp-p2p-net" = 0
 "dyapp-profile" = 0
+"dyapp-test-support" = 0
 "dyapp-video" = 0
 
 [arithmetic]
@@ -34,6 +35,7 @@ max_lines = 400
 "dyapp-messaging" = 0
 "dyapp-p2p-net" = 0
 "dyapp-profile" = 0
+"dyapp-test-support" = 0
 "dyapp-video" = 0
 
 [indexing]
@@ -45,6 +47,7 @@ max_lines = 400
 "dyapp-messaging" = 0
 "dyapp-p2p-net" = 0
 "dyapp-profile" = 0
+"dyapp-test-support" = 0
 "dyapp-video" = 0
 
 [string_slicing]
@@ -56,6 +59,7 @@ max_lines = 400
 "dyapp-messaging" = 0
 "dyapp-p2p-net" = 0
 "dyapp-profile" = 0
+"dyapp-test-support" = 0
 "dyapp-video" = 0
 
 [scorecard]
