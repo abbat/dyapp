@@ -10,6 +10,12 @@ visibility, activation prerequisites and busy disposition are checked before foc
 calibration. Canonical Android capture validates layout and these browser contracts; it does not
 run the desktop-only criteria audit or prove native transfer/enrollment.
 
+`LinkEnrollmentNoticeTests` exercises the production enrollment notices and controls in EN/RU.
+Uncertain authorization, private-state review, revoked and unlisted outcomes remain distinct and
+expose neither completion retry nor review refresh, including after a comparison was offered.
+Neighboring transient failures and field-review requests retain their respective explicit actions.
+These controlled presentation checks do not renew authorization or prove native enrollment.
+
 Comparison prototype captures also run `clients/android/prototype/review-fixture-tests.js`: all
 31 offered groups retain full source values; initial comparisons have no checked answers; photo
 reference disclosure does not select a source. Explicit choices survive read-only preview and return,
