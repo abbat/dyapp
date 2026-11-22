@@ -45,7 +45,10 @@ colour themes and actual 100/200% text scales. With `comparisonVisual=1`, `sourc
 `expectedWidth` instrumentation arguments it writes `files/comparison-visual/<width>/<language>`.
 Each actual scroll acknowledgement saves a viewport; the scene can complete only when the saved
 frames cover every laid-out line of every offered value. It is excluded from ordinary runtime.
-Workflow collection and external validation of this additional phase remain planned.
+External validation uses `tests/scripts/android_comparison_archive.py`: exact source, full matrix,
+bounded archive paths, actual font density and union coverage of every required line must agree.
+Negative controls retain both edge frames while omitting middle lines and require rejection.
+Workflow collection of this additional phase remains planned.
 `LinkReviewSaveRefusalTests` publishes each typed
 native refusal before completing the admitted callback, retains all 31 choices, checks safe Back
 focus and verifies that uncertain/unauthorized outcomes gain no ordinary confirmation or finish.
