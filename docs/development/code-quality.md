@@ -396,6 +396,9 @@ To take a younger version, for example a security fix, add `(crate, version): (d
 `EXCEPTIONS` in the script; that mapping is the current list of temporary exceptions.
 Remove an entry once the ordinary publication-age check accepts the version without it.
 An exception older than 14 days fails the check even if its pinned version is already mature.
+The exact `url 2.5.9` and required `form_urlencoded 1.2.3` versions temporarily use this
+security-fix policy for RUSTSEC-2026-0592; remove their entries after publication maturity
+on 2026-12-04. The advisory remains enforced and unrelated versions retain the 14-day gate.
 
 ## Source debt markers
 

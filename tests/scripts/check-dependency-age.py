@@ -19,7 +19,16 @@ ExceptionPolicy = typing.Mapping[tuple[str, str], tuple[str, str]]
 CRATES_IO = "registry+https://github.com/rust-lang/crates.io-index"
 # (crate, version): (date added, reason). Remove the entry once it is 14 days
 # old; an entry older than MIN_AGE is reported as stale.
-EXCEPTIONS: dict[tuple[str, str], tuple[str, str]] = {}
+EXCEPTIONS: dict[tuple[str, str], tuple[str, str]] = {
+    ("url", "2.5.9"): (
+        "2026-11-22",
+        "RUSTSEC-2026-0592 security fix; remove after 2026-12-04",
+    ),
+    ("form_urlencoded", "1.2.3"): (
+        "2026-11-22",
+        "required by url 2.5.9 security fix; remove after 2026-12-04",
+    ),
+}
 
 
 def index_path(name: "str") -> "str":
