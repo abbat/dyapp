@@ -1271,6 +1271,14 @@ mailbox cleanup and unrelated-profile checks. Row lookup uses the immutable raw 
 semantics/scroll geometry. Clipboard verification also awaits the dialog's WindowInfo-driven Cancel
 focus before reading the foreground clipboard. Each StateFlow phase has its own failure deadline;
 no extra link setup or remote-submission retry is added. This widget extension requires fresh actual CI runtime evidence.
+`NativeReceiveUiJourneyTests` complements that unchanged owner-screen journey with production
+receiving controls and their actual native store/factory/polling. It starts the invitation through UI,
+checks the core-provided code/QR, receives a real counterpart transfer, and finishes enrollment through
+its button. The counterpart uses the real native sender directly; owner widgets remain covered by the
+original journey. Private note/favorite import, pending completion and the prior recipient profile
+are checked separately. No direct receive/install or enrollment-resume call substitutes for the UI
+operation; a final readback verifies that no pending completion remains. This new path requires its own
+first-pass exact-source CI runtime acceptance.
 `DeviceDirectoryUITests` additionally drives the actual Compose controls around controlled native-shaped
 calls and the real common collection pager. It checks the immutable displayed target, no current-row
 Disconnect, partial-failure Retry, acknowledged success alongside cache failure and an old dialog
