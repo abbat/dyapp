@@ -130,6 +130,7 @@ step() {
             check web-unused node tools/web-lint/check-unused.mjs
             check web-css node tools/web-lint/check-css.mjs
             check web-css-fixtures node tools/web-lint/css-fixtures.mjs
+            check web-profile-view-fixtures node tools/web-lint/profile-view-fixtures.mjs
             check web-translations python3 -B tests/scripts/check-desktop-translations.py --raw
             ;;
         web-format)

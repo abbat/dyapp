@@ -30,8 +30,9 @@ Disabled/daily-duplicate/retired attempts stop before network lookup. Profile/li
 remain read-only. Android's explicit profile page captures the opening through its held search
 context, waits for a shown profile, and submits once on IO. Disposal retires the opening without
 releasing an admitted native identity lease. Core owns privacy, daily deduplication and immutable
-target/network admission; Compose only supplies readiness and lifetime. Tauri opening callers and
-received-view UI are still planned; native compilation/runtime acceptance remains source-bound. Typing delivery is deferred until a direct client path exists; its saved preference
+target/network admission; Compose only supplies readiness and lifetime. Shared Tauri profile pages
+use opaque prepare/submit/retire commands over the same core opening and staging. Received-view
+UI is still planned; native compilation/runtime acceptance remains source-bound. Typing delivery is deferred until a direct client path exists; its saved preference
 never authorizes mailbox typing ([contract](../design/read-receipts.md#typing-indicators)).
 
 `ChatSession.active_chat_peers` is a read-only common-core projection of fresh authenticated

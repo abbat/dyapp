@@ -55,6 +55,7 @@
     await chatChecks.checkChatRead();
     await presenceChecks.checkChatPresence();
     await presenceChecks.checkLikePending();
+    await smoke.timedChecks(smoke.uiSmokeProfileViews).checkProfileViews();
     await nameChecks.checkContactNames();
     await nameChecks.checkPublicName();
     await nameChecks.checkInterests();

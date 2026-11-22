@@ -697,6 +697,9 @@ const appApi = {
   get scanQrFile() {
     return searchModule.controller.scanQrFile;
   },
+  get profileViewDone() {
+    return searchModule.controller.profileViewDone;
+  },
   get searchDone() {
     return searchModule.controller.searchDone;
   },

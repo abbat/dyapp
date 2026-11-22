@@ -1,5 +1,14 @@
 # UI Testing: Practical Guide
 
+Private profile-view checks separate presentation lifetime from core policy. Android
+`ProfileViewDisclosureTests` waits on controlled IO entry/completion signals and checks readiness,
+disposal, replacement and exactly one invocation per opening. Native Rust checks cover actual
+owner/context/default-off/block admission; they do not become accepted merely because Compose
+fixtures pass. `node tools/web-lint/profile-view-fixtures.mjs` exercises the exact dependency-free
+browser controller with held Promise completions and per-case failure deadlines. The native
+desktop smoke additionally drives the actual profile page and verifies close/area retirement;
+none of these controls substitutes for encrypted two-peer delivery and received-list acceptance.
+
 Native receiving completion checks retain a recovery review prepared before setup finishes:
 preparing another review after the pending link has been cleared is correctly refused. Publication
 preview tests await their expected current row after the native draft read, before scrolling.
