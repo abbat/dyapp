@@ -29,11 +29,12 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import uniffi.dyapp.LocalCollectionEntry
 import java.io.File
 import java.util.Locale
 
 private const val COMPLETE_COLLECTION_PEER = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-private enum class CollectionRowKind { IDENTITY, BLOCKED, PASSED }
+private enum class CollectionRowKind { IDENTITY, BLOCKED, PASSED, VIEW }
 
 class CollectionRowGeometryTests {
     @get:Rule
@@ -75,6 +76,9 @@ class CollectionRowGeometryTests {
             PeopleCollectionRow(COMPLETE_COLLECTION_PEER, 1) { _, number ->
                 BlockedActions(number, false, {}, {})
             }
+        }
+        CollectionRowKind.VIEW -> {
+            ReceivedViewRow(LocalCollectionEntry(COMPLETE_COLLECTION_PEER, "2024-02-29"), 1, true) {}
         }
         CollectionRowKind.PASSED -> {
             PeopleCollectionRow(COMPLETE_COLLECTION_PEER, 1) { _, _ ->
@@ -120,6 +124,7 @@ class CollectionRowGeometryTests {
             "unblock-1" to context().getString(R.string.settings_unblock)
         )
         CollectionRowKind.PASSED -> listOf("unpass-1" to context().getString(R.string.settings_unpass))
+        CollectionRowKind.VIEW -> listOf("received-view-open-1" to context().getString(R.string.profile_views_open))
     }
 
     private fun assertAction(tag: String, text: String) {

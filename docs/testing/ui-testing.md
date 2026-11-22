@@ -8,6 +8,11 @@ fixtures pass. `node tools/web-lint/profile-view-fixtures.mjs` exercises the exa
 browser controller with held Promise completions and per-case failure deadlines. The native
 desktop smoke additionally drives the actual profile page and verifies close/area retirement;
 none of these controls substitutes for encrypted two-peer delivery and received-list acceptance.
+`ReceivedViewsCollectionTests` renders the production Android collection and native pager with
+controlled read completions: loading, exact-target search, failed-refresh retention, explicit retry
+and retired-owner actions. The shared collection-row geometry matrix includes its full identifier
+and Open action in EN/RU at normal and enlarged text. These are runtime checks, not evidence of
+fresh rendered acceptance until the corresponding source-bound Android CI has executed them.
 
 Native receiving completion checks retain a recovery review prepared before setup finishes:
 preparing another review after the pending link has been cleared is correctly refused. Publication
