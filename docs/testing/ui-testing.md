@@ -7,6 +7,8 @@ Activity recreation waits for the requested screen's current semantics after asy
 startup, rather than treating the Activity lifecycle acknowledgement as private-content readiness.
 The profile recreation case requires its ready Profile label without dismissing a network wizard;
 its original identity, wrapped-key and selected-slot assertions remain.
+`AppLockStartupTests` restores saved private-content state with a distinct remembered startup owner,
+while controlled read gates retain loading, protected-failure and retired-owner rejection coverage.
 
 Android native link journeys observe actual session completion through Compose `awaitSnapshot`.
 Each transition retains its independent failure deadline and named stage; Compose drives queued

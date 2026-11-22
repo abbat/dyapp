@@ -219,6 +219,9 @@ read/import job must outlive clearing the picker ticket while staying within the
 Compose `produceState` restart keys do not recreate its remembered initial state. Profile loading
 uses an outer keyed composition for peer/feed ownership and verifies coroutine activity before
 publishing a fetch result; preserve both guards when changing retries or data sources.
+App-lock startup keys its read and initialization state by the Activity owner, but keeps admitted
+application content outside that key: an Activity-instance key around content changes nested
+`rememberSaveable` identities on recreation and loses restored navigation/wizard state.
 A `StateFlow`/Compose consumer can conflate a worker's busy and idle frames. UI admission latches
 therefore use an explicit worker completion result, independent of the UI coroutine; observing
 `busy = true` is not a prerequisite for releasing a completed validation-error retry. Generated
