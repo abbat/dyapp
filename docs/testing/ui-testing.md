@@ -17,8 +17,9 @@ layout must expose the actual requested native font scale, and the full date mus
 fresh rendered acceptance until the corresponding source-bound Android CI has executed them.
 `node tools/web-lint/received-view-fixtures.mjs` checks the dependency-free received-list request
 controller with explicitly released promises: core page/cursor pass-through, pending-action refusal,
-refresh failure retention, query replacement and retired completions. The controller owns UI request
-lifetime only; the shared Rust pager retains filtering, counts and cursor policy.
+refresh failure retention, query replacement and retired completions. The CI web entrypoint invokes both Node fixture suites through the mapped quiet runner with the
+explicit spec reporter; real assertion-failure controls verify test names, source and errors survive.
+The controller owns UI request lifetime only; the shared Rust pager retains filtering, counts and cursor policy.
 The Tauri received-view smoke drives the actual Privacy pane: read-only loading, unchanged native
 cursors/dates, query reset, failure retention, explicit profile opening and Back focus after read
 completion. A held refresh completes after leaving the pane and must not replace known rows or

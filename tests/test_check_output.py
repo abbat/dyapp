@@ -73,6 +73,32 @@ class CheckOutput(unittest.TestCase):
                 else:
                     self.assertIn("Empty JUnit inventory", result.stdout)
 
+    def test_actual_node_fixture_checks_keep_failure_diagnostics(self) -> None:
+        for name in (
+            "web-profile-view-fixtures",
+            "web-received-view-fixtures",
+        ):
+            with (
+                self.subTest(name=name),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                fixture = Path(directory) / "controlled.mjs"
+                fixture.write_text(
+                    "import test from 'node:test';\n"
+                    "import assert from 'node:assert/strict';\n"
+                    "test('node assertion', () => assert.equal(1, 2));\n"
+                )
+                result = self.run_check(
+                    directory,
+                    name,
+                    ["node", "--test", "--test-reporter=spec", str(fixture)],
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("node assertion", result.stdout)
+                self.assertIn("AssertionError", result.stdout)
+                self.assertIn("controlled.mjs", result.stdout)
+                self.assertNotIn("Unmapped check", result.stdout)
+
     def test_json_failure_omits_passing_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             payload = '{"errors":["broken fixture"],"passing":100}'

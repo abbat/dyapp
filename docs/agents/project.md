@@ -15,6 +15,9 @@ outside root quality compilation; a dependency-free rustc fixture can verify mod
 After moving a command, update ordinary Rust callers as well as Tauri command registration.
 Targeted `rustfmt` calls must use the Cargo manifest's edition: a newer command-line edition
 can silently reorder imports differently from `cargo fmt`.
+Checks that execute generated scripts or tiny compiler fixtures need an executable container
+scratch mount, such as `--tmpfs /tmp:rw,exec,mode=1777`. A noexec scratch mount causes permission
+errors despite executable file modes; this is an environment failure, not a reason to weaken tests.
 
 The embedded desktop node belongs to the installation, not an identity: `node.json` and `node/`
 live at the app-config root. Profile transitions must not stop or apply it. Snapshot the active
