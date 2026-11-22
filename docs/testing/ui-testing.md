@@ -407,7 +407,8 @@ do not prove native resource selection or recreation.
 `LanguagePickerTests` checks Cancel/unchanged selection without writes, stale callbacks from an
 older opening or owner, arbitrary option count and single admission of captured repeated selection.
 `LanguagePickerGeometryTests` checks complete long-label text and current unclipped dialog bounds
-at normal/doubled font scale, with Cancel still visible. Initial/return focus readiness uses actual
+at normal/doubled font scale, with Cancel still visible. Its configured native window and measured
+label TextLayoutResult must agree on the requested fontScale. Initial/return focus readiness uses actual
 window-focus signals. The selected option and returning opener explicitly allow focus in touch mode.
 Retirement tests capture the same application closure supplied to the control through
 `applicationClickKey`; Foundation's retained `OnClick` wrapper requires an attached Modifier node
@@ -418,7 +419,8 @@ language/theme persistence and Activity recreation assertions. Actual CI executi
 `ChatListPreviewTests` drives actual conversation rows for all six typed bodies and forwarded states,
 with disagreeing legacy text/time, cached shared-profile labels, original navigation and a full-history
 sentinel. `ChatListPreviewGeometryTests` reads actual semantic text layouts and unclipped bounds at
-normal/doubled font scale; its narrow host derives from measured text and current window width.
+normal/doubled font scale and asserts the preview's actual layout fontScale; its inline density
+provider needs no separate Dialog window. Its narrow host derives from measured text and current width.
 It requires wrapping, complete non-ellipsized content, timestamps below the preview and contained
 horizontal bounds, without guessed offsets or sleeps. These sources require actual SDK/device CI;
 static lint alone does not establish rendered acceptance.

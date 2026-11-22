@@ -22,6 +22,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.width
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -66,6 +67,7 @@ class ChatListPreviewGeometryTests {
             compose.runOnIdle { scale.value = value }
             node("chat-preview").assertTextEquals(BOUNDED_PREVIEW)
             val layout = node("chat-preview").textLayout()
+            assertEquals("Actual preview scale", value, layout.layoutInput.density.fontScale, 0f)
             assertTrue("The measured fixture must wrap at scale $value", layout.lineCount > 1)
             assertTrue("All preview characters must fit at scale $value", layout.textFitsLayout())
             assertGeometry()

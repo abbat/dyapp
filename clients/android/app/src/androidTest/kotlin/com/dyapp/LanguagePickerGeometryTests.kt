@@ -1,9 +1,7 @@
 package com.dyapp
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
@@ -13,8 +11,9 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.width
+import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -26,9 +25,9 @@ class LanguagePickerGeometryTests {
     @Test
     fun fullNamesWrapWithinTheCurrentDialogAtNormalAndEnlargedText() {
         val scale = mutableStateOf(1f)
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
         compose.setContent {
-            val density = LocalDensity.current
-            CompositionLocalProvider(LocalDensity provides Density(density.density, scale.value)) {
+            LocalizedTestContext(context, scale.value) {
                 MaterialTheme { LanguagePicker("owner", null, languageFixture) {} }
             }
         }
@@ -45,6 +44,7 @@ class LanguagePickerGeometryTests {
         val node = compose.onNodeWithTag("language-label-fr", useUnmergedTree = true)
         node.performScrollTo().assertTextEquals(languageFixture.single { it.tag == "fr" }.name)
         val layout = node.textLayout()
+        assertEquals("Actual language-label scale", scale, layout.layoutInput.density.fontScale, 0f)
         assertTrue("Long-name fixture must wrap at scale $scale", layout.lineCount > 1)
         assertTrue("All name characters must fit at scale $scale", layout.textFitsLayout())
         val dialog = compose.onNodeWithTag("language-picker").getUnclippedBoundsInRoot()
