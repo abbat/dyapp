@@ -1262,6 +1262,11 @@ before the visual runner installs anything. It requires a same-repository main p
 `ci.yml` run, exactly one successful matching Android build and an unexpired source-matching runtime
 artifact with its digest. Unrelated queued Apple jobs do not prevent this validation; the whole
 workflow need not have finished. Keep the API receipts beside `validated.json` for provenance.
+`android-visual-collect.sh` first completes `tar` through `adb shell` with its remote exit
+status, keeping shell diagnostics separate, then transfers the completed file through `exec-out cat`.
+An unentered phase retains its collection diagnostic without publishing a fake archive. A real
+transfer failure keeps partial bytes and a nonzero status; collection failure also fails an otherwise
+successful capture, while an earlier instrumentation failure keeps its original status.
 `tests/scripts/android_visual_archive.py` reads the collected native tar into a fresh directory,
 allowing only regular PNG/manifest files for the requested width with bounded sizes and no duplicate
 paths or links. It retains partial safe frames before rejecting an incomplete manifest. Successful
