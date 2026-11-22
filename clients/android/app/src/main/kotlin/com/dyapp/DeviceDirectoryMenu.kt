@@ -42,7 +42,12 @@ internal fun DeviceDirectoryMenu(opened: Opened.Ready, route: MutableState<Setti
 
 /** Group display characters only; the dedicated copy action always receives the unchanged raw key. */
 @Composable
-internal fun DeviceIdentifier(raw: String, tag: String, label: Int = R.string.devices_key) {
+internal fun DeviceIdentifier(
+    raw: String,
+    tag: String,
+    label: Int = R.string.devices_key,
+    copyTag: String = "copy-$tag"
+) {
     val measured = remember(raw) { AtomicReference<TextLayoutResult>() }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Caption(stringResource(label))
@@ -57,6 +62,6 @@ internal fun DeviceIdentifier(raw: String, tag: String, label: Int = R.string.de
             fontFamily = FontFamily.Monospace,
             onTextLayout = measured::set
         )
-        CopyButton(raw, "copy-$tag")
+        CopyButton(raw, copyTag)
     }
 }

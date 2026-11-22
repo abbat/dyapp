@@ -2,8 +2,6 @@ package com.dyapp
 
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import uniffi.dyapp.MobileLinkCodeStatus
 import uniffi.dyapp.MobileLinkFailure
@@ -41,7 +39,7 @@ private fun linkReceivePhaseStatus(phase: MobileLinkPhase): Int = when (phase) {
 internal fun LinkReceiveOutcome(snapshot: LinkReceiverSnapshot) {
     when (val receipt = snapshot.receipt) {
         is MobileLinkReceipt.Installed -> {
-            Text(receipt.selection.key.peerId(), Modifier.testTag("link-receive-peer"))
+            DeviceIdentifier(receipt.selection.key.peerId(), "link-receive-peer", R.string.link_receive_peer_label)
             if (!snapshot.enrollment.completed) Text(stringResource(R.string.link_receive_pending))
             Caption(stringResource(R.string.link_setup_no_publish))
             LinkEnrollmentNotice(snapshot.enrollment)
@@ -70,5 +68,7 @@ private fun LinkReceiveFailure(failure: MobileLinkFailure) {
         is MobileLinkFailure.Destination -> R.string.link_receive_destination to failure.detail
     }
     ErrorNotice(stringResource(label), "link-receive-failure", detail, "link-failure-details", "link-failure-copy")
-    if (failure is MobileLinkFailure.Destination) Text(failure.slotId, Modifier.testTag("link-receive-destination"))
+    if (failure is MobileLinkFailure.Destination) {
+        DeviceIdentifier(failure.slotId, "link-receive-destination", R.string.link_receive_destination_id)
+    }
 }

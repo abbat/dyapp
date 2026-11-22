@@ -29,6 +29,10 @@ retains the existing Escape refusal and mounted-view acknowledgement before chec
 Android receiving-screen checks use the real Settings frame, controls and retained-operation store
 with controlled native completion. They preserve the exact reserved destination, require explicit
 creation and disposition, and invoke captured application callbacks after disposal/equal reopening.
+`ReceiveIdentifierTests` renders source/code/received/destination identifiers through those production
+widgets in EN/RU at both text scales, checks real text density and viewport bounds, and verifies
+fixed groups, raw accessibility text and exact system-clipboard values. The established link-code
+copy tag stays stable while all identifiers reuse the shared display component.
 These checks establish presentation ownership; actual owner approval, enrollment, QR and runtime
 acceptance require the separate real JNI journey and screen review. The receiving JNI journey also
 remounts the production screen after installation: retired finish/open callbacks cannot act, the

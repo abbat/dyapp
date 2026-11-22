@@ -26,6 +26,9 @@
     <string name="link_receive_intro">Configure Network first. Show this code to a device with your profile, then approve linking there. Existing profiles on this phone are preserved.</string>
     <string name="link_receive_start">Create link code</string>
     <string name="link_receive_source">Started from identity</string>
+    <string name="link_receive_code_label">Link code</string>
+    <string name="link_receive_peer_label">Received profile Peer ID</string>
+    <string name="link_receive_destination_id">Destination ID</string>
     <string name="link_receive_qr">QR code for receiving this profile</string>
     <string name="link_receive_expiry">Code expires: %1$s</string>
     <string name="link_receive_cancel">Stop waiting</string>

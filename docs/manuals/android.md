@@ -19,6 +19,8 @@ wizard identity; other saved identities stay.
 **Settings → Account → Receive a profile** starts a code only after **Create link code**.
 Configure the network first and approve the code on the device that already has the profile.
 The receiving screen retains its original attempt across leaving the page or activity recreation.
+Source and received Peer IDs, the link code and a known destination ID have distinct labels and
+monospace groups. Their Copy actions keep the exact raw value, without display spaces.
 **Stop waiting** cannot undo an installation already admitted by the core. A failed or unknown
 installation shows its original boundary and, when known, destination; review stored profiles before
 closing the result. **Return to app** rereads the current selection. Receiving alone does not confirm

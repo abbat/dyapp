@@ -143,6 +143,10 @@ horizontal calibration, capture the actual onTextLayout callback: CI observed th
 adapter reconstructed two wrapped lines for softWrap=false. Keep the horizontal-clipping assertion
 and assert no vertical overflow so another rejection cannot mask a broken horizontal guard.
 
+Android's `DeviceIdentifier` also renders receiving identifiers with context-specific labels.
+Its optional copy tag preserves existing automation targets. Fixed groups are display-only:
+accessibility and clipboard retain the raw identifier, which alone belongs in protocol input.
+
 For a Compose stale-callback test, retain `applicationClickKey` from the control, not its
 `SemanticsActions.OnClick` wrapper. Foundation's wrapper dereferences a Modifier node before calling
 the app; invoking it after disposal can fail on a detached node without exercising the app's guard.

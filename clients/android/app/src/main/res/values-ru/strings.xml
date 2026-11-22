@@ -25,6 +25,9 @@
     <string name="link_receive_intro">Сначала настройте сеть. Покажите код устройству с вашим профилем и подтвердите привязку на нём. Уже сохранённые профили этого телефона останутся.</string>
     <string name="link_receive_start">Создать код привязки</string>
     <string name="link_receive_source">Начато из профиля</string>
+    <string name="link_receive_code_label">Код привязки</string>
+    <string name="link_receive_peer_label">Peer ID полученного профиля</string>
+    <string name="link_receive_destination_id">ID назначения</string>
     <string name="link_receive_qr">QR-код для получения профиля</string>
     <string name="link_receive_expiry">Код действует до: %1$s</string>
     <string name="link_receive_cancel">Прекратить ожидание</string>
