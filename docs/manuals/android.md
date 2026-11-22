@@ -157,7 +157,10 @@ this same ELF policy before an AAR can reach the application. Every load segment
 16 KiB alignment and matching file/virtual page offsets. These imports do not prove that every Rust
 or C function is protected. The shared unsigned release environment also enables
 strong stack protection and fortify for the core's bundled C/C++ dependencies;
-prebuilt third-party libraries retain their independent build provenance.
+prebuilt third-party libraries retain their independent build provenance. Android import checks
+read undefined callable dynamic symbols and cross-check their symbol/string section addresses,
+sizes and offsets against the loader metadata and file-backed load segments. Missing or malformed
+inventories fail closed; exported names, unused strings and data imports are not evidence of calls.
 
 The same job runs `zipalign -c -P 16 4 SIGNED.apk` from the selected signing
 Build-Tools directory, checking packaging alignment independently of ELF alignment.

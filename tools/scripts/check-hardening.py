@@ -190,20 +190,14 @@ def elf_dynamic_problems(
         found.append("lazy binding, RELRO is partial")
     if DT_RPATH in tags or DT_RUNPATH in tags:
         found.append("RPATH or RUNPATH set")
-    strtab = next(
-        (
-            offset + tags[DT_STRTAB] - vaddr
-            for kind, _, offset, vaddr, size in segments
-            if kind == PT_LOAD and DT_STRTAB in tags
-            if vaddr <= tags[DT_STRTAB] < vaddr + size
-        ),
-        None,
-    )
-    names = (
-        data[strtab : strtab + tags.get(DT_STRSZ, 0)]
-        if strtab is not None
-        else b""
-    ).split(b"\x00")
+    try:
+        names = (
+            elf_import_names(data, segments, tags)
+            if shared
+            else elf_string_names(data, segments, tags)
+        )
+    except ValueError as error:
+        return found + [f"unverifiable ELF imports: {error}"]
     if b"__stack_chk_fail" not in names:
         found.append(
             "no stack protector in the C code (__stack_chk_fail not imported)"
@@ -213,6 +207,109 @@ def elf_dynamic_problems(
     ):
         found.append("no fortified libc call (__*_chk not imported)")
     return found
+
+
+def elf_string_names(
+    data: bytes, segments: list[Segment], tags: dict[int, int]
+) -> set[bytes]:
+    """Retain the existing desktop string-table policy."""
+    strtab = next(
+        (
+            offset + tags[DT_STRTAB] - vaddr
+            for kind, _, offset, vaddr, size in segments
+            if kind == PT_LOAD and DT_STRTAB in tags
+            if vaddr <= tags[DT_STRTAB] < vaddr + size
+        ),
+        None,
+    )
+    strings = (
+        data[strtab : strtab + tags.get(DT_STRSZ, 0)]
+        if strtab is not None
+        else b""
+    )
+    return set(strings.split(b"\x00"))
+
+
+def elf_loaded_offset(address: int, size: int, segments: list[Segment]) -> int:
+    matches = [
+        offset + address - vaddr
+        for kind, _, offset, vaddr, length in segments
+        if kind == PT_LOAD and vaddr <= address
+        if address + size <= vaddr + length
+    ]
+    if len(matches) != 1:
+        raise ValueError("table is not uniquely backed by a load segment")
+    return matches[0]
+
+
+def elf_import_names(
+    data: bytes, segments: list[Segment], tags: dict[int, int]
+) -> set[bytes]:
+    """Cross-check section inventory against the loader's actual tables."""
+    shoff = struct.unpack_from("<Q", data, 40)[0]
+    stride, count = struct.unpack_from("<HH", data, 58)
+    if stride < 64 or not count or shoff + stride * count > len(data):
+        raise ValueError("invalid section headers")
+    sections = [
+        struct.unpack_from("<IIQQQQIIQQ", data, shoff + stride * index)
+        for index in range(count)
+    ]
+    tables = [section for section in sections if section[1] == 11]
+    if len(tables) != 1:
+        raise ValueError("expected one dynamic symbol table")
+    _, _, flags, address, offset, size, link, _, _, entry = tables[0]
+    if not flags & 2 or entry != 24 or not size or size % entry:
+        raise ValueError("invalid dynamic symbol table")
+    if tags.get(6) != address or tags.get(11) != entry:
+        raise ValueError("dynamic symbol table disagrees with loader")
+    if elf_loaded_offset(address, size, segments) != offset:
+        raise ValueError("dynamic symbol table offset disagrees with loader")
+    strings = elf_linked_strings(data, sections, link, segments, tags)
+    return elf_undefined_symbols(data, offset, size, strings)
+
+
+def elf_linked_strings(
+    data: bytes,
+    sections: list[tuple[int, ...]],
+    link: int,
+    segments: list[Segment],
+    tags: dict[int, int],
+) -> bytes:
+    if link >= len(sections):
+        raise ValueError("invalid linked string table")
+    _, kind, flags, address, start, length, _, _, _, _ = sections[link]
+    if kind != 3 or not flags & 2 or not length:
+        raise ValueError("invalid dynamic string table")
+    if tags.get(DT_STRTAB) != address or tags.get(DT_STRSZ) != length:
+        raise ValueError("dynamic string table disagrees with loader")
+    if elf_loaded_offset(address, length, segments) != start:
+        raise ValueError("dynamic string table offset disagrees with loader")
+    return data[start : start + length]
+
+
+def elf_undefined_symbols(
+    data: bytes, offset: int, size: int, strings: bytes
+) -> set[bytes]:
+    entry, length = 24, len(strings)
+    if strings[:1] != b"\x00" or strings[-1:] != b"\x00":
+        raise ValueError("unterminated dynamic string table")
+    if data[offset : offset + entry] != bytes(entry):
+        raise ValueError("invalid null dynamic symbol")
+    names = set()
+    for at in range(offset + entry, offset + size, entry):
+        name, info, _, section, _, _ = struct.unpack_from("<IBBHQQ", data, at)
+        if name >= length:
+            raise ValueError("symbol name outside dynamic string table")
+        end = strings.find(b"\x00", name)
+        if end < 0:
+            raise ValueError("unterminated dynamic symbol name")
+        if section or not name:
+            continue
+        if info >> 4 not in (1, 2):
+            raise ValueError("undefined symbol is not global or weak")
+        if info & 15 in (0, 2, 10):
+            names.add(strings[name:end])
+    return names
 
 
 def android_load_problems(
