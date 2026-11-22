@@ -776,11 +776,15 @@ def validate_sources(names: Iterable[str], texts: TextMap) -> set[str]:
 
 def validate_clients(texts: "dict[str, str]") -> None:
     from repository_unused import script_reference_errors
-    from repository_translations import unused_apple_errors
+    from repository_translations import (
+        android_string_errors,
+        unused_apple_errors,
+    )
     from desktop_translations import desktop_errors
     from issue_forms import form_errors
 
     errors = i18n_errors(texts) + translation_errors(texts)
+    errors.extend(android_string_errors(texts))
     errors.extend(unused_apple_errors(texts))
     errors.extend(desktop_errors(texts))
     if errors:

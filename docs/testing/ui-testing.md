@@ -12,7 +12,9 @@ browser controller with held Promise completions and per-case failure deadlines.
 desktop smoke additionally drives the actual profile page and verifies close/area retirement;
 none of these controls substitutes for encrypted two-peer delivery and received-list acceptance.
 The Android received-list hint uses `profile_views_received_hint`; the privacy policy uses
-`profile_views_hint`. Keep these resource names distinct across all `values*` XML files.
+`profile_views_hint`. Keep these resource names distinct across all `values*` XML files. The repository checker rejects
+duplicate main string declarations, including aliases, within each qualifier across feature XML files;
+translations and other qualifiers remain independent.
 The Docker APK build retains Gradle stack traces on failure so dependency-resolution errors
 can be investigated from its captured build log.
 `ReceivedViewsCollectionTests` renders the production Android collection and native pager with
