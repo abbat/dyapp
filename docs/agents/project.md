@@ -146,6 +146,8 @@ and assert no vertical overflow so another rejection cannot mask a broken horizo
 Android's `DeviceIdentifier` also renders receiving identifiers with context-specific labels.
 Its optional copy tag preserves existing automation targets. Fixed groups are display-only:
 accessibility and clipboard retain the raw identifier, which alone belongs in protocol input.
+In profile comparison, `LinkReviewFormState.failure` is a preview refusal; an authoritative save
+refusal is `LinkEnrollmentSnapshot.failure`. Never infer enrollment/retry authority from the former.
 
 For a Compose stale-callback test, retain `applicationClickKey` from the control, not its
 `SemanticsActions.OnClick` wrapper. Foundation's wrapper dereferences a Modifier node before calling

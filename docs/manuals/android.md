@@ -30,7 +30,8 @@ authorization are distinct refusals; they do not offer ordinary retry. Backend f
 original review for explicit retry. When field review is required, **Load a fresh comparison** shows
 complete local and verified-network values. Choose each differing group explicitly; nothing is
 preselected. Photo thumbnails have inspectable original references and a retry for unavailable
-pixels. **Preview chosen values** does not save; returning preserves the choices. **Save chosen fields**
+pixels. **Preview chosen values** does not save; returning preserves the choices. A rejected preview
+keeps its explanation beside the recovery controls and focuses the safe return action. **Save chosen fields**
 saves a local draft, then **Finish device setup** remains a separate action. An unconfirmed save
 requires another fresh comparison. Private-state recovery and owner-authorization screens remain
 planned; runtime/visual acceptance is still required.

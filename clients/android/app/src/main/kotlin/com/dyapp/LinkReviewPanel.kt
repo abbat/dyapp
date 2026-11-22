@@ -100,15 +100,6 @@ private fun LinkReviewContent(form: LinkReviewFormState, photos: LinkReviewPhoto
     Text(stringResource(R.string.link_review_intro))
     Caption(stringResource(R.string.link_review_authority))
     Caption(stringResource(R.string.link_review_no_publish))
-    form.failure?.let { failure ->
-        ErrorNotice(
-            stringResource(R.string.link_review_preview_error),
-            "link-review-preview-error",
-            failure.toString(),
-            "link-review-preview-details",
-            "link-review-preview-copy"
-        )
-    }
     if (form.opening.snapshot.differences.isEmpty()) Text(stringResource(R.string.link_review_equal))
     val preview = form.preview
     if (preview != null) CardTitle(R.string.link_review_preview_title)
@@ -118,6 +109,15 @@ private fun LinkReviewContent(form: LinkReviewFormState, photos: LinkReviewPhoto
         } else {
             LinkReviewPreviewCard(form, field, photos, scales)
         }
+    }
+    form.failure?.let { failure ->
+        ErrorNotice(
+            stringResource(R.string.link_review_preview_error),
+            "link-review-preview-error",
+            failure.toString(),
+            "link-review-preview-details",
+            "link-review-preview-copy"
+        )
     }
     LinkReviewFooter(form, controls)
 }
@@ -151,13 +151,20 @@ private fun LinkReviewPreviewControl(form: LinkReviewFormState, focus: LinkRevie
 
 @Composable
 private fun LinkReviewFooter(form: LinkReviewFormState, controls: LinkReviewControls) {
-    LinkReviewPreviewControl(form, rememberLinkReviewFocus(form.preview != null, form.available))
+    val focus = rememberLinkReviewFocus(form.preview != null, form.available, form.failure)
+    LinkReviewPreviewControl(form, focus)
     Button(
         controls.save,
         Modifier.testTag("link-review-confirm").applicationClick(controls.save),
         form.available && form.complete
     ) { Text(stringResource(R.string.link_review_save)) }
-    TextButton(controls.back, Modifier.testTag("link-review-back").applicationClick(controls.back), controls.canLeave) {
+    TextButton(
+        controls.back,
+        Modifier.testTag("link-review-back").focusRequester(focus.back)
+            .focusProperties { canFocus = true }
+            .applicationClick(controls.back),
+        controls.canLeave
+    ) {
         Text(stringResource(R.string.link_review_back_receipt))
     }
 }

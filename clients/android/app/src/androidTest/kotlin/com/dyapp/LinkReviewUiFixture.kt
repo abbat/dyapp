@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -35,6 +36,7 @@ internal class LinkReviewUiFixture(
     val snapshot = mutableStateOf(LinkReceiverSnapshot())
     var shown by mutableStateOf(true)
     var expectedPreview: LinkReviewProfile = review.local
+    var previewFailure: Throwable? = null
     val previews = AtomicInteger()
     val saves = AtomicInteger()
     val choices = AtomicReference<List<LinkReviewChoice>>(emptyList())
@@ -58,6 +60,7 @@ internal class LinkReviewUiFixture(
                 check(snapshot.value.enrollment.comparison === owner)
                 previews.incrementAndGet()
                 choices.set(selected)
+                previewFailure?.let { throw it }
                 expectedPreview
             },
             load = { owner, _, _ -> if (snapshot.value.enrollment.comparison === owner) photo.get() else null }
@@ -65,7 +68,7 @@ internal class LinkReviewUiFixture(
         snapshot.value = LinkReceiverSnapshot(enrollment = LinkEnrollmentSnapshot(comparison = opening, offered = true))
     }
 
-    fun show(language: String = "en"): Context {
+    fun show(language: String = "en", receivingFrame: Boolean = false): Context {
         val base = InstrumentationRegistry.getInstrumentation().targetContext
         val configuration = Configuration(
             base.resources.configuration
@@ -74,12 +77,26 @@ internal class LinkReviewUiFixture(
         compose.setContent {
             LocalizedTestContext(context, scale.floatValue) {
                 DYAppTheme {
-                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("review-viewport")) {
-                        if (shown) LinkReviewPanel(snapshot.value, actions) else Text("closed")
-                    }
+                    Frame(receivingFrame)
                 }
             }
         }
         return context
+    }
+
+    @Composable
+    private fun Frame(receiving: Boolean) {
+        if (receiving) {
+            SettingsFrame(remember { mutableStateOf(SettingsPane.RECEIVE) }) { Content() }
+        } else {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("review-viewport")) {
+                Content()
+            }
+        }
+    }
+
+    @Composable
+    private fun Content() {
+        if (shown) LinkReviewPanel(snapshot.value, actions) else Text("closed")
     }
 }
