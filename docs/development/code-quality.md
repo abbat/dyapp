@@ -359,6 +359,10 @@ each check; `security.yml` similarly runs `cargo audit --file` for every tracked
   a skip that no longer matches; remove it then.
 - **sources**: crates.io only; an unknown registry or git source fails.
 
+The shared client pins `url` to 2.5.9, which avoids recursive origin resolution for nested
+`blob:` URLs (RUSTSEC-2026-0592). Keep this security update in the root, fuzz and all three
+native desktop lockfiles when resolving their separate dependency graphs.
+
 To accept an advisory, add its ID to `[advisories] ignore` with a comment giving the reason and an
 issue to remove it. That hides the advisory; it does not fix it.
 
