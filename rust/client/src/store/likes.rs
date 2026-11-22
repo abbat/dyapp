@@ -41,6 +41,36 @@ impl Store {
         kind: Kind,
         wall_ms: u64,
     ) -> Result<Option<Interaction>, Error> {
+        let Some(hlc) = self.interaction_clock(target, kind, wall_ms)? else {
+            return Ok(None);
+        };
+        let mut event_id = [0; 16];
+        getrandom::fill(&mut event_id).map_err(|_| Error::Random)?;
+        Ok(Some(Interaction {
+            kind,
+            event_id,
+            hlc: hlc.into(),
+        }))
+    }
+
+    /// Read-only preflight for an explicit profile opening before network or key-package IO.
+    /// A true result is not authorization: staging rechecks the preference and UTC-day ledger.
+    /// Uses the same persisted HLC as event drafting, including when wall time moves backwards.
+    ///
+    /// # Errors
+    /// Returns self-interaction, blocked-peer, clock-range, setting or database errors.
+    pub fn profile_view_due_at(&self, target: &str, wall_ms: u64) -> Result<bool, Error> {
+        Ok(self
+            .interaction_clock(target, Kind::View, wall_ms)?
+            .is_some())
+    }
+
+    fn interaction_clock(
+        &self,
+        target: &str,
+        kind: Kind,
+        wall_ms: u64,
+    ) -> Result<Option<Timestamp>, Error> {
         if target == self.owner_peer_id {
             return Err(Error::InteractionConflict);
         }
@@ -54,13 +84,7 @@ impl Store {
         if kind == Kind::View && self.viewed_on(&self.owner_peer_id, target, hlc.wall_ms())? {
             return Ok(None);
         }
-        let mut event_id = [0; 16];
-        getrandom::fill(&mut event_id).map_err(|_| Error::Random)?;
-        Ok(Some(Interaction {
-            kind,
-            event_id,
-            hlc: hlc.into(),
-        }))
+        Ok(Some(hlc))
     }
 
     /// Commit an own event and the exact encrypted outbound signal in one transaction. A stale
@@ -856,19 +880,36 @@ mod tests {
             Identity::try_generate().unwrap().peer_id(),
         );
         let mut store = Store::open(&test_dir.path().join("client-1.db"), &alice).unwrap();
+        assert!(!store.profile_view_due_at(&b, DAY).unwrap());
         assert_eq!(own(&mut store, &b, Kind::View, DAY), None);
         assert!(!store.viewed_on(&a, &b, DAY).unwrap());
 
         store.set_send_profile_views(true).unwrap();
+        let before = load_hlc(&store.db).unwrap();
+        for _ in 0..3 {
+            assert!(store.profile_view_due_at(&b, DAY).unwrap());
+        }
+        assert_eq!(load_hlc(&store.db).unwrap(), before);
+        assert!(!store.viewed_on(&a, &b, DAY).unwrap());
         assert!(own(&mut store, &b, Kind::View, DAY).is_some());
+        assert!(!store.profile_view_due_at(&b, 2 * DAY - 1).unwrap());
+        assert!(store.profile_view_due_at(&b, 2 * DAY).unwrap());
+        assert!(store.profile_view_due_at(&c, 2 * DAY - 1).unwrap());
         assert_eq!(own(&mut store, &b, Kind::View, 2 * DAY - 1), None);
         assert!(own(&mut store, &c, Kind::View, 2 * DAY - 1).is_some());
         assert!(own(&mut store, &b, Kind::View, 2 * DAY).is_some());
+        // A backwards wall clock must use the persisted HLC, just like actual drafting.
+        assert!(!store.profile_view_due_at(&b, DAY).unwrap());
+        assert!(store.profile_view_due_at(&c, DAY).unwrap());
+        assert!(store.profile_view_due_at(&a, DAY).is_err());
+        store.set_blocked(&c, true).unwrap();
+        assert!(store.profile_view_due_at(&c, DAY).is_err());
         assert!(store.viewed_on(&a, &b, DAY).unwrap());
         assert!(store.viewed_on(&a, &b, 2 * DAY).unwrap());
         assert_eq!(store.likes(&b).unwrap(), Likes::default());
 
         store.set_send_profile_views(false).unwrap();
+        assert!(!store.profile_view_due_at(&b, 3 * DAY).unwrap());
         let view = event(Kind::View, 1, hlc(3 * DAY, 0));
         assert!(!store.receive_interaction(&b, b"b1", view, 3 * DAY).unwrap());
         assert!(!store.receive_interaction(&b, b"b1", view, 3 * DAY).unwrap());

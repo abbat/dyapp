@@ -63,6 +63,9 @@ peer leaves search and Liked you. Block/pass changes also travel through the enc
 group when linked devices synchronize; this does not synchronize every privacy preference or
 promise immediate delivery. A view is sent only when the local setting allows it and
 at most once per peer profile per UTC day. Receiving views never depends on that setting.
+`Store::profile_view_due_at` provides adapters with read-only preflight before network IO. It
+shares drafting's persisted HLC, preference, block and daily checks without allocating an event
+ID or advancing the clock. Staging repeats admission; preflight never reserves a view.
 
 For each sender identity and peer pair, compare `(HLC timestamp, sender device ID, event ID)`
 lexicographically. Only a greater like/unlike event replaces the stored latest event. Keep the

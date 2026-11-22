@@ -67,11 +67,8 @@ impl Session {
         match kind {
             Kind::Like => Ok(true),
             Kind::Unlike => Ok(false),
-            // Reuse final admission before key-package IO; a draft commits no state.
-            Kind::View => Ok(self
-                .store
-                .draft_interaction(peer, kind, crate::now_ms())?
-                .is_some()),
+            // Share drafting policy without allocating a throwaway random event ID.
+            Kind::View => Ok(self.store.profile_view_due_at(peer, crate::now_ms())?),
         }
     }
 
