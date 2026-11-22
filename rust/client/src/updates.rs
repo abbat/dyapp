@@ -4,6 +4,7 @@
 pub mod coordinator;
 pub mod feed;
 pub mod snapshot;
+pub mod storage;
 pub mod transport;
 
 /// A stable release version, compared by numeric components.

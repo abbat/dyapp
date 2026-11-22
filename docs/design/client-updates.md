@@ -11,7 +11,13 @@ adds explicitly invoked bounded HTTPS transport; platform controls still do not 
 and per-target version high-water marks. Candidate rollback is rejected before changing any target;
 omitting a target retains its previous mark across encoding/restart. Corrupt or inconsistent records
 fail closed, never becoming fresh defaults. This is a persistence format, not completed durable IO.
-Atomic writes, cross-process exclusion, native APIs and lifecycle/timer hooks remain planned.
+`updates::storage::LockedState` adds atomic SQLite writes in the private installation root
+(`updates.sqlite`) under an independent, nonblocking OS lease (`updates.lock`). The lease spans
+admission/HTTP/completion; it never takes a profile, chat or node operation lock. SQLite FULL
+synchronization and a single-record transaction keep cache and high-water state together.
+Foreign schemas, missing records and corrupt payloads fail closed without repair or truncation.
+A save also compares persisted high-water marks inside the transaction, refusing accidental resets.
+Shared checker orchestration, native APIs and lifecycle/timer hooks remain planned.
 Clients stay disabled until live-feed verification and those integrations pass.
 
 The pure `updates::coordinator::Coordinator` now owns simultaneous-trigger admission and attempt
