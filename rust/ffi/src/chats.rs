@@ -160,6 +160,8 @@ pub struct ChatSession {
     seal_key: Zeroizing<[u8; 32]>,
     session: Mutex<Session>,
     contact_context: Arc<Mutex<dyapp_client::contact_verification::Context>>,
+    // Publication-only observation; no session, profile, storage or network lock is taken on capture.
+    view_context: dyapp_client::contact_verification::GenerationObserver,
     // Drop after the session and all key owners, retaining file locks through completion.
     _operation: Option<dyapp_client::identity_slots::ChatOperation>,
 }

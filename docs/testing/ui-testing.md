@@ -4,7 +4,10 @@ Private profile-view checks separate presentation lifetime from core policy. And
 `ProfileViewDisclosureTests` waits on controlled IO entry/completion signals and checks readiness,
 disposal, replacement and exactly one invocation per opening. Native Rust checks cover actual
 owner/context/default-off/block admission; they do not become accepted merely because Compose
-fixtures pass. `node tools/web-lint/profile-view-fixtures.mjs` exercises the exact dependency-free
+fixtures pass. A channel-gated native regression holds the real shared contact mutex while both
+opening factories must complete before its release, then rejects both original tokens after
+context invalidation. Core observer controls retain unique-generation/ABA and fail-closed poison
+checks; no elapsed delay establishes capture readiness. `node tools/web-lint/profile-view-fixtures.mjs` exercises the exact dependency-free
 browser controller with held Promise completions and per-case failure deadlines. The native
 desktop smoke additionally drives the actual profile page and verifies close/area retirement;
 none of these controls substitutes for encrypted two-peer delivery and received-list acceptance.

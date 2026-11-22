@@ -26,6 +26,9 @@ The commands use the same core admission and Session staging as UniFFI. The shar
 prepares only an explicit other-profile opening, submits its exact handle while that page and
 identity remain current, and retires on close, replacement, area change or hiding the document.
 Admission also requires actual rendered page visibility, including hidden identity ancestors.
+Native UI capture observes the same opaque core generation through a separate memory-only
+publication guard; it does not wait behind contact-cache IO. Final owner/context/privacy admission
+and the immutable active-network snapshot still use the original shared Context lock.
 A late preparation result only retires its original handle. Background reads send no views, and
 pre-commit errors trigger no automatic resubmission. Android's received collection uses common
 paging and full identifiers under Privacy. Tauri transports the common pager's query/cursors and

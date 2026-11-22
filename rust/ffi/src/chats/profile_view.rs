@@ -20,22 +20,30 @@ impl ProfileViewOpening {
     }
 }
 
+fn capture(
+    observer: &dyapp_client::contact_verification::GenerationObserver,
+    owner: String,
+    peer: String,
+) -> Result<Arc<ProfileViewOpening>, CoreError> {
+    let generation = observer.capture().ok_or_else(|| failed("notConnected"))?;
+    Ok(Arc::new(ProfileViewOpening {
+        opening: profile_view::Opening::from_generation(generation, owner, peer),
+    }))
+}
+
 #[uniffi::export]
 impl ProfileSearcher {
-    /// Capture an explicit opening through the already-held UI search context, without storage IO.
+    /// Capture an explicit opening without taking the contact-context IO mutex.
     /// The supplied owner is only a binding hint; submission compares it to the actual Session owner.
     ///
     /// # Errors
-    /// Returns a poisoned context lock without reading profiles, preferences or active settings.
+    /// Refuses a poisoned generation observer without reading profiles, preferences or settings.
     pub fn profile_view_opening(
         &self,
         owner_peer: String,
         peer_id: String,
     ) -> Result<Arc<ProfileViewOpening>, CoreError> {
-        let context = self.cache.lock().map_err(failed)?;
-        Ok(Arc::new(ProfileViewOpening {
-            opening: profile_view::Opening::new(&context, owner_peer, peer_id),
-        }))
+        capture(&self.view_context, owner_peer, peer_id)
     }
 }
 
@@ -45,15 +53,12 @@ impl ChatSession {
     /// Call for an explicit opening only, before scheduling its submission.
     ///
     /// # Errors
-    /// Returns a poisoned contact-context lock without creating a disclosure.
+    /// Refuses a poisoned generation observer without creating a disclosure.
     pub fn profile_view_opening(
         &self,
         peer_id: String,
     ) -> Result<Arc<ProfileViewOpening>, CoreError> {
-        let context = self.contact_context.lock().map_err(failed)?;
-        Ok(Arc::new(ProfileViewOpening {
-            opening: profile_view::Opening::new(&context, self.key.identity.peer_id(), peer_id),
-        }))
+        capture(&self.view_context, self.key.identity.peer_id(), peer_id)
     }
 
     /// Submit the original opening once. No-event, committed delivery and pre-commit refusal differ.

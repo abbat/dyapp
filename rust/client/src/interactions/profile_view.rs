@@ -41,10 +41,16 @@ impl Opening {
     /// Capture an opening without reading storage or issuing network traffic.
     #[must_use]
     pub fn new(context: &Context, owner: String, peer: String) -> Self {
+        Self::from_generation(context.generation(), owner, peer)
+    }
+
+    /// Bind a generation captured by a memory-only observer before scheduling backend work.
+    #[must_use]
+    pub fn from_generation(generation: Generation, owner: String, peer: String) -> Self {
         Self {
             owner,
             peer,
-            generation: context.generation(),
+            generation,
             state: AtomicU8::new(PENDING),
         }
     }

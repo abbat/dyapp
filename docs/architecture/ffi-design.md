@@ -22,7 +22,9 @@ confirmed readback and read-only retry after errors. The common Session now stag
 first View and its pair invitation atomically without a Like or chat consent.
 `ChatSession.profile_view_opening(peer_id)` captures the original owner, target and shared network
 generation without disclosure. `ProfileSearcher.profile_view_opening(owner_peer, peer_id)` captures
-through the already-held search context without session/storage IO; the owner hint is checked
+through a core-owned generation observer without the contact-cache/session IO mutex. Its separate
+publication lock only clones or replaces opaque tokens and never protects storage/network work.
+A poisoned observer refuses capture and current-generation admission. The owner hint is checked
 against the actual Session at submission. `ProfileViewOpening.retire` prevents admission after disposal;
 `submit_profile_view` consumes the common-core opening, captures the active network under the
 same context lock, and returns no event or the committed `ChatSubmission` delivery result.

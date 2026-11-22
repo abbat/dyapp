@@ -264,6 +264,8 @@ pub struct ProfileSearcher {
     pub(crate) runtime: tokio::runtime::Runtime,
     /// Verified profiles from searches and fetches; see `contact_names`.
     pub(crate) cache: Arc<Mutex<Context>>,
+    /// Pure generation capture never waits for the contact IO-bearing cache mutex.
+    pub(crate) view_context: contact_verification::GenerationObserver,
     /// Other people's photos in memory; see `peer_photos`.
     pub(crate) photos: Mutex<PhotoCache>,
     binding: Option<SlotWorker>,
@@ -305,10 +307,12 @@ impl ProfileSearcher {
             .build()
             .map_err(failed)?;
         let cache = contact_verification::shared(std::path::Path::new(&dir)).map_err(failed)?;
+        let view_context = cache.lock().map_err(failed)?.generation_observer();
         Ok(Arc::new(Self {
             dir: dir.into(),
             runtime,
             cache,
+            view_context,
             photos: Mutex::default(),
             binding,
         }))

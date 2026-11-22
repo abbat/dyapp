@@ -7,6 +7,8 @@ use crate::store::Store;
 use dyapp_profile::VerifiedProfile;
 use std::sync::Arc;
 
+mod generation;
+pub use generation::GenerationObserver;
 mod registry;
 pub use registry::{resume_all, scores, shared};
 mod fetch;
@@ -70,7 +72,7 @@ pub struct Ticket {
 /// The adapter fetches the highest observed signed profile after [`Self::begin`].
 #[derive(Debug, Default)]
 pub struct Context {
-    generation: Arc<()>,
+    generation: GenerationObserver,
     profiles: Profiles,
     scores: Arc<tokio::sync::Mutex<Scores>>,
 }
@@ -79,13 +81,24 @@ impl Context {
     /// Capture the current generation before starting search/display work.
     #[must_use]
     pub fn generation(&self) -> Generation {
-        Generation(Arc::clone(&self.generation))
+        // Preserve the existing infallible API; an unpublished token can never pass is_current.
+        self.generation
+            .capture()
+            .unwrap_or_else(|| Generation(Arc::new(())))
     }
 
     /// Whether work captured this context's current generation.
     #[must_use]
     pub fn is_current(&self, generation: &Generation) -> bool {
-        Arc::ptr_eq(&self.generation, &generation.0)
+        self.generation
+            .capture()
+            .is_some_and(|current| Arc::ptr_eq(&current.0, &generation.0))
+    }
+
+    /// A generation-only observer whose publication lock never guards contact IO.
+    #[must_use]
+    pub fn generation_observer(&self) -> GenerationObserver {
+        self.generation.clone()
     }
 
     /// The currently held ordinary profile authority.
@@ -128,7 +141,7 @@ impl Context {
     /// Invalidate comparisons and discard the previous context's profiles and selection health.
     pub fn clear(&mut self) {
         // Retained generations/tickets prevent allocation reuse, so old work cannot become current.
-        self.generation = Arc::new(());
+        self.generation.advance();
         self.profiles = Profiles::default();
         self.scores = Arc::new(tokio::sync::Mutex::new(Scores::default()));
     }

@@ -95,6 +95,52 @@ fn search_context_openings_are_bound_to_the_actual_session_owner() {
 }
 
 #[test]
+fn opening_capture_finishes_while_contact_io_keeps_the_context_mutex() {
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    let f = Fixture::new();
+    f.chats.set_profile_views_enabled(true).unwrap();
+    let searcher = crate::ProfileSearcher::new(f.dir.clone()).unwrap();
+    assert!(Arc::ptr_eq(&searcher.cache, &f.chats.contact_context));
+    let owner = f.key.peer_id();
+    let peer = IdentityKey::generate().unwrap().peer_id();
+    let (search, chat) = std::thread::scope(|scope| {
+        let context = Arc::clone(&f.chats.contact_context);
+        let (ready, entered) = mpsc::channel();
+        let (release, released) = mpsc::channel();
+        scope.spawn(move || {
+            let _held = context.lock().unwrap();
+            ready.send(()).unwrap();
+            // Driver success/failure releases this gate; no elapsed delay admits capture.
+            let _ = released.recv();
+        });
+        entered.recv_timeout(Duration::from_secs(10)).unwrap();
+        let chats = Arc::clone(&f.chats);
+        let (finish, finished) = mpsc::channel();
+        let capture = scope.spawn(move || {
+            let search = searcher.profile_view_opening(owner, peer.clone());
+            let chat = chats.profile_view_opening(peer);
+            finish.send((search, chat)).unwrap();
+        });
+        let result = finished.recv_timeout(Duration::from_secs(10));
+        let _ = release.send(());
+        capture.join().unwrap();
+        result.expect("both factories must complete before the contact IO lock is released")
+    });
+    f.chats.contact_context.lock().unwrap().clear();
+    for opening in [search.unwrap(), chat.unwrap()] {
+        assert_eq!(
+            f.chats
+                .submit_profile_view(opening)
+                .unwrap_err()
+                .to_string(),
+            "notConnected"
+        );
+    }
+}
+
+#[test]
 fn invalid_own_and_blocked_targets_are_refused_before_network_access() {
     let f = Fixture::new();
     f.chats.set_profile_views_enabled(true).unwrap();
