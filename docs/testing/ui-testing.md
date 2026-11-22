@@ -1221,10 +1221,11 @@ Compose PixelCopy captures the dialog. Actual paragraph layouts and live scroll 
 text geometry; public identifier semantics retain raw copy values while exposing grouped glyph layout.
 Each preparation/operation transition moves safe focus back to Cancel before subsequent input.
 The keyboard-disabled baseline does not establish real IME or internal editor scrolling, native
-authorization, transfer, or completed visual acceptance. The artifact-consuming CI runner and
-source-bound image review remain planned; source lint cannot establish runtime success.
+authorization, transfer, or completed visual acceptance. The manual `android-visual` workflow
+consumes the exact producer APK artifact; source-bound native image review still requires an actual
+completed run. Source lint cannot establish runtime success.
 `tests/scripts/android_visual_producer.py` validates saved GitHub producer/job/artifact API metadata
-before a planned visual runner installs anything. It requires a same-repository main push/manual
+before the visual runner installs anything. It requires a same-repository main push/manual
 `ci.yml` run, exactly one successful matching Android build and an unexpired source-matching runtime
 artifact with its digest. Unrelated queued Apple jobs do not prevent this validation; the whole
 workflow need not have finished. Keep the API receipts beside `validated.json` for provenance.
@@ -1234,6 +1235,14 @@ paths or links. It retains partial safe frames before rejecting an incomplete ma
 validation requires all twelve states × two languages × two themes × two font sizes × two scroll
 edges (192 frames per width), matching source/viewport and PNG header dimensions. This checks evidence
 integrity and coverage, not the visual quality of the rendered screens or the real IME behavior.
+Run `gh workflow run android-visual.yml -f producer_run=RUN_ID` after that main CI run's Android
+build succeeds. Each width gets a fresh KVM emulator without host nodes or network peers. The workflow
+checks out the exact producer for toolchain inputs and records the current trusted runner separately;
+it never rebuilds APKs. Live density determines the physical viewport, and instrumentation requires
+the requested dp width. The keyboard-disabled rendering phase has no submission retries. Always-run
+collection retains logs, raw tar and safe partial frames; successful validation requires complete
+manifests. Artifacts are `android-visual-producer` and `android-visual-360|412`. Ordinary CI does not
+run this matrix; real two-device transfer and real-IME review remain separate blockers.
 `DeviceDirectoryWorkerTests` and `DeviceDirectoryFailureTests` exercise the presentation adapter with
 controlled native-shaped completions. They retain original public targets across mutable DTO input,
 reject stale/forged confirmation openings, retire a view during an admitted call, cancel its UI waiter

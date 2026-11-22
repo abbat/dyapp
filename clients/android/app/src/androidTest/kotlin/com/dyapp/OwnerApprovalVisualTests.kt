@@ -19,8 +19,8 @@ class OwnerApprovalVisualTests {
         assumeTrue("Run only through the dedicated native visual phase", arguments.getString("ownerVisual") == "1")
         val source = checkNotNull(arguments.getString("sourceSha"))
         val width = checkNotNull(arguments.getString("expectedWidth")).toInt()
-        val actual = InstrumentationRegistry.getInstrumentation().targetContext.resources.configuration.screenWidthDp
-        check(actual == width) { "Native viewport is $actual dp, expected$width" }
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        compose.waitUntil(10_000) { context.resources.configuration.screenWidthDp == width }
         val output = OwnerVisualOutput(source, width)
         val host = OwnerVisualHost(compose)
         for (language in listOf("en", "ru")) captureLanguage(host, output, language)

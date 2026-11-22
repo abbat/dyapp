@@ -1,0 +1,57 @@
+name: dyapp-android-visual
+
+x-runtime: &runtime
+  image: dyapp:android-tools
+  user: "${DYAPP_UID:-1000}:${DYAPP_GID:-1000}"
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs:
+    - /tmp:rw,exec,nosuid,nodev,mode=1777
+    - /home/appuser:rw,nosuid,nodev,uid=${DYAPP_UID:-1000},gid=${DYAPP_GID:-1000},mode=0700
+  volumes:
+    - ${DYAPP_VISUAL_CHECKOUT:?}:/app:ro
+    - ../..:/runner:ro
+    - ${DYAPP_VISUAL_PACKAGES:?}:/app/build:ro
+    - ../../build/android-visual-reports:/reports
+    - ../../build/android-visual-runtime:/app/build/visual-runtime
+  environment: &environment
+    HOME: /home/appuser
+    ANDROID_USER_HOME: /home/appuser/.android
+    DYAPP_VISUAL_SOURCE: ${DYAPP_VISUAL_SOURCE:?}
+    DYAPP_VISUAL_WIDTH: ${DYAPP_VISUAL_WIDTH:?}
+  networks: [visual]
+
+services:
+  emulator:
+    <<: *runtime
+    cpus: 3
+    devices: ["/dev/kvm:/dev/kvm"]
+    group_add: ["${DYAPP_KVM_GID:?}"]
+    volumes:
+      - ${DYAPP_VISUAL_CHECKOUT:?}:/app:ro
+      - ../..:/runner:ro
+      - ${DYAPP_VISUAL_PACKAGES:?}:/app/build:ro
+      - ../../build/android-visual-runtime:/app/build/visual-runtime
+      - ../../build/android-visual-avd:/avd
+    command: [bash, /runner/tests/scripts/android-visual-emulator.sh]
+    healthcheck:
+      test: [CMD-SHELL, 'test "$$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\\r")" = 1 && adb -s emulator-5554 shell cmd package path android >/dev/null']
+      interval: 10s
+      timeout: 30s
+      retries: 60
+  capture:
+    <<: *runtime
+    cpus: 1
+    depends_on:
+      emulator:
+        condition: service_healthy
+    environment:
+      <<: *environment
+      ADB_SERVER_SOCKET: tcp:emulator:5037
+    command: [bash, /runner/tests/scripts/android-visual-capture.sh]
+
+networks:
+  visual:
+    internal: true
