@@ -30,6 +30,7 @@ thiserror = "2"
 tokio = { version = "1", features = ["sync", "time"] }
 unicode-segmentation = "1.13"
 url = "=2.5.9"
+ureq = { version = "=3.5.2", default-features = false, features = ["rustls"] }
 zeroize = "1.9"
 
 [dev-dependencies]

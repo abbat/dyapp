@@ -3,6 +3,7 @@
 
 pub mod coordinator;
 pub mod feed;
+pub mod transport;
 
 /// A stable release version, compared by numeric components.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]

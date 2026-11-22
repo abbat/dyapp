@@ -3,11 +3,12 @@
 Status: client checks and live Pages verification are pending.
 No client currently checks for updates. The tagged release workflow packages
 `dyappd`, Linux and Windows clients, and stages a verified client update feed.
-The shared Rust client core now provides strict stable-version parsing, pure
-check-cadence rules and bounded feed-schema validation in `rust/client/src/updates.rs`
-and `updates/feed.rs`. These have no network or storage side effects. Shared-core transport validation, persisted app-wide state and request coalescing
-remain planned. Platform adapters still need lifecycle/timer hooks to invoke that
-API after live-feed verification, before enabling controls.
+The shared Rust client core provides strict version/cadence/feed helpers in
+`rust/client/src/updates.rs`, `updates/feed.rs` and `updates/coordinator.rs`.
+Those helpers have no network or storage side effects. `updates::transport::Client`
+adds explicitly invoked bounded HTTPS transport; platform controls still do not call it.
+Persisted app-wide state, response rollback integration, native APIs and lifecycle/timer hooks
+remain planned. Clients stay disabled until live-feed verification and those integrations pass.
 
 The pure `updates::coordinator::Coordinator` now owns simultaneous-trigger admission and attempt
 completion for one installation. Its opaque ticket is consumed by completion; dropping it is
@@ -15,7 +16,7 @@ reaped once as failure. A checkpoint records an in-flight request so restore app
 request backoff, and clock rollback admits one catch-up without a retry loop. The future shared
 checker must persist checkpoints before HTTP and after completion, and must validate transport
 and feed/cache trust before recording `Completion::Validated`. This enum is not a native caller's
-assertion of trust. Durable storage, cross-process exclusion, HTTP/TLS, FFI and activation remain
+assertion of trust. Durable storage, cross-process exclusion, checker integration, FFI and activation remain
 pending; these pure helpers perform no check or installation themselves.
 
 ## Goal and boundary
@@ -96,8 +97,22 @@ The typed result constructs the official information page from validated numeric
 version components. Missing targets remain absent; parsing does not prove an
 installed version is current. It authenticates neither hosting origin nor
 publisher, and a store method still needs a separately verified pinned listing.
-Transport-origin validation, persisted rollback/cadence state, native exports and
-client activation remain pending. Offline parsing does not enable any check.
+The fixed transport enforces origin and response bounds; actual source-bound HTTPS acceptance
+is still required. Persisted rollback/cadence state, native exports and client activation remain
+pending. Offline parsing does not enable any check.
+
+### Shared HTTPS transport checkpoint
+
+`updates::transport::Client` performs one blocking GET to the fixed endpoint, on an IO worker.
+The pinned `ureq` adapter enables only rustls with WebPKI roots, preserving certificate/SNI
+verification without Android platform-verifier JNI initialization. Redirect following and proxy
+inheritance are disabled; no cookies or decompression feature is enabled. Its global network
+budget is 30 seconds. Streaming reads consume at most 64 KiB plus one size-probe byte before the
+existing feed parser runs. ETags must be bounded quoted ASCII metadata, with an optional `W/`.
+A 304 requires an already schema-valid cache and never invents a first feed; other statuses fail.
+The cache is restored only by common storage, not from platform-provided identity/ETag inputs.
+This transport does not prove rollback, package compatibility or live publisher acceptance, and
+does not update coordinator success until the shared integration performs those checks.
 
 ### Offline feed generator checkpoint
 
