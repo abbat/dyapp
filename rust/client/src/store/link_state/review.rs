@@ -115,11 +115,32 @@ impl LinkStateReview {
             return Ok(false);
         }
         let snapshot = Transaction::new_unchecked(&store.db, TransactionBehavior::Deferred)?;
-        let same = store.link_pending()?.as_deref() == Some(self.pending_bytes.as_slice())
-            && progress::read(&store.db, &self.pending_bytes)?.is_none()
-            && store.link_state_in_snapshot()? == self.current_bytes;
+        let same = self.is_current_in_snapshot(store, identity)?;
         snapshot.commit()?;
         Ok(same)
+    }
+
+    // Caller owns the transaction; confirmation can reuse this under its immediate writer.
+    // This validates frozen evidence only, never device admission or permission to import.
+    pub(super) fn is_current_in_snapshot(
+        &self,
+        store: &Store,
+        identity: &Identity,
+    ) -> Result<bool, Error> {
+        if identity.peer_id() != self.owner || store.owner_peer_id() != self.owner {
+            return Err(Error::WrongIdentity);
+        }
+        if store.db.is_autocommit() {
+            return Err(Error::InvalidSetting);
+        }
+        if store.db.path() != Some(self.database.as_str()) {
+            return Ok(false);
+        }
+        Ok(
+            store.link_pending()?.as_deref() == Some(self.pending_bytes.as_slice())
+                && progress::read(&store.db, &self.pending_bytes)?.is_none()
+                && store.link_state_in_snapshot()? == self.current_bytes,
+        )
     }
 
     /// Compare owner values only. Future confirmation must validate choices, context and each

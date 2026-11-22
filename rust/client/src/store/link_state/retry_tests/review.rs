@@ -1,5 +1,7 @@
 //! Read-only comparison must not grant import or device authorization.
 use super::*;
+#[path = "review_context.rs"]
+mod context;
 use crate::store::{
     LinkPreference as Field, LinkPreferenceChoice as Choice,
     LinkPreferenceSelectionError as SelectionError, LinkPreferenceSource as Source,
