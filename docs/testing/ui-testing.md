@@ -18,6 +18,9 @@ Each transition retains its independent failure deadline and named stage; Compos
 UI effects while native IO remains real. Blocking `Flow.first` on the instrumentation thread is
 reserved for worker teardown after disposal. `ScreenReadinessTests` gates an actual LaunchedEffect
 continuation to check scheduler progress without sleeps or guessed delays.
+The instrumentation progress JSONL appends attempts to one file. Split records at each
+`runner_started` before counting results or claiming first-attempt acceptance; a later retry's
+success never replaces a primary failure, and an unfinished retry supplies no terminal result.
 
 Android receiving-screen checks use the real Settings frame, controls and retained-operation store
 with controlled native completion. They preserve the exact reserved destination, require explicit
