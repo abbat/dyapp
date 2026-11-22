@@ -1207,6 +1207,12 @@ These tests use actual semantics, scroll geometry and completion signals. Existe
 receiver calls on `SemanticsNodeInteraction`; importing them as top-level extensions fails test-APK
 compilation even when main-source CodeQL and source lint pass. Full native EN/RU visual
 review and the existing real two-device UI/JNI journey remain separate acceptance.
+The owner visual fixtures provide twelve controlled native-shaped outcomes through production
+dialog controls, one reusable Compose root, matching EN/RU resources and font configuration, and
+completion-owned worker retirement. They never overwrite presentation StateFlows or host a node.
+This foundation does not establish native authorization, transfer, rendered visual acceptance or
+real IME/editor scrolling. The phase-only capture test and its artifact-consuming CI runner remain
+planned; source lint cannot establish runtime success.
 `DeviceDirectoryWorkerTests` and `DeviceDirectoryFailureTests` exercise the presentation adapter with
 controlled native-shaped completions. They retain original public targets across mutable DTO input,
 reject stale/forged confirmation openings, retire a view during an admitted call, cancel its UI waiter
