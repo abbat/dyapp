@@ -9,6 +9,9 @@ The profile recreation case requires its ready Profile label without dismissing 
 its original identity, wrapped-key and selected-slot assertions remain.
 `AppLockStartupTests` restores saved private-content state with a distinct remembered startup owner,
 while controlled read gates retain loading, protected-failure and retired-owner rejection coverage.
+Lock-settings Back checks await the merged Account destination after both the UI button and native
+Back dispatcher, with a fresh readiness deadline for each transition; transient unmerged nodes do
+not establish completion.
 
 Android native link journeys observe actual session completion through Compose `awaitSnapshot`.
 Each transition retains its independent failure deadline and named stage; Compose drives queued
