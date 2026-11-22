@@ -1183,6 +1183,14 @@ then completes verified cleanup through the same Kotlin adapter used by both rec
 second adapter call has no authority to recreate the removed context. Only the linked slot disappears;
 the other selected identity still opens. Native package tests separately retain duplicate/concurrent
 capability outcomes. This cleanup extension needs its own actual CI runtime proof.
+`LinkApprovalWorkerTests` and `LinkApprovalLifetimeTests` cover the owner-approval IO adapter with
+controlled native-shaped calls. They check core-provided malformed/expired refusal, immutable normalized
+public targets, exact opening admission, explicit preparation retry, uncertainty retained after later
+expiry, and retirement during both preparation and send. Cancelling a UI waiter cannot cancel the
+admitted send or close its handle early; a successor session remains unchanged and each handle closes
+once. Completion signals and per-transition failure deadlines replace timing guesses. These tests
+require Android instrumentation CI; they do not prove generated binding compilation, actual transfer
+or the planned owner-approval widgets.
 `DeviceDirectoryWorkerTests` and `DeviceDirectoryFailureTests` exercise the presentation adapter with
 controlled native-shaped completions. They retain original public targets across mutable DTO input,
 reject stale/forged confirmation openings, retire a view during an admitted call, cancel its UI waiter
