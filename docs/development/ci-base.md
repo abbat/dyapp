@@ -162,9 +162,11 @@ and gates the verified unsigned APK and AAB against baselines measured in the sa
 image. The unsigned two-ABI APK baseline is 75,581,915 bytes, measured on `432df82e` with
 AGP 9.5.1, NDK 29 and Rust 1.99 in the
 [2026-11-21 release-size run](https://github.com/abbat/dyapp/actions/runs/44888433545).
-It uses the exact measured size without headroom; the 5% rule remains unchanged. The AAB keeps its
-30,160,837-byte baseline from `47c17300` in the
-[2026-10-31 run](https://github.com/abbat/dyapp/actions/runs/41191895390).
+It uses the exact measured size without headroom; the 5% rule remains unchanged. The AAB baseline
+is 32,055,659 bytes, measured on `a575061f` with the same AGP 9.5.1/NDK 29/Rust 1.99 environment
+in the [2026-11-22 run](https://github.com/abbat/dyapp/actions/runs/45038154877).
+Its package-verification manifest and measurement agree on bytes and SHA-256. The APK baseline
+stays unchanged; neither record adds a growth exception or raises the 5% tolerance.
 The job archives the build log, `packages.json`, `release-size-android-<kind>.json` and
 `artifact-size-android-<kind>.json`.
 
