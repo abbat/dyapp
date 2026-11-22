@@ -37,6 +37,9 @@ def environment(root: Path, original: Mapping[str, str]) -> dict[str, str]:
         result[variable] = shlex.join(
             [
                 *shlex.split(result.get(variable, "")),
+                "-fstack-protector-strong",
+                "-U_FORTIFY_SOURCE",
+                "-D_FORTIFY_SOURCE=2",
                 *remaps,
             ]
         )

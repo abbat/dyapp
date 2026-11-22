@@ -104,6 +104,7 @@ class AppLockUITests {
         store.enroll("123456")
         try {
             compose.activityRule.scenario.recreate()
+            waitForTag("app-locked")
             compose.onNodeWithTag("app-locked").assertIsDisplayed()
             check(secure()) { "A configured lock left the snapshot visible" }
             compose.onNodeWithTag("peer-id").assertDoesNotExist()
@@ -127,12 +128,12 @@ class AppLockUITests {
 
     private fun bothBacksLeaveLockSettings() {
         compose.onNodeWithTag("lock-back").performClick()
-        compose.onNodeWithTag("settings-account").assertExists()
+        compose.awaitNode(hasTestTag("settings-account"))
         compose.onNodeWithTag("lock-settings").performScrollTo().performClick()
-        // Waits for the screen, whose BackHandler would otherwise miss the press and finish the activity.
-        compose.onNodeWithTag("lock-back").assertExists()
+        // Require the destination before its native BackHandler receives the press.
+        compose.awaitNode(hasTestTag("lock-back"))
         compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
-        compose.onNodeWithTag("settings-account").assertExists()
+        compose.awaitNode(hasTestTag("settings-account"))
     }
 
     @Test

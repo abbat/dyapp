@@ -2,6 +2,13 @@
 
 ## Overview
 
+The `strip` fuzz corpus retains `jepg-fix.jpg`, also used by the shared metadata-stripping
+regression. It exercises rotated JPEG DC dequantization overflow. The decoder uses the reviewed
+upstream revision `fe5bf991dc51b5b8cc4f6b28a96a612a4ce57d65` until a corrected crates.io release
+is available; all five workspace roots must keep the override and locks consistent. The Git
+source override retains published `zune-core` types shared with `image`. Unknown Git sources stay
+denied, and allowed Git dependencies require immutable revision specifications.
+
 Local Make checks retain complete Docker output and print `OK` on success or
 `FAIL`/`FIX`/`DETAILS` with the raw-log path on failure. Use `DYAPP_VERBOSE=1` for live output. See
 [local check output](../agents/project.md#local-check-output) for paths and retention.

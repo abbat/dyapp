@@ -1,5 +1,18 @@
 # UI Testing: Practical Guide
 
+Native receiving completion checks retain a recovery review prepared before setup finishes:
+preparing another review after the pending link has been cleared is correctly refused. Publication
+preview tests await their expected current row after the native draft read, before scrolling.
+Activity recreation waits for the requested screen's current semantics after asynchronous protected
+startup, rather than treating the Activity lifecycle acknowledgement as private-content readiness.
+The profile recreation case requires its ready Profile label without dismissing a network wizard;
+its original identity, wrapped-key and selected-slot assertions remain.
+`AppLockStartupTests` restores saved private-content state with a distinct remembered startup owner,
+while controlled read gates retain loading, protected-failure and retired-owner rejection coverage.
+Lock-settings Back checks await the merged Account destination after both the UI button and native
+Back dispatcher, with a fresh readiness deadline for each transition; transient unmerged nodes do
+not establish completion.
+
 Android native link journeys observe actual session completion through Compose `awaitSnapshot`.
 Each transition retains its independent failure deadline and named stage; Compose drives queued
 UI effects while native IO remains real. Blocking `Flow.first` on the instrumentation thread is
@@ -17,6 +30,12 @@ exact original native receipt remains, and only the current control completes pr
 visibility, activation prerequisites and busy disposition are checked before focus/reachability
 calibration. Canonical Android capture validates layout and these browser contracts; it does not
 run the desktop-only criteria audit or prove native transfer/enrollment.
+
+Android `remove-offline` captures also run `remove-fixture-tests.js` after capture. It checks
+that the translated uncertainty warning and all three actions are reachable using actual
+scroll/focus completion, current bounds and hit testing, including enlarged text. Hidden,
+covered and off-screen counterexamples calibrate the shared reachability check. Initial
+viewport PNGs alone do not show the entire long dialog or prove native removal behavior.
 
 `LinkEnrollmentNoticeTests` exercises the production enrollment notices and controls in EN/RU.
 Uncertain authorization, private-state review, revoked and unlisted outcomes remain distinct and
@@ -393,7 +412,8 @@ do not prove native resource selection or recreation.
 `LanguagePickerTests` checks Cancel/unchanged selection without writes, stale callbacks from an
 older opening or owner, arbitrary option count and single admission of captured repeated selection.
 `LanguagePickerGeometryTests` checks complete long-label text and current unclipped dialog bounds
-at normal/doubled font scale, with Cancel still visible. Initial/return focus readiness uses actual
+at normal/doubled font scale, with Cancel still visible. Its configured native window and measured
+label TextLayoutResult must agree on the requested fontScale. Initial/return focus readiness uses actual
 window-focus signals. The selected option and returning opener explicitly allow focus in touch mode.
 Retirement tests capture the same application closure supplied to the control through
 `applicationClickKey`; Foundation's retained `OnClick` wrapper requires an attached Modifier node
@@ -404,7 +424,8 @@ language/theme persistence and Activity recreation assertions. Actual CI executi
 `ChatListPreviewTests` drives actual conversation rows for all six typed bodies and forwarded states,
 with disagreeing legacy text/time, cached shared-profile labels, original navigation and a full-history
 sentinel. `ChatListPreviewGeometryTests` reads actual semantic text layouts and unclipped bounds at
-normal/doubled font scale; its narrow host derives from measured text and current window width.
+normal/doubled font scale and asserts the preview's actual layout fontScale; its inline density
+provider needs no separate Dialog window. Its narrow host derives from measured text and current width.
 It requires wrapping, complete non-ellipsized content, timestamps below the preview and contained
 horizontal bounds, without guessed offsets or sleeps. These sources require actual SDK/device CI;
 static lint alone does not establish rendered acceptance.
@@ -1000,9 +1021,9 @@ artifacts, not a local native build.
 
 ## What is tested
 
-The UI suites test the **platform shells** (`clients/android/`, `clients/ios/`, `clients/macos/`, `clients/linux/`, `clients/windows/`).
-The shells call the Rust core for a peer ID (see
-[ci-matrix.md](../development/ci-matrix.md#what-the-platform-jobs-do-not-validate)); shared
+The UI suites exercise the native clients (`clients/android/`, `clients/ios/`, `clients/macos/`,
+`clients/linux/`, `clients/windows/`). Named test results establish their scoped acceptance, not
+complete feature parity (see [ci-matrix.md](../development/ci-matrix.md#acceptance-limits)). Shared
 iOS unit tests also check per-slot Keychain wrapping account isolation and network draft
 file separation/corruption. They verify that erasing one UUID wrapping item leaves another slot
 and the legacy account readable, and that a valid deleting tombstone remains visible when its
@@ -1241,9 +1262,21 @@ The phase-only `OwnerApprovalVisualTests` requires instrumentation arguments `ow
 `sourceSha=<40-hex producer commit>` and `expectedWidth=360|412`; ordinary instrumentation excludes
 it. A fresh device is required for each width. EN/RU, light/dark and 100/200% font variants produce
 top/bottom dialog PNG images and a completion manifest under `files/owner-approval-visual/<width>/`.
-Compose PixelCopy captures the dialog. Actual paragraph layouts and live scroll viewports establish
-text geometry; public identifier semantics retain raw copy values while exposing grouped glyph layout.
+Compose PixelCopy captures the dialog. Every captured text layout must report the requested
+fontScale; each frame records `actual_font_scale` and `actual_density` from TextLayoutResult.
+Owner, receiving and IME archive validation rejects missing, nonfinite or mismatched witnesses.
+`LocalizedDialogScaleTests` checks refusal of a bare composition-only override and verifies genuine
+1→2→1 dialog scaling while remembered edits and the Activity picker registry survive. The test
+context uses a configured parent View without changing global OS settings. Earlier PNG inventories
+without effective-scale witnesses do not establish enlarged-dialog acceptance.
+Actual paragraph layouts and live scroll viewports establish text geometry; public identifier
+semantics retain raw copy values while exposing grouped glyph layout.
 Each preparation/operation transition moves safe focus back to Cancel before subsequent input.
+Completed validation status/failure also restores focus: a fast worker may finish before Compose
+renders its busy state. `LinkApprovalFocusTests` forces that ordering by completing the IO-only
+worker within one UI turn, then checks Cancel focus and absence of preparation/transfer.
+Visual state waits use `awaitSnapshot` to drive Compose effects while observing session completion;
+blocked fixture operations use their explicit entered signal, with a fresh failure deadline per step.
 The keyboard-disabled baseline does not establish real IME or internal editor scrolling, native
 authorization, transfer, or completed visual acceptance. The manual `android-visual` workflow
 consumes the exact producer APK artifact; source-bound native image review still requires an actual
@@ -1253,6 +1286,14 @@ before the visual runner installs anything. It requires a same-repository main p
 `ci.yml` run, exactly one successful matching Android build and an unexpired source-matching runtime
 artifact with its digest. Unrelated queued Apple jobs do not prevent this validation; the whole
 workflow need not have finished. Keep the API receipts beside `validated.json` for provenance.
+`android-visual-collect.sh` first completes `tar` through `adb shell` with its remote exit
+status, keeping shell diagnostics separate, then transfers the completed file through `exec-out cat`.
+A remote SHA-256 record must match the exact transferred bytes: `exec-out` itself does not carry the
+remote command's exit status, and a tar reader may ignore trailing diagnostics after a valid archive.
+A missing/malformed digest or mismatch fails collection while retaining the raw evidence.
+An unentered phase retains its collection diagnostic without publishing a fake archive. A real
+transfer failure keeps partial bytes and a nonzero status; collection failure also fails an otherwise
+successful capture, while an earlier instrumentation failure keeps its original status.
 `tests/scripts/android_visual_archive.py` reads the collected native tar into a fresh directory,
 allowing only regular PNG/manifest files for the requested width with bounded sizes and no duplicate
 paths or links. It retains partial safe frames before rejecting an incomplete manifest. Successful

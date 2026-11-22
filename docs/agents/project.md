@@ -191,9 +191,21 @@ factory is deprecated and `-Werror` rejects it. V2 queues coroutine effects with
 await actual state/UI readiness rather than depending on immediate effect execution. For UI-owned
 session transitions, use `compose.awaitSnapshot` so queued effects can resume; `runBlocking` with
 `Flow.first` can starve them. Pure IO retirement after disposal still awaits its real worker.
+App-lock configuration callbacks capture initial-only versus OS-authorized replacement from their
+specific settings route, never from mutable Activity state at invocation. Key the settings form by
+that authority mode so changing modes cancels its prior coroutine scope. Core initial-only admission
+checks New/Off and writes under one guard; a Kotlin mode preflight cannot replace that boundary.
+
 Localized instrumentation content uses `LocalizedTestContext` so context/configuration/resources
 agree and the actual Activity picker registry survives the configuration-context substitution.
 Use its font-scale argument for geometry cases; retain the original locale and text-layout assertions.
+The helper gives a real parent ComposeView a configured Activity-based context: a platform Dialog
+creates a separate owner and resets LocalDensity from its View context. A composition-local override
+alone does not scale that window. Keep the View/composition stable across configuration changes so
+remembered edits survive; retain the Activity window token and picker registry. Base the window
+context on the actual parent View's Activity context, not an application configuration context.
+Visual evidence must measure TextLayoutResult density inside the actual window, not label frames
+from requested settings.
 Create fixture locales with `Locale.forLanguageTag(language)`: the current SDK deprecates the
 single-string constructor and Android test compilation treats that warning as an error.
 
@@ -207,6 +219,9 @@ read/import job must outlive clearing the picker ticket while staying within the
 Compose `produceState` restart keys do not recreate its remembered initial state. Profile loading
 uses an outer keyed composition for peer/feed ownership and verifies coroutine activity before
 publishing a fetch result; preserve both guards when changing retries or data sources.
+App-lock startup keys its read and initialization state by the Activity owner, but keeps admitted
+application content outside that key: an Activity-instance key around content changes nested
+`rememberSaveable` identities on recreation and loses restored navigation/wizard state.
 A `StateFlow`/Compose consumer can conflate a worker's busy and idle frames. UI admission latches
 therefore use an explicit worker completion result, independent of the UI coroutine; observing
 `busy = true` is not a prerequisite for releasing a completed validation-error retry. Generated

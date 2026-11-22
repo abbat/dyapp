@@ -80,6 +80,26 @@ impl AppLock {
         self.store(&Saved::pin(pin::hash(value.to_string())?))
     }
 
+    /// Enroll from New/Off only, atomically refusing any concurrently established protection.
+    ///
+    /// # Errors
+    /// Returns already-enabled, invalid-record, PIN, storage or synchronization failure.
+    pub fn enroll_initial(&self, value: String) -> Result<(), Error> {
+        let value = Zeroizing::new(value);
+        let _guard = self.guard()?;
+        self.require_unprotected()?;
+        self.store(&Saved::pin(pin::hash(value.to_string())?))
+    }
+
+    // The caller retains the operation guard through admission and durable completion.
+    fn require_unprotected(&self) -> Result<(), Error> {
+        if matches!(self.mode_inner()?, Mode::New | Mode::Off) {
+            Ok(())
+        } else {
+            Err(Error::AlreadyEnabled)
+        }
+    }
+
     /// Persist a consumed attempt before verification, and reset before reporting success.
     ///
     /// # Errors
@@ -191,6 +211,20 @@ impl AppLock {
     /// Returns invalid-record, storage or synchronization failure.
     pub fn use_biometric(&self) -> Result<(), Error> {
         let _guard = self.guard()?;
+        self.use_biometric_inner()
+    }
+
+    /// Choose biometric mode from New/Off only; existing protection requires OS recovery.
+    ///
+    /// # Errors
+    /// Returns already-enabled, invalid-record, storage or synchronization failure.
+    pub fn use_biometric_initial(&self) -> Result<(), Error> {
+        let _guard = self.guard()?;
+        self.require_unprotected()?;
+        self.use_biometric_inner()
+    }
+
+    fn use_biometric_inner(&self) -> Result<(), Error> {
         if self.format == Format::Ios {
             return self.store(&Saved::mode(Mode::Biometric));
         }

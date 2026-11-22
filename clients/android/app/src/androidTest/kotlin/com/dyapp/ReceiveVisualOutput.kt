@@ -28,6 +28,7 @@ internal class ReceiveVisualOutput(private val source: String, private val width
         val theme = if (scene.dark) "dark" else "light"
         val font = if (scene.fontScale == 2f) 200 else 100
         val name = "${scene.state.screen}-$language-$width-$theme-$font-$edge.png"
+        val density = NativeVisualGeometry(host.compose, "settings-receive").density(scene.fontScale)
         val target = File(directory, name)
         check(target.createNewFile()) { "Duplicate receiving frame: $name" }
         val bitmap = host.compose.onNodeWithTag("settings-receive").captureToImage().asAndroidBitmap()
@@ -38,6 +39,8 @@ internal class ReceiveVisualOutput(private val source: String, private val width
                     .put("language", language)
                     .put("theme", theme)
                     .put("font_percent", font)
+                    .put("actual_font_scale", density.fontScale)
+                    .put("actual_density", density.density)
                     .put("viewport_width_dp", scene.context.resources.configuration.screenWidthDp)
                     .put("viewport_height_dp", scene.context.resources.configuration.screenHeightDp)
                     .put("pixel_width", bitmap.width)

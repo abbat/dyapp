@@ -13,12 +13,27 @@ import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.unit.Density
 import org.junit.Assert.assertTrue
 import kotlin.math.ceil
 import kotlin.math.floor
 
 /** Actual paragraph layouts and live scroll viewports, without guessed padding or tap offsets. */
 internal class NativeVisualGeometry(private val compose: ComposeContentTestRule, private val rootTag: String) {
+
+    fun density(expectedScale: Float): Density {
+        val nodes = compose.onAllNodes(
+            SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult) and
+                hasAnyAncestor(hasTestTag(rootTag)),
+            useUnmergedTree = true
+        ).fetchSemanticsNodes()
+        check(nodes.isNotEmpty()) { "Native scale witness has no text layouts" }
+        val actual = nodes.map { node(it.id).textLayout().layoutInput.density }
+        check(actual.all { it.fontScale == expectedScale }) {
+            "Native text scale differs from requested $expectedScale: ${actual.map { it.fontScale }.toSet()}"
+        }
+        return Density(actual.first().density, actual.first().fontScale)
+    }
 
     fun check(): Int {
         val matcher = SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult) and

@@ -144,6 +144,7 @@ def validate(
         if not isinstance(name, str) or name not in expected or name in actual:
             raise ValueError("Unexpected or duplicate native frame")
         actual.add(name)
+        native_scale(frame, name)
         data = (output / name).read_bytes()
         if data[:16] != b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR":
             raise ValueError("Invalid native PNG header")
@@ -157,6 +158,25 @@ def validate(
     }:
         raise ValueError("Incomplete native visual matrix")
     return len(actual)
+
+
+def native_scale(frame: dict[str, object], name: str) -> None:
+    expected = int(name.rsplit("-", 2)[1])
+    for key in ("actual_font_scale", "actual_density"):
+        value = frame.get(key)
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or value <= 0
+        ):
+            raise ValueError("Missing or invalid native text density witness")
+    if frame.get("font_percent") != expected:
+        raise ValueError("Requested native font scale disagrees with frame")
+    if frame["actual_font_scale"] != expected / 100:
+        raise ValueError(
+            "Actual native font scale disagrees with requested scale"
+        )
 
 
 def rectangle(value: object) -> list[float]:
@@ -229,6 +249,7 @@ def validate_ime(output: Path, width: int, source: str) -> int:
         if not isinstance(name, str) or name not in expected or name in actual:
             raise ValueError("Unexpected or duplicate real-IME frame")
         actual.add(name)
+        native_scale(frame, name)
         ime_frame(output, frame, name)
     if actual != expected or {p.name for p in output.iterdir()} != expected | {
         "manifest.json"

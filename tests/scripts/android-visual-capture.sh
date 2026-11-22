@@ -11,12 +11,12 @@ mkdir -p "$report"
 collect() {
     local code=$?
     timeout 30 adb -s emulator-5554 logcat -d > "$report/logcat.txt" 2>&1 || true
-    timeout 60 adb -s emulator-5554 exec-out run-as com.dyapp \
-        tar -cf - files/owner-approval-visual > "$report/native.tar" 2> "$report/collection-error.txt" || true
-    timeout 60 adb -s emulator-5554 exec-out run-as com.dyapp \
-        tar -cf - files/owner-approval-ime > "$report/ime.tar" 2> "$report/ime-collection-error.txt" || true
-    timeout 60 adb -s emulator-5554 exec-out run-as com.dyapp \
-        tar -cf - files/receive-visual > "$report/receive.tar" 2> "$report/receive-collection-error.txt" || true
+    for archive in native:files/owner-approval-visual ime:files/owner-approval-ime receive:files/receive-visual; do
+        if ! bash /runner/tests/scripts/android-visual-collect.sh \
+            "$report" "${archive#*:}" "${archive%%:*}"; then
+            if [[ $code == 0 ]]; then code=1; fi
+        fi
+    done
     exit "$code"
 }
 trap collect EXIT

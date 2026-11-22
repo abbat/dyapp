@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -35,15 +36,32 @@ class LockSetupTests {
     val rules: RuleChain = RuleChain.outerRule(lockChoice(skipped = false)).around(compose)
 
     @Test
+    fun skipCannotBypassAPinConfiguredAfterSetupWasOpened() {
+        compose.awaitNode(hasTestTag("lock-setup")).assertIsDisplayed()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val store = AppLockStore.onDevice(context.noBackupFilesDir)
+        store.enroll("123456")
+        try {
+            compose.onNodeWithTag("lock-skip").performClick()
+            compose.awaitNode(hasTestTag("app-locked")).assertIsDisplayed()
+            compose.onNodeWithTag("app-ready").assertDoesNotExist()
+            compose.onNodeWithTag("peer-id").assertDoesNotExist()
+            check(store.mode() == StoredLock.PIN)
+        } finally {
+            check(store.change("123456", null) == PinAttempt.UNLOCKED)
+        }
+    }
+
+    @Test
     fun firstLaunchOffersSetupBeforeIdentityAndRemembersSkip() {
-        compose.onNodeWithTag("lock-setup").assertIsDisplayed()
+        compose.awaitNode(hasTestTag("lock-setup")).assertIsDisplayed()
         compose.onNodeWithTag("peer-id").assertDoesNotExist()
         compose.onNodeWithTag("lock-skip").performClick()
         compose.skipNetworkEntry()
         compose.onNodeWithTag("app-ready").assertIsDisplayed()
         compose.activityRule.scenario.recreate()
-        compose.onNodeWithTag("lock-setup").assertDoesNotExist()
         compose.skipNetworkEntry()
+        compose.onNodeWithTag("lock-setup").assertDoesNotExist()
         compose.onNodeWithTag("app-ready").assertIsDisplayed()
     }
 }
@@ -56,7 +74,7 @@ class SetupScreenTests {
     fun mismatchClearsInputAndMatchingPinEnrollsOnce() {
         val enrolled = mutableListOf<String>()
         compose.setContent {
-            SetupScreen(DeviceLock(true), {}) {
+            SetupScreen(DeviceLock(true), { true }) {
                 enrolled += it
                 true
             }
@@ -76,7 +94,7 @@ class SetupScreenTests {
 
     @Test
     fun withoutScreenLockThePinIsExplainedAndSkipStays() {
-        compose.setContent { SetupScreen(DeviceLock(false), {}) { true } }
+        compose.setContent { SetupScreen(DeviceLock(false), { true }) { true } }
         compose.onNodeWithTag("lock-unavailable").assertIsDisplayed()
         compose.onNodeWithTag("lock-set").assertIsNotEnabled()
         compose.onNodeWithTag("lock-skip").assertIsEnabled()
@@ -86,10 +104,13 @@ class SetupScreenTests {
     fun biometricsAreOfferedOnlyWhenEnrolled() {
         var chosen = false
         var device by mutableStateOf(DeviceLock(true, Biometrics.NOT_ENROLLED))
-        compose.setContent { SetupScreen(device, {}) { true } }
+        compose.setContent { SetupScreen(device, { true }) { true } }
         compose.onNodeWithTag("lock-biometric-unavailable").assertIsDisplayed()
         compose.onNodeWithTag("lock-biometric").assertDoesNotExist()
-        device = DeviceLock(true, Biometrics.READY) { chosen = true }
+        device = DeviceLock(true, Biometrics.READY) {
+            chosen = true
+            true
+        }
         compose.onNodeWithTag("lock-biometric").performClick()
         compose.waitUntil { chosen }
     }

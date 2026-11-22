@@ -21,7 +21,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,7 +28,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch
 import uniffi.dyapp.appPinInput
 
 @Composable
@@ -102,22 +100,21 @@ enum class Biometrics {
  *
  * @property secure whether a device screen lock is set.
  * @property biometrics whether biometrics can be offered.
- * @property onBiometric chooses biometrics in place of a PIN.
+ * @property onBiometric returns whether the admitted biometric choice completed.
  */
 class DeviceLock(
     val secure: Boolean,
     val biometrics: Biometrics = Biometrics.ABSENT,
-    val onBiometric: suspend () -> Unit = {},
+    val onBiometric: suspend () -> Boolean = { false },
 )
 
 /** Offers device biometrics in place of a PIN, or says in place why they are unavailable. */
 @Composable
-internal fun BiometricOption(device: DeviceLock, enabled: Boolean) {
-    val scope = rememberCoroutineScope()
+internal fun BiometricOption(device: DeviceLock, enabled: Boolean, onChoose: () -> Unit) {
     when (device.biometrics) {
         Biometrics.READY -> OutlinedButton(
-            onClick = { scope.launch { device.onBiometric() } },
-            Modifier.fillMaxWidth().testTag("lock-biometric"),
+            onClick = onChoose,
+            Modifier.fillMaxWidth().testTag("lock-biometric").applicationClick(onChoose),
             enabled = enabled && device.secure
         ) { Text(stringResource(R.string.lock_use_biometric)) }
         Biometrics.NOT_ENROLLED ->
@@ -149,7 +146,11 @@ internal fun NewPinFields(pin: MutableState<String>, repeat: MutableState<String
 @Composable
 internal fun SetPinButton(tag: String, label: Int, onSet: (() -> Unit)?) {
     // A null action shows the button disabled.
-    Button(onClick = { onSet?.invoke() }, Modifier.fillMaxWidth().testTag(tag), enabled = onSet != null) {
+    Button(
+        onClick = { onSet?.invoke() },
+        Modifier.fillMaxWidth().testTag(tag).applicationClick { onSet?.invoke() },
+        enabled = onSet != null
+    ) {
         Text(stringResource(label))
     }
 }

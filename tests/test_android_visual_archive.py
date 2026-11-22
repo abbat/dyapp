@@ -94,6 +94,9 @@ class AndroidVisualArchive(TestCase):
                             "viewport_width_dp": 360,
                             "pixel_width": 1,
                             "pixel_height": 1,
+                            "font_percent": font,
+                            "actual_font_scale": font / 100,
+                            "actual_density": 1,
                         }
                     )
                 manifest = {
@@ -112,6 +115,20 @@ class AndroidVisualArchive(TestCase):
             self.assertEqual(ARCHIVE.validate(output, 360, SOURCE), 192)
             with self.assertRaises(ValueError):
                 ARCHIVE.validate(output, 360, "b" * 40)
+            for key, value in (
+                ("actual_font_scale", 2),
+                ("actual_font_scale", True),
+                ("actual_font_scale", None),
+                ("actual_density", float("nan")),
+                ("actual_density", 0),
+                ("font_percent", 200),
+            ):
+                saved = frames[0][key]
+                frames[0][key] = value
+                (output / "manifest.json").write_text(json.dumps(manifest))
+                with self.assertRaises(ValueError):
+                    ARCHIVE.validate(output, 360, SOURCE)
+                frames[0][key] = saved
             frames[0]["pixel_width"] = 2
             (output / "manifest.json").write_text(json.dumps(manifest))
             with self.assertRaises(ValueError):
@@ -142,6 +159,9 @@ class AndroidVisualArchive(TestCase):
                         {
                             "file": name,
                             "selection": index,
+                            "font_percent": font,
+                            "actual_font_scale": font / 100,
+                            "actual_density": 1,
                             "visible_screen_px": [0, 0, 360, 500],
                             "glyph_screen_px": [10, 30, 20, 45],
                             "cancel_screen_px": [10, 450, 90, 490],
@@ -163,6 +183,11 @@ class AndroidVisualArchive(TestCase):
             output = root / "output"
             ARCHIVE.unpack(source, output, 360, "ime")
             self.assertEqual(ARCHIVE.validate_ime(output, 360, SOURCE), 24)
+            frames[0]["actual_font_scale"] = 2
+            (output / "manifest.json").write_text(json.dumps(manifest))
+            with self.assertRaises(ValueError):
+                ARCHIVE.validate_ime(output, 360, SOURCE)
+            frames[0]["actual_font_scale"] = 1
             for geometry in (
                 [10, 501, 20, 510],
                 [0, 0, 0, 0],

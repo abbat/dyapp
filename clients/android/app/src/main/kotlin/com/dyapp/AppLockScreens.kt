@@ -32,39 +32,46 @@ internal fun pinRejection(pin: String, repeat: String) = when (appPinConfirmatio
  * off the UI thread.
  */
 @Composable
-fun SetupScreen(device: DeviceLock, onSkip: () -> Unit, onEnroll: suspend (String) -> Boolean) {
+fun SetupScreen(device: DeviceLock, onSkip: suspend () -> Boolean, onEnroll: suspend (String) -> Boolean) {
     val scope = rememberCoroutineScope()
     val pinState = remember { mutableStateOf("") }
     val repeatState = remember { mutableStateOf("") }
     var pin by pinState
-    var busy by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<Int?>(null) }
-    val editable = device.secure && !busy
+    val submission = remember(scope) { AppLockSetupSubmission(scope) }
+    val editable = device.secure && !submission.busy
     val submit: () -> Unit = {
-        val chosen = pin
-        error = pinRejection(chosen, repeatState.value)
-        pin = ""
-        repeatState.value = ""
-        if (error == null) {
-            busy = true
-            scope.launch {
-                if (!onEnroll(chosen)) error = R.string.lock_failed
-                busy = false
-            }
+        if (!submission.busy) {
+            val chosen = pin
+            submission.error = pinRejection(chosen, repeatState.value)
+            pin = ""
+            repeatState.value = ""
+            if (submission.error == null) submission.start(R.string.lock_failed) { onEnroll(chosen) }
         }
     }
-    Page(actions = { SetupActions(device, busy, submit.takeIf { editable && pin.isNotEmpty() }, onSkip) }) {
+    val skip = { submission.start(R.string.lock_skip_failed, onSkip) }
+    Page(actions = {
+        SetupActions(device, submission, submit.takeIf { editable && pin.isNotEmpty() }, skip)
+    }) {
         SetupIntro(device.secure)
         NewPinFields(pinState, repeatState, R.string.lock_pin, editable)
-        error?.let { ErrorText(it) }
+        submission.error?.let { ErrorText(it) }
     }
 }
 
 @Composable
-private fun SetupActions(device: DeviceLock, busy: Boolean, onSet: (() -> Unit)?, onSkip: () -> Unit) {
+private fun SetupActions(
+    device: DeviceLock,
+    submission: AppLockSetupSubmission,
+    onSet: (() -> Unit)?,
+    onSkip: () -> Unit,
+) {
     SetPinButton("lock-set", R.string.lock_set, onSet)
-    BiometricOption(device, !busy)
-    TextButton(onClick = onSkip, Modifier.fillMaxWidth().testTag("lock-skip"), enabled = !busy) {
+    BiometricOption(device, !submission.busy) { submission.start(R.string.lock_failed, device.onBiometric) }
+    TextButton(
+        onClick = onSkip,
+        Modifier.fillMaxWidth().testTag("lock-skip").applicationClick(onSkip),
+        enabled = !submission.busy
+    ) {
         Text(stringResource(R.string.lock_skip))
     }
 }

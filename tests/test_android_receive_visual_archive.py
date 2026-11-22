@@ -54,6 +54,9 @@ class AndroidReceiveVisualArchive(TestCase):
                         "viewport_width_dp": 412,
                         "pixel_width": 1,
                         "pixel_height": 1,
+                        "font_percent": font,
+                        "actual_font_scale": font / 100,
+                        "actual_density": 1,
                     }
                 )
             manifest: dict[str, object] = {

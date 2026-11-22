@@ -44,6 +44,14 @@ impl MobileAppLock {
         self.core.enroll(pin).map_err(failed)
     }
 
+    /// Enroll only while the authoritative core mode is New/Off.
+    ///
+    /// # Errors
+    /// Returns already-enabled, PIN, record or protected IO failure.
+    pub fn enroll_initial(&self, pin: String) -> Result<(), CoreError> {
+        self.core.enroll_initial(pin).map_err(failed)
+    }
+
     /// Consume a persisted attempt and report only the core's admitted result.
     ///
     /// # Errors
@@ -91,6 +99,14 @@ impl MobileAppLock {
     /// Returns core record or protected IO failure.
     pub fn use_biometric(&self) -> Result<(), CoreError> {
         self.core.use_biometric().map_err(failed)
+    }
+
+    /// Choose biometric mode only while the authoritative core mode is New/Off.
+    ///
+    /// # Errors
+    /// Returns already-enabled, record or protected IO failure.
+    pub fn use_biometric_initial(&self) -> Result<(), CoreError> {
+        self.core.use_biometric_initial().map_err(failed)
     }
 }
 

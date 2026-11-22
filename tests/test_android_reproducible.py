@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 from pathlib import Path
+import shlex
 import sys
 import tempfile
 import unittest
@@ -252,6 +253,16 @@ class AndroidReproducibility(unittest.TestCase):
             prepared["CARGO_ENCODED_RUSTFLAGS"],
         )
         self.assertIn("-g0", prepared["CFLAGS"])
+        for variable in ("CFLAGS", "CXXFLAGS"):
+            flags = shlex.split(prepared[variable])
+            self.assertIn("-fstack-protector-strong", flags)
+            self.assertLess(
+                flags.index("-U_FORTIFY_SOURCE"),
+                flags.index("-D_FORTIFY_SOURCE=2"),
+            )
+            self.assertIn("-ffile-prefix-map=/source one=/build/source", flags)
+            self.assertNotIn("-O2", flags)
+        self.assertEqual(original["CFLAGS"], "-g0")
         self.assertEqual(original["RUSTFLAGS"], "ambient")
         for epoch in ("", "-1", "1.5", "١٢٣"):
             with self.subTest(epoch=epoch):

@@ -359,6 +359,10 @@ each check; `security.yml` similarly runs `cargo audit --file` for every tracked
   a skip that no longer matches; remove it then.
 - **sources**: crates.io only; an unknown registry or git source fails.
 
+The shared client pins `url` to 2.5.9, which avoids recursive origin resolution for nested
+`blob:` URLs (RUSTSEC-2026-0592). Keep this security update in the root, fuzz and all three
+native desktop lockfiles when resolving their separate dependency graphs.
+
 To accept an advisory, add its ID to `[advisories] ignore` with a comment giving the reason and an
 issue to remove it. That hides the advisory; it does not fix it.
 
@@ -392,6 +396,9 @@ To take a younger version, for example a security fix, add `(crate, version): (d
 `EXCEPTIONS` in the script; that mapping is the current list of temporary exceptions.
 Remove an entry once the ordinary publication-age check accepts the version without it.
 An exception older than 14 days fails the check even if its pinned version is already mature.
+The exact `url 2.5.9` and required `form_urlencoded 1.2.3` versions temporarily use this
+security-fix policy for RUSTSEC-2026-0592; remove their entries after publication maturity
+on 2026-12-04. The advisory remains enforced and unrelated versions retain the 14-day gate.
 
 ## Source debt markers
 

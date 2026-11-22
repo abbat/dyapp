@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import com.dyapp.ui.theme.DYAppTheme
 import kotlinx.coroutines.Dispatchers
@@ -30,8 +31,9 @@ internal const val APP_READY_TAG = "app-ready"
  * offers first-launch PIN setup. PIN work runs on a background dispatcher.
  */
 class MainActivity : ComponentActivity() {
-    // Fail closed until onCreate reads the saved lock choice.
+    // Fail closed until asynchronous startup reads the saved lock choice.
     private var appLock = AppLockLifecycle(true, SystemClock::elapsedRealtime)
+    private var lockReady = false
     private val networkAccess = LocalNetworkAccess(this)
     private val content = PrivateContent()
     private val timer = Handler(Looper.getMainLooper())
@@ -60,10 +62,12 @@ class MainActivity : ComponentActivity() {
             refreshLock()
         }
     }
-    private val skipLock = {
-        // A failed write only means the choice is offered again next launch.
-        runCatching { store.skip() }
-        lock = StoredLock.OFF
+    private val skipLock: suspend () -> Boolean = {
+        val mode = withContext(Dispatchers.IO) {
+            runCatching { store.skip() }.getOrElse { runCatching { store.mode() }.getOrDefault(StoredLock.PIN) }
+        }
+        content.skipped(mode)
+        mode == StoredLock.OFF
     }
     private val leaveSettings = {
         settings = false
@@ -88,12 +92,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         window.callback = WindowKeyGate(requireNotNull(window.callback), ::consumeKey)
         loadTheme()
-        // An unreadable verifier must fail closed, never start a new unlocked session.
-        lock = runCatching { store.mode() }.getOrDefault(StoredLock.PIN)
-        val lockOn = lock == StoredLock.PIN || lock == StoredLock.BIOMETRIC
-        appLock.close()
-        appLock = AppLockLifecycle(lockOn, SystemClock::elapsedRealtime)
-        obscureSnapshot(lockOn)
+        // Protect the window before asynchronous storage admission, including on a cold launch.
+        obscureSnapshot(true)
         refreshLock()
         // A locked relaunch drops this at the next refresh, as any return past the lock screen.
         returnTo = takeRelaunchTarget()
@@ -101,6 +101,25 @@ class MainActivity : ComponentActivity() {
     }
 
     private inner class PrivateContent {
+        fun skipped(mode: StoredLock) {
+            if (mode == StoredLock.PIN || mode == StoredLock.BIOMETRIC) {
+                appLock.close()
+                appLock = AppLockLifecycle(true, SystemClock::elapsedRealtime)
+                if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                    appLock.onBackground()
+                }
+            }
+            initializeLock(mode)
+        }
+
+        fun initializeLock(mode: StoredLock) {
+            lock = mode
+            if (mode == StoredLock.NEW || mode == StoredLock.OFF) appLock.onPinCleared()
+            obscureSnapshot(mode == StoredLock.PIN || mode == StoredLock.BIOMETRIC)
+            lockReady = true
+            refreshLock()
+        }
+
         @Composable
         fun Show() {
             LaunchedEffect(locked, lock) {
@@ -117,16 +136,36 @@ class MainActivity : ComponentActivity() {
         @Composable
         private fun PrivateScreens() {
             DYAppTheme(chosenDarkTheme()) {
-                when {
-                    locked -> Locked()
-                    lock == StoredLock.NEW -> SetupScreen(
-                        device,
-                        skipLock
-                    ) { setPin(null, it) == PinAttempt.UNLOCKED }
-                    settings -> LockSettingsScreen(lockMode, device, ::setPin, leaveSettings)
-                    else -> Main()
+                AppLockStartup(this@MainActivity, { store.mode() }, ::initializeLock) {
+                    ReadyScreens()
                 }
             }
+        }
+
+        @Composable
+        private fun ReadyScreens() {
+            when {
+                locked -> Locked()
+                lock == StoredLock.NEW -> SetupScreen(
+                    configurationDevice(),
+                    skipLock
+                ) { setPin(null, it) == PinAttempt.UNLOCKED }
+                settings -> Settings()
+                else -> Main()
+            }
+        }
+
+        @Composable
+        private fun Settings() {
+            val mode = lockMode
+            val reset = mode == LockMode.RESET || mode == LockMode.BIOMETRIC
+            LockSettingsScreen(mode, configurationDevice(reset), { current, newPin ->
+                setPin(current, newPin, reset = reset)
+            }, leaveSettings)
+        }
+
+        private fun configurationDevice(reset: Boolean = false) = DeviceLock(device.secure, device.biometrics) {
+            setPin(null, null, biometric = true, reset = reset) == PinAttempt.UNLOCKED
         }
 
         @Composable
@@ -158,7 +197,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // The user may have just set a screen lock in system settings.
         val secure = getSystemService(KeyguardManager::class.java).isDeviceSecure
-        device = DeviceLock(secure, biometrics()) { setPin(null, null, true) }
+        device = DeviceLock(secure, biometrics())
         appLock.onForeground()
         lifecycleScope.launch(Dispatchers.IO) { runCatching { resumeNetworkSelection() } }
         refreshLock()
@@ -191,17 +230,25 @@ class MainActivity : ComponentActivity() {
         return !wasLocked && locked
     }
 
-    private suspend fun setPin(current: String?, newPin: String?, biometric: Boolean = false): PinAttempt? {
-        val reset = recovered || lock == StoredLock.BIOMETRIC
-        val result = withContext(Dispatchers.Default) {
-            runCatching { store.save(current, newPin, reset, biometric) }.getOrNull()
+    private suspend fun setPin(
+        current: String?,
+        newPin: String?,
+        biometric: Boolean = false,
+        reset: Boolean = false,
+    ): PinAttempt? {
+        val (result, mode) = withContext(Dispatchers.Default) {
+            val result = runCatching { store.save(current, newPin, reset, biometric) }.getOrNull()
+            val mode = runCatching { store.mode() }
+            result.takeIf { mode.isSuccess } to mode.getOrDefault(StoredLock.PIN)
         }
         withContext(Dispatchers.Main.immediate) {
             if (result == PinAttempt.UNLOCKED) {
-                lock = if (biometric) StoredLock.BIOMETRIC else if (newPin != null) StoredLock.PIN else StoredLock.OFF
+                lock = mode
                 if (lock == StoredLock.OFF) appLock.onPinCleared() else appLock.onPinEnrolled()
                 obscureSnapshot(lock != StoredLock.OFF)
                 recovered = false
+            } else if (result == null) {
+                content.skipped(mode)
             }
             refreshLock()
         }
@@ -219,7 +266,7 @@ class MainActivity : ComponentActivity() {
         locked = appLock.isLocked
         if (locked) {
             recovered = false
-            returnTo = null
+            if (lockReady) returnTo = null
         }
         timer.removeCallbacks(deadline)
         if (!locked) remaining?.let { timer.postDelayed(deadline, it) }
@@ -227,9 +274,9 @@ class MainActivity : ComponentActivity() {
 }
 
 // Switch to biometrics, or change or (null new PIN) clear the PIN behind the current one or a
-// fresh OS check (reset), else enrol one.
+// fresh OS check (reset), else request initial-only enrollment under core admission.
 private fun AppLockStore.save(current: String?, newPin: String?, reset: Boolean, biometric: Boolean) = when {
-    biometric -> PinAttempt.UNLOCKED.also { useBiometric() }
+    biometric -> PinAttempt.UNLOCKED.also { useBiometric(afterDeviceCredential = reset) }
     current != null -> change(current, newPin)
     reset -> PinAttempt.UNLOCKED.also { resetAfterDeviceCredential(newPin) }
     else -> PinAttempt.UNLOCKED.also { enroll(checkNotNull(newPin)) }

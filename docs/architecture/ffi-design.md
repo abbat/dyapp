@@ -1359,7 +1359,7 @@ or returns constants.
 | `app_pin_confirmation` | function | `(pin: String, confirmed: String) -> AppPinConfirmation` | Core validity-before-match presentation outcome: Incomplete, Mismatch or Ready. Never an authorization result. |
 | `hash_app_pin` | function | `(pin: String) -> Result<Vec<u8>, CoreError>` | Six-to-64 ASCII decimal digits to a 49-byte record: format 1, random 16-byte salt, 32-byte Argon2id tag (64 MiB, three passes, four lanes). Store the record in device-only protected storage. |
 | `verify_app_pin` | function | `(pin: String, record: Vec<u8>) -> Result<bool, CoreError>` | Constant-time tag comparison; `false` for a wrong PIN, error for invalid PIN/record or KDF failure. Callers must enforce retry limits; use `MobileAppLock` for persisted admission. Both calls block and belong off the UI thread. |
-| `MobileAppLock` | Object | `new(format, storage)`, `mode`, `enroll`, `attempt`, `change(current, new_pin)`, `reset_after_device_credential`, `skip`, `use_biometric` | Owns the common core state. Blocking methods retain storage through completion and serialize the handle; no profile/node operations. Recovery/biometric changes require the platform's fresh OS authentication. Android facade adoption is implemented; iOS adoption and actual platform execution remain pending. |
+| `MobileAppLock` | Object | `new(format, storage)`, `mode`, `enroll`, `enroll_initial`, `attempt`, `change(current, new_pin)`, `reset_after_device_credential`, `skip`, `use_biometric`, `use_biometric_initial` | Owns the common core state. Blocking methods retain storage through completion and serialize the handle; no profile/node operations. Initial-only calls refuse existing protection; protected replacement requires the platform's fresh OS authentication. Android facade adoption is implemented; iOS adoption and actual platform execution remain pending. |
 | `MobileAppLockStorage` | Callback | `read_entry -> Option<Vec<u8>>`, `write_entry(entry, data)`, `remove_entry(entry)` | Protected local IO with atomic durable writes; confirmed absence differs from failure. Raw records cross only this IO boundary, not UI results. No plaintext PINs or callback reentry. |
 | `AppLockStorageError` | Error | `Failed { reason }` | Structured callback error; reasons must omit PINs/verifier bytes. Failure does not prove rollback. |
 | `MobileAppLockFormat` | Enum | `Android`, `Ios` | Selects an existing storage layout without migration. |
@@ -1490,7 +1490,11 @@ from foreign code. Rust turns it, and anything else the app throws, into
   synchronously on the calling thread. Storage callbacks must not reenter the same app-lock
   object. Callback failures use structured errors (`WrapError`/`AppLockStorageError`), including
   unexpected foreign exceptions; flat `CoreError` cannot carry errors thrown by a callback.
-  No async exports exist.
+  No async exports exist. Android reads the saved app-lock mode through an owned IO read before
+  composing setup, unlock or private screens. Pending storage keeps a protected loading surface;
+  failure selects the protected mode, and a retired Activity cannot publish its late result.
+  Android Skip also runs on IO and reads back the core mode: the separate Skip marker never
+  authorizes the UI to ignore an existing PIN or biometric choice.
 
 ## Security boundary
 
@@ -1506,6 +1510,13 @@ The boundary is **not** secure today; see
   those rules through protected local IO callbacks. Android `AppLockStore` now delegates to it
   under the existing app-wide IO lock; Kotlin retains protected IO and UI enum projections.
   iOS adoption is planned, and actual Android native/UI execution remains an acceptance gate.
+  Initial-only `enroll_initial` and `use_biometric_initial` check New/Off and complete
+  their writes under the same core operation guard. They reject an already protected mode
+  without writing any records or resetting attempt counters. The separate authenticated
+  recovery APIs retain their existing contract; platforms must not substitute a mode preflight
+  followed by an unrestricted mutation. Android setup and OFF settings use the initial-only
+  calls; protected replacement captures the fresh OS-authorized settings route. Failures reread
+  core mode off UI and reinstall a closed protected presentation when protection exists.
   The existing verifier-only API does not store state.
 - Core `app_lock::timer` owns ephemeral app-session deadlines: 60 seconds in the background and
   five minutes of foreground inactivity. It applies expiration before interaction or foreground

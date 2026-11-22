@@ -196,6 +196,7 @@
     <string name="lock_pin_mismatch">The PINs do not match.</string>
     <string name="lock_pin_wrong">Wrong PIN.</string>
     <string name="lock_failed">The PIN could not be checked. Try again.</string>
+    <string name="lock_skip_failed">The lock choice could not be saved. Try again.</string>
     <string name="lock_device_credential">Too many wrong PINs. Unlock with the device screen lock.</string>
     <string name="lock_use_device_credential">Use device screen lock</string>
     <string name="lock_device_credential_title">Unlock the app</string>

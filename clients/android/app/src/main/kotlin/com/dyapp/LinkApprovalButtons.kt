@@ -56,5 +56,8 @@ internal fun LinkApprovalDismiss(view: LinkApprovalViewState, dismiss: () -> Uni
             .applicationClick(dismiss),
         view.operation != LinkApprovalOperation.SEND && !view.retired
     ) { Text(stringResource(if (sent) R.string.owner_done else R.string.remove_cancel)) }
-    LaunchedEffect(ready, view.opening, view.operation, sent) { if (ready) focus.requestFocus() }
+    // Fast validation can finish before Compose observes the intermediate PREPARE operation.
+    LaunchedEffect(ready, view.opening, view.operation, view.codeStatus, view.failure, sent) {
+        if (ready) focus.requestFocus()
+    }
 }

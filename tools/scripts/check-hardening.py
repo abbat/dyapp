@@ -10,7 +10,9 @@ least one fortified __*_chk libc call. Rust code gets the first four from its
 toolchain; the canary and fortify imports show that the bundled C code
 (AWS-LC, SQLite) was built with Debian's dpkg-buildflags, as Debian 12's gcc
 does not add -fstack-protector-strong or -D_FORTIFY_SOURCE=2 by default.
-The fortify import check applies to ELF/glibc/bionic; PE and Mach-O retain
+The fortify import check applies to ELF/glibc/bionic; Android marks it
+inapplicable only when verified imports contain no Bionic-covered call.
+PE and Mach-O retain
 their platform-specific checks.
 
 A PE must be a 64-bit (PE32+) image that keeps its relocations and asks for
@@ -26,9 +28,9 @@ and the hardened runtime is a code-signing flag the unsigned ZIP cannot carry.
 
 The Android APK profile requires both core ABIs and checks every packaged JNI
 library as ET_DYN without an interpreter, NX stack, full RELRO, no RPATH or
-text relocations, canary and fortified libc imports, no writable executable
-load, and 16 KiB PT_LOAD alignment. APK ZIP alignment is checked separately
-with SDK zipalign.
+text relocations, canary and applicable fortified libc imports, no writable
+executable load, and 16 KiB PT_LOAD alignment. APK ZIP alignment is checked
+separately with SDK zipalign.
 """
 
 from collections.abc import Iterable
@@ -45,6 +47,31 @@ DT_BIND_NOW, DT_RUNPATH, DT_FLAGS = 24, 29, 30
 DT_FLAGS_1 = 0x6FFFFFFB
 DF_BIND_NOW, DF_1_NOW = 0x8, 0x1
 Segment = tuple[int, int, int, int, int]
+# Bionic 731631f300090436d7f5df80d50b6275c8c60a93:
+# bits/fortify headers and libc.map.txt.
+BIONIC_FORTIFY_CALLS = frozenset(
+    b"""
+    bcopy bzero fgets fread fwrite getcwd memchr memcpy memmove mempcpy memrchr
+    memset open open64 openat openat64 poll ppoll ppoll64 pread pread64 pwrite
+    pwrite64 read readlink readlinkat realpath recv recvfrom send sendto
+    snprintf
+    sprintf stpcpy stpncpy strcat strchr strcpy strlcat strlcpy strlen strncat
+    strncpy strrchr umask vsnprintf vsprintf write
+    """.split()
+)
+BIONIC_CHECKED_CALLS = frozenset(
+    b"__" + name + b"_chk"
+    for name in b"""
+    FD_CLR FD_ISSET FD_SET fgets fread fwrite getcwd memchr memcpy memmove
+    mempcpy
+    memrchr memset poll ppoll ppoll64 pread pread64 pwrite pwrite64 read
+    readlink
+    readlinkat recvfrom sendto snprintf sprintf stpcpy stpncpy strcat strcpy
+    strlcat strlcpy strlen strncat strncpy umask vsnprintf vsprintf write
+    """.split()
+) | frozenset(
+    (b"__open_2", b"__openat_2", b"__stpncpy_chk2", b"__strncpy_chk2")
+)
 
 
 def dynamic_tags(data: bytes, segments: Iterable[Segment]) -> dict[int, int]:
@@ -182,7 +209,10 @@ def elf_dynamic_problems(
     data: bytes, segments: list[Segment], shared: bool
 ) -> list[str]:
     found = []
-    tags = dynamic_tags(data, segments)
+    try:
+        tags, names = elf_hardening_tables(data, segments, shared)
+    except ValueError as error:
+        return [f"unverifiable ELF imports: {error}"]
     if shared and (22 in tags or tags.get(DT_FLAGS, 0) & 4):
         found.append("text relocations")
     bind_now = DT_BIND_NOW in tags or tags.get(DT_FLAGS, 0) & DF_BIND_NOW
@@ -190,6 +220,61 @@ def elf_dynamic_problems(
         found.append("lazy binding, RELRO is partial")
     if DT_RPATH in tags or DT_RUNPATH in tags:
         found.append("RPATH or RUNPATH set")
+    if b"__stack_chk_fail" not in names:
+        found.append(
+            "no stack protector in the C code (__stack_chk_fail not imported)"
+        )
+    if not elf_fortified(names, shared):
+        found.append("no fortified libc call (__*_chk not imported)")
+    return found
+
+
+def elf_hardening_tables(
+    data: bytes, segments: list[Segment], shared: bool
+) -> tuple[dict[int, int], set[bytes]]:
+    if shared:
+        tags = elf_validated_tags(data, segments)
+        return tags, elf_import_names(data, segments, tags)
+    tags = dynamic_tags(data, segments)
+    return tags, elf_string_names(data, segments, tags)
+
+
+def elf_validated_tags(data: bytes, segments: list[Segment]) -> dict[int, int]:
+    tables = [segment for segment in segments if segment[0] == PT_DYNAMIC]
+    if len(tables) != 1:
+        raise ValueError("expected one dynamic loader table")
+    _, _, offset, address, size = tables[0]
+    if (
+        not size
+        or size % 16
+        or elf_loaded_offset(address, size, segments) != offset
+    ):
+        raise ValueError("invalid dynamic loader table")
+    tags: dict[int, int] = {}
+    for at in range(offset, offset + size, 16):
+        tag, value = struct.unpack_from("<qQ", data, at)
+        if tag == 0:
+            return tags
+        if tag != 1 and tag in tags and tags[tag] != value:
+            raise ValueError("conflicting singleton dynamic loader tags")
+        tags[tag] = value
+    raise ValueError("unterminated dynamic loader table")
+
+
+def elf_fortified(names: set[bytes], shared: bool) -> bool:
+    if shared:
+        return bool(names & BIONIC_CHECKED_CALLS) or not (
+            names & BIONIC_FORTIFY_CALLS
+        )
+    return any(
+        name.startswith(b"__") and name.endswith(b"_chk") for name in names
+    )
+
+
+def elf_string_names(
+    data: bytes, segments: list[Segment], tags: dict[int, int]
+) -> set[bytes]:
+    """Retain the existing desktop string-table policy."""
     strtab = next(
         (
             offset + tags[DT_STRTAB] - vaddr
@@ -199,20 +284,167 @@ def elf_dynamic_problems(
         ),
         None,
     )
-    names = (
+    strings = (
         data[strtab : strtab + tags.get(DT_STRSZ, 0)]
         if strtab is not None
         else b""
-    ).split(b"\x00")
-    if b"__stack_chk_fail" not in names:
-        found.append(
-            "no stack protector in the C code (__stack_chk_fail not imported)"
-        )
-    if not any(
-        name.startswith(b"__") and name.endswith(b"_chk") for name in names
-    ):
-        found.append("no fortified libc call (__*_chk not imported)")
-    return found
+    )
+    return set(strings.split(b"\x00"))
+
+
+def elf_loaded_offset(address: int, size: int, segments: list[Segment]) -> int:
+    matches = [
+        offset + address - vaddr
+        for kind, _, offset, vaddr, length in segments
+        if kind == PT_LOAD and vaddr <= address
+        if address + size <= vaddr + length
+    ]
+    if len(matches) != 1:
+        raise ValueError("table is not uniquely backed by a load segment")
+    return matches[0]
+
+
+def elf_import_names(
+    data: bytes, segments: list[Segment], tags: dict[int, int]
+) -> set[bytes]:
+    """Cross-check section inventory against the loader's actual tables."""
+    shoff = struct.unpack_from("<Q", data, 40)[0]
+    stride, count = struct.unpack_from("<HH", data, 58)
+    if stride < 64 or not count or shoff + stride * count > len(data):
+        raise ValueError("invalid section headers")
+    sections = [
+        struct.unpack_from("<IIQQQQIIQQ", data, shoff + stride * index)
+        for index in range(count)
+    ]
+    tables = [section for section in sections if section[1] == 11]
+    if len(tables) != 1:
+        raise ValueError("expected one dynamic symbol table")
+    _, _, flags, address, offset, size, link, _, _, entry = tables[0]
+    if not flags & 2 or entry != 24 or not size or size % entry:
+        raise ValueError("invalid dynamic symbol table")
+    if tags.get(6) != address or tags.get(11) != entry:
+        raise ValueError("dynamic symbol table disagrees with loader")
+    if elf_loaded_offset(address, size, segments) != offset:
+        raise ValueError("dynamic symbol table offset disagrees with loader")
+    if elf_hash_count(data, sections, segments, tags) != size // entry:
+        raise ValueError("symbol count disagrees with loader hash tables")
+    strings = elf_linked_strings(data, sections, link, segments, tags)
+    return elf_undefined_symbols(data, offset, size, strings)
+
+
+def elf_hash_count(
+    data: bytes,
+    sections: list[tuple[int, ...]],
+    segments: list[Segment],
+    tags: dict[int, int],
+) -> int:
+    counts = set()
+    for tag, kind in ((4, 5), (0x6FFFFEF5, 0x6FFFFFF6)):
+        if tag not in tags:
+            continue
+        tables = [section for section in sections if section[1] == kind]
+        if len(tables) != 1:
+            raise ValueError("missing or duplicate loader hash section")
+        _, _, flags, address, offset, size, _, _, _, _ = tables[0]
+        if not flags & 2 or address != tags[tag] or size < 8:
+            raise ValueError("invalid loader hash section")
+        if elf_loaded_offset(address, size, segments) != offset:
+            raise ValueError("hash section offset disagrees with loader")
+        body = data[offset : offset + size]
+        counts.add(elf_sysv_count(body) if tag == 4 else elf_gnu_count(body))
+    if len(counts) != 1:
+        raise ValueError("missing or inconsistent loader hash symbol count")
+    return counts.pop()
+
+
+def elf_sysv_count(body: bytes) -> int:
+    buckets, count = struct.unpack_from("<II", body)
+    if not buckets or not count or len(body) != 8 + 4 * (buckets + count):
+        raise ValueError("invalid SYSV hash dimensions")
+    indices = struct.unpack_from(f"<{buckets + count}I", body, 8)
+    if any(index >= count for index in indices):
+        raise ValueError("SYSV hash index outside dynamic symbols")
+    return int(count)
+
+
+def elf_gnu_count(body: bytes) -> int:
+    if len(body) < 16:
+        raise ValueError("truncated GNU hash header")
+    buckets, first, bloom, _ = struct.unpack_from("<IIII", body)
+    start = 16 + 8 * bloom
+    chains_at = start + 4 * buckets
+    if not buckets or not first or not bloom or bloom & (bloom - 1):
+        raise ValueError("invalid GNU hash dimensions")
+    if chains_at > len(body) or (len(body) - chains_at) % 4:
+        raise ValueError("truncated GNU hash arrays")
+    heads = struct.unpack_from(f"<{buckets}I", body, start)
+    chains = struct.unpack_from(
+        f"<{(len(body) - chains_at) // 4}I", body, chains_at
+    )
+    return elf_gnu_chain_count(heads, chains, first)
+
+
+def elf_gnu_chain_count(
+    heads: tuple[int, ...], chains: tuple[int, ...], first: int
+) -> int:
+    position = first
+    for head in sorted(head for head in heads if head):
+        if head != position:
+            raise ValueError("GNU hash chain coverage is inconsistent")
+        while True:
+            if position - first >= len(chains):
+                raise ValueError("unterminated GNU hash chain")
+            terminal = chains[position - first] & 1
+            position += 1
+            if terminal:
+                break
+    if position - first != len(chains):
+        raise ValueError("unreachable GNU hash chain entries")
+    return position
+
+
+def elf_linked_strings(
+    data: bytes,
+    sections: list[tuple[int, ...]],
+    link: int,
+    segments: list[Segment],
+    tags: dict[int, int],
+) -> bytes:
+    if link >= len(sections):
+        raise ValueError("invalid linked string table")
+    _, kind, flags, address, start, length, _, _, _, _ = sections[link]
+    if kind != 3 or not flags & 2 or not length:
+        raise ValueError("invalid dynamic string table")
+    if tags.get(DT_STRTAB) != address or tags.get(DT_STRSZ) != length:
+        raise ValueError("dynamic string table disagrees with loader")
+    if elf_loaded_offset(address, length, segments) != start:
+        raise ValueError("dynamic string table offset disagrees with loader")
+    return data[start : start + length]
+
+
+def elf_undefined_symbols(
+    data: bytes, offset: int, size: int, strings: bytes
+) -> set[bytes]:
+    entry, length = 24, len(strings)
+    if strings[:1] != b"\x00" or strings[-1:] != b"\x00":
+        raise ValueError("unterminated dynamic string table")
+    if data[offset : offset + entry] != bytes(entry):
+        raise ValueError("invalid null dynamic symbol")
+    names = set()
+    for at in range(offset + entry, offset + size, entry):
+        name, info, _, section, _, _ = struct.unpack_from("<IBBHQQ", data, at)
+        if name >= length:
+            raise ValueError("symbol name outside dynamic string table")
+        end = strings.find(b"\x00", name)
+        if end < 0:
+            raise ValueError("unterminated dynamic symbol name")
+        if section or not name:
+            continue
+        if info >> 4 not in (1, 2):
+            raise ValueError("undefined symbol is not global or weak")
+        if info & 15 in (0, 2, 10):
+            names.add(strings[name:end])
+    return names
 
 
 def android_load_problems(
@@ -283,7 +515,7 @@ def main(raw: bool = False) -> None:
     if android_apk:
         profile = (
             "Android shared ELF, NX, full RELRO, no RPATH/textrel, "
-            "canary, fortify, 16 KiB"
+            "canary, fortify where applicable, 16 KiB"
         )
     elif magic[:2] == b"MZ":
         profile = "PE32+, ASLR, high-entropy ASLR, DEP, relocations kept"
@@ -320,6 +552,8 @@ if __name__ == "__main__":
                     delete=False,
                 ) as output:
                     output.write(message + "\n")
+                    # CI may collect the artifact under a different UID.
+                    os.chmod(output.name, 0o644)
                     log = output.name
             except OSError as log_error:
                 message += f"\nCannot retain diagnostic: {log_error}"

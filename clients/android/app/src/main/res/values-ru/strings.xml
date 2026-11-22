@@ -195,6 +195,7 @@
     <string name="lock_pin_mismatch">PIN не совпадают.</string>
     <string name="lock_pin_wrong">Неверный PIN.</string>
     <string name="lock_failed">Не удалось проверить PIN. Попробуйте ещё раз.</string>
+    <string name="lock_skip_failed">Не удалось сохранить настройку блокировки. Повторите попытку.</string>
     <string name="lock_device_credential">Слишком много неверных PIN. Разблокируйте блокировкой экрана устройства.</string>
     <string name="lock_use_device_credential">Блокировка экрана устройства</string>
     <string name="lock_device_credential_title">Разблокировка приложения</string>

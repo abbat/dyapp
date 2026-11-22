@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.unit.Density
 import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONArray
 import org.json.JSONObject
@@ -29,6 +30,7 @@ internal class OwnerVisualOutput(private val source: String, private val width: 
         val theme = if (scene.dark) "dark" else "light"
         val scale = if (scene.fontScale == 2f) 200 else 100
         val name = "${scene.backend.state.screen}-$language-$width-$theme-$scale-$edge.png"
+        val density = NativeVisualGeometry(host.compose, "owner-dialog").density(scene.fontScale)
         val target = File(directory, name)
         check(target.createNewFile()) { "Duplicate native frame: $name" }
         val node = host.compose.onNodeWithTag("owner-dialog")
@@ -37,10 +39,9 @@ internal class OwnerVisualOutput(private val source: String, private val width: 
         try {
             target.outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
             cases.put(
-                metadata(scene, name, edge)
+                metadata(scene, name, edge, density)
                     .put("language", language)
                     .put("theme", theme)
-                    .put("font_percent", scale)
                     .put("dialog_left_dp", bounds.left.value)
                     .put("dialog_top_dp", bounds.top.value)
                     .put("dialog_right_dp", bounds.right.value)
@@ -54,9 +55,12 @@ internal class OwnerVisualOutput(private val source: String, private val width: 
         writeManifest(false)
     }
 
-    private fun metadata(scene: OwnerVisualScene, name: String, edge: String): JSONObject =
+    private fun metadata(scene: OwnerVisualScene, name: String, edge: String, density: Density): JSONObject =
         JSONObject().put("file", name).put("screen", scene.backend.state.screen)
             .put("edge", edge)
+            .put("font_percent", (scene.fontScale * 100).toInt())
+            .put("actual_font_scale", density.fontScale)
+            .put("actual_density", density.density)
             .put("viewport_width_dp", scene.context.resources.configuration.screenWidthDp)
             .put("viewport_height_dp", scene.context.resources.configuration.screenHeightDp)
 

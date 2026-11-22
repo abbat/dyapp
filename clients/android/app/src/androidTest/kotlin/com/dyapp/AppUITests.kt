@@ -61,8 +61,8 @@ class AppUITests {
     fun recreationKeepsReadyScreenAndPeerId() {
         val before = compose.shownPeerId()
         compose.activityRule.scenario.recreate()
-        // A network wizard closed with Back stays closed.
-        compose.onNodeWithTag("app-ready").assertIsDisplayed()
+        // Await actual startup completion without dismissing an incorrectly reopened wizard.
+        compose.awaitNode(hasTestTag("app-ready") and hasText(string(R.string.nav_profile))).assertIsDisplayed()
             .assertTextEquals(string(R.string.nav_profile))
         // The new screen unwraps the stored key again, as a restarted app does.
         check(compose.shownPeerId() == before) { "Peer ID changed on recreation" }

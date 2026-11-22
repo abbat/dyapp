@@ -1,5 +1,14 @@
 # Android client
 
+Startup waits for the saved app-lock choice behind a protected loading screen. An unreadable
+choice keeps the app locked; profile setup and private content are not shown while it is pending.
+Skip waits for the saved choice. A failed save does not grant access, and a PIN or biometric lock
+configured while setup was open remains active. Initial PIN and biometric choices atomically
+refuse to replace existing protection in the shared core. PIN, biometrics and Skip share one
+pending setup admission; OFF settings likewise serialize PIN and biometric changes. Failures
+show feedback and reread the saved mode rather than assuming an unprotected state. Protected
+replacement remains a separate freshly OS-authorized path tied to the current settings route.
+
 On first run, **Receive my existing profile** explicitly creates this phone’s initial identity,
 then opens network setup. Check and activate the same network as the other device; this step cannot
 be skipped for receiving. Cancel keeps the created identity and any saved network draft.
@@ -141,12 +150,24 @@ After signing, the release job runs
 Both `arm64-v8a` and `x86_64` must contain the core. Every packaged JNI library,
 including dependencies, must be a 64-bit shared ELF of the matching architecture,
 with a non-executable stack, full RELRO, no RPATH/RUNPATH or text relocations,
-a `__stack_chk_fail` canary import and at least one fortified `__*_chk` libc
-import from C code, and no writable executable load. The pinned JNA native rebuild uses
+a `__stack_chk_fail` canary import, no writable executable load, and evidence of a checked libc
+call whenever its verified imports include a Bionic FORTIFY-covered function. If no covered
+function is imported, the fortified-call requirement is inapplicable; this does not waive
+canaries or any other ELF check. Known checked entries include the `_chk2` and `__open*_2`
+variants. The inventory follows Bionic's [FORTIFY headers](https://github.com/aosp-mirror/platform_bionic/tree/731631f300090436d7f5df80d50b6275c8c60a93/libc/include/bits/fortify)
+and [export map](https://github.com/aosp-mirror/platform_bionic/blob/731631f300090436d7f5df80d50b6275c8c60a93/libc/libc.map.txt);
+update it when adopting new covered libc APIs. The pinned JNA native rebuild uses
 `-D_FORTIFY_SOURCE=2` with `-O2` and `-fstack-protector-strong`; its repackaging step applies
 this same ELF policy before an AAR can reach the application. Every load segment must have at least
 16 KiB alignment and matching file/virtual page offsets. These imports do not prove that every Rust
-or C function is protected.
+or C function is protected. The shared unsigned release environment also enables
+strong stack protection and fortify for the core's bundled C/C++ dependencies;
+prebuilt third-party libraries retain their independent build provenance. Android import checks
+read undefined callable dynamic symbols and cross-check their symbol/string section addresses,
+sizes and offsets against the loader metadata and file-backed load segments. Missing or malformed
+inventories fail closed; exported names, unused strings and data imports are not evidence of calls.
+The symbol count must also agree with the loader's SYSV/GNU hash inventory; missing, conflicting
+or incomplete chain coverage cannot hide imports behind a shortened section.
 
 The same job runs `zipalign -c -P 16 4 SIGNED.apk` from the selected signing
 Build-Tools directory, checking packaging alignment independently of ELF alignment.

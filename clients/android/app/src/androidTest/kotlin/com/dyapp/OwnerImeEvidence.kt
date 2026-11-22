@@ -36,6 +36,7 @@ internal class OwnerImeEvidence(private val source: String, private val width: I
         val theme = if (scene.dark) "dark" else "light"
         val scale = if (scene.fontScale == 2f) 200 else 100
         val name = "owner-ime-$language-$width-$theme-$scale-$index.png"
+        val density = NativeVisualGeometry(host.compose, "owner-dialog").density(scene.fontScale)
         val file = File(directory, name)
         check(file.createNewFile())
         val bitmap = host.compose.onNodeWithTag("owner-dialog").captureToImage().asAndroidBitmap()
@@ -46,6 +47,9 @@ internal class OwnerImeEvidence(private val source: String, private val width: I
         }
         frames.put(
             JSONObject().put("file", name).put("selection", index)
+                .put("font_percent", scale)
+                .put("actual_font_scale", density.fontScale)
+                .put("actual_density", density.density)
                 .put("visible_screen_px", rectangle(measured.visible))
                 .put("glyph_screen_px", rectangle(measured.glyph))
                 .put("cancel_screen_px", rectangle(measured.cancel))
