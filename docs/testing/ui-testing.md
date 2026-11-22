@@ -21,6 +21,10 @@ continuation to check scheduler progress without sleeps or guessed delays.
 The instrumentation progress JSONL appends attempts to one file. Split records at each
 `runner_started` before counting results or claiming first-attempt acceptance; a later retry's
 success never replaces a primary failure, and an unfinished retry supplies no terminal result.
+Desktop forwarding failure feedback sits after the selector beside its recovery actions.
+The keyboard plan checks their current viewport geometry together; calibration moves the alert
+back above the long list to require rejection, then restores it. Controlled admitted completion
+retains the existing Escape refusal and mounted-view acknowledgement before checking feedback.
 
 Android receiving-screen checks use the real Settings frame, controls and retained-operation store
 with controlled native completion. They preserve the exact reserved destination, require explicit

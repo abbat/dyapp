@@ -32,6 +32,7 @@ class KeyboardFixtures:
                 ("rename-initial", ""),
                 ("switcher-visibility", ""),
                 ("forward-opening", ""),
+                ("forward-failure", ""),
                 *[
                     (f"popup:{name}", "")
                     for name in (
@@ -95,6 +96,9 @@ class KeyboardFixtures:
                 ")).checkTransientNavigation()",
                 self.start,
             )
+            return
+        if mode == "forward-failure":
+            self.evaluate("await keys.checkForwardFailure()", self.start)
             return
         if mode == "forward-opening":
             self.evaluate("await keys.checkForwardReopening()", self.start)
