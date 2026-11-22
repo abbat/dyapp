@@ -320,6 +320,8 @@ if __name__ == "__main__":
                     delete=False,
                 ) as output:
                     output.write(message + "\n")
+                    # CI may collect the artifact under a different UID.
+                    os.chmod(output.name, 0o644)
                     log = output.name
             except OSError as log_error:
                 message += f"\nCannot retain diagnostic: {log_error}"

@@ -75,6 +75,19 @@ class AndroidHardening(unittest.TestCase):
         self.assertIn("libjnidispatch.so: executable stack", bad.stdout)
         self.assertIn("raw captured output", bad.stdout)
 
+    @unittest.skipUnless(os.name == "posix", "cross-UID Docker artifact reads")
+    def test_failure_diagnostic_is_readable_by_the_artifact_collector(
+        self,
+    ) -> None:
+        bad = self.run_apk({"lib/x86_64/libdyapp_ffi.so": b"invalid ELF"})
+        self.assertEqual(bad.returncode, 1)
+        logs = list((self.root / "logs").glob("hardening-*.log"))
+        self.assertEqual(len(logs), 1)
+        diagnostic = logs[0]
+        self.assertEqual(diagnostic.stat().st_mode & 0o444, 0o444)
+        self.assertIn("lib/x86_64/libdyapp_ffi.so", diagnostic.read_text())
+        self.assertIn(str(diagnostic), bad.stdout)
+
     def test_shared_profile_rejects_each_protection_regression(self) -> None:
         changes: dict[str, tuple[ElfOptions, str]] = {
             "executable": ({"e_type": 2}, "ET_DYN shared library"),

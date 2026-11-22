@@ -7,6 +7,8 @@ diagnostics still fail and retain their raw evidence. Nested mapped failures
 produce one frame. Signals and mandatory cleanup failures remain failures.
 Explicit raw-log copies are unbuffered: each captured chunk is available before
 normal shutdown, including small diagnostics from an interrupted process.
+Standalone hardening failure logs use mode `0644` so CI artifact collection can read the
+binary diagnostics when the Docker producer and host collector have different UIDs.
 Docker capture recognizes BuildKit terminal `ERROR:` lines, including numbered build-step
 prefixes, so artifact-export failures retain their cause without replaying compiler progress.
 
