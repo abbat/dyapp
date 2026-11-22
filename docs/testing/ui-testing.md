@@ -1243,6 +1243,14 @@ the requested dp width. The keyboard-disabled rendering phase has no submission 
 collection retains logs, raw tar and safe partial frames; successful validation requires complete
 manifests. Artifacts are `android-visual-producer` and `android-visual-360|412`. Ordinary CI does not
 run this matrix; real two-device transfer and real-IME review remain separate blockers.
+The phase-only `OwnerApprovalImeTests` fixture requires `ownerIme=1`, `sourceSha` and
+`expectedWidth` with the software keyboard enabled. It drives EN/RU, both themes and 100/200% fonts,
+selects the beginning/middle/end of the unchanged full code, and waits for native IME visibility.
+Android accessibility character-location rectangles and the real dialog window origin/visible frame
+establish glyph and control positions; no inferred TextField padding is used. Each width records
+24 dialog frames plus measured screen coordinates under `files/owner-approval-ime/<width>/`.
+Its preparation fixture rejects any changed input. Real-IME CI invocation and collection remain
+planned; authoring these checks does not establish that the runtime passed.
 `DeviceDirectoryWorkerTests` and `DeviceDirectoryFailureTests` exercise the presentation adapter with
 controlled native-shaped completions. They retain original public targets across mutable DTO input,
 reject stale/forged confirmation openings, retire a view during an admitted call, cancel its UI waiter
