@@ -26,6 +26,10 @@ pub(crate) mod operations;
 pub(crate) mod own;
 #[path = "chats/presence.rs"]
 pub(crate) mod presence;
+#[path = "chats/profile_view.rs"]
+pub(crate) mod profile_view;
+#[path = "chats/profile_view_list.rs"]
+pub(crate) mod profile_view_list;
 #[path = "chats/reads.rs"]
 mod reads;
 #[path = "chats/receive.rs"]

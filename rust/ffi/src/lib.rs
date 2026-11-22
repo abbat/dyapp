@@ -29,10 +29,11 @@ pub use chats::{
     ChatMediaCacheSettings, ChatMessage, ChatNotice, ChatPhoto, ChatPhotoDownload, ChatPreviewBody,
     ChatRevocation, ChatRow, ChatSession, ChatState, ChatSticker, ChatStickerFrame,
     ChatStickerImage, ChatSubmission, ContactNoteError, ContactVerificationState, FavoriteError,
-    RecentStickerPickerEntry, RecentStickerPickerPage, SavedStickerFrame, SavedStickerPackEntry,
-    SavedStickerPackImport, SavedStickerPackPage, SavedStickerPackState, SavedStickerPickerPage,
-    StickerPackSaveAction, StickerPackSaveAttempt, StickerPackSaveControl, StickerPackSaveFailure,
-    StickerPackSaveState, StickerPackSaveStatus, StickerPickerEntry,
+    ProfileViewOpening, ReceivedProfileView, RecentStickerPickerEntry, RecentStickerPickerPage,
+    SavedStickerFrame, SavedStickerPackEntry, SavedStickerPackImport, SavedStickerPackPage,
+    SavedStickerPackState, SavedStickerPickerPage, StickerPackSaveAction, StickerPackSaveAttempt,
+    StickerPackSaveControl, StickerPackSaveFailure, StickerPackSaveState, StickerPackSaveStatus,
+    StickerPickerEntry,
 };
 mod link_review;
 pub use link_review::{
@@ -129,7 +130,7 @@ pub use editor_input::{
 mod birth_input;
 pub use birth_input::{parse_profile_birth_parts, valid_profile_birth_parts};
 mod search_input;
-pub use search_input::{search_range_conditions, SearchRangeInputs};
+pub use search_input::{search_range_conditions, search_visible_fields, SearchRangeInputs};
 mod search_employer;
 pub use search_employer::{search_employer_filter, SearchEmployerMode};
 mod search_choices;

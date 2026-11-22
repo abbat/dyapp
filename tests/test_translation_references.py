@@ -32,6 +32,47 @@ def fixture(keys: list[str], source: str) -> dict[str, str]:
 
 
 class TranslationReferences(unittest.TestCase):
+    def test_android_strings_collide_across_files_but_not_qualifiers(
+        self,
+    ) -> None:
+        android_string_errors = CHECK.android_string_errors
+
+        root = "clients/android/app/src/main/res/"
+        string = '<resources><string name="hint">Text</string></resources>'
+        alias = (
+            '<resources><item type="string" name="hint">'
+            "@string/other</item></resources>"
+        )
+        texts = {
+            root + "values/strings.xml": string,
+            root + "values/privacy.xml": alias,
+            root + "values-ru/strings.xml": string,
+            root + "values-fr/strings.xml": string,
+            root + "values-night/strings.xml": string,
+            root + "layout/strings.xml": string,
+        }
+        expected = (
+            root
+            + "values/strings.xml: duplicate string 'hint'; first in "
+            + root
+            + "values/privacy.xml"
+        )
+        self.assertEqual(android_string_errors(texts), [expected])
+        self.assertEqual(
+            android_string_errors(dict(reversed(list(texts.items())))),
+            [expected],
+        )
+        self.assertEqual(
+            android_string_errors({root + "values/one.xml": string}), []
+        )
+        repeated = (
+            '<resources><string name="hint">A</string>'
+            '<string name="hint">B</string></resources>'
+        )
+        self.assertEqual(
+            len(android_string_errors({root + "values/one.xml": repeated})), 1
+        )
+
     def test_new_unused_key_fails_but_literal_use_passes(self) -> None:
         texts = fixture(["used", "orphan"], 'Text("used")')
         self.assertEqual(

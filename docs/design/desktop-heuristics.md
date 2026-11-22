@@ -34,7 +34,9 @@ structure and spacing. A failed criterion is severity 3 and blocks the screen.
 
 ## Open findings
 
-None.
+- `chat-forward-send-error`, H1/H9: initial Cancel focus scrolled the long selector past the
+  failure message. The alert now precedes the recovery actions; current-geometry and old-placement
+  counterexamples are registered. Source-bound rendered/keyboard acceptance is pending.
 
 ## Accepted exceptions
 

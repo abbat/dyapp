@@ -69,6 +69,9 @@ internal class PeerPhotos(private val searcher: ProfileSearcher?, private val op
     /** The verified profiles of [peers], cached for names and photos; null without a searcher. Off the UI thread. */
     fun profiles(peers: List<String>): List<FoundProfile>? = searcher?.profiles(peers)?.also { fetched += 1 }
 
+    /** Capture an explicit opening in the held native context; no policy, storage or network IO. */
+    fun profileViewOpening(peer: String) = searcher?.profileViewOpening(opened.peerId, peer)
+
     /** Makes the shown names read again, after a local name changed. */
     fun reread() {
         fetched += 1

@@ -23,6 +23,8 @@ const SCRIPTS: &[&str] = &[
     include_str!("chat-message-smoke.js"),
     include_str!("chats.js"),
     include_str!("presence.js"),
+    include_str!("profile-views.js"),
+    include_str!("received-views.js"),
     include_str!("contact-names.js"),
     include_str!("names-public-smoke.js"),
     include_str!("names-actions-smoke.js"),

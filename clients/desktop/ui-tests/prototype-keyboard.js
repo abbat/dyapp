@@ -57,6 +57,7 @@ export const plan = () => {
   }
   checkPhotoQuestion(problems);
   checkPhotoDisclosure(problems);
+  problems.push(...forwardFailureProblems());
   const dialog = controller.activeDialog();
   const expected = dialog?.dataset.initialFocus;
   if (expected) {
@@ -141,6 +142,26 @@ export const focused = async (name) => {
     exposed: exposed(node),
     active: active(),
   };
+};
+const forwardFailureProblems = () => {
+  if (document.documentElement.dataset.screen !== 'chat-forward-send-error') return [];
+  const visible = (node) => {
+    const rect = node.getBoundingClientRect();
+    return (
+      rect.width > 0 &&
+      rect.height > 0 &&
+      rect.left >= 0 &&
+      rect.top >= 0 &&
+      rect.right <= innerWidth &&
+      rect.bottom <= innerHeight &&
+      exposed(node)
+    );
+  };
+  const feedback = element('#forward-send-failure');
+  const nodes = [feedback, element('#chat-forward-cancel'), element('#chat-forward-confirm')];
+  return feedback.textContent.trim() && nodes.every(visible)
+    ? []
+    : ['Forward failure is not visible beside its recovery actions'];
 };
 let escapeClosed;
 export const prepareAdmittedPhase = async () => {
@@ -329,6 +350,35 @@ export const checkForwardReopening = async () => {
     if (current.state.page !== 1 || old.state.page !== 0)
       throw new Error('Retired forward pagination still receives events');
   } finally {
+    endFixture();
+  }
+};
+
+export const checkForwardFailure = async () => {
+  await beginFixture('forward-failure');
+  let feedback;
+  let next;
+  try {
+    controller.showState('chat-forward-pending');
+    await frames();
+    await prepareAdmittedPhase();
+    if (forwardFailureProblems().length) throw new Error('Forward completion hid its failure');
+    feedback = element('#forward-send-failure');
+    next = feedback.nextSibling;
+    if (!next) throw new Error('Forward failure lost its action region');
+    const title = element('#chat-forward-title');
+    const cancel = element('#chat-forward-cancel');
+    title.after(feedback);
+    cancel.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+    await frames();
+    if (!forwardFailureProblems().length)
+      throw new Error('Old offscreen forward failure escaped the audit');
+    next.before(feedback);
+    cancel.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+    await frames();
+    if (forwardFailureProblems().length) throw new Error('Restored forward failure stayed hidden');
+  } finally {
+    if (feedback && next) next.before(feedback);
     endFixture();
   }
 };

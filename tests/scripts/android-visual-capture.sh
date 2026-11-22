@@ -4,6 +4,11 @@ set -euo pipefail
 bash /runner/tests/scripts/check-container-isolation.sh
 width=${DYAPP_VISUAL_WIDTH:?}
 source_sha=${DYAPP_VISUAL_SOURCE:?}
+suite=${DYAPP_VISUAL_SUITE:-standard}
+[[ $suite == standard || $suite == comparison || $suite == views ]]
+visual_archives=(native:files/owner-approval-visual ime:files/owner-approval-ime receive:files/receive-visual)
+if [[ $suite == comparison ]]; then visual_archives=(comparison:files/comparison-visual); fi
+if [[ $suite == views ]]; then visual_archives=(views:files/received-views-visual); fi
 [[ $width == 360 || $width == 412 ]]
 [[ $source_sha =~ ^[0-9a-f]{40}$ ]]
 report=/reports/$width
@@ -11,7 +16,7 @@ mkdir -p "$report"
 collect() {
     local code=$?
     timeout 30 adb -s emulator-5554 logcat -d > "$report/logcat.txt" 2>&1 || true
-    for archive in native:files/owner-approval-visual ime:files/owner-approval-ime receive:files/receive-visual; do
+    for archive in "${visual_archives[@]}"; do
         if ! bash /runner/tests/scripts/android-visual-collect.sh \
             "$report" "${archive#*:}" "${archive%%:*}"; then
             if [[ $code == 0 ]]; then code=1; fi
@@ -38,6 +43,24 @@ timeout 30 adb -s emulator-5554 shell wm size > "$report/size-after.txt"
 timeout 30 adb -s emulator-5554 shell input keyevent KEYCODE_WAKEUP
 timeout 30 adb -s emulator-5554 shell wm dismiss-keyguard
 timeout 30 adb -s emulator-5554 shell ime disable com.android.inputmethod.latin/.LatinIME
+if [[ $suite == views ]]; then
+    python3 /runner/tests/scripts/android_instrumentation.py \
+        --report "$report/views-instrumentation.txt" --deadline 900 --phase-callbacks -- \
+        adb -s emulator-5554 shell am instrument -w -r \
+        -e viewsVisual 1 -e sourceSha "$source_sha" -e expectedWidth "$width" \
+        -e class com.dyapp.ReceivedViewsVisualTests com.dyapp.test/androidx.test.runner.AndroidJUnitRunner
+    python3 /runner/tests/scripts/check-instrumentation-results.py "$report/views-instrumentation.txt" 1
+    exit 0
+fi
+if [[ $suite == comparison ]]; then
+    python3 /runner/tests/scripts/android_instrumentation.py \
+        --report "$report/comparison-instrumentation.txt" --deadline 900 --phase-callbacks -- \
+        adb -s emulator-5554 shell am instrument -w -r \
+        -e comparisonVisual 1 -e sourceSha "$source_sha" -e expectedWidth "$width" \
+        -e class com.dyapp.LinkReviewVisualTests com.dyapp.test/androidx.test.runner.AndroidJUnitRunner
+    python3 /runner/tests/scripts/check-instrumentation-results.py "$report/comparison-instrumentation.txt" 2
+    exit 0
+fi
 python3 /runner/tests/scripts/android_instrumentation.py \
     --report "$report/instrumentation.txt" --deadline 900 --phase-callbacks -- \
     adb -s emulator-5554 shell am instrument -w -r \

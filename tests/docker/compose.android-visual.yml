@@ -21,6 +21,7 @@ x-runtime: &runtime
     ANDROID_USER_HOME: /home/appuser/.android
     DYAPP_VISUAL_SOURCE: ${DYAPP_VISUAL_SOURCE:?}
     DYAPP_VISUAL_WIDTH: ${DYAPP_VISUAL_WIDTH:?}
+    DYAPP_VISUAL_SUITE: ${DYAPP_VISUAL_SUITE:-standard}
   networks: [visual]
 
 services:

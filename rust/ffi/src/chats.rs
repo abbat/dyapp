@@ -76,6 +76,10 @@ mod sticker_view;
 pub use photos::chat_photo_hours_left;
 pub use sticker_view::ChatSticker;
 mod profile_share;
+mod profile_view;
+pub use profile_view::ProfileViewOpening;
+mod profile_view_list;
+pub use profile_view_list::ReceivedProfileView;
 mod reads;
 mod send_photo;
 mod send_sticker;
@@ -156,6 +160,8 @@ pub struct ChatSession {
     seal_key: Zeroizing<[u8; 32]>,
     session: Mutex<Session>,
     contact_context: Arc<Mutex<dyapp_client::contact_verification::Context>>,
+    // Publication-only observation; no session, profile, storage or network lock is taken on capture.
+    view_context: dyapp_client::contact_verification::GenerationObserver,
     // Drop after the session and all key owners, retaining file locks through completion.
     _operation: Option<dyapp_client::identity_slots::ChatOperation>,
 }

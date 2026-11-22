@@ -241,10 +241,19 @@ The IDs inside each section are the desktop ones; only the frame differs.
   and the `presence-audience` radios. Its hint scopes these preferences to this identity on
   this device. Native Android persists views/read-receipts/typing through independent common-core
   preferences, with disabled unknown/busy switches, confirmed readback and read-only retry.
-  The presence audience also uses common-core foreground send policy. Profile-view send-path parity
-  and actual native runtime evidence remain separate; typing delivery stays planned for a
+  The presence audience also uses common-core foreground send policy. Explicit shown profile pages
+  submit optional views through the common owner/network-bound opening; source-bound runtime
+  acceptance remains separate. Typing delivery stays planned for a
   [future direct client path](read-receipts.md#typing-indicators).
   Separate count links open `settings-blocked` and `settings-passed`.
+  Native Android also links to `settings-views` through `open-settings-views`. This read-only
+  received-view collection returns to Privacy and retains full Peer IDs and core-formatted UTC
+  dates. It has loading, empty, known rows, initial-read failure and retained-row refresh failure
+  states (`received-views-loading`, `received-views-empty`, `received-views-error`). The shared
+  `collection-*` controls search/page locally; `received-view-date-N` and `received-view-open-N`
+  belong to the current page's unchanged targets. Only explicit Open profile fetches a profile.
+  The prototype includes list/loading/empty/error/retained-error variants in the capture inventory;
+  functional demonstration and rendered/native geometry acceptance remain separate from implementation.
   The distinct `lock-settings` row opens app lock, whose scope is the whole app.
   Notifications has `message-notifications` and `notice-content` (`notice-fixed`,
   `notice-name`, `notice-text`). Photos uses `photo-mode`, the `keep-photos` switch,

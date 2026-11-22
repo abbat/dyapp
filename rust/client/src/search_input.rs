@@ -1,10 +1,14 @@
-//! Presentation-independent interpretation of raw search form choices.
+//! Presentation-independent interpretation of raw search form input.
 
 use crate::search::Employer;
 use crate::text_input::trim;
 
 mod choices;
 pub use choices::SearchChoiceInputs;
+mod ranges;
+pub use ranges::range_conditions;
+mod visibility;
+pub use visibility::visible_filter_fields;
 
 /// The selected local employer-filter mode before interpreting its text field.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

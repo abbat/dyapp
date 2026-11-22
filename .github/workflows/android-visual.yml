@@ -7,6 +7,12 @@ on:
         description: Exact main CI run with a successful Android build
         required: true
         type: string
+      suite:
+        description: Native matrix to capture
+        required: true
+        type: choice
+        default: standard
+        options: [standard, comparison, views]
 
 permissions:
   contents: read
@@ -47,7 +53,7 @@ jobs:
           if-no-files-found: error
 
   capture:
-    name: android - visual ${{ matrix.width }}dp
+    name: android - visual ${{ inputs.suite }} ${{ matrix.width }}dp
     needs: producer
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -58,6 +64,7 @@ jobs:
     env:
       DYAPP_VISUAL_SOURCE: ${{ needs.producer.outputs.source_sha }}
       DYAPP_VISUAL_WIDTH: ${{ matrix.width }}
+      DYAPP_VISUAL_SUITE: ${{ inputs.suite }}
       DYAPP_BUILD_CACHE: gha
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -103,25 +110,39 @@ jobs:
           docker compose -f tests/docker/compose.android-visual.yml up \
             --abort-on-container-exit --exit-code-from capture capture
       - name: validate native matrix
-        if: always()
+        if: ${{ always() && inputs.suite == 'standard' }}
         run: |
           python3 -B tests/scripts/android_visual_archive.py \
             --archive "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/native.tar" \
             --output "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/frames" \
             --width "$DYAPP_VISUAL_WIDTH" --source "$DYAPP_VISUAL_SOURCE"
       - name: validate receiving matrix
-        if: always()
+        if: ${{ always() && inputs.suite == 'standard' }}
         run: |
           python3 -B tests/scripts/android_visual_archive.py --kind receive \
             --archive "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/receive.tar" \
             --output "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/receive-frames" \
             --width "$DYAPP_VISUAL_WIDTH" --source "$DYAPP_VISUAL_SOURCE"
       - name: validate real IME matrix
-        if: always()
+        if: ${{ always() && inputs.suite == 'standard' }}
         run: |
           python3 -B tests/scripts/android_visual_archive.py --kind ime \
             --archive "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/ime.tar" \
             --output "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/ime-frames" \
+            --width "$DYAPP_VISUAL_WIDTH" --source "$DYAPP_VISUAL_SOURCE"
+      - name: validate received-view matrix
+        if: ${{ always() && inputs.suite == 'views' }}
+        run: |
+          python3 -B tests/scripts/android_visual_archive.py --kind views \
+            --archive "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/views.tar" \
+            --output "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/views-frames" \
+            --width "$DYAPP_VISUAL_WIDTH" --source "$DYAPP_VISUAL_SOURCE"
+      - name: validate complete comparison matrix
+        if: ${{ always() && inputs.suite == 'comparison' }}
+        run: |
+          python3 -B tests/scripts/android_comparison_archive.py \
+            --archive "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/comparison.tar" \
+            --output "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/comparison-frames" \
             --width "$DYAPP_VISUAL_WIDTH" --source "$DYAPP_VISUAL_SOURCE"
       - name: native evidence and diagnostics
         if: always()

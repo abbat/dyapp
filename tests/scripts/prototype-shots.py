@@ -472,6 +472,11 @@ ANDROID = [
     "settings-identities-screen",
     "settings-blocked",
     "settings-passed",
+    "settings-views",
+    "settings-views-loading",
+    "settings-views-empty",
+    "settings-views-error",
+    "settings-views-stale",
     "devices-loading",
     "devices-saved",
     "devices-ready",
@@ -779,6 +784,8 @@ def android_fixture(screen: str) -> tuple[str, str] | None:
         return "owner", "checkOwnerFixture"
     if screen.startswith("devices-"):
         return "devices", "checkDevicesFixture"
+    if screen.startswith("settings-views"):
+        return "views", "checkViewsFixture"
     if screen.startswith("link-review-"):
         return "review", "checkReviewFixture"
     if screen.startswith(("link-receive-", "link-setup-", "receive-network")):

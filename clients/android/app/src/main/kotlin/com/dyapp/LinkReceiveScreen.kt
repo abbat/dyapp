@@ -54,8 +54,7 @@ internal fun LinkReceiveContent(
     status: MobileLinkCodeStatus?,
     actions: LinkReceiveActions
 ) {
-    Caption(stringResource(R.string.link_receive_source))
-    Text(sourcePeer, Modifier.testTag("link-receive-source"))
+    DeviceIdentifier(sourcePeer, "link-receive-source", R.string.link_receive_source)
     Text(
         stringResource(linkReceiveStatus(snapshot, status)),
         Modifier.testTag("link-receive-status").semantics { liveRegion = LiveRegionMode.Polite }
@@ -63,7 +62,9 @@ internal fun LinkReceiveContent(
     if (snapshot.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
     LinkReceiveInvitation(snapshot, status)
     LinkReceiveOutcome(snapshot)
-    if (snapshot.receipt is MobileLinkReceipt.Installed) LinkEnrollmentAction(snapshot, actions)
+    if (snapshot.receipt is MobileLinkReceipt.Installed && !snapshot.enrollment.showsComparison) {
+        LinkEnrollmentAction(snapshot, actions.enrollment)
+    }
     LinkReviewPanel(snapshot, actions.enrollment)
     LinkReceiveButtons(snapshot, actions)
 }
@@ -87,8 +88,7 @@ private fun LinkReceiveInvitation(snapshot: LinkReceiverSnapshot, status: Mobile
             .format(Date(TimeUnit.SECONDS.toMillis(display.expiresAt.toLong())))
     }
     LinkQr(display.matrix)
-    Text(display.code, Modifier.testTag("link-receive-code"))
-    CopyButton(display.code, "link-receive-copy")
+    DeviceIdentifier(display.code, "link-receive-code", R.string.link_receive_code_label, "link-receive-copy")
     Caption(stringResource(R.string.link_receive_expiry, expiry))
 }
 

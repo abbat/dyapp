@@ -1,7 +1,9 @@
-"""Check Apple catalogue references and finite native metadata."""
+"""Check native catalogue declarations, references and finite metadata."""
 
 import json
+from pathlib import PurePosixPath
 import re
+import xml.etree.ElementTree as ElementTree
 
 APPLE = "clients/ios/DYApp/Localizable.xcstrings"
 SCALES = "rust/profile/src/scales.rs"
@@ -14,6 +16,42 @@ SCALE = re.compile(
 )
 VARIANT = re.compile(r"(\w+)\s*=\s*\d[\d_]*")
 ENTRY = re.compile(r'entry!\(\s*(\w+),\s*"([^"]+)"\s*\)')
+
+
+def android_strings(name: str, source: str) -> list[str]:
+    """Read main values XML strings and aliases, retaining duplicates."""
+    path = PurePosixPath(name)
+    if (
+        not name.startswith("clients/android/app/src/main/res/")
+        or path.suffix != ".xml"
+    ):
+        return []
+    qualifier = path.parent.name
+    if qualifier != "values" and not qualifier.startswith("values-"):
+        return []
+    return [
+        item.get("name", "")
+        for item in ElementTree.fromstring(source)
+        if item.tag == "string"
+        or (item.tag == "item" and item.get("type") == "string")
+    ]
+
+
+def android_string_errors(texts: dict[str, str]) -> list[str]:
+    """Reject duplicate strings within each main resource qualifier."""
+    seen: dict[tuple[str, str], str] = {}
+    errors = []
+    for name, source in sorted(texts.items()):
+        for resource in android_strings(name, source):
+            key = (PurePosixPath(name).parent.name, resource)
+            if key in seen:
+                errors.append(
+                    f"{name}: duplicate string {resource!r}; "
+                    f"first in {seen[key]}"
+                )
+            else:
+                seen[key] = name
+    return errors
 
 
 def block_end(source: str, start: int) -> int:

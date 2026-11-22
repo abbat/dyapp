@@ -565,7 +565,25 @@
           <p id="privacy-error" class="notice error" role="alert" data-i18n="storage.error" hidden></p>
           <p class="caption" data-i18n="privacy.hint"></p>
         </form>
-          <div class="settings-hub"><button class="btn" type="button" data-settings-open="blocked" data-i18n="settings.blocked"></button><button class="btn" type="button" data-settings-open="passed" data-i18n="settings.passed"></button></div>
+          <div class="settings-hub"><button class="btn" type="button" data-settings-open="blocked" data-i18n="settings.blocked"></button><button class="btn" type="button" data-settings-open="passed" data-i18n="settings.passed"></button><button class="btn" type="button" data-settings-open="views" data-i18n="views.title"></button></div>
+        </div>
+        <div id="settings-views" data-settings-pane="views" hidden>
+          <div class="card">
+            <h2 data-i18n="views.title"></h2>
+            <p class="caption" data-i18n="views.hint"></p>
+            <div class="field">
+              <label for="received-views-query" data-i18n="settings.collection.search"></label>
+              <input id="received-views-query" type="text">
+            </div>
+            <p id="received-views-status" class="notice" role="status" aria-live="polite"></p>
+            <ul id="received-views-rows"></ul>
+            <p id="received-views-page" class="caption"></p>
+            <div class="actions">
+              <button id="received-views-previous" class="btn" type="button" data-i18n="settings.collection.previous" disabled></button>
+              <button id="received-views-next" class="btn" type="button" data-i18n="settings.collection.next" disabled></button>
+              <button id="received-views-refresh" class="btn" type="button" data-i18n="settings.collection.refresh"></button>
+            </div>
+          </div>
         </div>
         <div data-settings-pane="notifications" hidden>
           <form id="notifications" class="card" novalidate>

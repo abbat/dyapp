@@ -20,6 +20,9 @@ adding or removing identities leaves it running. Saving enabled node settings or
 activating a network applies that network to the node. Relaunch restores its saved configuration;
 Quit stops it. Its `node.json` settings and `node/` data sit outside identity folders.
 
+The shared Privacy interface includes [received profile views](linux.md#received-profile-views),
+with local search/pages and explicit profile opening.
+
 ## Share a profile
 
 On a profile page, **Share** offers existing open chats, excluding the profile owner.

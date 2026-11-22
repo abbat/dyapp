@@ -618,6 +618,10 @@ suppression that no longer matches a finding, and `--error-on-warnings` fails th
 
 ## Common fixes
 
+Quiet spelling diagnostics retain the error and source location from both ASCII and Unicode
+renderer markers; complete context remains in the captured raw log. Prefer `PNG images` when
+pluralizing the format acronym would be misread as a spelling error, rather than adding an exception.
+
 ```rust
 // Propagate instead of unwrap in library code
 let value = option.ok_or(Error::NotFound)?;

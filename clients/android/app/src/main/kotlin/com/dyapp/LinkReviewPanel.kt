@@ -22,20 +22,28 @@ import kotlinx.coroutines.launch
 import uniffi.dyapp.LinkReviewField
 import uniffi.dyapp.profileScales
 
-private class LinkReviewControls(val canLeave: Boolean, val back: () -> Unit, val save: () -> Unit)
+private class LinkReviewControls(
+    val canLeave: Boolean,
+    val back: () -> Unit,
+    val save: () -> Unit,
+    val snapshot: LinkReceiverSnapshot,
+    val actions: LinkEnrollmentActions
+)
 
 /** Complete owner choices remain separate from the receiving receipt and enrollment completion. */
 @Composable
 internal fun LinkReviewPanel(snapshot: LinkReceiverSnapshot, actions: LinkEnrollmentActions) {
     val opening = snapshot.enrollment.comparison ?: return
-    if (!snapshot.enrollment.offered || snapshot.enrollment.completed) return
+    if (!snapshot.enrollment.showsComparison) return
     key(opening) {
         var visible by remember { mutableStateOf(true) }
         if (snapshot.enrollment.saved != null) {
             Text(stringResource(R.string.link_review_saved), Modifier.testTag("link-review-saved"))
+            LinkReviewRecovery(snapshot, actions)
         } else if (visible) {
             LinkReviewForm(opening, snapshot, actions) { visible = false }
         } else {
+            LinkReviewRecovery(snapshot, actions)
             val show = { visible = true }
             Button(show, Modifier.testTag("link-review-open").applicationClick(show), !snapshot.busy) {
                 Text(stringResource(R.string.link_review_show_comparison))
@@ -89,7 +97,9 @@ private fun rememberReviewControls(
                     form.confirmationCompleted(result.await())
                 }
             }
-        }
+        },
+        snapshot = snapshot,
+        actions = actions
     )
 }
 
@@ -100,15 +110,6 @@ private fun LinkReviewContent(form: LinkReviewFormState, photos: LinkReviewPhoto
     Text(stringResource(R.string.link_review_intro))
     Caption(stringResource(R.string.link_review_authority))
     Caption(stringResource(R.string.link_review_no_publish))
-    form.failure?.let { failure ->
-        ErrorNotice(
-            stringResource(R.string.link_review_preview_error),
-            "link-review-preview-error",
-            failure.toString(),
-            "link-review-preview-details",
-            "link-review-preview-copy"
-        )
-    }
     if (form.opening.snapshot.differences.isEmpty()) Text(stringResource(R.string.link_review_equal))
     val preview = form.preview
     if (preview != null) CardTitle(R.string.link_review_preview_title)
@@ -119,7 +120,22 @@ private fun LinkReviewContent(form: LinkReviewFormState, photos: LinkReviewPhoto
             LinkReviewPreviewCard(form, field, photos, scales)
         }
     }
+    form.failure?.let { failure ->
+        ErrorNotice(
+            stringResource(R.string.link_review_preview_error),
+            "link-review-preview-error",
+            failure.toString(),
+            "link-review-preview-details",
+            "link-review-preview-copy"
+        )
+    }
     LinkReviewFooter(form, controls)
+}
+
+@Composable
+private fun LinkReviewRecovery(snapshot: LinkReceiverSnapshot, actions: LinkEnrollmentActions) {
+    LinkEnrollmentNotice(snapshot.enrollment)
+    LinkEnrollmentAction(snapshot, actions)
 }
 
 @Composable
@@ -151,13 +167,26 @@ private fun LinkReviewPreviewControl(form: LinkReviewFormState, focus: LinkRevie
 
 @Composable
 private fun LinkReviewFooter(form: LinkReviewFormState, controls: LinkReviewControls) {
-    LinkReviewPreviewControl(form, rememberLinkReviewFocus(form.preview != null, form.available))
+    val focus = rememberLinkReviewFocus(
+        form.preview != null,
+        form.available,
+        controls.snapshot.enrollment.failure ?: form.failure,
+        controls.canLeave
+    )
+    LinkReviewRecovery(controls.snapshot, controls.actions)
+    LinkReviewPreviewControl(form, focus)
     Button(
         controls.save,
         Modifier.testTag("link-review-confirm").applicationClick(controls.save),
         form.available && form.complete
     ) { Text(stringResource(R.string.link_review_save)) }
-    TextButton(controls.back, Modifier.testTag("link-review-back").applicationClick(controls.back), controls.canLeave) {
+    TextButton(
+        controls.back,
+        Modifier.testTag("link-review-back").focusRequester(focus.back)
+            .focusProperties { canFocus = true }
+            .applicationClick(controls.back),
+        controls.canLeave
+    ) {
         Text(stringResource(R.string.link_review_back_receipt))
     }
 }

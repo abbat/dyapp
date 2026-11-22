@@ -29,7 +29,7 @@ case "${1:?suite required}" in
         cd /tmp/ai/src
         echo '3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98  clients/android/gradle/wrapper/gradle-wrapper.jar' | sha256sum -c -
         # The debug core is x86_64 only: the emulator is the only device these packages run on.
-        (cd clients/android && ./gradlew --no-daemon -Pdyapp.debugAbis=x86_64 \
+        (cd clients/android && ./gradlew --no-daemon --stacktrace -Pdyapp.debugAbis=x86_64 \
             :app:assembleDebug :app:assembleDebugAndroidTest :app:compileDebugUnitTestKotlin :app:lintDebug)
         # Preserve both versions, signed by this container's same debug keystore.
         apk_dir=build/android/app/outputs/apk/debug
@@ -154,6 +154,7 @@ case "${1:?suite required}" in
         phase_only+=,com.dyapp.SearchTests#forgedResultsAreDroppedAndListed
         phase_only+=,com.dyapp.NativeIncomingPngPhaseTests
         phase_only+=,com.dyapp.OwnerApprovalVisualTests,com.dyapp.OwnerApprovalImeTests,com.dyapp.ReceiveVisualTests
+        phase_only+=,com.dyapp.LinkReviewVisualTests,com.dyapp.ReceivedViewsVisualTests
         failed=() only=() minimum=3
         for attempt in 1 2 3; do
             # Retry only finished JUnit failures, never an uncertain remote invocation.

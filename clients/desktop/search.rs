@@ -11,9 +11,7 @@ use dyapp_client::search_input::{employer_filter, EmployerMode, SearchChoiceInpu
 use dyapp_client::store::Store;
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
-use dyapp_p2p_net::search_results::{
-    mutual_conditions, Filter, BIRTH_AGE, SEEKING_AGE, SEEKING_GENDERS,
-};
+use dyapp_p2p_net::search_results::{mutual_conditions, BIRTH_AGE, SEEKING_GENDERS};
 use dyapp_p2p_net::{proto, Protocols};
 use dyapp_profile::search_input::SearchRangeInputs;
 use dyapp_profile::{CivilDate, Profile, VerifiedProfile, HEIGHT_FIELD};
@@ -52,14 +50,15 @@ pub struct Filters {
 
 impl Filters {
     fn offered(offered: &[u32]) -> Self {
-        let has = |field| offered.contains(&field);
+        let visible = dyapp_client::search_input::visible_filter_fields(offered);
+        let has = |field| visible.contains(&field);
         Self {
             age: has(BIRTH_AGE),
             height: has(HEIGHT_FIELD),
             interest: has(INTEREST_FIELD),
             country: has(COUNTRY_FIELD),
-            place: has(COUNTRY_FIELD) && has(PLACE_FIELD),
-            mutual: has(SEEKING_GENDERS) && has(SEEKING_AGE),
+            place: has(PLACE_FIELD),
+            mutual: has(SEEKING_GENDERS),
         }
     }
 }
@@ -114,44 +113,28 @@ impl Query {
     /// height, then the offered choices. Errors are `invalid search age`, `invalid search height`
     /// or `invalidInterests`.
     fn conditions(&self, today: CivilDate) -> Result<Vec<proto::Condition>, String> {
-        let ranges = SearchRangeInputs {
-            age_min: self.age_min.clone(),
-            age_max: self.age_max.clone(),
-            height_min: self.height_min.clone(),
-            height_max: self.height_max.clone(),
-        }
-        .parse(
-            self.offered.contains(&BIRTH_AGE),
-            self.offered.contains(&HEIGHT_FIELD),
+        let mut out = dyapp_client::search_input::range_conditions(
+            &self.offered,
+            &SearchRangeInputs {
+                age_min: self.age_min.clone(),
+                age_max: self.age_max.clone(),
+                height_min: self.height_min.clone(),
+                height_max: self.height_max.clone(),
+            },
+            today,
         )
         .map_err(|error| error.to_string())?;
-        let age = Filter {
-            age: ranges.age,
-            ..Filter::default()
-        };
-        let mut out = age.conditions(today).map_err(|_| "invalid search age")?;
-        let height = Filter {
-            min_height: ranges.min_height,
-            max_height: ranges.max_height,
-            ..Filter::default()
-        };
-        out.extend(
-            height
-                .conditions(today)
-                .map_err(|_| "invalid search height")?,
-        );
         let choices = SearchChoiceInputs {
             picked: self.picked.clone(),
             country: self.country.clone(),
             interest: self.interest.clone(),
             place: self.place,
         };
-        for mut condition in choices.conditions(&self.offered) {
-            if condition.field == INTEREST_FIELD {
-                condition.strings = profile::canonical_interests(&condition.strings)?;
-            }
-            out.push(condition);
-        }
+        out.extend(
+            choices
+                .checked_conditions(&self.offered)
+                .map_err(|error| error.to_string())?,
+        );
         Ok(out)
     }
 

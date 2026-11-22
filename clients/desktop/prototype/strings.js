@@ -2,6 +2,14 @@
 // biome-ignore lint/correctness/noUnusedVariables: a global read by the inline script of index.html
 const STRINGS = {
   en: {
+    'views.title': 'Viewed you',
+    'views.hint': 'Latest received viewing day (UTC). This local list does not send views.',
+    'views.error': 'Could not read received views. Refresh to try again.',
+    'views.empty': 'No received profile views yet.',
+    'views.open': 'Open profile',
+    'views.sampleDate': 'Viewed on 2023-11-14 (UTC)',
+    'views.onePage': 'Page 1 of 1 · 1 entry',
+    'views.emptyPage': 'Page 1 of 1 · 0 entries',
     'forward.action': 'Forward',
     'forward.actions': 'Message actions',
     'forward.title': 'Forward message',
@@ -450,6 +458,15 @@ const STRINGS = {
       'Its chats, matches and likes on this computer are deleted with it. Other identities stay.',
   },
   ru: {
+    'views.title': 'Просмотры вашей анкеты',
+    'views.hint':
+      'Последний полученный день просмотра (UTC). Этот локальный список не отправляет просмотры.',
+    'views.error': 'Не удалось прочитать просмотры. Обновите список, чтобы повторить попытку.',
+    'views.empty': 'Полученных просмотров анкет пока нет.',
+    'views.open': 'Открыть анкету',
+    'views.sampleDate': 'Дата просмотра: 2023-11-14 (UTC)',
+    'views.onePage': 'Страница 1 из 1 · Записей: 1',
+    'views.emptyPage': 'Страница 1 из 1 · Записей: 0',
     'forward.action': 'Переслать',
     'forward.actions': 'Действия с сообщением',
     'forward.title': 'Переслать сообщение',

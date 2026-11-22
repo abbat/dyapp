@@ -1,7 +1,9 @@
 //! Pure stable-version, feed-schema and update-check cadence rules.
 //! Transport and persistence integration are not implemented here.
 
+pub mod coordinator;
 pub mod feed;
+pub mod transport;
 
 /// A stable release version, compared by numeric components.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -106,7 +108,7 @@ pub enum Trigger {
 
 /// True when a check is due at Unix time `now`. `jitter` is a stable, local installation seed;
 /// it only spreads timer requests and must never be sent to the feed host. In-flight request
-/// coalescing and monotonic timers are the app's responsibility.
+/// coalescing is provided by [`coordinator::Coordinator`]; monotonic timer integration is pending.
 #[must_use]
 pub fn check_due(
     now: u64,

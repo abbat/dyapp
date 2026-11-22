@@ -41,6 +41,7 @@ const openSettings = (pane) => {
     devices: 'account',
     blocked: 'privacy',
     passed: 'privacy',
+    views: 'privacy',
   };
   for (const name of [parent[pane], pane].filter(Boolean)) {
     const button = [...document.querySelectorAll(`[data-settings-open="${name}"]`)].find(

@@ -1,5 +1,59 @@
 # UI Testing: Practical Guide
 
+Private profile-view checks separate presentation lifetime from core policy. Android
+`ProfileViewDisclosureTests` waits on controlled IO entry/completion signals and checks readiness,
+disposal, replacement and exactly one invocation per opening. Native Rust checks cover actual
+owner/context/default-off/block admission; they do not become accepted merely because Compose
+fixtures pass. A channel-gated native regression holds the real shared contact mutex while both
+opening factories must complete before its release, then rejects both original tokens after
+context invalidation. Core observer controls retain unique-generation/ABA and fail-closed poison
+checks; no elapsed delay establishes capture readiness. `node tools/web-lint/profile-view-fixtures.mjs` exercises the exact dependency-free
+browser controller with held Promise completions and per-case failure deadlines. The native
+desktop smoke additionally drives the actual profile page and verifies close/area retirement;
+none of these controls substitutes for encrypted two-peer delivery and received-list acceptance.
+The Android received-list hint uses `profile_views_received_hint`; the privacy policy uses
+`profile_views_hint`. Keep these resource names distinct across all `values*` XML files. The repository checker rejects
+duplicate main string declarations, including aliases, within each qualifier across feature XML files;
+translations and other qualifiers remain independent.
+The Docker APK build retains Gradle stack traces on failure so dependency-resolution errors
+can be investigated from its captured build log.
+`ReceivedViewsCollectionTests` renders the production Android collection and native pager with
+controlled read completions: loading, exact-target search, failed-refresh retention, explicit retry
+and retired-owner actions. Captured row callbacks must also refuse after query replacement removes
+the row, while the current target still opens. The shared collection-row geometry matrix includes its full identifier
+and UTC date/Open action in EN/RU, light/dark themes, at normal and enlarged text. The identifier
+layout must expose the actual requested native font scale, and the full date must fit below it. These are runtime checks, not evidence of
+fresh rendered acceptance until the corresponding source-bound Android CI has executed them.
+`node tools/web-lint/received-view-fixtures.mjs` checks the dependency-free received-list request
+controller with explicitly released promises: core page/cursor pass-through, pending-action refusal,
+refresh failure retention, query replacement and retired completions. The CI web entrypoint invokes both Node fixture suites through the mapped quiet runner with the
+explicit spec reporter; real assertion-failure controls verify test names, source and errors survive.
+The controller owns UI request lifetime only; the shared Rust pager retains filtering, counts and cursor policy.
+The Tauri received-view smoke drives the actual Privacy pane: read-only loading, unchanged native
+cursors/dates, query reset, failure retention, explicit profile opening and Back focus after read
+completion. A held refresh completes after leaving the pane and must not replace known rows or
+admit a captured old row. These native webview checks run in desktop CI. Hidden-ancestor controls hide only the identity
+shell, without an area/identity event: a late disclosure preparation cannot submit, and a connected
+old received-row button cannot fetch a profile. Guards observe actual rendered rectangles rather
+than child-only hidden flags; each control restores the original shell in `finally`.
+The five Android `settings-views` prototype outcomes run `views-fixture-tests.js` after capture.
+They check read-outcome rows/errors, full-target search across bounded pages, explicit Open and
+current-geometry control reachability. Non-shipping samples reuse existing prototype collection
+navigation; production Android and Tauri filtering/paging remain owned by the Rust core.
+`ReceivedViewsVisualTests` is a dedicated `viewsVisual=1` capture phase for all five read outcomes,
+in EN/RU, both themes and actual 100/200% text. It uses the production Settings frame, collection
+and native pager with controlled readers, waits for outcome/pager readiness, and verifies every
+laid-out text line through current scroll geometry. Top/bottom PNG frames retain the exact producer
+SHA, actual native density and viewport dimensions; these controlled samples prove rendering only.
+`NativeScreenVisualOutput` writes this metadata and the existing receiving matrix's unchanged format,
+rejecting reused directories, duplicate frames and incomplete frame counts.
+Use the manual `android-visual` workflow's `suite=views` with an exact successful main APK producer.
+Each 360/412dp job runs this phase alone; existing `standard` and `comparison` captures remain
+separate. The bounded `android_visual_archive.py --kind views` validator requires all eighty
+frames, exact producer SHA, locale/theme/font/outcome matrix, actual text-scale witnesses, matching
+PNG dimensions and the dedicated archive namespace. A matrix proves captured controlled rendering,
+not live private delivery, and still requires review of the frames.
+
 Native receiving completion checks retain a recovery review prepared before setup finishes:
 preparing another review after the pending link has been cleared is correctly refused. Publication
 preview tests await their expected current row after the native draft read, before scrolling.
@@ -18,10 +72,43 @@ Each transition retains its independent failure deadline and named stage; Compos
 UI effects while native IO remains real. Blocking `Flow.first` on the instrumentation thread is
 reserved for worker teardown after disposal. `ScreenReadinessTests` gates an actual LaunchedEffect
 continuation to check scheduler progress without sleeps or guessed delays.
+The instrumentation progress JSONL appends attempts to one file. Split records at each
+`runner_started` before counting results or claiming first-attempt acceptance; a later retry's
+success never replaces a primary failure, and an unfinished retry supplies no terminal result.
+Desktop forwarding failure feedback sits after the selector beside its recovery actions.
+The keyboard plan checks their current viewport geometry together; calibration moves the alert
+back above the long list to require rejection, then restores it. Controlled admitted completion
+retains the existing Escape refusal and mounted-view acknowledgement before checking feedback.
 
 Android receiving-screen checks use the real Settings frame, controls and retained-operation store
 with controlled native completion. They preserve the exact reserved destination, require explicit
 creation and disposition, and invoke captured application callbacks after disposal/equal reopening.
+`ReceiveIdentifierTests` renders source/code/received/destination identifiers through those production
+widgets in EN/RU at both text scales, checks real text density and viewport bounds, and verifies
+fixed groups, raw accessibility text and exact system-clipboard values. The established link-code
+copy tag stays stable while all identifiers reuse the shared display component.
+`LinkReviewFailureTests` rejects a preview after all 31 explicit choices inside the actual receiving
+Settings frame, acknowledges safe Back focus, and checks the error and all recovery controls against
+the current viewport in EN/RU at both text scales. This covers preview refusal only; authoritative
+confirmation refusal belongs to the separately retained enrollment state. Its typed notice and
+existing recovery actions render beside the active form footer, or beside the reopen/saved state;
+receipt-only outcomes keep their original notice.
+The phase-only `LinkReviewVisualTests` renders the actual complete comparison in the receiving
+Settings frame: choices, preview, saving, typed refusal and unavailable photos, in EN/RU, both
+colour themes and actual 100/200% text scales. With `comparisonVisual=1`, `sourceSha` and
+`expectedWidth` instrumentation arguments it writes `files/comparison-visual/<width>/<language>`.
+Each actual scroll acknowledgement saves a viewport; the scene can complete only when the saved
+frames cover every laid-out line of every offered value. It is excluded from ordinary runtime.
+External validation uses `tests/scripts/android_comparison_archive.py`: exact source, full matrix,
+bounded archive paths, actual font density and union coverage of every required line must agree.
+Photo frames separately expose each offered image or unavailable-photo retry control, with full
+current viewport bounds; the validator requires those witnesses as well as text-line coverage.
+Negative controls retain both edge frames while omitting middle lines or photo witnesses and
+require rejection.
+Use the manual workflow's `suite=comparison` to collect and validate this separate matrix.
+`LinkReviewSaveRefusalTests` publishes each typed
+native refusal before completing the admitted callback, retains all 31 choices, checks safe Back
+focus and verifies that uncertain/unauthorized outcomes gain no ordinary confirmation or finish.
 These checks establish presentation ownership; actual owner approval, enrollment, QR and runtime
 acceptance require the separate real JNI journey and screen review. The receiving JNI journey also
 remounts the production screen after installation: retired finish/open callbacks cannot act, the
@@ -35,7 +122,7 @@ Android `remove-offline` captures also run `remove-fixture-tests.js` after captu
 that the translated uncertainty warning and all three actions are reachable using actual
 scroll/focus completion, current bounds and hit testing, including enlarged text. Hidden,
 covered and off-screen counterexamples calibrate the shared reachability check. Initial
-viewport PNGs alone do not show the entire long dialog or prove native removal behavior.
+viewport PNG images alone do not show the entire long dialog or prove native removal behavior.
 
 `LinkEnrollmentNoticeTests` exercises the production enrollment notices and controls in EN/RU.
 Uncertain authorization, private-state review, revoked and unlisted outcomes remain distinct and
@@ -75,8 +162,12 @@ Compose `SemanticsActions.OnClick` wrapper: modifier nodes may reuse that wrappe
 or require attachment before invoking it. Identity durability acknowledgement uses that same exact
 callback contract for replacement results and disposal. Profile sharing exposes the same application action used
 by each real control; cancellation, duplicate admission and retired completion assertions remain.
-The real foreground LAN-permission journey closes the IME with Espresso's acknowledged action after
-text replacement, then scrolls to the check button using current layout bounds before clicking.
+The real foreground LAN-permission journey hides the IME through its actual Activity window after
+text replacement. `ActivityImeTransition` listens for pre-draw/window-focus callbacks and completes
+only when current insets show no IME, the window has focus and layout is settled. Each invocation
+has its own failure deadline and removes listeners even on failure. The test then scrolls to the
+check button using current layout bounds before clicking. Espresso root selection is not the
+readiness signal: on modern Android its focus prerequisite can block the IME action itself.
 
 Received-message prototype actions use the existing spacing token separately from compact message
 metadata. Empty received-menu holders are hidden; the normal/enlarged layout validator checks the
@@ -177,7 +268,11 @@ Capture the real Activity's `LocalActivityResultRegistryOwner` before replacing 
 provide that same registry inside; a configuration context alone is not an Activity registry owner.
 Keep locale-specific text/description assertions and actual geometry checks; do not turn a missing
 localized node into a timing retry or accept a different language. This helper also covers
-localized full-screen fixtures that can open a system picker.
+localized full-screen fixtures that can open a system picker. Key its configured window host by
+configuration values, font scale and parent window, rather than a caller's Context object identity:
+fresh equivalent locale wrappers must not dispatch repeated configuration changes. The native
+regression retains the actual configured host and dialog draft across those equivalent wrappers;
+separate scale witnesses still require real font changes to reach platform Dialog windows.
 
 `SearchIntentTests` verifies that admitted native conditions, employer and mutual choice remain
 unchanged after every form field and offered list are edited. An admitted validation failure
@@ -1301,7 +1396,9 @@ validation requires all twelve states × two languages × two themes × two font
 edges (192 frames per width), matching source/viewport and PNG header dimensions. This checks evidence
 integrity and coverage, not the visual quality of the rendered screens or the real IME behavior.
 Run `gh workflow run android-visual.yml -f producer_run=RUN_ID` after that main CI run's Android
-build succeeds. Each width gets a fresh KVM emulator without host nodes or network peers. The workflow
+build succeeds. The default `suite=standard` retains owner, receiving and IME coverage; pass
+`-f suite=comparison` for the separate complete-form matrix, using a producer that contains
+`LinkReviewVisualTests`. The two suites keep independent native archives and validations. Each width gets a fresh KVM emulator without host nodes or network peers. The workflow
 checks out the exact producer for toolchain inputs and records the current trusted runner separately;
 it never rebuilds APKs. Live density determines the physical viewport, and instrumentation requires
 the requested dp width. The keyboard-disabled rendering phase has no submission retries. Always-run
@@ -1318,6 +1415,17 @@ Its preparation fixture rejects any changed input. The manual workflow enables a
 native LatinIME for this separate phase, retains its own instrumentation log and tar, and validates
 24 complete frames with finite, nonempty glyph/control rectangles inside the recorded visible frame.
 Authoring these checks does not establish that the runtime passed.
+Owner approval feedback uses the first actual laid-out message line with window/layout readiness
+and the platform bring-into-view callback; safe footer focus alone cannot reveal a separate
+scrolling body. A new opening starts a fresh body scroll state. `LinkApprovalOutcomeTests` holds
+an admitted send, then releases success or uncertain failure without test-driven scrolling;
+EN/RU at both actual scales must expose the current feedback. An IO-only repeat completes before
+Compose can observe SEND, so equal rendered strings must not hide a new native delivery result.
+The tests preserve the original target and
+refuse expired/unavailable retry. A large-text negative control scrolls back to the identifiers
+and requires the same current-geometry detector to reject the hidden outcome; user scrolling
+must not trigger a feedback-reveal loop. Native runtime and fresh visual review remain required.
+
 Dedicated visual instrumentation opts into `--phase-callbacks`. A `DYAppVisual` status callback
 renews the failure deadline only for the active JUnit class/method and the next completed case.
 Callbacks are emitted after scene/worker cleanup; duplicates, gaps, unrelated logs and late callbacks

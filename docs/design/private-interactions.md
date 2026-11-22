@@ -4,8 +4,38 @@ This is the planned client contract for [private likes and views](../decisions/0
 The bootstrap signal class and quota, client plaintext codec, persisted like/unlike ledger,
 own-event clock and view-day records exist. `Session::interact` and `Session::receive` send and
 apply encrypted signal mailbox deliveries; a two-client protocol test covers like, match,
-unlike, replay, offline retry and daily view. Linux desktop has Search and Liked you controls;
-other app UI and own-device event sync remain planned.
+unlike, replay, offline retry and daily view. Tauri and Android have Search and Liked you controls;
+Android's explicit profile page submits optional views through the common native opening;
+Android and Tauri implement local received-view collections under Privacy; current-source
+runtime and rendered acceptance remain required.
+Own-device events follow the pair-group
+ordering and reconciliation rules below.
+
+An enabled first View can create the pair without sending a Like: the core commits its group
+catalog, Welcome and Signal envelopes, sealed MLS state, exact event and sent-day record in one
+transaction. A disabled or already-recorded daily View stops before KeyPackage IO; admission is
+checked again after that IO before MLS advancement. A failed first-view transaction leaves no
+invitation, event or day and invalidates advanced in-memory MLS state. Merely creating the pair
+or receiving a View grants no chat request or match. Native compilation/runtime acceptance remains
+source-bound; the core path alone is not proof of app delivery.
+
+Shared Tauri commands prepare one opaque opening handle, submit that handle and retire it on
+closure. Idle handles retain no identity key or lease. Replacement retires only unadmitted work;
+a submit retains the actual identity lease and original network snapshot through completion.
+The commands use the same core admission and Session staging as UniFFI. The shared browser page
+prepares only an explicit other-profile opening, submits its exact handle while that page and
+identity remain current, and retires on close, replacement, area change or hiding the document.
+Admission also requires actual rendered page visibility, including hidden identity ancestors.
+Native UI capture observes the same opaque core generation through a separate memory-only
+publication guard; it does not wait behind contact-cache IO. Final owner/context/privacy admission
+and the immutable active-network snapshot still use the original shared Context lock.
+A late preparation result only retires its original handle. Background reads send no views, and
+pre-commit errors trigger no automatic resubmission. Android's received collection uses common
+paging and full identifiers under Privacy. Tauri transports the common pager's query/cursors and
+renders its order, counts and UTC dates unchanged; list reads fetch no profiles. Explicit Open
+fetches only that target. Back restores the same collection query/page and focuses the current
+row after read completion. Identity, pane and area changes invalidate pending reads/actions;
+refresh failure retains known rows without relabeling them as a new query.
 
 ## Wire contract
 
@@ -54,6 +84,21 @@ peer leaves search and Liked you. Block/pass changes also travel through the enc
 group when linked devices synchronize; this does not synchronize every privacy preference or
 promise immediate delivery. A view is sent only when the local setting allows it and
 at most once per peer profile per UTC day. Receiving views never depends on that setting.
+`Store::received_profile_views` reads one latest locally received UTC day per other profile,
+newest day first with canonical Peer ID order for ties. It applies the common result bound and
+hides blocked, passed and closed-conversation peers; a match does not hide a view. Core formats
+only the available `YYYY-MM-DD` date in UTC, never an exact viewing time. The projection is
+read-only, excludes outgoing/own-device views and does not depend on the sending preference.
+Read SQLite days as signed integers, then check conversion to nonnegative calendar days; negative
+or out-of-calendar values reject the projection rather than wrapping or inventing a date.
+`Store::profile_view_due_at` provides adapters with read-only preflight before network IO. It
+shares drafting's persisted HLC, preference, block and daily checks without allocating an event
+ID or advancing the clock. Staging repeats admission; preflight never reserves a view.
+`interactions::profile_view::Opening` binds one explicit opening to its original owner, recipient
+and contact-context generation. Retirement prevents an unadmitted disclosure; a consumed opening
+cannot retry on a preference change or later callback. Adapters capture the network while holding
+the same context lock as admission. An admitted operation retains that original network snapshot
+through completion; replacing a profile or network must not redirect it.
 
 For each sender identity and peer pair, compare `(HLC timestamp, sender device ID, event ID)`
 lexicographically. Only a greater like/unlike event replaces the stored latest event. Keep the

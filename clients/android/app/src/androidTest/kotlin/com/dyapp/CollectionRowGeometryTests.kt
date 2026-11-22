@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -26,19 +25,23 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.width
 import androidx.test.platform.app.InstrumentationRegistry
+import com.dyapp.ui.theme.DYAppTheme
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import uniffi.dyapp.LocalCollectionEntry
 import java.io.File
 import java.util.Locale
 
 private const val COMPLETE_COLLECTION_PEER = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-private enum class CollectionRowKind { IDENTITY, BLOCKED, PASSED }
+private enum class CollectionRowKind { IDENTITY, BLOCKED, PASSED, VIEW }
 
 class CollectionRowGeometryTests {
     @get:Rule
     val compose = createComposeRule()
     private val language = mutableStateOf("en")
+    private val dark = mutableStateOf(false)
     private val scale = mutableStateOf(1f)
     private val kind = mutableStateOf(CollectionRowKind.IDENTITY)
 
@@ -53,7 +56,7 @@ class CollectionRowGeometryTests {
     private fun Content() {
         val localized = context()
         LocalizedTestContext(localized, scale.value) {
-            MaterialTheme {
+            DYAppTheme(dark.value) {
                 BoxWithConstraints(Modifier.fillMaxSize()) {
                     Column(
                         Modifier.width(maxWidth * (2f / 3f)).testTag("collection-geometry")
@@ -76,6 +79,9 @@ class CollectionRowGeometryTests {
                 BlockedActions(number, false, {}, {})
             }
         }
+        CollectionRowKind.VIEW -> {
+            ReceivedViewRow(LocalCollectionEntry(COMPLETE_COLLECTION_PEER, "2024-02-29"), 1, true) {}
+        }
         CollectionRowKind.PASSED -> {
             PeopleCollectionRow(COMPLETE_COLLECTION_PEER, 1) { _, _ ->
                 TextButton({}, Modifier.testTag("unpass-1")) { Text(context().getString(R.string.settings_unpass)) }
@@ -89,19 +95,22 @@ class CollectionRowGeometryTests {
         for (locale in listOf("en", "ru")) {
             for (fontScale in listOf(1f, 2f)) {
                 for (row in CollectionRowKind.entries) {
-                    checkCase(locale, fontScale, row)
+                    checkCase(locale, fontScale, row, false)
+                    checkCase(locale, fontScale, row, true)
                 }
             }
         }
     }
 
-    private fun checkCase(locale: String, fontScale: Float, row: CollectionRowKind) {
+    private fun checkCase(locale: String, fontScale: Float, row: CollectionRowKind, darkTheme: Boolean) {
         compose.runOnIdle {
             language.value = locale
             scale.value = fontScale
             kind.value = row
+            dark.value = darkTheme
         }
         assertIdentifier()
+        if (row == CollectionRowKind.VIEW) assertDate()
         actions(row).forEach { (tag, text) -> assertAction(tag, text) }
     }
 
@@ -109,6 +118,7 @@ class CollectionRowGeometryTests {
         val node = compose.onNodeWithText(COMPLETE_COLLECTION_PEER, useUnmergedTree = true)
         node.performScrollTo().assertTextEquals(COMPLETE_COLLECTION_PEER)
         val layout = node.textLayout()
+        assertEquals("Actual native text scale", scale.value, layout.layoutInput.density.fontScale, 0f)
         assertTrue("Complete identifier must wrap", layout.lineCount > 1)
         assertTrue("Every identifier character must fit", layout.textFitsLayout())
     }
@@ -120,6 +130,18 @@ class CollectionRowGeometryTests {
             "unblock-1" to context().getString(R.string.settings_unblock)
         )
         CollectionRowKind.PASSED -> listOf("unpass-1" to context().getString(R.string.settings_unpass))
+        CollectionRowKind.VIEW -> listOf("received-view-open-1" to context().getString(R.string.profile_views_open))
+    }
+
+    private fun assertDate() {
+        val date = compose.onNodeWithTag("received-view-date-1")
+        date.performScrollTo().assertIsDisplayed()
+            .assertTextEquals(context().getString(R.string.profile_views_date, "2024-02-29"))
+        assertTrue("Every received-date character must fit", date.textLayout().textFitsLayout())
+        val bounds = date.getUnclippedBoundsInRoot()
+        val identifier = compose.onNodeWithText(COMPLETE_COLLECTION_PEER, useUnmergedTree = true)
+            .getUnclippedBoundsInRoot()
+        assertTrue("Date follows the full identifier", bounds.top >= identifier.bottom)
     }
 
     private fun assertAction(tag: String, text: String) {

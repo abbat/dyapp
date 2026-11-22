@@ -77,12 +77,16 @@ const create = (name, id, words) => {
   collections.set(name, state);
   render(state);
 };
-export const installCollections = (strings, names = Object.keys(collectionIds)) => {
+export const installCollections = (
+  strings,
+  names = Object.keys(collectionIds),
+  ids = collectionIds,
+) => {
   const words = Object.fromEntries(
     ['search', 'previous', 'next', 'refresh', 'failed', 'empty', 'page'].map((key) => [
       key,
       strings[`settings.collection.${key}`],
     ]),
   );
-  for (const name of names) create(name, collectionIds[name], words);
+  for (const name of names) create(name, ids[name], words);
 };

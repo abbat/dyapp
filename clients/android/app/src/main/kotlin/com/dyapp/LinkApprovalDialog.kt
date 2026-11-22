@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -45,7 +46,8 @@ private fun LinkApprovalBody(
     identity: String,
     draft: MutableState<String>
 ) {
-    Column(Modifier.verticalScroll(rememberScrollState()), Arrangement.spacedBy(12.dp)) {
+    val scroll = key(view.opening) { rememberScrollState() }
+    Column(Modifier.testTag("owner-body").verticalScroll(scroll), Arrangement.spacedBy(12.dp)) {
         val opening = view.opening
         if (opening == null) {
             LinkApprovalInput(session, view, draft)

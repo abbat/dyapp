@@ -33,13 +33,7 @@ impl ChatLikeAttempt {
         value: Option<InteractionSubmission>,
         state: Result<ChatLikes, CoreError>,
     ) -> Self {
-        let submission = value.map(|value| {
-            let id = value.event.event_id;
-            ChatSubmission::from(match value.delivery {
-                Ok(()) => Submission::Accepted { id },
-                Err(error) => Submission::Queued { id, error },
-            })
-        });
+        let submission = value.map(Submission::from).map(ChatSubmission::from);
         let state = match state {
             Ok(likes) => ChatLikeState::Ready { likes },
             Err(error) => ChatLikeState::Unavailable {

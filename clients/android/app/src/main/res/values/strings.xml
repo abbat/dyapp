@@ -26,6 +26,9 @@
     <string name="link_receive_intro">Configure Network first. Show this code to a device with your profile, then approve linking there. Existing profiles on this phone are preserved.</string>
     <string name="link_receive_start">Create link code</string>
     <string name="link_receive_source">Started from identity</string>
+    <string name="link_receive_code_label">Link code</string>
+    <string name="link_receive_peer_label">Received profile Peer ID</string>
+    <string name="link_receive_destination_id">Destination ID</string>
     <string name="link_receive_qr">QR code for receiving this profile</string>
     <string name="link_receive_expiry">Code expires: %1$s</string>
     <string name="link_receive_cancel">Stop waiting</string>
@@ -630,4 +633,11 @@
     <string name="owner_uncertain">Sending could not be confirmed. Some encrypted data may already have been sent. Check the new device before trying again.</string>
     <string name="owner_sent">Sent. The new device appears here once it finishes.</string>
     <string name="owner_unavailable">Could not continue this attempt. Check the current result before starting again.</string>
+    <string name="profile_views_title">Viewed you</string>
+    <string name="profile_views_received_hint">Latest received viewing day (UTC). This local list does not send views.</string>
+    <string name="profile_views_empty">No received profile views yet.</string>
+    <string name="profile_views_failed">Could not read received views. Refresh to try again.</string>
+    <string name="profile_views_date">Viewed on %1$s (UTC)</string>
+    <string name="profile_views_open">Open profile</string>
+    <string name="profile_views_open_named">Open profile %1$s</string>
 </resources>

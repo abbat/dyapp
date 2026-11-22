@@ -12,6 +12,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +36,7 @@ import uniffi.dyapp.SearchCondition
 import uniffi.dyapp.SearchRangeInputs
 import uniffi.dyapp.searchCheckedChoiceConditions
 import uniffi.dyapp.searchRangeConditions
+import uniffi.dyapp.searchVisibleFields
 
 // Node field numbers, as the desktop page uses them.
 private const val INTEREST_FIELD = 19u
@@ -43,7 +45,6 @@ private const val HEIGHT_FIELD = 46u
 private const val PLACE_FIELD = 20u
 private const val BIRTH_AGE_FIELD = 1001u
 private const val SEEKING_GENDERS_FIELD = 53u
-private const val SEEKING_AGE_FIELD = 54u
 
 /** Filters for the fields every reached node offers; hidden ones never reach the query. */
 internal class SearchFilters(private val scales: List<ProfileScale>) {
@@ -58,9 +59,10 @@ internal class SearchFilters(private val scales: List<ProfileScale>) {
     val employer = EmployerFilter()
     var mutual by mutableStateOf(false)
 
-    val interestOffered get() = INTEREST_FIELD in offered
-    val shownScales get() = scales.filter { it.field in offered }
-    val mutualOffered get() = SEEKING_GENDERS_FIELD in offered && SEEKING_AGE_FIELD in offered
+    val visible by derivedStateOf { searchVisibleFields(offered) }
+    val interestOffered get() = INTEREST_FIELD in visible
+    val shownScales get() = scales.filter { it.field in visible }
+    val mutualOffered get() = SEEKING_GENDERS_FIELD in visible
 
     /**
      * Node conditions; an age that is no whole number or fits no birth date fails as `invalid search age`,
@@ -83,7 +85,7 @@ internal class SearchFilters(private val scales: List<ProfileScale>) {
  */
 @Composable
 internal fun SearchFilterFields(filters: SearchFilters) {
-    if (BIRTH_AGE_FIELD in filters.offered) {
+    if (BIRTH_AGE_FIELD in filters.visible) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             AgeField(filters.ageMin, R.string.search_age_min, Modifier.weight(1f).testTag("search-age-min")) {
                 filters.ageMin = it
@@ -93,7 +95,7 @@ internal fun SearchFilterFields(filters: SearchFilters) {
             }
         }
     }
-    if (HEIGHT_FIELD in filters.offered) {
+    if (HEIGHT_FIELD in filters.visible) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             AgeField(filters.heightMin, R.string.search_height_min, Modifier.weight(1f).testTag("search-height-min")) {
                 filters.heightMin = it
@@ -103,8 +105,8 @@ internal fun SearchFilterFields(filters: SearchFilters) {
             }
         }
     }
-    if (COUNTRY_FIELD in filters.offered) {
-        PlacePicker(filters.place, PLACE_FIELD in filters.offered, R.string.search_any, "search")
+    if (COUNTRY_FIELD in filters.visible) {
+        PlacePicker(filters.place, PLACE_FIELD in filters.visible, R.string.search_any, "search")
     }
     if (filters.interestOffered) SearchInterestField(filters)
     if (filters.mutualOffered) MutualFilter(filters)

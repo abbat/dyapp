@@ -12,12 +12,18 @@ import androidx.compose.ui.platform.LocalWindowInfo
 internal class LinkReviewFocus {
     val preview = FocusRequester()
     val edit = FocusRequester()
+    val back = FocusRequester()
     fun request(previewing: Boolean) = if (previewing) edit.requestFocus() else preview.requestFocus()
 }
 
 /** Focus follows composition, enabled state and window readiness; each transition is admitted once. */
 @Composable
-internal fun rememberLinkReviewFocus(previewing: Boolean, enabled: Boolean): LinkReviewFocus {
+internal fun rememberLinkReviewFocus(
+    previewing: Boolean,
+    enabled: Boolean,
+    failure: Throwable? = null,
+    canLeave: Boolean = enabled
+): LinkReviewFocus {
     val focus = remember { LinkReviewFocus() }
     var viewed by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf<Boolean?>(null) }
@@ -35,5 +41,15 @@ internal fun rememberLinkReviewFocus(previewing: Boolean, enabled: Boolean): Lin
         if (target == null || target != previewing || !ready) return@LaunchedEffect
         if (focus.request(target)) pending = null
     }
+    LinkReviewFailureFocus(focus.back, failure, canLeave && LocalWindowInfo.current.isWindowFocused)
     return focus
+}
+
+@Composable
+private fun LinkReviewFailureFocus(requester: FocusRequester, failure: Throwable?, ready: Boolean) {
+    var pending by remember { mutableStateOf(false) }
+    LaunchedEffect(failure) { pending = failure != null }
+    LaunchedEffect(pending, ready) {
+        if (pending && ready && requester.requestFocus()) pending = false
+    }
 }

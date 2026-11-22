@@ -19,6 +19,8 @@ wizard identity; other saved identities stay.
 **Settings → Account → Receive a profile** starts a code only after **Create link code**.
 Configure the network first and approve the code on the device that already has the profile.
 The receiving screen retains its original attempt across leaving the page or activity recreation.
+Source and received Peer IDs, the link code and a known destination ID have distinct labels and
+monospace groups. Their Copy actions keep the exact raw value, without display spaces.
 **Stop waiting** cannot undo an installation already admitted by the core. A failed or unknown
 installation shows its original boundary and, when known, destination; review stored profiles before
 closing the result. **Return to app** rereads the current selection. Receiving alone does not confirm
@@ -28,7 +30,8 @@ authorization are distinct refusals; they do not offer ordinary retry. Backend f
 original review for explicit retry. When field review is required, **Load a fresh comparison** shows
 complete local and verified-network values. Choose each differing group explicitly; nothing is
 preselected. Photo thumbnails have inspectable original references and a retry for unavailable
-pixels. **Preview chosen values** does not save; returning preserves the choices. **Save chosen fields**
+pixels. **Preview chosen values** does not save; returning preserves the choices. A rejected preview
+keeps its explanation beside the recovery controls and focuses the safe return action. **Save chosen fields**
 saves a local draft, then **Finish device setup** remains a separate action. An unconfirmed save
 requires another fresh comparison. Private-state recovery and owner-authorization screens remain
 planned; runtime/visual acceptance is still required.
@@ -41,6 +44,8 @@ full-control warning, and approve only a device you hold and a link you started 
 disabled. **Sent** confirms sending; the new device must still finish receiving and setup.
 An unconfirmed send may already have delivered some encrypted parts: check the receiving device
 before explicitly retrying. A later expired code does not undo an earlier partial transfer.
+New operation feedback scrolls into view without moving focus from the safe dismissal action;
+long codes and the full warning remain available in the same scrollable body.
 Leaving the screen or switching profiles cannot redirect an admitted operation to another profile.
 
 **Settings → Account → Identities** and **Settings → Privacy → Blocked / Passed** lists have
@@ -72,8 +77,16 @@ Who can see what about you: [Your privacy in dyapp](privacy.md).
 **Settings → Privacy** saves profile-view, read-receipt and typing choices independently.
 Unknown or pending values cannot be changed; after an unconfirmed result, **Read setting again**
 rereads storage before allowing another change. Switching identity retires the old controls.
-Profile-view delivery remains planned. Typing is deferred until a direct client path exists;
-its saved preference does not send typing through mailboxes.
+Profile views are off by default. When enabled, showing another person's actual profile page
+attempts one encrypted view per peer per UTC day. Lists, profile/photo refreshes and saving a setting
+do not send views. Leaving the page retires unadmitted work; a committed signal may still deliver
+through the normal outbox. A pre-commit failure is not queued; reopening the page can try again.
+**Settings → Privacy → Viewed you** shows locally received views even when your own sending is off.
+Dates have UTC-day precision, not an exact viewing time. Search and paging stay local; only
+**Open profile** loads a profile. Blocked, passed and closed-chat peers are hidden. A failed refresh
+keeps the last known list and offers another read.
+Typing is deferred until a direct client path exists; its saved preference does not send typing
+through mailboxes.
 
 A chat's **Name this contact** sets a private contact name for this identity. The name is shared
 with your linked devices when they synchronize, and is not shown to the contact. An empty name

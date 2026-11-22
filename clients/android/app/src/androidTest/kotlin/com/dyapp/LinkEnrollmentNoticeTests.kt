@@ -44,7 +44,7 @@ class LinkEnrollmentNoticeTests {
                 MaterialTheme {
                     Column {
                         LinkEnrollmentNotice(state.value.enrollment)
-                        LinkEnrollmentAction(state.value, actions)
+                        LinkEnrollmentAction(state.value, actions.enrollment)
                     }
                 }
             }

@@ -18,8 +18,32 @@ native session lock. Views default off and typing defaults on; defaulting, store
 and the `hide_typing` inversion remain in Store. Each setter writes only its own preference and
 sends no signal. Database/unsupported-value failures remain errors rather than guessed values.
 Android Privacy switches use these per-field exports and the existing read-receipt exports, with
-confirmed readback and read-only retry after errors. Profile-view send-path parity still needs
-verification. Typing delivery is deferred until a direct client path exists; its saved preference
+confirmed readback and read-only retry after errors. The common Session now stages an enabled
+first View and its pair invitation atomically without a Like or chat consent.
+`ChatSession.profile_view_opening(peer_id)` captures the original owner, target and shared network
+generation without disclosure. `ProfileSearcher.profile_view_opening(owner_peer, peer_id)` captures
+through a core-owned generation observer without the contact-cache/session IO mutex. Its separate
+publication lock only clones or replaces opaque tokens and never protects storage/network work.
+A poisoned observer refuses capture and current-generation admission. The owner hint is checked
+against the actual Session at submission. `ProfileViewOpening.retire` prevents admission after disposal;
+`submit_profile_view` consumes the common-core opening, captures the active network under the
+same context lock, and returns no event or the committed `ChatSubmission` delivery result.
+Disabled/daily-duplicate/retired attempts stop before network lookup. Profile/list/photo fetches
+remain read-only. Android's explicit profile page captures the opening through its held search
+context, waits for a shown profile, and submits once on IO. Disposal retires the opening without
+releasing an admitted native identity lease. Core owns privacy, daily deduplication and immutable
+target/network admission; Compose only supplies readiness and lifetime. Shared Tauri profile pages
+use opaque prepare/submit/retire commands over the same core opening and staging.
+The Android received-view collection uses the common local pager and existing full-identifier rows;
+read failures retain known data, disposal retires actions and explicit row selection opens the
+original profile through the shell. Tauri received-view UI remains planned; native
+compilation/runtime acceptance remains source-bound.
+`ChatSession.received_profile_views` transports the common bounded sender/UTC-date rows without
+fetching or sending. Android can pass their raw targets and date labels through the existing
+common `local_collection_page` projection. Tauri's `received_profile_views(query, cursor)` uses
+the same Store rows and core pager, returning only the bounded page and opaque query-bound
+navigation; it performs no JavaScript matching, sorting, date arithmetic or offset calculation.
+Typing delivery is deferred until a direct client path exists; its saved preference
 never authorizes mailbox typing ([contract](../design/read-receipts.md#typing-indicators)).
 
 `ChatSession.active_chat_peers` is a read-only common-core projection of fresh authenticated
@@ -81,6 +105,23 @@ Swift retain rendering, input, navigation and required platform services. A clie
 exception requires a concrete reason recorded in the task and beside the implementation,
 with maintainer agreement before implementation. Moving code preserves validation, errors
 and security invariants; test the shared rules independently of platform callback timing.
+
+## Search range ownership
+
+`dyapp_client::search_input::range_conditions` converts offered raw age/height inputs into
+protocol conditions at an explicit civil date. Shared parsing runs first; semantic validation
+then preserves age-before-height errors and condition order, hidden-field behavior and defaults.
+Both Tauri search and the common UniFFI `search_range_conditions` delegate to it. The native
+adapter converts records/errors only; Kotlin and Swift continue supplying their raw form values.
+The native API and existing field-specific error strings are unchanged.
+
+## Search filter visibility
+
+`dyapp_client::search_input::visible_filter_fields` owns the prerequisites for displayed search
+controls: place requires country, and mutual search requires both seeking fields. Tauri filter
+flags and Android's `search_visible_fields` adapter use this projection. Other offered fields,
+order and duplicates are preserved; adapters still render the corresponding scale metadata.
+This display rule does not change independently offered location conditions on the wire.
 
 ## Profile-share submission ownership
 

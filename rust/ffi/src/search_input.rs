@@ -1,9 +1,8 @@
-//! Raw search form input interpreted once at the native boundary.
+//! Native record conversion for the shared raw search range rules.
 
 use crate::profile_publish::today;
 use crate::{CoreError, SearchCondition, SearchOp};
-use dyapp_p2p_net::search_results::{Filter, BIRTH_AGE};
-use dyapp_profile::{CivilDate, HEIGHT_FIELD};
+use dyapp_profile::CivilDate;
 
 /// Unparsed age and height fields; hidden fields never constrain a query.
 #[derive(Clone, Debug, Default, uniffi::Record)]
@@ -18,10 +17,6 @@ pub struct SearchRangeInputs {
     pub height_max: String,
 }
 
-fn invalid(field: &str) -> CoreError {
-    CoreError::Failed(format!("invalid search {field}"))
-}
-
 fn conditions(
     offered: &[u32],
     inputs: &SearchRangeInputs,
@@ -33,46 +28,19 @@ fn conditions(
         height_min: inputs.height_min.clone(),
         height_max: inputs.height_max.clone(),
     };
-    let ranges = raw
-        .parse(
-            offered.contains(&BIRTH_AGE),
-            offered.contains(&HEIGHT_FIELD),
-        )
-        .map_err(|error| CoreError::Failed(error.to_string()))?;
-    let mut out = Vec::new();
-    let age = Filter {
-        age: ranges.age,
-        ..Filter::default()
-    };
-    append(&mut out, &age, date, "age")?;
-    let height = Filter {
-        min_height: ranges.min_height,
-        max_height: ranges.max_height,
-        ..Filter::default()
-    };
-    append(&mut out, &height, date, "height")?;
-    Ok(out)
-}
-
-fn append(
-    out: &mut Vec<SearchCondition>,
-    filter: &Filter,
-    date: CivilDate,
-    field: &str,
-) -> Result<(), CoreError> {
-    out.extend(
-        filter
-            .conditions(date)
-            .map_err(|_| invalid(field))?
-            .into_iter()
-            .map(|condition| SearchCondition {
-                field: condition.field,
-                op: SearchOp::Range,
-                ints: condition.ints,
-                strings: condition.strings,
-            }),
-    );
-    Ok(())
+    dyapp_client::search_input::range_conditions(offered, &raw, date)
+        .map_err(|error| CoreError::Failed(error.to_string()))
+        .map(|conditions| {
+            conditions
+                .into_iter()
+                .map(|condition| SearchCondition {
+                    field: condition.field,
+                    op: SearchOp::Range,
+                    ints: condition.ints,
+                    strings: condition.strings,
+                })
+                .collect()
+        })
 }
 
 /// Parse offered age and height fields using the current UTC date.
@@ -92,9 +60,17 @@ pub fn search_range_conditions(
     conditions(&offered, &inputs, today()?)
 }
 
+/// Project offered fields to displayable search controls using shared prerequisites.
+#[must_use]
+#[uniffi::export]
+pub fn search_visible_fields(offered: Vec<u32>) -> Vec<u32> {
+    dyapp_client::search_input::visible_filter_fields(offered)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use dyapp_p2p_net::search_results::Filter;
 
     fn date() -> CivilDate {
         CivilDate::new(2026, 11, 10).expect("fixed valid date")

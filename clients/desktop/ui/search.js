@@ -13,6 +13,7 @@ import { placePicker, controller as placesController } from './places.js';
 import * as profileFieldsModule from './profile-fields.js';
 import { controller as savedProfilesController } from './saved-profiles.js';
 import { progress } from './ui-progress.js';
+import { profileViewOpening } from './profile-views.js';
 import { drawContactQr, qrFrame, safetyCameraFrame } from './contact-qr.js';
 export const controller = {};
 /** @type {Promise<void> | undefined} */
@@ -39,6 +40,8 @@ controller.scanQrDone = undefined;
 controller.blockDone = undefined;
 /** @type {Promise<void> | undefined} */
 controller.searchDone = undefined;
+/** @type {Promise<void> | undefined} */
+controller.profileViewDone = undefined;
 /** @type {{ stream: MediaStream | null }} */
 export const cameraState = { stream: null };
 
@@ -208,9 +211,11 @@ const showLikes = (likes) => {
   domById('view-unpass', HTMLButtonElement).hidden = !likes.passed;
 };
 /** @typedef {import('./ipc.js').FoundProfile & { place: string }} FoundWithPlace */
-/** @typedef {{ found: FoundWithPlace, card: HTMLElement, actionStarted: boolean, actionBusy?: boolean }} ProfileOpening */
+/** @typedef {{ found: FoundWithPlace, card: HTMLElement, actionStarted: boolean, actionBusy?: boolean,
+ * disclosure?: ReturnType<typeof profileViewOpening>, returnTo?: () => void }} ProfileOpening */
 /** @type {ProfileOpening | null} */
 let viewed = null;
+const retireProfileView = () => viewed?.disclosure?.retire() ?? Promise.resolve();
 let safetyScanToken = 0;
 
 /** @type {number | null} */
@@ -237,12 +242,21 @@ const stopSafetyCamera = () => {
   const button = domById('view-safety-camera', HTMLButtonElement);
   button.textContent = strings['view.safety.camera.start'];
 };
-document.addEventListener('dyapp:identity-change', stopSafetyCamera);
+document.addEventListener('dyapp:identity-change', () => {
+  stopSafetyCamera();
+  void retireProfileView();
+});
 document.addEventListener('dyapp:area-change', (event) => {
-  if (eventDetail(event) !== 'search-area') stopSafetyCamera();
+  if (eventDetail(event) !== 'search-area') {
+    stopSafetyCamera();
+    void retireProfileView();
+  }
 });
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) stopSafetyCamera();
+  if (document.hidden) {
+    stopSafetyCamera();
+    void retireProfileView();
+  }
 });
 /** @param {boolean} verified */
 const showVerified = (verified) => {
@@ -272,13 +286,29 @@ const showFound = (found) => {
     }),
   );
 };
+/** @param {ProfileOpening} target @param {number} generation @param {import('./ipc.js').Invoke} call */
+const discloseProfileView = (target, generation, call) => {
+  if (target.found.peerId === identityState.current?.peerId) return;
+  target.disclosure = profileViewOpening(
+    target.found.peerId,
+    call,
+    () =>
+      identityCurrent(generation) &&
+      viewed === target &&
+      profileView.getClientRects().length > 0 &&
+      !document.hidden,
+  );
+  controller.profileViewDone = target.disclosure.done;
+};
 // A card from Chats opens the profile in Search too; Back returns to the card's area.
-/** @param {FoundWithPlace} found @param {HTMLElement} card */
-const openFound = (found, card, call = invoke) => {
+/** @param {FoundWithPlace} found @param {HTMLElement} card @param {import('./ipc.js').Invoke} [call]
+ * @param {() => void} [returnTo] */
+const openFound = (found, card, call = invoke, returnTo) => {
+  void retireProfileView();
   const generation = identityState.generation;
   stopSafetyCamera();
   /** @type {ProfileOpening} */
-  const target = { found, card, actionStarted: false };
+  const target = { found, card, actionStarted: false, returnTo };
   viewed = target;
   for (const id of ['view-like', 'view-unlike', 'view-pass', 'view-unpass'])
     domById(id, HTMLButtonElement).disabled = false;
@@ -317,8 +347,10 @@ const openFound = (found, card, call = invoke) => {
   searchMain.hidden = true;
   profileView.hidden = false;
   domById('view-back', HTMLButtonElement).focus();
+  discloseProfileView(target, generation, call);
 };
 const closeFound = () => {
+  void retireProfileView();
   stopSafetyCamera();
   favoritesController.clearFavorite();
   contactNotesController.clearContactNote();
@@ -330,9 +362,10 @@ const closeFound = () => {
 };
 domById('view-back', HTMLButtonElement).addEventListener('click', () => {
   if (!viewed) return;
-  const { card } = viewed;
+  const { card, returnTo } = viewed;
   const area = card.closest('section')?.id;
   closeFound();
+  if (returnTo) return returnTo();
   if (area === 'search-area') {
     savedProfilesController.refreshSaved();
     return;

@@ -51,6 +51,7 @@
       ['account', 'devices'],
       ['privacy', 'blocked'],
       ['privacy', 'passed'],
+      ['privacy', 'views'],
     ]) {
       root.querySelector(`[data-settings-open="${parent}"]`).click();
       document

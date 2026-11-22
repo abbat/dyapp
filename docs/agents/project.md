@@ -13,6 +13,11 @@ A Rust module loaded with `#[path]` needs explicit paths for its nested file mod
 `#[cfg(test)]` children, when their files live in a subdirectory. The native desktop crates are
 outside root quality compilation; a dependency-free rustc fixture can verify module resolution.
 After moving a command, update ordinary Rust callers as well as Tauri command registration.
+Targeted `rustfmt` calls must use the Cargo manifest's edition: a newer command-line edition
+can silently reorder imports differently from `cargo fmt`.
+Checks that execute generated scripts or tiny compiler fixtures need an executable container
+scratch mount, such as `--tmpfs /tmp:rw,exec,mode=1777`. A noexec scratch mount causes permission
+errors despite executable file modes; this is an environment failure, not a reason to weaken tests.
 
 The embedded desktop node belongs to the installation, not an identity: `node.json` and `node/`
 live at the app-config root. Profile transitions must not stop or apply it. Snapshot the active
@@ -142,6 +147,12 @@ layout diagnostics; an SDK compilation does not prove those runtime conditions. 
 horizontal calibration, capture the actual onTextLayout callback: CI observed that the semantics
 adapter reconstructed two wrapped lines for softWrap=false. Keep the horizontal-clipping assertion
 and assert no vertical overflow so another rejection cannot mask a broken horizontal guard.
+
+Android's `DeviceIdentifier` also renders receiving identifiers with context-specific labels.
+Its optional copy tag preserves existing automation targets. Fixed groups are display-only:
+accessibility and clipboard retain the raw identifier, which alone belongs in protocol input.
+In profile comparison, `LinkReviewFormState.failure` is a preview refusal; an authoritative save
+refusal is `LinkEnrollmentSnapshot.failure`. Never infer enrollment/retry authority from the former.
 
 For a Compose stale-callback test, retain `applicationClickKey` from the control, not its
 `SemanticsActions.OnClick` wrapper. Foundation's wrapper dereferences a Modifier node before calling

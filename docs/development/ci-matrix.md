@@ -7,9 +7,10 @@
 
 ## Entry point
 
-`ci.yml` (name **ci**) runs on push to any branch, on every `pull_request` and on
-`workflow_dispatch`. A branch with an open PR therefore runs it twice (push and PR). Check names
-are `ci / <job>`, e.g. `ci / native - ios`, `ci / core / quality`.
+`ci.yml` (name **ci**) runs on pushes to `main`, every tag push, every `pull_request` and
+`workflow_dispatch`. An open PR uses its PR run rather than a duplicate branch-push matrix.
+Other branch heads need a PR or manual dispatch. All admitted events run the same full jobs;
+check names remain `ci / <job>`, e.g. `ci / native - ios`, `ci / core / quality`.
 
 A newer run of the same event and ref cancels the older one, so `ci` and `codeql` spend no runners
 on a commit that has been superseded. A commit that was pushed over therefore shows `cancelled`

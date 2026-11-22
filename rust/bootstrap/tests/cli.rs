@@ -222,6 +222,8 @@ fn operator_diagnostics_follow_locale_without_changing_status_fields() {
 #[test]
 fn client_argument_errors_follow_locale() {
     let dir = directory();
+    let max_size = dyapp_bootstrap::service::MAX_MEDIA_BYTES.to_string();
+    let above_max = (dyapp_bootstrap::service::MAX_MEDIA_BYTES + 1).to_string();
     let cases: &[(&[&str], &str, &str)] = &[
         (
             &["sign-profile", "00", "1"],
@@ -239,14 +241,26 @@ fn client_argument_errors_follow_locale() {
             "неверная шестнадцатеричная строка",
         ),
         (
-            &["media-sized", "invalid", "6291457", "00"],
+            &["media-sized", "invalid", &above_max, "00"],
             "blob exceeds 6 MiB",
             "размер файла превышает 6 МиБ",
+        ),
+        // Equality must pass the size guard and reach seed validation before allocating data.
+        (
+            &["media-sized", "invalid", &max_size, "00"],
+            "seed must be 32 bytes",
+            "начальное значение должно быть длиной 32 байта",
         ),
         (
             &["media-sized", "invalid", "1", "00"],
             "seed must be 32 bytes",
             "начальное значение должно быть длиной 32 байта",
+        ),
+        // This third-party parse error proves flood dispatch without opening a connection.
+        (
+            &["flood", "invalid", "not-a-number"],
+            "invalid digit found in string",
+            "invalid digit found in string",
         ),
         (
             &["info", "invalid"],

@@ -715,7 +715,6 @@ search providers asked: 0 of 3</pre>
     <p role="status" data-on="chat-forward-pending" data-t="forward.sending"></p>
     <p id="forward-no-targets" data-on="chat-forward-empty" data-t="forward.empty"></p>
     <p role="alert" data-on="chat-forward-error" data-t="forward.readFailed"></p>
-    <p role="alert" data-on="chat-forward-send-error" data-t="forward.sendFailed"></p>
     <div data-on="chat-forward-dialog chat-forward-send-error">
       <p><b id="chat-forward-selected-name"></b><br><code id="chat-forward-selected-peer"></code></p>
       <div class="field"><label for="chat-forward-query" data-t="settings.collection.search"></label><input id="chat-forward-query" type="search"></div>
@@ -727,6 +726,7 @@ search providers asked: 0 of 3</pre>
         <button type="button" class="btn" id="chat-forward-refresh" data-t="settings.collection.refresh"></button>
       </div>
     </div>
+    <p id="forward-send-failure" role="alert" data-on="chat-forward-send-error" data-t="forward.sendFailed"></p>
     <div class="actions">
       <button type="button" class="btn" id="chat-forward-retry" data-on="chat-forward-error" data-t="action.retry"></button>
       <button type="button" class="btn focus" id="chat-forward-cancel" data-t="action.cancel" data-disabled="chat-forward-pending"></button>

@@ -2,6 +2,9 @@
 
 Who can see what about you: [Your privacy in dyapp](privacy.md).
 
+The shared Privacy interface includes [received profile views](linux.md#received-profile-views),
+with local search/pages and explicit profile opening.
+
 The `DYApp` client for macOS is a universal app (Apple silicon and Intel) for macOS 12 or later.
 It covers identities, the network connection, the public profile, search, the Chats lists and the
 chat screen with message sending.
