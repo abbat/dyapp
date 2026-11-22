@@ -224,6 +224,11 @@ UID/capability metadata after enforcing the same predicates. Keep the configured
 isolation when fixing a failure; do not grant capabilities or mount control
 sockets to make the check pass.
 
+Keep writable runtime mounts outside read-only source or artifact binds. Docker cannot create a
+missing child mountpoint inside a read-only parent bind; the container fails before its entrypoint
+runs. The native Android visual runner therefore writes ADB diagnostics to `/visual-runtime`,
+independently of the read-only `/app/build` APK artifacts.
+
 ## Troubleshooting
 
 Quiet remote-cache image builds recover once from the exact BuildKit `ERROR: blob sha256:…: not found`

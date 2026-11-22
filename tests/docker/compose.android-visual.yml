@@ -15,7 +15,7 @@ x-runtime: &runtime
     - ../..:/runner:ro
     - ${DYAPP_VISUAL_PACKAGES:?}:/app/build:ro
     - ../../build/android-visual-reports:/reports
-    - ../../build/android-visual-runtime:/app/build/visual-runtime
+    - ../../build/android-visual-runtime:/visual-runtime
   environment: &environment
     HOME: /home/appuser
     ANDROID_USER_HOME: /home/appuser/.android
@@ -33,7 +33,7 @@ services:
       - ${DYAPP_VISUAL_CHECKOUT:?}:/app:ro
       - ../..:/runner:ro
       - ${DYAPP_VISUAL_PACKAGES:?}:/app/build:ro
-      - ../../build/android-visual-runtime:/app/build/visual-runtime
+      - ../../build/android-visual-runtime:/visual-runtime
       - ../../build/android-visual-avd:/avd
     command: [bash, /runner/tests/scripts/android-visual-emulator.sh]
     healthcheck:
