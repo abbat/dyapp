@@ -144,5 +144,28 @@
     byId('received-views-query').value = '';
     await appApi.receivedViews.showReceivedViews(invokeTest);
   };
-  smoke.uiSmokeReceivedViews = { checkReceivedViews, checkReceivedViewOpening };
+  const checkHiddenReceivedView = async () => {
+    await openArea('settings', 'views');
+    const test = fixture();
+    await appApi.receivedViews.showReceivedViews(test.call);
+    const shell = document.getElementById('identity');
+    const wasHidden = shell.hidden;
+    const button = byId('received-views-rows').querySelector('button');
+    const before = test.calls.length;
+    try {
+      shell.hidden = true;
+      button.click();
+      await appApi.receivedViews.viewOpened;
+      check(test.calls.length === before, 'hidden ancestor admitted a received-row profile fetch');
+    } finally {
+      shell.hidden = wasHidden;
+      await openArea('profile-area');
+      await appApi.receivedViews.showReceivedViews(invokeTest);
+    }
+  };
+  smoke.uiSmokeReceivedViews = {
+    checkReceivedViews,
+    checkReceivedViewOpening,
+    checkHiddenReceivedView,
+  };
 })();

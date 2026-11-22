@@ -60,5 +60,31 @@
       card.remove();
     }
   };
-  smoke.uiSmokeProfileViews = { checkProfileViews };
+  const checkHiddenProfileView = async () => {
+    await openArea('search-area');
+    const shell = document.getElementById('identity');
+    const card = document.createElement('button');
+    appBindings.searchResults.append(card);
+    const held = smoke.pendingSmokeCall();
+    const sent = [];
+    const wasHidden = shell.hidden;
+    try {
+      appBindings.openFound(
+        { peerId: '9'.repeat(64), draft: { attributes: {} } },
+        card,
+        profileCalls(sent, held.call),
+      );
+      const done = appApi.profileViewDone;
+      shell.hidden = true;
+      held.resolve('hidden-ancestor-opening');
+      await done;
+      if (sent.some(([command]) => command === 'submit_profile_view'))
+        throw new Error('hidden identity ancestor admitted a disclosure');
+    } finally {
+      shell.hidden = wasHidden;
+      appBindings.closeFound();
+      card.remove();
+    }
+  };
+  smoke.uiSmokeProfileViews = { checkProfileViews, checkHiddenProfileView };
 })();

@@ -295,8 +295,7 @@ const discloseProfileView = (target, generation, call) => {
     () =>
       identityCurrent(generation) &&
       viewed === target &&
-      !profileView.hidden &&
-      !domById('search-area', HTMLElement).hidden &&
+      profileView.getClientRects().length > 0 &&
       !document.hidden,
   );
   controller.profileViewDone = target.disclosure.done;

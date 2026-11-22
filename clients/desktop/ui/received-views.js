@@ -28,7 +28,7 @@ let model = null;
 let generation = -1;
 let selection = 0;
 let lastCall = invoke;
-const visible = () => !pane.hidden && !domById('settings', HTMLElement).hidden && !document.hidden;
+const visible = () => pane.getClientRects().length > 0 && !document.hidden;
 
 /** Return through actual Settings navigation, then focus only the current replacement row. */
 const returnToViews = async (owner = generation, peer = '') => {

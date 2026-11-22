@@ -23,7 +23,10 @@ The controller owns UI request lifetime only; the shared Rust pager retains filt
 The Tauri received-view smoke drives the actual Privacy pane: read-only loading, unchanged native
 cursors/dates, query reset, failure retention, explicit profile opening and Back focus after read
 completion. A held refresh completes after leaving the pane and must not replace known rows or
-admit a captured old row. These native webview checks run in desktop CI.
+admit a captured old row. These native webview checks run in desktop CI. Hidden-ancestor controls hide only the identity
+shell, without an area/identity event: a late disclosure preparation cannot submit, and a connected
+old received-row button cannot fetch a profile. Guards observe actual rendered rectangles rather
+than child-only hidden flags; each control restores the original shell in `finally`.
 The five Android `settings-views` prototype outcomes run `views-fixture-tests.js` after capture.
 They check read-outcome rows/errors, full-target search across bounded pages, explicit Open and
 current-geometry control reachability. Non-shipping samples reuse existing prototype collection

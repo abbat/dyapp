@@ -58,6 +58,8 @@
     await smoke.timedChecks(smoke.uiSmokeProfileViews).checkProfileViews();
     await smoke.timedChecks(smoke.uiSmokeReceivedViews).checkReceivedViews();
     await smoke.timedChecks(smoke.uiSmokeReceivedViews).checkReceivedViewOpening();
+    await smoke.timedChecks(smoke.uiSmokeProfileViews).checkHiddenProfileView();
+    await smoke.timedChecks(smoke.uiSmokeReceivedViews).checkHiddenReceivedView();
     await nameChecks.checkContactNames();
     await nameChecks.checkPublicName();
     await nameChecks.checkInterests();

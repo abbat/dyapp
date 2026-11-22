@@ -25,6 +25,7 @@ a submit retains the actual identity lease and original network snapshot through
 The commands use the same core admission and Session staging as UniFFI. The shared browser page
 prepares only an explicit other-profile opening, submits its exact handle while that page and
 identity remain current, and retires on close, replacement, area change or hiding the document.
+Admission also requires actual rendered page visibility, including hidden identity ancestors.
 A late preparation result only retires its original handle. Background reads send no views, and
 pre-commit errors trigger no automatic resubmission. Android's received collection uses common
 paging and full identifiers under Privacy. Tauri transports the common pager's query/cursors and
