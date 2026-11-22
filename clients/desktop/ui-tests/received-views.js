@@ -72,8 +72,7 @@
       'failed refresh discarded known rows',
     );
     check(
-      byId('received-views-status').textContent ===
-        appBindings.strings['settings.collection.failed'],
+      byId('received-views-status').textContent === appApi.strings['settings.collection.failed'],
       'failed read was hidden',
     );
     test.setRead(() =>

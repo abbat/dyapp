@@ -29,6 +29,8 @@ controller with explicitly released promises: core page/cursor pass-through, pen
 refresh failure retention, query replacement and retired completions. The CI web entrypoint invokes both Node fixture suites through the mapped quiet runner with the
 explicit spec reporter; real assertion-failure controls verify test names, source and errors survive.
 The controller owns UI request lifetime only; the shared Rust pager retains filtering, counts and cursor policy.
+The native smoke bridge regression checks every direct `appBindings`/`appApi` reference against
+its declared getter/setter namespace before building a webview; runtime checks still prove behavior.
 The Tauri received-view smoke drives the actual Privacy pane: read-only loading, unchanged native
 cursors/dates, query reset, failure retention, explicit profile opening and Back focus after read
 completion. A held refresh completes after leaving the pane and must not replace known rows or
