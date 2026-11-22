@@ -84,3 +84,11 @@ opt-level = 3
 opt-level = 3
 [profile.test.package.blake2]
 opt-level = 3
+
+# Upstream JPEG overflow correction; remove when a fixed crates.io release is available.
+[patch.crates-io]
+zune-jpeg = { git = "https://github.com/etemesi254/zune-image", rev = "fe5bf991dc51b5b8cc4f6b28a96a612a4ce57d65" }
+
+# Keep image and the patched decoder on the same published core types.
+[patch."https://github.com/etemesi254/zune-image"]
+zune-core = { version = "=0.5.3" }

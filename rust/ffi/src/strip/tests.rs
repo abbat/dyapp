@@ -1,6 +1,18 @@
 use super::*;
 use image::{Rgb, RgbImage};
 
+#[test]
+fn jepg_fix_keeps_rotated_dc_overflow_input_bounded_and_upright() {
+    let input = include_bytes!("fixtures/jepg-fix.jpg");
+    let stripped = strip_metadata(input.to_vec()).unwrap();
+    assert!(u64::try_from(stripped.len()).unwrap() <= MAX_PICKED_BYTES);
+    let mut decoder = ImageReader::with_format(Cursor::new(stripped), ImageFormat::Jpeg)
+        .into_decoder()
+        .unwrap();
+    assert_eq!(decoder.dimensions(), (528, 64_792));
+    assert_eq!(decoder.orientation().unwrap(), Orientation::NoTransforms);
+}
+
 /// 16 x 8: the left half red, the right half blue.
 fn plain_jpeg() -> Vec<u8> {
     let image = RgbImage::from_fn(16, 8, |x, _| {

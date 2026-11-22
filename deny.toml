@@ -176,4 +176,6 @@ skip = [
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-allow-git = []
+# Exact reviewed upstream JPEG fix; Cargo manifests pin its immutable revision.
+required-git-spec = "rev"
+allow-git = ["https://github.com/etemesi254/zune-image"]
