@@ -18,6 +18,13 @@ expose neither completion retry nor review refresh, including after a comparison
 Neighboring transient failures and field-review requests retain their respective explicit actions.
 These controlled presentation checks do not renew authorization or prove native enrollment.
 
+`ReceiveVisualTests` is a dedicated rendering phase for the 25 receiving/setup prototype neighbors.
+It uses the production receiving content and Settings frame, with core-produced invitation QR and
+real isolated native keys; outcomes are controlled and no poll, network or enrollment is performed.
+The matrix covers EN/RU, light/dark and 100/200 percent fonts, checks current paragraph/scroll
+geometry and retains top/bottom PNG frames. It is excluded from ordinary instrumentation; automated
+collection and verified visual acceptance of this new phase remain planned until wired into CI.
+
 Comparison prototype captures also run `clients/android/prototype/review-fixture-tests.js`: all
 31 offered groups retain full source values; initial comparisons have no checked answers; photo
 reference disclosure does not select a source. Explicit choices survive read-only preview and return,

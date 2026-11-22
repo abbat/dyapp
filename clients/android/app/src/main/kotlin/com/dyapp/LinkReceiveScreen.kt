@@ -42,23 +42,34 @@ internal fun LinkReceiveScreen(
     key(active) {
         val snapshot by active.session.state.collectAsState()
         val status by rememberLinkCodeStatus(active, classify)
-        Caption(stringResource(R.string.link_receive_source))
-        Text(active.source.peerId, Modifier.testTag("link-receive-source"))
-        Text(
-            stringResource(linkReceiveStatus(snapshot, status)),
-            Modifier.testTag("link-receive-status").semantics { liveRegion = LiveRegionMode.Polite }
-        )
-        if (snapshot.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-        LinkReceiveInvitation(snapshot, status)
-        LinkReceiveOutcome(snapshot)
-        if (snapshot.receipt is MobileLinkReceipt.Installed) LinkEnrollmentAction(snapshot, actions)
-        LinkReviewPanel(snapshot, actions.enrollment)
-        LinkReceiveButtons(snapshot, actions)
+        LinkReceiveContent(active.source.peerId, snapshot, status, actions)
     }
 }
 
+/** Render the observed outcome; admission and lifecycle ownership remain in the screen and core. */
 @Composable
-private fun LinkReceiveIntro(actions: LinkReceiveActions, wizard: Boolean) {
+internal fun LinkReceiveContent(
+    sourcePeer: String,
+    snapshot: LinkReceiverSnapshot,
+    status: MobileLinkCodeStatus?,
+    actions: LinkReceiveActions
+) {
+    Caption(stringResource(R.string.link_receive_source))
+    Text(sourcePeer, Modifier.testTag("link-receive-source"))
+    Text(
+        stringResource(linkReceiveStatus(snapshot, status)),
+        Modifier.testTag("link-receive-status").semantics { liveRegion = LiveRegionMode.Polite }
+    )
+    if (snapshot.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+    LinkReceiveInvitation(snapshot, status)
+    LinkReceiveOutcome(snapshot)
+    if (snapshot.receipt is MobileLinkReceipt.Installed) LinkEnrollmentAction(snapshot, actions)
+    LinkReviewPanel(snapshot, actions.enrollment)
+    LinkReceiveButtons(snapshot, actions)
+}
+
+@Composable
+internal fun LinkReceiveIntro(actions: LinkReceiveActions, wizard: Boolean) {
     Text(stringResource(if (wizard) R.string.link_receive_wizard_intro else R.string.link_receive_intro))
     Button(actions.start, Modifier.fillMaxWidth().testTag("link-receive-start").applicationClick(actions.start)) {
         Text(stringResource(R.string.link_receive_start))
