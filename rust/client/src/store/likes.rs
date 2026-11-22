@@ -1,11 +1,11 @@
 //! Like, unlike and view events: a replay ledger and the latest like state per direction.
 
-use super::{Error, MAX_RESULT_ROWS, Store, collect_bounded};
-use crate::PreparedEnvelope;
+use super::{collect_bounded, Error, Store, MAX_RESULT_ROWS};
 use crate::interactions::{Interaction, Kind};
+use crate::PreparedEnvelope;
 use dyapp_messaging::hlc::{HybridClock, Timestamp};
 use dyapp_messaging::mls::Group;
-use rusqlite::{Connection, OptionalExtension, Transaction, params};
+use rusqlite::{params, Connection, OptionalExtension, Transaction};
 
 const DAY_MS: u64 = 86_400_000;
 const HLC_KEY: &str = "interaction_hlc";
@@ -496,7 +496,7 @@ mod tests {
     use super::Likes;
     use crate::interactions::{Interaction, Kind};
     use crate::store::{Error, Store};
-    use crate::{PreparedEnvelope, prepare_put};
+    use crate::{prepare_put, PreparedEnvelope};
     use dyapp_identity::{Domain, Identity, SignedRecord};
     use dyapp_messaging::hlc::Timestamp;
     use dyapp_p2p_net::proto;
@@ -840,12 +840,10 @@ mod tests {
         assert!(store.due_outbound(0).unwrap().is_empty());
         assert!(store.sealed_device().unwrap().is_none());
         store.set_blocked(&bob, false).unwrap();
-        assert!(
-            store
-                .draft_interaction(&bob, Kind::Like, 1_000)
-                .unwrap()
-                .is_some()
-        );
+        assert!(store
+            .draft_interaction(&bob, Kind::Like, 1_000)
+            .unwrap()
+            .is_some());
     }
 
     #[test]

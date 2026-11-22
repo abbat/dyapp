@@ -1,7 +1,7 @@
 //! Interaction commitment is separate from delivery and from a no-event result.
 
-use super::{Body, Error, Interaction, Kind, Node, Session, VerifiedProfile, prepare};
-use crate::{PreparedEnvelope, chat};
+use super::{prepare, Body, Error, Interaction, Kind, Node, Session, VerifiedProfile};
+use crate::{chat, PreparedEnvelope};
 use dyapp_p2p_net::proto::EnvelopeClass;
 
 /// An interaction that was committed with its prepared writes before delivery was attempted.
@@ -11,6 +11,16 @@ pub struct InteractionSubmission {
     pub event: Interaction,
     /// Node acceptance or the immediate delivery failure; never a peer receipt.
     pub delivery: Result<(), Error>,
+}
+
+impl From<InteractionSubmission> for super::Submission {
+    fn from(value: InteractionSubmission) -> Self {
+        let id = value.event.event_id;
+        match value.delivery {
+            Ok(()) => Self::Accepted { id },
+            Err(error) => Self::Queued { id, error },
+        }
+    }
 }
 
 impl InteractionSubmission {

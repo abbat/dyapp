@@ -74,17 +74,15 @@ fn replaced_owner_or_network_and_aba_context_are_refused() {
         old.admit_at(&context, &store, NOW),
         Err(Error::ContextChanged)
     ));
-    assert!(
-        opening(&context, &store)
-            .admit_at(&context, &store, NOW)
-            .unwrap()
-    );
+    assert!(opening(&context, &store)
+        .admit_at(&context, &store, NOW)
+        .unwrap());
 }
 
 #[test]
 fn invalid_own_and_blocked_targets_cannot_be_admitted() {
     let dir = dyapp_test_support::test_dir().unwrap();
-    let mut store = store(&dir.path().join("owner.db"));
+    let store = store(&dir.path().join("owner.db"));
     store.set_send_profile_views(true).unwrap();
     let context = Context::default();
     let owner = store.owner_peer_id().to_owned();

@@ -97,7 +97,7 @@ impl Interaction {
 
 #[cfg(test)]
 mod tests {
-    use super::{DecodeError, ENCODED_LEN, Interaction, Kind};
+    use super::{DecodeError, Interaction, Kind, ENCODED_LEN};
 
     #[test]
     fn round_trip_every_kind() {

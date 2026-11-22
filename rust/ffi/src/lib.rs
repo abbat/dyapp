@@ -29,10 +29,10 @@ pub use chats::{
     ChatMediaCacheSettings, ChatMessage, ChatNotice, ChatPhoto, ChatPhotoDownload, ChatPreviewBody,
     ChatRevocation, ChatRow, ChatSession, ChatState, ChatSticker, ChatStickerFrame,
     ChatStickerImage, ChatSubmission, ContactNoteError, ContactVerificationState, FavoriteError,
-    RecentStickerPickerEntry, RecentStickerPickerPage, SavedStickerFrame, SavedStickerPackEntry,
-    SavedStickerPackImport, SavedStickerPackPage, SavedStickerPackState, SavedStickerPickerPage,
-    StickerPackSaveAction, StickerPackSaveAttempt, StickerPackSaveControl, StickerPackSaveFailure,
-    StickerPackSaveState, StickerPackSaveStatus, StickerPickerEntry,
+    ProfileViewOpening, RecentStickerPickerEntry, RecentStickerPickerPage, SavedStickerFrame,
+    SavedStickerPackEntry, SavedStickerPackImport, SavedStickerPackPage, SavedStickerPackState,
+    SavedStickerPickerPage, StickerPackSaveAction, StickerPackSaveAttempt, StickerPackSaveControl,
+    StickerPackSaveFailure, StickerPackSaveState, StickerPackSaveStatus, StickerPickerEntry,
 };
 mod link_review;
 pub use link_review::{

@@ -76,6 +76,8 @@ mod sticker_view;
 pub use photos::chat_photo_hours_left;
 pub use sticker_view::ChatSticker;
 mod profile_share;
+mod profile_view;
+pub use profile_view::ProfileViewOpening;
 mod reads;
 mod send_photo;
 mod send_sticker;

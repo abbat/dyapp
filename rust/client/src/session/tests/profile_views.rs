@@ -24,14 +24,12 @@ async fn a_disabled_first_view_does_not_fetch_keys_or_change_mls() {
     let seal = [5; 32];
     let mut invite = bob_invited(&dir.path().join("session-1.db"), &seal);
     let before = invite.session.store.sealed_device().unwrap();
-    assert!(
-        invite
-            .session
-            .submit_interaction_with(&mut [], &invite.profiles, Kind::View, &seal)
-            .await
-            .unwrap()
-            .is_none()
-    );
+    assert!(invite
+        .session
+        .submit_interaction_with(&mut [], &invite.profiles, Kind::View, &seal)
+        .await
+        .unwrap()
+        .is_none());
     unchanged(&invite.session, &before);
 }
 
@@ -54,13 +52,11 @@ fn a_first_view_commits_welcome_and_signal_without_a_like_or_chat_request() {
     assert_eq!(writes.len(), 2);
     assert_eq!(writes[0].envelope().class, EnvelopeClass::Message as i32);
     assert_eq!(writes[1].envelope().class, EnvelopeClass::Signal as i32);
-    assert!(
-        invite
-            .session
-            .store
-            .viewed_on(&invite.bob_id.peer_id(), &peer, VIEW_TIME)
-            .unwrap()
-    );
+    assert!(invite
+        .session
+        .store
+        .viewed_on(&invite.bob_id.peer_id(), &peer, VIEW_TIME)
+        .unwrap());
     assert!(!invite.session.likes(&peer).unwrap().matched());
     assert!(!invite.session.likes(&peer).unwrap().ours);
     assert_eq!(
@@ -114,12 +110,10 @@ fn a_first_view_commits_welcome_and_signal_without_a_like_or_chat_request() {
     expected.sort();
     assert_eq!(saved, expected);
     let sealed = reopened.store.sealed_device().unwrap();
-    assert!(
-        reopened
-            .stage_first_view(&invite.profiles, &[], VIEW_TIME, &seal)
-            .unwrap()
-            .is_none()
-    );
+    assert!(reopened
+        .stage_first_view(&invite.profiles, &[], VIEW_TIME, &seal)
+        .unwrap()
+        .is_none());
     assert_eq!(reopened.store.sealed_device().unwrap(), sealed);
     let mut after: Vec<_> = reopened
         .due_outbound(i64::MAX)
@@ -186,17 +180,15 @@ fn first_view_failure_rolls_back_the_invitation_signal_event_and_day() {
         );
         unchanged(&invite.session, &before);
         assert!(invite.session.device.is_none());
-        assert!(
-            !invite
-                .session
-                .store
-                .viewed_on(
-                    &invite.bob_id.peer_id(),
-                    &invite.alice_id.peer_id(),
-                    VIEW_TIME
-                )
-                .unwrap()
-        );
+        assert!(!invite
+            .session
+            .store
+            .viewed_on(
+                &invite.bob_id.peer_id(),
+                &invite.alice_id.peer_id(),
+                VIEW_TIME
+            )
+            .unwrap());
         let events: i64 = connection
             .query_row("SELECT COUNT(*) FROM `interaction_ledger`", [], |row| {
                 row.get(0)

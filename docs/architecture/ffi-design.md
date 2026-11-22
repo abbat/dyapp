@@ -19,8 +19,16 @@ and the `hide_typing` inversion remain in Store. Each setter writes only its own
 sends no signal. Database/unsupported-value failures remain errors rather than guessed values.
 Android Privacy switches use these per-field exports and the existing read-receipt exports, with
 confirmed readback and read-only retry after errors. The common Session now stages an enabled
-first View and its pair invitation atomically without a Like or chat consent; explicit app-opening
-send adapters and received-view UI are still planned and require source-bound acceptance. Typing delivery is deferred until a direct client path exists; its saved preference
+first View and its pair invitation atomically without a Like or chat consent.
+`ChatSession.profile_view_opening(peer_id)` captures the original owner, target and shared network
+generation without disclosure. `ProfileSearcher.profile_view_opening(owner_peer, peer_id)` captures
+through the already-held search context without session/storage IO; the owner hint is checked
+against the actual Session at submission. `ProfileViewOpening.retire` prevents admission after disposal;
+`submit_profile_view` consumes the common-core opening, captures the active network under the
+same context lock, and returns no event or the committed `ChatSubmission` delivery result.
+Disabled/daily-duplicate/retired attempts stop before network lookup. Profile/list/photo fetches
+remain read-only. Android/Tauri opening callers and received-view UI are still planned and require
+source-bound acceptance. Typing delivery is deferred until a direct client path exists; its saved preference
 never authorizes mailbox typing ([contract](../design/read-receipts.md#typing-indicators)).
 
 `ChatSession.active_chat_peers` is a read-only common-core projection of fresh authenticated
