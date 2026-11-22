@@ -131,12 +131,21 @@ fn invalid_sqlite_days_are_errors_not_guessed_dates() {
     let peer = Identity::try_generate().unwrap().peer_id();
     for day in [i64::MIN, -1, i64::MAX] {
         let store = Store::open(&dir.path().join(format!("day-{day}.db")), &owner).unwrap();
+        // Model a corrupt database; normal writes already reject negatives through the schema.
+        store
+            .db
+            .pragma_update(None, "ignore_check_constraints", true)
+            .unwrap();
         store
             .db
             .execute(
                 "INSERT INTO `view_days` (`sender`, `target`, `day`) VALUES (?1, ?2, ?3)",
                 rusqlite::params![peer, owner.peer_id(), day],
             )
+            .unwrap();
+        store
+            .db
+            .pragma_update(None, "ignore_check_constraints", false)
             .unwrap();
         assert!(
             matches!(store.received_profile_views(), Err(Error::ClockRange)),
