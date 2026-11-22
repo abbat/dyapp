@@ -1,10 +1,11 @@
 //! Like, unlike and view events: a replay ledger and the latest like state per direction.
 
-use super::{collect_bounded, Error, Store, MAX_RESULT_ROWS};
-use crate::interactions::{Interaction, Kind};
+use super::{Error, MAX_RESULT_ROWS, Store, collect_bounded};
 use crate::PreparedEnvelope;
+use crate::interactions::{Interaction, Kind};
 use dyapp_messaging::hlc::{HybridClock, Timestamp};
-use rusqlite::{params, Connection, OptionalExtension, Transaction};
+use dyapp_messaging::mls::Group;
+use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
 const DAY_MS: u64 = 86_400_000;
 const HLC_KEY: &str = "interaction_hlc";
@@ -76,6 +77,41 @@ impl Store {
         sealed_device: &[u8],
         writes: &[PreparedEnvelope],
     ) -> Result<(), Error> {
+        self.interaction_commit_allowed(target, event, writes)?;
+        let tx = self.db.transaction()?;
+        Self::stage_interaction_event(&tx, &self.owner_peer_id, target, device, event)?;
+        Self::stage_outbound_tx(&tx, None, sealed_device, writes, true)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Commit a first signal, its new pair catalog and all Welcome/signal writes together.
+    pub(crate) fn stage_invite_interaction(
+        &mut self,
+        group: &Group,
+        target: &str,
+        device: &[u8],
+        event: Interaction,
+        sealed_device: &[u8],
+        writes: &[PreparedEnvelope],
+    ) -> Result<(), Error> {
+        if !self.belongs(group, target)? {
+            return Err(Error::GroupConflict);
+        }
+        self.interaction_commit_allowed(target, event, writes)?;
+        let tx = self.db.transaction()?;
+        Self::stage_interaction_event(&tx, &self.owner_peer_id, target, device, event)?;
+        Self::stage_outbound_tx(&tx, Some((group.id(), target)), sealed_device, writes, true)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    fn interaction_commit_allowed(
+        &self,
+        target: &str,
+        event: Interaction,
+        writes: &[PreparedEnvelope],
+    ) -> Result<(), Error> {
         if target == self.owner_peer_id
             || writes.is_empty()
             || (event.kind == Kind::View && !self.send_profile_views()?)
@@ -85,19 +121,25 @@ impl Store {
         if self.blocked(target)? {
             return Err(Error::BlockedPeer);
         }
-        let tx = self.db.transaction()?;
+        Ok(())
+    }
+
+    fn stage_interaction_event(
+        tx: &Transaction<'_>,
+        owner: &str,
+        target: &str,
+        device: &[u8],
+        event: Interaction,
+    ) -> Result<(), Error> {
         let hlc = Timestamp::from(event.hlc);
-        if hlc <= load_hlc(&tx)? {
+        if hlc <= load_hlc(tx)? {
             return Err(Error::InteractionConflict);
         }
-        let owner = self.owner_peer_id.as_str();
-        if event.kind == Kind::View && !record_view(&tx, owner, target, hlc)? {
+        if event.kind == Kind::View && !record_view(tx, owner, target, hlc)? {
             return Err(Error::InteractionConflict);
         }
-        save_hlc(&tx, hlc)?;
-        Self::apply(&tx, owner, owner, target, device, event)?;
-        Self::stage_outbound_tx(&tx, None, sealed_device, writes, true)?;
-        tx.commit()?;
+        save_hlc(tx, hlc)?;
+        Self::apply(tx, owner, owner, target, device, event)?;
         Ok(())
     }
 
@@ -430,7 +472,7 @@ mod tests {
     use super::Likes;
     use crate::interactions::{Interaction, Kind};
     use crate::store::{Error, Store};
-    use crate::{prepare_put, PreparedEnvelope};
+    use crate::{PreparedEnvelope, prepare_put};
     use dyapp_identity::{Domain, Identity, SignedRecord};
     use dyapp_messaging::hlc::Timestamp;
     use dyapp_p2p_net::proto;
@@ -774,10 +816,12 @@ mod tests {
         assert!(store.due_outbound(0).unwrap().is_empty());
         assert!(store.sealed_device().unwrap().is_none());
         store.set_blocked(&bob, false).unwrap();
-        assert!(store
-            .draft_interaction(&bob, Kind::Like, 1_000)
-            .unwrap()
-            .is_some());
+        assert!(
+            store
+                .draft_interaction(&bob, Kind::Like, 1_000)
+                .unwrap()
+                .is_some()
+        );
     }
 
     #[test]

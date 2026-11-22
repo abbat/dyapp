@@ -23,6 +23,8 @@ fn person() -> (Identity, Device, dyapp_profile::VerifiedProfile) {
 
 #[path = "tests/outbound.rs"]
 mod outbound;
+#[path = "tests/profile_views.rs"]
+mod profile_views;
 #[path = "tests/recovery.rs"]
 mod recovery;
 

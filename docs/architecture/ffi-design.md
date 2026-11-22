@@ -18,8 +18,9 @@ native session lock. Views default off and typing defaults on; defaulting, store
 and the `hide_typing` inversion remain in Store. Each setter writes only its own preference and
 sends no signal. Database/unsupported-value failures remain errors rather than guessed values.
 Android Privacy switches use these per-field exports and the existing read-receipt exports, with
-confirmed readback and read-only retry after errors. Profile-view send-path parity still needs
-verification. Typing delivery is deferred until a direct client path exists; its saved preference
+confirmed readback and read-only retry after errors. The common Session now stages an enabled
+first View and its pair invitation atomically without a Like or chat consent; explicit app-opening
+send adapters and received-view UI are still planned and require source-bound acceptance. Typing delivery is deferred until a direct client path exists; its saved preference
 never authorizes mailbox typing ([contract](../design/read-receipts.md#typing-indicators)).
 
 `ChatSession.active_chat_peers` is a read-only common-core projection of fresh authenticated

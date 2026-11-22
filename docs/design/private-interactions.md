@@ -4,8 +4,17 @@ This is the planned client contract for [private likes and views](../decisions/0
 The bootstrap signal class and quota, client plaintext codec, persisted like/unlike ledger,
 own-event clock and view-day records exist. `Session::interact` and `Session::receive` send and
 apply encrypted signal mailbox deliveries; a two-client protocol test covers like, match,
-unlike, replay, offline retry and daily view. Linux desktop has Search and Liked you controls;
-other app UI and own-device event sync remain planned.
+unlike, replay, offline retry and daily view. Tauri and Android have Search and Liked you controls;
+explicit app view-sending and received-view UI remain planned. Own-device events follow the
+pair-group ordering and reconciliation rules below.
+
+An enabled first View can create the pair without sending a Like: the core commits its group
+catalog, Welcome and Signal envelopes, sealed MLS state, exact event and sent-day record in one
+transaction. A disabled or already-recorded daily View stops before KeyPackage IO; admission is
+checked again after that IO before MLS advancement. A failed first-view transaction leaves no
+invitation, event or day and invalidates advanced in-memory MLS state. Merely creating the pair
+or receiving a View grants no chat request or match. App profile-opening adapters and received-view
+UI remain planned until their source-bound acceptance; this core path alone is not app delivery.
 
 ## Wire contract
 

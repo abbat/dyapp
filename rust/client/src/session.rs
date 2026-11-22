@@ -381,7 +381,8 @@ impl Session {
 
     /// Like, unlike or view the other owner in `profiles` in the pair's canonical group, as
     /// [`Session::interact`] does. A like with no group yet first invites the peer: the Welcome
-    /// and the like are staged before either is sent. Without a group nothing else is sent.
+    /// and the like are staged before either is sent. An enabled first view stages its invitation
+    /// and event atomically without a like or chat consent; an unjoined unlike is a no-op.
     ///
     /// # Errors
     /// Returns profile selection, blocked-peer, `KeyPackage`, staging or delivery
