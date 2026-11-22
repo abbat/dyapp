@@ -7,6 +7,8 @@ mod choices;
 pub use choices::SearchChoiceInputs;
 mod ranges;
 pub use ranges::range_conditions;
+mod visibility;
+pub use visibility::visible_filter_fields;
 
 /// The selected local employer-filter mode before interpreting its text field.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

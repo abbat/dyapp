@@ -115,6 +115,14 @@ Both Tauri search and the common UniFFI `search_range_conditions` delegate to it
 adapter converts records/errors only; Kotlin and Swift continue supplying their raw form values.
 The native API and existing field-specific error strings are unchanged.
 
+## Search filter visibility
+
+`dyapp_client::search_input::visible_filter_fields` owns the prerequisites for displayed search
+controls: place requires country, and mutual search requires both seeking fields. Tauri filter
+flags and Android's `search_visible_fields` adapter use this projection. Other offered fields,
+order and duplicates are preserved; adapters still render the corresponding scale metadata.
+This display rule does not change independently offered location conditions on the wire.
+
 ## Profile-share submission ownership
 
 Core `Session::prepare_profile_share` validates a canonical shared Peer ID and a distinct,

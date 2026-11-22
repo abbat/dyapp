@@ -60,6 +60,12 @@ pub fn search_range_conditions(
     conditions(&offered, &inputs, today()?)
 }
 
+/// Project offered fields to displayable search controls using shared prerequisites.
+#[uniffi::export]
+pub fn search_visible_fields(offered: Vec<u32>) -> Vec<u32> {
+    dyapp_client::search_input::visible_filter_fields(offered)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

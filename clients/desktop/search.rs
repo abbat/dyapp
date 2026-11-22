@@ -11,7 +11,7 @@ use dyapp_client::search_input::{employer_filter, EmployerMode, SearchChoiceInpu
 use dyapp_client::store::Store;
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
-use dyapp_p2p_net::search_results::{mutual_conditions, BIRTH_AGE, SEEKING_AGE, SEEKING_GENDERS};
+use dyapp_p2p_net::search_results::{mutual_conditions, BIRTH_AGE, SEEKING_GENDERS};
 use dyapp_p2p_net::{proto, Protocols};
 use dyapp_profile::search_input::SearchRangeInputs;
 use dyapp_profile::{CivilDate, Profile, VerifiedProfile, HEIGHT_FIELD};
@@ -50,14 +50,15 @@ pub struct Filters {
 
 impl Filters {
     fn offered(offered: &[u32]) -> Self {
-        let has = |field| offered.contains(&field);
+        let visible = dyapp_client::search_input::visible_filter_fields(offered);
+        let has = |field| visible.contains(&field);
         Self {
             age: has(BIRTH_AGE),
             height: has(HEIGHT_FIELD),
             interest: has(INTEREST_FIELD),
             country: has(COUNTRY_FIELD),
-            place: has(COUNTRY_FIELD) && has(PLACE_FIELD),
-            mutual: has(SEEKING_GENDERS) && has(SEEKING_AGE),
+            place: has(PLACE_FIELD),
+            mutual: has(SEEKING_GENDERS),
         }
     }
 }
