@@ -25,7 +25,25 @@ pub enum Platform {
 }
 
 impl Platform {
-    fn parse(value: &str) -> Option<Self> {
+    pub(super) const ALL: [Self; 5] = [
+        Self::LinuxX86_64,
+        Self::WindowsX86_64,
+        Self::MacosUniversal,
+        Self::Android,
+        Self::Ios,
+    ];
+
+    pub(super) const fn key(self) -> &'static str {
+        match self {
+            Self::LinuxX86_64 => "linux-x86_64",
+            Self::WindowsX86_64 => "windows-x86_64",
+            Self::MacosUniversal => "macos-universal",
+            Self::Android => "android",
+            Self::Ios => "ios",
+        }
+    }
+
+    pub(super) fn parse(value: &str) -> Option<Self> {
         match value {
             "linux-x86_64" => Some(Self::LinuxX86_64),
             "windows-x86_64" => Some(Self::WindowsX86_64),

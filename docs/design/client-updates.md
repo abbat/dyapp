@@ -7,8 +7,12 @@ The shared Rust client core provides strict version/cadence/feed helpers in
 `rust/client/src/updates.rs`, `updates/feed.rs` and `updates/coordinator.rs`.
 Those helpers have no network or storage side effects. `updates::transport::Client`
 adds explicitly invoked bounded HTTPS transport; platform controls still do not call it.
-Persisted app-wide state, response rollback integration, native APIs and lifecycle/timer hooks
-remain planned. Clients stay disabled until live-feed verification and those integrations pass.
+`updates::snapshot::Snapshot` validates a bounded local record with cadence, exact feed/ETag cache
+and per-target version high-water marks. Candidate rollback is rejected before changing any target;
+omitting a target retains its previous mark across encoding/restart. Corrupt or inconsistent records
+fail closed, never becoming fresh defaults. This is a persistence format, not completed durable IO.
+Atomic writes, cross-process exclusion, native APIs and lifecycle/timer hooks remain planned.
+Clients stay disabled until live-feed verification and those integrations pass.
 
 The pure `updates::coordinator::Coordinator` now owns simultaneous-trigger admission and attempt
 completion for one installation. Its opaque ticket is consumed by completion; dropping it is

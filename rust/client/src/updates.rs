@@ -1,8 +1,9 @@
-//! Pure stable-version, feed-schema and update-check cadence rules.
-//! Transport and persistence integration are not implemented here.
+//! Shared stable versions, feed validation, cadence and bounded HTTPS transport.
+//! Installation IO, native lifecycle integration and activation remain separate.
 
 pub mod coordinator;
 pub mod feed;
+pub mod snapshot;
 pub mod transport;
 
 /// A stable release version, compared by numeric components.
