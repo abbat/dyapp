@@ -168,16 +168,21 @@ fn mutate<T>(
     validate_change(&previous, &snapshot)?;
     let bytes = snapshot.encode()?;
     if bytes != previous.encode()? {
-        let changed = transaction.execute(
-            "UPDATE `state` SET `payload` = ?1 WHERE `id` = 1",
-            params![bytes],
-        )?;
-        if changed != 1 {
-            return Err(Error::Incompatible);
-        }
+        write_record(&transaction, &bytes)?;
     }
     transaction.commit()?;
     Ok((snapshot, result))
+}
+
+fn write_record(transaction: &rusqlite::Transaction<'_>, bytes: &[u8]) -> Result<(), Error> {
+    let changed = transaction.execute(
+        "UPDATE `state` SET `payload` = ?1 WHERE `id` = 1",
+        params![bytes],
+    )?;
+    if changed != 1 {
+        return Err(Error::Incompatible);
+    }
+    Ok(())
 }
 
 fn read_snapshot(connection: &Connection) -> Result<Snapshot, Error> {
