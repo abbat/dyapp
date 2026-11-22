@@ -19,6 +19,15 @@ local beads skill or plugin is optional and not part of the repository, so do no
 - Label every bead you create (`-l` on `bd create`, `--add-label` on `bd update`); see
   [Labels](#labels).
 
+For a focused issue read, avoid expanding parent/dependency histories unnecessarily:
+
+```bash
+bd show <id> --json | jq '.[0] | del(.dependencies)'
+```
+
+The installed CLI includes full dependency records, potentially with a large parent epic's notes.
+Keep those records, or use `bd dep list`, when checking graph relationships or acceptance blockers.
+
 ## Definition of Ready
 
 Practice A1. Before claiming a task, feature or bug bead, check that it is ready, and claim it
@@ -63,6 +72,9 @@ Use only the labels below; add a new one only after the user agrees, and list it
 Each bead gets one kind label (`feature`, `bug`, `infra`, `audit`, `design` or `docs`), plus
 `security` and/or `perf` when the work is about that, plus every platform label it touches. Work
 that is platform-independent (the shared Rust crates, CI as a whole) gets no platform label.
+`bd create` inherits parent labels by default. When the child needs a different kind, pass
+`--no-inherit-labels` and explicitly select its one kind plus every required platform, security,
+performance and quorum label; inspect the result rather than retaining conflicting inherited kinds.
 There is no `test` label: tests are `infra`. `quorum` is added on top of the kind label and is
 inherited by every bead under the quorum epic.
 
