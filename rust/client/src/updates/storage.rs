@@ -60,9 +60,7 @@ impl LockedState {
             path,
             OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
         )?;
-        let limit = i32::try_from(snapshot::MAX_BYTES).map_err(|_| Error::Incompatible)?;
-        let _ = connection.set_limit(Limit::SQLITE_LIMIT_LENGTH, limit + 4096)?;
-        connection.pragma_update(None, "synchronous", "FULL")?;
+        configure(&connection)?;
         initialize(&mut connection, fresh_snapshot)?;
         let state = Self {
             connection,
@@ -85,22 +83,91 @@ impl LockedState {
     /// # Errors
     /// Returns validation or transaction failure; success requires the SQLite commit to complete.
     pub fn save(&mut self, snapshot: &Snapshot) -> Result<(), Error> {
-        let bytes = snapshot.encode()?;
-        let transaction = self
-            .connection
-            .transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let previous = read_snapshot(&transaction)?;
-        for platform in Platform::ALL {
-            if previous
-                .highest(platform)
-                .is_some_and(|old| snapshot.highest(platform).is_none_or(|next| next < old))
-            {
-                return Err(snapshot::Error::Rollback.into());
-            }
-        }
-        if snapshot.jitter() != previous.jitter() {
+        self.update(|current| {
+            *current = snapshot.clone();
+            Ok(())
+        })
+        .map(|_| ())
+    }
+
+    // Pure policy only: no network or callbacks into native code inside this transaction.
+    pub(super) fn update<T>(
+        &mut self,
+        change: impl FnOnce(&mut Snapshot) -> Result<T, Error>,
+    ) -> Result<(Snapshot, T), Error> {
+        mutate(&mut self.connection, change)
+    }
+}
+
+pub(super) fn change_interval(root: &Path, interval: super::Interval) -> Result<Snapshot, Error> {
+    let change = |snapshot: &mut Snapshot| {
+        let mut checkpoint = snapshot.checkpoint();
+        checkpoint.interval = interval;
+        snapshot.set_checkpoint(checkpoint);
+        Ok(())
+    };
+    let changed = if let Some(mut state) = LockedState::try_open(root)? {
+        state.update(change)?
+    } else {
+        // A running request owns the OS lease, but holds no SQLite transaction during HTTP.
+        let path = fs::canonicalize(root)?.join("updates.sqlite");
+        if !fs::symlink_metadata(&path)?.is_file() {
             return Err(Error::Incompatible);
         }
+        let mut connection = Connection::open_with_flags(
+            path,
+            OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )?;
+        configure(&connection)?;
+        mutate(&mut connection, change)?
+    };
+    Ok(changed.0)
+}
+
+fn configure(connection: &Connection) -> Result<(), Error> {
+    let limit = i32::try_from(snapshot::MAX_BYTES).map_err(|_| Error::Incompatible)?;
+    let _ = connection.set_limit(Limit::SQLITE_LIMIT_LENGTH, limit + 4096)?;
+    connection.pragma_update(None, "synchronous", "FULL")?;
+    Ok(())
+}
+
+fn validate_change(previous: &Snapshot, snapshot: &Snapshot) -> Result<(), Error> {
+    for platform in Platform::ALL {
+        if previous
+            .highest(platform)
+            .is_some_and(|old| snapshot.highest(platform).is_none_or(|next| next < old))
+        {
+            return Err(snapshot::Error::Rollback.into());
+        }
+    }
+    if snapshot.jitter() != previous.jitter() {
+        return Err(Error::Incompatible);
+    }
+    Ok(())
+}
+
+fn header(connection: &Connection) -> Result<(i64, i64), Error> {
+    Ok((
+        connection.pragma_query_value(None, "application_id", |row| row.get(0))?,
+        connection.pragma_query_value(None, "user_version", |row| row.get(0))?,
+    ))
+}
+
+fn mutate<T>(
+    connection: &mut Connection,
+    change: impl FnOnce(&mut Snapshot) -> Result<T, Error>,
+) -> Result<(Snapshot, T), Error> {
+    let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    let (application, schema) = header(&transaction)?;
+    if application != APPLICATION || schema != SCHEMA {
+        return Err(Error::Incompatible);
+    }
+    let previous = read_snapshot(&transaction)?;
+    let mut snapshot = previous.clone();
+    let result = change(&mut snapshot)?;
+    validate_change(&previous, &snapshot)?;
+    let bytes = snapshot.encode()?;
+    if bytes != previous.encode()? {
         let changed = transaction.execute(
             "UPDATE `state` SET `payload` = ?1 WHERE `id` = 1",
             params![bytes],
@@ -108,9 +175,9 @@ impl LockedState {
         if changed != 1 {
             return Err(Error::Incompatible);
         }
-        transaction.commit()?;
-        Ok(())
     }
+    transaction.commit()?;
+    Ok((snapshot, result))
 }
 
 fn read_snapshot(connection: &Connection) -> Result<Snapshot, Error> {
@@ -148,9 +215,7 @@ fn initialize(
     fresh: impl FnOnce() -> Result<Snapshot, Error>,
 ) -> Result<(), Error> {
     let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
-    let application: i64 =
-        transaction.pragma_query_value(None, "application_id", |row| row.get(0))?;
-    let schema: i64 = transaction.pragma_query_value(None, "user_version", |row| row.get(0))?;
+    let (application, schema) = header(&transaction)?;
     match (application, schema) {
         (0, 0) => initialize_fresh(&transaction, fresh)?,
         (APPLICATION, SCHEMA) => {}

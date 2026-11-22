@@ -58,7 +58,20 @@ fn durable_admission_precedes_fetch_and_completion_precedes_exposure() {
             .unwrap(),
             Outcome::Busy
         ));
-        assert!(set_interval(&dir, Interval::Week).unwrap().is_none());
+        let changed = set_interval(&dir, Interval::Week).unwrap();
+        assert_eq!(changed.checkpoint().interval, Interval::Week);
+        assert!(changed.checkpoint().in_flight);
+        assert_eq!(disk(&dir).checkpoint(), changed.checkpoint());
+        assert!(matches!(
+            run(
+                &dir,
+                Trigger::Manual,
+                || panic!("busy after interval change"),
+                |_| panic!("duplicate fetch")
+            )
+            .unwrap(),
+            Outcome::Busy
+        ));
         Ok(cached("2.0.0"))
     })
     .unwrap();
@@ -68,7 +81,8 @@ fn durable_admission_precedes_fetch_and_completion_precedes_exposure() {
     assert_eq!(snapshot.encode().unwrap(), disk(&dir).encode().unwrap());
     assert!(!snapshot.checkpoint().in_flight);
     assert_eq!(snapshot.checkpoint().state.last_success, Some(110));
-    let changed = set_interval(&dir, Interval::Week).unwrap().unwrap();
+    assert_eq!(snapshot.checkpoint().interval, Interval::Week);
+    let changed = set_interval(&dir, Interval::Week).unwrap();
     assert_eq!(changed.checkpoint().interval, Interval::Week);
     assert_eq!(changed.checkpoint().state, snapshot.checkpoint().state);
     assert!(matches!(
@@ -98,6 +112,8 @@ fn rollback_and_transport_failure_keep_prior_cache_and_success() {
     assert_eq!(disk(&dir).checkpoint().state.last_success, Some(110));
     assert_eq!(disk(&dir).checkpoint().state.consecutive_failures, 1);
     let outcome = check_with(&dir, Trigger::Manual, 220, 230, |_| {
+        let changed = set_interval(&dir, Interval::SixHours).unwrap();
+        assert!(changed.checkpoint().in_flight);
         Err(transport::Error::Status(503))
     })
     .unwrap();
@@ -110,10 +126,41 @@ fn rollback_and_transport_failure_keep_prior_cache_and_success() {
     ));
     assert_eq!(disk(&dir).cache().unwrap().bytes(), prior);
     assert_eq!(disk(&dir).checkpoint().state.consecutive_failures, 2);
+    assert_eq!(disk(&dir).checkpoint().interval, Interval::SixHours);
     assert!(matches!(
         check_with(&dir, Trigger::Timer, 240, 241, |_| panic!("backoff")).unwrap(),
         Outcome::NotDue(_)
     ));
+}
+
+#[test]
+fn admission_uses_the_interval_committed_before_its_transaction() {
+    let dir = test_dir().unwrap();
+    check_with(&dir, Trigger::Manual, 100, 110, |_| Ok(cached("2.0.0"))).unwrap();
+    let at = 110 + Interval::Day.seconds();
+    let outcome = run(
+        &dir,
+        Trigger::Timer,
+        || {
+            set_interval(&dir, Interval::Week).unwrap();
+            Ok(at)
+        },
+        |_| panic!("lengthened interval must prevent admission"),
+    )
+    .unwrap();
+    assert!(matches!(outcome, Outcome::NotDue(_)));
+    let outcome = run(
+        &dir,
+        Trigger::Timer,
+        || {
+            set_interval(&dir, Interval::SixHours).unwrap();
+            Ok(at)
+        },
+        |cache| Ok(cache.unwrap().clone()),
+    )
+    .unwrap();
+    assert!(matches!(outcome, Outcome::Validated(_)));
+    assert_eq!(disk(&dir).checkpoint().interval, Interval::SixHours);
 }
 
 #[test]

@@ -10,7 +10,7 @@ adds explicitly invoked bounded HTTPS transport; platform controls still do not 
 `updates::snapshot::Snapshot` validates a bounded local record with cadence, exact feed/ETag cache
 and per-target version high-water marks. Candidate rollback is rejected before changing any target;
 omitting a target retains its previous mark across encoding/restart. Corrupt or inconsistent records
-fail closed, never becoming fresh defaults. This is a persistence format, not completed durable IO.
+fail closed, never becoming fresh defaults. Snapshot encoding alone performs no IO.
 `updates::storage::LockedState` adds atomic SQLite writes in the private installation root
 (`updates.sqlite`) under an independent, nonblocking OS lease (`updates.lock`). The lease spans
 admission/HTTP/completion; it never takes a profile, chat or node operation lock. SQLite FULL
@@ -23,8 +23,10 @@ This seed enters only cadence calculation, never the HTTP request or identity st
 `updates::checker` connects these components on an IO worker: admission is committed before
 fetch, and validated completion is committed before returning a new trusted snapshot. Failed
 transport/rollback/clock results retain the prior cache and persist failure backoff; interrupted
-requests are counted once on restore. Busy callers do not start another request. Interval changes
-also use the update lease and report busy during a request, without canceling it.
+requests are counted once on restore. Busy check callers do not start another request. Interval
+changes commit immediately in a separate short SQLite transaction during HTTP, without canceling
+the request. Admission and completion mutate the latest record atomically, so a completed request
+cannot overwrite a newer interval and admission uses the interval already committed by Settings.
 The checker tests observe a child process exiting after durable admission without running Drop,
 then require successful lease reacquisition and exactly one interrupted-attempt failure. A pipe-EOF
 completion signal has a failure deadline; no elapsed sleep establishes process readiness.
@@ -34,11 +36,10 @@ Clients stay disabled until live-feed verification and those integrations pass.
 The pure `updates::coordinator::Coordinator` now owns simultaneous-trigger admission and attempt
 completion for one installation. Its opaque ticket is consumed by completion; dropping it is
 reaped once as failure. A checkpoint records an in-flight request so restore applies interrupted
-request backoff, and clock rollback admits one catch-up without a retry loop. The future shared
-checker must persist checkpoints before HTTP and after completion, and must validate transport
-and feed/cache trust before recording `Completion::Validated`. This enum is not a native caller's
-assertion of trust. Durable storage, cross-process exclusion, checker integration, FFI and activation remain
-pending; these pure helpers perform no check or installation themselves.
+request backoff, and clock rollback admits one catch-up without a retry loop. The shared checker
+persists checkpoints before HTTP and after completion, and validates transport and feed/cache
+trust before recording `Completion::Validated`. This enum is not a native caller's assertion of trust.
+FFI and activation remain pending; the coordinator itself performs no IO or installation.
 
 ## Goal and boundary
 

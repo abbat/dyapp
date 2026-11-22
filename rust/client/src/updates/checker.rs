@@ -45,9 +45,6 @@ pub enum Error {
     /// The current wall clock precedes the Unix epoch.
     #[error("update wall clock unavailable")]
     Clock,
-    /// An internal request capability no longer matches its coordinator.
-    #[error("update attempt unavailable")]
-    Admission,
 }
 
 /// Check on an IO worker using only the fixed-origin client and installation-wide state.
@@ -59,20 +56,12 @@ pub fn check(root: &Path, trigger: Trigger) -> Result<Outcome, Error> {
     run(root, trigger, now, |cached| Client::new().fetch(cached))
 }
 
-/// Persist an interval without starting/canceling a request; busy callers await operation completion.
+/// Persist an interval immediately without starting or canceling a request.
 ///
 /// # Errors
-/// Returns snapshot/storage failures; `None` means another update operation owns the lease.
-pub fn set_interval(root: &Path, interval: Interval) -> Result<Option<Snapshot>, Error> {
-    let Some(mut state) = LockedState::try_open(root)? else {
-        return Ok(None);
-    };
-    let mut snapshot = state.load()?;
-    let mut checkpoint = snapshot.checkpoint();
-    checkpoint.interval = interval;
-    snapshot.set_checkpoint(checkpoint);
-    state.save(&snapshot)?;
-    Ok(Some(snapshot))
+/// Returns snapshot/storage failures without erasing the live request or its trusted cache.
+pub fn set_interval(root: &Path, interval: Interval) -> Result<Snapshot, Error> {
+    Ok(storage::change_interval(root, interval)?)
 }
 
 fn now() -> Result<u64, Error> {
@@ -91,16 +80,13 @@ fn run(
     let Some(mut state) = LockedState::try_open(root)? else {
         return Ok(Outcome::Busy);
     };
-    let mut snapshot = state.load()?;
-    let before = snapshot.checkpoint();
-    let mut coordinator = Coordinator::restore(before);
     let started = clock()?;
-    let attempt = coordinator.begin(started, snapshot.jitter(), trigger);
-    let checkpoint = coordinator.checkpoint();
-    if checkpoint != before {
-        snapshot.set_checkpoint(checkpoint);
-        state.save(&snapshot)?;
-    }
+    let (snapshot, (mut coordinator, attempt)) = state.update(|snapshot| {
+        let mut coordinator = Coordinator::restore(snapshot.checkpoint());
+        let attempt = coordinator.begin(started, snapshot.jitter(), trigger);
+        snapshot.set_checkpoint(coordinator.checkpoint());
+        Ok((coordinator, attempt))
+    })?;
     let Some(attempt) = attempt else {
         return Ok(Outcome::NotDue(snapshot));
     };
@@ -109,19 +95,22 @@ fn run(
         Ok(at) => (at, fetched.map_err(Failure::Transport)),
         Err(_) => (started, Err(Failure::Clock)),
     };
-    let failure = candidate
-        .and_then(|cache| snapshot.admit(cache).map_err(Failure::Rejected))
-        .err();
-    let completion = if failure.is_none() {
-        Completion::Validated
-    } else {
-        Completion::Failed
-    };
-    if !coordinator.finish(attempt, finished, completion) {
-        return Err(Error::Admission);
-    }
-    snapshot.set_checkpoint(coordinator.checkpoint());
-    state.save(&snapshot)?;
+    let (snapshot, failure) = state.update(|snapshot| {
+        coordinator.set_interval(snapshot.checkpoint().interval);
+        let failure = candidate
+            .and_then(|cache| snapshot.admit(cache).map_err(Failure::Rejected))
+            .err();
+        let completion = if failure.is_none() {
+            Completion::Validated
+        } else {
+            Completion::Failed
+        };
+        if !coordinator.finish(attempt, finished, completion) {
+            return Err(storage::Error::Incompatible);
+        }
+        snapshot.set_checkpoint(coordinator.checkpoint());
+        Ok(failure)
+    })?;
     Ok(match failure {
         None => Outcome::Validated(snapshot),
         Some(reason) => Outcome::Failed { snapshot, reason },
