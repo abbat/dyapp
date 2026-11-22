@@ -393,6 +393,8 @@ client targets feed what a client reads from other people.
 | `sframe` | `sframe::Receiver::decrypt` | an SFrame video frame; the first byte is the metadata length |
 | `sdp` | `RTCSessionDescription::answer`, `unmarshal_candidate` (rtc) | a call peer's SDP answer or ICE candidate |
 | `preview` | `dyapp_ffi::check_preview` | a preview or profile thumbnail; seeds include small JPEGs, saved OOM inputs and the malformed JPEG that exposed a `zune-jpeg` AVX2 panic |
+| `photo_prepare` | `dyapp_ffi::prepare_photo_pixels` | decoded RGBA bytes, dimensions and profile/chat purpose; dimension and pixel-length checks precede image allocation |
+| `strip` | `dyapp_ffi::strip_metadata` | JPEG/PNG metadata stripping and oriented JPEG decoding with 64 MiB input/output and 64-megapixel decode limits |
 | `sticker_tar` | `sticker_tar::read` | bounded uncompressed sticker TAR; GNU tar seed |
 | `sticker_webp` | `sticker_webp::decode::first_frame` | WebP container and first frame; bounded RGBA/alpha checks, with caught decoder panics promoted to saved fuzz failures |
 

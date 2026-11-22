@@ -123,6 +123,20 @@ doc = false
 bench = false
 
 [[bin]]
+name = "photo_prepare"
+path = "fuzz_targets/photo_prepare.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "strip"
+path = "fuzz_targets/strip.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "sticker_webp"
 path = "fuzz_targets/sticker_webp.rs"
 test = false
