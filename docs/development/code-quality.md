@@ -399,6 +399,9 @@ An exception older than 14 days fails the check even if its pinned version is al
 The exact `url 2.5.9` and required `form_urlencoded 1.2.3` versions temporarily use this
 security-fix policy for RUSTSEC-2026-0592; remove their entries after publication maturity
 on 2026-12-04. The advisory remains enforced and unrelated versions retain the 14-day gate.
+`webpki-roots 1.0.12` temporarily uses the same policy because it removes distrusted root CAs
+([upstream removal](https://github.com/rustls/webpki-roots/pull/139)); remove its entry after
+publication maturity on 2026-11-25. Do not restore removed roots to satisfy dependency age.
 
 ## Source debt markers
 

@@ -126,7 +126,7 @@ pending. Offline parsing does not enable any check.
 ### Shared HTTPS transport checkpoint
 
 `updates::transport::Client` performs one blocking GET to the fixed endpoint, on an IO worker.
-The pinned `ureq` adapter enables only rustls with WebPKI roots, preserving certificate/SNI
+The pinned `ureq 3.5.1` adapter enables only rustls with WebPKI roots, preserving certificate/SNI
 verification without Android platform-verifier JNI initialization. Redirect following and proxy
 inheritance are disabled; no cookies or decompression feature is enabled. Its global network
 budget is 30 seconds. Streaming reads consume at most 64 KiB plus one size-probe byte before the
