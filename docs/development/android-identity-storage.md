@@ -229,6 +229,17 @@ The scrollable dialog names the raw key before consequences and disables Cancel/
 worker owns a revoke. Displayed key groups preserve the raw semantics and explicit copy payload.
 The Account row counts only the saved directory and never performs a network refresh.
 
+`LinkApprovalSession` provides the owner-approval presentation worker; native widgets remain planned.
+It prepares the original pasted input on independent IO, using the common code-status function and
+`MobileLinkApproval`. Only the immutable normalized public code is projected into a reference-owned
+confirmation. Kotlin does not parse invitations, calculate expiry or export private data. Preparation
+is read-only; sending requires that exact opening and explicit consent. Core revalidates the selected
+owner/view and expiry before exporting. A failed send is potentially partial delivery, retained on
+the original target. A later preflight expiry refuses another send without erasing that earlier result.
+Duplicate, foreign and retired callbacks are refused. Retirement stops presentation admission but
+does not cancel admitted preparation/send; the native handle closes once after actual completion,
+including when the UI waiter is cancelled. Successful sending also prevents duplicate consent.
+
 Root identity actions run on IO. The existing route shows loading until completion, rejects
 duplicate actions and never publishes a cancelled screen owner's late result. Its completed revision
 advances after each actual result, even when the visible screen stays the same; test semantics
