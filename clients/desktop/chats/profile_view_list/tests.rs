@@ -1,7 +1,6 @@
 use super::*;
 use dyapp_client::interactions::{Interaction, Kind};
 use dyapp_identity::Identity;
-use dyapp_messaging::hlc::Timestamp;
 
 #[test]
 fn received_pages_preserve_core_order_dates_targets_and_query_bound_navigation() {
@@ -16,6 +15,8 @@ fn received_pages_preserve_core_order_dates_targets_and_query_bound_navigation()
         .map(|_| Identity::try_generate().unwrap().peer_id())
         .collect();
     peers.sort();
+    // Core drafting supplies the wire clock without committing an outgoing interaction.
+    let clock = store.draft_interaction(&peers[0], Kind::Unlike, NOW).unwrap().unwrap().hlc;
     for peer in &peers {
         store
             .receive_interaction(
@@ -24,7 +25,7 @@ fn received_pages_preserve_core_order_dates_targets_and_query_bound_navigation()
                 Interaction {
                     kind: Kind::View,
                     event_id: [1; 16],
-                    hlc: Timestamp::new(NOW, 0).into(),
+                    hlc: clock,
                 },
                 NOW,
             )

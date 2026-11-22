@@ -61,6 +61,7 @@ pub fn search_range_conditions(
 }
 
 /// Project offered fields to displayable search controls using shared prerequisites.
+#[must_use]
 #[uniffi::export]
 pub fn search_visible_fields(offered: Vec<u32>) -> Vec<u32> {
     dyapp_client::search_input::visible_filter_fields(offered)

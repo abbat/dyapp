@@ -32,7 +32,7 @@ fn disabled_and_retired_openings_do_not_require_publication_or_network() {
     );
     let session = f.chats.session.lock().unwrap();
     assert!(session.store().known_groups().unwrap().is_empty());
-    assert!(session.store().due_outbound(i64::MAX).unwrap().is_empty());
+    assert_eq!(session.store().due_outbound(i64::MAX).unwrap().len(), 0);
 }
 
 #[test]

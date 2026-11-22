@@ -493,7 +493,7 @@ fn utc_day(wall_ms: u64) -> Result<i64, Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::Likes;
+    use super::{load_hlc, Likes};
     use crate::interactions::{Interaction, Kind};
     use crate::store::{Error, Store};
     use crate::{prepare_put, PreparedEnvelope};

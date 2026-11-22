@@ -11,6 +11,10 @@ checks; no elapsed delay establishes capture readiness. `node tools/web-lint/pro
 browser controller with held Promise completions and per-case failure deadlines. The native
 desktop smoke additionally drives the actual profile page and verifies close/area retirement;
 none of these controls substitutes for encrypted two-peer delivery and received-list acceptance.
+The Android received-list hint uses `profile_views_received_hint`; the privacy policy uses
+`profile_views_hint`. Keep these resource names distinct across all `values*` XML files.
+The Docker APK build retains Gradle stack traces on failure so dependency-resolution errors
+can be investigated from its captured build log.
 `ReceivedViewsCollectionTests` renders the production Android collection and native pager with
 controlled read completions: loading, exact-target search, failed-refresh retention, explicit retry
 and retired-owner actions. Captured row callbacks must also refuse after query replacement removes

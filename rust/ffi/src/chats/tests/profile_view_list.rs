@@ -33,11 +33,11 @@ fn native_received_views_are_read_only_private_and_survive_reopening() {
     }];
     assert_eq!(f.chats.received_profile_views().unwrap(), expected);
     assert_eq!(f.chats.received_profile_views().unwrap(), expected);
-    assert!(store.due_outbound(i64::MAX).unwrap().is_empty());
+    assert_eq!(store.due_outbound(i64::MAX).unwrap().len(), 0);
     assert!(store.chat_rows().unwrap().is_empty());
     assert!(!store.likes(&peer).unwrap().matched());
     let other = Fixture::new();
-    assert!(other.chats.received_profile_views().unwrap().is_empty());
+    assert_eq!(other.chats.received_profile_views().unwrap(), []);
     drop(store);
     let reopened = f.reopen();
     assert_eq!(reopened.chats.received_profile_views().unwrap(), expected);
@@ -47,5 +47,5 @@ fn native_received_views_are_read_only_private_and_survive_reopening() {
     )
     .unwrap();
     store.set_blocked(&peer, true).unwrap();
-    assert!(reopened.chats.received_profile_views().unwrap().is_empty());
+    assert_eq!(reopened.chats.received_profile_views().unwrap(), []);
 }

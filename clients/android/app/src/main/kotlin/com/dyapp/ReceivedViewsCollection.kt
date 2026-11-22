@@ -51,7 +51,7 @@ internal fun ReceivedViewsCollection(
     DisposableEffect(state) { onDispose { state.retire() } }
     LaunchedEffect(state) { state.load(backend) }
     val refresh: () -> Unit = { scope.launch { state.load(backend) } }
-    Caption(stringResource(R.string.profile_views_hint))
+    Caption(stringResource(R.string.profile_views_received_hint))
     if (state.failed) {
         Caption(
             stringResource(R.string.profile_views_failed),
