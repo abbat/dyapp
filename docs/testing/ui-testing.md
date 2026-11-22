@@ -1222,6 +1222,11 @@ Each preparation/operation transition moves safe focus back to Cancel before sub
 The keyboard-disabled baseline does not establish real IME or internal editor scrolling, native
 authorization, transfer, or completed visual acceptance. The artifact-consuming CI runner and
 source-bound image review remain planned; source lint cannot establish runtime success.
+`tests/scripts/android_visual_producer.py` validates saved GitHub producer/job/artifact API metadata
+before a planned visual runner installs anything. It requires a same-repository main push/manual
+`ci.yml` run, exactly one successful matching Android build and an unexpired source-matching runtime
+artifact with its digest. Unrelated queued Apple jobs do not prevent this validation; the whole
+workflow need not have finished. Keep the API receipts beside `validated.json` for provenance.
 `DeviceDirectoryWorkerTests` and `DeviceDirectoryFailureTests` exercise the presentation adapter with
 controlled native-shaped completions. They retain original public targets across mutable DTO input,
 reject stale/forged confirmation openings, retire a view during an admitted call, cancel its UI waiter
