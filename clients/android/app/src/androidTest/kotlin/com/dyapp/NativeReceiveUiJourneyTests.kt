@@ -57,6 +57,7 @@ class NativeReceiveUiJourneyTests {
             val installed = Opened.Ready(selected.slot.view(destination.slot.owner()), selected.key.peerId())
             assertEquals(original.peerId, installed.peerId)
             assertNotEquals(destination.slot.id, installed.slot.id)
+            screen.reopenWithRetiredActions()
             assertNativePrivateContact(installed, contact, "", saved = false)
             screen.finishEnrollment()
             assertNativePrivateContact(installed, contact, note, saved = true)

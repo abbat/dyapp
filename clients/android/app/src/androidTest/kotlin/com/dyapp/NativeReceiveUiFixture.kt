@@ -61,6 +61,31 @@ internal class NativeReceiveUiFixture(
         return receipt
     }
 
+    /** Retire actual UI ownership without replacing the native receipt or its original credentials. */
+    fun reopenWithRetiredActions() {
+        val opening = checkNotNull(store.state.value)
+        val receipt = opening.session.state.value.receipt
+        check(receipt is MobileLinkReceipt.Installed)
+        val finish = action("link-setup-finish")
+        val open = action("link-receive-open")
+        compose.runOnIdle { mounted.value = false }
+        compose.onNodeWithTag("link-receive-peer").assertDoesNotExist()
+        compose.runOnIdle { mounted.value = true }
+        compose.awaitNode(hasTestTag("link-receive-peer"))
+        compose.runOnIdle {
+            finish()
+            open()
+            check(store.state.value === opening)
+            check(opening.session.state.value.receipt === receipt)
+            check(!opening.session.state.value.busy)
+            check(!opening.session.state.value.enrollment.completed)
+        }
+        compose.onNodeWithTag("link-receive-peer").assertExists()
+    }
+
+    private fun action(tag: String): () -> Unit =
+        compose.awaitNode(hasTestTag(tag)).fetchSemanticsNode().config[applicationClickKey]
+
     fun finishEnrollment() {
         compose.awaitNode(hasTestTag("link-setup-finish")).performScrollTo().performClick()
         val result = await { !it.busy && (it.enrollment.completed || it.enrollment.failure != null) }
