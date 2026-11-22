@@ -2,9 +2,13 @@ package com.dyapp
 
 import uniffi.dyapp.MobileLinkApproval
 import uniffi.dyapp.MobileLinkCodeStatus
+import uniffi.dyapp.deviceLinkCodeStatus
 
 /** Public normalized target and blocking operations from the same prepared native handle. */
 internal class LinkApprovalCalls(val code: String, val send: () -> Unit, val close: () -> Unit)
+
+internal fun nativeLinkApprovalSession(opened: Opened.Ready): LinkApprovalSession =
+    LinkApprovalSession(::deviceLinkCodeStatus) { nativeLinkApprovalCalls(opened, it) }
 
 /** Getter failure must release a prepared handle too; no credentials are exported during preparation. */
 internal fun nativeLinkApprovalCalls(opened: Opened.Ready, text: String): LinkApprovalCalls {

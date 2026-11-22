@@ -164,6 +164,8 @@ extension functions. `ChatFeedActions.shareProfile` uses `history(peer)` and `se
 without a receiver. `make lint-android` does not resolve method signatures; native Android CI
 must compile the changed callers and generated bindings. Fixture helpers that call `setContent`
 take `ComposeContentTestRule`; base `ComposeTestRule` supports synchronization/input only.
+Call `setContent` once per test. Multiple native UI phases reuse a mutable root scene with fresh
+reference-owned routes and await disposal/completion instead of installing another Compose root.
 Raw `onNode`/`onAllNodes` are receiver members: call `compose.onNode(...)`/
 `compose.onAllNodes(...)` without importing top-level functions. Named helpers such as
 `onNodeWithTag` remain extensions requiring imports.

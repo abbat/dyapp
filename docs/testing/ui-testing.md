@@ -1165,7 +1165,14 @@ then stops the responder before terminal retries. This package-local coverage mu
 `MobileLinkReceiver::result` with `Ok(None)`; Android-only acceptance does not cover that mutant.
 `NativeLinkJourneyTests` uses two isolated native registries and the existing CI node: owner
 publication, explicit approval, authenticated reception, and normal pending-link enrollment through
-`MobileLinkRecovery`. It first opens the normal linked chat session,
+`MobileLinkRecovery`. Owner approval now enters the receiving code through production Account →
+Devices dialogs and their real native worker. Before creating that code, the test awaits the owner's
+verified directory and available entry so initial UI/network setup does not consume invitation
+lifetime. It checks original identity and normalized code display/copy, full-control/physical-possession
+warnings and actual sending completion before retaining every receiver/import/enrollment assertion.
+Owner approval and later revocation share one Compose root with fresh route/scene references.
+Each phase awaits actual native handle release before fixture cleanup; no extra node or link setup,
+automatic transfer retry or weakened receiver assertion is added. It first opens the normal linked chat session,
 which preserves the received device and bootstraps only local session state. It verifies an empty
 contact note and favorite list before import, completion followed by an idle retry, then the original
 nonempty note and saved favorite flag. `verifyNativeOwnPrivateSync` then observes an actual receive

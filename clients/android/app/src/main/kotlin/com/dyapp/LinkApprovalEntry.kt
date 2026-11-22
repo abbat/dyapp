@@ -10,15 +10,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import uniffi.dyapp.deviceLinkCodeStatus
 
 @Composable
 internal fun LinkApprovalEntry(
     opened: Opened.Ready,
     enabled: Boolean = true,
-    create: () -> LinkApprovalSession = {
-        LinkApprovalSession(::deviceLinkCodeStatus) { nativeLinkApprovalCalls(opened, it) }
-    }
+    create: () -> LinkApprovalSession = { nativeLinkApprovalSession(opened) }
 ) = key(opened) {
     val owner = remember { LinkApprovalDialogOwner(create) }
     DisposableEffect(owner) { onDispose { owner.retire() } }
