@@ -26,7 +26,7 @@ internal fun LinkApprovalDialog(session: LinkApprovalSession, identity: String, 
     val title = when {
         view.delivery?.result?.isSuccess == true -> R.string.owner_sent_title
         view.opening != null -> R.string.owner_confirm_title
-        else -> R.string.owner_title
+        else -> R.string.owner_link
     }
     AlertDialog(
         onDismissRequest = dismiss,

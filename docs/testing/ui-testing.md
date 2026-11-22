@@ -1197,7 +1197,8 @@ expiry, and retirement during both preparation and send. Cancelling a UI waiter 
 admitted send or close its handle early; a successor session remains unchanged and each handle closes
 once. Completion signals and per-transition failure deadlines replace timing guesses. These tests
 require Android instrumentation CI; they do not prove generated binding compilation, actual transfer
-or the production owner-approval widgets.
+or the production owner-approval widgets. The input dialog reuses the localized `owner_link`
+resource for its title; Kotlin source lint cannot validate generated `R.string` names.
 `LinkApprovalUITests` and `LinkApprovalUILifetimeTests` drive those production dialogs using controlled
 native-shaped completions. They assert the original public target and full-control warnings, explicit
 consent, partial failure followed by expiry, first-input expiry, acknowledged send and no repeat.
