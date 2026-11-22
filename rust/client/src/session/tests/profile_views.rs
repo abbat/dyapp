@@ -71,6 +71,7 @@ fn a_first_view_commits_welcome_and_signal_without_a_like_or_chat_request() {
         .stage_outbound(&invite.alice.seal(&seal).unwrap(), &[])
         .unwrap();
     let mut receiver = Session::open(receiver_store, &seal).unwrap();
+    let waiting = crate::mail_notices::capture(receiver.store()).unwrap();
     for write in &writes {
         let key = InboxKey {
             mailbox: *write.mailbox(),
@@ -81,15 +82,7 @@ fn a_first_view_commits_welcome_and_signal_without_a_like_or_chat_request() {
             .unwrap();
     }
     let sender = invite.bob_id.peer_id();
-    assert!(!receiver.store.send_profile_views().unwrap());
-    assert!(receiver.store.viewed_on(&sender, &peer, VIEW_TIME).unwrap());
-    assert!(!receiver.likes(&sender).unwrap().ours);
-    assert!(!receiver.likes(&sender).unwrap().theirs);
-    assert_eq!(
-        receiver.store.conversation(&sender).unwrap(),
-        Conversation::None
-    );
-    assert!(receiver.store.chat_rows().unwrap().is_empty());
+    assert_received_view(&receiver, &sender, &peer, &waiting);
 
     let before: Vec<_> = writes
         .iter()
@@ -123,6 +116,36 @@ fn a_first_view_commits_welcome_and_signal_without_a_like_or_chat_request() {
         .collect();
     after.sort();
     assert_eq!(after, expected);
+}
+
+fn assert_received_view(
+    receiver: &Session,
+    sender: &str,
+    peer: &str,
+    before: &crate::mail_notices::Waiting,
+) {
+    assert!(!receiver.store.send_profile_views().unwrap());
+    assert!(receiver.store.viewed_on(sender, peer, VIEW_TIME).unwrap());
+    assert_eq!(
+        receiver.store.received_profile_views().unwrap(),
+        vec![crate::store::ReceivedProfileView {
+            peer_id: sender.to_owned(),
+            utc_date: "2023-11-14".into(),
+        }]
+    );
+    assert!(!receiver.likes(sender).unwrap().ours);
+    assert!(!receiver.likes(sender).unwrap().theirs);
+    assert_eq!(
+        receiver.store.conversation(sender).unwrap(),
+        Conversation::None
+    );
+    assert!(receiver.store.chat_rows().unwrap().is_empty());
+    let after = crate::mail_notices::capture(receiver.store()).unwrap();
+    assert!(
+        crate::mail_notices::decide(before, &after, true, crate::store::NoticeContent::Text,)
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[tokio::test]

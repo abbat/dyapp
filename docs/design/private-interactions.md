@@ -73,6 +73,11 @@ peer leaves search and Liked you. Block/pass changes also travel through the enc
 group when linked devices synchronize; this does not synchronize every privacy preference or
 promise immediate delivery. A view is sent only when the local setting allows it and
 at most once per peer profile per UTC day. Receiving views never depends on that setting.
+`Store::received_profile_views` reads one latest locally received UTC day per other profile,
+newest day first with canonical Peer ID order for ties. It applies the common result bound and
+hides blocked, passed and closed-conversation peers; a match does not hide a view. Core formats
+only the available `YYYY-MM-DD` date in UTC, never an exact viewing time. The projection is
+read-only, excludes outgoing/own-device views and does not depend on the sending preference.
 `Store::profile_view_due_at` provides adapters with read-only preflight before network IO. It
 shares drafting's persisted HLC, preference, block and daily checks without allocating an event
 ID or advancing the clock. Staging repeats admission; preflight never reserves a view.
