@@ -1190,7 +1190,14 @@ expiry, and retirement during both preparation and send. Cancelling a UI waiter 
 admitted send or close its handle early; a successor session remains unchanged and each handle closes
 once. Completion signals and per-transition failure deadlines replace timing guesses. These tests
 require Android instrumentation CI; they do not prove generated binding compilation, actual transfer
-or the planned owner-approval widgets.
+or the production owner-approval widgets.
+`LinkApprovalUITests` and `LinkApprovalUILifetimeTests` drive those production dialogs using controlled
+native-shaped completions. They assert the original public target and full-control warnings, explicit
+consent, partial failure followed by expiry, first-input expiry, acknowledged send and no repeat.
+A blocked send disables Cancel/submit and ignores native Back. Replacing the actual opened owner
+retires the old dialog; its saved open/submit/dismiss callbacks cannot change an equal successor.
+These tests use actual semantics, scroll geometry and completion signals. Full native EN/RU visual
+review and the existing real two-device UI/JNI journey remain separate acceptance.
 `DeviceDirectoryWorkerTests` and `DeviceDirectoryFailureTests` exercise the presentation adapter with
 controlled native-shaped completions. They retain original public targets across mutable DTO input,
 reject stale/forged confirmation openings, retire a view during an admitted call, cancel its UI waiter
