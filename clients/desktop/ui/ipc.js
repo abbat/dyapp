@@ -37,6 +37,10 @@
  * @typedef {{ size: number, modules: boolean[] }} QrMatrix
  * @typedef {'multiple' | 'unreadable' | 'invalid' | 'matched' | 'foreign' | 'notFound'} QrScan
  * @typedef {{ code: string, qr: QrMatrix }} LinkCode
+ * @typedef {{ query: string, offset: number }} CollectionCursor
+ * @typedef {{ total: number, matched: number, number: number, pages: number,
+ *   entries: { target: string, label: string }[], previous: CollectionCursor | null,
+ *   next: CollectionCursor | null }} ReceivedViewPage
  * @typedef {{ key: number[], this: boolean }} Device
  * @typedef {{ version: number, hidden: boolean, searchPending: boolean }} SearchRecoverySaved
  * @typedef {'any' | 'same' | 'exclude'} EmployerChoice
@@ -116,6 +120,7 @@
  *   prepare_profile_view: Command<[{ peerId: string }], string>,
  *   submit_profile_view: Command<[{ token: string }], { status: 'accepted', id: number[] } | { status: 'queued', id: number[], detail: string } | null>,
  *   retire_profile_view: Command<[{ token: string }], void>,
+ *   received_profile_views: Command<[{ query: string, cursor: CollectionCursor | null }], ReceivedViewPage>,
  *   block_peer: Command<[{ peerId: string }], BlockResult>,
  *   receive_mail: Command<[], number>,
  *   load_network: Command<[{ file: 'draft' | 'active' }], NetworkDraft | null>,

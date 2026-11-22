@@ -13,6 +13,10 @@ controlled read completions: loading, exact-target search, failed-refresh retent
 and retired-owner actions. The shared collection-row geometry matrix includes its full identifier
 and Open action in EN/RU at normal and enlarged text. These are runtime checks, not evidence of
 fresh rendered acceptance until the corresponding source-bound Android CI has executed them.
+`node tools/web-lint/received-view-fixtures.mjs` checks the dependency-free received-list request
+controller with explicitly released promises: core page/cursor pass-through, pending-action refusal,
+refresh failure retention, query replacement and retired completions. The controller owns UI request
+lifetime only; the shared Rust pager retains filtering, counts and cursor policy.
 
 Native receiving completion checks retain a recovery review prepared before setup finishes:
 preparing another review after the pending link has been cleared is correctly refused. Publication
