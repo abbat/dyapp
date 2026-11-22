@@ -147,12 +147,25 @@ class MainActivity : ComponentActivity() {
             when {
                 locked -> Locked()
                 lock == StoredLock.NEW -> SetupScreen(
-                    device,
+                    configurationDevice(),
                     skipLock
                 ) { setPin(null, it) == PinAttempt.UNLOCKED }
-                settings -> LockSettingsScreen(lockMode, device, ::setPin, leaveSettings)
+                settings -> Settings()
                 else -> Main()
             }
+        }
+
+        @Composable
+        private fun Settings() {
+            val mode = lockMode
+            val reset = mode == LockMode.RESET || mode == LockMode.BIOMETRIC
+            LockSettingsScreen(mode, configurationDevice(reset), { current, newPin ->
+                setPin(current, newPin, reset = reset)
+            }, leaveSettings)
+        }
+
+        private fun configurationDevice(reset: Boolean = false) = DeviceLock(device.secure, device.biometrics) {
+            setPin(null, null, biometric = true, reset = reset) == PinAttempt.UNLOCKED
         }
 
         @Composable
@@ -184,7 +197,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // The user may have just set a screen lock in system settings.
         val secure = getSystemService(KeyguardManager::class.java).isDeviceSecure
-        device = DeviceLock(secure, biometrics()) { setPin(null, null, true) }
+        device = DeviceLock(secure, biometrics())
         appLock.onForeground()
         lifecycleScope.launch(Dispatchers.IO) { runCatching { resumeNetworkSelection() } }
         refreshLock()
@@ -217,17 +230,25 @@ class MainActivity : ComponentActivity() {
         return !wasLocked && locked
     }
 
-    private suspend fun setPin(current: String?, newPin: String?, biometric: Boolean = false): PinAttempt? {
-        val reset = recovered || lock == StoredLock.BIOMETRIC
-        val result = withContext(Dispatchers.Default) {
-            runCatching { store.save(current, newPin, reset, biometric) }.getOrNull()
+    private suspend fun setPin(
+        current: String?,
+        newPin: String?,
+        biometric: Boolean = false,
+        reset: Boolean = false,
+    ): PinAttempt? {
+        val (result, mode) = withContext(Dispatchers.Default) {
+            val result = runCatching { store.save(current, newPin, reset, biometric) }.getOrNull()
+            val mode = runCatching { store.mode() }
+            result.takeIf { mode.isSuccess } to mode.getOrDefault(StoredLock.PIN)
         }
         withContext(Dispatchers.Main.immediate) {
             if (result == PinAttempt.UNLOCKED) {
-                lock = if (biometric) StoredLock.BIOMETRIC else if (newPin != null) StoredLock.PIN else StoredLock.OFF
+                lock = mode
                 if (lock == StoredLock.OFF) appLock.onPinCleared() else appLock.onPinEnrolled()
                 obscureSnapshot(lock != StoredLock.OFF)
                 recovered = false
+            } else if (result == null) {
+                content.skipped(mode)
             }
             refreshLock()
         }
@@ -253,9 +274,9 @@ class MainActivity : ComponentActivity() {
 }
 
 // Switch to biometrics, or change or (null new PIN) clear the PIN behind the current one or a
-// fresh OS check (reset), else enrol one.
+// fresh OS check (reset), else request initial-only enrollment under core admission.
 private fun AppLockStore.save(current: String?, newPin: String?, reset: Boolean, biometric: Boolean) = when {
-    biometric -> PinAttempt.UNLOCKED.also { useBiometric() }
+    biometric -> PinAttempt.UNLOCKED.also { useBiometric(afterDeviceCredential = reset) }
     current != null -> change(current, newPin)
     reset -> PinAttempt.UNLOCKED.also { resetAfterDeviceCredential(newPin) }
     else -> PinAttempt.UNLOCKED.also { enroll(checkNotNull(newPin)) }

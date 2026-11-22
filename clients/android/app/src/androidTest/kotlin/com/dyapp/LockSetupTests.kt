@@ -107,7 +107,10 @@ class SetupScreenTests {
         compose.setContent { SetupScreen(device, { true }) { true } }
         compose.onNodeWithTag("lock-biometric-unavailable").assertIsDisplayed()
         compose.onNodeWithTag("lock-biometric").assertDoesNotExist()
-        device = DeviceLock(true, Biometrics.READY) { chosen = true }
+        device = DeviceLock(true, Biometrics.READY) {
+            chosen = true
+            true
+        }
         compose.onNodeWithTag("lock-biometric").performClick()
         compose.waitUntil { chosen }
     }

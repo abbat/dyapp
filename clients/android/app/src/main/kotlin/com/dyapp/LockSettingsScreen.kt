@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -46,7 +47,22 @@ private class PinForm {
 
     fun authorized(pinSet: Boolean) = open && (!pinSet || appPinReady(current.value))
 
+    fun chooseBiometric(scope: CoroutineScope, device: DeviceLock) {
+        if (!open) return
+        busy = true
+        error = null
+        listOf(current, pin, repeat).forEach { it.value = "" }
+        scope.launch {
+            try {
+                if (!device.onBiometric()) error = R.string.lock_failed
+            } finally {
+                busy = false
+            }
+        }
+    }
+
     fun submit(scope: CoroutineScope, current: String?, newPin: String?, onSetPin: PinSetter) {
+        if (!open) return
         // Every submit clears the typed PINs, accepted or not.
         error = newPin?.let { pinRejection(it, repeat.value) }
         listOf(this.current, pin, repeat).forEach { it.value = "" }
@@ -86,7 +102,7 @@ enum class LockMode {
  * Device biometrics are offered while no PIN guards the choice.
  */
 @Composable
-fun LockSettingsScreen(mode: LockMode, device: DeviceLock, onSetPin: PinSetter, onBack: () -> Unit) {
+fun LockSettingsScreen(mode: LockMode, device: DeviceLock, onSetPin: PinSetter, onBack: () -> Unit) = key(mode) {
     val scope = rememberCoroutineScope()
     val form = remember { PinForm() }
     val open = form.open
@@ -109,7 +125,9 @@ fun LockSettingsScreen(mode: LockMode, device: DeviceLock, onSetPin: PinSetter, 
             { submit(form.pin.value) }.takeIf { authorized && deviceSecure && form.pin.value.isNotEmpty() },
             { submit(null) }.takeIf { authorized && pinSet }
         )
-        if (mode == LockMode.OFF || mode == LockMode.RESET) BiometricOption(device, open)
+        if (mode == LockMode.OFF || mode == LockMode.RESET) {
+            BiometricOption(device, open) { form.chooseBiometric(scope, device) }
+        }
     }
 }
 

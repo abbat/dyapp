@@ -191,6 +191,11 @@ factory is deprecated and `-Werror` rejects it. V2 queues coroutine effects with
 await actual state/UI readiness rather than depending on immediate effect execution. For UI-owned
 session transitions, use `compose.awaitSnapshot` so queued effects can resume; `runBlocking` with
 `Flow.first` can starve them. Pure IO retirement after disposal still awaits its real worker.
+App-lock configuration callbacks capture initial-only versus OS-authorized replacement from their
+specific settings route, never from mutable Activity state at invocation. Key the settings form by
+that authority mode so changing modes cancels its prior coroutine scope. Core initial-only admission
+checks New/Off and writes under one guard; a Kotlin mode preflight cannot replace that boundary.
+
 Localized instrumentation content uses `LocalizedTestContext` so context/configuration/resources
 agree and the actual Activity picker registry survives the configuration-context substitution.
 Use its font-scale argument for geometry cases; retain the original locale and text-layout assertions.

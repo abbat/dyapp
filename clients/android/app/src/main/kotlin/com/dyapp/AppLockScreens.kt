@@ -49,7 +49,9 @@ fun SetupScreen(device: DeviceLock, onSkip: suspend () -> Boolean, onEnroll: sus
         }
     }
     val skip = { submission.start(R.string.lock_skip_failed, onSkip) }
-    Page(actions = { SetupActions(device, submission.busy, submit.takeIf { editable && pin.isNotEmpty() }, skip) }) {
+    Page(actions = {
+        SetupActions(device, submission, submit.takeIf { editable && pin.isNotEmpty() }, skip)
+    }) {
         SetupIntro(device.secure)
         NewPinFields(pinState, repeatState, R.string.lock_pin, editable)
         submission.error?.let { ErrorText(it) }
@@ -57,13 +59,18 @@ fun SetupScreen(device: DeviceLock, onSkip: suspend () -> Boolean, onEnroll: sus
 }
 
 @Composable
-private fun SetupActions(device: DeviceLock, busy: Boolean, onSet: (() -> Unit)?, onSkip: () -> Unit) {
+private fun SetupActions(
+    device: DeviceLock,
+    submission: AppLockSetupSubmission,
+    onSet: (() -> Unit)?,
+    onSkip: () -> Unit,
+) {
     SetPinButton("lock-set", R.string.lock_set, onSet)
-    BiometricOption(device, !busy)
+    BiometricOption(device, !submission.busy) { submission.start(R.string.lock_failed, device.onBiometric) }
     TextButton(
         onClick = onSkip,
         Modifier.fillMaxWidth().testTag("lock-skip").applicationClick(onSkip),
-        enabled = !busy
+        enabled = !submission.busy
     ) {
         Text(stringResource(R.string.lock_skip))
     }

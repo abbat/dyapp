@@ -15,7 +15,7 @@ import java.io.File
 import java.io.IOException
 import java.util.UUID
 
-private class NativeAppLockTestKey : KeyStore {
+internal class NativeAppLockTestKey : KeyStore {
     override fun wrap(secret: ByteArray): ByteArray = secret.map { (it.toInt() xor 0x5a).toByte() }.toByteArray()
     override fun unwrap(wrapped: ByteArray): ByteArray = wrap(wrapped)
 }
@@ -98,7 +98,7 @@ class NativeAppLockStoreTests {
         assertEquals(StoredLock.PIN, store().skip())
         assertTrue(File(root, "app-lock").readBytes().contentEquals(before))
         assertEquals(StoredLock.PIN, store().mode())
-        store().useBiometric()
+        store().useBiometric(afterDeviceCredential = true)
         assertEquals(StoredLock.BIOMETRIC, store().skip())
         assertEquals(StoredLock.BIOMETRIC, store().mode())
     }

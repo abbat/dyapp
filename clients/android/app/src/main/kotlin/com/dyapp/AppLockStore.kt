@@ -45,8 +45,10 @@ class AppLockStore(root: File, keys: KeyStore) {
     /** Read the core choice; invalid or unavailable storage must keep the app locked. */
     fun mode(): StoredLock = withCore { it.mode().local() }
 
-    /** Choose biometric mode on first setup, while off, or after fresh OS authentication. */
-    fun useBiometric() = withCore { it.useBiometric() }
+    /** Initial setup is atomic; protected replacement requires fresh OS authentication. */
+    fun useBiometric(afterDeviceCredential: Boolean = false) = withCore {
+        if (afterDeviceCredential) it.useBiometric() else it.useBiometricInitial()
+    }
 
     /** Store Skip and return the actual core mode without disabling an existing lock. */
     fun skip(): StoredLock = withCore {
@@ -54,8 +56,8 @@ class AppLockStore(root: File, keys: KeyStore) {
         it.mode().local()
     }
 
-    /** Enroll only without an existing PIN; authenticated replacement uses recovery instead. */
-    fun enroll(pinValue: String) = withCore { it.enroll(pinValue) }
+    /** Enroll only from New/Off; authenticated protected replacement uses recovery instead. */
+    fun enroll(pinValue: String) = withCore { it.enrollInitial(pinValue) }
 
     /** Core persists the consumed attempt before verification and the reset before success. */
     fun attempt(pinValue: String): PinAttempt = withCore { it.attempt(pinValue).local() }
