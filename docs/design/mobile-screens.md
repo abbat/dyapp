@@ -256,7 +256,9 @@ The IDs inside each section are the desktop ones; only the frame differs.
   Its states cover `devices-loading`, `devices-saved`, `devices-ready`,
   `devices-verified-saved`, `devices-offline`, `devices-no-profile`, `devices-empty`
   and `devices-error`. Saved rows remain distinct from a verified reply; an absent network
-  profile or empty list never acknowledges revocation. `devices-confirm`, `devices-revoking`,
+  profile or empty list never acknowledges revocation. Empty saved rows after an older/equal verified
+  reply retain the saved-fallback label; only empty rows projected from the remote source describe
+  an empty verified directory. `devices-confirm`, `devices-revoking`,
   `devices-uncertain` and `devices-gone` show explicit confirmation, admitted work,
   unconfirmed partial completion and acknowledged completion. The current device is first and
   cannot be disconnected here. Retry retains the displayed original target; copied-key and

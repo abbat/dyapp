@@ -1225,7 +1225,10 @@ calls and the real common collection pager. It checks the immutable displayed ta
 Disconnect, partial-failure Retry, acknowledged success alongside cache failure and an old dialog
 callback after an equal successor screen replaces its owner. Native writes are held by explicit
 completion gates; observer deadlines reset per transition, and row clicks use current scroll geometry.
-These controlled cases do not prove real network authorization or full native visual acceptance.
+An additional controlled case keeps the row count at zero while changing only the core-projected
+source from Saved to Remote: captions must distinguish saved fallback from a truly empty verified
+directory, without inventing revocation completion. These controlled cases do not prove real network
+authorization or full native visual acceptance.
 `NativePrivateContactTests` separately invokes the actual JNI favorite/note APIs without a profile
 fetch or counterpart mailbox. It reopens native storage, checks identity isolation and exact Unicode
 text, and requires private-only mutations to leave public draft, likes and chat state unchanged.

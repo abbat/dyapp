@@ -67,10 +67,13 @@ private fun deviceReadText(listing: DeviceDirectoryListing): Int = when (listing
     MobileDeviceReadState.CACHED -> R.string.devices_read_saved
     MobileDeviceReadState.UNAVAILABLE -> R.string.devices_read_unavailable
     MobileDeviceReadState.NO_PROFILE -> R.string.devices_read_no_profile
-    MobileDeviceReadState.VERIFIED -> when {
-        listing.rows.isEmpty() -> R.string.devices_read_empty
-        listing.source == MobileDeviceRowSource.REMOTE -> R.string.devices_read_verified
-        else -> R.string.devices_read_verified_saved
+    MobileDeviceReadState.VERIFIED -> when (listing.source) {
+        MobileDeviceRowSource.SAVED -> {
+            R.string.devices_read_verified_saved
+        }
+        MobileDeviceRowSource.REMOTE -> {
+            if (listing.rows.isEmpty()) R.string.devices_read_empty else R.string.devices_read_verified
+        }
     }
 }
 
