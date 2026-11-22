@@ -77,8 +77,12 @@ Who can see what about you: [Your privacy in dyapp](privacy.md).
 **Settings → Privacy** saves profile-view, read-receipt and typing choices independently.
 Unknown or pending values cannot be changed; after an unconfirmed result, **Read setting again**
 rereads storage before allowing another change. Switching identity retires the old controls.
-Profile-view delivery remains planned. Typing is deferred until a direct client path exists;
-its saved preference does not send typing through mailboxes.
+Profile views are off by default. When enabled, showing another person's actual profile page
+attempts one encrypted view per peer per UTC day. Lists, profile/photo refreshes and saving a setting
+do not send views. Leaving the page retires unadmitted work; a committed signal may still deliver
+through the normal outbox. A pre-commit failure is not queued; reopening the page can try again.
+Typing is deferred until a direct client path exists; its saved preference does not send typing
+through mailboxes.
 
 A chat's **Name this contact** sets a private contact name for this identity. The name is shared
 with your linked devices when they synchronize, and is not shown to the contact. An empty name

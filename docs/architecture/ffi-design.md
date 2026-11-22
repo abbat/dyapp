@@ -27,8 +27,11 @@ against the actual Session at submission. `ProfileViewOpening.retire` prevents a
 `submit_profile_view` consumes the common-core opening, captures the active network under the
 same context lock, and returns no event or the committed `ChatSubmission` delivery result.
 Disabled/daily-duplicate/retired attempts stop before network lookup. Profile/list/photo fetches
-remain read-only. Android/Tauri opening callers and received-view UI are still planned and require
-source-bound acceptance. Typing delivery is deferred until a direct client path exists; its saved preference
+remain read-only. Android's explicit profile page captures the opening through its held search
+context, waits for a shown profile, and submits once on IO. Disposal retires the opening without
+releasing an admitted native identity lease. Core owns privacy, daily deduplication and immutable
+target/network admission; Compose only supplies readiness and lifetime. Tauri opening callers and
+received-view UI are still planned; native compilation/runtime acceptance remains source-bound. Typing delivery is deferred until a direct client path exists; its saved preference
 never authorizes mailbox typing ([contract](../design/read-receipts.md#typing-indicators)).
 
 `ChatSession.active_chat_peers` is a read-only common-core projection of fresh authenticated

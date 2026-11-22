@@ -57,6 +57,7 @@ internal fun ProfileViewScreen(
 ) {
     var attempt by remember { mutableIntStateOf(0) }
     val load by rememberProfileLoad(peer, known, feed, attempt)
+    ProfileViewDisclosure(peer, feed, load is ProfileLoad.Shown && peer != opened.peerId)
     val form = remember(peer, opened.slot.id, feed) { ProfileForm() }
     val scope = rememberCoroutineScope()
     LaunchedEffect(peer, feed, feed.version, form.readVersion, form.sending) {
