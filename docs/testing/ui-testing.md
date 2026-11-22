@@ -26,6 +26,13 @@ The five Android `settings-views` prototype outcomes run `views-fixture-tests.js
 They check read-outcome rows/errors, full-target search across bounded pages, explicit Open and
 current-geometry control reachability. Non-shipping samples reuse existing prototype collection
 navigation; production Android and Tauri filtering/paging remain owned by the Rust core.
+`ReceivedViewsVisualTests` is a dedicated `viewsVisual=1` capture phase for all five read outcomes,
+in EN/RU, both themes and actual 100/200% text. It uses the production Settings frame, collection
+and native pager with controlled readers, waits for outcome/pager readiness, and verifies every
+laid-out text line through current scroll geometry. Top/bottom PNG frames retain the exact producer
+SHA, actual native density and viewport dimensions; these controlled samples prove rendering only.
+`NativeScreenVisualOutput` writes this metadata and the existing receiving matrix's unchanged format,
+rejecting reused directories, duplicate frames and incomplete frame counts.
 
 Native receiving completion checks retain a recovery review prepared before setup finishes:
 preparing another review after the pending link has been cleared is correctly refused. Publication
