@@ -800,6 +800,9 @@ const GENERATED_COMMAND_HANDLER: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = ta
     chats::commands::block_peer,
     chats::commands::peer_likes,
     chats::commands::like_peer,
+    chats::profile_view::prepare_profile_view,
+    chats::profile_view::submit_profile_view,
+    chats::profile_view::retire_profile_view,
     chats::commands::liked_you,
     chats::share::shared_profile,
     chats::share::share_profile,
@@ -910,6 +913,7 @@ fn main() {
         .manage(search_recovery_state::RecoveryState::default())
         .manage(search::SearchState::default())
         .manage(chats::Sessions::default())
+        .manage(chats::profile_view::ViewState::default())
         .manage(link::Links::default())
         .manage(window::WindowState::default())
         .manage(tray::Tray::default())

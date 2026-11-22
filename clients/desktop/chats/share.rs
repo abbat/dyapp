@@ -104,7 +104,7 @@ async fn send(
         .map_err(share_error)
 }
 
-fn share_owner(
+pub(super) fn share_owner(
     session: &Session,
     identity: &Identity,
 ) -> Result<dyapp_profile::VerifiedProfile, String> {

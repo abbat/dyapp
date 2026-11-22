@@ -5,16 +5,23 @@ The bootstrap signal class and quota, client plaintext codec, persisted like/unl
 own-event clock and view-day records exist. `Session::interact` and `Session::receive` send and
 apply encrypted signal mailbox deliveries; a two-client protocol test covers like, match,
 unlike, replay, offline retry and daily view. Tauri and Android have Search and Liked you controls;
-explicit app view-sending and received-view UI remain planned. Own-device events follow the
-pair-group ordering and reconciliation rules below.
+Android's explicit profile page submits optional views through the common native opening;
+received-view UI and Tauri page wiring remain planned. Own-device events follow the pair-group
+ordering and reconciliation rules below.
 
 An enabled first View can create the pair without sending a Like: the core commits its group
 catalog, Welcome and Signal envelopes, sealed MLS state, exact event and sent-day record in one
 transaction. A disabled or already-recorded daily View stops before KeyPackage IO; admission is
 checked again after that IO before MLS advancement. A failed first-view transaction leaves no
 invitation, event or day and invalidates advanced in-memory MLS state. Merely creating the pair
-or receiving a View grants no chat request or match. App profile-opening adapters and received-view
-UI remain planned until their source-bound acceptance; this core path alone is not app delivery.
+or receiving a View grants no chat request or match. Native compilation/runtime acceptance remains
+source-bound; the core path alone is not proof of app delivery.
+
+Shared Tauri commands prepare one opaque opening handle, submit that handle and retire it on
+closure. Idle handles retain no identity key or lease. Replacement retires only unadmitted work;
+a submit retains the actual identity lease and original network snapshot through completion.
+The commands use the same core admission and Session staging as UniFFI. Browser page wiring and
+received-view presentation remain planned.
 
 ## Wire contract
 

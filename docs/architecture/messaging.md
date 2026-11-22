@@ -165,7 +165,9 @@ future and applies one from another own device as its own, against the other own
 `Session::likes` reads the
 match state. A protocol test covers a match, a replayed put, an offline unlike, one view a day and the
 signal class.
-The Linux desktop Search and Liked you views show likes; other platform UI remains planned.
+Shared Tauri and Android Search and Liked you views show likes. Android profile pages also submit
+optional views through a common owner/network-bound opening; received-view presentation is planned.
+Native adapters distinguish no event from a committed event whose delivery remains queued.
 `rust/client::store::Store::open` now creates or reopens an identity-bound, version-1 SQLite
 database at an absolute path supplied by the app. It refuses a different identity, unknown
 unversioned objects, corrupt data and future schema versions. WAL uses full synchronous commits.
