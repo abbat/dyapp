@@ -1,5 +1,9 @@
 # UI Testing: Practical Guide
 
+Native receiving completion checks retain a recovery review prepared before setup finishes:
+preparing another review after the pending link has been cleared is correctly refused. Publication
+preview tests await their expected current row after the native draft read, before scrolling.
+
 Android native link journeys observe actual session completion through Compose `awaitSnapshot`.
 Each transition retains its independent failure deadline and named stage; Compose drives queued
 UI effects while native IO remains real. Blocking `Flow.first` on the instrumentation thread is

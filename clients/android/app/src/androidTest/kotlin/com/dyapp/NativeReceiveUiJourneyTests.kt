@@ -59,9 +59,11 @@ class NativeReceiveUiJourneyTests {
             assertNotEquals(destination.slot.id, installed.slot.id)
             screen.reopenWithRetiredActions()
             assertNativePrivateContact(installed, contact, "", saved = false)
-            screen.finishEnrollment()
-            assertNativePrivateContact(installed, contact, note, saved = true)
-            assertFinished(installed)
+            linkEnrollmentReview(installed.slot.owner(), installed.slot.id, installed.peerId).use { review ->
+                screen.finishEnrollment()
+                assertNativePrivateContact(installed, contact, note, saved = true)
+                assertFalse(review.resume())
+            }
         }
     }
 
@@ -78,12 +80,6 @@ class NativeReceiveUiJourneyTests {
             checkNotNull(approval.state.value.delivery).result.getOrThrow()
         } finally {
             withTimeout(NATIVE_LINK_UI_STEP_MS) { approval.retire().await().getOrThrow() }
-        }
-    }
-
-    private fun assertFinished(installed: Opened.Ready) {
-        linkEnrollmentReview(installed.slot.owner(), installed.slot.id, installed.peerId).use { review ->
-            assertFalse(review.resume())
         }
     }
 

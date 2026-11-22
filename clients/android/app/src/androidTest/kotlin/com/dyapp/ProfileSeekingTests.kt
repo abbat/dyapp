@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -42,8 +43,9 @@ class ProfileSeekingTests {
         compose.onNodeWithTag("profile-publish").performScrollTo().assertIsNotEnabled()
     }
 
-    private fun openPublish() {
+    private fun openPublish(expected: String) {
         compose.onNodeWithTag("profile-publish").performScrollTo().performClick()
+        compose.awaitNode(hasTestTag(expected))
     }
 
     private fun closePublish() {
@@ -51,7 +53,7 @@ class ProfileSeekingTests {
     }
 
     private fun previewShowsTheSavedChoices(woman: UInt) {
-        openPublish()
+        openPublish("preview-seeking-genders")
         compose.onNodeWithTag("preview-seeking-genders").performScrollTo()
             .assertTextEquals(row(R.string.profile_seeking_genders, string(R.string.profile_value_gender_Woman)))
         compose.onNodeWithTag("preview-seeking-age-from").performScrollTo()
@@ -69,7 +71,7 @@ class ProfileSeekingTests {
         compose.onNodeWithTag("profile-seeking-gender-$woman").performScrollTo().assertIsOff()
         compose.onNodeWithTag("profile-seeking-age-from").performScrollTo().assertTextContains("", substring = false)
         // Clearing on save is no edit, so publishing stays open.
-        openPublish()
+        openPublish("preview-not-looking")
         compose.onNodeWithTag("preview-not-looking").performScrollTo()
             .assertTextEquals(row(R.string.profile_not_looking, string(R.string.profile_not_looking_on)))
         compose.onNodeWithTag("preview-seeking-genders").assertDoesNotExist()
