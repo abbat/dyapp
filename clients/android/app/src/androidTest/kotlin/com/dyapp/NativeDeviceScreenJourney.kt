@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -80,6 +81,7 @@ internal class NativeDeviceScreenJourney(private val compose: ComposeContentTest
                 hasAnyAncestor(hasTestTag("device-row-$identifier"))
         ).performScrollTo().performClick()
         compose.awaitNode(hasTestTag("disconnect-dialog"))
+        compose.awaitNode(hasTestTag("disconnect-cancel") and isFocused())
     }
 
     private fun awaitDirectory(session: DeviceDirectorySession): DeviceDirectoryListing = runBlocking {
