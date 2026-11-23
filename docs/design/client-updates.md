@@ -359,6 +359,14 @@ The notice controls are **Open official release / Открыть официал�
 сборке**) and **Later / Позже**. Display release notes only on the fixed
 external page, not as untrusted HTML in the app. Background failures do not
 raise repetitive dialogs or OS alerts; manual checks explain the failure.
+The common snapshot stores per-target dismissal and OS-notification version
+marks. Actions name the exact displayed version, so stale completion cannot
+consume a newer offer. A native OS request is permitted only after an atomic
+first claim is committed; a crash after that commit may lose an OS alert, but
+leaves the in-app notice and Settings badge available. Native permission must
+be available before claiming. Missing notice fields in earlier valid snapshots
+default to no marks; malformed or regressing marks fail closed. Native action
+integration remains separate from these shared policy and persistence rules.
 
 ## Acceptance matrix
 

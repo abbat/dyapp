@@ -64,6 +64,32 @@ fn committed_snapshot_reopens_exactly_under_one_installation_lease() {
 }
 
 #[test]
+fn notice_marks_survive_reopen_and_reject_stale_snapshot_writes() {
+    let dir = test_dir().unwrap();
+    let mut state = LockedState::try_open(&dir).unwrap().unwrap();
+    let original = snapshot(state.load().unwrap());
+    state.save(&original).unwrap();
+    let installed = super::super::Version::parse("1.0.0").unwrap();
+    let expected = super::super::Version::parse("2.0.0").unwrap();
+    let mut marked = state.load().unwrap();
+    assert!(marked.claim_notification(Platform::Android, installed, expected));
+    assert!(marked.dismiss_notice(Platform::Android, installed, expected));
+    state.save(&marked).unwrap();
+    assert!(matches!(
+        state.save(&original),
+        Err(Error::Snapshot(snapshot::Error::Rollback))
+    ));
+    let bytes = marked.encode().unwrap();
+    drop(state);
+    let mut reopened = LockedState::try_open(&dir).unwrap().unwrap();
+    let mut retained = reopened.load().unwrap();
+    assert_eq!(retained.encode().unwrap(), bytes);
+    assert!(!retained.claim_notification(Platform::Android, installed, expected));
+    assert!(retained.notice(Platform::Android, installed).is_none());
+    reopened.save(&retained).unwrap();
+}
+
+#[test]
 fn profile_selection_lock_does_not_admit_or_interrupt_an_update() {
     let dir = test_dir().unwrap();
     let profile = regular_file(&dir.join("profiles.lock")).unwrap();

@@ -5,6 +5,7 @@ use super::transport::Cache;
 use super::Version;
 use std::collections::BTreeMap;
 
+mod notices;
 mod record;
 
 /// Bounded local encoding, including an escaped 64 KiB feed and validated HTTP metadata.
@@ -17,6 +18,8 @@ pub struct Snapshot {
     checkpoint: Checkpoint,
     cache: Option<Cache>,
     highest: BTreeMap<Platform, Version>,
+    dismissed: BTreeMap<Platform, Version>,
+    notified: BTreeMap<Platform, Version>,
 }
 
 /// Local corruption or a candidate that cannot replace existing validated state.
@@ -120,6 +123,9 @@ impl Snapshot {
     }
 
     fn validate(&self) -> Result<(), Error> {
+        if !self.notice_marks_valid() {
+            return Err(Error::Invalid);
+        }
         if self.checkpoint.in_flight && self.checkpoint.state.last_attempt.is_none() {
             return Err(Error::Invalid);
         }

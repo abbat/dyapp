@@ -159,6 +159,9 @@ fn validate_change(previous: &Snapshot, snapshot: &Snapshot) -> Result<(), Error
             return Err(snapshot::Error::Rollback.into());
         }
     }
+    if !snapshot.retains_notice_marks(previous) {
+        return Err(snapshot::Error::Rollback.into());
+    }
     if snapshot.jitter() != previous.jitter() {
         return Err(Error::Incompatible);
     }
