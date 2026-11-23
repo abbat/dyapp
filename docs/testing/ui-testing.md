@@ -204,9 +204,10 @@ Each recovery control is then exposed and checked with fresh bounds in EN/RU at 
 confirmation refusal belongs to the separately retained enrollment state. Its typed notice and
 existing recovery actions render beside the active form footer, or beside the reopen/saved state;
 receipt-only outcomes keep their original notice. After the safe Back control reports actual focus,
-a non-empty leading region derived from its actual text baseline requests visibility; focus alone
-is not a scroll completion signal. Changes to that measured region retrigger the request without
-a guessed delay. A footer taller than its viewport need not fit simultaneously: the full refusal is
+the measured feedback container requests visibility using its full bounds, separately from the
+action controls; focus alone is not a scroll completion signal. Changes to its measured size
+retrigger the request without a guessed delay. A footer taller than its viewport need not fit
+simultaneously: the full refusal is
 checked first, followed by individual measured recovery-control reachability.
 The phase-only `LinkReviewVisualTests` renders the actual complete comparison in the receiving
 Settings frame: choices, preview, saving, typed refusal and unavailable photos, in EN/RU, both
