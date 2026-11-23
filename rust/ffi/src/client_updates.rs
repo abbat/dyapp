@@ -68,9 +68,9 @@ impl MobileClientUpdates {
     /// Refuses malformed versions or persistence failures without acknowledging success.
     pub fn dismiss_notice(
         &self,
-        expected_version: String,
+        expected_version: &str,
     ) -> Result<MobileUpdateNoticeAction, CoreError> {
-        let expected = core::Version::parse(&expected_version)
+        let expected = core::Version::parse(expected_version)
             .ok_or_else(|| CoreError::Failed("invalidUpdateVersion".into()))?;
         self.notice_result(core::notices::dismiss(
             &self.root,
@@ -87,9 +87,9 @@ impl MobileClientUpdates {
     /// Refuses malformed versions or persistence failures; no OS request is permitted on error.
     pub fn claim_notification(
         &self,
-        expected_version: String,
+        expected_version: &str,
     ) -> Result<MobileUpdateNoticeAction, CoreError> {
-        let expected = core::Version::parse(&expected_version)
+        let expected = core::Version::parse(expected_version)
             .ok_or_else(|| CoreError::Failed("invalidUpdateVersion".into()))?;
         self.notice_result(core::notices::claim_notification(
             &self.root,

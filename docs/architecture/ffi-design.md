@@ -7,7 +7,8 @@ an HTTP lease; interval changes commit immediately. Returned records contain typ
 attempt/success times, in-flight state, a Settings offer and a separate undismissed notice; raw feed,
 high-water maps and jitter are not exported. `dismiss_notice(expected_version)` and
 `claim_notification(expected_version)` delegate exact-version actions to the shared transaction.
-Their result contains the committed current state plus `applied`; stale/no-offer actions cannot
+Rust borrows their version text as `&str`; UniFFI lifts the same native String argument without
+requiring Rust ownership. Their result contains the committed current state plus `applied`; stale/no-offer actions cannot
 acknowledge a newer version. Native notification permission must be available before claiming,
 and only a committed applied claim permits an OS request. Errors grant no permission.
 These methods initiate no HTTP, request no OS notification and do not activate unpublished controls.
