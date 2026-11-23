@@ -16,6 +16,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame
 import org.junit.Rule
@@ -60,23 +61,41 @@ class AppLockStartupTests {
     @Test
     fun restoredPrivateContentKeepsItsSavedStateWithANewStartupOwner() {
         val owners = MutableStateFlow(emptyList<Any>())
+        val created = MutableStateFlow(emptyList<AppLockReadGate>())
         val restoration = StateRestorationTester(compose)
-        restoration.setContent {
-            val owner = remember { Any() }
-            AppLockStartup(owner, { StoredLock.OFF }, { owners.value += owner }) {
-                var dismissed by rememberSaveable { mutableStateOf(false) }
-                Text(
-                    dismissed.toString(),
-                    Modifier.testTag("saved-dismissal").clickable { dismissed = true }
-                )
+        try {
+            restoration.setContent {
+                val owner = remember { AppLockReadGate(StoredLock.OFF).also { created.value += it } }
+                AppLockStartup(owner, owner::read, { owners.value += owner }) {
+                    var dismissed by rememberSaveable { mutableStateOf(false) }
+                    Text(
+                        dismissed.toString(),
+                        Modifier.testTag("saved-dismissal").clickable { dismissed = true }
+                    )
+                }
             }
+            val first = completeRead(created, 1)
+            val initial = compose.awaitSnapshot(owners, 5_000, "initial initialization") { it.isNotEmpty() }
+            assertEquals(listOf(first), initial)
+            compose.onNodeWithTag("saved-dismissal").performClick().assertTextEquals("true")
+            restoration.emulateSavedInstanceStateRestore()
+            val restored = completeRead(created, 2)
+            val initialized = compose.awaitSnapshot(owners, 5_000, "restored initialization") { it.size >= 2 }
+            assertEquals(listOf(first, restored), initialized)
+            assertNotSame(first, restored)
+            compose.onNodeWithTag("saved-dismissal").assertTextEquals("true")
+        } finally {
+            created.value.forEach { it.close() }
         }
-        val first = compose.awaitSnapshot(owners, 5_000, "initial startup") { it.size == 1 }.single()
-        compose.onNodeWithTag("saved-dismissal").performClick().assertTextEquals("true")
-        restoration.emulateSavedInstanceStateRestore()
-        val restored = compose.awaitSnapshot(owners, 5_000, "restored startup") { it.size == 2 }.last()
-        assertNotSame(first, restored)
-        compose.onNodeWithTag("saved-dismissal").assertTextEquals("true")
+    }
+
+    private fun completeRead(created: StateFlow<List<AppLockReadGate>>, expected: Int): AppLockReadGate {
+        val owners = compose.awaitSnapshot(created, 5_000, "startup owner $expected") { it.size >= expected }
+        assertEquals(expected, owners.size)
+        val gate = owners.last()
+        compose.awaitSnapshot(gate.entered, 5_000, "startup read $expected entered") { it }
+        gate.close()
+        return gate
     }
 
     @Test

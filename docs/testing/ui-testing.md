@@ -4,6 +4,9 @@ Localized native hosts wrap their context to supply actual configuration to chil
 Theme and appearance code resolve the Activity through AndroidX `LocalActivity`, never by
 casting a View context. `LocalizedDialogScaleTests` exercises the real wrapped host and
 checks both Activity ownership and the native View font scale before accepting themed content.
+The app-lock restoration fixture creates one controlled IO gate per startup owner, waits for
+actual read entry before releasing it, then asserts the exact initialization history and retained
+private saveable state. Every owner/read/completion transition receives a fresh failure deadline.
 
 `NativeClientUpdatesTests` checks the actual JNI metadata bridge: the native installed version
 matches `BuildConfig.VERSION_NAME`, fresh state never claims current, and all four installation
