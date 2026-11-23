@@ -46,25 +46,29 @@ internal fun updateNoticeSettings(context: Context): Intent {
 }
 
 @Composable
-internal fun UpdateNoticePermission(owner: Any, snapshot: MobileUpdateState?) {
+internal fun UpdateNoticePermission(
+    owner: Any,
+    snapshot: MobileUpdateState?,
+    read: (Context) -> Boolean = ::updateNoticePermission,
+) {
     val offer = snapshot?.offer
     if (snapshot?.availability != MobileUpdateAvailability.AVAILABLE ||
         offer == null || offer.delivery == MobileUpdateDelivery.STORE
     ) {
         return
     }
-    key(owner, offer.version, offer.releasePage) { UpdatePermissionRow() }
+    key(owner, offer.version, offer.releasePage) { UpdatePermissionRow(read) }
 }
 
 @Composable
-private fun UpdatePermissionRow() {
+private fun UpdatePermissionRow(read: (Context) -> Boolean) {
     val context = LocalContext.current
     val opening = remember { UpdatePermissionOpening() }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    var allowed by remember { mutableStateOf(runCatching { updateNoticePermission(context) }.getOrNull()) }
+    var allowed by remember { mutableStateOf(runCatching { read(context) }.getOrNull()) }
     var failed by remember { mutableStateOf(false) }
     val refresh = {
-        val result = runCatching { updateNoticePermission(context) }
+        val result = runCatching { read(context) }
         allowed = result.getOrNull()
         failed = result.isFailure
     }

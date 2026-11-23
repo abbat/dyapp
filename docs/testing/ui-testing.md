@@ -100,6 +100,11 @@ text-scale witnesses and PNG/viewport dimensions. Geometry checks expose every t
 current semantic scroll viewports and require both actions to remain visible. Run it with an APK
 producer containing these fixtures; authored checks are not captured/reviewed evidence and do not
 prove native persistence, live publication, OS notifications or update activation.
+`UpdatePermissionResultTests` supplies a controlled ActivityResult registry to the production
+permission row. It retains real launcher registration/disposal while releasing results explicitly:
+a cancelled result must trigger an actual permission read, repeated pending actions cannot launch
+again, and an old opening cannot consume results or launch into its replacement. These checks
+open no system settings and do not substitute for actual Android permission enforcement.
 
 Native receiving completion checks retain a recovery review prepared before setup finishes:
 preparing another review after the pending link has been cleared is correctly refused. Publication
