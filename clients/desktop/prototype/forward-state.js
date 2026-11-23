@@ -34,11 +34,18 @@ const mount = () => {
   if (screen.startsWith('chat') || forwardScreens.includes(screen))
     forwardOpening = installForwardFixture(window.strings, screen);
   if (menu.contains(focused)) focused.focus();
-  if (screen === 'chat-forward-send-error' && completed) {
+  if (screen === 'chat-forward-send-error') {
     byId('chat-forward-cancel', HTMLButtonElement).focus();
-    const resolve = completed;
-    completed = null;
-    resolve();
+    // Rendering the targets can move an already focused button outside the viewport.
+    byId('chat-forward-recovery', HTMLElement).scrollIntoView({
+      block: 'end',
+      behavior: 'instant',
+    });
+    if (completed) {
+      const resolve = completed;
+      completed = null;
+      resolve();
+    }
   }
 };
 const navigation = new MutationObserver(mount);

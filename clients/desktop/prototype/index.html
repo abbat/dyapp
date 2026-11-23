@@ -726,11 +726,13 @@ search providers asked: 0 of 3</pre>
         <button type="button" class="btn" id="chat-forward-refresh" data-t="settings.collection.refresh"></button>
       </div>
     </div>
-    <p id="forward-send-failure" role="alert" data-on="chat-forward-send-error" data-t="forward.sendFailed"></p>
-    <div class="actions">
-      <button type="button" class="btn" id="chat-forward-retry" data-on="chat-forward-error" data-t="action.retry"></button>
-      <button type="button" class="btn focus" id="chat-forward-cancel" data-t="action.cancel" data-disabled="chat-forward-pending"></button>
-      <button type="button" class="btn primary" id="chat-forward-confirm" data-t="forward.action"></button>
+    <div id="chat-forward-recovery">
+      <p id="forward-send-failure" role="alert" data-on="chat-forward-send-error" data-t="forward.sendFailed"></p>
+      <div class="actions">
+        <button type="button" class="btn" id="chat-forward-retry" data-on="chat-forward-error" data-t="action.retry"></button>
+        <button type="button" class="btn focus" id="chat-forward-cancel" data-t="action.cancel" data-disabled="chat-forward-pending"></button>
+        <button type="button" class="btn primary" id="chat-forward-confirm" data-t="forward.action"></button>
+      </div>
     </div>
   </div>
 </div>
