@@ -15,7 +15,9 @@ the caller's Activity chain while overriding only application storage.
 
 Real-IME owner checks refetch control semantics on every readiness attempt and combine those
 measurements with the current native window transform and visible frame. A failed containment
-check reports the control tag and measured rectangles; stale pre-keyboard geometry cannot establish
+check reports the control tag and measured rectangles. A glyph failure additionally records its
+index, current rectangle and visible frame, active accessibility root, matching editor selection,
+focus/visibility and extra-data refresh result. Stale pre-keyboard geometry cannot establish
 readiness or obscure a persistent enlarged-text layout defect.
 
 `ChatLinkHostsTests` renders actual message bubbles through the shared JNI URL projection. EN/RU
