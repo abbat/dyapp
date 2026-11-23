@@ -688,8 +688,22 @@ search providers asked: 0 of 3</pre>
     <button type="button" class="nav-item" id="nav-network" data-current="network network-checking network-error">
       <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-network"/></svg></span><span data-t="nav.network"></span></button>
     <button type="button" class="nav-item" id="nav-settings" data-current="settings-views settings-views-loading settings-views-empty settings-views-error settings-views-stale settings settings-language-dialog remove-dialog remove-offline settings-appearance settings-privacy settings-notifications settings-photos settings-account settings-about settings-identities-screen settings-blocked settings-passed settings-devices">
-      <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-settings"/></svg></span><span data-t="nav.settings"></span></button>
+      <span class="pill"><svg aria-hidden="true" class="icon"><use href="#i-settings"/></svg></span><span data-t="nav.settings"></span><span class="badge" id="update-available-badge" hidden>•</span></button>
   </nav>
+
+  <!-- Core-shaped update samples; no real feed, browser or storage is used. -->
+  <div class="scrim" id="update-notice-scrim" data-on="update-notice-package update-notice-source update-notice-saving update-notice-write-error update-notice-open-error">
+    <div class="dialog" id="update-notice" role="dialog" aria-modal="true" aria-labelledby="update-notice-title" tabindex="-1">
+      <h2 id="update-notice-title" data-t="settings.updates"></h2>
+      <p data-t="update.installed"></p>
+      <p id="update-notice-offer"></p>
+      <p class="caption" id="update-notice-status" aria-live="polite" hidden></p>
+      <div class="actions">
+        <button type="button" class="btn text" id="update-notice-later" data-t="update.later"></button>
+        <button type="button" class="btn text" id="update-notice-open" data-default></button>
+      </div>
+    </div>
+  </div>
 
   <!-- Identity sheet: the avatar in the top bar opens it over the current screen. -->
   <div class="scrim bottom" data-on="switcher">
@@ -909,13 +923,14 @@ search providers asked: 0 of 3</pre>
 <script src="../../desktop/prototype/strings.js"></script>
 <script src="strings.js"></script>
 <script src="review-strings.js"></script>
+<script src="update-strings.js"></script>
 <script>
 // Show the screen named by the hash in the language and theme named by the query; nothing else.
 const query = new URLSearchParams(location.search);
 const screen = location.hash.slice(1) || 'profile';
 const lang = query.get('lang') === 'ru' ? 'ru' : 'en';
 const t = STRINGS[lang];
-const shown = /^(devices|owner)-/.test(screen) ? 'settings-devices' : screen === 'identity-durability-dialog' ? 'profile' : screen;
+const shown = screen.startsWith('update-notice-') ? 'profile' : /^(devices|owner)-/.test(screen) ? 'settings-devices' : screen === 'identity-durability-dialog' ? 'profile' : screen;
 const has = (el, name) => el.dataset[name].split(' ').some((state) => state === screen || state === shown);
 document.documentElement.lang = lang;
 document.documentElement.dataset.screen = screen;
@@ -941,45 +956,6 @@ for (const control of document.querySelectorAll('[data-go]'))
 window.addEventListener('hashchange', () => location.reload());
 document.title = `${t['app.name']} — ${screen}`;
 </script>
-<script type="module">
-import { installIdentifiers } from '../../desktop/ui/identifiers.js';
-import { installReviewFixture } from './review-fixture.js';
-import { installDevicesFixture } from './devices-fixture.js';
-import { installViewsFixture } from './views-fixture.js';
-import { installOwnerFixture } from './owner-fixture.js';
-import { enhanceChoice } from '../../desktop/ui/profile-choice.js';
-import { installCollections } from '../../desktop/prototype/collection-fixture.js';
-import { installForwardFixture, forwardScreens } from '../../desktop/prototype/forward-fixture.js';
-const contact = document.getElementById('chat-profile');
-const contactName = contact?.querySelector('.grow > b');
-const targetName = document.getElementById('chat-clear-name');
-const targetPeer = document.getElementById('chat-clear-peer');
-if (!contactName || !contact.dataset.peerId || !targetName || !targetPeer)
-  throw new Error('Clear confirmation target is missing');
-targetName.textContent = contactName.textContent;
-targetPeer.textContent = contact.dataset.peerId;
-if (screen.startsWith('link-review-')) installReviewFixture(t, screen);
-installIdentifiers(t);
-installCollections(t, ['identities', 'blocked', 'passed', 'devices']);
-installDevicesFixture(t, screen.startsWith('owner-') ? 'devices-ready' : screen);
-installViewsFixture(t, screen);
-installOwnerFixture(t, screen);
-if (screen.startsWith('chat') || forwardScreens.includes(screen)) installForwardFixture(t, screen);
-enhanceChoice(
-  document.querySelector('select[data-choice-picker]'),
-  document.querySelector('label[for="profile-goal"]'),
-  t['action.cancel'],
-  () => 0,
-);
-const language = document.getElementById('language');
-for (const [code, catalogue] of Object.entries(STRINGS)) {
-  const name = catalogue['language.name'];
-  if (typeof name !== 'string' || !name.trim()) throw new Error('Language catalogue name missing');
-  language.append(new Option(name, code));
-}
-enhanceChoice(language, document.querySelector('label[for="language"]'), t['action.cancel'], () => 0);
-if (screen === 'profile-goal-dialog') document.getElementById('profile-goal-choice').click();
-if (screen === 'settings-language-dialog') document.getElementById('language-choice').click();
-</script>
+<script type="module" src="app.js"></script>
 </body>
 </html>

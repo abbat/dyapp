@@ -304,7 +304,13 @@ The IDs inside each section are the desktop ones; only the frame differs.
   ([ADR 0030](../decisions/0030-desktop-full-node.md)).
   About retains the version and disabled `updates` placeholder: `update-6h`,
   `update-12h`, `update-24h`, `update-7d`, `update-state` and `update-check`.
-  It sends no request and saves nothing.
+  It sends no request and saves nothing. Five `update-notice-*` samples (package, source, saving,
+  write-error and open-error) render the native notice copy with installed/available versions.
+  `update-notice-open` is the single default action and records the fixed sample release-page
+  handoff; it never installs or dismisses.
+  `update-notice-later` and Escape await an explicitly released acknowledgement; failure retains the
+  notice, success closes it while `update-available-badge` remains on Settings. Pending and retired
+  callbacks are refused. These are controlled presentation samples, without real feed/storage/browser IO.
 - `remove-dialog` and `remove-offline` use the identities screen as their background.
   `remove-title`, `remove-peer`, `remove-confirm`, `remove-cancel`, `remove-action`,
   `remove-cancel-offline`, `remove-retry` and `remove-anyway` retain the removal contract.

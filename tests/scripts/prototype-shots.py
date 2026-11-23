@@ -469,6 +469,11 @@ ANDROID = [
     "settings-photos",
     "settings-account",
     "settings-about",
+    "update-notice-package",
+    "update-notice-source",
+    "update-notice-saving",
+    "update-notice-write-error",
+    "update-notice-open-error",
     "settings-identities-screen",
     "settings-blocked",
     "settings-passed",
@@ -780,6 +785,8 @@ def audited(_view: WebKit2.WebView, result: Gio.AsyncResult) -> None:
 
 
 def android_fixture(screen: str) -> tuple[str, str] | None:
+    if screen.startswith("update-notice-"):
+        return "update", "checkUpdateFixture"
     if screen.startswith("owner-"):
         return "owner", "checkOwnerFixture"
     if screen.startswith("devices-"):
