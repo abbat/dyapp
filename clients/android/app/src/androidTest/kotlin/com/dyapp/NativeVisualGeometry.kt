@@ -6,12 +6,10 @@ import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.unit.Density
 import org.junit.Assert.assertTrue
@@ -95,7 +93,9 @@ internal class NativeVisualGeometry(
     }
 
     private fun scrollParent(node: SemanticsNode): SemanticsNode? =
-        generateSequence(node.parent) { it.parent }.firstOrNull { SemanticsActions.ScrollBy in it.config }
+        generateSequence(node.parent) { it.parent }.firstOrNull {
+            SemanticsActions.ScrollBy in it.config && SemanticsProperties.VerticalScrollAxisRange in it.config
+        }
 
     private fun node(id: Int): SemanticsNodeInteraction =
         compose.onNode(SemanticsMatcher("current native node$id") { it.id == id }, useUnmergedTree = true)
@@ -106,7 +106,11 @@ internal class NativeVisualGeometry(
                 hasAnyAncestor(hasTestTag(rootTag)),
             useUnmergedTree = true
         ).fetchSemanticsNodes().firstOrNull { scrollParent(it) != null }
-        body?.let { node(it.id).performScrollTo().assertIsDisplayed() }
+        body?.let {
+            val layout = node(it.id).textLayout()
+            val dialog = compose.onNodeWithTag(rootTag).fetchSemanticsNode()
+            exposeLine(it, scrollParent(it), dialog, layout.getLineTop(0)..layout.getLineBottom(0))
+        }
     }
 }
 

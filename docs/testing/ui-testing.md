@@ -513,8 +513,10 @@ review refusal. Their SDK/device execution is required in CI; standalone pure-po
 checks do not prove registry locking or native binding generation.
 
 `RenameDialogGeometryTests` renders the native private-name dialog in EN/RU at normal and doubled
-font scale, scrolls label/hint into their measured text slots and checks complete layouts/current
-dialog bounds. Save/Cancel remain outside the scrollable fields; cancellation invokes no save,
+font scale, exposes every label/hint line using its measured bounds and checks complete layouts/current
+dialog bounds. Floating-label clearance follows its actual measured height. The shared native geometry
+helper selects a vertical scroll ancestor, skipping single-line inputs' horizontal scrollers, and waits
+for each line's visibility with a fresh failure deadline. Save/Cancel remain outside the scrollable fields; cancellation invokes no save,
 and an empty name still reaches the save callback. Device execution is required separately from
 source lint and WebKit prototype captures.
 
