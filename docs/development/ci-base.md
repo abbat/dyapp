@@ -327,8 +327,9 @@ cargo-mutants 27.1.0. Step `mutants` runs `rust-check.sh mutants` with `MUTANTS_
 base or `github.event.before` (`origin/main` when that commit is absent): every mutant in the changed Rust code must be caught. Artifact
 **`mutants-diff`** (`if: always()`) keeps the diff and the outcome lists. The weekly full run is
 `mutants.yml` ([ci-matrix.md](ci-matrix.md#other-workflows)). Its 32 shards use deterministic
-round-robin assignment to distribute slow packages across runners, retain two workers and the
-six-hour job limit, and use `rust-build` setup without unrelated quality-tool downloads.
+round-robin assignment to distribute slow packages across runners, with at most four simultaneous
+shards so a full campaign cannot occupy all ordinary CI capacity. Each shard retains two workers,
+the six-hour job limit and `rust-build` setup without unrelated quality-tool downloads.
 All shards still contribute to the unchanged aggregate score and invariant gates.
 
 ### `fuzz` → **fuzz**
