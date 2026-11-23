@@ -120,6 +120,9 @@ again, and an old opening cannot consume results or launch into its replacement.
 LifecycleRegistry transitions also verify foreground permission readback, visible query failures,
 detached disposed observers and pending-launch admission preserved across pause/resume. These checks
 open no system settings and do not substitute for actual Android permission enforcement.
+`UpdateNotificationTests` requires immutable Activity pending intents on every supported device
+(minimum API 31), with no version branch that could skip those assertions. It also checks that
+opening the exact core-provided release URI adds no installer, identity or private payload.
 
 The independent `suite=activity` runs `PresenceVisualTests` with `activityVisual=1`.
 It captures production list/header activity marks and the audience picker in the actual Privacy
