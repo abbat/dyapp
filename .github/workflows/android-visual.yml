@@ -12,7 +12,7 @@ on:
         required: true
         type: choice
         default: standard
-        options: [standard, comparison, views, updates, activity]
+        options: [standard, comparison, views, updates, activity, recovery]
 
 permissions:
   contents: read
@@ -150,6 +150,13 @@ jobs:
           python3 -B tests/scripts/android_visual_archive.py --kind activity \
             --archive "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/activity.tar" \
             --output "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/activity-frames" \
+            --width "$DYAPP_VISUAL_WIDTH" --source "$DYAPP_VISUAL_SOURCE"
+      - name: validate search-recovery matrix
+        if: ${{ always() && inputs.suite == 'recovery' }}
+        run: |
+          python3 -B tests/scripts/android_visual_archive.py --kind recovery \
+            --archive "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/recovery.tar" \
+            --output "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/recovery-frames" \
             --width "$DYAPP_VISUAL_WIDTH" --source "$DYAPP_VISUAL_SOURCE"
       - name: validate complete comparison matrix
         if: ${{ always() && inputs.suite == 'comparison' }}

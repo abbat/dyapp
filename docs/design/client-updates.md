@@ -69,7 +69,13 @@ activation remain pending. The coordinator itself performs no IO or installation
 
 ## Goal and boundary
 
-For v0.0.1, notify a client when a newer release of that *client platform* is
+Update activation and live-feed acceptance are planned after the first v0.0.1 release;
+they do not block that release. Existing shared-core, native and presentation code remains
+dormant, with check controls disabled and no lifecycle-triggered HTTP. Reassess the remaining
+cost and obtain owner approval before resuming activation work; verify a real publication
+before enabling checks. Do not publish an artificial release to satisfy this gate.
+
+Once activated, notify a client when a newer release of that *client platform* is
 available. The notice opens an official release destination; it never downloads,
 installs or executes an update. A new `dyappd` tag alone is not a client update.
 This page specifies the stable channel first. Prerelease opt-in needs a separate

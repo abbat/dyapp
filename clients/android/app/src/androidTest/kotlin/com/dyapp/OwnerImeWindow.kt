@@ -3,6 +3,7 @@ package com.dyapp
 import android.graphics.Rect
 import android.graphics.RectF
 import android.view.View
+import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.core.view.ViewCompat
@@ -38,19 +39,30 @@ internal class OwnerImeWindow(private val compose: ComposeContentTestRule) {
     }
 
     fun requireControl(tag: String): RectF {
-        val node = compose.onNodeWithTag(tag).fetchSemanticsNode()
         var result: RectF? = null
-        compose.waitUntil(10_000) {
-            result = compose.runOnIdle {
-                val screen = IntArray(2).also(root::getLocationOnScreen)
-                val window = IntArray(2).also(root::getLocationInWindow)
-                val x = screen[0] - window[0] + node.positionInWindow.x
-                val y = screen[1] - window[1] + node.positionInWindow.y
-                val bounds = RectF(x, y, x + node.size.width, y + node.size.height)
-                val visible = RectF(Rect().also(root::getWindowVisibleDisplayFrame))
-                bounds.takeIf { !it.isEmpty && visible.contains(it) }
+        var bounds: RectF? = null
+        var visible = RectF()
+        try {
+            compose.waitUntil(10_000) {
+                // Keyboard and text layout can replace semantics after the selection is committed.
+                val node = compose.onNodeWithTag(tag).fetchSemanticsNode()
+                result = compose.runOnIdle {
+                    val screen = IntArray(2).also(root::getLocationOnScreen)
+                    val window = IntArray(2).also(root::getLocationInWindow)
+                    val x = screen[0] - window[0] + node.positionInWindow.x
+                    val y = screen[1] - window[1] + node.positionInWindow.y
+                    val measured = RectF(x, y, x + node.size.width, y + node.size.height)
+                    bounds = measured
+                    visible = RectF(Rect().also(root::getWindowVisibleDisplayFrame))
+                    measured.takeIf { !it.isEmpty && visible.contains(it) }
+                }
+                result != null
             }
-            result != null
+        } catch (failure: ComposeTimeoutException) {
+            throw AssertionError(
+                "IME control $tag remains outside its viewport: bounds=$bounds visible=$visible",
+                failure
+            )
         }
         return checkNotNull(result)
     }

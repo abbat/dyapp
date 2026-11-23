@@ -79,6 +79,20 @@ ACTIVITY_SCREENS = (
     "activity-loading",
     "activity-error",
 )
+RECOVERY_SCREENS = (
+    "search-recovery-review",
+    "search-recovery-busy",
+    "search-recovery-pending",
+    "search-recovery-sent",
+    "search-recovery-read-error",
+    "search-recovery-confirm-error",
+    "search-recovery-retry-error",
+    "search-recovery-stale",
+    "search-recovery-review-required",
+    "search-recovery-link-pending",
+    "search-recovery-version-exhausted",
+    "search-recovery-wrong-owner",
+)
 MAX_BYTES = 512 * 1024 * 1024
 
 
@@ -108,6 +122,7 @@ def unpack(
         "views",
         "updates",
         "activity",
+        "recovery",
     ):
         raise ValueError("Unknown native evidence kind")
     folder = {
@@ -117,6 +132,7 @@ def unpack(
         "views": "received-views-visual",
         "updates": "update-notice-visual",
         "activity": "activity-visual",
+        "recovery": "search-recovery-visual",
     }[kind]
     prefix = f"files/{folder}/{width}"
     folders = {"files", f"files/{folder}", prefix}
@@ -125,6 +141,7 @@ def unpack(
         "views": r"settings-views(?:-[a-z]+)?",
         "updates": r"update-notice-[a-z-]+",
         "activity": r"activity-[a-z-]+",
+        "recovery": r"search-recovery-[a-z-]+",
     }.get(kind, r"owner-[a-z-]+")
     suffix = r"[0-9]{1,4}" if kind == "ime" else r"(top|bottom)"
     pattern = re.compile(
@@ -312,7 +329,15 @@ def main() -> None:
     parser.add_argument("--source", required=True)
     parser.add_argument(
         "--kind",
-        choices=("visual", "ime", "receive", "views", "updates", "activity"),
+        choices=(
+            "visual",
+            "ime",
+            "receive",
+            "views",
+            "updates",
+            "activity",
+            "recovery",
+        ),
         default="visual",
     )
     args = parser.parse_args()
@@ -327,6 +352,7 @@ def main() -> None:
             "views": VIEW_SCREENS,
             "updates": UPDATE_SCREENS,
             "activity": ACTIVITY_SCREENS,
+            "recovery": RECOVERY_SCREENS,
         }.get(args.kind, SCREENS)
         count = validate(args.output, args.width, args.source, screens)
     print(f"OK native visual matrix: {count} frames")

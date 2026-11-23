@@ -5,6 +5,7 @@ import { installViewsFixture } from './views-fixture.js';
 import { installUpdateFixture } from './update-fixture.js';
 import { installUpdatePermissionFixture } from './update-permission-fixture.js';
 import { installOwnerFixture } from './owner-fixture.js';
+import { installSearchRecoveryFixture } from './search-recovery-fixture.js';
 import { enhanceChoice } from '../../desktop/ui/profile-choice.js';
 import { installCollections } from '../../desktop/prototype/collection-fixture.js';
 import { installForwardFixture, forwardScreens } from '../../desktop/prototype/forward-fixture.js';
@@ -19,6 +20,7 @@ if (!contactName || !contact.dataset.peerId || !targetName || !targetPeer)
 targetName.textContent = contactName.textContent;
 targetPeer.textContent = contact.dataset.peerId;
 if (screen.startsWith('link-review-')) installReviewFixture(t, screen);
+installSearchRecoveryFixture(t, screen);
 installIdentifiers(t);
 installCollections(t, ['identities', 'blocked', 'passed', 'devices']);
 installDevicesFixture(t, screen.startsWith('owner-') ? 'devices-ready' : screen);

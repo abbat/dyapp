@@ -268,6 +268,16 @@
         </div>
       </div>
       <div class="notice warn" id="profile-hidden-notice" data-on="profile-hidden" data-t="profile.hidden.notice"></div>
+      <div class="card" id="search-recovery" data-on="search-recovery-review search-recovery-busy search-recovery-pending search-recovery-sent search-recovery-stale search-recovery-error search-recovery-unsupported search-recovery-review-required search-recovery-link-pending search-recovery-version-exhausted search-recovery-wrong-owner">
+        <h2 data-t="searchRecovery.title"></h2>
+        <p class="caption" data-t="searchRecovery.owner"></p>
+        <code id="search-recovery-owner"></code>
+        <p id="search-recovery-status" role="status"></p>
+        <div class="actions">
+          <button type="button" class="btn filled" id="search-recovery-action"></button>
+          <button type="button" class="btn text" id="search-recovery-cancel" data-t="action.cancel"></button>
+        </div>
+      </div>
       <div class="card">
         <h2 data-t="profile.basics"></h2>
         <div class="field"><label for="profile-name" data-t="profile.name"></label>
@@ -929,13 +939,14 @@ search providers asked: 0 of 3</pre>
 <script src="strings.js"></script>
 <script src="review-strings.js"></script>
 <script src="update-strings.js"></script>
+<script src="search-recovery-strings.js"></script>
 <script>
 // Show the screen named by the hash in the language and theme named by the query; nothing else.
 const query = new URLSearchParams(location.search);
 const screen = location.hash.slice(1) || 'profile';
 const lang = query.get('lang') === 'ru' ? 'ru' : 'en';
 const t = STRINGS[lang];
-const shown = screen.startsWith('update-notice-permission-') ? 'settings-about' : screen.startsWith('update-notice-') ? 'profile' : /^(devices|owner)-/.test(screen) ? 'settings-devices' : screen === 'identity-durability-dialog' ? 'profile' : screen;
+const shown = screen.startsWith('search-recovery-') ? 'profile-hidden' : screen.startsWith('update-notice-permission-') ? 'settings-about' : screen.startsWith('update-notice-') ? 'profile' : /^(devices|owner)-/.test(screen) ? 'settings-devices' : screen === 'identity-durability-dialog' ? 'profile' : screen;
 const has = (el, name) => el.dataset[name].split(' ').some((state) => state === screen || state === shown);
 document.documentElement.lang = lang;
 document.documentElement.dataset.screen = screen;

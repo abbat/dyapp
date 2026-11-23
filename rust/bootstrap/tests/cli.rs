@@ -268,14 +268,18 @@ fn client_argument_errors_follow_locale() {
             "неверный адрес invalid",
         ),
     ];
+    assert_argument_error_locales(&dir, cases);
+    let en = String::from_utf8(command_locale(&dir, &["info", "invalid"], "C").stderr).unwrap();
+    assert!(en.contains("node.example.org:33445"));
+}
+
+fn assert_argument_error_locales(dir: &Path, cases: &[(&[&str], &str, &str)]) {
     for &(args, english, russian) in cases {
-        let en = String::from_utf8(command_locale(&dir, args, "C").stderr).unwrap();
-        let ru = String::from_utf8(command_locale(&dir, args, "ru_RU.UTF-8").stderr).unwrap();
+        let en = String::from_utf8(command_locale(dir, args, "C").stderr).unwrap();
+        let ru = String::from_utf8(command_locale(dir, args, "ru_RU.UTF-8").stderr).unwrap();
         assert!(en.contains(english), "{args:?}: {en}");
         assert!(ru.contains(russian), "{args:?}: {ru}");
     }
-    let en = String::from_utf8(command_locale(&dir, &["info", "invalid"], "C").stderr).unwrap();
-    assert!(en.contains("node.example.org:33445"));
 }
 
 #[test]

@@ -152,7 +152,8 @@ fn existing_connection(root: &Path) -> Result<Connection, Error> {
 
 fn configure(connection: &Connection) -> Result<(), Error> {
     let limit = i32::try_from(snapshot::MAX_BYTES).map_err(|_| Error::Incompatible)?;
-    let _ = connection.set_limit(Limit::SQLITE_LIMIT_LENGTH, limit + 4096)?;
+    let limit = limit.checked_add(4096).ok_or(Error::Incompatible)?;
+    let _ = connection.set_limit(Limit::SQLITE_LIMIT_LENGTH, limit)?;
     connection.pragma_update(None, "synchronous", "FULL")?;
     Ok(())
 }

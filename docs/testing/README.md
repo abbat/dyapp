@@ -32,7 +32,9 @@ These rules apply to every new or modified test:
 - Make results reproducible with controlled inputs, fixtures and clocks when timing is involved.
   Rate-limit fixtures inject the same clock into the service and independent peer limiter; sign
   fixture metadata and start jobs on that clock too. Exhaustion must not expire while unrelated
-  setup (such as swarm construction) runs against real time.
+  setup (such as swarm construction) runs against real time. The external-write admission
+  matrix freezes the shared service clock while checking every variant against the filled byte
+  window; its temporary stores remain owned until all assertions finish.
   Set the process-global node-ID PoW requirement explicitly in every protocol fixture using
   no-PoW nodes; dependency crates do not inherit the integration test's `cfg(test)`, and parallel
   tests cannot rely on another fixture changing that global. The native linked-device fixture
@@ -217,7 +219,10 @@ fixtures in `rust/bootstrap/tests/fixtures/` and the existing prost/serde_json d
   settings. Dynamic paths, timestamps and incidental messages are not snapshotted.
 - Real-binary CLI tests check Russian and English operator diagnostics and deny-list confirmations,
   while the `status` field names and values remain stable across locales. Client argument tests
-  also check translated errors and the current default port in address guidance. Config-loading
+  also check translated errors and the current default port in address guidance. Their shared
+  assertion helper executes every table row in both locales, including the media size boundary
+  and flood argument parser; fixture extraction must retain all rows and the address hint check.
+  Config-loading
   tests cover localized option, seed, TURN, removed-key, startup validation and node-key guidance
   with stable English diagnostics and without replacing existing node data or a malformed network marker.
   Real-binary EN/RU checks cover missing config files and TOML syntax errors; the latter must

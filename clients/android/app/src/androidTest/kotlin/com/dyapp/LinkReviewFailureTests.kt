@@ -62,7 +62,7 @@ class LinkReviewFailureTests {
             compose.onNodeWithTag("link-review-preview-error").textLayout().layoutInput.density.fontScale
         )
         for (tag in listOf("link-review-preview", "link-review-confirm", "link-review-back")) {
-            compose.onNodeWithTag(tag).assertIsEnabled()
+            compose.onNodeWithTag(tag).assertIsEnabled().performScrollTo()
             visible(tag)
         }
     }

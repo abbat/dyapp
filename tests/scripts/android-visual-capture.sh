@@ -5,12 +5,13 @@ bash /runner/tests/scripts/check-container-isolation.sh
 width=${DYAPP_VISUAL_WIDTH:?}
 source_sha=${DYAPP_VISUAL_SOURCE:?}
 suite=${DYAPP_VISUAL_SUITE:-standard}
-[[ $suite == standard || $suite == comparison || $suite == views || $suite == updates || $suite == activity ]]
+[[ $suite == standard || $suite == comparison || $suite == views || $suite == updates || $suite == activity || $suite == recovery ]]
 visual_archives=(native:files/owner-approval-visual ime:files/owner-approval-ime receive:files/receive-visual)
 if [[ $suite == comparison ]]; then visual_archives=(comparison:files/comparison-visual); fi
 if [[ $suite == views ]]; then visual_archives=(views:files/received-views-visual); fi
 if [[ $suite == updates ]]; then visual_archives=(updates:files/update-notice-visual); fi
 if [[ $suite == activity ]]; then visual_archives=(activity:files/activity-visual); fi
+if [[ $suite == recovery ]]; then visual_archives=(recovery:files/search-recovery-visual); fi
 [[ $width == 360 || $width == 412 ]]
 [[ $source_sha =~ ^[0-9a-f]{40}$ ]]
 report=/reports/$width
@@ -45,10 +46,11 @@ timeout 30 adb -s emulator-5554 shell wm size > "$report/size-after.txt"
 timeout 30 adb -s emulator-5554 shell input keyevent KEYCODE_WAKEUP
 timeout 30 adb -s emulator-5554 shell wm dismiss-keyguard
 timeout 30 adb -s emulator-5554 shell ime disable com.android.inputmethod.latin/.LatinIME
-if [[ $suite == views || $suite == updates || $suite == activity ]]; then
+if [[ $suite == views || $suite == updates || $suite == activity || $suite == recovery ]]; then
     visual_argument=viewsVisual visual_class=ReceivedViewsVisualTests
     if [[ $suite == updates ]]; then visual_argument=updatesVisual visual_class=UpdateNoticeVisualTests; fi
     if [[ $suite == activity ]]; then visual_argument=activityVisual visual_class=PresenceVisualTests; fi
+    if [[ $suite == recovery ]]; then visual_argument=recoveryVisual visual_class=SearchRecoveryVisualTests; fi
     python3 /runner/tests/scripts/android_instrumentation.py \
         --report "$report/$suite-instrumentation.txt" --deadline 900 --phase-callbacks -- \
         adb -s emulator-5554 shell am instrument -w -r \

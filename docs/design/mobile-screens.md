@@ -190,6 +190,22 @@ The IDs inside each section are the desktop ones; only the frame differs.
   turns on once a profile was published and needs an answering node; off opens the publish dialog
   and stays on until the publication succeeds, as on desktop. Its progress state shows the saved proof nonce
   instead of the elapsed time, and the signed readback appears on the form after the dialog closes.
+  Prototype-only owner recovery uses `search-recovery-review`, `search-recovery-busy`,
+  `search-recovery-pending`, `search-recovery-sent`, `search-recovery-stale`,
+  `search-recovery-error`, `search-recovery-unsupported`, `search-recovery-review-required`,
+  `search-recovery-link-pending`, `search-recovery-version-exhausted` and `search-recovery-wrong-owner`.
+  The `search-recovery` card names
+  `search-recovery-owner`, explains `search-recovery-status` and offers the explicit
+  `search-recovery-action` or `search-recovery-cancel`. Opening/cancelling never signs; retries
+  deliver only already-confirmed core records. Closing a committed result cannot cancel delivery.
+  Native Android now prepares an original-owner FFI review beside the existing editor, preserving
+  unsaved fields. Explicit confirmation alone queues withdrawal; retries deliver only that confirmed
+  record. Retiring an opening releases its handle after admitted IO completes. Native pending state
+  gives no unsupported-server diagnosis: only the core's queued/acknowledged result is shown.
+  Typed review refusals require fresh preparation; only generic backend delivery failure offers
+  another delivery attempt against the same confirmed record. A failed confirmation does not prove
+  that nothing was queued, so dismissing that outcome is labelled Close rather than Cancel.
+  Source-bound native runtime and geometry acceptance remain pending.
 - Network, `network`, `network-checking` and `network-error`: `network-name-field`,
   `network-seeds`, `seed-rows`, `check-and-connect`, `cancel-check`, `network-error-details`.
   One action checks and, when a node answered, activates; a failed or cancelled check keeps the

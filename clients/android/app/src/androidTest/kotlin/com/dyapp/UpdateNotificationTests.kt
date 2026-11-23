@@ -2,7 +2,6 @@ package com.dyapp
 
 import android.app.Notification
 import android.content.Intent
-import android.os.Build
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -25,10 +24,8 @@ class UpdateNotificationTests {
         val notice = updateNotification(context, offer)
         assertNotEquals(MAIL_NOTICE_ID, UPDATE_NOTICE_ID)
         assertEquals(UPDATE_NOTICE_CHANNEL, notice.channelId)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            assertTrue(checkNotNull(notice.contentIntent).isImmutable)
-            assertTrue(checkNotNull(notice.contentIntent).isActivity)
-        }
+        assertTrue(checkNotNull(notice.contentIntent).isImmutable)
+        assertTrue(checkNotNull(notice.contentIntent).isActivity)
         assertEquals(
             context.getString(R.string.update_available_badge, offer.version),
             notice.extras.getCharSequence(Notification.EXTRA_TEXT)

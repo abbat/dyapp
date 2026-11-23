@@ -13,6 +13,11 @@ The chat empty-state test checks its native registry and chat rows, retains the 
 and verifies the displayed peer against that same owned identity. Fixture context wrappers retain
 the caller's Activity chain while overriding only application storage.
 
+Real-IME owner checks refetch control semantics on every readiness attempt and combine those
+measurements with the current native window transform and visible frame. A failed containment
+check reports the control tag and measured rectangles; stale pre-keyboard geometry cannot establish
+readiness or obscure a persistent enlarged-text layout defect.
+
 `NativeClientUpdatesTests` checks the actual JNI metadata bridge: the native installed version
 matches `BuildConfig.VERSION_NAME`, fresh state never claims current, and all four installation
 intervals survive a separate native handle. This fixture performs no HTTP and does not enable
@@ -71,6 +76,10 @@ The five Android update-dialog prototype outcomes run `update-fixture-tests.js` 
 Five `update-notice-permission-*` Settings outcomes run `update-permission-fixture-tests.js`,
 covering explicit readback completion, refusal, read retry, pending duplicates and retired callbacks.
 These presentation samples never request platform permission or activate feed checking.
+The seven Android `search-recovery-*` prototype states run `search-recovery-fixture-tests.js`:
+explicit completion releases pending actions, stale reviews require a fresh read, delivery retry
+cannot confirm again, and retired callbacks cannot revive a card or change editor fields.
+These samples prove presentation behavior only; core/native owner authority remains separate.
 Controlled completion signals check pending admission, failed acknowledgements, browser failure/retry,
 exact external destination, persistent availability badge and retired callbacks; live native/core
 acceptance remains separate. Actions use the existing current-geometry reachability helper.
@@ -115,6 +124,12 @@ again, and an old opening cannot consume results or launch into its replacement.
 LifecycleRegistry transitions also verify foreground permission readback, visible query failures,
 detached disposed observers and pending-launch admission preserved across pause/resume. These checks
 open no system settings and do not substitute for actual Android permission enforcement.
+Permission-row and search-recovery retirement tests capture the guarded application action through
+`applicationClickKey`; a retained Foundation `OnClick` wrapper may access a detached Modifier node
+before reaching application admission. A retired permission row also refuses failed-read refreshes.
+`UpdateNotificationTests` requires immutable Activity pending intents on every supported device
+(minimum API 31), with no version branch that could skip those assertions. It also checks that
+opening the exact core-provided release URI adds no installer, identity or private payload.
 
 The independent `suite=activity` runs `PresenceVisualTests` with `activityVisual=1`.
 It captures production list/header activity marks and the audience picker in the actual Privacy
@@ -125,6 +140,20 @@ text-scale witnesses. Unknown projections omit marks, loading forbids edits, and
 read-only retry. The host has no identity/network owner or peer-photo loader, so these samples cannot
 announce activity or fetch profiles. Capture/frame review complements the separate actual JNI
 presence-delivery and lifecycle tests; authored fixtures alone do not prove rendered acceptance.
+
+The independent `suite=recovery` runs `SearchRecoveryVisualTests` with `recoveryVisual=1`.
+It captures the production search-hiding recovery card for review, busy confirmation, queued,
+acknowledged, read failure, confirmation refusal, retry failure and the five typed review refusals.
+Each width requires 192
+EN/RU/theme/font/top-bottom frames under `files/search-recovery-visual/<width>/`, validated by
+`android_visual_archive.py --kind recovery` with the exact producer and real text-scale witnesses.
+Controlled callbacks retain busy states until capture finishes; cleanup awaits admitted completion.
+Fixtures have no registry or credentials and cannot sign or contact a node. Actual JNI authorization
+and manual review of these captures remain separate acceptance requirements.
+`SearchRecoveryFailureTests` covers refusal, fresh-review admission and retry without re-signing.
+`SearchRecoveryUITests` keeps the real editor/name field beside the card and checks that queued
+completion and closing preserve unsaved inputs, while late callbacks cannot change an equal-coordinate
+successor. These controlled UI tests complement existing core/FFI original-owner authorization tests.
 
 Native receiving completion checks retain a recovery review prepared before setup finishes:
 preparing another review after the pending link has been cleared is correctly refused. Publication
@@ -161,13 +190,15 @@ fixed groups, raw accessibility text and exact system-clipboard values. The esta
 copy tag stays stable while all identifiers reuse the shared display component.
 `LinkReviewFailureTests` rejects a preview after all 31 explicit choices inside the actual receiving
 Settings frame, acknowledges safe Back focus and the recovery relocation-completion signal, and
-checks the error and all recovery controls against
-the current viewport in EN/RU at both text scales. This covers preview refusal only; authoritative
+checks the complete error against the current viewport before any test-driven scroll.
+Each recovery control is then exposed and checked with fresh bounds in EN/RU at both text scales. This covers preview refusal only; authoritative
 confirmation refusal belongs to the separately retained enrollment state. Its typed notice and
 existing recovery actions render beside the active form footer, or beside the reopen/saved state;
 receipt-only outcomes keep their original notice. After the safe Back control reports actual focus,
-the measured feedback/recovery group requests visibility as a unit; focus alone is not a scroll
-completion signal. Group-size changes retrigger that request without a guessed delay.
+a non-empty leading region derived from its actual text baseline requests visibility; focus alone
+is not a scroll completion signal. Changes to that measured region retrigger the request without
+a guessed delay. A footer taller than its viewport need not fit simultaneously: the full refusal is
+checked first, followed by individual measured recovery-control reachability.
 The phase-only `LinkReviewVisualTests` renders the actual complete comparison in the receiving
 Settings frame: choices, preview, saving, typed refusal and unavailable photos, in EN/RU, both
 colour themes and actual 100/200% text scales. With `comparisonVisual=1`, `sourceSha` and
@@ -231,6 +262,10 @@ These presentation checks complement the real two-phone JNI journey, which prepa
 JPEG, transfers its references and invokes the original review thumbnail binding before unchanged
 separate enrollment, private-sync and revocation assertions. They do not substitute for full screen
 review or all recovery-policy branches.
+
+The owner approval dialog handles its own IME insets with an inset-aware window and `imePadding`;
+its fixed action row must remain above the real keyboard while the body scrolls. The real-IME test
+retains full glyph/action containment at each selection and the original per-transition deadlines.
 
 Android stale-callback checks capture the installed `applicationClickKey` action, rather than a
 Compose `SemanticsActions.OnClick` wrapper: modifier nodes may reuse that wrapper for a new opening

@@ -77,7 +77,7 @@ private fun UpdatePermissionRow(read: (Context) -> Boolean) {
     val launch = rememberUpdatePermissionLaunch(opening, refresh)
     DisposableEffect(opening) { onDispose { opening.retire() } }
     UpdatePermissionContent(allowed, failed, opening.pending) {
-        if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+        if (opening.active && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
             if (allowed == null) {
                 refresh()
             } else {
@@ -117,7 +117,7 @@ private fun UpdatePermissionContent(allowed: Boolean?, failed: Boolean, pending:
     }
     Caption(stringResource(status), Modifier.testTag("update-notice-permission"))
     if (failed && allowed != null) Caption(stringResource(R.string.update_notice_permission_failed))
-    TextButton(action, Modifier.testTag("update-notice-allow"), enabled = !pending) {
+    TextButton(action, Modifier.testTag("update-notice-allow").applicationClick(action), enabled = !pending) {
         Text(stringResource(if (allowed == null) R.string.update_notice_retry else R.string.update_notice_manage))
     }
 }

@@ -159,7 +159,8 @@ fn admit_reply(
     }
     let bound = u64::try_from(feed::MAX_BYTES).map_err(|_| feed::Error::TooLarge)?;
     let mut bytes = Vec::new();
-    body.take(bound + 1).read_to_end(&mut bytes)?;
+    let bound = bound.checked_add(1).ok_or(feed::Error::TooLarge)?;
+    body.take(bound).read_to_end(&mut bytes)?;
     if bytes.len() > feed::MAX_BYTES {
         return Err(feed::Error::TooLarge.into());
     }
@@ -178,7 +179,11 @@ fn checked_etag(value: Option<&str>) -> Result<Option<String>, Error> {
     {
         return Err(Error::Etag);
     }
-    if !tag[1..tag.len() - 1]
+    let content = tag
+        .strip_prefix('"')
+        .and_then(|value| value.strip_suffix('"'))
+        .ok_or(Error::Etag)?;
+    if !content
         .bytes()
         .all(|byte| matches!(byte, 0x21 | 0x23..=0x7e))
     {
