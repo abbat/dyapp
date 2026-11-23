@@ -122,15 +122,16 @@ fn writes() -> Vec<Write> {
     ]
 }
 
-fn admission_service() -> Service {
-    let (_service_test_dir, mut service) = search_service();
+fn admission_service() -> (dyapp_test_support::TestDir, Service) {
+    let manual = crate::clock::Manual::at(1_800_000_000);
+    let (test_dir, mut service) = search_service_with_clock(manual.clock());
     service.media = Some(MediaStore::open(&service.config.storage.dir).unwrap());
-    service
+    (test_dir, service)
 }
 
 #[test]
 fn every_external_write_variant_is_denied_and_rate_limited_before_validation() {
-    let service = admission_service();
+    let (_denied_test_dir, service) = admission_service();
     for (index, write) in writes().into_iter().enumerate() {
         let peer = replica_peer(&format!("listed-{index}"));
         service.deny.write().unwrap().insert(peer.id.clone());
@@ -138,7 +139,7 @@ fn every_external_write_variant_is_denied_and_rate_limited_before_validation() {
         assert_eq!(write.call(&service, &peer), Status::Refused, "{label}");
     }
 
-    let service = admission_service();
+    let (_limited_test_dir, service) = admission_service();
     service.traffic.add(service.config.limits.bytes_per_second);
     for write in writes() {
         let label = format!("{write:?}");

@@ -90,7 +90,11 @@ fn profile_inventory_returns_only_version_and_validates_key_and_budget() {
 }
 
 pub(super) fn search_service() -> (dyapp_test_support::TestDir, Service) {
-    let (s_test_dir, mut s) = service_with(|limits| limits.bytes_per_second = 1 << 20);
+    search_service_with_clock(Clock::system())
+}
+
+fn search_service_with_clock(clock: Clock) -> (dyapp_test_support::TestDir, Service) {
+    let (s_test_dir, mut s) = service_with_clock(|limits| limits.bytes_per_second = 1 << 20, clock);
     s.config.roles.push(Role::Search);
     s.config.search.min_profile_pow_bits = 2;
     s.config.search.min_heartbeat_pow_bits = 0;
@@ -135,6 +139,13 @@ pub(super) fn replica_peer(label: &str) -> Peer {
 fn service_with(
     change: impl FnOnce(&mut crate::config::Limits),
 ) -> (dyapp_test_support::TestDir, Service) {
+    service_with_clock(change, Clock::system())
+}
+
+fn service_with_clock(
+    change: impl FnOnce(&mut crate::config::Limits),
+    clock: Clock,
+) -> (dyapp_test_support::TestDir, Service) {
     let test_dir = dyapp_test_support::test_dir().unwrap();
     let dir = test_dir.path().join(uuid::Uuid::new_v4().to_string());
     let mut config = NodeConfig::default();
@@ -142,8 +153,12 @@ fn service_with(
     config.network.id_pow_bits = 0;
     config.search.min_profile_pow_bits = 0;
     change(&mut config.limits);
-    let service =
-        Service::new(BootstrapStore::new(dir.to_str().unwrap()).unwrap(), config).unwrap();
+    let service = Service::with_clock(
+        BootstrapStore::new(dir.to_str().unwrap()).unwrap(),
+        config,
+        clock,
+    )
+    .unwrap();
     (test_dir, service)
 }
 
