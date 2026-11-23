@@ -139,6 +139,60 @@ class AndroidVisualArchive(TestCase):
             with self.assertRaises(ValueError):
                 ARCHIVE.validate(output, 360, SOURCE)
 
+    def test_activity_matrix_requires_every_mark_and_audience_outcome(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(
+            dir=Path(__file__).resolve().parents[1] / "build"
+        ) as temporary:
+            root = Path(temporary)
+            source = root / "activity.tar"
+            frames: list[dict[str, object]] = []
+            with tarfile.open(source, "w") as archive:
+                for screen, language, theme, font, edge in product(
+                    ARCHIVE.ACTIVITY_SCREENS,
+                    ("en", "ru"),
+                    ("light", "dark"),
+                    (100, 200),
+                    ("top", "bottom"),
+                ):
+                    name = f"{screen}-{language}-360-{theme}-{font}-{edge}.png"
+                    add(archive, f"files/activity-visual/360/{name}", PNG)
+                    frames.append(
+                        {
+                            "file": name,
+                            "viewport_width_dp": 360,
+                            "pixel_width": 1,
+                            "pixel_height": 1,
+                            "font_percent": font,
+                            "actual_font_scale": font / 100,
+                            "actual_density": 1,
+                        }
+                    )
+                manifest = {
+                    "source_sha": SOURCE,
+                    "requested_width_dp": 360,
+                    "complete": True,
+                    "frames": frames,
+                }
+                add(
+                    archive,
+                    "files/activity-visual/360/manifest.json",
+                    json.dumps(manifest).encode(),
+                )
+            output = root / "output"
+            ARCHIVE.unpack(source, output, 360, "activity")
+            self.assertEqual(
+                ARCHIVE.validate(
+                    output, 360, SOURCE, ARCHIVE.ACTIVITY_SCREENS
+                ),
+                128,
+            )
+            frames.pop()
+            (output / "manifest.json").write_text(json.dumps(manifest))
+            with self.assertRaises(ValueError):
+                ARCHIVE.validate(output, 360, SOURCE, ARCHIVE.ACTIVITY_SCREENS)
+
     def test_real_ime_matrix_rejects_hidden_or_invalid_geometry(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

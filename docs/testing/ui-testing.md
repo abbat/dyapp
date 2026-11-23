@@ -115,6 +115,16 @@ LifecycleRegistry transitions also verify foreground permission readback, visibl
 detached disposed observers and pending-launch admission preserved across pause/resume. These checks
 open no system settings and do not substitute for actual Android permission enforcement.
 
+The independent `suite=activity` runs `PresenceVisualTests` with `activityVisual=1`.
+It captures production list/header activity marks and the audience picker in the actual Privacy
+Settings frame: active/unknown list and chat, matches/nobody/loading/read failure. Each width requires
+128 EN/RU/theme/font/top-bottom frames under `files/activity-visual/<width>/`; the
+`android_visual_archive.py --kind activity` validator requires exact source and actual native
+text-scale witnesses. Unknown projections omit marks, loading forbids edits, and failed reads offer
+read-only retry. The host has no identity/network owner or peer-photo loader, so these samples cannot
+announce activity or fetch profiles. Capture/frame review complements the separate actual JNI
+presence-delivery and lifecycle tests; authored fixtures alone do not prove rendered acceptance.
+
 Native receiving completion checks retain a recovery review prepared before setup finishes:
 preparing another review after the pending link has been cleared is correctly refused. Publication
 preview tests await their expected current row after the native draft read, before scrolling.

@@ -69,6 +69,16 @@ UPDATE_SCREENS = (
     "update-notice-permission-failed",
     "update-notice-permission-unknown",
 )
+ACTIVITY_SCREENS = (
+    "activity-list-active",
+    "activity-list-unknown",
+    "activity-chat-active",
+    "activity-chat-unknown",
+    "activity-matches",
+    "activity-nobody",
+    "activity-loading",
+    "activity-error",
+)
 MAX_BYTES = 512 * 1024 * 1024
 
 
@@ -91,7 +101,14 @@ def unpack(
 ) -> None:
     if archive.stat().st_size > MAX_BYTES:
         raise ValueError("Native visual archive exceeds its limit")
-    if kind not in ("visual", "ime", "receive", "views", "updates"):
+    if kind not in (
+        "visual",
+        "ime",
+        "receive",
+        "views",
+        "updates",
+        "activity",
+    ):
         raise ValueError("Unknown native evidence kind")
     folder = {
         "visual": "owner-approval-visual",
@@ -99,6 +116,7 @@ def unpack(
         "receive": "receive-visual",
         "views": "received-views-visual",
         "updates": "update-notice-visual",
+        "activity": "activity-visual",
     }[kind]
     prefix = f"files/{folder}/{width}"
     folders = {"files", f"files/{folder}", prefix}
@@ -106,6 +124,7 @@ def unpack(
         "receive": r"link-[a-z-]+",
         "views": r"settings-views(?:-[a-z]+)?",
         "updates": r"update-notice-[a-z-]+",
+        "activity": r"activity-[a-z-]+",
     }.get(kind, r"owner-[a-z-]+")
     suffix = r"[0-9]{1,4}" if kind == "ime" else r"(top|bottom)"
     pattern = re.compile(
@@ -293,7 +312,7 @@ def main() -> None:
     parser.add_argument("--source", required=True)
     parser.add_argument(
         "--kind",
-        choices=("visual", "ime", "receive", "views", "updates"),
+        choices=("visual", "ime", "receive", "views", "updates", "activity"),
         default="visual",
     )
     args = parser.parse_args()
@@ -307,6 +326,7 @@ def main() -> None:
             "receive": RECEIVE_SCREENS,
             "views": VIEW_SCREENS,
             "updates": UPDATE_SCREENS,
+            "activity": ACTIVITY_SCREENS,
         }.get(args.kind, SCREENS)
         count = validate(args.output, args.width, args.source, screens)
     print(f"OK native visual matrix: {count} frames")
