@@ -76,7 +76,7 @@ async fn operate(
     group_id: &[u8],
     message_id: [u8; 16],
     text: Option<&str>,
-) -> Result<[u8; 16], String> {
+) -> Result<super::submission::Submitted, String> {
     if let Some(text) = text {
         if text.is_empty() || text.len() > MAX_TEXT_BYTES {
             return Err("invalidText".into());
@@ -106,7 +106,7 @@ async fn operate(
     .map_err(|e| e.to_string())?;
     match text {
         Some(text) => session
-            .send_edit(
+            .submit_edit(
                 std::slice::from_mut(&mut node),
                 group_id,
                 message_id,
@@ -114,15 +114,17 @@ async fn operate(
                 &seal_key,
             )
             .await
+            .map(super::submission::Submitted::from)
             .map_err(|e| e.to_string()),
         None => session
-            .send_delete(
+            .submit_delete(
                 std::slice::from_mut(&mut node),
                 group_id,
                 message_id,
                 &seal_key,
             )
             .await
+            .map(super::submission::Submitted::from)
             .map_err(|e| e.to_string()),
     }
 }
@@ -137,7 +139,7 @@ pub(crate) async fn edit_chat_text(
     group_id: Vec<u8>,
     message_id: [u8; 16],
     text: String,
-) -> Result<[u8; 16], String> {
+) -> Result<super::submission::Submitted, String> {
     let lease = state.lease()?;
     let (identity, dir) = lease.active().clone();
     let root = crate::config_dir(&app)?;
@@ -268,7 +270,7 @@ pub(crate) async fn delete_chat_text(
     peer_id: String,
     group_id: Vec<u8>,
     message_id: [u8; 16],
-) -> Result<[u8; 16], String> {
+) -> Result<super::submission::Submitted, String> {
     let lease = state.lease()?;
     let (identity, dir) = lease.active().clone();
     let root = crate::config_dir(&app)?;

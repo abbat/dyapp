@@ -102,7 +102,7 @@
     const oldSend = appBindings.sendChatText(() => finishSendCall.call());
     await appBindings.act(Promise.resolve({ status: 'picker' }));
     await appBindings.act(Promise.resolve(readyState));
-    finishSendCall.resolve([1]);
+    finishSendCall.resolve({ id: [1], queued: null });
     await oldSend;
     if (!appBindings.chatDetail.hidden || appBindings.chatInput.value)
       throw new Error('old send painted new identity');
@@ -120,8 +120,9 @@
     await appApi.composerShown;
     await appBindings.sendChatText((command) => {
       if (command === 'send_chat_text') return Promise.reject('notConnected');
+      // An unrelated own write must not make this refused draft look committed.
       if (command === 'chat_history')
-        return Promise.resolve({ state: 'open', messages: [message] });
+        return Promise.resolve({ state: 'open', messages: [message, reply] });
       throw new Error(`unexpected failed send command: ${command}`);
     });
     assertChatProjectionFailedSendLostTheUnstagedDraft();
@@ -135,7 +136,8 @@
     assertChatProjectionAnInviteWithoutStockDidNotSay();
     await appApi.composerShown;
     await appBindings.sendChatText((command) => {
-      if (command === 'send_chat_text') return Promise.reject('nodeFailed');
+      if (command === 'send_chat_text')
+        return Promise.resolve({ id: reply.id, queued: 'nodeFailed' });
       if (command === 'chat_history')
         return Promise.resolve({ state: 'open', messages: [message, reply] });
       if (command === 'mark_chat_read') return Promise.resolve(0);
@@ -178,6 +180,31 @@
 
     await checkChatProjectionSendFailures(peer, message, reply, rows);
   };
+  const checkSubmittedDraft = async (peer, message, rows) => {
+    const pending = smoke.pendingSmokeCall();
+    const call = (command) => {
+      if (command === 'send_chat_text') return pending.call();
+      if (command === 'chat_history')
+        return Promise.resolve({ state: 'open', messages: [message] });
+      if (command === 'mark_chat_read') return Promise.resolve(0);
+      if (command === 'chat_rows') return Promise.resolve(rows);
+      throw Error(`Unexpected submitted draft command: ${command}`);
+    };
+    await appBindings.openChat(peer, call);
+    appBindings.chatInput.value = 'submitted draft';
+    appBindings.chatInput.dispatchEvent(new Event('input'));
+    await appApi.composerShown;
+    const sending = appBindings.sendChatText(call);
+    await smoke.waitForSignal('text submission started', pending.started);
+    appBindings.chatInput.value = 'newer draft';
+    pending.resolve({ id: [2], queued: 'nodeFailed' });
+    await sending;
+    if (
+      appBindings.chatInput.value !== 'newer draft' ||
+      appBindings.chatComposeStatus.textContent !== appApi.strings['chats.queued']
+    )
+      throw Error('Committed submission cleared a newer draft or inferred delivery from history');
+  };
   const checkChatProjectionReply = async (peer, message, rows) => {
     appBindings.chatInput.value = 'reply';
     appBindings.chatInput.dispatchEvent(new Event('input'));
@@ -193,7 +220,7 @@
     await appBindings.sendChatText((command, args) => {
       if (command === 'send_chat_text') {
         sentArgs = args;
-        return Promise.resolve([1]);
+        return Promise.resolve({ id: [1], queued: null });
       }
       if (command === 'chat_history')
         return Promise.resolve({ state: 'open', messages: [message, reply] });
@@ -204,6 +231,7 @@
     });
     assertChatProjectionReplyDidNotOpenConversationOrRemove(sentArgs, peer);
 
+    await checkSubmittedDraft(peer, message, rows);
     await checkChatProjectionWriteGuards(peer, message, reply, rows);
   };
   const checkChatProjection = async () => {
@@ -306,7 +334,7 @@
     await appBindings.sendChatText((command, args) => {
       if (command === 'send_chat_text') {
         sent = args;
-        return Promise.resolve([7]);
+        return Promise.resolve({ id: [7], queued: null });
       }
       if (command === 'chat_history')
         return Promise.resolve({ state: 'requestSent', messages: [own] });

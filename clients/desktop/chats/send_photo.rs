@@ -43,7 +43,7 @@ async fn send(
     device_key: &Identity,
     peer_id: &str,
     (attachment, blob): &(Attachment, Vec<u8>),
-) -> Result<[u8; 16], String> {
+) -> Result<super::submission::Submitted, String> {
     if peer_id == identity.peer_id() {
         return Err("invalidTarget".into());
     }
@@ -52,7 +52,7 @@ async fn send(
         super::forward::open_session(cache, root, dir, identity, device_key, store, peer_id)
             .await?;
     session
-        .send_attachment_to(
+        .submit_attachment_to(
             std::slice::from_mut(&mut node),
             identity,
             peer_id,
@@ -61,6 +61,7 @@ async fn send(
             &seal_key,
         )
         .await
+        .map(super::submission::Submitted::from)
         .map_err(code)
 }
 
@@ -74,7 +75,7 @@ pub(crate) async fn send_chat_photo(
     searching: tauri::State<'_, crate::search::SearchState>,
     sessions: tauri::State<'_, super::Sessions>,
     request: tauri::ipc::Request<'_>,
-) -> Result<[u8; 16], String> {
+) -> Result<super::submission::Submitted, String> {
     let peer_id = crate::photo_prepare::header(request.headers(), "dyapp-peer-id")?.to_owned();
     let (rgba, width, height) = crate::photo_prepare::pixels(request.headers(), request.body())?;
     let lease = state.lease()?;

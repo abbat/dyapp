@@ -631,6 +631,13 @@ Only an absent local group may fall through to online first-contact admission; a
 triggers another submission. The connected path still verifies the peer profile. Offline operation
 cannot discover remote revocations it has not received.
 
+Desktop text, edit, delete, photo and forward commands project the same core `Submission` as
+`{ id, queued }`: `queued: null` means immediate node acceptance; a string means committed with
+retryable delivery work. Command rejection means no successful commitment. The desktop controller
+uses this verdict to retain or clear the submitted draft; history refresh only renders state and
+cannot acknowledge an unrelated concurrent operation. Existing opening, identity and selected-target
+guards still reject late display completions.
+
 Common native `submit_delete_sticker` accepts an explicit peer/group/author/logical-ID and only a
 current own sticker. Its session/identity lease covers selection, staging and typed commitment;
 foreign authors cannot rebind a colliding own ID. Text edit/delete retains its text-only contract.

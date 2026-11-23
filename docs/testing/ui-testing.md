@@ -1714,7 +1714,10 @@ confirmation with an empty row and local-only note, and a late result after swit
 The Block smoke covers request/open controls, a failed local block, pending network revocation,
 immediate row hiding and an old result after identity switch. The Edit smoke checks the action
 only on live own text, current text in the editor, Cancel, refreshed text and edited mark,
-retained unstaged draft, pending delivery for a staged edit and a late identity result. The
+retained unstaged draft, pending delivery for a staged edit and a late identity result. Refused
+send/edit/delete fixtures deliberately expose a concurrent own message, identical edited text or
+terminal tombstone in history: those cannot acknowledge the rejected operation. Committed fixtures
+return explicit `{ id, queued }` outcomes, and late edit/delete results use the same IPC shape. The
 Delete smoke checks the best-effort warning, Cancel, own-message placeholder, retained text on
 an unstaged error, pending delivery after staging and a stale identity result. The delivery
 smoke renders only own status, refreshes node acceptance after a catch-up pass with no new text,

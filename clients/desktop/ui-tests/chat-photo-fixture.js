@@ -62,9 +62,11 @@
         const refusal = sends.shift();
         if (refusal === 'queued') {
           messages.push(entry(appBindings.current.peerId, 9, { ...photo, preview: [] }));
-          return Promise.reject('notConnected');
+          return Promise.resolve({ id: Array(16).fill(9), queued: 'notConnected' });
         }
-        return refusal ? Promise.reject(refusal) : Promise.resolve(Array(16).fill(9));
+        return refusal
+          ? Promise.reject(refusal)
+          : Promise.resolve({ id: Array(16).fill(9), queued: null });
       },
       chat_photo_original: (args) => {
         fixture.fetched = args;

@@ -40,6 +40,9 @@ pub use receiving::receive;
 pub(crate) mod send_photo;
 #[path = "chats/share.rs"]
 pub(crate) mod share;
+#[path = "chats/submission.rs"]
+pub(crate) mod submission;
+use submission::Submitted;
 #[path = "chats/view.rs"]
 mod view;
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
@@ -201,8 +204,7 @@ pub(crate) fn accept_peer(
 /// stages the text and any first Welcome before network delivery; a failed send stays retryable.
 /// Errors are `ownPeer`, `invalidText`, `blocked`, `unpublished`, `notConnected`, `checkClock` or
 /// a node or storage message.
-#[expect(unreachable_pub, reason = "Retained module API visibility")]
-pub async fn send_text(
+pub(crate) async fn send_text(
     cache: &Mutex<ProfileCache>,
     root: &Path,
     dir: &Path,
@@ -210,7 +212,7 @@ pub async fn send_text(
     device_key: &Identity,
     peer_id: &str,
     text: &str,
-) -> Result<[u8; 16], String> {
+) -> Result<Submitted, String> {
     if peer_id == identity.peer_id() {
         return Err("ownPeer".into());
     }
@@ -246,13 +248,14 @@ pub async fn send_text(
         return Err("unpublished".into());
     }
     session
-        .send_text_to(
+        .submit_text_to(
             std::slice::from_mut(&mut node),
             &[own, peer],
             text.as_bytes(),
             &seal_key,
         )
         .await
+        .map(Submitted::from)
         .map_err(send_photo::code)
 }
 
@@ -552,7 +555,7 @@ pub mod commands {
         sessions: tauri::State<'_, super::Sessions>,
         peer_id: String,
         text: String,
-    ) -> Result<[u8; 16], String> {
+    ) -> Result<super::Submitted, String> {
         let lease = state.lease()?;
         let (identity, dir) = lease.active().clone();
         let root = crate::config_dir(&app)?;

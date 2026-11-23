@@ -625,40 +625,30 @@ clearConfirm.addEventListener('click', () => {
 // redraws. `sent` runs before the redraw; `failure` words an unstaged error.
 /**
  * @param {() => void} sent @param {import('./ipc.js').Invoke} call
- * @param {(peerId: string) => Promise<unknown>} send
+ * @param {(peerId: string) => Promise<import('./ipc.js').Submitted>} send
  * @param {(error: string) => string} failure
  */
 const sendInChat = async (send, sent, failure, call) => {
   const chat = chatState.activeChat;
   if (!chat) return;
-  const { peerId, messages } = chat;
+  const { peerId } = chat;
   const generation = identityState.generation;
   const request = chatOpenRequest;
   const currentSend = () =>
     identityCurrent(generation) &&
     request === chatOpenRequest &&
     chatState.activeChat?.peerId === peerId;
-  const existing = new Set(messages.map((message) => JSON.stringify(message.id)));
   chatSending = true;
   chatComposeStatus.textContent = strings['chats.sending'];
   updateComposer();
   let result = 'sent';
   let errorText = '';
   try {
-    await send(peerId);
+    const submitted = await send(peerId);
+    result = submitted.queued === null ? 'sent' : 'queued';
   } catch (error) {
     errorText = String(error);
-    // A failed node delivery may already have committed the text and its retryable outbox.
-    // Show that local text instead of allowing a second copy from the same draft.
-    const history = await call('chat_history', { peerId }).catch(() => null);
-    if (!currentSend()) return;
-    result = history?.messages.some(
-      (message) =>
-        message.author === identityState.current?.peerId &&
-        !existing.has(JSON.stringify(message.id)),
-    )
-      ? 'queued'
-      : 'failed';
+    result = 'failed';
   }
   if (!currentSend()) return;
   chatSending = false;
@@ -680,7 +670,7 @@ const sendChatText = async (call = invoke) => {
   await sendInChat(
     (peerId) => call('send_chat_text', { peerId, text }),
     () => {
-      chatInput.value = '';
+      if (chatInput.value === text) chatInput.value = '';
     },
     (error) => {
       if (error === 'peerUnavailable') return strings['chats.peerUnavailable'];
@@ -710,28 +700,16 @@ const editChatText = async (call = invoke) => {
   let result = 'editSent';
   let errorText = '';
   try {
-    await call('edit_chat_text', {
+    const submitted = await call('edit_chat_text', {
       peerId: target.peerId,
       groupId: target.groupId,
       messageId: target.messageId,
       text,
     });
+    result = submitted.queued === null ? 'editSent' : 'editQueued';
   } catch (error) {
     errorText = String(error);
-    // The edit may be committed locally even when network delivery failed.
-    const history = await call('chat_history', { peerId: target.peerId }).catch(() => null);
-    if (!currentEdit()) return;
-    result = history?.messages.some(
-      (message) =>
-        message.author === identityState.current?.peerId &&
-        JSON.stringify(message.id) === JSON.stringify(target.messageId) &&
-        JSON.stringify(message.groupId) === JSON.stringify(target.groupId) &&
-        message.edited &&
-        !message.deleted &&
-        message.text === text,
-    )
-      ? 'editQueued'
-      : 'failed';
+    result = 'failed';
   }
   if (!currentEdit()) return;
   editBusy = false;
@@ -766,26 +744,15 @@ const deleteChatText = async (call = invoke) => {
   let result = 'deleteSent';
   let errorText = '';
   try {
-    await call('delete_chat_text', {
+    const submitted = await call('delete_chat_text', {
       peerId: target.peerId,
       groupId: target.groupId,
       messageId: target.messageId,
     });
+    result = submitted.queued === null ? 'deleteSent' : 'deleteQueued';
   } catch (error) {
     errorText = String(error);
-    // A failed delivery can follow a durable local delete and terminal placeholder.
-    const history = await call('chat_history', { peerId: target.peerId }).catch(() => null);
-    if (!currentDelete()) return;
-    result = history?.messages.some(
-      (message) =>
-        message.author === identityState.current?.peerId &&
-        JSON.stringify(message.id) === JSON.stringify(target.messageId) &&
-        JSON.stringify(message.groupId) === JSON.stringify(target.groupId) &&
-        message.deleted &&
-        message.text == null,
-    )
-      ? 'deleteQueued'
-      : 'failed';
+    result = 'failed';
   }
   if (!currentDelete()) return;
   deleteBusy = false;

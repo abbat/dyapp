@@ -63,6 +63,7 @@
  *   { kind: 'clear' }} MediaCacheEdit
  * @typedef {MediaCache & { limitMib: string, minMib: string, maxMib: string,
  *   confirmationRequired: boolean }} MediaCacheDecision
+ * @typedef {{ id: number[], queued: string | null }} Submitted
  * @typedef {{ id: number[], bytes: number, name: string | null, stickers: number | null,
  *   error: string | null }} StickerPack
  * @typedef {{ entries: StickerPack[], next: number[] | null, usedBytes: number,
@@ -119,7 +120,7 @@
  *   mark_chat_read: Command<[{ peerId: string }], number>,
  *   clear_chat: Command<[{ peerId: string }], number>,
  *   send_read_receipts: Command<[{ peerId: string }], number>,
- *   send_chat_text: Command<[{ peerId: string, text: string }], number[]>,
+ *   send_chat_text: Command<[{ peerId: string, text: string }], Submitted>,
  *   peer_likes: Command<[{ peerId: string }], Likes>,
  *   like_peer: Command<[{ peerId: string, liked: boolean }], Likes>,
  *   prepare_profile_view: Command<[{ peerId: string }], string>,
@@ -176,13 +177,13 @@
  *   liked_you: Command<[], FoundProfile[]>,
  *   shared_profile: Command<[{ peerId: string }], FoundProfile>,
  *   share_profile: Command<[{ peerId: string, targetPeerId: string }], number[]>,
- *   edit_chat_text: Command<[{ peerId: string, groupId: number[], messageId: number[], text: string }], number[]>,
- *   delete_chat_text: Command<[{ peerId: string, groupId: number[], messageId: number[] }], number[]>,
+ *   edit_chat_text: Command<[{ peerId: string, groupId: number[], messageId: number[], text: string }], Submitted>,
+ *   delete_chat_text: Command<[{ peerId: string, groupId: number[], messageId: number[] }], Submitted>,
  *   forward_chat_text: Command<[{ sourcePeerId: string, sourceGroupId: number[], sourceAuthor: string, sourceMessageId: number[], targetPeerId: string }], { id: number[], queued: string | null }>,
  *   announce_presence: Command<[], boolean>,
  *   photo_picked_byte_limit: Command<[], number>,
  *   photo_decode_plan: Command<[{ mime: string, width: number, height: number, bytes: number, purpose: 'profile' | 'chat' }], { width: number, height: number }>,
- *   send_chat_photo: Command<[Uint8Array, { headers: PhotoHeaders & { 'dyapp-peer-id': string } }], number[]>,
+ *   send_chat_photo: Command<[Uint8Array, { headers: PhotoHeaders & { 'dyapp-peer-id': string } }], Submitted>,
  *   add_profile_photo: Command<[Uint8Array, { headers: PhotoHeaders }], import('./profile-fields.js').ProfileView>,
  *   remove_profile_photo: Command<[{ index: number, revision: number[] }], import('./profile-fields.js').ProfileView>,
  *   move_profile_photo: Command<[{ from: number, to: number, revision: number[] }], import('./profile-fields.js').ProfileView>,

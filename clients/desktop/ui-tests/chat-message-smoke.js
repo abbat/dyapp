@@ -87,7 +87,7 @@
     const readyState = appBindings.current;
     await appBindings.act(Promise.resolve({ status: 'picker' }));
     await appBindings.act(Promise.resolve(readyState));
-    finishEditCall.resolve([6]);
+    finishEditCall.resolve({ id: [6], queued: null });
     await oldEdit;
     if (appBindings.editDialog.open || !appBindings.chatDetail.hidden)
       throw new Error('old Edit painted new identity');
@@ -119,7 +119,7 @@
     await appBindings.editChatText((command, args) => {
       if (command === 'edit_chat_text') {
         editedArgs = args;
-        return Promise.resolve([5]);
+        return Promise.resolve({ id: [5], queued: null });
       }
       return call(command);
     });
@@ -128,6 +128,8 @@
     appBindings.editInput.value = 'keep draft';
     appBindings.editInput.dispatchEvent(new Event('input'));
     await appApi.editShown;
+    // Another operation can independently leave identical text in history.
+    fixture.messages = [{ ...own, text: 'keep draft', edited: true }, theirs, deleted];
     await appBindings.editChatText((command) =>
       command === 'edit_chat_text' ? Promise.reject('diskFailed') : call(command),
     );
@@ -138,7 +140,7 @@
     await appBindings.editChatText((command) => {
       if (command === 'edit_chat_text') {
         fixture.messages = [{ ...own, text: 'queued text', edited: true }, theirs, deleted];
-        return Promise.reject('nodeFailed');
+        return Promise.resolve({ id: [6], queued: 'nodeFailed' });
       }
       return call(command);
     });
@@ -232,7 +234,7 @@
     const readyState = appBindings.current;
     await appBindings.act(Promise.resolve({ status: 'picker' }));
     await appBindings.act(Promise.resolve(readyState));
-    finishDeleteCall.resolve([12]);
+    finishDeleteCall.resolve({ id: [12], queued: null });
     await oldDelete;
     if (appBindings.deleteDialog.open || !appBindings.chatDetail.hidden)
       throw new Error('old Delete painted new identity');
@@ -265,7 +267,7 @@
       if (command === 'delete_chat_text') {
         deletedArgs = args;
         fixture.messages = [{ ...own, text: null, deleted: true }, theirs];
-        return Promise.resolve([9]);
+        return Promise.resolve({ id: [9], queued: null });
       }
       return call(command);
     });
@@ -273,14 +275,17 @@
     fixture.messages = [{ ...own, id: [10], text: 'second' }, theirs];
     await appBindings.openChat(peer, call);
     deleteButton().click();
+    // A concurrent tombstone cannot acknowledge this refused operation.
+    fixture.messages = [{ ...fixture.messages[0], text: null, deleted: true }, theirs];
     await appBindings.deleteChatText((command) =>
       command === 'delete_chat_text' ? Promise.reject('diskFailed') : call(command),
     );
     assertChatDeleteUnstagedDeleteHidOwnText();
+    fixture.messages = [{ ...own, id: [10], text: 'second' }, theirs];
     await appBindings.deleteChatText((command) => {
       if (command === 'delete_chat_text') {
         fixture.messages = [{ ...fixture.messages[0], text: null, deleted: true }, theirs];
-        return Promise.reject('nodeFailed');
+        return Promise.resolve({ id: [11], queued: 'nodeFailed' });
       }
       return call(command);
     });
