@@ -401,6 +401,38 @@ async fn publishing_needs_a_solved_puzzle_and_an_active_network() {
 }
 
 #[test]
+fn publication_response_keeps_exact_accepted_version_and_current_pending_fields() {
+    let owner = Identity::try_generate().unwrap();
+    let store = Store::open(&temp_dir().join("publication.db"), &owner).unwrap();
+    let accepted = Profile {
+        version: 3,
+        name: "Accepted".into(),
+        ..Profile::default()
+    };
+    let current = Profile {
+        version: 4,
+        name: "Pending".into(),
+        ..accepted.clone()
+    };
+    store.save_profile_draft(&current).unwrap();
+    let date = CivilDate {
+        year: 2026,
+        month: 1,
+        day: 2,
+    };
+    let shown = publication_view(&store, &owner, &accepted, date).unwrap();
+    assert_eq!(shown.draft.name, "Pending");
+    assert_eq!(shown.published, 3);
+    assert!(shown.publication_pending);
+    assert_eq!(store.profile_draft().unwrap(), Some(current));
+    store.save_profile_draft(&accepted).unwrap();
+    let shown = publication_view(&store, &owner, &accepted, date).unwrap();
+    assert_eq!(shown.draft.name, "Accepted");
+    assert_eq!(shown.published, 3);
+    assert!(!shown.publication_pending);
+}
+
+#[test]
 fn each_solve_has_a_distinct_cancellable_token() {
     let state = ProfileState::default();
     let first = state.begin().unwrap();

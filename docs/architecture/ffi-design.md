@@ -836,8 +836,10 @@ The exhaustive profile constructor makes new wire fields require an explicit ove
 `ProfilePublicationOutcome` separates exact published values from the current draft and pending flag;
 UniFFI's existing published payload remains exact remote output, alongside a fresh local snapshot.
 Android applies that snapshot to its existing form without replacing unsaved or in-flight save inputs.
-New pending presentation and remaining adapters still require migration before frontend monitors
-can be removed.
+Tauri refreshes the shared publication state after key-package and search awaits: its response carries
+current draft fields, the exact accepted `published` version and `publicationPending`. The existing
+editor keeps its raw inputs; the result status explicitly distinguishes remaining unpublished local
+changes. Remaining client migrations are required before frontend monitors can be removed.
 Legacy `publish`/`relist` wrappers capture only at invocation; asynchronous callers use prepared APIs.
 Post-publication blob pruning retains published/current-draft hashes, validates the exact blob
 namespace/key/format and rolls back on failure. Shared publication stages an owner-signed conditional

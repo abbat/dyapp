@@ -239,8 +239,34 @@
     finishNewSolveCall.resolve();
     await newPublish;
     assertStalePublishAndHideNewPublishDidNotFinish();
-
+    await checkPendingPublication(openDialog, published);
     await checkStaleProfileHide(readyState, published);
+  };
+  const checkPendingPublication = async (openDialog, published) => {
+    const name = byId('profile-name');
+    const before = name.value;
+    try {
+      name.value = 'Unsaved local name';
+      await openDialog();
+      await appBindings.confirmPublish((command) =>
+        command === 'solve_profile'
+          ? Promise.resolve()
+          : Promise.resolve({
+              ...published,
+              draft: { name: 'Accepted server name' },
+              publicationPending: true,
+            }),
+      );
+      if (
+        appBindings.profileStatus.textContent !==
+          `${appApi.strings['profile.publishedPending']} 1` ||
+        name.value !== 'Unsaved local name'
+      )
+        throw new Error('publication hid pending edits or replaced the raw editor');
+      await smoke.shot('profile-published-pending');
+    } finally {
+      name.value = before;
+    }
   };
   // Search-wait and elapsed timers must retain the identity generation that scheduled them.
   const checkStaleElapsedTimer = async (readyState) => {

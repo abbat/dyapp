@@ -192,6 +192,8 @@ pub struct View {
     pub photo_revision: Vec<u8>,
     /// Core photo-count policy for the current editor view.
     pub max_profile_photos: usize,
+    /// Core says local content remains different from the exact accepted publication.
+    pub publication_pending: bool,
 }
 
 /// The page's name for a [`Block`].
@@ -282,6 +284,7 @@ pub(crate) fn view(
         hidden,
         photo_revision: profile_photos::revision(profile).to_vec(),
         max_profile_photos: profile_photos::MAX_PROFILE_PHOTOS,
+        publication_pending: false,
     })
 }
 
@@ -496,7 +499,23 @@ pub async fn publish(
         .await
         .map_err(|e| e.to_string())?;
     send_held(session.store(), &mut node, &active, dir).await?;
-    view(&published, today, Some(session.store()))
+    publication_view(session.store(), identity, &published, today)
+}
+
+fn publication_view(
+    store: &Store,
+    identity: &Identity,
+    published: &Profile,
+    today: CivilDate,
+) -> Result<View, String> {
+    let outcome = store
+        .profile_publication_state(identity, published)
+        .map_err(|error| error.to_string())?;
+    let mut shown = view(&outcome.draft, today, Some(store))?;
+    shown.published = outcome.published.version;
+    shown.hidden = outcome.hidden;
+    shown.publication_pending = outcome.pending;
+    Ok(shown)
 }
 
 /// Hides the profile from search, keeping direct profile and `KeyPackage` lookup available.

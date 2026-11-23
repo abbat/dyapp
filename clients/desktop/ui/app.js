@@ -752,6 +752,15 @@ publishDialog.addEventListener('cancel', (event) => {
 publishDialog.addEventListener('close', () => {
   publishDialog.hidden = true;
 });
+/** @param {import('./profile-fields.js').ProfileView} published */
+const showPublication = (published) => {
+  showSearchWait(published);
+  showHidden(published);
+  profileMessage(
+    published.publicationPending ? 'profile.publishedPending' : 'profile.published',
+    String(published.published),
+  );
+};
 const confirmPublish = async (call = invoke) => {
   if (profileBusy || !profileAttested.checked || !profileDisclosure.checked) return;
   const generation = identityState.generation;
@@ -767,9 +776,7 @@ const confirmPublish = async (call = invoke) => {
     profileMessage('profile.publishing');
     const published = await call('publish_profile', { attested: true });
     if (!identityCurrent(generation)) return;
-    showSearchWait(published);
-    showHidden(published);
-    profileMessage('profile.published', String(published.published));
+    showPublication(published);
   } catch (error) {
     if (identityCurrent(generation)) await profileFailure(error);
   } finally {
