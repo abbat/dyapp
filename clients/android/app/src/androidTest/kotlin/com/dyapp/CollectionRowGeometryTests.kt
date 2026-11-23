@@ -23,6 +23,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.width
 import androidx.test.platform.app.InstrumentationRegistry
 import com.dyapp.ui.theme.DYAppTheme
@@ -121,6 +122,25 @@ class CollectionRowGeometryTests {
         assertEquals("Actual native text scale", scale.value, layout.layoutInput.density.fontScale, 0f)
         assertTrue("Complete identifier must wrap", layout.lineCount > 1)
         assertTrue("Every identifier character must fit", layout.textFitsLayout())
+        assertGroupedIdentifier(layout)
+    }
+
+    private fun assertGroupedIdentifier(layout: TextLayoutResult) {
+        val displayed = layout.layoutInput.text.text
+        assertEquals(
+            "Display groups preserve the complete raw target",
+            COMPLETE_COLLECTION_PEER,
+            displayed.replace(" ", "")
+        )
+        for (line in 0 until layout.lineCount) {
+            val start = layout.getLineStart(line)
+            val end = layout.getLineEnd(line, visibleEnd = true)
+            val visible = displayed.substring(start, end).trim()
+            assertTrue(
+                "Line $line breaks only between fixed groups: $visible",
+                visible.split(' ').all { it.length == 8 }
+            )
+        }
     }
 
     private fun actions(row: CollectionRowKind): List<Pair<String, String>> = when (row) {

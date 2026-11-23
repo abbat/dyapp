@@ -47,7 +47,10 @@ controlled read completions: loading, exact-target search, failed-refresh retent
 and retired-owner actions. Loading copy names the received-view list; the profile-loading resource
 belongs to profile fetches. Captured row callbacks must also refuse after query replacement removes
 the row, while the current target still opens. The shared collection-row geometry matrix includes its full identifier
-and UTC date/Open action in EN/RU, light/dark themes, at normal and enlarged text. The identifier
+and UTC date/Open action in EN/RU, light/dark themes, at normal and enlarged text. Collection rows
+reuse `IdentifierText` with the receiving/device UI: fixed display groups, exact raw accessibility
+text and the actual grouped text-layout callback. Geometry checks reject line breaks inside groups;
+visible Peer ID/local-entry labels and spacing distinguish identifiers from status/action prose. The identifier
 layout must expose the actual requested native font scale, and the full date must fit below it. These are runtime checks, not evidence of
 fresh rendered acceptance until the corresponding source-bound Android CI has executed them.
 `node tools/web-lint/received-view-fixtures.mjs` checks the dependency-free received-list request

@@ -299,7 +299,9 @@ The IDs inside each section are the desktop ones; only the frame differs.
   search, Previous/Next/Refresh, live status, at most 32 mounted rows and entry counts.
   Search matches the complete local fixture text and resets paging; Refresh restores fixtures.
   A stale completion after navigation cannot replace a different view. Rows wrap their complete
-  raw identifiers and action labels; the shared identifier formatter leaves copied text unchanged.
+  raw identifiers and action labels; native rows share the receiving/device eight-character display
+  groups while accessibility and action targets retain raw values. Peer ID/local-entry labels and
+  spacing separate identifiers from status and actions; the shared formatter leaves copied text unchanged.
 - Android remains a light client, with no embedded store/search node controls
   ([ADR 0030](../decisions/0030-desktop-full-node.md)).
   About retains the version and disabled `updates` placeholder: `update-6h`,
