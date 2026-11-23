@@ -7,15 +7,6 @@ use crate::CoreError;
 use dyapp_client::session::Session;
 use dyapp_client::store::Store;
 
-/// A group ID and the latest partner text ID in it.
-type Due = (Vec<u8>, [u8; 16]);
-
-/// The latest partner text of each group that still owes a receipt. A request owes none: only an
-/// accepted conversation may learn when the chat was opened.
-fn due_reads(store: &Store, peer_id: &str) -> Result<Vec<Due>, CoreError> {
-    store.due_read_receipts(peer_id).map_err(failed)
-}
-
 /// Apply the core's persisted-arrival read snapshot to native display records.
 pub(super) fn project_reads(
     store: &Store,
@@ -79,7 +70,10 @@ impl ChatSession {
         // The guard stays on this thread; the session it lends moves to the network thread.
         let session: &mut Session = &mut guard;
         Self::check_visible(session, &peer_id)?;
-        let due = due_reads(session.store(), &peer_id)?;
+        let due = session
+            .store()
+            .due_read_receipts(&peer_id)
+            .map_err(failed)?;
         if due.is_empty() {
             return Ok(0);
         }
@@ -103,7 +97,6 @@ impl ChatSession {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use dyapp_client::store::Conversation;
 
     fn message(group: u8, author: &str, id: u8) -> ChatMessage {
         ChatMessage {
@@ -153,23 +146,15 @@ mod tests {
     #[test]
     fn a_request_and_a_chat_without_texts_owe_nothing() {
         use dyapp_client::interactions::{Interaction, Kind};
-        let test_dir = dyapp_test_support::test_dir().unwrap();
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let dir = test_dir.path().join(format!("dyapp-ffi-reads-{nanos}"));
-        std::fs::create_dir_all(&dir).unwrap();
+        use dyapp_client::store::Conversation;
+        let dir = dyapp_test_support::test_dir().unwrap();
         let own = crate::IdentityKey::generate().unwrap();
         let (own_id, peer_id) = (
             own.peer_id(),
             crate::IdentityKey::generate().unwrap().peer_id(),
         );
-        let mut store = Store::open(&dir.join("client.db"), &own.identity).unwrap();
-        assert_eq!(
-            due_reads(&store, &peer_id).unwrap(),
-            [] as [(std::vec::Vec<u8>, [u8; 16]); 0]
-        );
+        let mut store = Store::open(&dir.path().join("client.db"), &own.identity).unwrap();
+        assert_eq!(store.due_read_receipts(&peer_id).unwrap(), []);
         // Mutual likes open the conversation, which still has no partner text to receipt.
         for (sender, target, event_id) in [(&own_id, &peer_id, 1), (&peer_id, &own_id, 2)] {
             let interaction = Interaction {
@@ -182,10 +167,6 @@ mod tests {
                 .unwrap();
         }
         assert_eq!(store.conversation(&peer_id).unwrap(), Conversation::Open);
-        assert_eq!(
-            due_reads(&store, &peer_id).unwrap(),
-            [] as [(std::vec::Vec<u8>, [u8; 16]); 0]
-        );
-        std::fs::remove_dir_all(dir).unwrap();
+        assert_eq!(store.due_read_receipts(&peer_id).unwrap(), []);
     }
 }

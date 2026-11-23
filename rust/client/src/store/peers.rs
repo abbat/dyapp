@@ -351,10 +351,7 @@ impl Store {
             .map_or_else(Vec::new, |photo| photo.thumbnail.clone());
         let name = match profile {
             Some(profile) => self.contact_name(profile)?,
-            None => match self.local_name(peer_id)? {
-                local if local.is_empty() => ContactName::Unnamed,
-                local => ContactName::Local(local),
-            },
+            None => ContactName::Local(self.local_name(peer_id)?),
         };
         let (name, verified) = match name {
             ContactName::Local(name) => (name, None),
@@ -846,6 +843,7 @@ mod tests {
         assert_eq!(read(Some(&profile)), expected("Local", None, vec![2; 32]));
         assert_eq!(read(None), expected("Local", None, Vec::new()));
         store.set_local_name(id, "").unwrap();
+        assert_eq!(read(None), expected("", None, Vec::new()));
         let nameless = dyapp_profile::verify(
             &Profile {
                 version: profile.profile.version + 1,
