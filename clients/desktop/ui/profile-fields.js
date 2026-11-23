@@ -11,6 +11,11 @@ import { locale, strings } from './locale.js';
  *   drinking: number, tattoos: number, maritalStatus: number, pets: number,
  *   country: string, place: string, seekingGenders: number[], seekingAgeFrom: number | null,
  *   seekingAgeTo: number | null, notLooking: boolean, photos: number[][] }} ProfileDraft
+ * @typedef {{ birthYear: string, birthMonth: string, birthDay: string, height: string,
+ *   interests: string, seekingGenders: string[], seekingAgeFrom: string,
+ *   seekingAgeTo: string, notLooking: boolean }} ProfileTextInput
+ * @typedef {Pick<ProfileDraft, 'birthYear' | 'birthMonth' | 'birthDay' | 'height' |
+ *   'interests' | 'seekingGenders' | 'seekingAgeFrom' | 'seekingAgeTo' | 'notLooking'>} ProfileParsedInput
  * @typedef {'name' | 'height' | 'about' | 'interests' | 'smoking' | 'drinking' | 'tattoos' |
  *   'maritalStatus' | 'pets' | 'country' | 'place' | 'seekingGenders' | 'seekingAgeFrom' |
  *   'seekingAgeTo' | 'notLooking'} DefaultedDraftFields

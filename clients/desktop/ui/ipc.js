@@ -95,6 +95,7 @@
  *   profile_scales: Command<[], PickerScale[]>,
  *   load_profile: Command<[], import('./profile-fields.js').ProfileView>,
  *   save_profile: Command<[{ draft: import('./profile-fields.js').ProfileDraftInput }], import('./profile-fields.js').ProfileView>,
+ *   profile_editor_input: Command<[{ input: import('./profile-fields.js').ProfileTextInput }], import('./profile-fields.js').ProfileParsedInput>,
  *   solve_profile: Command<[{ attested: boolean }], void>,
  *   cancel_profile_solve: Command<[], void>,
  *   publish_profile: Command<[{ attested: boolean }], import('./profile-fields.js').ProfileView>,

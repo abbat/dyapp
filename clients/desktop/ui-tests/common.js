@@ -29,13 +29,20 @@ smoke.timedChecks = (checks) =>
           },
     ]),
   );
-// Create each held promise at invocation time, exposing the most recent resolver synchronously.
+// Each observed transition gets the existing check deadline; completion cancels that deadline.
+smoke.waitForSignal = (name, signal) => smoke.timedChecks({ [name]: () => signal })[name]();
+// Create each held promise at invocation time; started acknowledges the first real invocation.
 smoke.pendingSmokeCall = () => {
   const pending = {};
+  let started;
+  pending.started = new Promise((resolve) => {
+    started = resolve;
+  });
   pending.call = () =>
     new Promise((resolve, reject) => {
       pending.resolve = resolve;
       pending.reject = reject;
+      started();
     });
   return pending;
 };
