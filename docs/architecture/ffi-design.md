@@ -201,6 +201,11 @@ metadata occupies separate lines, preserving preview width at narrow/large-font 
 conversation text remains separate. Android native runtime/visual acceptance and iOS adoption
 remain pending behind their respective screen gates.
 
+Core `Store::contact_view` projects a contact's local/public/unnamed label, public verification
+mark and first cached thumbnail for both Tauri and common native adapters. Without a cached profile,
+only the local label is available; a local label hides the public mark while retaining a cached photo.
+Adapters preserve the requested peer order and identity/network ownership while converting records.
+
 Android's local contact-name snapshot is keyed by both photo-cache owner and requested peers.
 A replacement starts empty while its own read is pending or fails; late retired reads cannot
 populate it. Refreshing the same owner may retain its own last successful names after a read

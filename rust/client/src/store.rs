@@ -65,7 +65,7 @@ pub use conversations::Conversation;
 pub use last_resort::LastResort;
 pub use likes::Likes;
 pub use notice::NoticeContent;
-pub use peers::ContactName;
+pub use peers::{ContactName, ContactView};
 
 const VERSION: i64 = 1;
 /// A client's first screens open a new database at once, and each would see no schema and create it.

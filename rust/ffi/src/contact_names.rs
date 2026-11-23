@@ -4,7 +4,7 @@
 use crate::profile_network::{active_network, connect, on_network_stack};
 use crate::profile_search::{FoundProfile, ProfileSearcher};
 use crate::{CoreError, IdentityKey};
-use dyapp_client::store::{ContactName, Store};
+use dyapp_client::store::Store;
 use dyapp_profile::VerifiedProfile;
 use std::path::Path;
 use std::sync::Arc;
@@ -56,25 +56,12 @@ fn view(
     peer: Option<&VerifiedProfile>,
     peer_id: String,
 ) -> Result<ContactNameView, CoreError> {
-    let photo = peer.and_then(|peer| peer.profile.photos.first());
-    let photo = photo.map_or_else(Vec::new, |photo| photo.thumbnail.clone());
-    let name = match peer {
-        Some(peer) => store.contact_name(peer).map_err(failed)?,
-        None => match store.local_name(&peer_id).map_err(failed)? {
-            local if local.is_empty() => ContactName::Unnamed,
-            local => ContactName::Local(local),
-        },
-    };
-    let (name, verified) = match name {
-        ContactName::Local(name) => (name, None),
-        ContactName::Public { name, verified } => (name, Some(verified)),
-        ContactName::Unnamed => (String::new(), None),
-    };
+    let shown = store.contact_view(&peer_id, peer).map_err(failed)?;
     Ok(ContactNameView {
         peer_id,
-        name,
-        verified,
-        photo,
+        name: shown.name,
+        verified: shown.verified,
+        photo: shown.photo,
     })
 }
 

@@ -61,6 +61,17 @@ pub enum ContactName {
     Unnamed,
 }
 
+/// The local/public name and first cached profile thumbnail presented for a contact.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ContactView {
+    /// Empty when neither a local nor a public name is known.
+    pub name: String,
+    /// Public-name verification only; absent for local and unnamed contacts.
+    pub verified: Option<bool>,
+    /// First cached thumbnail hash, or empty without a cached photo.
+    pub photo: Vec<u8>,
+}
+
 /// Merge by HLC, authenticated device key, then value for conflicting clock reuse.
 fn apply_change(
     db: &Connection,
@@ -322,6 +333,38 @@ impl Store {
             }
         } else {
             ContactName::Unnamed
+        })
+    }
+
+    /// Project one peer using its corresponding cached profile, or only the local fallback.
+    /// A local name hides the public mark but retains the cached photo.
+    ///
+    /// # Errors
+    /// Returns the existing local-name and verified-contact storage errors.
+    pub fn contact_view(
+        &self,
+        peer_id: &str,
+        profile: Option<&VerifiedProfile>,
+    ) -> Result<ContactView, Error> {
+        let photo = profile
+            .and_then(|profile| profile.profile.photos.first())
+            .map_or_else(Vec::new, |photo| photo.thumbnail.clone());
+        let name = match profile {
+            Some(profile) => self.contact_name(profile)?,
+            None => match self.local_name(peer_id)? {
+                local if local.is_empty() => ContactName::Unnamed,
+                local => ContactName::Local(local),
+            },
+        };
+        let (name, verified) = match name {
+            ContactName::Local(name) => (name, None),
+            ContactName::Public { name, verified } => (name, Some(verified)),
+            ContactName::Unnamed => (String::new(), None),
+        };
+        Ok(ContactView {
+            name,
+            verified,
+            photo,
         })
     }
 
@@ -758,6 +801,61 @@ mod tests {
         assert_eq!(store.local_name(&id).unwrap(), "");
         bob.profile.name.clear();
         assert_eq!(store.contact_name(&bob).unwrap(), ContactName::Unnamed);
+    }
+
+    fn photographed_contact(identity: &Identity) -> VerifiedProfile {
+        let base = bob(identity, &[1]);
+        let profile = Profile {
+            photos: vec![dyapp_profile::Photo {
+                full: vec![vec![1; 32]],
+                thumbnail: vec![2; 32],
+            }],
+            ..base.profile
+        };
+        dyapp_profile::verify(&profile.sign(identity)).unwrap()
+    }
+
+    #[test]
+    fn contact_projection_preserves_local_fallback_public_mark_and_cached_photo() {
+        let dir = dyapp_test_support::test_dir().unwrap();
+        let store = Store::open(
+            &dir.path().join("contact-view.db"),
+            &Identity::try_generate().unwrap(),
+        )
+        .unwrap();
+        let identity = Identity::try_generate().unwrap();
+        let profile = photographed_contact(&identity);
+        let id = &profile.peer_id;
+        let read = |cached| store.contact_view(id, cached).unwrap();
+        let expected = |name: &str, verified, photo| super::ContactView {
+            name: name.to_owned(),
+            verified,
+            photo,
+        };
+        assert_eq!(read(None), expected("", None, Vec::new()));
+        assert_eq!(
+            read(Some(&profile)),
+            expected("Bob", Some(false), vec![2; 32])
+        );
+        store.set_verified(&profile).unwrap();
+        assert_eq!(
+            read(Some(&profile)),
+            expected("Bob", Some(true), vec![2; 32])
+        );
+        store.set_local_name(id, "Local").unwrap();
+        assert_eq!(read(Some(&profile)), expected("Local", None, vec![2; 32]));
+        assert_eq!(read(None), expected("Local", None, Vec::new()));
+        store.set_local_name(id, "").unwrap();
+        let nameless = dyapp_profile::verify(
+            &Profile {
+                version: profile.profile.version + 1,
+                name: String::new(),
+                ..profile.profile.clone()
+            }
+            .sign(&identity),
+        )
+        .unwrap();
+        assert_eq!(read(Some(&nameless)), expected("", None, vec![2; 32]));
     }
 
     #[test]

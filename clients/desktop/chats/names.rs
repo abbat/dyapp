@@ -4,7 +4,7 @@
 use std::sync::Mutex;
 
 use dyapp_client::chat::PeerChange;
-use dyapp_client::store::{ContactName, Store};
+use dyapp_client::store::Store;
 
 use super::Sessions;
 use crate::search::{ProfileCache, SearchState};
@@ -34,26 +34,14 @@ pub(crate) fn names(
     let (_, profiles) = cache.lock().map_err(|e| e.to_string())?.snapshot()?;
     let mut views = Vec::with_capacity(peer_ids.len());
     for peer_id in peer_ids {
-        let peer = profiles.get(&peer_id);
-        let photo = peer.and_then(|peer| peer.profile.photos.first());
-        let photo = photo.map_or_else(Vec::new, |photo| photo.thumbnail.clone());
-        let name = match peer {
-            Some(peer) => store.contact_name(peer).map_err(|e| e.to_string())?,
-            None => match store.local_name(&peer_id).map_err(|e| e.to_string())? {
-                local if local.is_empty() => ContactName::Unnamed,
-                local => ContactName::Local(local),
-            },
-        };
-        let (name, verified) = match name {
-            ContactName::Local(name) => (name, None),
-            ContactName::Public { name, verified } => (name, Some(verified)),
-            ContactName::Unnamed => (String::new(), None),
-        };
+        let shown = store
+            .contact_view(&peer_id, profiles.get(&peer_id))
+            .map_err(|error| error.to_string())?;
         views.push(PeerNameView {
             peer_id,
-            name,
-            verified,
-            photo,
+            name: shown.name,
+            verified: shown.verified,
+            photo: shown.photo,
         });
     }
     Ok(views)
