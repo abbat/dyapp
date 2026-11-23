@@ -450,6 +450,14 @@ it the regression test.
 
 ## Coverage Policy
 
+Update transport boundary tests exercise the actual `Client::fetch` using ureq
+middleware that returns controlled HTTP responses and never continues the
+network chain. They inspect the fixed GET/conditional header, response metadata,
+status and cache admission; a separate test inspects the production HTTPS,
+proxy, redirect, request-budget and identifying-header configuration. These
+tests perform no DNS or external requests and do not replace live TLS/feed
+acceptance before activation.
+
 Bootstrap model-based proptests compare mailbox, profile, keypackage, deny-list and search
 transitions with small reference models. Mailbox sequences include explicit-time expiry, reopen
 and injected rollback, and recompute tokenless byte counters after every step; profile and

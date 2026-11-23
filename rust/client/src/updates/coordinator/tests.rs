@@ -73,6 +73,17 @@ fn a_foreign_completion_cannot_finish_the_current_request() {
 }
 
 #[test]
+fn a_foreign_completion_cannot_create_success_when_no_request_is_pending() {
+    let mut idle = Coordinator::default();
+    let before = idle.checkpoint();
+    let mut foreign = Coordinator::default();
+    let ticket = foreign.begin(100, 0, Trigger::Manual).unwrap();
+    assert!(!idle.finish(ticket, 200, Completion::Validated));
+    assert_eq!(idle.checkpoint(), before);
+    assert_eq!(foreign.checkpoint().state.consecutive_failures, 1);
+}
+
+#[test]
 fn restart_accounts_for_an_interrupted_request_without_repeating_the_failure() {
     let mut checker = Coordinator::default();
     checker.set_interval(Interval::TwelveHours);

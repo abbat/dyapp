@@ -1,4 +1,6 @@
 use super::*;
+
+mod http;
 use crate::updates::feed::Platform;
 use crate::updates::Version;
 
