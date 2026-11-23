@@ -48,8 +48,9 @@ The same native snapshot supplies the Settings navigation badge. Later changes t
 only: the badge remains while core still offers that version, independently of the chosen identity.
 The badge exposes the available version through localized accessibility text; Kotlin does not
 compare versions or derive a separate update policy.
-Native HTTP/lifecycle wiring and OS presentation remain planned.
-Clients stay disabled until live-feed verification and those integrations pass.
+Native HTTP/lifecycle wiring remains planned. Android can request cached OS notices through its
+existing mail worker; fresh native runtime verification is still pending. Update check controls
+stay disabled until live-feed verification and the remaining integrations pass.
 
 The pure `updates::coordinator::Coordinator` now owns simultaneous-trigger admission and attempt
 completion for one installation. Its opaque ticket is consumed by completion; dropping it is
