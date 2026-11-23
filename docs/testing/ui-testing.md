@@ -110,7 +110,9 @@ prove native persistence, live publication, OS notifications or update activatio
 `UpdatePermissionResultTests` supplies a controlled ActivityResult registry to the production
 permission row. It retains real launcher registration/disposal while releasing results explicitly:
 a cancelled result must trigger an actual permission read, repeated pending actions cannot launch
-again, and an old opening cannot consume results or launch into its replacement. These checks
+again, and an old opening cannot consume results or launch into its replacement. Controlled
+LifecycleRegistry transitions also verify foreground permission readback, visible query failures,
+detached disposed observers and pending-launch admission preserved across pause/resume. These checks
 open no system settings and do not substitute for actual Android permission enforcement.
 
 Native receiving completion checks retain a recovery review prepared before setup finishes:

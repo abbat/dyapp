@@ -406,7 +406,8 @@ version shows just the app name. A blocked or failed post leaves the in-app noti
 and cannot change the mail worker's completion result. For a core-supported available offer, Android
 Settings shows actual app/channel permission and an explicit permission or system-settings action.
 This action never changes chat-notice preferences, checks the feed or dismisses the in-app offer.
-Its pending and retired openings reject duplicate launches and stale results. Live feed activation remains separate.
+Its pending and retired openings reject duplicate launches and stale results. Returning to a resumed
+Settings screen rereads permission without releasing a still-pending system launch. Live feed activation remains separate.
 The dedicated Android `suite=updates` native visual matrix covers five notice outcomes and five
 permission outcomes in the production About frame, with source-bound metadata. Pending and failed
 permission launches use a controlled ActivityResult registry; query failure and allowed/blocked

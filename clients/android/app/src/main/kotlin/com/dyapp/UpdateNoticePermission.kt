@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import uniffi.dyapp.MobileUpdateAvailability
 import uniffi.dyapp.MobileUpdateDelivery
@@ -72,6 +73,7 @@ private fun UpdatePermissionRow(read: (Context) -> Boolean) {
         allowed = result.getOrNull()
         failed = result.isFailure
     }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { refresh() }
     val launch = rememberUpdatePermissionLaunch(opening, refresh)
     DisposableEffect(opening) { onDispose { opening.retire() } }
     UpdatePermissionContent(allowed, failed, opening.pending) {
