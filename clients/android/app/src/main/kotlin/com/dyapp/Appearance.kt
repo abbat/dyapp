@@ -3,6 +3,7 @@ package com.dyapp
 import android.app.Activity
 import android.content.Context
 import android.content.res.Configuration
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -18,7 +19,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -82,8 +82,8 @@ private fun Activity.pickLanguage(language: String?) {
 /** The Settings card with the theme and the language; both apply to the whole app. */
 @Composable
 internal fun AppearanceCard() {
-    // The view keeps the activity even where a test overrides LocalContext.
-    val activity = LocalView.current.context as Activity
+    // Activity ownership survives the localized window's ContextWrapper chain.
+    val activity = checkNotNull(LocalActivity.current)
     val languages = remember(activity) { activity.packagedLanguages() }
     val language = selectedLanguage(activity.appearance.getString(LANGUAGE, null), languages)
     val options = listOf(LanguageOption(null, stringResource(R.string.settings_follow_system))) +

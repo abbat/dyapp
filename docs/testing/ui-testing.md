@@ -1,5 +1,10 @@
 # UI Testing: Practical Guide
 
+Localized native hosts wrap their context to supply actual configuration to child windows.
+Theme and appearance code resolve the Activity through AndroidX `LocalActivity`, never by
+casting a View context. `LocalizedDialogScaleTests` exercises the real wrapped host and
+checks both Activity ownership and the native View font scale before accepting themed content.
+
 `NativeClientUpdatesTests` checks the actual JNI metadata bridge: the native installed version
 matches `BuildConfig.VERSION_NAME`, fresh state never claims current, and all four installation
 intervals survive a separate native handle. This fixture performs no HTTP and does not enable
