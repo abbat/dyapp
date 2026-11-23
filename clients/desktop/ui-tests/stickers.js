@@ -14,7 +14,13 @@
   const createCollectionFixture = () => {
     const ui = appApi.stickerCollection;
     const panel = document.getElementById('sticker-packs');
-    const page = { entries: [], next: null, usedBytes: 0, unrecognizedFiles: 0 };
+    const page = {
+      entries: [],
+      next: null,
+      usedBytes: 0,
+      unrecognizedFiles: 0,
+      maxArchiveBytes: 7,
+    };
     const fallback = appApi.stickerMessageText({ emoji: '😺', packName: '$&<img>{emoji}' });
     check(
       fallback.includes('$&<img>{emoji}') && !fallback.includes('{name}'),
@@ -50,7 +56,7 @@
       await open(call);
       let read = false;
       await ui.importFile({
-        size: 8 * 1024 * 1024 + 1,
+        size: fixture.page.maxArchiveBytes + 1,
         arrayBuffer: () => {
           read = true;
         },
@@ -66,9 +72,60 @@
       throw error;
     }
   };
+  const checkDecodedImportLimit = async (fixture) => {
+    const { ui, page, calls } = fixture;
+    const before = calls.length;
+    await ui.importFile({
+      size: 1,
+      arrayBuffer: async () => new ArrayBuffer(page.maxArchiveBytes + 1),
+    });
+    check(calls.length === before, 'Decoded oversized archive reached native import');
+    check(
+      get('status').textContent === appApi.strings['stickers.tooLarge'],
+      'Missing decoded limit explanation',
+    );
+    await ui.importFile({
+      size: page.maxArchiveBytes,
+      arrayBuffer: async () => new ArrayBuffer(page.maxArchiveBytes),
+    });
+    check(
+      calls.slice(before).filter(({ command }) => command === 'import_sticker_pack').length === 1,
+      'Exact native boundary did not reach native validation',
+    );
+  };
+  const checkMissingImportLimit = async (fixture) => {
+    const { ui, open, page, call } = fixture;
+    let reads = 0;
+    const file = {
+      size: 1,
+      arrayBuffer: async () => {
+        reads += 1;
+        return new ArrayBuffer(1);
+      },
+    };
+    for (const maxArchiveBytes of [undefined, 0, -1, 1.5, NaN]) {
+      await open(async () => ({ ...page, maxArchiveBytes }));
+      check(
+        get('import').disabled && !get('refresh').disabled,
+        'Invalid metadata enabled import or blocked refresh',
+      );
+      await ui.importFile(file);
+      check(reads === 0, 'Unadmitted file read');
+    }
+    const listing = deferred();
+    const opening = open(() => listing.promise);
+    check(get('import').disabled, 'Pending metadata enabled import');
+    await ui.importFile(file);
+    check(reads === 0, 'Premature file read');
+    listing.resolve(page);
+    await opening;
+    check(!get('import').disabled, 'Ready native metadata did not enable import');
+    await open(call);
+  };
   const checkStaleImport = async (fixture) => {
     try {
       const { ui, open, calls, page } = fixture;
+      const before = calls.length;
       const bytes = deferred();
       const importing = ui.importFile({ size: 1, arrayBuffer: () => bytes.promise });
       await ui.importFile({
@@ -83,7 +140,7 @@
       bytes.resolve(new ArrayBuffer(1));
       await importing;
       check(
-        calls.length === 1 && get('import').disabled,
+        calls.length === before && get('import').disabled,
         'Old file read imported or unlocked a new view',
       );
       listing.resolve(page);
@@ -237,6 +294,8 @@
     const fixture = createCollectionFixture();
     try {
       await checkImportLimit(fixture);
+      await checkDecodedImportLimit(fixture);
+      await checkMissingImportLimit(fixture);
       await checkStaleImport(fixture);
       await checkStaleListing(fixture);
       await checkCollectionPaging(fixture);

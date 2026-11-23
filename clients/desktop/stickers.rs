@@ -32,6 +32,7 @@ pub(crate) struct PageView {
     next: Option<[u8; 32]>,
     used_bytes: u64,
     unrecognized_files: u64,
+    max_archive_bytes: usize,
 }
 impl From<sticker_packs::list::Page> for PageView {
     fn from(page: sticker_packs::list::Page) -> Self {
@@ -56,6 +57,7 @@ impl From<sticker_packs::list::Page> for PageView {
             next: page.next,
             used_bytes: page.used_bytes,
             unrecognized_files: page.unrecognized_files,
+            max_archive_bytes: dyapp_client::sticker_tar::MAX_ARCHIVE,
         }
     }
 }
@@ -184,6 +186,10 @@ mod tests {
         let json = serde_json::to_value(page).unwrap();
         assert_eq!(json["usedBytes"], 19);
         assert_eq!(json["unrecognizedFiles"], 1);
+        assert_eq!(
+            json["maxArchiveBytes"],
+            dyapp_client::sticker_tar::MAX_ARCHIVE
+        );
         assert_eq!(json["entries"][0]["bytes"], 12);
         assert!(json["entries"][0]["name"].is_null());
         assert!(json["entries"][0]["error"]

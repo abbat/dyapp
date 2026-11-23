@@ -1886,7 +1886,10 @@ injected rejection that hides the Profile heading. The restart in
 each mode must report the same 64-character Peer ID. Full-flow desktop smoke additionally runs
 `sticker-import` and a separate-process `sticker-restart` for both storage modes. A real
 File/DataTransfer/change event carries a small valid TAR to the actual import command; empty
-and oversized selections must not invoke it. The test intercepts only the OS chooser's default
+and oversized selections must not invoke it. The oversized file derives its size from native
+`maxArchiveBytes`, rather than copying the parser limit. Controlled controller tests cover missing,
+invalid and pending metadata, advertised/actual size drift and the exact supplied boundary;
+only the boundary case reaches scripted native validation. The test intercepts only the OS chooser's default
 click, so it does not automate the chooser window. Native list/page readback checks owner,
 manifest and bounded RGBA before and after restart, with EN/RU import/restart captures. A
 late old-input change after reopening must not import into the new manager. Locally prepared

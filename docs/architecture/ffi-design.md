@@ -655,7 +655,10 @@ open-chat policy and durable submission to `Session::submit_pack_sticker_to`. Se
 are checked before networking; no encryption key or release capability crosses the boundary.
 Common `saved_sticker_packs` projects the core's bounded collection page, exclusive cursor,
 authenticated name/count or explicit unreadable state, all-file byte accounting and unrecognized
-file count. Unreadable entries retain no trusted pack label and remain saved. The read-only API
+file count. Desktop pages also expose `maxArchiveBytes` directly from the core TAR parser bound.
+The desktop chooser waits for valid metadata in its own opening and checks both advertised file
+size and actual bytes against that bound before IPC; native parsing and storage remain authoritative.
+Unreadable entries retain no trusted pack label and remain saved. The read-only API
 uses the same identity operation and session mutex, with no network, file removal or compressed
 media returned. `saved_sticker_frame` authenticates one selected saved entry and returns its
 manifest identity/index, label/hash and actual bounded first-frame RGBA from the core decoder.

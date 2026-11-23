@@ -63,7 +63,13 @@
     let imports = 0;
     const call = async (command) => {
       if (command === 'import_sticker_pack') imports += 1;
-      return { entries: [], next: null, usedBytes: 0, unrecognizedFiles: 0 };
+      return {
+        entries: [],
+        next: null,
+        usedBytes: 0,
+        unrecognizedFiles: 0,
+        maxArchiveBytes: archive().byteLength,
+      };
     };
     try {
       await appApi.stickerCollection.open(call);
@@ -120,9 +126,11 @@
     manager.addEventListener('click', preventChooser, true);
     let imports = 0,
       importedId = null;
+    let maxArchiveBytes = null;
     const identityId = appBindings.current.peerId;
     const call = async (command, args) => {
       const result = await appBindings.invoke(command, args);
+      if (command === 'saved_sticker_packs') maxArchiveBytes = result.maxArchiveBytes;
       if (command === 'import_sticker_pack') {
         imports += 1;
         importedId = result;
@@ -136,7 +144,11 @@
       await select(get('file'), null);
       check(imports === 0, 'Empty file selection invoked native import');
       get('import').click();
-      await select(get('file'), new File([new ArrayBuffer(8 * 1024 * 1024 + 1)], 'too-large.tar'));
+      check(
+        Number.isSafeInteger(maxArchiveBytes) && maxArchiveBytes > 0,
+        'Missing native archive limit',
+      );
+      await select(get('file'), new File([new ArrayBuffer(maxArchiveBytes + 1)], 'too-large.tar'));
       check(
         imports === 0 && get('status').textContent === appApi.strings['stickers.tooLarge'],
         'Real oversized file reached native import',

@@ -18,7 +18,7 @@
     }
     if (command === 'receive_mail') return fixture.delivery.promise;
     if (command === 'saved_sticker_packs')
-      return { entries: [], next: null, usedBytes: 0, unrecognizedFiles: 0 };
+      return { entries: [], next: null, usedBytes: 0, unrecognizedFiles: 0, maxArchiveBytes: 7 };
     if (command !== 'change_sticker_pack_request') throw Error('Unexpected pack command');
     fixture.actions.push(args);
     fixture.changes += 1;

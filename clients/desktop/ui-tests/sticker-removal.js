@@ -31,7 +31,13 @@
     const ui = appApi.stickerCollection;
     const panel = document.getElementById('sticker-packs');
     const entry = { id: Array(32).fill(7), name: '<Cats>', stickers: 1, bytes: 12, error: null };
-    const page = { entries: [entry], next: null, usedBytes: 12, unrecognizedFiles: 0 };
+    const page = {
+      entries: [entry],
+      next: null,
+      usedBytes: 12,
+      unrecognizedFiles: 0,
+      maxArchiveBytes: 7,
+    };
     // Failed phases close synchronously; outer finally shares that cleanup.
     let closed = false;
     const fixture = {

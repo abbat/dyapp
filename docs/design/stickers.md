@@ -227,7 +227,10 @@ entries. Common `saved_sticker_frame` returns one authenticated entry as bounded
 RGBA8 with its actual dimensions, manifest index, emoji and content hash. Mobile OS decoders
 never receive its compressed WebP bytes. Common `import_sticker_pack` uses the same core
 validator and sealed store as desktop and reports validated PackID plus new/already-readable
-success. `sticker_import_byte_limit` exports the parser's picked-file bound. Storage failure
+success. `sticker_import_byte_limit` exports the parser's picked-file bound. Desktop collection
+pages project the same bound as `maxArchiveBytes`; import stays disabled until that opening has
+valid metadata, then checks file size before reading and actual bytes before native submission.
+Storage failure
 can occur after file publication; refresh the collection before deciding what to retry.
 Common native mailbox processing runs the existing bounded core answer/download jobs after
 mail application, under the same identity/session ownership. Only admitted explicit save intents

@@ -14,7 +14,7 @@ controller.stickerImported = undefined;
 const panel = domById('sticker-packs', HTMLDetailsElement);
 const manager = domById('sticker-manager', HTMLDialogElement);
 /** @typedef {{ generation: number, identityId: string, call: import('./ipc.js').Invoke,
- *   busy: boolean, next: number[] | null }} ManagerView */
+ *   busy: boolean, next: number[] | null, maxArchiveBytes: number | null }} ManagerView */
 /** @type {Element | null} */
 let openedFrom = null;
 /** @param {string} key */
@@ -40,7 +40,8 @@ const message = (key, error = false) => {
 /** @param {boolean} value @param {ManagerView} target */
 const busy = (target, value) => {
   target.busy = value;
-  for (const id of ['sticker-import', 'sticker-refresh', 'sticker-next'])
+  domById('sticker-import', HTMLButtonElement).disabled = value || target.maxArchiveBytes === null;
+  for (const id of ['sticker-refresh', 'sticker-next'])
     domById(id, HTMLButtonElement).disabled = value;
   for (const button of domById('sticker-list', HTMLUListElement).querySelectorAll('button'))
     button.disabled = value;
@@ -99,6 +100,12 @@ const showCollectionStatus = (page, notice) => {
     `${notice ? `${text(notice)} ` : ''}${page.entries.length ? usage : `${text('empty')} ${usage}`}`;
   domById('sticker-status', HTMLParagraphElement).hidden = false;
 };
+/** @param {unknown} value */
+const nativeArchiveLimit = (value) => {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0)
+    throw new Error('invalid sticker archive limit');
+  return value;
+};
 /** @param {number[] | null} [after] @param {ManagerView} target */
 const load = async (target, after = null, notice = '') => {
   const paging = document.activeElement === domById('sticker-next', HTMLButtonElement);
@@ -112,6 +119,7 @@ const load = async (target, after = null, notice = '') => {
       after,
     });
     if (!active(target)) return;
+    target.maxArchiveBytes = nativeArchiveLimit(page.maxArchiveBytes);
     target.next = page.next;
     lastPage = !page.next;
     domById('sticker-list', HTMLUListElement).replaceChildren(
@@ -215,6 +223,7 @@ const open = (call = invoke) => {
     call,
     busy: false,
     next: null,
+    maxArchiveBytes: null,
   };
   view = target;
   domById('sticker-list', HTMLUListElement).replaceChildren();
@@ -224,9 +233,9 @@ const open = (call = invoke) => {
 };
 /** @param {File} file @param {ManagerView | null} target */
 const prepareImport = (file, target) => {
-  if (!file || !active(target) || target.busy) return false;
+  if (!file || !active(target) || target.busy || target.maxArchiveBytes === null) return false;
   domById('sticker-details', HTMLDetailsElement).hidden = true;
-  if (file.size > 8 * 1024 * 1024) {
+  if (file.size > target.maxArchiveBytes) {
     message('tooLarge', true);
     return false;
   }
@@ -245,11 +254,12 @@ const showImportFailure = (target, error) => {
 };
 /** @param {File} file */
 const importFile = async (file, target = view) => {
-  if (!prepareImport(file, target)) return;
+  const maxBytes = target?.maxArchiveBytes;
+  if (maxBytes == null || !prepareImport(file, target)) return;
   try {
     const bytes = await file.arrayBuffer();
     if (!active(target)) return;
-    if (bytes.byteLength > 8 * 1024 * 1024) {
+    if (bytes.byteLength > maxBytes) {
       message('tooLarge', true);
       return;
     }
@@ -276,7 +286,7 @@ domById('sticker-next', HTMLButtonElement).addEventListener('click', () => {
   if (active(view) && !view.busy && view.next) progress.stickersShown = load(view, view.next);
 });
 domById('sticker-import', HTMLButtonElement).addEventListener('click', () => {
-  if (!active(view) || view.busy) return;
+  if (!active(view) || view.busy || view.maxArchiveBytes === null) return;
   const target = view;
   // The chooser owns this element; its late change must never inherit another opening's owner.
   const input = /** @type {HTMLInputElement} */ (

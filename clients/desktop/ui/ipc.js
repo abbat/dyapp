@@ -66,7 +66,7 @@
  * @typedef {{ id: number[], bytes: number, name: string | null, stickers: number | null,
  *   error: string | null }} StickerPack
  * @typedef {{ entries: StickerPack[], next: number[] | null, usedBytes: number,
- *   unrecognizedFiles: number }} StickerPacks
+ *   unrecognizedFiles: number, maxArchiveBytes: number }} StickerPacks
  * @typedef {{ width: number, height: number, pixels: number[] }} StickerFrame
  * @typedef {{ index: number, emoji: string, frame: StickerFrame }} PickerSticker
  * @typedef {{ packId: number[], name: string, total: number, entries: PickerSticker[],
