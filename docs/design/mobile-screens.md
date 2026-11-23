@@ -190,6 +190,13 @@ The IDs inside each section are the desktop ones; only the frame differs.
   turns on once a profile was published and needs an answering node; off opens the publish dialog
   and stays on until the publication succeeds, as on desktop. Its progress state shows the saved proof nonce
   instead of the elapsed time, and the signed readback appears on the form after the dialog closes.
+  Prototype-only owner recovery uses `search-recovery-review`, `search-recovery-busy`,
+  `search-recovery-pending`, `search-recovery-sent`, `search-recovery-stale`,
+  `search-recovery-error` and `search-recovery-unsupported`. The `search-recovery` card names
+  `search-recovery-owner`, explains `search-recovery-status` and offers the explicit
+  `search-recovery-action` or `search-recovery-cancel`. Opening/cancelling never signs; retries
+  deliver only already-confirmed core records. Closing a committed result cannot cancel delivery.
+  Native presentation remains planned until its implementation and source-bound acceptance.
 - Network, `network`, `network-checking` and `network-error`: `network-name-field`,
   `network-seeds`, `seed-rows`, `check-and-connect`, `cancel-check`, `network-error-details`.
   One action checks and, when a node answered, activates; a failed or cancelled check keeps the

@@ -76,6 +76,10 @@ The five Android update-dialog prototype outcomes run `update-fixture-tests.js` 
 Five `update-notice-permission-*` Settings outcomes run `update-permission-fixture-tests.js`,
 covering explicit readback completion, refusal, read retry, pending duplicates and retired callbacks.
 These presentation samples never request platform permission or activate feed checking.
+The seven Android `search-recovery-*` prototype states run `search-recovery-fixture-tests.js`:
+explicit completion releases pending actions, stale reviews require a fresh read, delivery retry
+cannot confirm again, and retired callbacks cannot revive a card or change editor fields.
+These samples prove presentation behavior only; core/native owner authority remains separate.
 Controlled completion signals check pending admission, failed acknowledgements, browser failure/retry,
 exact external destination, persistent availability badge and retired callbacks; live native/core
 acceptance remains separate. Actions use the existing current-geometry reachability helper.
