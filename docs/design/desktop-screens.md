@@ -186,6 +186,8 @@ published and a notice explains how to return. `profile-dark`: the same screen i
 `profile-goal-dialog` captures the open native choice dialog, `profile-goal-picker`.
 It lists the core's six relationship goals plus unset, shows the current choice and has Cancel
 without a default action. Values and labels wrap; Cancel and Escape preserve the form value.
+The shipped choice button resolves `action.cancel` from every native catalogue; the native
+profile smoke checks its generated label against the current localized profile Cancel wording.
 Selection emits the existing numeric change event. A detached or replaced identity owner cannot
 apply a stale choice or reclaim focus. Language selection remains an expandable catalogue.
 

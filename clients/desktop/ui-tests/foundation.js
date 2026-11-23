@@ -279,6 +279,12 @@
       throw new Error('Explicit unset changed other profile selections');
     select.value = '7';
   };
+  const checkChoiceCancel = (fixture) => {
+    const cancel = fixture.querySelector('#profile-goal-picker-cancel');
+    const expected = appApi.strings['profile.cancel'];
+    if (!expected || cancel?.textContent !== expected)
+      throw new Error('Native profile choice Cancel is missing or incorrectly localized');
+  };
   const checkProfileScales = async () => {
     const fields = await import(new URL('profile-fields.js', document.baseURI).href);
     const { profileForm } = await import(new URL('profile-form.js', document.baseURI).href);
@@ -310,6 +316,7 @@
     for (const select of fixture.querySelectorAll('select')) select.value = '7';
     document.body.prepend(fixture);
     try {
+      checkChoiceCancel(fixture);
       const draft = profileForm.readScales(scales);
       if (keys.some((key) => draft[fields.scaleKey(key)] !== 7))
         throw new Error('Profile scale values changed during serialization');
