@@ -56,6 +56,14 @@ pub fn check(root: &Path, trigger: Trigger) -> Result<Outcome, Error> {
     run(root, trigger, now, |cached| Client::new().fetch(cached))
 }
 
+/// Read installation metadata even while a request owns the independent HTTP lease.
+///
+/// # Errors
+/// Returns storage/validation errors, never synthetic empty state on contention.
+pub fn read_state(root: &Path) -> Result<Snapshot, Error> {
+    Ok(storage::read_state(root)?)
+}
+
 /// Persist an interval immediately without starting or canceling a request.
 ///
 /// # Errors

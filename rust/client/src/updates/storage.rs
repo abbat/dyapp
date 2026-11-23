@@ -110,18 +110,37 @@ pub(super) fn change_interval(root: &Path, interval: super::Interval) -> Result<
         state.update(change)?
     } else {
         // A running request owns the OS lease, but holds no SQLite transaction during HTTP.
-        let path = fs::canonicalize(root)?.join("updates.sqlite");
-        if !fs::symlink_metadata(&path)?.is_file() {
-            return Err(Error::Incompatible);
-        }
-        let mut connection = Connection::open_with_flags(
-            path,
-            OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
-        )?;
-        configure(&connection)?;
+        let mut connection = existing_connection(root)?;
         mutate(&mut connection, change)?
     };
     Ok(changed.0)
+}
+
+pub(super) fn read_state(root: &Path) -> Result<Snapshot, Error> {
+    if let Some(state) = LockedState::try_open(root)? {
+        return state.load();
+    }
+    let mut connection = existing_connection(root)?;
+    let transaction = connection.transaction()?;
+    if header(&transaction)? != (APPLICATION, SCHEMA) {
+        return Err(Error::Incompatible);
+    }
+    let snapshot = read_snapshot(&transaction)?;
+    transaction.commit()?;
+    Ok(snapshot)
+}
+
+fn existing_connection(root: &Path) -> Result<Connection, Error> {
+    let path = fs::canonicalize(root)?.join("updates.sqlite");
+    if !fs::symlink_metadata(&path)?.is_file() {
+        return Err(Error::Incompatible);
+    }
+    let connection = Connection::open_with_flags(
+        path,
+        OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )?;
+    configure(&connection)?;
+    Ok(connection)
 }
 
 fn configure(connection: &Connection) -> Result<(), Error> {

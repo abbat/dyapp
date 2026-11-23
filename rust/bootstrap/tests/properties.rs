@@ -202,6 +202,7 @@ proptest! {
         let (major, minor, patch) = version;
         let version = Version { major, minor, patch };
         let text = format!("{major}.{minor}.{patch}");
+        prop_assert_eq!(version.to_string(), text.as_str());
         let feed = serde_json::json!({
             "schema": 1, "channel": "stable",
             "targets": {"android": {"version": text, "tag": format!("v{text}"), "method": "package"}}

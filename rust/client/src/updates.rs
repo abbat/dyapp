@@ -45,6 +45,12 @@ impl Version {
     }
 }
 
+impl std::fmt::Display for Version {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "{}.{}.{}", self.major, self.minor, self.patch)
+    }
+}
+
 fn component(value: &str) -> Option<u32> {
     if value.is_empty() || (value.len() > 1 && value.starts_with('0')) {
         return None;

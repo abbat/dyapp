@@ -1,6 +1,6 @@
 use super::*;
 use dyapp_test_support::test_dir;
-use rusqlite::{Connection, OpenFlags};
+use rusqlite::Connection;
 
 fn cached(version: &str) -> Cache {
     let body = serde_json::json!({"schema":1,"channel":"stable","targets":{
@@ -10,17 +10,7 @@ fn cached(version: &str) -> Cache {
 }
 
 fn disk(root: &Path) -> Snapshot {
-    let db = Connection::open_with_flags(
-        root.join("updates.sqlite"),
-        OpenFlags::SQLITE_OPEN_READ_ONLY,
-    )
-    .unwrap();
-    let bytes: Vec<u8> = db
-        .query_row("SELECT `payload` FROM `state` WHERE `id` = 1", [], |row| {
-            row.get(0)
-        })
-        .unwrap();
-    Snapshot::decode(&bytes).unwrap()
+    read_state(root).unwrap()
 }
 
 fn check_with(

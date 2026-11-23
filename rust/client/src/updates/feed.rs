@@ -100,12 +100,7 @@ impl Release {
     /// Canonical release tag, constructed from validated numeric components.
     #[must_use]
     pub fn tag(&self) -> String {
-        let Version {
-            major,
-            minor,
-            patch,
-        } = self.version;
-        format!("v{major}.{minor}.{patch}")
+        format!("v{}", self.version)
     }
 
     /// The fixed official information page; this is not an installer or a store destination.
