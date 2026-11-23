@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Wait for the Apple UI tests of a release tag's own CI run.
+"""Wait for Apple and Android runtime tests of a release tag's own CI run.
 
 Usage: wait-native-ci.py TAG COMMIT
 Needs gh authentication. The tag's ci.yml run already holds these tests, so a
-release does not take scarce macOS runners to repeat them. The job's time limit
-bounds the wait, as a run can queue for hours.
+release does not start duplicate Apple jobs or Android emulators.
+The job's time limit bounds the wait, as a run can queue for hours.
 """
 
 from __future__ import annotations
@@ -21,7 +21,12 @@ if TYPE_CHECKING:
 
 
 REPO = "abbat/dyapp"
-REQUIRED = {"native - macos", "native - ios"}
+REQUIRED = {
+    "native - macos",
+    "native - ios",
+    "docker - android-emulator",
+    "docker - android-permissions",
+}
 POLL_SECONDS = 60
 
 
@@ -34,7 +39,10 @@ def verdict(
         found = {job["name"]: job for job in jobs if job["name"] in REQUIRED}
         if set(found) != REQUIRED:
             waiting = True
-        elif all(job["conclusion"] == "success" for job in found.values()):
+        elif all(
+            job["status"] == "completed" and job["conclusion"] == "success"
+            for job in found.values()
+        ):
             return "passed"
         elif any(job["status"] != "completed" for job in found.values()):
             waiting = True

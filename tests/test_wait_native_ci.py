@@ -1,4 +1,4 @@
-"""A release waits for, and only for, its tag's Apple tests."""
+"""Reuse completed Apple/Android native acceptance from the exact tag."""
 
 import importlib.util
 from pathlib import Path
@@ -25,11 +25,21 @@ def job(
 
 
 MACOS, IOS = "native - macos", "native - ios"
+ANDROID = "docker - android-emulator"
+PERMISSIONS = "docker - android-permissions"
+REQUIRED = (MACOS, IOS, ANDROID, PERMISSIONS)
+
+
+def native_run(*changes: "Job") -> "list[Job]":
+    jobs = {name: job(name) for name in REQUIRED}
+    for changed in changes:
+        jobs[changed["name"]] = changed
+    return list(jobs.values())
 
 
 class Verdict(unittest.TestCase):
-    def test_both_green_pass_whatever_else_failed(self) -> None:
-        run = [job(MACOS), job(IOS), job("core / mutants", "failure")]
+    def test_all_native_jobs_green_pass_whatever_else_failed(self) -> None:
+        run = native_run() + [job("core / mutants", "failure")]
         self.assertEqual(WAIT.verdict([run]), "passed")
 
     def test_no_run_or_no_jobs_yet_waits(self) -> None:
@@ -40,18 +50,30 @@ class Verdict(unittest.TestCase):
         self.assertEqual(WAIT.verdict([[job(MACOS)]]), "waiting")
 
     def test_a_queued_platform_waits_even_after_the_other_failed(self) -> None:
-        run = [job(MACOS, "failure"), job(IOS, None, "queued")]
+        run = native_run(job(MACOS, "failure"), job(IOS, None, "queued"))
         self.assertEqual(WAIT.verdict([run]), "waiting")
 
     def test_a_failed_or_cancelled_platform_fails(self) -> None:
-        for conclusion in ("failure", "cancelled", "skipped"):
-            run = [job(MACOS), job(IOS, conclusion)]
-            self.assertEqual(WAIT.verdict([run]), "failed", conclusion)
+        for name in REQUIRED:
+            for conclusion in ("failure", "cancelled", "skipped"):
+                run = native_run(job(name, conclusion))
+                with self.subTest(name=name, conclusion=conclusion):
+                    self.assertEqual(WAIT.verdict([run]), "failed")
+
+    def test_missing_or_running_required_jobs_cannot_pass(self) -> None:
+        for name in REQUIRED:
+            with self.subTest(name=name):
+                missing = [
+                    item for item in native_run() if item["name"] != name
+                ]
+                self.assertEqual(WAIT.verdict([missing]), "waiting")
+                stale = native_run(job(name, "success", "in_progress"))
+                self.assertEqual(WAIT.verdict([stale]), "waiting")
 
     def test_green_jobs_must_share_one_run(self) -> None:
         runs = [
-            [job(MACOS), job(IOS, "failure")],
-            [job(MACOS, "failure"), job(IOS)],
+            native_run(job(MACOS, "failure")),
+            native_run(job(IOS, "failure")),
         ]
         self.assertEqual(WAIT.verdict(runs), "failed")
 

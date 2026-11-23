@@ -297,6 +297,10 @@ Candidate discovery and feed staging support the exact signed Android APK
 alongside Linux/Windows. Android admission also requires the trusted public
 certificate pin and the preceding verified Android APK for a newer publication;
 missing or incompatible evidence blocks staging without replacing the prior feed.
+The release gate reuses completed-success Android emulator and permission jobs
+from the same exact-tag/commit CI run as the original Apple acceptance. Missing,
+running, cancelled or failed native results cannot publish; no duplicate
+emulator or macOS jobs are launched by the release gate.
 Without these compatibility gates, installing the
 candidate can fail or require uninstalling the existing app, which loses data.
 [Android's update rules](https://developer.android.com/google/play/app-updates)

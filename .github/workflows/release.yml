@@ -327,9 +327,9 @@ jobs:
           path: ${{ runner.temp }}/release-${{ matrix.platform }}/dyapp-*
           if-no-files-found: error
 
-  # The tag's ci.yml run holds the Apple UI tests; repeating them here would double the macOS jobs.
+  # Reuse the tag's Apple/Android acceptance; do not launch duplicate native test jobs.
   apple-tests:
-    name: release - Apple UI tests of the tag
+    name: release - native acceptance of the tag
     if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 350
