@@ -35,6 +35,30 @@ fn unsigned(values: &HashMap<String, i32>, key: &str) -> Option<u32> {
     values.get(key).and_then(|value| u32::try_from(*value).ok())
 }
 
+fn seeking(input: &Input) -> Option<editor_input::Seeking> {
+    let normalized = editor_input::parse_seeking(
+        &[],
+        &input.seeking_age_from,
+        &input.seeking_age_to,
+        input.not_looking,
+    )?;
+    // Core decides whether hidden input matters before converting checkbox representation.
+    if normalized.not_looking {
+        return Some(normalized);
+    }
+    let genders = input
+        .seeking_genders
+        .iter()
+        .map(|value| value.trim().parse().ok())
+        .collect::<Option<Vec<u32>>>()?;
+    editor_input::parse_seeking(
+        &genders,
+        &input.seeking_age_from,
+        &input.seeking_age_to,
+        false,
+    )
+}
+
 pub(crate) fn parse(input: Input) -> Result<Fields, &'static str> {
     let birth =
         birth_input::parse_birth_parts(&input.birth_year, &input.birth_month, &input.birth_day)
@@ -42,13 +66,7 @@ pub(crate) fn parse(input: Input) -> Result<Fields, &'static str> {
     let height = editor_input::parse_height(&input.height).ok_or("invalidHeight")?;
     let interests = dyapp_client::profile_editor::parse_interest_lines(&input.interests)
         .map_err(|_| "invalidInterests")?;
-    let seeking = editor_input::parse_seeking_text(
-        &input.seeking_genders,
-        &input.seeking_age_from,
-        &input.seeking_age_to,
-        input.not_looking,
-    )
-    .ok_or("invalid profile seeking")?;
+    let seeking = seeking(&input).ok_or("invalid profile seeking")?;
     Ok(Fields {
         birth_year: unsigned(&birth, "birth_year"),
         birth_month: unsigned(&birth, "birth_month"),
@@ -72,7 +90,7 @@ mod tests {
         let input: Input = serde_json::from_value(serde_json::json!({
             "birthYear": "", "birthMonth": " 2 ", "birthDay": "29", "height": " 180 ",
             "interests": " Music, Art; Books\r\n\nE\u{0301}COLE\nmusic, art; books",
-            "seekingGenders": ["2", "1"], "seekingAgeFrom": "18", "seekingAgeTo": "120",
+            "seekingGenders": [" 2 ", "1"], "seekingAgeFrom": "18", "seekingAgeTo": "120",
             "notLooking": false
         }))
         .unwrap();
@@ -93,6 +111,38 @@ mod tests {
                 ..Fields::default()
             }
         );
+    }
+
+    #[test]
+    fn raw_checkbox_codes_preserve_closed_vocabulary_and_hidden_input_rules() {
+        for genders in [
+            vec!["1e0".into()],
+            vec!["-1".into()],
+            vec!["999".into()],
+            vec!["1".into(), "1".into()],
+        ] {
+            assert_eq!(
+                parse(Input {
+                    seeking_genders: genders.clone(),
+                    ..Input::default()
+                }),
+                Err("invalid profile seeking")
+            );
+            assert_eq!(
+                parse(Input {
+                    seeking_genders: genders,
+                    seeking_age_from: "wrong".into(),
+                    seeking_age_to: "-1".into(),
+                    not_looking: true,
+                    ..Input::default()
+                })
+                .unwrap(),
+                Fields {
+                    not_looking: true,
+                    ..Fields::default()
+                }
+            );
+        }
     }
 
     #[test]

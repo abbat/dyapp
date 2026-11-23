@@ -1148,8 +1148,9 @@ the returned core keys to its optional display fields; impossible dates fail at 
 The Tauri `profile_editor_input` command accepts raw birth, height, multiline interests and seeking
 text and returns typed editable fields through these same parsers. It performs no identity or
 storage operation. Web-form adoption of this raw-input boundary is planned; saved-profile responses
-remain typed. Raw seeking checkbox values use `editor_input::parse_seeking_text`, which also
-ignores malformed hidden values when not-looking is selected.
+remain typed. The adapter converts checkbox-code representation only
+after the core's normalized seeking state says hidden values matter; vocabulary, bounds, ordering
+and not-looking behavior remain in `editor_input::parse_seeking`.
 Tests crossing this adapter run in Android instrumentation or native Swift tests, where the
 native library is available, rather than host JVM-only tests.
 
