@@ -524,6 +524,11 @@ Android draft loading reads only the identity-bound `client.db` through `load_pr
 An absent draft starts empty; key/database errors propagate. Legacy JSON is neither imported
 nor modified. Publication and mutual search use the same loader.
 
+The desktop private-note editor submits raw text to `set_contact_note`; shared
+`contact_notes` validation owns scalar-count and supported-text admission before private mutation.
+The web form displays `invalidNote` without duplicating its numeric limit, retains the refused draft
+and permits correction. Explicit clear and identity/opening ownership use the same existing path.
+
 ## Shared chat link destinations
 
 `dyapp_client::chat_links::hosts` extracts explicit HTTP(S) destinations in first-occurrence

@@ -80,7 +80,7 @@ const prepareNoteSave = (clear) => {
   const target = noteView;
   if (!target || !noteCurrent(target) || !target.loaded || target.busy) return;
   const note = clear ? '' : noteText.value;
-  noteText.setCustomValidity([...note].length > 2000 ? strings['notes.invalid'] : '');
+  noteText.setCustomValidity('');
   if (!clear && !noteText.reportValidity()) return;
   if (note === target.saved) return;
   target.busy = true;

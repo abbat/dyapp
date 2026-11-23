@@ -70,6 +70,7 @@ mod tests {
         for note in [
             "hidden\u{202e}".into(),
             "x".repeat(dyapp_client::chat::MAX_NOTE_CHARS + 1),
+            "\u{1f600}".repeat(dyapp_client::chat::MAX_NOTE_CHARS + 1),
         ] {
             assert_eq!(
                 own::change_peer(&dir, &dir, &owner, &peer, PeerChange::Note(note)).await,

@@ -379,6 +379,29 @@
     appBindings.closeFound();
     card.remove();
   };
+  const checkContactNoteCoreRefusal = async (fixture) => {
+    const { writes, text, save, status, edit } = fixture;
+    const raw = '😀'.repeat(4096);
+    const saved = fixture.saved;
+    const count = writes.length;
+    fixture.writeError = 'invalidNote';
+    edit(raw);
+    await smoke.waitForSignal('native note input refusal', appApi.saveContactNote());
+    if (
+      writes.length !== count + 1 ||
+      writes.at(-1).note !== raw ||
+      fixture.saved !== saved ||
+      text.value !== raw ||
+      save.disabled ||
+      status.textContent !== appApi.strings['notes.invalid']
+    )
+      throw new Error('Native note refusal lost raw input, stored data or correction');
+    fixture.writeError = null;
+    edit('Corrected note');
+    await smoke.waitForSignal('corrected native note save', appApi.saveContactNote());
+    if (fixture.saved !== 'Corrected note') throw new Error('Refused note could not be corrected');
+    await smoke.waitForSignal('corrected native note clear', appApi.saveContactNote(true));
+  };
   const checkContactNotes = async () => {
     await openArea('search-area');
     const fixture = contactNoteFixture();
@@ -416,10 +439,7 @@
     fixture.writeError = null;
     await appApi.saveContactNote(true);
     if (fixture.saved || text.value) throw new Error('clear note failed');
-    edit('😀'.repeat(2001));
-    const count = writes.length;
-    await appApi.saveContactNote();
-    if (writes.length !== count) throw new Error('over-limit note reached write');
+    await checkContactNoteCoreRefusal(fixture);
     await checkContactNoteStale(fixture);
   };
   const assertPassActionsPassDuplicatedOrHidBusyState = (writes) => {

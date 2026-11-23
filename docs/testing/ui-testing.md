@@ -2130,6 +2130,11 @@ identity and uncertain-write checks. The actual native settings smoke also refus
 that floating-point conversion would round to a whole-byte budget, checking the unchanged stored
 limit and exact raw input.
 
+Desktop private-note checks script native `invalidNote` verdicts without a copied length predicate.
+An oversized Unicode draft must reach native admission unchanged, preserve the stored note and
+editable raw draft on refusal, and support a corrected save and explicit clear. The actual native
+Store checks retain invalid-ASCII/Unicode rejection, unchanged stored data and no outbound work.
+
 Desktop profile-scale checks distinguish a real select with no selected option from an explicitly
 selected zero-valued unset. All offered scales exercise serialization refusal; actual editor saves
 also assert zero persistence calls for missing required/optional selections and preserve unrelated
