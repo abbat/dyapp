@@ -50,7 +50,9 @@ The same native snapshot supplies the Settings navigation badge. Later changes t
 only: the badge remains while core still offers that version, independently of the chosen identity.
 The badge exposes the available version through localized accessibility text; Kotlin does not
 compare versions or derive a separate update policy.
-Native HTTP/lifecycle wiring remains planned. Android can request cached OS notices through its
+The native bridge exposes an explicit checker operation with distinct Busy/NotDue/Validated/Failed
+results; no current Android lifecycle or control invokes it. Client activation/HTTP lifecycle wiring
+remains planned. Android can request cached OS notices through its
 existing mail worker; fresh native runtime verification is still pending. Update check controls
 stay disabled until live-feed verification and the remaining integrations pass.
 

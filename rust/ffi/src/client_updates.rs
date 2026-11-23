@@ -1,9 +1,11 @@
-//! Thin installation-scoped update state/actions; no HTTP or activation is initiated here.
+//! Installation-scoped update bridge. Only the explicitly invoked, gated check operation starts HTTP.
 use crate::CoreError;
 use dyapp_client::updates as core;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+mod checks;
+pub use checks::{MobileUpdateCheck, MobileUpdateCheckFailure, MobileUpdateTrigger};
 mod types;
 pub use types::{
     MobileUpdateAvailability, MobileUpdateDelivery, MobileUpdateInterval, MobileUpdateNoticeAction,
@@ -38,6 +40,17 @@ impl MobileClientUpdates {
             platform: platform.into(),
             installed,
         }))
+    }
+
+    /// Explicit IO-worker check, only after live-feed and platform activation have been accepted.
+    /// No constructor, metadata/notice action or current client lifecycle invokes this operation.
+    ///
+    /// # Errors
+    /// Returns admission/completion storage or clock errors without claiming a validated result.
+    pub fn check(&self, trigger: MobileUpdateTrigger) -> Result<MobileUpdateCheck, CoreError> {
+        let outcome = core::checker::check(&self.root, trigger.into())
+            .map_err(|error| CoreError::Failed(error.to_string()))?;
+        Ok(checks::project(self, &outcome))
     }
 
     /// Read core-derived state, including during an update request.

@@ -16,6 +16,13 @@ selection and durable OS dedupe to one shared transaction and returns an optiona
 only after commit. Kotlin does not read/choose a version in a separate transaction.
 These methods initiate no HTTP, request no OS notification and do not activate unpublished controls.
 The installed version must match the packaged app version; native runtime checks retain that contract.
+`check(trigger)` is a separate, explicitly invoked IO-worker operation, permitted only after live-feed
+and platform activation acceptance. `MobileUpdateTrigger` directly forwards the four shared intents.
+`MobileUpdateCheck` preserves Busy, NotDue, Validated and Failed as distinct outcomes; only Validated
+establishes a newly successful request. Failed includes the retained trusted state and the shared
+Transport/Rejected/Clock category, with diagnostic text kept separate from actions. The constructor,
+metadata reads, interval/notice actions and current Android lifecycle do not call `check`; exporting
+this bridge does not enable pre-publication probes, background HTTP or unpublished UI controls.
 
 `local_collection_page` delegates local collection presentation to
 `dyapp_client::local_collection`: input-order-preserving pages of at most 32 rows, complete raw-target
