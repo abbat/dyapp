@@ -1,5 +1,10 @@
 # UI Testing: Practical Guide
 
+`NativeClientUpdatesTests` checks the actual JNI metadata bridge: the native installed version
+matches `BuildConfig.VERSION_NAME`, fresh state never claims current, and all four installation
+intervals survive a separate native handle. This fixture performs no HTTP and does not enable
+update controls; live-feed, lifecycle and notice acceptance remain separate.
+
 Private profile-view checks separate presentation lifetime from core policy. Android
 `ProfileViewDisclosureTests` waits on controlled IO entry/completion signals and checks readiness,
 disposal, replacement and exactly one invocation per opening. Native Rust checks cover actual
