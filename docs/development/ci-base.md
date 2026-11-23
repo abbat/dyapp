@@ -188,7 +188,11 @@ All jobs run directly on the runner, without Docker. Every check is a step of
 - installs the apt packages that mirror `tools/docker/Dockerfile.dev`: build tools, clang,
   protobuf-compiler, libssl-dev, flake8, PyYAML and shellcheck;
 - installs Ruff 0.17.2 and isolated mypy 2.4.0 libraries/stubs through the shared checksum-verified
-  Python installers, using `tools/python-types/requirements.json` for the runner's Python ABI;
+  Python installers, using `tools/python-types/requirements.json` for the runner's Python ABI.
+  Each type-check dependency download allows at most three transport attempts with a fresh
+  60-second connection/read timeout. Only connection resets/timeouts and HTTP 408/500/502/503/504
+  retry; permanent HTTP, throttling and certificate failures remain errors. Failed responses close
+  before retry, and unchanged size/SHA-256 validation runs after transfer without retrying bad bytes;
 - copies `actionlint` 1.7.12 and `gitleaks` 8.30.1 out of their official images, pinned to the
   digests `tools/docker/Dockerfile.dev` uses;
 - downloads the `typos` 1.50.3, `taplo` 0.10.0, `cargo-shear` 1.14.0, SwiftLint 0.65.1,
