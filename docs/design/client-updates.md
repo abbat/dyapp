@@ -392,6 +392,13 @@ until Later (including Back) durably acknowledges it; a successful browser hando
 Open tap in that mounted dialog. A failed handoff stays visible and retryable. A pending write
 disables both actions, and write failure keeps the notice. Replacing or disposing the displayed
 offer retires its callbacks, so old UI events cannot open or dismiss a replacement notice.
+Android's existing mail worker checks for a cached OS notice after its profile/node receive and
+search operations have returned. This installation-scoped step makes no HTTP request. Foreground,
+app permission, update-channel permission and worker-stop gates run before the atomic core claim
+and again before posting. Its separate `updates` channel and notification ID cannot replace mail.
+The immutable browser tap uses only the core-provided release page; the secure-lock-screen public
+version shows just the app name. A blocked or failed post leaves the in-app notice and Settings badge,
+and cannot change the mail worker's completion result. Live feed activation remains separate.
 The dedicated Android `suite=updates` native visual matrix covers five notice outcomes with
 source-bound metadata; actual capture and frame review remain required for acceptance.
 Background failures do not

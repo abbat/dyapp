@@ -53,6 +53,7 @@ open class MailJob : JobService() {
             }
             if (!completion.isActive()) return
             val wake = searchPass(params)
+            if (!isSearchJob(params)) postCachedUpdate(applicationContext, completion::isActive)
             completion.complete {
                 if (running.remove(params.scopedJobId(), completion)) {
                     val retry = !received || isSearchJob(params) && wake == SearchOutboxWake.Retry

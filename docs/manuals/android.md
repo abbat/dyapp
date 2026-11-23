@@ -238,6 +238,12 @@ configured as persisted; delivery across reboot or app update still requires v0.
 Doze/App Standby can defer jobs and network access until the platform permits them again; this
 policy's device verification is planned after v0.0.1. Foreground use remains available for catch-up.
 
+The same job can show a separate **Updates** notification for a newer release already verified
+and cached by the shared core. It does so only while the app is in the background and Android
+permits that channel. Its tap opens the official release information page; it never installs an
+update. Notification failures do not fail the mail pass. Live feed checking is not yet activated;
+without a verified cached offer this step stays quiet.
+
 ## Share a profile
 
 On a loaded profile page, **Share profile…** offers existing open chats, excluding the profile owner. Choosing a chat sends a profile link; it never creates a message request. The dialog distinguishes a sent link from one saved locally pending network delivery. After success, **Message** opens the destination chat. Cancel before choosing a chat sends nothing. Reopening starts a new choice; actions or completions retained from a cancelled or closed page cannot send or change the new dialog. An exact profile link in a live message appears as a profile button. Press it to load the verified profile; no linked profile is fetched before that press. If unavailable, the profile page offers retry. Back returns to the original chat.
