@@ -195,8 +195,6 @@
  *   auto_download_mode: Command<[], AutoDownloadMode>,
  *   set_auto_download_mode: Command<[{ mode: AutoDownloadMode }], void>,
  *   media_cache: Command<[{ identityId: string }], MediaCacheDecision>,
- *   set_media_cache: Command<[{ identityId: string, enabled: boolean, limitBytes: number }], MediaCache>,
- *   clear_media_cache: Command<[{ identityId: string }], MediaCache>,
  *   change_media_cache: Command<[{ identityId: string, change: MediaCacheEdit, confirmed: boolean }], MediaCacheDecision>,
  *   remove_saved_sticker_pack: Command<[{ identityId: string, packId: number[] }], boolean>,
  *   import_sticker_pack: Command<[{ identityId: string, bytes: number[] }], number[]>,

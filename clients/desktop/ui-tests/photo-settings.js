@@ -37,12 +37,16 @@
     await checkFractionalBudget(limit, dialog, editLimit, savedCache);
     await editLimit('256');
     if (!dialog.open) throw new Error('lower cache budget did not ask');
+    const canceled = closed(dialog);
     document.getElementById('photo-keep-cancel').click();
+    await smoke.waitForSignal('native cache cancellation close', canceled);
     if (limit.value !== '512' || (await savedCache()).limitBytes !== 512 * 1048576) {
       throw new Error('Cancel changed cache budget');
     }
     await editLimit('256');
+    const confirmed = closed(dialog);
     document.getElementById('photo-keep-confirm').click();
+    await smoke.waitForSignal('native cache confirmation close', confirmed);
     await smoke.waitForSignal('native confirmed cache budget', appApi.mediaCacheSaved);
     if (limit.value !== '256' || (await savedCache()).limitBytes !== 256 * 1048576) {
       throw new Error('lower cache budget was not saved');

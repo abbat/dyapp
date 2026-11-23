@@ -61,29 +61,12 @@ impl From<Change> for MediaCacheChange {
 
 enum Operation {
     Read,
-    Set(MediaCacheConfig),
-    Clear,
     Change(MediaCacheChange, bool),
 }
 
 fn perform(store: &Store, dir: &Path, operation: Operation) -> Result<CacheView, String> {
-    // Retained for the legacy commands until their frontend cutover.
-    store
-        .media_cache_usage(dir)
-        .map_err(|error| error.to_string())?;
     match operation {
         Operation::Read => {}
-        Operation::Set(config) => {
-            store
-                .set_media_cache_config(config)
-                .map_err(|error| error.to_string())?;
-            store
-                .sweep_originals(dir)
-                .map_err(|error| error.to_string())?;
-        }
-        Operation::Clear => store
-            .clear_media_cache(dir)
-            .map_err(|error| error.to_string())?,
         Operation::Change(change, confirmed) => {
             let result = store
                 .change_media_cache(dir, &change, confirmed)
@@ -128,35 +111,6 @@ pub(crate) async fn media_cache(
     identity_id: String,
 ) -> Result<CacheView, String> {
     run(&state, &sessions, identity_id, Operation::Read).await
-}
-
-#[tauri::command]
-pub(crate) async fn set_media_cache(
-    state: tauri::State<'_, IdentityState>,
-    sessions: tauri::State<'_, chats::Sessions>,
-    identity_id: String,
-    enabled: bool,
-    limit_bytes: u64,
-) -> Result<CacheView, String> {
-    run(
-        &state,
-        &sessions,
-        identity_id,
-        Operation::Set(MediaCacheConfig {
-            enabled,
-            limit_bytes,
-        }),
-    )
-    .await
-}
-
-#[tauri::command]
-pub(crate) async fn clear_media_cache(
-    state: tauri::State<'_, IdentityState>,
-    sessions: tauri::State<'_, chats::Sessions>,
-    identity_id: String,
-) -> Result<CacheView, String> {
-    run(&state, &sessions, identity_id, Operation::Clear).await
 }
 
 #[tauri::command]

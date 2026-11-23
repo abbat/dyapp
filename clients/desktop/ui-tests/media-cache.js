@@ -2,6 +2,11 @@
   const budget = (mib) => ({ kind: 'budget', mib });
   const retention = (enabled) => ({ kind: 'retention', enabled });
   const clearEdit = { kind: 'clear' };
+  const closeCacheDialog = async (dialog, button) => {
+    const finished = closed(dialog);
+    button.click();
+    await smoke.waitForSignal('cache confirmation dialog close', finished);
+  };
   const load = (call) => smoke.waitForSignal('cache state read', appApi.showMediaCache(call));
   const createCacheFixture = (check) => {
     const fixture = {
@@ -71,7 +76,7 @@
     fixture.reply(budget('384'), false, {}, true);
     await edit('384');
     check(dialog.open && fixture.writes.length === 1, 'Core confirmation was bypassed');
-    cancel.click();
+    await closeCacheDialog(dialog, cancel);
     check(
       fixture.config.limitBytes === 512 * 1048576 && el('limit').value === '512',
       'Cancel changed budget',
@@ -79,7 +84,7 @@
     fixture.reply(budget('384'), false, {}, true);
     await edit('384');
     fixture.reply(budget('384'), true, { limitBytes: 384 * 1048576, limitMib: '384' });
-    confirm.click();
+    await closeCacheDialog(dialog, confirm);
     await saved('confirmed cache budget');
     check(fixture.config.limitBytes === 384 * 1048576, 'Confirmed budget not applied');
   };
@@ -89,7 +94,7 @@
     await saved('cache retention admission');
     check(dialog.open && fixture.config.enabled, 'Disabling cache did not ask');
     fixture.reply(retention(false), true, { enabled: false, usedBytes: 0 });
-    confirm.click();
+    await closeCacheDialog(dialog, confirm);
     await saved('confirmed retention change');
     check(
       !fixture.config.enabled &&
@@ -112,12 +117,12 @@
     el('clear').click();
     await saved('cache clear admission');
     check(dialog.open && fixture.config.usedBytes === 16, 'Clear did not ask');
-    cancel.click();
+    await closeCacheDialog(dialog, cancel);
     fixture.reply(clearEdit, false, {}, true);
     el('clear').click();
     await saved('second cache clear admission');
     fixture.reply(clearEdit, true, { usedBytes: 0 });
-    confirm.click();
+    await closeCacheDialog(dialog, confirm);
     await saved('confirmed cache clear');
     check(fixture.config.usedBytes === 0 && el('clear').disabled, 'Clear lost measured usage');
   };

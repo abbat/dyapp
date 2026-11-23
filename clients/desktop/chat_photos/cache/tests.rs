@@ -20,7 +20,23 @@ async fn check_budget_round_trip(
         enabled: false,
         limit_bytes: 393_216_123,
     };
-    let saved = request(state, sessions, peer, Operation::Set(custom)).await;
+    request(
+        state,
+        sessions,
+        peer,
+        Operation::Change(MediaCacheChange::Retention(false), true),
+    )
+    .await;
+    let saved = request(
+        state,
+        sessions,
+        peer,
+        Operation::Change(
+            MediaCacheChange::Budget(input::mib_text(custom.limit_bytes)),
+            false,
+        ),
+    )
+    .await;
     assert!(!saved.enabled);
     assert_eq!(saved.limit_bytes, custom.limit_bytes);
     assert_eq!(input::parse_mib(&saved.limit_mib), Some(custom.limit_bytes));
@@ -30,10 +46,7 @@ async fn check_budget_round_trip(
         state,
         sessions,
         peer.into(),
-        Operation::Set(MediaCacheConfig {
-            enabled: true,
-            limit_bytes: 0,
-        })
+        Operation::Change(MediaCacheChange::Budget("0".into()), false)
     )
     .await
     .is_err());
@@ -160,9 +173,14 @@ async fn cache_commands_are_numeric_local_and_reject_stale_or_closed_identity() 
         .unwrap()
         .commit(Some((owner, dir.clone())))
         .unwrap();
-    assert!(run(&state, &sessions, "stale".into(), Operation::Clear)
-        .await
-        .is_err());
+    assert!(run(
+        &state,
+        &sessions,
+        "stale".into(),
+        Operation::Change(MediaCacheChange::Clear, false)
+    )
+    .await
+    .is_err());
     assert_eq!(fs::read_dir(&dir).unwrap().count(), 0);
     let initial = request(&state, &sessions, &peer, Operation::Read).await;
     assert!(initial.enabled);
@@ -176,7 +194,12 @@ async fn cache_commands_are_numeric_local_and_reject_stale_or_closed_identity() 
         .await
         .is_err());
     transition.commit(None).unwrap();
-    assert!(run(&state, &sessions, peer, Operation::Clear)
-        .await
-        .is_err());
+    assert!(run(
+        &state,
+        &sessions,
+        peer,
+        Operation::Change(MediaCacheChange::Clear, false)
+    )
+    .await
+    .is_err());
 }

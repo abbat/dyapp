@@ -94,7 +94,7 @@ Kotlin performs only ID membership checks; freshness and match eligibility stay 
 `clear_media_cache` expose the device-local encrypted originals cache. The record contains
 only enabled state, remembered byte budget and used bytes. Calls hold the same session
 mutex as media retrieval, use no network and preserve history and saved sticker packs.
-Desktop exposes the same three commands with the viewed identity ID and a lease retained
+Desktop cache reads and targeted changes require the viewed identity ID and retain its lease
 through background filesystem work. A fetch already in flight may retain a new copy after
 a desktop clear; the returned usage is measured from disk. Desktop cached-original reads and
 retention hold the ordinary session guard; transport runs outside it and releases the scores guard
@@ -121,7 +121,7 @@ mutation and measured readback; `invalidLimit` remains distinct from uncertain s
 The web form submits one raw-field intent without confirmation first and asks only when the
 core reply requires it. Cancel preserves the actual settings; confirmed resubmission retains the
 same owner and intent. Invalid-limit refusal preserves known state, while uncertain storage failure
-blocks another mutation until readback. The old whole-snapshot Tauri commands are being retired.
+blocks another mutation until readback. Tauri exposes no whole-snapshot setter or unconfirmed clear command.
 Native compilation, runtime and visual acceptance are tracked separately.
 
 > ⚠️ **Prototype.** This page is the single source of truth for the Rust ↔ native
