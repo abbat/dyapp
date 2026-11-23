@@ -20,6 +20,10 @@ CRATES_IO = "registry+https://github.com/rust-lang/crates.io-index"
 # (crate, version): (date added, reason). Remove the entry once it is 14 days
 # old; an entry older than MIN_AGE is reported as stale.
 EXCEPTIONS: dict[tuple[str, str], tuple[str, str]] = {
+    ("cookie", "0.18.3"): (
+        "2026-11-23",
+        "RUSTSEC-2026-0594 security fix; remove after 2026-12-07",
+    ),
     ("webpki-roots", "1.0.12"): (
         "2026-11-22",
         "Remove distrusted CAs: rustls/webpki-roots#139; "
