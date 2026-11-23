@@ -2,6 +2,7 @@ package com.dyapp
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -10,7 +11,12 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -47,12 +53,17 @@ internal fun RenameDialog(form: ChatForm, onSave: () -> Unit) {
 
 @Composable
 private fun RenameFields(form: ChatForm) {
+    var labelHeight by remember { mutableIntStateOf(0) }
+    val labelSpace = with(LocalDensity.current) { labelHeight.toDp() / 2 }
     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
             form.renaming.value.orEmpty(),
             { form.renaming.value = it },
-            Modifier.testTag("chat-rename-input"),
-            label = { Text(stringResource(R.string.rename_label)) },
+            // A wrapped floating label extends above the field; keep it inside the scroll body.
+            Modifier.padding(top = labelSpace).testTag("chat-rename-input"),
+            label = {
+                Text(stringResource(R.string.rename_label), onTextLayout = { labelHeight = it.size.height })
+            },
             singleLine = true,
             enabled = !form.busy
         )

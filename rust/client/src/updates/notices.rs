@@ -1,5 +1,5 @@
 //! Durable notice actions independent of profile selection and the HTTP attempt lease.
-use super::{feed::Platform, snapshot::Snapshot, storage, Version};
+use super::{availability::Offer, feed::Platform, snapshot::Snapshot, storage, Version};
 use std::path::Path;
 
 /// Dismiss only the exact displayed offer; the Settings badge remains available.
@@ -31,6 +31,28 @@ pub fn claim_notification(
     storage::change_state(root, |snapshot| {
         Ok(snapshot.claim_notification(platform, installed, expected))
     })
+}
+
+/// Select and claim the current eligible OS offer in the same transaction.
+/// Native permission must already be available. Only the returned committed offer
+/// permits an OS request; native code does not select or compare candidate versions.
+///
+/// # Errors
+/// Returns persistence or validation failure without returning a provisional offer.
+pub fn claim_pending_notification(
+    root: &Path,
+    platform: Platform,
+    installed: Version,
+) -> Result<Option<Offer>, storage::Error> {
+    let (_, offer) = storage::change_state(root, |snapshot| {
+        let Some(offer) = snapshot.notice(platform, installed) else {
+            return Ok(None);
+        };
+        Ok(snapshot
+            .claim_notification(platform, installed, offer.version())
+            .then_some(offer))
+    })?;
+    Ok(offer)
 }
 
 #[cfg(test)]

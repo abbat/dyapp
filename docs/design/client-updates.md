@@ -1,8 +1,8 @@
 # Client update discovery and notifications
 
 Status: client checks and live Pages verification are pending.
-No client currently checks for updates. The tagged release workflow packages
-`dyappd`, Linux and Windows clients, and stages a verified client update feed.
+No client currently checks for updates. The tagged release workflow collects
+per-platform release artifacts with `dyappd` and stages a verified client update feed.
 The shared Rust client core provides strict version/cadence/feed helpers in
 `rust/client/src/updates.rs`, `updates/feed.rs` and `updates/coordinator.rs`.
 Those helpers have no network or storage side effects. `updates::transport::Client`
@@ -39,7 +39,16 @@ request through a short read transaction, without starting HTTP or inventing emp
 `MobileClientUpdates` exposes metadata reads, immediate interval writes, the separate undismissed
 notice and durable exact-version actions through the common native bridge. Its action record
 contains committed state and an applied flag; native code neither compares versions nor infers
-success. Native HTTP/lifecycle wiring and UI/OS notice presentation remain planned.
+success. Android's `UpdateNoticeActions` dispatches reads and exact-version dismissal off UI,
+excludes duplicate taps before dispatch, and adopts only the returned committed native state.
+A failed write retains the prior notice for retry; a disposed coroutine owner drops late completion.
+Android's unlocked `MainScreen` hosts the dialog above identity routes, using the private
+installation root. It shows only an undismissed core offer; reads and dismissal never initiate HTTP.
+The same native snapshot supplies the Settings navigation badge. Later changes the interruption
+only: the badge remains while core still offers that version, independently of the chosen identity.
+The badge exposes the available version through localized accessibility text; Kotlin does not
+compare versions or derive a separate update policy.
+Native HTTP/lifecycle wiring and OS presentation remain planned.
 Clients stay disabled until live-feed verification and those integrations pass.
 
 The pure `updates::coordinator::Coordinator` now owns simultaneous-trigger admission and attempt
@@ -48,7 +57,7 @@ reaped once as failure. A checkpoint records an in-flight request so restore app
 request backoff, and clock rollback admits one catch-up without a retry loop. The shared checker
 persists checkpoints before HTTP and after completion, and validates transport and feed/cache
 trust before recording `Completion::Validated`. This enum is not a native caller's assertion of trust.
-FFI and activation remain pending; the coordinator itself performs no IO or installation.
+Native HTTP entry points and activation remain pending; the coordinator itself performs no IO or installation.
 
 ## Goal and boundary
 
@@ -95,7 +104,7 @@ contains no arbitrary URL, release-note HTML, script or executable command.
 ### Release candidate adapter checkpoint
 
 `tools/scripts/release-candidates.py RELEASE.json TAG COMMIT` parses the bounded
-GitHub REST get-by-tag response into exact Linux and Windows package candidates.
+GitHub REST get-by-tag response into exact Linux, Windows and Android package candidates.
 It rejects draft/prerelease, unpublished or mismatched tags, duplicate or wrong-
 version client assets, missing SHA-256 digests and invalid package sizes. The
 commit argument must come from a separately resolved, checked-out tag; GitHub's
@@ -129,8 +138,9 @@ version components. Missing targets remain absent; parsing does not prove an
 installed version is current. It authenticates neither hosting origin nor
 publisher, and a store method still needs a separately verified pinned listing.
 The fixed transport enforces origin and response bounds; actual source-bound HTTPS acceptance
-is still required. Persisted rollback/cadence state, native exports and client activation remain
-pending. Offline parsing does not enable any check.
+is still required. The shared checker supplies persisted rollback/cadence state and the native
+bridge exposes metadata/actions; HTTP/lifecycle exports and activation remain pending.
+Offline parsing does not enable any check.
 
 ### Shared HTTPS transport checkpoint
 
@@ -318,13 +328,14 @@ them done.
 | App-store-only notices | Stores own listing and delivery on mobile | Does not cover Linux/Windows and cannot provide one version contract across clients |
 
 The tagged [`release.yml`](../../.github/workflows/release.yml) collects tested
-Linux and Windows client packages with `dyappd` files. It prepares a Pages
+per-platform client artifacts with `dyappd` files. Verified Android packages additionally require
+the signing, identity and upgrade evidence described above. It prepares a Pages
 artifact only after release publication, exact package verification, and feed
 validation. The Pages job depends on that step, has only `pages: write` and
 `id-token: write`, and names the `github-pages` environment. A failed gate
 prevents a new Pages deployment, leaving the last verified deployment in place.
 The `github-pages` environment allows only `v*.*.*` tags. The repository has
-no Pages site yet; configure Pages for GitHub Actions and perform the live
+Pages configured for GitHub Actions, with first publication still unverified; perform the live
 HTTPS smoke before enabling client checks ([deployment guide](../operations/deployment.md)).
 GitHub documents [Pages workflow permissions](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages),
 [release API ordering](https://docs.github.com/en/rest/releases/releases) and
@@ -376,7 +387,14 @@ JSON are rendered as markup.
 The notice controls are **Open official release / Открыть официальный релиз**
 (or **Open store / Открыть магазин**, **Build instructions / Инструкция по
 сборке**) and **Later / Позже**. Display release notes only on the fixed
-external page, not as untrusted HTML in the app. Background failures do not
+external page, not as untrusted HTML in the app. In Android, Open leaves the notice available
+until Later (including Back) durably acknowledges it; a successful browser handoff disables another
+Open tap in that mounted dialog. A failed handoff stays visible and retryable. A pending write
+disables both actions, and write failure keeps the notice. Replacing or disposing the displayed
+offer retires its callbacks, so old UI events cannot open or dismiss a replacement notice.
+The dedicated Android `suite=updates` native visual matrix covers five notice outcomes with
+source-bound metadata; actual capture and frame review remain required for acceptance.
+Background failures do not
 raise repetitive dialogs or OS alerts; manual checks explain the failure.
 The common snapshot stores per-target dismissal and OS-notification version
 marks. Actions name the exact displayed version, so stale completion cannot
@@ -388,6 +406,10 @@ default to no marks; malformed or regressing marks fail closed. The shared `noti
 current state inside the short SQLite transaction and return acknowledgement
 only after commit, including while a separate HTTP lease is held. Native UI
 and OS integration remain separate from these shared persistence rules.
+For background callers, `notices::claim_pending_notification` selects the eligible current offer
+and commits its OS mark in one transaction before returning an optional canonical plan. The common
+native bridge exposes that plan directly, so Kotlin neither picks a version nor acknowledges an
+uncommitted candidate. Native permission must be available before this action too.
 
 ## Acceptance matrix
 

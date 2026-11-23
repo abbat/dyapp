@@ -191,6 +191,9 @@ or add source suppressions for these cases. Python `Protocol` member bodies cont
 and `...` are intentional structural type declarations; trace calls to their real implementations
 before classifying an `ineffectual-statement` finding. A protocol stub is not an unfinished runtime
 implementation when the caller uses a structurally typed function or module.
+Imports under `TYPE_CHECKING` may be required by quoted annotations even without runtime use.
+For `unused-import`, trace the annotation alias and verify it with the strict checker before removal;
+a positive source check plus a missing-alias negative control distinguishes required typing imports.
 Raw `onNode`/`onAllNodes` are receiver members: call `compose.onNode(...)`/
 `compose.onAllNodes(...)` without importing top-level functions. Likewise `assertExists` and
 `assertDoesNotExist` are `SemanticsNodeInteraction` members; retain their node calls without

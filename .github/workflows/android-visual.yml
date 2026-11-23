@@ -12,7 +12,7 @@ on:
         required: true
         type: choice
         default: standard
-        options: [standard, comparison, views]
+        options: [standard, comparison, views, updates]
 
 permissions:
   contents: read
@@ -136,6 +136,13 @@ jobs:
           python3 -B tests/scripts/android_visual_archive.py --kind views \
             --archive "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/views.tar" \
             --output "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/views-frames" \
+            --width "$DYAPP_VISUAL_WIDTH" --source "$DYAPP_VISUAL_SOURCE"
+      - name: validate update-notice matrix
+        if: ${{ always() && inputs.suite == 'updates' }}
+        run: |
+          python3 -B tests/scripts/android_visual_archive.py --kind updates \
+            --archive "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/updates.tar" \
+            --output "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/updates-frames" \
             --width "$DYAPP_VISUAL_WIDTH" --source "$DYAPP_VISUAL_SOURCE"
       - name: validate complete comparison matrix
         if: ${{ always() && inputs.suite == 'comparison' }}

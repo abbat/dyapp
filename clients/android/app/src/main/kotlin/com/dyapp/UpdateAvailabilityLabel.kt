@@ -23,7 +23,7 @@ internal fun UpdateAvailabilityLabel(state: MobileUpdateState?) {
 }
 
 @Composable
-private fun updateOfferText(offer: MobileUpdateOffer?): String {
+internal fun updateOfferText(offer: MobileUpdateOffer?): String {
     if (offer == null) return stringResource(R.string.update_metadata_failed)
     return when (offer.delivery) {
         MobileUpdateDelivery.PACKAGE -> stringResource(R.string.update_available_package, offer.version)

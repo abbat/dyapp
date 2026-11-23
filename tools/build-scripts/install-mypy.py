@@ -14,6 +14,7 @@ import stat
 import sys
 import tarfile
 from typing import TypedDict
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import urlopen
 import zipfile
@@ -87,13 +88,36 @@ def download(artifact: Artifact) -> bytes:
         raise ValueError(
             "Python checker artifact must use official PyPI files"
         )
-    with urlopen(artifact["url"], timeout=60) as response:
-        data: bytes = response.read(MAX_DOWNLOAD + 1)
+    data = download_bytes(artifact["url"])
     if len(data) > MAX_DOWNLOAD:
         raise ValueError("Python checker artifact exceeds download limit")
     if hashlib.sha256(data).hexdigest() != artifact["sha256"]:
         raise ValueError("Python checker artifact checksum mismatch")
     return data
+
+
+def retryable_download(
+    error: URLError | ConnectionError | TimeoutError,
+) -> bool:
+    if isinstance(error, HTTPError):
+        return error.code in {408, 500, 502, 503, 504}
+    reason = error.reason if isinstance(error, URLError) else error
+    return isinstance(reason, (ConnectionError, TimeoutError))
+
+
+def download_bytes(address: str) -> bytes:
+    failures = 0
+    while True:
+        try:
+            with urlopen(address, timeout=60) as response:
+                data: bytes = response.read(MAX_DOWNLOAD + 1)
+                return data
+        except (URLError, ConnectionError, TimeoutError) as error:
+            if isinstance(error, HTTPError):
+                error.close()
+            failures += 1
+            if failures == 3 or not retryable_download(error):
+                raise
 
 
 def safe_path(name: str) -> str:

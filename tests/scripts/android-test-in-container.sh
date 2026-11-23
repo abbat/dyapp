@@ -155,6 +155,7 @@ case "${1:?suite required}" in
         phase_only+=,com.dyapp.NativeIncomingPngPhaseTests
         phase_only+=,com.dyapp.OwnerApprovalVisualTests,com.dyapp.OwnerApprovalImeTests,com.dyapp.ReceiveVisualTests
         phase_only+=,com.dyapp.LinkReviewVisualTests,com.dyapp.ReceivedViewsVisualTests
+        phase_only+=,com.dyapp.UpdateNoticeVisualTests
         failed=() only=() minimum=3
         for attempt in 1 2 3; do
             # Retry only finished JUnit failures, never an uncertain remote invocation.

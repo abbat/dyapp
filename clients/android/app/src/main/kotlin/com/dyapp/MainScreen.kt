@@ -38,20 +38,22 @@ internal fun MainScreen(
     val navigation = remember(actions, receiving) { IdentityNavigation(start, actions, receiving) { onLock() } }
     val state by actions.state.collectAsState()
     ObserveIdentityCleanup(actions, slots, navigation)
-    Box(
-        Modifier.testTag("identity-state").semantics {
-            set(identityReadyRevisionKey, if (state.loading) 0L else state.revision)
-        }
-    ) {
-        if (state.loading) {
-            IdentityLoading()
-        } else {
-            IdentityContent(
-                checkNotNull(state.shown),
-                slots,
-                navigation,
-                lockMode
-            )
+    UpdateNoticeHost(visible = !state.loading) {
+        Box(
+            Modifier.testTag("identity-state").semantics {
+                set(identityReadyRevisionKey, if (state.loading) 0L else state.revision)
+            }
+        ) {
+            if (state.loading) {
+                IdentityLoading()
+            } else {
+                IdentityContent(
+                    checkNotNull(state.shown),
+                    slots,
+                    navigation,
+                    lockMode
+                )
+            }
         }
     }
 }

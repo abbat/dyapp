@@ -62,15 +62,28 @@ impl MobileClientUpdates {
             .map_err(|error| CoreError::Failed(error.to_string()))?;
         Ok(self.project(&snapshot))
     }
+    /// Claim the current background OS offer after native permission is confirmed.
+    /// Core selects the target/version and returns a plan only after its durable commit.
+    /// This does not request HTTP, a notification, or native permission.
+    ///
+    /// # Errors
+    /// Returns persistence or validation failure without a provisional offer.
+    pub fn claim_pending_notification(&self) -> Result<Option<MobileUpdateOffer>, CoreError> {
+        let offer =
+            core::notices::claim_pending_notification(&self.root, self.platform, self.installed)
+                .map_err(|error| CoreError::Failed(error.to_string()))?;
+        Ok(offer.as_ref().map(Into::into))
+    }
+
     /// Dismiss exactly the displayed version after committing shared installation state.
     ///
     /// # Errors
     /// Refuses malformed versions or persistence failures without acknowledging success.
     pub fn dismiss_notice(
         &self,
-        expected_version: String,
+        expected_version: &str,
     ) -> Result<MobileUpdateNoticeAction, CoreError> {
-        let expected = core::Version::parse(&expected_version)
+        let expected = core::Version::parse(expected_version)
             .ok_or_else(|| CoreError::Failed("invalidUpdateVersion".into()))?;
         self.notice_result(core::notices::dismiss(
             &self.root,
@@ -87,9 +100,9 @@ impl MobileClientUpdates {
     /// Refuses malformed versions or persistence failures; no OS request is permitted on error.
     pub fn claim_notification(
         &self,
-        expected_version: String,
+        expected_version: &str,
     ) -> Result<MobileUpdateNoticeAction, CoreError> {
-        let expected = core::Version::parse(&expected_version)
+        let expected = core::Version::parse(expected_version)
             .ok_or_else(|| CoreError::Failed("invalidUpdateVersion".into()))?;
         self.notice_result(core::notices::claim_notification(
             &self.root,
