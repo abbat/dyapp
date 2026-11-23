@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="update_metadata_loading">Чтение настроек обновлений…</string>
+    <string name="update_metadata_failed">Не удалось прочитать настройки обновлений. Откройте страницу снова, чтобы повторить.</string>
+    <string name="update_time_unavailable">Дата недоступна</string>
+</resources>

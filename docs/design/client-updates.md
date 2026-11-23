@@ -324,6 +324,11 @@ it past due schedules a check, lengthening it does not force one. The setting
 and dismissal state belong to the installation, not to an identity. While the
 feed or platform destination is unfinished, controls remain disabled with a
 specific explanation, as required by the [screen draft](v0.0.1-client-screens.md).
+Android reads installation metadata off the UI thread through the shared
+UniFFI object, independently of the active identity. Pending and failed reads
+show explicit status and no fabricated interval selection or successful-check
+date. Formatting a stored date uses the current locale and checked conversion
+from Unix seconds; this metadata read admits no HTTP request.
 
 On a newly discovered higher version, show one in-app notice with installed and
 available versions. While background execution succeeds, the app may also

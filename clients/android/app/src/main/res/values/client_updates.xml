@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="update_metadata_loading">Reading update settings…</string>
+    <string name="update_metadata_failed">Update settings could not be read. Reopen this page to retry.</string>
+    <string name="update_time_unavailable">Date unavailable</string>
+</resources>

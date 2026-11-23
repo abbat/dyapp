@@ -4,6 +4,11 @@
 matches `BuildConfig.VERSION_NAME`, fresh state never claims current, and all four installation
 intervals survive a separate native handle. This fixture performs no HTTP and does not enable
 update controls; live-feed, lifecycle and notice acceptance remain separate.
+`UpdateMetadataCardTests` gates read completion explicitly, rejects a fabricated selected
+interval during loading/failure, and checks that an out-of-range Unix timestamp cannot wrap
+into a misleading date. `UpdatesCardTests` waits for the actual persisted selection before
+asserting the disabled pre-publication controls. Owner replacement/disposal is covered by
+the shared `NativeReadTests` used by this card.
 
 Private profile-view checks separate presentation lifetime from core policy. Android
 `ProfileViewDisclosureTests` waits on controlled IO entry/completion signals and checks readiness,
