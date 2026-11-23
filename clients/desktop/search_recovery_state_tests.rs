@@ -67,6 +67,28 @@ impl Drop for Fixture {
 }
 
 #[test]
+fn fresh_profile_has_no_recovery_and_creates_no_database() {
+    let fixture = Fixture::new();
+    let reviews = RecoveryState::default();
+    let old = fixture.prepare(&reviews);
+    let fresh = fixture.root.join("fresh");
+    std::fs::create_dir(&fresh).unwrap();
+    assert_eq!(reviews.prepare(&fixture.owner, &fresh, 1).unwrap(), None);
+    assert_eq!(std::fs::read_dir(&fresh).unwrap().count(), 0);
+    assert_eq!(
+        reviews.confirm(&fixture.owner, &fixture.root, 1, &old),
+        Err(Failure::Closed)
+    );
+    let path = fresh.join("client.db");
+    std::fs::write(&path, b"not a database").unwrap();
+    assert!(matches!(
+        reviews.prepare(&fixture.owner, &fresh, 1),
+        Err(Failure::Failed { .. })
+    ));
+    assert_eq!(std::fs::read(path).unwrap(), b"not a database");
+}
+
+#[test]
 fn prepare_and_unconfirmed_retry_do_not_sign_or_send_and_old_dismiss_is_scoped() {
     let f = Fixture::new();
     let reviews = RecoveryState::default();

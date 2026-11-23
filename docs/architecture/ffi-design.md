@@ -892,6 +892,8 @@ return structured errors with a `kind`: `closed`, `changed`, `reviewRequired`, `
 these kinds rather than parse backend text. The desktop inline recovery card prepares read-only,
 requires explicit confirmation and retries only the retained receipt; leaving the original screen
 retires its presentation opening. Completion refreshes status metadata without refilling raw inputs.
+A fresh profile without `client.db` has no recovery and creates no database during preparation;
+unreadable, malformed or unsafe existing storage remains a failure rather than fabricated absence.
 `dismiss` invalidates the shared review; generated object disposal only releases its wrapper.
 `SearchRecoverySaved` reports the shared core's consistent local draft/visibility/search-pending
 snapshot. Confirmation only queues bytes and captures a public signed receipt after the commit.

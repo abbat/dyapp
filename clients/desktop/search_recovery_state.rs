@@ -78,7 +78,16 @@ impl RecoveryState {
         generation: u64,
     ) -> Result<Option<String>, Failure> {
         let mut reviews = self.0.lock().map_err(Failure::failed)?;
-        let store = Store::open_existing(&dir.join("client.db"), identity)?;
+        let path = dir.join("client.db");
+        match std::fs::symlink_metadata(&path) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                reviews.current = None;
+                return Ok(None);
+            }
+            Err(error) => return Err(Failure::failed(error)),
+            Ok(_) => {}
+        }
+        let store = Store::open_existing(&path, identity)?;
         let Some(plan) = store.prepare_search_withdrawal_recovery()? else {
             reviews.current = None;
             return Ok(None);
