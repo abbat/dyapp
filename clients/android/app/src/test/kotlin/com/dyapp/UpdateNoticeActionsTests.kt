@@ -54,7 +54,11 @@ class UpdateNoticeActionsTests {
     @Test
     fun pendingReadRunsOffCallerAndDoesNotFabricateAnOffer() = runBlocking {
         val fixture = GatedUpdateRead(snapshot())
-        val actions = UpdateNoticeActions(this, fixture::read) { error("Unexpected dismissal") }
+        val dismissals = AtomicInteger()
+        val actions = UpdateNoticeActions(this, fixture::read) {
+            dismissals.incrementAndGet()
+            error("Unexpected dismissal")
+        }
         val caller = Thread.currentThread()
         val job = checkNotNull(actions.initialize())
         try {
@@ -70,6 +74,7 @@ class UpdateNoticeActionsTests {
         withTimeout(5_000) { job.join() }
         assertEquals(snapshot(), actions.state.value.snapshot)
         assertFalse(actions.state.value.pending)
+        assertEquals(0, dismissals.get())
     }
 
     @Test
@@ -149,10 +154,14 @@ class UpdateNoticeActionsTests {
     @Test
     fun failedInitialReadShowsFailureAndCanBeRetriedWithoutInventingDefaults() = runBlocking {
         val calls = AtomicInteger()
+        val dismissals = AtomicInteger()
         val actions = UpdateNoticeActions(this, {
             if (calls.incrementAndGet() == 1) error("Unreadable record")
             snapshot(null)
-        }) { error("Unexpected dismissal") }
+        }) {
+            dismissals.incrementAndGet()
+            error("Unexpected dismissal")
+        }
         withTimeout(5_000) { checkNotNull(actions.initialize()).join() }
         assertTrue(actions.state.value.failed)
         assertNull(actions.state.value.snapshot)
@@ -160,5 +169,6 @@ class UpdateNoticeActionsTests {
         withTimeout(5_000) { checkNotNull(actions.initialize()).join() }
         assertFalse(actions.state.value.failed)
         assertEquals(snapshot(null), actions.state.value.snapshot)
+        assertEquals(0, dismissals.get())
     }
 }

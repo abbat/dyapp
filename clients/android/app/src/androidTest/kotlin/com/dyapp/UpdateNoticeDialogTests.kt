@@ -20,6 +20,26 @@ import uniffi.dyapp.MobileUpdateInterval
 import uniffi.dyapp.MobileUpdateOffer
 import uniffi.dyapp.MobileUpdateState
 
+private fun string(id: Int, vararg args: Any) =
+    InstrumentationRegistry.getInstrumentation().targetContext.getString(id, *args)
+
+private fun offer(version: String = "0.0.2") = MobileUpdateOffer(
+    version,
+    MobileUpdateDelivery.PACKAGE,
+    "https://github.com/abbat/dyapp/releases/tag/v$version",
+)
+
+private fun snapshot(notice: MobileUpdateOffer? = offer()) = MobileUpdateState(
+    installedVersion = "0.0.1",
+    interval = MobileUpdateInterval.DAY,
+    lastAttempt = 1uL,
+    lastSuccess = 1uL,
+    inFlight = false,
+    availability = MobileUpdateAvailability.AVAILABLE,
+    offer = notice,
+    notice = notice,
+)
+
 class UpdateNoticeDialogTests {
     @get:Rule
     val compose = createComposeRule()
@@ -32,26 +52,6 @@ class UpdateNoticeDialogTests {
         compose.setContent { MaterialTheme { UpdateNoticeDialog(state(), later, open) } }
         compose.awaitNode(hasTestTag("update-notice"))
     }
-
-    private fun string(id: Int, vararg args: Any) =
-        InstrumentationRegistry.getInstrumentation().targetContext.getString(id, *args)
-
-    private fun offer(version: String = "0.0.2") = MobileUpdateOffer(
-        version,
-        MobileUpdateDelivery.PACKAGE,
-        "https://github.com/abbat/dyapp/releases/tag/v$version",
-    )
-
-    private fun snapshot(notice: MobileUpdateOffer? = offer()) = MobileUpdateState(
-        installedVersion = "0.0.1",
-        interval = MobileUpdateInterval.DAY,
-        lastAttempt = 1uL,
-        lastSuccess = 1uL,
-        inFlight = false,
-        availability = MobileUpdateAvailability.AVAILABLE,
-        offer = notice,
-        notice = notice,
-    )
 
     @Test
     fun opensOnlyTheCoreDestinationWithoutSilentlyDismissingTheNotice() {
@@ -76,7 +76,8 @@ class UpdateNoticeDialogTests {
     fun pendingWriteBlocksCallbacksAndFailureRetainsTheNoticeForExplicitRetry() {
         val shown = mutableStateOf(UpdateNoticeUiState(snapshot()))
         val dismissed = mutableListOf<MobileUpdateOffer>()
-        showNotice({ shown.value }, dismissed::add) { error("Busy Open was admitted") }
+        val opened = mutableListOf<String>()
+        showNotice({ shown.value }, dismissed::add, opened::add)
         val oldOpen = compose.onNodeWithTag("update-notice-open").fetchSemanticsNode().config[applicationClickKey]
         val oldLater = compose.onNodeWithTag("update-notice-later").fetchSemanticsNode().config[applicationClickKey]
         compose.runOnIdle { shown.value = shown.value.copy(pending = true) }
@@ -87,6 +88,7 @@ class UpdateNoticeDialogTests {
             oldLater()
         }
         assertEquals(emptyList<MobileUpdateOffer>(), dismissed)
+        assertEquals(emptyList<String>(), opened)
         compose.runOnIdle { shown.value = shown.value.copy(pending = false, failed = true) }
         compose.onNodeWithTag("update-notice-status").assertTextEquals(string(R.string.update_notice_failed))
         compose.onNodeWithTag("update-notice-later").performClick()
@@ -100,8 +102,9 @@ class UpdateNoticeDialogTests {
     fun browserFailureCanBeRetriedAndReplacementRetiresBothOldActions() {
         val shown = mutableStateOf(UpdateNoticeUiState(snapshot()))
         val opened = mutableListOf<String>()
+        val dismissed = mutableListOf<MobileUpdateOffer>()
         var fail = true
-        showNotice({ shown.value }, { error("Retired Later was admitted") }) {
+        showNotice({ shown.value }, dismissed::add) {
             if (fail) error("No browser")
             opened.add(it)
         }
@@ -119,6 +122,7 @@ class UpdateNoticeDialogTests {
             oldLater()
         }
         assertEquals(emptyList<String>(), opened)
+        assertEquals(emptyList<MobileUpdateOffer>(), dismissed)
         compose.onNodeWithTag("update-notice-open").performClick()
         assertEquals(listOf(offer("0.0.3").releasePage), opened)
     }
@@ -149,7 +153,8 @@ class UpdateNoticeDialogTests {
     fun backUsesTheSameDurableLaterActionAndDisposalRetiresItsCallback() {
         val shown = mutableStateOf(UpdateNoticeUiState(snapshot()))
         val dismissed = mutableListOf<MobileUpdateOffer>()
-        showNotice({ shown.value }, dismissed::add) { error("Unexpected Open") }
+        val opened = mutableListOf<String>()
+        showNotice({ shown.value }, dismissed::add, opened::add)
         val old = compose.onNodeWithTag("update-notice-later").fetchSemanticsNode().config[applicationClickKey]
         Espresso.pressBack()
         compose.runOnIdle { assertEquals(listOf(offer()), dismissed) }
@@ -157,20 +162,23 @@ class UpdateNoticeDialogTests {
         compose.onNodeWithTag("update-notice").assertDoesNotExist()
         compose.runOnIdle { old() }
         assertEquals(listOf(offer()), dismissed)
+        assertEquals(emptyList<String>(), opened)
     }
 
     @Test
     fun missingNoticeAndUnpinnedStoreHaveNoActionableDialog() {
         val shown = mutableStateOf(UpdateNoticeUiState(snapshot(null)))
+        val opened = mutableListOf<String>()
+        val dismissed = mutableListOf<MobileUpdateOffer>()
         compose.setContent {
-            MaterialTheme {
-                UpdateNoticeDialog(shown.value, { error("Unexpected Later") }) { error("Unexpected Open") }
-            }
+            MaterialTheme { UpdateNoticeDialog(shown.value, dismissed::add, opened::add) }
         }
         compose.onNodeWithTag("update-notice").assertDoesNotExist()
         compose.runOnIdle {
             shown.value = UpdateNoticeUiState(snapshot(offer().copy(delivery = MobileUpdateDelivery.STORE)))
         }
         compose.onNodeWithTag("update-notice").assertDoesNotExist()
+        assertEquals(emptyList<String>(), opened)
+        assertEquals(emptyList<MobileUpdateOffer>(), dismissed)
     }
 }
