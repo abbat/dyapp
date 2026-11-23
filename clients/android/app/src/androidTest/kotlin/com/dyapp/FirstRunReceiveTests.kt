@@ -1,7 +1,6 @@
 package com.dyapp
 
 import android.content.Context
-import android.content.ContextWrapper
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalContext
@@ -24,12 +23,6 @@ import org.junit.Test
 import org.junit.rules.ExternalResource
 import org.junit.rules.RuleChain
 import uniffi.dyapp.NetworkFile
-import java.io.File
-
-private class ReceivingContext(base: Context, private val root: File) : ContextWrapper(base) {
-    override fun getApplicationContext(): Context = this
-    override fun getNoBackupFilesDir(): File = root
-}
 
 class FirstRunReceiveTests {
     private val compose = createComposeRule()
@@ -44,7 +37,7 @@ class FirstRunReceiveTests {
 
     @Test
     fun explicitReceiveRestoresWithoutAnotherIdentityAndCancelPreservesTheDraft() {
-        val context = ReceivingContext(InstrumentationRegistry.getInstrumentation().targetContext, fixture.root)
+        val context = fixture.context(InstrumentationRegistry.getInstrumentation().targetContext)
         val restoration = StateRestorationTester(compose)
         restoration.setContent {
             CompositionLocalProvider(LocalContext provides context) { MaterialTheme { MainScreen() } }

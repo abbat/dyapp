@@ -7,6 +7,11 @@ checks both Activity ownership and the native View font scale before accepting t
 The app-lock restoration fixture creates one controlled IO gate per startup owner, waits for
 actual read entry before releasing it, then asserts the exact initialization history and retained
 private saveable state. Every owner/read/completion transition receives a fresh failure deadline.
+Fresh-identity chat and receive fixtures use an owned `NativeSlotFixture` storage context;
+`skipNetworkEntry` alone reuses existing device identities and cannot establish empty storage.
+The chat empty-state test checks its native registry and chat rows, retains the no-badge assertion,
+and verifies the displayed peer against that same owned identity. Fixture context wrappers retain
+the caller's Activity chain while overriding only application storage.
 
 `NativeClientUpdatesTests` checks the actual JNI metadata bridge: the native installed version
 matches `BuildConfig.VERSION_NAME`, fresh state never claims current, and all four installation
