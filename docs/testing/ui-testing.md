@@ -190,13 +190,15 @@ fixed groups, raw accessibility text and exact system-clipboard values. The esta
 copy tag stays stable while all identifiers reuse the shared display component.
 `LinkReviewFailureTests` rejects a preview after all 31 explicit choices inside the actual receiving
 Settings frame, acknowledges safe Back focus and the recovery relocation-completion signal, and
-checks the error and all recovery controls against
-the current viewport in EN/RU at both text scales. This covers preview refusal only; authoritative
+checks the complete error against the current viewport before any test-driven scroll.
+Each recovery control is then exposed and checked with fresh bounds in EN/RU at both text scales. This covers preview refusal only; authoritative
 confirmation refusal belongs to the separately retained enrollment state. Its typed notice and
 existing recovery actions render beside the active form footer, or beside the reopen/saved state;
 receipt-only outcomes keep their original notice. After the safe Back control reports actual focus,
-the measured feedback/recovery group requests visibility as a unit; focus alone is not a scroll
-completion signal. Group-size changes retrigger that request without a guessed delay.
+a non-empty leading region derived from its actual text baseline requests visibility; focus alone
+is not a scroll completion signal. Changes to that measured region retrigger the request without
+a guessed delay. A footer taller than its viewport need not fit simultaneously: the full refusal is
+checked first, followed by individual measured recovery-control reachability.
 The phase-only `LinkReviewVisualTests` renders the actual complete comparison in the receiving
 Settings frame: choices, preview, saving, typed refusal and unavailable photos, in EN/RU, both
 colour themes and actual 100/200% text scales. With `comparisonVisual=1`, `sourceSha` and

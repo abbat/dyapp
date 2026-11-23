@@ -3,6 +3,7 @@ package com.dyapp
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
@@ -92,6 +93,15 @@ class LinkReviewSaveRefusalTests {
         for (field in LinkReviewField.entries) {
             compose.onNodeWithTag("link-review-${field.name}-REMOTE").assertIsSelected()
         }
+        checkPermittedRecovery(failure)
+        checkFeedbackOrder()
+        for (tag in listOf("link-review-confirm", "link-review-back")) reachable(tag)
+        if (failure is LinkReviewException.Failed || failure is LinkReviewException.ReviewRequired) {
+            reachable("link-setup-prepare")
+        }
+    }
+
+    private fun checkPermittedRecovery(failure: Throwable) {
         val retryable = failure is LinkReviewException.Profile || failure is LinkReviewException.Selection
         val confirm = compose.onNodeWithTag("link-review-confirm")
         if (retryable) confirm.assertIsEnabled() else confirm.assertIsNotEnabled()
@@ -101,8 +111,11 @@ class LinkReviewSaveRefusalTests {
         } else {
             compose.onNodeWithTag("link-setup-prepare").assertDoesNotExist()
         }
+    }
+
+    private fun checkFeedbackOrder() {
         val error = compose.onNodeWithTag("link-setup-failure").getUnclippedBoundsInRoot()
-        val save = confirm.getUnclippedBoundsInRoot()
+        val save = compose.onNodeWithTag("link-review-confirm").getUnclippedBoundsInRoot()
         val last = compose.onNodeWithTag("link-review-${LinkReviewField.entries.last().name}-REMOTE")
             .getUnclippedBoundsInRoot()
         val viewport = compose.onNodeWithTag("settings-receive").getUnclippedBoundsInRoot()
@@ -111,6 +124,16 @@ class LinkReviewSaveRefusalTests {
         assertTrue(
             "Typed refusal bounds=$error viewport=$viewport save=$save",
             error.top >= viewport.top && error.bottom <= viewport.bottom
+        )
+    }
+
+    private fun reachable(tag: String) {
+        val bounds = compose.onNodeWithTag(tag).performScrollTo().assertIsDisplayed().getUnclippedBoundsInRoot()
+        val viewport = compose.onNodeWithTag("settings-receive").getUnclippedBoundsInRoot()
+        assertTrue(
+            "Recovery $tag bounds=$bounds viewport=$viewport",
+            bounds.left >= viewport.left && bounds.right <= viewport.right &&
+                bounds.top >= viewport.top && bounds.bottom <= viewport.bottom
         )
     }
 }
