@@ -2,7 +2,11 @@ package com.dyapp
 
 import android.content.Context
 import android.content.res.Configuration
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertHasNoClickAction
@@ -10,6 +14,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
 import com.dyapp.ui.theme.DYAppTheme
 import org.junit.Assert.assertTrue
@@ -33,7 +38,11 @@ class ChatLinkHostsTests {
         val localized = base.createConfigurationContext(configuration)
         compose.setContent {
             LocalizedTestContext(localized, fontScale) {
-                DYAppTheme { ChatBubble(current.value, false, Modifier.fillMaxWidth()) }
+                DYAppTheme {
+                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                        ChatBubble(current.value, false, Modifier.fillMaxWidth())
+                    }
+                }
             }
         }
         return localized
@@ -49,6 +58,7 @@ class ChatLinkHostsTests {
             ).copy(forwarded = true)
         }
         val caption = compose.onNodeWithTag("chat-link-hosts")
+            .performScrollTo()
             .assertIsDisplayed()
             .assertTextEquals(localized.getString(R.string.chat_link_hosts, destinations))
             .assertHasNoClickAction()

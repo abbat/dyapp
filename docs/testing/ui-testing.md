@@ -23,6 +23,9 @@ captions retain ASCII/Punycode, nondefault ports and first-occurrence deduplicat
 credentials, update after edits, and disappear for deleted/null/no-web-link text. Normal and 200%
 font cases check actual text layout; completion uses Compose synchronization, without sleeps,
 network requests or a Kotlin parser fixture. Full native visual review remains separate acceptance.
+`ChatLinksVisualTests` supplies the dedicated `linksVisual=1` capture fixture for production chat
+layout in live/edited/deleted states, with actual native text-scale and geometry witnesses. It is
+excluded from ordinary instrumentation; capture-runner and artifact-validator adoption is planned.
 
 `NativeClientUpdatesTests` checks the actual JNI metadata bridge: the native installed version
 matches `BuildConfig.VERSION_NAME`, fresh state never claims current, and all four installation
