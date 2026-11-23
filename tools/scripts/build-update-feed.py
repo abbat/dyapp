@@ -97,6 +97,7 @@ def expected_package(target: str, tag: str) -> str | None:
     return {
         "linux-x86_64": f"dyapp_{release}_amd64.deb",
         "windows-x86_64": f"dyapp-{release}-x86_64-windows.zip",
+        "android": f"dyapp-{release}-android.apk",
     }.get(target)
 
 

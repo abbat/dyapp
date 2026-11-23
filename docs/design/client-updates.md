@@ -293,8 +293,10 @@ requires successful `apksigner verify` plus one signer matching a trusted public
 SHA-256 certificate pin. It rejects incompatible/non-increasing upgrades and
 permits an identical same-version replay. Inventory verification accepts the validated previous feed before comparing
 Android packages; previous APK bytes require their own exact-tag provenance.
-Candidate discovery and final Android target claims remain planned; current
-staged targets are Linux/Windows.
+Candidate discovery and feed staging support the exact signed Android APK
+alongside Linux/Windows. Android admission also requires the trusted public
+certificate pin and the preceding verified Android APK for a newer publication;
+missing or incompatible evidence blocks staging without replacing the prior feed.
 Without these compatibility gates, installing the
 candidate can fail or require uninstalling the existing app, which loses data.
 [Android's update rules](https://developer.android.com/google/play/app-updates)

@@ -416,9 +416,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" build/release/* --repo "$GITHUB_REPOSITORY" --verify-tag --title "$GITHUB_REF_NAME" --notes "dyappd, Linux and Windows desktop clients, Android APK, and unsigned macOS ZIP and iOS IPA $GITHUB_REF_NAME. The Apple files are not signed or notarized, see the macOS and iOS manuals. Verify each file with gh attestation verify <file> --repo $GITHUB_REPOSITORY; the image is $IMAGE:${GITHUB_REF_NAME#v}."
+      - name: configure Android package verification tools
+        run: |
+          sdk="${ANDROID_HOME:?}"
+          analyzer="$sdk/cmdline-tools/latest/bin/apkanalyzer"
+          signer=$(find "$sdk/build-tools" -mindepth 2 -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)
+          test -x "$analyzer"
+          test -x "$signer"
+          printf '%s\n' "${analyzer%/apkanalyzer}" "${signer%/apksigner}" >> "$GITHUB_PATH"
       - name: verify release and stage client update feed
         env:
           GH_TOKEN: ${{ github.token }}
+          ANDROID_RELEASE_CERT_SHA256: ${{ vars.ANDROID_RELEASE_CERT_SHA256 }}
         run: |
           mkdir -p build/update-feed
           python3 -B tools/scripts/stage-update-feed.py "$GITHUB_REF_NAME" > build/update-feed/stable.json

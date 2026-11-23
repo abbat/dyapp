@@ -200,6 +200,14 @@ Create a protected GitHub Actions environment named `android-release`, restricte
 | `ANDROID_RELEASE_KEYSTORE_B64` | Base64 of the complete PKCS#12 keystore file, without line breaks |
 | `ANDROID_RELEASE_PASSWORD` | The keystore and key password (the same password for both) |
 
+Set the public repository variable `ANDROID_RELEASE_CERT_SHA256` to the signing
+certificate fingerprint: exactly 64 lower-case hexadecimal characters from
+`apksigner verify --print-certs` on a trusted APK signed with that key. The feed
+publisher requires this independent pin, verifies application ID and version,
+and compares the preceding attested APK before advertising an upgrade. A
+missing pin, certificate change or non-increasing `versionCode` blocks feed
+publication; no private signing key is passed to this verification step.
+
 The signing job needs both secrets. It fails if either is missing, if the keystore cannot sign, or if `apksigner verify` fails. The key is never stored in the repository or passed to the unsigned build job. Keep the offline backup even after the GitHub secrets are set. Before publishing the first tag, verify the environment protection and the key's certificate fingerprint; use the same signing key for every later APK update.
 
 ## Message notices

@@ -60,6 +60,23 @@ class ReleaseCandidates(unittest.TestCase):
         self.assertNotIn("releases", actual)
         self.assertNotIn("targets", actual)
 
+    def test_android_candidate_requires_the_exact_versioned_signed_asset_name(
+        self,
+    ) -> None:
+        name = "dyapp-0.0.1-android.apk"
+        actual = CANDIDATES.candidates(release(asset(name)), TAG, COMMIT)
+        self.assertEqual(actual["packages"]["android"]["name"], name)
+        for wrong in [
+            "dyapp-0.0.2-android.apk",
+            "dyapp-0.0.1-arm64-android.apk",
+        ]:
+            with self.subTest(wrong=wrong), self.assertRaises(ValueError):
+                CANDIDATES.candidates(release(asset(wrong)), TAG, COMMIT)
+        ignored = CANDIDATES.candidates(
+            release(asset("app-release-unsigned.apk")), TAG, COMMIT
+        )
+        self.assertEqual(ignored["packages"], {})
+
     def test_exact_linux_and_windows_package_candidates(self) -> None:
         actual = CANDIDATES.candidates(
             release(asset(WINDOWS), asset(LINUX)), TAG, COMMIT
