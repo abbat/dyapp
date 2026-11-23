@@ -103,15 +103,28 @@ outcomes use the real ActivityResult registration with a controlled registry; no
 are opened. Each width requires 160 EN/RU/theme/font/top-bottom frames under
 `files/update-notice-visual/<width>/`;
 `android_visual_archive.py --kind updates` enforces the exact source, inventory, real native
-text-scale witnesses and PNG/viewport dimensions. Geometry checks expose every text line through
+text-scale witnesses and PNG/viewport dimensions. Its regression independently enumerates all ten
+native dialog/permission states and rejects incomplete manifests at both widths. Geometry checks expose every text line through
 current semantic scroll viewports and require both actions to remain visible. Run it with an APK
 producer containing these fixtures; authored checks are not captured/reviewed evidence and do not
 prove native persistence, live publication, OS notifications or update activation.
 `UpdatePermissionResultTests` supplies a controlled ActivityResult registry to the production
 permission row. It retains real launcher registration/disposal while releasing results explicitly:
 a cancelled result must trigger an actual permission read, repeated pending actions cannot launch
-again, and an old opening cannot consume results or launch into its replacement. These checks
+again, and an old opening cannot consume results or launch into its replacement. Controlled
+LifecycleRegistry transitions also verify foreground permission readback, visible query failures,
+detached disposed observers and pending-launch admission preserved across pause/resume. These checks
 open no system settings and do not substitute for actual Android permission enforcement.
+
+The independent `suite=activity` runs `PresenceVisualTests` with `activityVisual=1`.
+It captures production list/header activity marks and the audience picker in the actual Privacy
+Settings frame: active/unknown list and chat, matches/nobody/loading/read failure. Each width requires
+128 EN/RU/theme/font/top-bottom frames under `files/activity-visual/<width>/`; the
+`android_visual_archive.py --kind activity` validator requires exact source and actual native
+text-scale witnesses. Unknown projections omit marks, loading forbids edits, and failed reads offer
+read-only retry. The host has no identity/network owner or peer-photo loader, so these samples cannot
+announce activity or fetch profiles. Capture/frame review complements the separate actual JNI
+presence-delivery and lifecycle tests; authored fixtures alone do not prove rendered acceptance.
 
 Native receiving completion checks retain a recovery review prepared before setup finishes:
 preparing another review after the pending link has been cleared is correctly refused. Publication

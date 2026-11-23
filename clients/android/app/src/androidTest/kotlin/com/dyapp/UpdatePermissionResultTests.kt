@@ -11,12 +11,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.core.app.ActivityOptionsCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -32,8 +37,11 @@ class UpdatePermissionResultTests {
     val compose = createComposeRule()
 
     private val registry = UpdatePermissionRegistry()
+    private val lifecycleOwner = PermissionLifecycleOwner()
     private var owner by mutableStateOf(0)
     private var allowed = false
+    private var queryFailure = false
+    private var shown by mutableStateOf(true)
     private var reads = 0
 
     @Test
@@ -78,12 +86,64 @@ class UpdatePermissionResultTests {
         compose.onNodeWithTag("update-notice-allow").assertIsNotEnabled()
     }
 
+    @Test
+    fun foregroundReadbackDoesNotReleaseAnOutstandingSystemLaunch() {
+        show()
+        val click = clickAction()
+        compose.runOnIdle { click() }
+        state(Lifecycle.State.STARTED)
+        compose.runOnIdle { allowed = true }
+        state(Lifecycle.State.RESUMED)
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        compose.awaitNode(
+            hasTestTag("update-notice-permission") and hasText(context.getString(R.string.update_notice_allowed))
+        )
+        compose.onNodeWithTag("update-notice-allow").assertIsNotEnabled()
+        compose.runOnIdle {
+            click()
+            assertEquals(1, registry.requests.size)
+            registry.dispatchResult(registry.requests.single(), Activity.RESULT_CANCELED, Intent())
+        }
+        compose.onNodeWithTag("update-notice-allow").assertIsEnabled()
+    }
+
+    @Test
+    fun failedResumeReadIsVisibleAndDisposedRowsStopObservingForeground() {
+        show()
+        state(Lifecycle.State.STARTED)
+        compose.runOnIdle { queryFailure = true }
+        state(Lifecycle.State.RESUMED)
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        compose.awaitNode(
+            hasTestTag("update-notice-permission") and
+                hasText(context.getString(R.string.update_notice_permission_failed))
+        )
+        compose.runOnIdle { shown = false }
+        val before = compose.runOnIdle { reads }
+        state(Lifecycle.State.STARTED)
+        state(Lifecycle.State.RESUMED)
+        compose.runOnIdle {
+            assertEquals(before, reads)
+            assertEquals(emptyList<Int>(), registry.requests)
+        }
+    }
+
+    private fun state(value: Lifecycle.State) =
+        compose.runOnIdle { lifecycleOwner.registry.currentState = value }
+
     private fun show() {
+        state(Lifecycle.State.RESUMED)
         compose.setContent {
-            CompositionLocalProvider(LocalActivityResultRegistryOwner provides registry) {
-                UpdateNoticePermission(owner, snapshot()) {
-                    reads++
-                    allowed
+            CompositionLocalProvider(
+                LocalActivityResultRegistryOwner provides registry,
+                LocalLifecycleOwner provides lifecycleOwner,
+            ) {
+                if (shown) {
+                    UpdateNoticePermission(owner, snapshot()) {
+                        reads++
+                        check(!queryFailure) { "Controlled platform query failure" }
+                        allowed
+                    }
                 }
             }
         }
@@ -109,6 +169,11 @@ class UpdatePermissionResultTests {
         ),
         notice = null,
     )
+}
+
+private class PermissionLifecycleOwner : LifecycleOwner {
+    val registry = LifecycleRegistry(this)
+    override val lifecycle: Lifecycle get() = registry
 }
 
 /** Launch capture controls the real registry completion without opening Android settings. */

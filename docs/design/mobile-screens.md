@@ -241,7 +241,10 @@ The IDs inside each section are the desktop ones; only the frame differs.
   and the `presence-audience` radios. Its hint scopes these preferences to this identity on
   this device. Native Android persists views/read-receipts/typing through independent common-core
   preferences, with disabled unknown/busy switches, confirmed readback and read-only retry.
-  The presence audience also uses common-core foreground send policy. Explicit shown profile pages
+  The presence audience also uses common-core foreground send policy. Its native activity visual
+  suite covers active/unknown list and chat marks plus matches/nobody/loading/failed audience reads;
+  controlled samples cannot announce activity and still require source-bound capture/frame review.
+  Explicit shown profile pages
   submit optional views through the common owner/network-bound opening; source-bound runtime
   acceptance remains separate. Typing delivery stays planned for a
   [future direct client path](read-receipts.md#typing-indicators).

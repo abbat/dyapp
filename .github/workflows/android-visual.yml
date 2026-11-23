@@ -12,7 +12,7 @@ on:
         required: true
         type: choice
         default: standard
-        options: [standard, comparison, views, updates]
+        options: [standard, comparison, views, updates, activity]
 
 permissions:
   contents: read
@@ -143,6 +143,13 @@ jobs:
           python3 -B tests/scripts/android_visual_archive.py --kind updates \
             --archive "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/updates.tar" \
             --output "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/updates-frames" \
+            --width "$DYAPP_VISUAL_WIDTH" --source "$DYAPP_VISUAL_SOURCE"
+      - name: validate activity matrix
+        if: ${{ always() && inputs.suite == 'activity' }}
+        run: |
+          python3 -B tests/scripts/android_visual_archive.py --kind activity \
+            --archive "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/activity.tar" \
+            --output "build/android-visual-reports/$DYAPP_VISUAL_WIDTH/activity-frames" \
             --width "$DYAPP_VISUAL_WIDTH" --source "$DYAPP_VISUAL_SOURCE"
       - name: validate complete comparison matrix
         if: ${{ always() && inputs.suite == 'comparison' }}

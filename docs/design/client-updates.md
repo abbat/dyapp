@@ -51,7 +51,9 @@ only: the badge remains while core still offers that version, independently of t
 The badge exposes the available version through localized accessibility text; Kotlin does not
 compare versions or derive a separate update policy.
 The native bridge exposes an explicit checker operation with distinct Busy/NotDue/Validated/Failed
-results; no current Android lifecycle or control invokes it. Client activation/HTTP lifecycle wiring
+results. Each result carries the documented committed or retained metadata; failure details are
+plain diagnostics, never an actionable URL or proof of success. No current Android lifecycle or
+control invokes it. Client activation/HTTP lifecycle wiring
 remains planned. Android can request cached OS notices through its
 existing mail worker; fresh native runtime verification is still pending. Update check controls
 stay disabled until live-feed verification and the remaining integrations pass.
@@ -62,7 +64,8 @@ reaped once as failure. A checkpoint records an in-flight request so restore app
 request backoff, and clock rollback admits one catch-up without a retry loop. The shared checker
 persists checkpoints before HTTP and after completion, and validates transport and feed/cache
 trust before recording `Completion::Validated`. This enum is not a native caller's assertion of trust.
-Native HTTP entry points and activation remain pending; the coordinator itself performs no IO or installation.
+The shared native bridge exposes an explicit checker entry point; platform lifecycle wiring and
+activation remain pending. The coordinator itself performs no IO or installation.
 
 ## Goal and boundary
 
@@ -144,7 +147,8 @@ installed version is current. It authenticates neither hosting origin nor
 publisher, and a store method still needs a separately verified pinned listing.
 The fixed transport enforces origin and response bounds; actual source-bound HTTPS acceptance
 is still required. The shared checker supplies persisted rollback/cadence state and the native
-bridge exposes metadata/actions; HTTP/lifecycle exports and activation remain pending.
+bridge exposes metadata/actions and the explicit checker operation. No current client lifecycle or
+control invokes that operation; activation remains pending.
 Offline parsing does not enable any check.
 
 ### Shared HTTPS transport checkpoint
@@ -406,7 +410,8 @@ version shows just the app name. A blocked or failed post leaves the in-app noti
 and cannot change the mail worker's completion result. For a core-supported available offer, Android
 Settings shows actual app/channel permission and an explicit permission or system-settings action.
 This action never changes chat-notice preferences, checks the feed or dismisses the in-app offer.
-Its pending and retired openings reject duplicate launches and stale results. Live feed activation remains separate.
+Its pending and retired openings reject duplicate launches and stale results. Returning to a resumed
+Settings screen rereads permission without releasing a still-pending system launch. Live feed activation remains separate.
 The dedicated Android `suite=updates` native visual matrix covers five notice outcomes and five
 permission outcomes in the production About frame, with source-bound metadata. Pending and failed
 permission launches use a controlled ActivityResult registry; query failure and allowed/blocked
