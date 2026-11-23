@@ -287,7 +287,13 @@ unsigned build an installable update.
 | `ios` | The CI IPA is unsigned and cannot be installed as published; no Apple Developer Program account exists. | `build-from-source` with the iOS self-signing manual. `store` requires an actual approved listing. |
 
 The Android publisher must also check a matching application ID, compatible
-signing certificate and increasing `versionCode`; otherwise installing the
+signing certificate and increasing `versionCode`. The SDK verification helper
+`tools/scripts/android-release-package.py` reads `apkanalyzer apk summary` and
+requires successful `apksigner verify` plus one signer matching a trusted public
+SHA-256 certificate pin. It rejects incompatible/non-increasing upgrades and
+permits an identical same-version replay. Connecting this helper to release
+inventory/staging remains planned; current staged targets are Linux/Windows.
+Without these compatibility gates, installing the
 candidate can fail or require uninstalling the existing app, which loses data.
 [Android's update rules](https://developer.android.com/google/play/app-updates)
 specify these conditions. The current Apple manuals describe the unsigned

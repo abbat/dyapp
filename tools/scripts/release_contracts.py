@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 from contextlib import AbstractContextManager
+from pathlib import Path
 from re import Pattern
 from typing import NotRequired, Protocol, TypedDict
 from urllib.request import Request
@@ -60,6 +61,31 @@ class Package(TypedDict):
     name: str
     sha256: str
     size: int
+
+
+class AndroidPackage(TypedDict):
+    application_id: str
+    version_name: str
+    version_code: int
+    certificate_sha256: str
+
+
+class AndroidPackageModule(Protocol):
+    def metadata(
+        self,
+        apk: "Path",
+        expected_version: str,
+        certificate: str,
+        run: "CommandRunner",
+    ) -> AndroidPackage:
+        """Verify APK metadata and signature using managed SDK commands."""
+        ...
+
+    def verify_upgrade(
+        self, current: AndroidPackage, previous: AndroidPackage
+    ) -> None:
+        """Reject incompatible or non-increasing Android publications."""
+        ...
 
 
 class Candidates(TypedDict):
