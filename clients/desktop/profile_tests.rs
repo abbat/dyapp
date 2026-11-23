@@ -1,4 +1,5 @@
 use super::*;
+use dyapp_profile::MAX_FIELD_CHARS;
 
 #[test]
 fn a_link_code_is_told_apart_from_an_expired_one_and_from_other_text() {

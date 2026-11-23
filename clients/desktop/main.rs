@@ -432,10 +432,14 @@ fn profile_scales() -> Vec<profile::PickerScale> {
 
 /// Interpret raw editor text without reading or mutating an identity.
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Tauri extracts the owned input record from IPC"
+)]
 fn profile_editor_input(
     input: profile_input::Input,
 ) -> Result<profile_input::Fields, &'static str> {
-    profile_input::parse(input)
+    profile_input::parse(&input)
 }
 
 /// The open identity's profile draft; see `profile::load`.

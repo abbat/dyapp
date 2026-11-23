@@ -59,14 +59,14 @@ fn seeking(input: &Input) -> Option<editor_input::Seeking> {
     )
 }
 
-pub(crate) fn parse(input: Input) -> Result<Fields, &'static str> {
+pub(crate) fn parse(input: &Input) -> Result<Fields, &'static str> {
     let birth =
         birth_input::parse_birth_parts(&input.birth_year, &input.birth_month, &input.birth_day)
             .ok_or("invalid birth date")?;
     let height = editor_input::parse_height(&input.height).ok_or("invalidHeight")?;
     let interests = dyapp_client::profile_editor::parse_interest_lines(&input.interests)
         .map_err(|_| "invalidInterests")?;
-    let seeking = seeking(&input).ok_or("invalid profile seeking")?;
+    let seeking = seeking(input).ok_or("invalid profile seeking")?;
     Ok(Fields {
         birth_year: unsigned(&birth, "birth_year"),
         birth_month: unsigned(&birth, "birth_month"),
@@ -86,7 +86,7 @@ mod tests {
 
     #[test]
     fn native_raw_boundary_preserves_clear_partial_dates_and_canonical_tags() {
-        assert_eq!(parse(Input::default()).unwrap(), Fields::default());
+        assert_eq!(parse(&Input::default()).unwrap(), Fields::default());
         let input: Input = serde_json::from_value(serde_json::json!({
             "birthYear": "", "birthMonth": " 2 ", "birthDay": "29", "height": " 180 ",
             "interests": " Music, Art; Books\r\n\nE\u{0301}COLE\nmusic, art; books",
@@ -95,7 +95,7 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(
-            parse(input).unwrap(),
+            parse(&input).unwrap(),
             Fields {
                 birth_month: Some(2),
                 birth_day: Some(29),
@@ -122,14 +122,14 @@ mod tests {
             vec!["1".into(), "1".into()],
         ] {
             assert_eq!(
-                parse(Input {
+                parse(&Input {
                     seeking_genders: genders.clone(),
                     ..Input::default()
                 }),
                 Err("invalid profile seeking")
             );
             assert_eq!(
-                parse(Input {
+                parse(&Input {
                     seeking_genders: genders,
                     seeking_age_from: "wrong".into(),
                     seeking_age_to: "-1".into(),
@@ -149,7 +149,7 @@ mod tests {
     fn malformed_input_is_refused_instead_of_silently_becoming_an_empty_field() {
         for text in ["0", "-1", "1.5", "1e2", "4294967296", "wrong"] {
             assert_eq!(
-                parse(Input {
+                parse(&Input {
                     height: text.into(),
                     ..Input::default()
                 }),
@@ -157,7 +157,7 @@ mod tests {
             );
         }
         assert_eq!(
-            parse(Input {
+            parse(&Input {
                 birth_year: "2023".into(),
                 birth_month: "2".into(),
                 birth_day: "29".into(),
@@ -166,7 +166,7 @@ mod tests {
             Err("invalid birth date")
         );
         assert_eq!(
-            parse(Input {
+            parse(&Input {
                 interests: "tag\n".repeat(dyapp_profile::MAX_INTERESTS + 1),
                 ..Input::default()
             }),
@@ -178,9 +178,9 @@ mod tests {
             seeking_age_to: "-1".into(),
             ..Input::default()
         };
-        assert_eq!(parse(invalid()), Err("invalid profile seeking"));
+        assert_eq!(parse(&invalid()), Err("invalid profile seeking"));
         assert_eq!(
-            parse(Input {
+            parse(&Input {
                 not_looking: true,
                 ..invalid()
             })

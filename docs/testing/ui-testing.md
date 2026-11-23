@@ -328,7 +328,7 @@ its Linux setup includes the same ImageMagick capture tool already used by the D
 
 Native desktop received-view capture cases exercise loading, populated, empty, initial-error,
 retained-error, no-query-match, next-page and profile-return states in EN/RU, both themes and
-measured 100/200-percent text. Linux retains all 128 required 440/1280 PNGs in a fresh
+measured 100/200-percent text. Linux retains all 128 required 440/1280 PNG files in a fresh
 `received-views-shots-*` directory with source SHA, executable and image hashes. Other desktops run
 the same actual-pane accessibility checks without the Linux capture tool. Held callbacks and
 controller completion signals establish states; capture evidence still requires rendered review.
