@@ -146,6 +146,10 @@ EN/RU/theme/font/top-bottom frames under `files/search-recovery-visual/<width>/`
 Controlled callbacks retain busy states until capture finishes; cleanup awaits admitted completion.
 Fixtures have no registry or credentials and cannot sign or contact a node. Actual JNI authorization
 and manual review of these captures remain separate acceptance requirements.
+`SearchRecoveryFailureTests` covers refusal, fresh-review admission and retry without re-signing.
+`SearchRecoveryUITests` keeps the real editor/name field beside the card and checks that queued
+completion and closing preserve unsaved inputs, while late callbacks cannot change an equal-coordinate
+successor. These controlled UI tests complement existing core/FFI original-owner authorization tests.
 
 Native receiving completion checks retain a recovery review prepared before setup finishes:
 preparing another review after the pending link has been cleared is correctly refused. Publication

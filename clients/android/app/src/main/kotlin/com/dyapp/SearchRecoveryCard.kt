@@ -51,7 +51,12 @@ private fun SearchRecoveryContent(peer: String, session: SearchRecoverySession, 
         enabled = !state.busy,
         modifier = Modifier.fillMaxWidth().testTag("search-recovery-close")
     ) {
-        Text(stringResource(if (state.saved == null) R.string.remove_cancel else R.string.search_recovery_close))
+        val label = if (state.saved == null && state.failure == null) {
+            R.string.remove_cancel
+        } else {
+            R.string.search_recovery_close
+        }
+        Text(stringResource(label))
     }
 }
 
@@ -61,7 +66,7 @@ private fun SearchRecoveryAction(session: SearchRecoverySession, state: SearchRe
         onClick = {
             val opening = state.opening
             when {
-                state.saved?.searchPending == true && opening != null -> session.retry(opening)
+                state.canRetry && opening != null -> session.retry(opening)
                 state.failure != null -> session.prepare(opening)
                 opening != null -> session.confirm(opening)
             }
@@ -80,7 +85,7 @@ private fun recoveryMessage(state: SearchRecoveryView): Int = when {
 }
 
 private fun recoveryAction(state: SearchRecoveryView): Int = when {
-    state.saved?.searchPending == true -> R.string.search_recovery_retry
+    state.canRetry -> R.string.search_recovery_retry
     state.failure != null -> R.string.search_recovery_refresh
     else -> R.string.search_recovery_confirm
 }

@@ -200,6 +200,9 @@ The IDs inside each section are the desktop ones; only the frame differs.
   unsaved fields. Explicit confirmation alone queues withdrawal; retries deliver only that confirmed
   record. Retiring an opening releases its handle after admitted IO completes. Native pending state
   gives no unsupported-server diagnosis: only the core's queued/acknowledged result is shown.
+  Typed review refusals require fresh preparation; only generic backend delivery failure offers
+  another delivery attempt against the same confirmed record. A failed confirmation does not prove
+  that nothing was queued, so dismissing that outcome is labelled Close rather than Cancel.
   Source-bound native runtime and geometry acceptance remain pending.
 - Network, `network`, `network-checking` and `network-error`: `network-name-field`,
   `network-seeds`, `seed-rows`, `check-and-connect`, `cancel-check`, `network-error-details`.

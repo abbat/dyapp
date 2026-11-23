@@ -18,6 +18,7 @@ import com.dyapp.ui.theme.DYAppTheme
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import uniffi.dyapp.SearchRecoveryException
 import uniffi.dyapp.SearchRecoverySaved
 import java.io.File
 import java.util.concurrent.CountDownLatch
@@ -61,7 +62,9 @@ internal class SearchRecoveryVisualScene(
     }
 
     private fun retry(): SearchRecoverySaved {
-        check(state != SearchRecoveryVisualState.RETRY_ERROR) { "Controlled delivery failure" }
+        if (state == SearchRecoveryVisualState.RETRY_ERROR) {
+            throw SearchRecoveryException.Failed("Controlled delivery failure")
+        }
         return SearchRecoverySaved(2uL, true, true)
     }
 

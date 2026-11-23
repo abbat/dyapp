@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import uniffi.dyapp.MobileSearchRecovery
+import uniffi.dyapp.SearchRecoveryException
 import uniffi.dyapp.SearchRecoverySaved
 
 internal class SearchRecoveryCalls(
@@ -44,7 +45,10 @@ internal data class SearchRecoveryView(
     val saved: SearchRecoverySaved? = null,
     val failure: Throwable? = null,
     val retired: Boolean = false
-)
+) {
+    val canRetry get() = saved?.searchPending == true &&
+        (failure == null || failure is SearchRecoveryException.Failed)
+}
 
 /** Presentation ownership only; shared core owns eligibility, signatures, versions and delivery. */
 internal class SearchRecoverySession(private val create: () -> SearchRecoveryCalls?) {
@@ -81,7 +85,7 @@ internal class SearchRecoverySession(private val create: () -> SearchRecoveryCal
 
     fun retry(expected: SearchRecoveryOpening): Deferred<Unit>? = synchronized(monitor) {
         val before = current.value
-        if (!admitted(before, expected) || before.saved?.searchPending != true) return@synchronized null
+        if (!admitted(before, expected) || !before.canRetry) return@synchronized null
         val calls = native ?: return@synchronized null
         run { current.value.copy(saved = calls.retry()) }
     }
