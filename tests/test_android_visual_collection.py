@@ -4,6 +4,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import tarfile
 import tempfile
@@ -169,6 +170,29 @@ class AndroidVisualCollection(unittest.TestCase):
         self.assertEqual(
             self.calls()[0][-2], "files/native-visual-export-activity.tar"
         )
+
+    def test_every_capture_phase_reaches_the_verified_collector(self) -> None:
+        capture = (
+            ROOT / "tests/scripts/android-visual-capture.sh"
+        ).read_text()
+        phases = set(re.findall(r"([a-z]+):(files/[a-z-]+)", capture))
+        self.assertIn(("recovery", "files/search-recovery-visual"), phases)
+        for name, directory in sorted(phases):
+            with self.subTest(name=name):
+                before = len(self.calls()) if self.commands.exists() else 0
+                result = self.run_export("success", directory, name)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(
+                    (self.report / f"{name}.tar").read_bytes(),
+                    self.payload.read_bytes(),
+                )
+                calls = self.calls()[before:]
+                self.assertEqual(len(calls), 3)
+                self.assertEqual(calls[0][-1], directory)
+                remote = f"files/native-visual-export-{name}.tar"
+                self.assertEqual(calls[0][-2], remote)
+                self.assertEqual(calls[1][-1], remote)
+                self.assertEqual(calls[2][-1], remote)
 
     def test_unentered_phase_has_diagnostics_instead_of_a_fake_archive(
         self,

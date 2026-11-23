@@ -153,6 +153,9 @@ acknowledged, read failure, confirmation refusal, retry failure and the five typ
 Each width requires 192
 EN/RU/theme/font/top-bottom frames under `files/search-recovery-visual/<width>/`, validated by
 `android_visual_archive.py --kind recovery` with the exact producer and real text-scale witnesses.
+Recovery uses the same completed remote tar and SHA-256-verified transfer as every native visual
+phase. The collector regression exercises every archive declared by the capture runner; a passing
+instrumentation test cannot substitute for its required archive.
 Controlled callbacks retain busy states until capture finishes; cleanup awaits admitted completion.
 Fixtures have no registry or credentials and cannot sign or contact a node. Actual JNI authorization
 and manual review of these captures remain separate acceptance requirements.
