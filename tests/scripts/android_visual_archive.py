@@ -93,6 +93,7 @@ RECOVERY_SCREENS = (
     "search-recovery-version-exhausted",
     "search-recovery-wrong-owner",
 )
+LINK_SCREENS = ("chat-links-live", "chat-links-edited", "chat-links-deleted")
 MAX_BYTES = 512 * 1024 * 1024
 
 
@@ -123,6 +124,7 @@ def unpack(
         "updates",
         "activity",
         "recovery",
+        "links",
     ):
         raise ValueError("Unknown native evidence kind")
     folder = {
@@ -133,6 +135,7 @@ def unpack(
         "updates": "update-notice-visual",
         "activity": "activity-visual",
         "recovery": "search-recovery-visual",
+        "links": "chat-links-visual",
     }[kind]
     prefix = f"files/{folder}/{width}"
     folders = {"files", f"files/{folder}", prefix}
@@ -142,6 +145,7 @@ def unpack(
         "updates": r"update-notice-[a-z-]+",
         "activity": r"activity-[a-z-]+",
         "recovery": r"search-recovery-[a-z-]+",
+        "links": r"chat-links-[a-z-]+",
     }.get(kind, r"owner-[a-z-]+")
     suffix = r"[0-9]{1,4}" if kind == "ime" else r"(top|bottom)"
     pattern = re.compile(
@@ -337,6 +341,7 @@ def main() -> None:
             "updates",
             "activity",
             "recovery",
+            "links",
         ),
         default="visual",
     )
@@ -353,6 +358,7 @@ def main() -> None:
             "updates": UPDATE_SCREENS,
             "activity": ACTIVITY_SCREENS,
             "recovery": RECOVERY_SCREENS,
+            "links": LINK_SCREENS,
         }.get(args.kind, SCREENS)
         count = validate(args.output, args.width, args.source, screens)
     print(f"OK native visual matrix: {count} frames")

@@ -25,7 +25,12 @@ font cases check actual text layout; completion uses Compose synchronization, wi
 network requests or a Kotlin parser fixture. Full native visual review remains separate acceptance.
 `ChatLinksVisualTests` supplies the dedicated `linksVisual=1` capture fixture for production chat
 layout in live/edited/deleted states, with actual native text-scale and geometry witnesses. It is
-excluded from ordinary instrumentation; capture-runner and artifact-validator adoption is planned.
+excluded from ordinary instrumentation. The independent `suite=links` runs it with `linksVisual=1`
+and requires 48 EN/RU/theme/font/top-bottom frames per width under
+`files/chat-links-visual/<width>/`. `android_visual_archive.py --kind links` verifies exact source,
+complete live/edited/deleted inventory, real native scale and PNG geometry. The same verified remote
+archive collector retains this phase. Authored fixtures and validator regressions do not prove
+captured or visually reviewed acceptance.
 
 `NativeClientUpdatesTests` checks the actual JNI metadata bridge: the native installed version
 matches `BuildConfig.VERSION_NAME`, fresh state never claims current, and all four installation
