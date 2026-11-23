@@ -8,13 +8,11 @@ use dyapp_client::store::Store;
 use dyapp_profile::{CivilDate, Profile};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
 
 pub(crate) fn today() -> Result<CivilDate, CoreError> {
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|error| CoreError::Failed(error.to_string()))?;
-    CivilDate::from_unix_days(now.as_secs() / 86_400)
+    dyapp_client::clock::civil_date_at(SystemTime::now())
+        .map_err(|error| CoreError::Failed(error.to_string()))?
         .ok_or_else(|| CoreError::Failed("invalid UTC date".into()))
 }
 

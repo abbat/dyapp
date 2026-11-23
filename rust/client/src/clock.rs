@@ -67,6 +67,20 @@ pub fn now() -> u64 {
         .map_or(0, |since| since.as_secs())
 }
 
+/// The uncorrected UTC civil date at an explicit system-clock instant.
+/// `None` means the date is outside the profile calendar; node hints never change a birthday.
+///
+/// # Errors
+/// Returns the system clock error when the supplied instant precedes the Unix epoch.
+pub fn civil_date_at(
+    instant: SystemTime,
+) -> Result<Option<dyapp_profile::CivilDate>, std::time::SystemTimeError> {
+    let elapsed = instant.duration_since(UNIX_EPOCH)?;
+    Ok(dyapp_profile::CivilDate::from_unix_days(
+        elapsed.as_secs() / 86_400,
+    ))
+}
+
 /// Local Unix milliseconds, rounded to whole seconds like signed core staging time.
 #[must_use]
 pub fn now_ms() -> u64 {
@@ -154,6 +168,30 @@ pub(crate) fn observe_invalid(
 mod tests {
     use super::*;
     use libp2p::identity::Keypair;
+
+    #[test]
+    fn civil_dates_use_explicit_utc_instants_and_preserve_clock_failures() {
+        use dyapp_profile::CivilDate;
+        use std::time::Duration;
+
+        for (seconds, expected) in [
+            (0, CivilDate::new(1970, 1, 1)),
+            (86_399, CivilDate::new(1970, 1, 1)),
+            (86_400, CivilDate::new(1970, 1, 2)),
+            (1_709_164_800, CivilDate::new(2024, 2, 29)),
+        ] {
+            let instant = UNIX_EPOCH
+                .checked_add(Duration::from_secs(seconds))
+                .unwrap();
+            assert_eq!(civil_date_at(instant).unwrap(), expected);
+        }
+        let before = UNIX_EPOCH.checked_sub(Duration::from_secs(1)).unwrap();
+        assert!(civil_date_at(before).is_err());
+        let out_of_range = UNIX_EPOCH
+            .checked_add(Duration::from_secs(253_402_300_800))
+            .unwrap();
+        assert_eq!(civil_date_at(out_of_range).unwrap(), None);
+    }
 
     fn peer() -> PeerId {
         Keypair::generate_ed25519().public().to_peer_id()

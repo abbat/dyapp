@@ -139,6 +139,11 @@ exception requires a concrete reason recorded in the task and beside the impleme
 with maintainer agreement before implementation. Moving code preserves validation, errors
 and security invariants; test the shared rules independently of platform callback timing.
 
+`dyapp_client::clock::civil_date_at` converts an explicit system-clock instant to the uncorrected
+UTC profile date. Desktop and common native profile adapters preserve their own error wording;
+pre-epoch failures and dates beyond the supported calendar remain explicit refusals. Median node
+clock hints never change age or birthday interpretation.
+
 ## Search range ownership
 
 `dyapp_client::search_input::range_conditions` converts offered raw age/height inputs into

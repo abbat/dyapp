@@ -205,10 +205,9 @@ pub fn code(block: Block) -> &'static str {
 
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn today() -> Result<CivilDate, String> {
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|e| e.to_string())?;
-    CivilDate::from_unix_days(now.as_secs() / 86_400).ok_or_else(|| "Clock out of range".into())
+    dyapp_client::clock::civil_date_at(SystemTime::now())
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| "Clock out of range".into())
 }
 
 pub(crate) fn open(dir: &Path, identity: &Identity) -> Result<Store, String> {
