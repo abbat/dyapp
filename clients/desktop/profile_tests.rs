@@ -336,7 +336,10 @@ fn the_puzzle_is_gated_resumes_after_cancel_and_edits_keep_it() {
     let store = open(&dir, &alice).unwrap();
     let progress = stored(&store).unwrap();
     assert_eq!((progress.pow_nonce, progress.pow_bits), (0, 0));
-    assert_eq!(store.profile_work_status(257).unwrap().next_nonce, STEP);
+    assert_eq!(
+        store.profile_work_status(257).unwrap().next_nonce,
+        WORK_STEP_TRIES
+    );
     assert_eq!(run(true, 4), Ok(()));
     save(&dir, &alice, woman(Some(1990))).unwrap();
     let solved = stored(&store).unwrap();

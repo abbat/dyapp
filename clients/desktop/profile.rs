@@ -9,7 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use dyapp_client::link::Code;
 use dyapp_client::places;
-use dyapp_client::publish::{self, Block};
+use dyapp_client::publish::{self, Block, KEY_PACKAGES, SEARCH_NODES, WORK_STEP_TRIES};
 use dyapp_client::search;
 use dyapp_client::session::{self, Session};
 use dyapp_client::store::{profile_photos, Store};
@@ -19,13 +19,6 @@ use dyapp_identity::Identity;
 use dyapp_p2p_net::proto::Status;
 use dyapp_p2p_net::{seed, Protocols};
 use dyapp_profile::{CivilDate, Profile};
-
-// Nonces between saves and cancellation checks: a fraction of a second of Argon2id.
-const STEP: u64 = 8;
-/// Search nodes a publish sends the profile to; they gossip it on.
-const SEARCH_NODES: usize = 2;
-/// Single-use `KeyPackages` each publish puts on the network for peers' first texts.
-const KEY_PACKAGES: usize = 4;
 
 /// The current solve's token. Replacing or cancelling it never resets an older worker's token.
 #[derive(Default)]
@@ -400,7 +393,7 @@ pub fn solve(
     publish::check(&draft, attested, today()?).map_err(blocked)?;
     loop {
         let work = store
-            .prepare_profile_work(identity, bits, STEP)
+            .prepare_profile_work(identity, bits, WORK_STEP_TRIES)
             .map_err(|e| e.to_string())?;
         let progress = store
             .commit_profile_work(&work)

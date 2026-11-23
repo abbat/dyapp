@@ -104,9 +104,6 @@ fn publish_failed(failure: publish::Failure) -> CoreError {
     }
 }
 
-/// `KeyPackages` each publish adds, so peers can invite this device.
-pub(crate) const KEY_PACKAGES: usize = 4;
-
 /// A new MLS state key encrypted by `store`, for the app to persist once per identity before
 /// the first [`ChatSession::open`].
 #[uniffi::export]

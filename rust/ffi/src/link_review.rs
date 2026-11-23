@@ -218,7 +218,7 @@ impl ProfileAdoptionReview {
                         &mut node,
                         operation.identity(),
                         operation.device(),
-                        crate::chats::KEY_PACKAGES,
+                        dyapp_client::publish::KEY_PACKAGES,
                         operation.state_key(),
                         dyapp_client::now(),
                     )

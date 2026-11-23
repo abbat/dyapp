@@ -16,6 +16,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+/// Search providers queried for one ordinary profile search.
+pub const SEARCH_NODES: usize = 3;
+
 /// Keys one get request may carry.
 const GET_KEYS: usize = 50;
 

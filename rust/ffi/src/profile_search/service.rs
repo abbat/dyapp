@@ -6,13 +6,11 @@ use super::{
 use crate::profile_network::{active_network, connect, on_network_stack};
 use crate::{CoreError, IdentityKey};
 use dyapp_client::compatibility;
-use dyapp_client::search::{self, Employer, SearchFailure, SearchResults};
+use dyapp_client::search::{self, Employer, SearchFailure, SearchResults, SEARCH_NODES};
 use dyapp_client::store::Store;
 use dyapp_identity::network::Network;
 use dyapp_p2p_net::{proto, Protocols};
 use std::sync::Arc;
-
-const SEARCH_NODES: usize = 3;
 
 #[uniffi::export]
 impl ProfileSearcher {

@@ -3,7 +3,7 @@
 use crate::profile_draft::database;
 use crate::slot_operation::SlotWorker;
 use crate::{load_profile_draft, CoreError, IdentityKey, MobileIdentityRegistry};
-use dyapp_client::publish::{self, Block};
+use dyapp_client::publish::{self, Block, WORK_STEP_TRIES};
 use dyapp_client::store::Store;
 use dyapp_profile::{CivilDate, Profile};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -50,8 +50,6 @@ pub fn profile_publish_block(
     }
     Ok(block_at(&profile, attested, today()?).map(str::to_owned))
 }
-
-const STEP_TRIES: u64 = 8;
 
 /// One persisted proof-work step; both flags false means more work remains.
 #[derive(Clone, uniffi::Record)]
@@ -167,7 +165,7 @@ impl ProfileSolve {
             return Err(CoreError::Failed(format!("blocked: {reason}")));
         }
         let work = store
-            .prepare_profile_work(&self.key.identity, bits, STEP_TRIES)
+            .prepare_profile_work(&self.key.identity, bits, WORK_STEP_TRIES)
             .map_err(|error| CoreError::Failed(error.to_string()))?;
         let progress = store
             .commit_profile_work(&work)

@@ -732,6 +732,12 @@ known snapshot. A different owner recreates remembered state immediately; retrie
 the current fetch and preserve an already shown profile. Blocking bridge calls stay on IO.
 A fetch completion must still belong to an active producer before it can publish a value.
 
+Shared profile-operation policy lives in the core: `search::SEARCH_NODES` selects three providers
+per search, while `publish::SEARCH_NODES` sends held publications to two. Desktop and UniFFI also
+use `publish::KEY_PACKAGES` (four ordinary packages) and `publish::WORK_STEP_TRIES` (eight nonces
+per persisted proof/cancellation checkpoint). Transport ownership, cancellation tokens and presentation
+remain in their existing layers; these defaults do not change node quotas or replication rules.
+
 ## Shared profile editor policy
 
 `dyapp_client::profile_editor` validates editable fields with stable draft errors and separately

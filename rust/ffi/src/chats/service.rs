@@ -2,14 +2,16 @@
 
 use super::{
     failed, likes_in, listed_own, publish_failed, reads, ChatHistory, ChatLikeAttempt, ChatLikes,
-    ChatMessage, ChatRow, ChatSession, ChatState, ChatSubmission, KEY_PACKAGES,
+    ChatMessage, ChatRow, ChatSession, ChatState, ChatSubmission,
 };
 use crate::contact_names::fetch_profiles;
 use crate::profile_network::{
     active_network, connect, on_network_stack, publishable_attempt, send_held, ProfilePublished,
 };
 use crate::{CoreError, FoundProfile};
-use dyapp_client::{chat::MAX_TEXT_BYTES, interactions::Kind, session::Session};
+use dyapp_client::{
+    chat::MAX_TEXT_BYTES, interactions::Kind, publish::KEY_PACKAGES, session::Session,
+};
 
 #[uniffi::export]
 impl ChatSession {

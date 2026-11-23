@@ -4,6 +4,7 @@ use crate::profile_draft::database;
 use crate::profile_publish::{block_at, today};
 use crate::CoreError;
 use crate::{IdentityKey, PublicProfileDraft};
+use dyapp_client::publish::SEARCH_NODES;
 use dyapp_client::store::{ProfilePublication, Store};
 use dyapp_client::{publish, search, Node};
 use dyapp_identity::network::{self, Network, Settings};
@@ -109,9 +110,6 @@ pub(crate) async fn connect(network: &Network) -> Result<Node, CoreError> {
     }
     Err(error)
 }
-
-/// Search nodes the held profile goes to; they gossip it on.
-const SEARCH_NODES: usize = 2;
 
 /// Sends the profile the search window holds, once it has ended, to up to [`SEARCH_NODES`]
 /// search nodes `node` finds on `network`. Best effort: a profile no node took stays held.

@@ -50,7 +50,7 @@ fn check_original_packages(f: &Fixture, review: &ProfileAdoptionReview) {
             ordinary += 1;
         }
     }
-    assert_eq!(ordinary, crate::chats::KEY_PACKAGES);
+    assert_eq!(ordinary, dyapp_client::publish::KEY_PACKAGES);
     assert_eq!(reusable, 1);
     assert!(records.contains(&fallback.record));
 }
@@ -103,7 +103,7 @@ fn refused_fallback_retains_pending_and_retries_the_exact_saved_record() {
     assert!(!before.published);
     assert_eq!(
         f.server.packages.records.lock().unwrap().len(),
-        crate::chats::KEY_PACKAGES
+        dyapp_client::publish::KEY_PACKAGES
     );
     f.store().set_blocked("later private choice", true).unwrap();
     f.server

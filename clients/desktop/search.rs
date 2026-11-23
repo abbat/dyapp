@@ -6,7 +6,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use dyapp_client::compatibility;
-use dyapp_client::search::{self, Employer, SearchFailure};
+use dyapp_client::search::{self, Employer, SearchFailure, SEARCH_NODES};
 use dyapp_client::search_input::{employer_filter, EmployerMode, SearchChoiceInputs};
 use dyapp_client::store::Store;
 use dyapp_identity::network::{self, Settings};
@@ -17,9 +17,6 @@ use dyapp_profile::search_input::SearchRangeInputs;
 use dyapp_profile::{CivilDate, Profile, VerifiedProfile, HEIGHT_FIELD};
 
 use crate::profile::{self, Draft};
-
-/// Search providers one search asks.
-const SEARCH_NODES: usize = 3;
 
 #[path = "search/cache.rs"]
 mod cache;

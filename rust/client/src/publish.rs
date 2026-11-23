@@ -36,6 +36,13 @@ pub use adoption_review::{
     AdoptionSource,
 };
 
+/// Search providers receiving a held publication; accepted nodes gossip it onward.
+pub const SEARCH_NODES: usize = 2;
+/// Ordinary single-use key packages replenished by publication and device linking.
+pub const KEY_PACKAGES: usize = 4;
+/// Nonces between persisted proof checkpoints and cancellation observations.
+pub const WORK_STEP_TRIES: u64 = 8;
+
 /// Why a draft cannot be published yet.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum Block {
