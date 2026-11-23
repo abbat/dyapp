@@ -69,9 +69,13 @@ The JSON report records the source archive digest, immutable image ID, compiler,
 commit/epoch, exit statuses and artifact hashes. Differences retain raw packages
 and ZIP entry metadata/payload hashes in `difference.json`; an already-installed
 diffoscope adds optional diagnostics. Reports/build logs and both packages are
-uploaded even on failure. Two actual clean Android builds and a green nightly
-run remain required release evidence; fixture tests alone do not establish
-Android reproducibility. D8 is exercised; R8 is currently disabled in Gradle.
+uploaded even on failure. Android byte-for-byte reproducibility remains unproven;
+resolving it is planned for v0.0.2 and does not block v0.0.1. The comparison and
+nightly failure remain visible. Resume the investigation only after owner approval
+and a fresh cost estimate. Two actual clean builds and a green nightly remain
+necessary to claim reproducibility; fixture tests alone do not establish it.
+APK hardening, signing and native runtime acceptance remain required for v0.0.1.
+D8 is exercised; R8 is currently disabled in Gradle.
 
 ## Artifact size budgets
 
