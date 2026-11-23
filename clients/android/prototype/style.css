@@ -917,6 +917,21 @@ legend {
   border-radius: 8px;
 }
 
+/* Keep local-list groups and row actions separate at every text scale. */
+#update-permission,
+.received-views-list,
+.received-views-list td:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.received-views-list td:last-child {
+  align-items: flex-start;
+}
+.received-views-list .collection-table:has(tbody:empty) {
+  display: none;
+}
+
 /* Hidden state overrides presentation specificity, including formatted IDs. */
 [hidden] {
   /* biome-ignore lint/complexity/noImportantStyles: hidden must override identifier presentation */

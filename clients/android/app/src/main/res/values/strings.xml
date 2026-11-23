@@ -635,6 +635,7 @@
     <string name="owner_unavailable">Could not continue this attempt. Check the current result before starting again.</string>
     <string name="profile_views_title">Viewed you</string>
     <string name="profile_views_received_hint">Latest received viewing day (UTC). This local list does not send views.</string>
+    <string name="profile_views_loading">Loading received views…</string>
     <string name="profile_views_empty">No received profile views yet.</string>
     <string name="profile_views_failed">Could not read received views. Refresh to try again.</string>
     <string name="profile_views_date">Viewed on %1$s (UTC)</string>

@@ -2,6 +2,7 @@ package com.dyapp
 
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
@@ -52,6 +53,7 @@ class LinkReviewSaveRefusalTests {
                     compose.onNodeWithTag("link-review-back").fetchSemanticsNode().config
                         .getOrNull(SemanticsProperties.Focused) == true
                 }
+                compose.awaitNode(SemanticsMatcher.expectValue(LinkReviewRecoveryReady, true))
                 checkRecovery(failure)
                 compose.onNodeWithTag("link-review-back").performClick()
                 compose.awaitNode(hasTestTag("link-review-open"))
@@ -107,7 +109,7 @@ class LinkReviewSaveRefusalTests {
         assertTrue("Typed refusal follows all comparison groups", error.top >= last.bottom)
         assertTrue("Typed refusal precedes its recovery controls", error.bottom <= save.top)
         assertTrue(
-            "Typed refusal is visible after safe focus",
+            "Typed refusal bounds=$error viewport=$viewport save=$save",
             error.top >= viewport.top && error.bottom <= viewport.bottom
         )
     }

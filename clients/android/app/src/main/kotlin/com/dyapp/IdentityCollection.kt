@@ -17,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import uniffi.dyapp.LocalCollectionEntry
@@ -106,11 +105,13 @@ internal fun IdentityCollectionRow(entry: Opened, activeSlotId: String, number: 
     val target = entry.collectionTarget() ?: return
     val peer = entry.collectionLabel()
     val isActive = target == activeSlotId
-    Column(Modifier.fillMaxWidth().testTag("settings-identity")) {
+    Column(Modifier.fillMaxWidth().testTag("settings-identity"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
             Avatar(peer)
-            Column(Modifier.weight(1f)) {
-                Text(peer.ifEmpty { target }, fontFamily = FontFamily.Monospace)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                val label = if (peer.isEmpty()) R.string.collection_entry_id else R.string.collection_peer_id
+                Caption(stringResource(label))
+                IdentifierText(peer.ifEmpty { target })
                 IdentityStatus(entry, isActive)
             }
         }

@@ -66,7 +66,9 @@ private fun ReceivedViewsRows(state: ReceivedViewsState, refresh: () -> Unit, op
     val rows = state.rows
     val entries = remember(rows) { rows?.map { LocalCollectionEntry(it.peerId, it.utcDate) } }
     if (rows == null) {
-        if (!state.failed) Caption(stringResource(R.string.view_loading), Modifier.testTag("received-views-loading"))
+        if (!state.failed) {
+            Caption(stringResource(R.string.profile_views_loading), Modifier.testTag("received-views-loading"))
+        }
         TextButton(refresh, Modifier.testTag("collection-refresh"), enabled = !state.busy) {
             Text(stringResource(R.string.collection_refresh))
         }

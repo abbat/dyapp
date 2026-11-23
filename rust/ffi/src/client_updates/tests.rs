@@ -1,10 +1,14 @@
 use super::{
-    MobileClientUpdates, MobileUpdateAvailability, MobileUpdateDelivery, MobileUpdateInterval,
-    MobileUpdatePlatform,
+    checks, MobileClientUpdates, MobileUpdateAvailability, MobileUpdateCheck,
+    MobileUpdateCheckFailure, MobileUpdateDelivery, MobileUpdateInterval, MobileUpdatePlatform,
+    MobileUpdateTrigger,
 };
 use dyapp_client::updates::{self as core, coordinator::Checkpoint, transport::Cache, CheckState};
 use dyapp_test_support::test_dir;
 use std::fs::OpenOptions;
+
+#[path = "checks_tests.rs"]
+mod checks_tests;
 
 fn client(root: &std::path::Path) -> MobileClientUpdates {
     MobileClientUpdates {

@@ -44,9 +44,13 @@ The Docker APK build retains Gradle stack traces on failure so dependency-resolu
 can be investigated from its captured build log.
 `ReceivedViewsCollectionTests` renders the production Android collection and native pager with
 controlled read completions: loading, exact-target search, failed-refresh retention, explicit retry
-and retired-owner actions. Captured row callbacks must also refuse after query replacement removes
+and retired-owner actions. Loading copy names the received-view list; the profile-loading resource
+belongs to profile fetches. Captured row callbacks must also refuse after query replacement removes
 the row, while the current target still opens. The shared collection-row geometry matrix includes its full identifier
-and UTC date/Open action in EN/RU, light/dark themes, at normal and enlarged text. The identifier
+and UTC date/Open action in EN/RU, light/dark themes, at normal and enlarged text. Collection rows
+reuse `IdentifierText` with the receiving/device UI: fixed display groups, exact raw accessibility
+text and the actual grouped text-layout callback. Geometry checks reject line breaks inside groups;
+visible Peer ID/local-entry labels and spacing distinguish identifiers from status/action prose. The identifier
 layout must expose the actual requested native font scale, and the full date must fit below it. These are runtime checks, not evidence of
 fresh rendered acceptance until the corresponding source-bound Android CI has executed them.
 `node tools/web-lint/received-view-fixtures.mjs` checks the dependency-free received-list request
@@ -63,8 +67,18 @@ admit a captured old row. These native webview checks run in desktop CI. Hidden-
 shell, without an area/identity event: a late disclosure preparation cannot submit, and a connected
 old received-row button cannot fetch a profile. Guards observe actual rendered rectangles rather
 than child-only hidden flags; each control restores the original shell in `finally`.
+The five Android update-dialog prototype outcomes run `update-fixture-tests.js` after capture.
+Five `update-notice-permission-*` Settings outcomes run `update-permission-fixture-tests.js`,
+covering explicit readback completion, refusal, read retry, pending duplicates and retired callbacks.
+These presentation samples never request platform permission or activate feed checking.
+Controlled completion signals check pending admission, failed acknowledgements, browser failure/retry,
+exact external destination, persistent availability badge and retired callbacks; live native/core
+acceptance remains separate. Actions use the existing current-geometry reachability helper.
 The five Android `settings-views` prototype outcomes run `views-fixture-tests.js` after capture.
-They check read-outcome rows/errors, full-target search across bounded pages, explicit Open and
+Loading copy describes the local list read. An empty collection has one dedicated status; a
+search miss in a populated collection retains distinct no-match feedback. Their checks cover these
+states and the actual CSS-token gap between search/status and date/Open, alongside read-outcome
+rows/errors, full-target search across bounded pages, explicit Open and
 current-geometry control reachability. Non-shipping samples reuse existing prototype collection
 navigation; production Android and Tauri filtering/paging remain owned by the Rust core.
 `ReceivedViewsVisualTests` is a dedicated `viewsVisual=1` capture phase for all five read outcomes,
@@ -82,13 +96,22 @@ PNG dimensions and the dedicated archive namespace. A matrix proves captured con
 not live private delivery, and still requires review of the frames.
 The independent `suite=updates` phase uses `UpdateNoticeVisualTests` with `updatesVisual=1`.
 It renders the production update dialog with controlled core records for package/source offers,
-pending dismissal, write failure and an actual controlled browser exception. Each width requires
-eighty EN/RU/theme/font/top-bottom frames under `files/update-notice-visual/<width>/`;
+pending dismissal, write failure and an actual controlled browser exception. Five additional
+`update-notice-permission-*` outcomes render the production update Settings card inside the About
+frame: allowed, blocked, pending launcher, failed launcher and failed permission query. Launcher
+outcomes use the real ActivityResult registration with a controlled registry; no system settings
+are opened. Each width requires 160 EN/RU/theme/font/top-bottom frames under
+`files/update-notice-visual/<width>/`;
 `android_visual_archive.py --kind updates` enforces the exact source, inventory, real native
 text-scale witnesses and PNG/viewport dimensions. Geometry checks expose every text line through
 current semantic scroll viewports and require both actions to remain visible. Run it with an APK
 producer containing these fixtures; authored checks are not captured/reviewed evidence and do not
 prove native persistence, live publication, OS notifications or update activation.
+`UpdatePermissionResultTests` supplies a controlled ActivityResult registry to the production
+permission row. It retains real launcher registration/disposal while releasing results explicitly:
+a cancelled result must trigger an actual permission read, repeated pending actions cannot launch
+again, and an old opening cannot consume results or launch into its replacement. These checks
+open no system settings and do not substitute for actual Android permission enforcement.
 
 Native receiving completion checks retain a recovery review prepared before setup finishes:
 preparing another review after the pending link has been cleared is correctly refused. Publication
@@ -124,7 +147,8 @@ widgets in EN/RU at both text scales, checks real text density and viewport boun
 fixed groups, raw accessibility text and exact system-clipboard values. The established link-code
 copy tag stays stable while all identifiers reuse the shared display component.
 `LinkReviewFailureTests` rejects a preview after all 31 explicit choices inside the actual receiving
-Settings frame, acknowledges safe Back focus, and checks the error and all recovery controls against
+Settings frame, acknowledges safe Back focus and the recovery relocation-completion signal, and
+checks the error and all recovery controls against
 the current viewport in EN/RU at both text scales. This covers preview refusal only; authoritative
 confirmation refusal belongs to the separately retained enrollment state. Its typed notice and
 existing recovery actions render beside the active form footer, or beside the reopen/saved state;

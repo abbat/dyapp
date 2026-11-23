@@ -40,9 +40,43 @@ const checkPaging = (state, words) => {
     );
     search(state, 'not-a-fixture-target');
     check(!state.list.children.length, 'no-match query fabricated a view');
+    check(
+      isVisible(state.status) && state.status.textContent === words.empty,
+      'Search miss lost its own feedback',
+    );
+    check(
+      !isVisible(document.getElementById('received-views-empty')),
+      'Search miss claimed an empty received list',
+    );
   } finally {
     state.items = original;
     search(state, '');
+  }
+};
+
+const checkGaps = (state) => {
+  const minimum = Number.parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue('--space-2'),
+  );
+  check(Number.isFinite(minimum) && minimum > 0, 'Spacing token is unavailable');
+  const status = state.status.hidden
+    ? document.getElementById('received-views-empty')
+    : state.status;
+  if (isVisible(state.search) && isVisible(status)) {
+    check(
+      status.getBoundingClientRect().top - state.search.getBoundingClientRect().bottom >= minimum,
+      'Search field touches its result status',
+    );
+  }
+  for (const row of state.list.children) {
+    const date = row.querySelector('td:last-child .caption');
+    const open = row.querySelector('a');
+    if (isVisible(date) && isVisible(open)) {
+      check(
+        open.getBoundingClientRect().top - date.getBoundingClientRect().bottom >= minimum,
+        'Profile action touches its viewing date',
+      );
+    }
   }
 };
 
@@ -51,6 +85,7 @@ export const checkViewsFixture = async () => {
   const screen = document.documentElement.dataset.screen;
   const { state, words } = receivedViews;
   const populated = ['settings-views', 'settings-views-stale'].includes(screen);
+  checkGaps(state);
   check(
     state.list.children.length === (populated ? 1 : 0),
     'wrong received-view rows for read outcome',
@@ -64,6 +99,19 @@ export const checkViewsFixture = async () => {
     state.refresh.disabled === (screen === 'settings-views-loading'),
     'pending read admits another refresh',
   );
+  if (screen === 'settings-views-empty') {
+    const empty = document.getElementById('received-views-empty');
+    check(
+      isVisible(empty) && !isVisible(state.status),
+      'Empty collection has competing status messages',
+    );
+    search(state, 'not-a-fixture-target');
+    check(
+      isVisible(empty) && !isVisible(state.status),
+      'Empty-list query fabricated another read state',
+    );
+    search(state, '');
+  }
   if (populated) {
     const row = state.list.firstElementChild;
     check(

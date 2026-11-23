@@ -63,6 +63,11 @@ UPDATE_SCREENS = (
     "update-notice-saving",
     "update-notice-write-error",
     "update-notice-open-error",
+    "update-notice-permission-allowed",
+    "update-notice-permission-blocked",
+    "update-notice-permission-pending",
+    "update-notice-permission-failed",
+    "update-notice-permission-unknown",
 )
 MAX_BYTES = 512 * 1024 * 1024
 

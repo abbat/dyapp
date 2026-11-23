@@ -23,7 +23,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -182,10 +181,13 @@ private fun PeopleRows(state: PeopleState, refresh: () -> Unit, actions: @Compos
 /** Full identifiers and action labels each retain the current row width at enlarged text. */
 @Composable
 internal fun PeopleCollectionRow(peer: String, number: Int, actions: @Composable (String, Int) -> Unit) {
-    Column(Modifier.fillMaxWidth()) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
             Avatar(peer)
-            Text(peer, Modifier.weight(1f), fontFamily = FontFamily.Monospace)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Caption(stringResource(R.string.collection_peer_id))
+                IdentifierText(peer)
+            }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { actions(peer, number) }
     }

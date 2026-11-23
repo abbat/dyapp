@@ -34,7 +34,9 @@ completion signal has a failure deadline; no elapsed sleep establishes process r
 no cache/success marker is never-checked, a missing target is not-published, and only a numerically
 newer target yields a package/source offer with a fixed official release page. Store methods remain
 unavailable until an approved pinned listing exists. Native adapters do not compare versions or
-construct destinations. `checker::read_state` reads the same bounded snapshot during an active
+construct destinations. Availability/snapshot fixtures are also compiled by strict all-target
+analysis: their JSON builders borrow target records that serialization does not consume.
+`checker::read_state` reads the same bounded snapshot during an active
 request through a short read transaction, without starting HTTP or inventing empty state.
 `MobileClientUpdates` exposes metadata reads, immediate interval writes, the separate undismissed
 notice and durable exact-version actions through the common native bridge. Its action record
@@ -48,8 +50,11 @@ The same native snapshot supplies the Settings navigation badge. Later changes t
 only: the badge remains while core still offers that version, independently of the chosen identity.
 The badge exposes the available version through localized accessibility text; Kotlin does not
 compare versions or derive a separate update policy.
-Native HTTP/lifecycle wiring and OS presentation remain planned.
-Clients stay disabled until live-feed verification and those integrations pass.
+The native bridge exposes an explicit checker operation with distinct Busy/NotDue/Validated/Failed
+results; no current Android lifecycle or control invokes it. Client activation/HTTP lifecycle wiring
+remains planned. Android can request cached OS notices through its
+existing mail worker; fresh native runtime verification is still pending. Update check controls
+stay disabled until live-feed verification and the remaining integrations pass.
 
 The pure `updates::coordinator::Coordinator` now owns simultaneous-trigger admission and attempt
 completion for one installation. Its opaque ticket is consumed by completion; dropping it is
@@ -392,8 +397,20 @@ until Later (including Back) durably acknowledges it; a successful browser hando
 Open tap in that mounted dialog. A failed handoff stays visible and retryable. A pending write
 disables both actions, and write failure keeps the notice. Replacing or disposing the displayed
 offer retires its callbacks, so old UI events cannot open or dismiss a replacement notice.
-The dedicated Android `suite=updates` native visual matrix covers five notice outcomes with
-source-bound metadata; actual capture and frame review remain required for acceptance.
+Android's existing mail worker checks for a cached OS notice after its profile/node receive and
+search operations have returned. This installation-scoped step makes no HTTP request. Foreground,
+app permission, update-channel permission and worker-stop gates run before the atomic core claim
+and again before posting. Its separate `updates` channel and notification ID cannot replace mail.
+The immutable browser tap uses only the core-provided release page; the secure-lock-screen public
+version shows just the app name. A blocked or failed post leaves the in-app notice and Settings badge,
+and cannot change the mail worker's completion result. For a core-supported available offer, Android
+Settings shows actual app/channel permission and an explicit permission or system-settings action.
+This action never changes chat-notice preferences, checks the feed or dismisses the in-app offer.
+Its pending and retired openings reject duplicate launches and stale results. Live feed activation remains separate.
+The dedicated Android `suite=updates` native visual matrix covers five notice outcomes and five
+permission outcomes in the production About frame, with source-bound metadata. Pending and failed
+permission launches use a controlled ActivityResult registry; query failure and allowed/blocked
+states use the platform-read boundary. Actual capture and frame review remain required for acceptance.
 Background failures do not
 raise repetitive dialogs or OS alerts; manual checks explain the failure.
 The common snapshot stores per-target dismissal and OS-notification version

@@ -18,8 +18,9 @@ mod app_lock_timer;
 pub use app_lock_timer::{MobileAppLockEvent, MobileAppLockSnapshot, MobileAppLockTimer};
 mod client_updates;
 pub use client_updates::{
-    MobileClientUpdates, MobileUpdateAvailability, MobileUpdateDelivery, MobileUpdateInterval,
-    MobileUpdateNoticeAction, MobileUpdateOffer, MobileUpdatePlatform, MobileUpdateState,
+    MobileClientUpdates, MobileUpdateAvailability, MobileUpdateCheck, MobileUpdateCheckFailure,
+    MobileUpdateDelivery, MobileUpdateInterval, MobileUpdateNoticeAction, MobileUpdateOffer,
+    MobileUpdatePlatform, MobileUpdateState, MobileUpdateTrigger,
 };
 mod chat_composer;
 pub use chat_composer::{chat_composer_policy, ChatComposerPolicy};
