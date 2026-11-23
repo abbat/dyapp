@@ -44,7 +44,8 @@ The Docker APK build retains Gradle stack traces on failure so dependency-resolu
 can be investigated from its captured build log.
 `ReceivedViewsCollectionTests` renders the production Android collection and native pager with
 controlled read completions: loading, exact-target search, failed-refresh retention, explicit retry
-and retired-owner actions. Captured row callbacks must also refuse after query replacement removes
+and retired-owner actions. Loading copy names the received-view list; the profile-loading resource
+belongs to profile fetches. Captured row callbacks must also refuse after query replacement removes
 the row, while the current target still opens. The shared collection-row geometry matrix includes its full identifier
 and UTC date/Open action in EN/RU, light/dark themes, at normal and enlarged text. The identifier
 layout must expose the actual requested native font scale, and the full date must fit below it. These are runtime checks, not evidence of

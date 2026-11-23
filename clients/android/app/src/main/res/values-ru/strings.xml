@@ -634,6 +634,7 @@
     <string name="owner_unavailable">Не удалось продолжить эту попытку. Проверьте текущий результат перед новой попыткой.</string>
     <string name="profile_views_title">Просмотры вашей анкеты</string>
     <string name="profile_views_received_hint">Последний полученный день просмотра (UTC). Этот локальный список не отправляет просмотры.</string>
+    <string name="profile_views_loading">Загрузка полученных просмотров…</string>
     <string name="profile_views_empty">Полученных просмотров анкет пока нет.</string>
     <string name="profile_views_failed">Не удалось прочитать просмотры. Обновите список, чтобы повторить попытку.</string>
     <string name="profile_views_date">Дата просмотра: %1$s (UTC)</string>
