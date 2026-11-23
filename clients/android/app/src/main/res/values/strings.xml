@@ -63,6 +63,7 @@
     <string name="chats_conversations">Conversations</string>
     <string name="chats_no_messages">No messages yet.</string>
     <string name="chats_deleted">Message deleted</string>
+    <string name="chat_link_hosts">Link host: %1$s</string>
     <string name="chats_forwarded">Forwarded · %1$s</string>
     <string name="chats_unread">Unread messages: %1$s</string>
     <string name="view_message">Message</string>

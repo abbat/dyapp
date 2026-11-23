@@ -243,6 +243,7 @@ internal fun ChatBubble(message: ChatMessage, own: Boolean, modifier: Modifier) 
         Column(Modifier.padding(12.dp), Arrangement.spacedBy(4.dp)) {
             val shared = sharedProfilePeer(message)
             if (shared == null) Text(chatPreview(message)) else SharedProfileCard(shared)
+            ChatLinkHosts(message)
             chatMeta(message).takeIf { it.isNotEmpty() }?.let { Caption(it) }
         }
     }

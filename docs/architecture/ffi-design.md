@@ -536,8 +536,11 @@ fetch or opening action. Shared input whitespace lives in `dyapp_profile::text_i
 The common `chat_link_hosts` adapter only converts these results to `ChatLinkHost` records.
 Desktop message projections use the core ASCII destinations as `linkHosts` in history and list
 records, recomputed from current live text and empty for deleted/media entries. JavaScript only
-renders the supplied captions, without URL parsing or extra IPC. Android/iOS host-line presentation
-remains planned.
+renders the supplied captions, without URL parsing or extra IPC. Android message bubbles call the
+same pure `chat_link_hosts` projection for current live text and display its ASCII/Punycode hosts
+under the message, without credentials or opening/fetching a URL. Edited text recomputes the
+projection; deleted, null-text and no-web-link messages show no host line. Kotlin only joins the
+returned ASCII names into a localized caption. iOS host-line presentation remains planned.
 
 ## Shared mail notification content
 

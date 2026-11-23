@@ -62,6 +62,7 @@
     <string name="chats_conversations">Переписки</string>
     <string name="chats_no_messages">Пока нет сообщений.</string>
     <string name="chats_deleted">Сообщение удалено</string>
+    <string name="chat_link_hosts">Хост ссылки: %1$s</string>
     <string name="chats_forwarded">Переслано · %1$s</string>
     <string name="chats_unread">Непрочитанных сообщений: %1$s</string>
     <string name="view_message">Написать</string>

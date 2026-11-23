@@ -18,6 +18,12 @@ measurements with the current native window transform and visible frame. A faile
 check reports the control tag and measured rectangles; stale pre-keyboard geometry cannot establish
 readiness or obscure a persistent enlarged-text layout defect.
 
+`ChatLinkHostsTests` renders actual message bubbles through the shared JNI URL projection. EN/RU
+captions retain ASCII/Punycode, nondefault ports and first-occurrence deduplication, exclude misleading
+credentials, update after edits, and disappear for deleted/null/no-web-link text. Normal and 200%
+font cases check actual text layout; completion uses Compose synchronization, without sleeps,
+network requests or a Kotlin parser fixture. Full native visual review remains separate acceptance.
+
 `NativeClientUpdatesTests` checks the actual JNI metadata bridge: the native installed version
 matches `BuildConfig.VERSION_NAME`, fresh state never claims current, and all four installation
 intervals survive a separate native handle. This fixture performs no HTTP and does not enable
