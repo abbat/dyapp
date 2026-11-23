@@ -39,7 +39,10 @@ layer cache, each image exists twice, in the buildx builder and, after `--load`,
 `main` writes the caches; other branches and pull requests read them (`docker-local.py` drops
 `--cache-to` unless `GITHUB_REF` is `refs/heads/main`, and the `actions/cache` save and
 `rust-cache` steps have `save-if` set to `main`), because branch-scoped copies pushed the GHA
-cache past its 10 GB limit.
+cache past its 10 GB limit. Native Linux and Apple jobs additionally set Rust
+cache `lookup-only` on tag refs: tagged artifacts never restore mutable CI build
+state, and the main-only save guard also prevents tag writes. Regular main and
+pull-request runs retain their existing restore behavior.
 
 | Job (check name) | Runner | What actually runs | Artifact | Status |
 |------------------|--------|--------------------|----------|--------|
