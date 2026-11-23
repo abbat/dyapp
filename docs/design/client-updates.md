@@ -34,7 +34,9 @@ completion signal has a failure deadline; no elapsed sleep establishes process r
 no cache/success marker is never-checked, a missing target is not-published, and only a numerically
 newer target yields a package/source offer with a fixed official release page. Store methods remain
 unavailable until an approved pinned listing exists. Native adapters do not compare versions or
-construct destinations. `checker::read_state` reads the same bounded snapshot during an active
+construct destinations. Availability/snapshot fixtures are also compiled by strict all-target
+analysis: their JSON builders borrow target records that serialization does not consume.
+`checker::read_state` reads the same bounded snapshot during an active
 request through a short read transaction, without starting HTTP or inventing empty state.
 `MobileClientUpdates` exposes metadata reads, immediate interval writes, the separate undismissed
 notice and durable exact-version actions through the common native bridge. Its action record

@@ -6,7 +6,7 @@ fn version(text: &str) -> Version {
     Version::parse(text).unwrap()
 }
 
-fn snapshot(targets: serde_json::Value, success: bool) -> Snapshot {
+fn snapshot(targets: &serde_json::Value, success: bool) -> Snapshot {
     let body = json!({"schema":1,"channel":"stable","targets":targets});
     let cache = Cache::restore(serde_json::to_vec(&body).unwrap(), None).unwrap();
     let mut snapshot = Snapshot::default();
@@ -35,12 +35,12 @@ fn no_cache_unconfirmed_cache_or_server_release_never_claims_current() {
         project(&Snapshot::default(), Platform::Android, installed),
         Availability::NeverChecked
     );
-    let unconfirmed = snapshot(json!({"android":release("1.0.0","package")}), false);
+    let unconfirmed = snapshot(&json!({"android":release("1.0.0","package")}), false);
     assert_eq!(
         project(&unconfirmed, Platform::Android, installed),
         Availability::NeverChecked
     );
-    let server = snapshot(json!({"dyappd":{"version":"99.0.0"}}), true);
+    let server = snapshot(&json!({"dyappd":{"version":"99.0.0"}}), true);
     assert_eq!(
         project(&server, Platform::Android, installed),
         Availability::NotPublished
@@ -61,7 +61,7 @@ fn every_platform_uses_its_own_numeric_version_and_fixed_release_page() {
             targets.insert(other.key().into(), release("99.0.0", "package"));
         }
         targets.insert(key.into(), release("1.10.0", "package"));
-        let state = snapshot(targets.into(), true);
+        let state = snapshot(&serde_json::Value::Object(targets), true);
         let Availability::Available(offer) = project(&state, platform, version("1.9.0")) else {
             panic!("newer installed target")
         };
@@ -85,7 +85,7 @@ fn every_platform_uses_its_own_numeric_version_and_fixed_release_page() {
 #[test]
 fn source_build_semantics_are_retained_and_unknown_store_destinations_stay_unavailable() {
     let source = snapshot(
-        json!({"android":release("2.0.0","build-from-source")}),
+        &json!({"android":release("2.0.0","build-from-source")}),
         true,
     );
     let Availability::Available(offer) = project(&source, Platform::Android, version("1.0.0"))
@@ -97,7 +97,7 @@ fn source_build_semantics_are_retained_and_unknown_store_destinations_stay_unava
         offer.release_page(),
         "https://github.com/abbat/dyapp/releases/tag/v2.0.0"
     );
-    let store = snapshot(json!({"android":release("2.0.0","store")}), true);
+    let store = snapshot(&json!({"android":release("2.0.0","store")}), true);
     for installed in ["1.0.0", "2.0.0", "3.0.0"] {
         assert_eq!(
             project(&store, Platform::Android, version(installed)),

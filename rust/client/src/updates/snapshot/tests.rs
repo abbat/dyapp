@@ -2,7 +2,7 @@ use super::*;
 use crate::updates::{CheckState, Interval};
 use serde_json::json;
 
-fn cache(targets: serde_json::Value) -> Cache {
+fn cache(targets: &serde_json::Value) -> Cache {
     let bytes =
         serde_json::to_vec(&json!({"schema":1,"channel":"stable","targets":targets})).unwrap();
     Cache::restore(bytes, Some("\"saved\"")).unwrap()
@@ -16,7 +16,7 @@ fn release(version: &str) -> serde_json::Value {
 fn checkpoint_cache_and_high_water_round_trip_without_io_or_identity() {
     let mut snapshot = Snapshot::default();
     snapshot
-        .admit(cache(json!({"android":release("1.2.3")})))
+        .admit(cache(&json!({"android":release("1.2.3")})))
         .unwrap();
     let checkpoint = Checkpoint {
         interval: Interval::Week,
@@ -49,11 +49,11 @@ fn omitted_targets_keep_independent_high_water_after_restart() {
     let mut snapshot = Snapshot::default();
     snapshot
         .admit(cache(
-            json!({"android":release("2.0.0"),"linux-x86_64":release("8.0.0")}),
+            &json!({"android":release("2.0.0"),"linux-x86_64":release("8.0.0")}),
         ))
         .unwrap();
     snapshot
-        .admit(cache(json!({"android":release("2.1.0")})))
+        .admit(cache(&json!({"android":release("2.1.0")})))
         .unwrap();
     let mut restored = Snapshot::decode(&snapshot.encode().unwrap()).unwrap();
     assert_eq!(
@@ -61,12 +61,12 @@ fn omitted_targets_keep_independent_high_water_after_restart() {
         Version::parse("8.0.0")
     );
     let before = restored.encode().unwrap();
-    let candidate = cache(json!({"android":release("3.0.0"),"linux-x86_64":release("7.9.9")}));
+    let candidate = cache(&json!({"android":release("3.0.0"),"linux-x86_64":release("7.9.9")}));
     assert!(matches!(restored.admit(candidate), Err(Error::Rollback)));
     assert_eq!(restored.encode().unwrap(), before);
     restored
         .admit(cache(
-            json!({"android":release("2.1.0"),"linux-x86_64":release("8.0.0")}),
+            &json!({"android":release("2.1.0"),"linux-x86_64":release("8.0.0")}),
         ))
         .unwrap();
 }
@@ -106,7 +106,7 @@ fn malformed_or_inconsistent_records_never_become_fresh_state() {
 fn saved_cache_cannot_bypass_high_water_or_etag_validation() {
     let mut snapshot = Snapshot::default();
     snapshot
-        .admit(cache(json!({"android":release("2.0.0")})))
+        .admit(cache(&json!({"android":release("2.0.0")})))
         .unwrap();
     let original: serde_json::Value = serde_json::from_slice(&snapshot.encode().unwrap()).unwrap();
     for high in [
