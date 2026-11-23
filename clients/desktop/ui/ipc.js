@@ -194,7 +194,7 @@
  *   chat_photo_auto: Command<[{ peerId: string }], boolean>,
  *   auto_download_mode: Command<[], AutoDownloadMode>,
  *   set_auto_download_mode: Command<[{ mode: AutoDownloadMode }], void>,
- *   media_cache: Command<[{ identityId: string }], MediaCache>,
+ *   media_cache: Command<[{ identityId: string }], MediaCacheDecision>,
  *   set_media_cache: Command<[{ identityId: string, enabled: boolean, limitBytes: number }], MediaCache>,
  *   clear_media_cache: Command<[{ identityId: string }], MediaCache>,
  *   change_media_cache: Command<[{ identityId: string, change: MediaCacheEdit, confirmed: boolean }], MediaCacheDecision>,

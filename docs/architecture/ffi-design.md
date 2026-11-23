@@ -118,7 +118,10 @@ and an owner-bound pending intent; it does not parse budgets or decide whether c
 Tauri additionally exposes `change_media_cache(identity_id, change, confirmed)` and exact MiB
 strings on cache snapshots. The command holds the shared session guard through core admission,
 mutation and measured readback; `invalidLimit` remains distinct from uncertain storage failures.
-The web-form cutover and retirement of its old whole-snapshot commands are still planned.
+The web form submits one raw-field intent without confirmation first and asks only when the
+core reply requires it. Cancel preserves the actual settings; confirmed resubmission retains the
+same owner and intent. Invalid-limit refusal preserves known state, while uncertain storage failure
+blocks another mutation until readback. The old whole-snapshot Tauri commands are being retired.
 Native compilation, runtime and visual acceptance are tracked separately.
 
 > ⚠️ **Prototype.** This page is the single source of truth for the Rust ↔ native

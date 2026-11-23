@@ -2110,6 +2110,12 @@ read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID
   The existing native checks also reject positive `tabindex`, missing focus rings and
   horizontal overflow at 440 px. Mobile native accessibility audits remain deferred.
 
+Desktop cache UI fixtures script native verdicts rather than copying cache admission policy.
+They await admission before inspecting confirmations and preserve the existing cancellation,
+identity and uncertain-write checks. The actual native settings smoke also refuses a decimal
+that floating-point conversion would round to a whole-byte budget, checking the unchanged stored
+limit and exact raw input.
+
 Desktop profile-input checks await the actual core interpretation and the field-assessment
 completion promise. Held assessment failures are delivered after replacing the text and after
 reopening an equal editor through real identity navigation; neither may invalidate the current
