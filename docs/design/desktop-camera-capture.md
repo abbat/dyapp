@@ -36,6 +36,14 @@ cannot produce frames through this path, retain image import and investigate a
 native fallback with that failure recorded. Do not infer camera support from an
 Xvfb run without a camera.
 
+## Planned shared scanner (v0.0.2)
+
+The [shared-core draft](contact-qr-core-v0.0.2.patch) is not part of any build.
+It preserves unfinished scanner/raster code, without compilation or runtime proof.
+Module/dependency/lock integration, FFI projection, desktop adoption and tests remain
+to be written. Integrating it requires owner approval and a refreshed cost analysis;
+it is not a complete change ready for application.
+
 ## Verification checkpoint
 
 The implementation bead must check permission denial, no camera, cancellation,

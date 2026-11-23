@@ -241,6 +241,9 @@ The IDs inside each section are the desktop ones; only the frame differs.
   the mailbox every minute while it is in the foreground, on every section and in a chat, and a
   background job about every 15 minutes otherwise ([privacy](../security/privacy.md#local-notices)); failures
   stay quiet.
+- Full Android contact-safety comparison, QR scanning, sensitive safety-number copy,
+  verified contact marks and new-device notices are planned for v0.0.2. Existing core/FFI
+  exports do not provide these Android screens by themselves.
 - Profile receiving, Devices and owner approval have native implementations described below.
   The desktop defines the shared linking contract, see
   [desktop-screens.md](desktop-screens.md#linking-this-computer).

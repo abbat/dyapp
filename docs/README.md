@@ -32,7 +32,8 @@ it are entry points that tools discover by path (see
 - [Client local storage](design/client-local-storage.md): per-profile SQLite ownership, pre-release schema, durable mailbox work and local media; [storage ADR](decisions/0025-client-local-sqlite-storage.md), [visibility ADR](decisions/0036-search-visibility.md)
 - [Desktop runtime lifecycle](design/desktop-runtime-lifecycle.md): identity switch/removal gate, cancellation and cache isolation
 - [Desktop video rendering](design/desktop-video-rendering.md): synthetic-frame benchmark plan for Linux WebView and native fallback
-- [Desktop camera capture](design/desktop-camera-capture.md): evidence and validation plan for Linux contact QR scanning
+- [Desktop camera capture](design/desktop-camera-capture.md): evidence and validation plan for Linux contact QR scanning;
+  [deferred shared-core draft](design/contact-qr-core-v0.0.2.patch) for v0.0.2
 - [Private interaction signals](design/private-interactions.md): planned wire format, ordering, undo and match state
 - [Likes, matches and chats](design/chats-and-matches.md): planned per-pair state, message requests, one group per pair and own-device cases
 - [Online presence](design/presence.md): planned coarse "active recently" signal for matches, audience, throttle and leaks

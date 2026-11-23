@@ -1,0 +1,180 @@
+diff --git a/rust/client/src/qr/input.rs b/rust/client/src/qr/input.rs
+new file mode 100644
+index 00000000..e4e6fb75
+--- /dev/null
++++ b/rust/client/src/qr/input.rs
+@@ -0,0 +1,73 @@
++//! Resource and raster planning; a plan is not a validation of encoded image contents.
++use super::scan::MAX_SCAN_SIDE;
++
++/// Encoded file size admitted before platform image decoding.
++pub const MAX_ENCODED_BYTES: u64 = 2 * 1024 * 1024;
++/// Original file-image pixels admitted before allocating its decoded raster.
++pub const MAX_ORIGINAL_PIXELS: u64 = 16_000_000;
++
++/// Authoritative hints for platform input adapters; the scanner still validates every frame.
++#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize)]
++#[serde(rename_all = "camelCase")]
++pub struct ScanPolicy {
++    /// Maximum encoded input-file bytes.
++    pub max_encoded_bytes: u64,
++    /// Maximum decoded original file-image pixels.
++    pub max_original_pixels: u64,
++    /// Maximum side after rasterization.
++    pub max_frame_side: u32,
++}
++
++/// Exact target dimensions preserving aspect ratio without upscaling.
++#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize)]
++pub struct ScanDimensions {
++    /// Positive target width, at most the shared scanner side.
++    pub width: u32,
++    /// Positive target height, at most the shared scanner side.
++    pub height: u32,
++}
++
++/// Current resource policy, without identity admission or network activity.
++#[must_use]
++pub const fn scan_policy() -> ScanPolicy {
++    ScanPolicy {
++        max_encoded_bytes: MAX_ENCODED_BYTES,
++        max_original_pixels: MAX_ORIGINAL_PIXELS,
++        max_frame_side: MAX_SCAN_SIDE,
++    }
++}
++
++/// Plan an already available camera or bitmap raster; no original-file budget applies here.
++#[must_use]
++pub fn frame_plan(width: u32, height: u32) -> Option<ScanDimensions> {
++    if width == 0 || height == 0 {
++        return None;
++    }
++    let longest = u64::from(width.max(height));
++    let target = longest.min(u64::from(MAX_SCAN_SIDE));
++    let fit = |side| {
++        u32::try_from((u64::from(side) * target + longest / 2) / longest)
++            .ok()
++            .map(|value| value.max(1))
++    };
++    Some(ScanDimensions {
++        width: fit(width)?,
++        height: fit(height)?,
++    })
++}
++
++/// Plan platform file decoding from its actual header dimensions and encoded length.
++///
++/// A successful plan only bounds allocation; the platform must still decode the actual file.
++#[must_use]
++pub fn decode_plan(encoded_bytes: u64, width: u32, height: u32) -> Option<ScanDimensions> {
++    if encoded_bytes > MAX_ENCODED_BYTES
++        || u64::from(width) * u64::from(height) > MAX_ORIGINAL_PIXELS
++    {
++        return None;
++    }
++    frame_plan(width, height)
++}
++
++#[cfg(test)]
++mod tests;
+diff --git a/rust/client/src/qr/scan.rs b/rust/client/src/qr/scan.rs
+new file mode 100644
+index 00000000..ef61ff74
+--- /dev/null
++++ b/rust/client/src/qr/scan.rs
+@@ -0,0 +1,95 @@
++//! Bounded contact-code comparison shared by desktop and native presentation.
++use dyapp_identity::safety::{qr_matches_peer_ids, qr_payload_for_peer_ids};
++
++/// Maximum side of a grayscale QR frame accepted by the shared scanner.
++pub const MAX_SCAN_SIDE: u32 = 768;
++
++/// A comparison outcome, never authority to mark a contact verified.
++#[derive(Clone, Copy, Debug, Eq, PartialEq)]
++pub enum ScanOutcome {
++    /// Exactly one decoded code belongs to the expected ordered pair.
++    Matched,
++    /// The decoded version is supported, but the pair does not match.
++    Foreign,
++    /// The decoded payload has an unsupported length or version.
++    Invalid,
++    /// A detected symbol could not be decoded.
++    Unreadable,
++    /// More than one symbol was detected, irrespective of decode success.
++    Multiple,
++    /// No symbol was detected.
++    NotFound,
++}
++
++impl ScanOutcome {
++    /// Stable desktop transport code; native adapters may instead project the typed variants.
++    #[must_use]
++    pub const fn code(self) -> &'static str {
++        match self {
++            Self::Matched => "matched",
++            Self::Foreign => "foreign",
++            Self::Invalid => "invalid",
++            Self::Unreadable => "unreadable",
++            Self::Multiple => "multiple",
++            Self::NotFound => "notFound",
++        }
++    }
++}
++
++/// Input admission failed before decoding or comparing a code.
++#[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
++pub enum ScanError {
++    /// Nonpositive/oversized dimensions or a mismatched grayscale buffer.
++    #[error("invalid QR image dimensions")]
++    InvalidDimensions,
++    /// One of the supplied peer IDs is not canonical.
++    #[error("invalid Peer ID")]
++    InvalidPeer,
++}
++
++fn outcome(payload: Option<Vec<u8>>, expected: &[u8], mine: &str, theirs: &str) -> ScanOutcome {
++    match payload {
++        None => ScanOutcome::Unreadable,
++        Some(data) if data.len() != expected.len() || data.first() != expected.first() => {
++            ScanOutcome::Invalid
++        }
++        Some(data) if qr_matches_peer_ids(&data, mine, theirs) => ScanOutcome::Matched,
++        Some(_) => ScanOutcome::Foreign,
++    }
++}
++
++/// Compare a bounded row-major grayscale frame with the code the other peer should show.
++///
++/// This does not fetch profiles, write a contact mark or authorize a later confirmation.
++///
++/// # Errors
++/// Rejects invalid frame dimensions/length or noncanonical peer IDs before decoding.
++pub fn scan_contact(
++    width: u32,
++    height: u32,
++    pixels: &[u8],
++    mine: &str,
++    theirs: &str,
++) -> Result<ScanOutcome, ScanError> {
++    if width == 0 || height == 0 || width > MAX_SCAN_SIDE || height > MAX_SCAN_SIDE {
++        return Err(ScanError::InvalidDimensions);
++    }
++    let (width, height) = (width as usize, height as usize);
++    if pixels.len() != width * height {
++        return Err(ScanError::InvalidDimensions);
++    }
++    let expected = qr_payload_for_peer_ids(theirs, mine).ok_or(ScanError::InvalidPeer)?;
++    let mut decoder = quircs::Quirc::default();
++    let mut result = None;
++    for code in decoder.identify(width, height, pixels) {
++        if result.is_some() {
++            return Ok(ScanOutcome::Multiple);
++        }
++        let payload = code.ok().and_then(|code| code.decode().ok()).map(|data| data.payload);
++        result = Some(outcome(payload, &expected, mine, theirs));
++    }
++    Ok(result.unwrap_or(ScanOutcome::NotFound))
++}
++
++#[cfg(test)]
++mod tests;
