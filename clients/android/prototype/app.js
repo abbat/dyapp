@@ -3,6 +3,7 @@ import { installReviewFixture } from './review-fixture.js';
 import { installDevicesFixture } from './devices-fixture.js';
 import { installViewsFixture } from './views-fixture.js';
 import { installUpdateFixture } from './update-fixture.js';
+import { installUpdatePermissionFixture } from './update-permission-fixture.js';
 import { installOwnerFixture } from './owner-fixture.js';
 import { enhanceChoice } from '../../desktop/ui/profile-choice.js';
 import { installCollections } from '../../desktop/prototype/collection-fixture.js';
@@ -23,6 +24,7 @@ installCollections(t, ['identities', 'blocked', 'passed', 'devices']);
 installDevicesFixture(t, screen.startsWith('owner-') ? 'devices-ready' : screen);
 installViewsFixture(t, screen);
 installUpdateFixture(t, screen);
+installUpdatePermissionFixture(t, screen);
 installOwnerFixture(t, screen);
 if (screen.startsWith('chat') || forwardScreens.includes(screen)) installForwardFixture(t, screen);
 enhanceChoice(

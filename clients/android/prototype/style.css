@@ -918,6 +918,7 @@ legend {
 }
 
 /* Keep local-list groups and row actions separate at every text scale. */
+#update-permission,
 .received-views-list,
 .received-views-list td:last-child {
   display: flex;

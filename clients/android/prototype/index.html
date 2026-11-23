@@ -593,6 +593,11 @@ search providers asked: 0 of 3</pre>
         </fieldset>
         <p class="caption" data-t="update.lastNever"></p>
         <p class="caption" id="update-state" data-t="update.notPublished"></p>
+        <div id="update-permission" hidden>
+          <p class="caption" id="update-permission-status" role="status" aria-live="polite"></p>
+          <p class="caption" id="update-permission-error" aria-live="polite" hidden></p>
+          <button type="button" class="btn text" id="update-permission-action"></button>
+        </div>
         <button type="button" class="btn" id="update-check" disabled data-t="update.check"></button>
       </div>
 <p class="caption" data-t="settings.version"></p>
@@ -930,7 +935,7 @@ const query = new URLSearchParams(location.search);
 const screen = location.hash.slice(1) || 'profile';
 const lang = query.get('lang') === 'ru' ? 'ru' : 'en';
 const t = STRINGS[lang];
-const shown = screen.startsWith('update-notice-') ? 'profile' : /^(devices|owner)-/.test(screen) ? 'settings-devices' : screen === 'identity-durability-dialog' ? 'profile' : screen;
+const shown = screen.startsWith('update-notice-permission-') ? 'settings-about' : screen.startsWith('update-notice-') ? 'profile' : /^(devices|owner)-/.test(screen) ? 'settings-devices' : screen === 'identity-durability-dialog' ? 'profile' : screen;
 const has = (el, name) => el.dataset[name].split(' ').some((state) => state === screen || state === shown);
 document.documentElement.lang = lang;
 document.documentElement.dataset.screen = screen;

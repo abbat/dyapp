@@ -2,7 +2,8 @@ export let updateFixture = null;
 
 /** Presentation-only controlled outcomes; no feed, browser, storage or installer is invoked. */
 export const installUpdateFixture = (strings, screen) => {
-  if (!screen.startsWith('update-notice-')) return;
+  if (!screen.startsWith('update-notice-') || screen.startsWith('update-notice-permission-'))
+    return;
   const scrim = document.getElementById('update-notice-scrim');
   const dialog = document.getElementById('update-notice');
   const open = document.getElementById('update-notice-open');

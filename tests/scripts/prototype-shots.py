@@ -474,6 +474,11 @@ ANDROID = [
     "update-notice-saving",
     "update-notice-write-error",
     "update-notice-open-error",
+    "update-notice-permission-allowed",
+    "update-notice-permission-blocked",
+    "update-notice-permission-pending",
+    "update-notice-permission-failed",
+    "update-notice-permission-unknown",
     "settings-identities-screen",
     "settings-blocked",
     "settings-passed",
@@ -785,16 +790,20 @@ def audited(_view: WebKit2.WebView, result: Gio.AsyncResult) -> None:
 
 
 def android_fixture(screen: str) -> tuple[str, str] | None:
-    if screen.startswith("update-notice-"):
-        return "update", "checkUpdateFixture"
-    if screen.startswith("owner-"):
-        return "owner", "checkOwnerFixture"
-    if screen.startswith("devices-"):
-        return "devices", "checkDevicesFixture"
-    if screen.startswith("settings-views"):
-        return "views", "checkViewsFixture"
-    if screen.startswith("link-review-"):
-        return "review", "checkReviewFixture"
+    for prefix, module, function in (
+        (
+            "update-notice-permission-",
+            "update-permission",
+            "checkUpdatePermissionFixture",
+        ),
+        ("update-notice-", "update", "checkUpdateFixture"),
+        ("owner-", "owner", "checkOwnerFixture"),
+        ("devices-", "devices", "checkDevicesFixture"),
+        ("settings-views", "views", "checkViewsFixture"),
+        ("link-review-", "review", "checkReviewFixture"),
+    ):
+        if screen.startswith(prefix):
+            return module, function
     if screen.startswith(("link-receive-", "link-setup-", "receive-network")):
         return "receive", "checkReceiveFixture"
     if screen == "remove-offline":

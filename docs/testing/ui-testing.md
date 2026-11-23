@@ -67,7 +67,10 @@ admit a captured old row. These native webview checks run in desktop CI. Hidden-
 shell, without an area/identity event: a late disclosure preparation cannot submit, and a connected
 old received-row button cannot fetch a profile. Guards observe actual rendered rectangles rather
 than child-only hidden flags; each control restores the original shell in `finally`.
-The five Android `update-notice-*` prototype outcomes run `update-fixture-tests.js` after capture.
+The five Android update-dialog prototype outcomes run `update-fixture-tests.js` after capture.
+Five `update-notice-permission-*` Settings outcomes run `update-permission-fixture-tests.js`,
+covering explicit readback completion, refusal, read retry, pending duplicates and retired callbacks.
+These presentation samples never request platform permission or activate feed checking.
 Controlled completion signals check pending admission, failed acknowledgements, browser failure/retry,
 exact external destination, persistent availability badge and retired callbacks; live native/core
 acceptance remains separate. Actions use the existing current-geometry reachability helper.
