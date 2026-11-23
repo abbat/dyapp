@@ -106,6 +106,12 @@ class NativeSmoke(Protocol):
         """Run loaded moderation panels in both locales."""
         ...
 
+    def received_views(
+        self, case: CaseRunner, reports: Path, executable: str
+    ) -> None:
+        """Audit received views and retain source-bound native frames."""
+        ...
+
     def start_smoke_node(
         self, node: Path, env: Mapping[str, str], seed: str, log: Path
     ) -> subprocess.Popen[bytes]:

@@ -304,6 +304,13 @@ directory; a receipt binds all eight required PNG files to their hashes and the 
 Missing/empty captures fail the exposure. CI uploads this directory with native diagnostics;
 its Linux setup includes the same ImageMagick capture tool already used by the Docker test image.
 
+Native desktop received-view capture cases exercise loading, populated, empty, initial-error,
+retained-error, no-query-match, next-page and profile-return states in EN/RU, both themes and
+measured 100/200-percent text. Linux retains all 128 required 440/1280 PNGs in a fresh
+`received-views-shots-*` directory with source SHA, executable and image hashes. Other desktops run
+the same actual-pane accessibility checks without the Linux capture tool. Held callbacks and
+controller completion signals establish states; capture evidence still requires rendered review.
+
 The prototype keyboard fixture calibrates requested switcher visibility against both the real
 visible menu and a controlled hidden sidebar. It must reject all three missing identity actions;
 frame readiness and current hit testing establish exposure without fixed positions or delays.

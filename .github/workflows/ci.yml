@@ -235,6 +235,7 @@ jobs:
             build/platform-check-output/
             ${{ runner.temp }}/desktop-ui-results.json
             ${{ runner.temp }}/moderation-shots-*/
+            ${{ runner.temp }}/received-views-shots-*/
             build/complexity/linux/*/clippy.stderr
             build/complexity/linux/*/clippy.jsonl
             build/complexity/linux/*/report.json
@@ -316,6 +317,7 @@ jobs:
             ${{ runner.temp }}/apple-results/
             ${{ runner.temp }}/desktop-ui-results.json
             ${{ runner.temp }}/moderation-shots-*/
+            ${{ runner.temp }}/received-views-shots-*/
           if-no-files-found: error
 
   windows:
@@ -363,6 +365,7 @@ jobs:
             build/debug/dyapp-windows.exe
             ${{ runner.temp }}/desktop-ui-results.json
             ${{ runner.temp }}/moderation-shots-*/
+            ${{ runner.temp }}/received-views-shots-*/
           if-no-files-found: error
 
   summary:
