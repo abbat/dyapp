@@ -313,6 +313,9 @@ The IDs inside each section are the desktop ones; only the frame differs.
   `update-notice-later` and Escape await an explicitly released acknowledgement; failure retains the
   notice, success closes it while `update-available-badge` remains on Settings. Pending and retired
   callbacks are refused. These are controlled presentation samples, without real feed/storage/browser IO.
+  Native update Settings additionally exposes app/channel notification permission only for a supported
+  available offer. Its explicit foreground action is independent of message preferences; pending and
+  retired openings reject repeated launches and stale results. Checking the feed remains disabled.
 - `remove-dialog` and `remove-offline` use the identities screen as their background.
   `remove-title`, `remove-peer`, `remove-confirm`, `remove-cancel`, `remove-action`,
   `remove-cancel-offline`, `remove-retry` and `remove-anyway` retain the removal contract.

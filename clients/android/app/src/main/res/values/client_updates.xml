@@ -14,4 +14,9 @@
     <string name="update_notice_failed">Your choice could not be saved. Try Later again.</string>
     <string name="update_open_failed">The release page could not be opened. Try again or choose Later.</string>
     <string name="update_available_badge">Version %1$s is available</string>
+    <string name="update_notice_allowed">System notifications for updates are allowed.</string>
+    <string name="update_notice_blocked">Android blocks update notifications. The in-app notice remains available.</string>
+    <string name="update_notice_permission_failed">Notification settings could not be read or opened. Try again.</string>
+    <string name="update_notice_manage">Manage update notifications</string>
+    <string name="update_notice_retry">Read notification settings again</string>
 </resources>

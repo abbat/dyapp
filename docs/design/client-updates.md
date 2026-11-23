@@ -403,7 +403,10 @@ app permission, update-channel permission and worker-stop gates run before the a
 and again before posting. Its separate `updates` channel and notification ID cannot replace mail.
 The immutable browser tap uses only the core-provided release page; the secure-lock-screen public
 version shows just the app name. A blocked or failed post leaves the in-app notice and Settings badge,
-and cannot change the mail worker's completion result. Live feed activation remains separate.
+and cannot change the mail worker's completion result. For a core-supported available offer, Android
+Settings shows actual app/channel permission and an explicit permission or system-settings action.
+This action never changes chat-notice preferences, checks the feed or dismisses the in-app offer.
+Its pending and retired openings reject duplicate launches and stale results. Live feed activation remains separate.
 The dedicated Android `suite=updates` native visual matrix covers five notice outcomes with
 source-bound metadata; actual capture and frame review remain required for acceptance.
 Background failures do not

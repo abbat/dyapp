@@ -243,6 +243,9 @@ and cached by the shared core. It does so only while the app is in the backgroun
 permits that channel. Its tap opens the official release information page; it never installs an
 update. Notification failures do not fail the mail pass. Live feed checking is not yet activated;
 without a verified cached offer this step stays quiet.
+When a supported newer release is available, update settings show whether Android permits update
+notifications. **Manage update notifications** requests permission or opens the relevant Android
+settings. This does not enable message notifications or dismiss the in-app update notice.
 
 ## Share a profile
 

@@ -46,6 +46,7 @@ internal fun UpdateMetadataCard(owner: Any, read: () -> MobileUpdateState) {
         }
         UpdateReadStatus(loaded)
         UpdateAvailabilityLabel(snapshot)
+        UpdateNoticePermission(owner, snapshot)
         OutlinedButton(onClick = {}, Modifier.testTag("update-check"), enabled = false) {
             Text(stringResource(R.string.update_check))
         }

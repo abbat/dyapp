@@ -56,7 +56,7 @@ private fun updateNoticesAllowed(context: Context): Boolean {
     return channel != null && channel.importance != NotificationManager.IMPORTANCE_NONE
 }
 
-private fun updateNotificationChannel(context: Context): NotificationManager {
+internal fun updateNotificationChannel(context: Context): NotificationManager {
     val manager = context.getSystemService(NotificationManager::class.java)
     manager.createNotificationChannel(
         NotificationChannel(
