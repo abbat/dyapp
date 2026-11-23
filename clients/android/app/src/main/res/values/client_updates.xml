@@ -3,4 +3,7 @@
     <string name="update_metadata_loading">Reading update settings…</string>
     <string name="update_metadata_failed">Update settings could not be read. Reopen this page to retry.</string>
     <string name="update_time_unavailable">Date unavailable</string>
+    <string name="update_current">Version %1$s is up to date.</string>
+    <string name="update_available_package">Version %1$s is available. Open the official release page.</string>
+    <string name="update_available_source">Source for version %1$s is available. Build and sign it using the platform guide.</string>
 </resources>

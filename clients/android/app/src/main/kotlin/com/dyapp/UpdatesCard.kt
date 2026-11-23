@@ -45,7 +45,7 @@ internal fun UpdateMetadataCard(owner: Any, read: () -> MobileUpdateState) {
             }
         }
         UpdateReadStatus(loaded)
-        Caption(stringResource(R.string.update_not_published), Modifier.testTag("update-state"))
+        UpdateAvailabilityLabel(snapshot)
         OutlinedButton(onClick = {}, Modifier.testTag("update-check"), enabled = false) {
             Text(stringResource(R.string.update_check))
         }

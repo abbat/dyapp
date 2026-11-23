@@ -16,7 +16,9 @@ update controls; live-feed, lifecycle and notice acceptance remain separate.
 interval during loading/failure, and checks that an out-of-range Unix timestamp cannot wrap
 into a misleading date. `UpdatesCardTests` waits for the actual persisted selection before
 asserting the disabled pre-publication controls. Owner replacement/disposal is covered by
-the shared `NativeReadTests` used by this card.
+the shared `NativeReadTests` used by this card. `UpdateAvailabilityTests` renders
+typed core current/package/source states and absent/unsupported/malformed cases,
+asserting localized copy without any version comparison or network request.
 
 Private profile-view checks separate presentation lifetime from core policy. Android
 `ProfileViewDisclosureTests` waits on controlled IO entry/completion signals and checks readiness,

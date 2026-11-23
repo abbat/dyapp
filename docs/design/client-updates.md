@@ -330,7 +330,10 @@ Android reads installation metadata off the UI thread through the shared
 UniFFI object, independently of the active identity. Pending and failed reads
 show explicit status and no fabricated interval selection or successful-check
 date. Formatting a stored date uses the current locale and checked conversion
-from Unix seconds; this metadata read admits no HTTP request.
+from Unix seconds; this metadata read admits no HTTP request. The Settings
+status renders the core-derived current/package/source state and its exact
+version, rather than always claiming not-published. Unsupported store targets
+remain unavailable; an available state without its offer is a metadata error.
 
 On a newly discovered higher version, show one in-app notice with installed and
 available versions. While background execution succeeds, the app may also
