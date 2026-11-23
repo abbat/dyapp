@@ -36,8 +36,7 @@ impl ReadCoverage {
             return None;
         }
         let known = <[u8; 16]>::try_from(id)
-            .ok()
-            .is_some_and(|id| self.groups.get(group).is_some_and(|ids| ids.contains(&id)));
+            .is_ok_and(|id| self.groups.get(group).is_some_and(|ids| ids.contains(&id)));
         Some(known && !edited && !deleted)
     }
 }

@@ -11,6 +11,9 @@ use std::collections::BTreeMap;
 
 const SETTING: &str = "send_read_receipts";
 
+// A group and the exact peer message that the owner can explicitly receipt.
+type ReadReceiptTarget = (Vec<u8>, [u8; 16]);
+
 pub(super) const SCHEMA: &str = r"
 CREATE TABLE `read_marks` (
     `group_id` BLOB NOT NULL CHECK (length(`group_id`) > 0),
@@ -60,7 +63,7 @@ impl Store {
     ///
     /// # Errors
     /// Returns existing conversation, history or read-admission storage errors.
-    pub fn due_read_receipts(&self, peer: &str) -> Result<Vec<(Vec<u8>, [u8; 16])>, Error> {
+    pub fn due_read_receipts(&self, peer: &str) -> Result<Vec<ReadReceiptTarget>, Error> {
         if self.conversation(peer)? != Conversation::Open {
             return Ok(Vec::new());
         }
@@ -409,9 +412,9 @@ mod tests {
         for (group, id, hlc) in [(GROUP, 9, 200), (GROUP, 1, 100), (other, 2, 50)] {
             ordered_peer_text(&mut store, group, &peer, id, hlc);
         }
-        assert!(store.due_read_receipts(&peer).unwrap().is_empty());
+        assert_eq!(store.due_read_receipts(&peer).unwrap(), []);
         open_for_reads(&mut store, &own, &peer);
-        assert!(store.due_read_receipts(&peer).unwrap().is_empty());
+        assert_eq!(store.due_read_receipts(&peer).unwrap(), []);
         store.set_send_read_receipts(true).unwrap();
         let expected = vec![(GROUP.to_vec(), [9; 16]), (other.to_vec(), [2; 16])];
         assert_eq!(store.due_read_receipts(&peer).unwrap(), expected);

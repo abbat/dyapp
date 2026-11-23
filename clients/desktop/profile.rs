@@ -17,6 +17,7 @@ use dyapp_client::Node;
 use dyapp_identity::network::{self, Network, Settings};
 use dyapp_identity::Identity;
 use dyapp_p2p_net::proto::Status;
+use dyapp_p2p_net::Protocols;
 use dyapp_profile::{CivilDate, Profile};
 
 /// The current solve's token. Replacing or cancelling it never resets an older worker's token.

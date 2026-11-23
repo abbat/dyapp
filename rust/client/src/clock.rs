@@ -188,7 +188,7 @@ mod tests {
         let before = UNIX_EPOCH.checked_sub(Duration::from_secs(1)).unwrap();
         assert!(civil_date_at(before).is_err());
         let out_of_range = UNIX_EPOCH
-            .checked_add(Duration::from_secs(253_402_300_800))
+            .checked_add(Duration::from_hours(70_389_528))
             .unwrap();
         assert_eq!(civil_date_at(out_of_range).unwrap(), None);
     }

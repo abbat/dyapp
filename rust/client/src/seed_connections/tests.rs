@@ -66,7 +66,7 @@ async fn complete_failure_retains_the_last_attempt_without_dialing_invalid_rows(
         ready(Err::<(), _>(calls))
     })
     .await;
-    assert!(nodes.is_empty());
+    assert_eq!(nodes, []);
     assert_eq!((calls, error), (2, Some(2)));
 }
 
