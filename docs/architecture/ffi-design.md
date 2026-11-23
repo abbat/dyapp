@@ -1594,6 +1594,12 @@ identity-transition invalidation prevents late completion from restoring it. Ada
 identity admission through actual work, map typed errors/rows, and keep platform runtimes and UI
 readiness callbacks; the core checker never operates an installation node.
 
+Existing active-network work uses `dyapp_client::seed_connections`: `first` stops at the first
+answering seed address, while `reachable` keeps at most one answer per seed row. Both preserve row
+order, trim and skip malformed rows, and try TCP before QUIC. Desktop, native FFI and contact-profile
+confirmation use this same policy; adapters keep their error representation and runtime dispatch.
+This is explicit-seed dialing, not search discovery or the installation node's lifecycle.
+
 ### Native symbols
 
 The library's C ABI is UniFFI-internal (`nm -D libdyapp_ffi.so`):

@@ -8,7 +8,7 @@ use dyapp_client::publish::SEARCH_NODES;
 use dyapp_client::store::{ProfilePublication, Store};
 use dyapp_client::{publish, search, Node};
 use dyapp_identity::network::{self, Network, Settings};
-use dyapp_p2p_net::{seed, Protocols};
+use dyapp_p2p_net::Protocols;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -98,17 +98,9 @@ pub(crate) fn active_network(dir: &Path) -> Result<Network, CoreError> {
 
 /// Dial the first answering bootstrap node over each row's TCP and then QUIC address.
 pub(crate) async fn connect(network: &Network) -> Result<Node, CoreError> {
-    let protocols = Arc::new(Protocols::new(&network.name).map_err(failed)?);
-    let mut error = CoreError::Failed("notConnected".into());
-    for row in &network.seeds {
-        for address in seed::parse(row.trim()).into_iter().flatten() {
-            match Node::connect(address, Arc::clone(&protocols)).await {
-                Ok(node) => return Ok(node),
-                Err(failed) => error = CoreError::Failed(failed.to_string()),
-            }
-        }
-    }
-    Err(error)
+    dyapp_client::seed_connections::first(network)
+        .await
+        .map_err(failed)
 }
 
 /// Sends the profile the search window holds, once it has ended, to up to [`SEARCH_NODES`]

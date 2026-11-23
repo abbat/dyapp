@@ -1,9 +1,7 @@
 //! Highest-observed ordinary profile selection for a contact comparison.
-use crate::{profiles, scores::Scores, Node};
+use crate::{profiles, scores::Scores};
 use dyapp_identity::network::Network;
-use dyapp_p2p_net::{seed, Protocols};
 use dyapp_profile::VerifiedProfile;
-use std::sync::Arc;
 
 /// Why the active network could not supply an observed confirmation profile.
 #[derive(Debug, thiserror::Error)]
@@ -32,18 +30,9 @@ pub async fn fetch(
     peer: &str,
     scores: &mut Scores,
 ) -> Result<VerifiedProfile, FetchError> {
-    let protocols = Arc::new(
-        Protocols::new(&network.name).map_err(|error| FetchError::Network(error.to_string()))?,
-    );
-    let mut nodes = Vec::new();
-    for row in &network.seeds {
-        for address in seed::parse(row.trim()).into_iter().flatten() {
-            if let Ok(node) = Node::connect(address, Arc::clone(&protocols)).await {
-                nodes.push(node);
-                break;
-            }
-        }
-    }
+    let mut nodes = crate::seed_connections::reachable(network)
+        .await
+        .map_err(|error| FetchError::Network(error.to_string()))?;
     if nodes.is_empty() {
         return Err(FetchError::NotConnected);
     }

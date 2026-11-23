@@ -1,8 +1,7 @@
-//! Client network core: one libp2p connection to a node and the profile, search, `KeyPackage` and
-//! mailbox requests a client makes on it; [`chat`] delivers MLS chats through device mailboxes and
-//! [`attachment`] encrypts their attachments; [`profiles`] keeps the newest profile per owner;
-//! [`scores`] ranks nodes by the faults the client saw; [`compatibility`] compares verified
-//! public profiles locally; [`places`] names and finds profile places.
+//! Client network core: libp2p node connections and profile, search, `KeyPackage` and mailbox requests.
+//! [`chat`] delivers MLS chats through device mailboxes; [`attachment`] encrypts their attachments.
+//! [`profiles`] keeps the newest profile per owner; [`scores`] ranks nodes by observed faults.
+//! [`compatibility`] compares verified profiles locally; [`places`] names and finds profile places.
 
 pub mod app_lock;
 pub mod attachment;
@@ -50,6 +49,7 @@ pub use replicas::ReplicaSet;
 pub mod scores;
 pub mod search;
 pub mod search_input;
+pub mod seed_connections;
 pub mod seeds;
 mod selection;
 pub mod session;

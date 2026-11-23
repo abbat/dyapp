@@ -17,7 +17,6 @@ use dyapp_client::Node;
 use dyapp_identity::network::{self, Network, Settings};
 use dyapp_identity::Identity;
 use dyapp_p2p_net::proto::Status;
-use dyapp_p2p_net::{seed, Protocols};
 use dyapp_profile::{CivilDate, Profile};
 
 /// The current solve's token. Replacing or cancelling it never resets an older worker's token.
@@ -412,33 +411,17 @@ pub fn solve(
 /// The first node of the active network that answers, over each row's TCP, then QUIC address.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn connect(network: &Network) -> Result<Node, String> {
-    let protocols = Arc::new(Protocols::new(&network.name).map_err(|e| e.to_string())?);
-    let mut error = "notConnected".to_string();
-    for row in &network.seeds {
-        for address in seed::parse(row.trim()).into_iter().flatten() {
-            match Node::connect(address, Arc::clone(&protocols)).await {
-                Ok(node) => return Ok(node),
-                Err(failed) => error = failed.to_string(),
-            }
-        }
-    }
-    Err(error)
+    dyapp_client::seed_connections::first(network)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 /// Every answering node of the active network, at most one per seed row.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub async fn reachable(network: &Network) -> Result<Vec<Node>, String> {
-    let protocols = Arc::new(Protocols::new(&network.name).map_err(|e| e.to_string())?);
-    let mut nodes = Vec::new();
-    for row in &network.seeds {
-        for address in seed::parse(row.trim()).into_iter().flatten() {
-            if let Ok(node) = Node::connect(address, Arc::clone(&protocols)).await {
-                nodes.push(node);
-                break;
-            }
-        }
-    }
-    Ok(nodes)
+    dyapp_client::seed_connections::reachable(network)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 /// The page's code for a failed publish; anything else is shown as it is.

@@ -18,7 +18,6 @@ use dyapp_client::store::profile_photos::MAX_THUMBNAIL_BYTES;
 use dyapp_client::store::Store;
 use dyapp_client::{attachment, Node};
 use dyapp_identity::network::Network;
-use dyapp_p2p_net::{seed, Protocols};
 use std::sync::Arc;
 
 fn failed(error: impl std::fmt::Display) -> CoreError {
@@ -39,17 +38,9 @@ pub(crate) fn acceptable(bytes: &[u8], full: bool) -> bool {
 /// The first answering node of each seed row, as the desktop asks: a blob one node lacks may be
 /// on another.
 pub(crate) async fn reachable(network: &Network) -> Result<Vec<Node>, CoreError> {
-    let protocols = Arc::new(Protocols::new(&network.name).map_err(failed)?);
-    let mut nodes = Vec::new();
-    for row in &network.seeds {
-        for address in seed::parse(row.trim()).into_iter().flatten() {
-            if let Ok(node) = Node::connect(address, Arc::clone(&protocols)).await {
-                nodes.push(node);
-                break;
-            }
-        }
-    }
-    Ok(nodes)
+    dyapp_client::seed_connections::reachable(network)
+        .await
+        .map_err(failed)
 }
 
 impl ProfileSearcher {
