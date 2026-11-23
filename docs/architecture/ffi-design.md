@@ -1145,6 +1145,11 @@ to `dyapp_profile::birth_input`, which reuses `Profile::valid_birth_parts`. Empt
 absent; invalid integers, unknown keys and impossible partial dates are rejected. Kotlin and
 Swift pass raw field text to this parser and retain field keys and rendering only. Swift maps
 the returned core keys to its optional display fields; impossible dates fail at parsing.
+The Tauri `profile_editor_input` command accepts raw birth, height, multiline interests and seeking
+text and returns typed editable fields through these same parsers. It performs no identity or
+storage operation. Web-form adoption of this raw-input boundary is planned; saved-profile responses
+remain typed. Raw seeking checkbox values use `editor_input::parse_seeking_text`, which also
+ignores malformed hidden values when not-looking is selected.
 Tests crossing this adapter run in Android instrumentation or native Swift tests, where the
 native library is available, rather than host JVM-only tests.
 

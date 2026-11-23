@@ -75,6 +75,25 @@ pub fn parse_seeking(genders: &[u32], from: &str, to: &str, not_looking: bool) -
     })
 }
 
+/// Parse raw checkbox values and ages without a client-side numeric conversion.
+/// Not-looking ignores even malformed hidden selections.
+#[must_use]
+pub fn parse_seeking_text(
+    genders: &[String],
+    from: &str,
+    to: &str,
+    not_looking: bool,
+) -> Option<Seeking> {
+    if not_looking {
+        return parse_seeking(&[], from, to, true);
+    }
+    let genders = genders
+        .iter()
+        .map(|value| value.trim().parse().ok())
+        .collect::<Option<Vec<u32>>>()?;
+    parse_seeking(&genders, from, to, false)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -117,6 +136,26 @@ mod tests {
         }
         for genders in [vec![0], vec![999], vec![1, 1]] {
             assert_eq!(parse_seeking(&genders, "", "", false), None);
+        }
+    }
+
+    #[test]
+    fn raw_seeking_codes_share_closed_vocabulary_and_hidden_input_rules() {
+        assert_eq!(
+            parse_seeking_text(&[" 2 ".into(), "1".into()], "18", "120", false),
+            parse_seeking(&[2, 1], "18", "120", false)
+        );
+        for genders in [
+            vec!["1e0".into()],
+            vec!["-1".into()],
+            vec!["999".into()],
+            vec!["1".into(), "1".into()],
+        ] {
+            assert_eq!(parse_seeking_text(&genders, "", "", false), None);
+            assert_eq!(
+                parse_seeking_text(&genders, "wrong", "-1", true),
+                parse_seeking(&[], "", "", true)
+            );
         }
     }
 

@@ -47,6 +47,8 @@ mod places;
 mod privacy;
 #[path = "profile.rs"]
 mod profile;
+#[path = "profile_input.rs"]
+mod profile_input;
 #[path = "profile_photos.rs"]
 mod profile_photos;
 mod safety;
@@ -428,6 +430,14 @@ fn profile_scales() -> Vec<profile::PickerScale> {
     profile::scales()
 }
 
+/// Interpret raw editor text without reading or mutating an identity.
+#[tauri::command]
+fn profile_editor_input(
+    input: profile_input::Input,
+) -> Result<profile_input::Fields, &'static str> {
+    profile_input::parse(input)
+}
+
 /// The open identity's profile draft; see `profile::load`.
 #[tauri::command]
 async fn load_profile(state: tauri::State<'_, IdentityState>) -> Result<profile::View, String> {
@@ -751,6 +761,7 @@ const GENERATED_COMMAND_HANDLER: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = ta
     activate_connection,
     connect_network,
     profile_scales,
+    profile_editor_input,
     places::place_countries,
     places::place_name,
     places::search_places,
