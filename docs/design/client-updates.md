@@ -39,7 +39,10 @@ request through a short read transaction, without starting HTTP or inventing emp
 `MobileClientUpdates` exposes metadata reads, immediate interval writes, the separate undismissed
 notice and durable exact-version actions through the common native bridge. Its action record
 contains committed state and an applied flag; native code neither compares versions nor infers
-success. Native HTTP/lifecycle wiring and UI/OS notice presentation remain planned.
+success. Android's `UpdateNoticeActions` dispatches reads and exact-version dismissal off UI,
+excludes duplicate taps before dispatch, and adopts only the returned committed native state.
+A failed write retains the prior notice for retry; a disposed coroutine owner drops late completion.
+The global notice host, external opening, HTTP/lifecycle wiring and OS presentation remain planned.
 Clients stay disabled until live-feed verification and those integrations pass.
 
 The pure `updates::coordinator::Coordinator` now owns simultaneous-trigger admission and attempt
