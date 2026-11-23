@@ -51,6 +51,10 @@ fn every_public_field_can_remain_unspecified() {
     let empty = save(&dir, &owner, Draft::default()).unwrap();
     assert_eq!(empty.draft, Draft::default());
     assert_eq!((empty.ages, empty.problem), (None, None));
+    assert_eq!(
+        serde_json::to_value(&empty).unwrap()["maxProfilePhotos"],
+        serde_json::json!(profile_photos::MAX_PROFILE_PHOTOS)
+    );
     assert_eq!(load(&dir, &owner).unwrap(), empty);
     let cancel = AtomicBool::new(false);
     assert_eq!(

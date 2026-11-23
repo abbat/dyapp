@@ -22,7 +22,11 @@
       commands.push(command);
       if (command === 'profile_photo') return Promise.resolve(bytes);
       if (fixture.refusal) return Promise.reject(fixture.refusal);
-      const view = () => ({ draft: { photos: [...hashes] }, photoRevision: [fixture.revision] });
+      const view = () => ({
+        draft: { photos: [...hashes] },
+        photoRevision: [fixture.revision],
+        maxProfilePhotos: 6,
+      });
       if (command === 'load_profile') return Promise.resolve(view());
       const checked = command !== 'add_profile_photo';
       if (checked && String(args.revision) !== String(fixture.revision))
@@ -47,13 +51,15 @@
   const checkInvalidPhotos = async (fixture) => {
     const { call, grid, add, status, strings, commands, file } = fixture;
     await openArea('profile-area');
-    appApi.showProfilePhotos([], call);
+    await checkPhotoMetadata(fixture);
+    appApi.showProfilePhotos([], call, [], 6);
     if (grid.children.length || add.disabled || !byId('profile-photo-limit').hidden) {
       throw new Error('an empty editor did not offer a photo');
     }
 
+    const before = commands.length;
     await appBindings.addProfilePhoto(new File(['text'], 'a.txt', { type: 'text/plain' }), call);
-    if (status.textContent !== strings['profile.photoUnsupported'] || commands.length) {
+    if (status.textContent !== strings['profile.photoUnsupported'] || commands.length !== before) {
       throw new Error('a wrong file type was not named or reached the core');
     }
     fixture.refusal = 'photoRefused';
@@ -62,6 +68,29 @@
       throw new Error('a refused photo was not named or changed the grid');
     }
     fixture.refusal = null;
+  };
+  const checkPhotoMetadata = async ({ call, file, add, commands }) => {
+    const before = commands.length;
+    for (const maximum of [undefined, 0, -1, 1.5, NaN]) {
+      appApi.showProfilePhotos([], call, [], maximum);
+      await appBindings.addProfilePhoto(file, call);
+      if (!add.disabled || commands.length !== before)
+        throw new Error('unknown photo policy admitted an upload');
+    }
+    appApi.showProfilePhotos([[1], [2]], call, [], 2);
+    await appApi.ownAvatarsShown;
+    const full = commands.length;
+    await appBindings.addProfilePhoto(file, call);
+    if (!add.disabled || commands.length !== full)
+      throw new Error('supplied photo limit was replaced by a local constant');
+    appApi.showProfilePhotos([[1]], call, [], 2);
+    if (add.disabled) throw new Error('a place below the supplied limit stayed unavailable');
+    await appApi.ownAvatarsShown;
+    const beforeIdentity = commands.length;
+    document.dispatchEvent(new Event('dyapp:identity-change'));
+    await appBindings.addProfilePhoto(file, call);
+    if (!add.disabled || commands.length !== beforeIdentity)
+      throw new Error('identity change retained the preceding photo policy');
   };
   const checkPhotoLimit = async (fixture) => {
     const { file, call, grid, add, status, strings } = fixture;
@@ -158,17 +187,17 @@
     if (commands.some((name) => name.includes('peer') || name.includes('fetch'))) {
       throw new Error('the own photo touched a peer or node command');
     }
-    appApi.showProfilePhotos([], call);
+    appApi.showProfilePhotos([], call, [], 6);
     await appApi.ownAvatarsShown;
     if (avatar.querySelector('canvas') || letters.hidden) {
       throw new Error('an identity without photos did not restore its letters');
     }
-    appApi.showProfilePhotos([[1]], () => Promise.resolve(new ArrayBuffer(0)));
+    appApi.showProfilePhotos([[1]], () => Promise.resolve(new ArrayBuffer(0)), [], 6);
     await appApi.ownAvatarsShown;
     if (avatar.querySelector('canvas') || letters.hidden) {
       throw new Error('an undecodable identity photo did not restore its letters');
     }
-    appApi.showProfilePhotos([], call);
+    appApi.showProfilePhotos([], call, [], 6);
     await appApi.ownAvatarsShown;
   };
   const checkPhotoPublication = async (fixture) => {

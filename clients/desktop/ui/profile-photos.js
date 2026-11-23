@@ -13,7 +13,7 @@ controller.ownAvatarsShown = undefined;
 
 // Profile photos share the chat decoder; the core fits and encodes them with the profile budget.
 // Keep the form busy while a photo changes; editor saves and proof steps transform the latest draft.
-const MAX_PROFILE_PHOTOS = 6;
+let profilePhotoMaximum = 0;
 const PROFILE_TILE_SIDE = 320;
 const profilePhotoGrid = domById('profile-photos', HTMLDivElement);
 const profilePhotoAdd = domById('profile-photo-add', HTMLButtonElement);
@@ -35,9 +35,10 @@ const closePhotoRemoval = () => {
 };
 
 controller.limitProfilePhotos = () => {
-  const full = profilePhotoCount >= MAX_PROFILE_PHOTOS;
-  profilePhotoAdd.disabled = profileBusy || full;
-  profilePhotoHint.hidden = full;
+  const known = profilePhotoMaximum > 0;
+  const full = known && profilePhotoCount >= profilePhotoMaximum;
+  profilePhotoAdd.disabled = profileBusy || !known || full;
+  profilePhotoHint.hidden = !known || full;
   profilePhotoLimit.hidden = !full;
 };
 /** @param {unknown} error */
@@ -57,7 +58,12 @@ const profilePhotoFailure = (error) => {
 const showCurrentPhotos = async (call, generation) => {
   const view = identityCurrent(generation) ? await call('load_profile').catch(() => null) : null;
   if (view && identityCurrent(generation))
-    controller.showProfilePhotos(view.draft.photos, call, view.photoRevision);
+    controller.showProfilePhotos(
+      view.draft.photos,
+      call,
+      view.photoRevision,
+      view.maxProfilePhotos,
+    );
 };
 /**
  * @param {() => void} focus
@@ -71,7 +77,12 @@ const changeProfilePhotos = async (work, call, focus) => {
   try {
     const view = await work();
     if (!identityCurrent(generation)) return;
-    controller.showProfilePhotos(view.draft.photos, call, view.photoRevision);
+    controller.showProfilePhotos(
+      view.draft.photos,
+      call,
+      view.photoRevision,
+      view.maxProfilePhotos,
+    );
     profileMessage('profile.draft');
   } catch (error) {
     if (String(error) === 'photoChanged') await showCurrentPhotos(call, generation);
@@ -84,8 +95,9 @@ const changeProfilePhotos = async (work, call, focus) => {
   }
 };
 /** @param {File} file */
-const addProfilePhoto = (file, call = invoke) =>
-  changeProfilePhotos(
+const addProfilePhoto = (file, call = invoke) => {
+  if (profilePhotoCount >= profilePhotoMaximum) return Promise.resolve();
+  return changeProfilePhotos(
     async () => {
       const { pixels, headers } = await photoPixels(file, 'profile', call);
       return call('add_profile_photo', pixels, { headers });
@@ -93,6 +105,7 @@ const addProfilePhoto = (file, call = invoke) =>
     call,
     () => profilePhotoAdd.focus(),
   );
+};
 /** @param {number} from @param {number} to @param {string} name @param {import('./ipc.js').Invoke} call */
 const moveProfilePhoto = (from, to, name, call) =>
   changeProfilePhotos(
@@ -244,11 +257,15 @@ const showOwnAvatars = async (hash, call) => {
 };
 document.addEventListener('dyapp:identity-change', () => {
   closePhotoRemoval();
+  profilePhotoMaximum = 0;
+  controller.limitProfilePhotos();
   ownPhotoRun += 1;
   ownPhoto = null;
 });
-/** @param {number[][]} [hashes] @param {number[]} [revision] */
-controller.showProfilePhotos = (hashes = [], call = invoke, revision = []) => {
+/** @param {number[][]} [hashes] @param {number[]} [revision] @param {number} [maximum] */
+controller.showProfilePhotos = (hashes = [], call = invoke, revision = [], maximum) => {
+  profilePhotoMaximum =
+    typeof maximum === 'number' && Number.isSafeInteger(maximum) && maximum > 0 ? maximum : 0;
   controller.ownAvatarsShown = showOwnAvatars(hashes[0], call);
   profilePhotoCount = hashes.length;
   profilePhotoRevision = revision;

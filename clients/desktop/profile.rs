@@ -191,6 +191,8 @@ pub struct View {
     pub hidden: bool,
     /// Opaque revision of the shown photo list; a remove or move must send it back.
     pub photo_revision: Vec<u8>,
+    /// Core photo-count policy for the current editor view.
+    pub max_profile_photos: usize,
 }
 
 /// The page's name for a [`Block`].
@@ -280,6 +282,7 @@ pub(crate) fn view(
         search_minutes,
         hidden,
         photo_revision: profile_photos::revision(profile).to_vec(),
+        max_profile_photos: profile_photos::MAX_PROFILE_PHOTOS,
     })
 }
 

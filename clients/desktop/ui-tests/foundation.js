@@ -140,7 +140,7 @@
   const checkCurrentPhotoRemoval = async (controller, grid, call, writes) => {
     const dialog = document.getElementById('photo-remove-dialog');
     const confirm = document.getElementById('photo-remove-confirm');
-    controller.showProfilePhotos([[2]], call);
+    controller.showProfilePhotos([[2]], call, [], 6);
     grid.querySelector('.remove').click();
     document.getElementById('photo-remove-cancel').click();
     confirm.click();
@@ -174,7 +174,7 @@
     const call = async (command) => {
       if (command === 'remove_profile_photo') writes += 1;
       if (command === 'profile_photo') throw new Error('Fixture has no image bytes');
-      return { draft: { photos: [] } };
+      return { draft: { photos: [] }, maxProfilePhotos: 6 };
     };
     try {
       identityState.current = {
@@ -185,7 +185,7 @@
       };
       identityState.generation += 1;
       app.setProfileBusy(false);
-      controller.showProfilePhotos([[1]], call);
+      controller.showProfilePhotos([[1]], call, [], 6);
       await Promise.all([
         controller.ownAvatarsShown,
         ...[...grid.children].map((tile) => tile.ready),
@@ -205,7 +205,7 @@
       await checkCurrentPhotoRemoval(controller, grid, call, () => writes);
     } finally {
       document.getElementById('photo-remove-dialog').close();
-      controller.showProfilePhotos([], call);
+      controller.showProfilePhotos([], call, [], 6);
       app.setProfileBusy(before.busy);
       identityState.current = before.current;
       identityState.generation = before.generation;
