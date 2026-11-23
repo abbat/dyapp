@@ -229,6 +229,27 @@ class CiOutputTests(unittest.TestCase):
             self.assertNotIn(":app:compileDebugKotlin", arguments)
             self.assertNotIn("assembleDebug", arguments)
 
+    def test_tagged_native_artifacts_do_not_restore_mutable_caches(
+        self,
+    ) -> None:
+        workflow = yaml.safe_load((WORKFLOWS / "ci.yml").read_text())
+        for job in ("linux", "apple"):
+            with self.subTest(job=job):
+                caches = [
+                    item["with"]
+                    for item in workflow["jobs"][job]["steps"]
+                    if item.get("uses", "").startswith("Swatinem/rust-cache@")
+                ]
+                self.assertEqual(len(caches), 1)
+                self.assertEqual(
+                    caches[0]["lookup-only"],
+                    "${{ startsWith(github.ref, 'refs/tags/') }}",
+                )
+                self.assertEqual(
+                    caches[0]["save-if"],
+                    "${{ github.ref == 'refs/heads/main' }}",
+                )
+
     def test_kotlin_build_requires_the_exported_jna_directory(self) -> None:
         workflow = yaml.safe_load((WORKFLOWS / "codeql.yml").read_text())
         names = [

@@ -42,6 +42,28 @@ class DesktopSmokeFeatureTest(unittest.TestCase):
         subprocess.run(args, check=True, capture_output=True, text=True)
         return binary
 
+    def test_smoke_bindings_reference_declared_native_interface(self) -> None:
+        directory = ROOT / "clients/desktop/ui-tests"
+        source = (directory / "interface.js").read_text()
+        bindings, api = source.split("const appBindings = {", 1)[1].split(
+            "const appApi = {", 1
+        )
+        getter = r"^\s+(?:get|set) (\w+)\("
+        declared = {
+            "appBindings": set(re.findall(getter, bindings, re.M)),
+            "appApi": set(re.findall(getter, api, re.M)),
+        }
+        references = r"\b(appBindings|appApi)\.(\w+)"
+        for path in sorted(directory.glob("*.js")):
+            for namespace, name in re.findall(references, path.read_text()):
+                with self.subTest(
+                    file=path.name, binding=namespace + "." + name
+                ):
+                    self.assertTrue(
+                        name in declared[namespace],
+                        f"Unknown native smoke binding: {namespace}.{name}",
+                    )
+
     def test_feature_is_explicit_in_both_native_manifests(self) -> None:
         for platform in ("linux", "windows"):
             manifest = ROOT / "clients" / platform / "Cargo.toml"

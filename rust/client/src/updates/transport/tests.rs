@@ -1,4 +1,6 @@
 use super::*;
+
+mod http;
 use crate::updates::feed::Platform;
 use crate::updates::Version;
 
@@ -73,6 +75,7 @@ fn corrupt_or_malformed_cache_cannot_authorize_a_conditional_response() {
     }
     for etag in [
         "bare",
+        "missing-start\"",
         "W/bare",
         "\"a b\"",
         "\"a\r\nb\"",
@@ -92,6 +95,23 @@ fn corrupt_or_malformed_cache_cannot_authorize_a_conditional_response() {
         Cache::restore(BODY.to_vec(), Some(&oversized)),
         Err(Error::Etag)
     ));
+}
+
+#[test]
+fn strong_and_weak_etags_accept_the_exact_bound_and_reject_one_extra_byte() {
+    for prefix in ["", "W/"] {
+        let content = "x".repeat(feed::MAX_BYTES - prefix.len() - 2);
+        let exact = format!("{prefix}\"{content}\"");
+        assert_eq!(exact.len(), feed::MAX_BYTES);
+        let cache = Cache::restore(BODY.to_vec(), Some(&exact)).unwrap();
+        assert_eq!(cache.etag(), Some(exact.as_str()));
+        let larger = format!("{prefix}\"{content}x\"");
+        assert_eq!(larger.len(), feed::MAX_BYTES + 1);
+        assert!(matches!(
+            Cache::restore(BODY.to_vec(), Some(&larger)),
+            Err(Error::Etag)
+        ));
+    }
 }
 
 #[test]

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="update_metadata_loading">Чтение настроек обновлений…</string>
+    <string name="update_metadata_failed">Не удалось прочитать настройки обновлений. Откройте страницу снова, чтобы повторить.</string>
+    <string name="update_time_unavailable">Дата недоступна</string>
+    <string name="update_current">Версия %1$s актуальна.</string>
+    <string name="update_available_package">Доступна версия %1$s. Откройте официальную страницу релиза.</string>
+    <string name="update_available_source">Доступны исходники версии %1$s. Соберите и подпишите приложение по инструкции для вашей платформы.</string>
+</resources>

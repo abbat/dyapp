@@ -1,6 +1,6 @@
 package com.dyapp.ui.theme
 
-import android.app.Activity
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,9 +34,9 @@ fun DYAppTheme(
 @Composable
 private fun ThemeSystemBars(darkTheme: Boolean) {
     val view = LocalView.current
-    if (!view.isInEditMode) {
+    val window = LocalActivity.current?.window
+    if (!view.isInEditMode && window != null) {
         SideEffect {
-            val window = (view.context as Activity).window
             WindowCompat.enableEdgeToEdge(window)
             WindowCompat.getInsetsController(window, view).apply {
                 isAppearanceLightStatusBars = !darkTheme

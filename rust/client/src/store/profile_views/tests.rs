@@ -70,14 +70,19 @@ fn latest_received_days_are_ordered_persistent_and_independent_of_sending() {
         assert_eq!(store.likes(peer).unwrap(), crate::store::Likes::default());
     }
     drop(store);
-    let reopened = Store::open(&path, &owner).unwrap();
+    assert_reopened_views(&path, &dir.path().join("other.db"), &owner, &expected);
+}
+
+fn assert_reopened_views(
+    path: &std::path::Path,
+    other_path: &std::path::Path,
+    owner: &Identity,
+    expected: &[ReceivedProfileView],
+) {
+    let reopened = Store::open(path, owner).unwrap();
     assert_eq!(reopened.received_profile_views().unwrap(), expected);
-    let other = Store::open(
-        &dir.path().join("other.db"),
-        &Identity::try_generate().unwrap(),
-    )
-    .unwrap();
-    assert!(other.received_profile_views().unwrap().is_empty());
+    let other = Store::open(other_path, &Identity::try_generate().unwrap()).unwrap();
+    assert_eq!(other.received_profile_views().unwrap(), []);
 }
 
 #[test]
@@ -109,7 +114,7 @@ fn moderation_hides_views_without_rewriting_history_or_hiding_matches() {
     assert!(store
         .pass(&peers[1], true, (LEAP_DAY + 2) * DAY_MS)
         .unwrap());
-    assert!(store.received_profile_views().unwrap().is_empty());
+    assert_eq!(store.received_profile_views().unwrap(), []);
     for peer in &peers {
         assert!(store.viewed_on(peer, &ours, LEAP_DAY * DAY_MS).unwrap());
     }

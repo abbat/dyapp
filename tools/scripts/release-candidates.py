@@ -78,12 +78,27 @@ def package_metadata(asset: Mapping[str, object], name: str) -> rc.Package:
     }
 
 
+def check_client_name(name: str, expected: Mapping[str, str]) -> None:
+    formats = (
+        ("dyapp_", "_amd64.deb"),
+        ("dyapp-", "-windows.zip"),
+        ("dyapp-", "-android.apk"),
+    )
+    if any(
+        name.startswith(prefix) and name.endswith(suffix)
+        for prefix, suffix in formats
+    ):
+        if name not in expected:
+            raise ValueError("wrong-version client package")
+
+
 def candidates(release: object, tag: str, commit: str) -> rc.Candidates:
     assets = release_assets(release, tag, commit)
     version = tag[1:]
     expected = {
         f"dyapp_{version}_amd64.deb": "linux-x86_64",
         f"dyapp-{version}-x86_64-windows.zip": "windows-x86_64",
+        f"dyapp-{version}-android.apk": "android",
     }
     packages = {}
     names = set()
@@ -96,12 +111,7 @@ def candidates(release: object, tag: str, commit: str) -> rc.Candidates:
         if name in names:
             raise ValueError("duplicate release asset")
         names.add(name)
-        if name.startswith("dyapp_") and name.endswith("_amd64.deb"):
-            if name not in expected:
-                raise ValueError("wrong-version client package")
-        if name.startswith("dyapp-") and name.endswith("-windows.zip"):
-            if name not in expected:
-                raise ValueError("wrong-version client package")
+        check_client_name(name, expected)
         target = expected.get(name)
         if target is None:
             continue

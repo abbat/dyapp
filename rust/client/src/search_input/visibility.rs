@@ -29,7 +29,7 @@ mod tests {
     #[test]
     fn incomplete_compound_controls_are_hidden() {
         for fields in [vec![], vec![20], vec![SEEKING_GENDERS], vec![SEEKING_AGE]] {
-            assert!(visible_filter_fields(fields).is_empty());
+            assert_eq!(visible_filter_fields(fields), []);
         }
         assert_eq!(visible_filter_fields([20, 4]), vec![20, 4]);
         assert_eq!(

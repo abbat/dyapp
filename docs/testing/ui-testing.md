@@ -1,5 +1,30 @@
 # UI Testing: Practical Guide
 
+Localized native hosts wrap their context to supply actual configuration to child windows.
+Theme and appearance code resolve the Activity through AndroidX `LocalActivity`, never by
+casting a View context. `LocalizedDialogScaleTests` exercises the real wrapped host and
+checks both Activity ownership and the native View font scale before accepting themed content.
+The app-lock restoration fixture creates one controlled IO gate per startup owner, waits for
+actual read entry before releasing it, then asserts the exact initialization history and retained
+private saveable state. Every owner/read/completion transition receives a fresh failure deadline.
+Fresh-identity chat and receive fixtures use an owned `NativeSlotFixture` storage context;
+`skipNetworkEntry` alone reuses existing device identities and cannot establish empty storage.
+The chat empty-state test checks its native registry and chat rows, retains the no-badge assertion,
+and verifies the displayed peer against that same owned identity. Fixture context wrappers retain
+the caller's Activity chain while overriding only application storage.
+
+`NativeClientUpdatesTests` checks the actual JNI metadata bridge: the native installed version
+matches `BuildConfig.VERSION_NAME`, fresh state never claims current, and all four installation
+intervals survive a separate native handle. This fixture performs no HTTP and does not enable
+update controls; live-feed, lifecycle and notice acceptance remain separate.
+`UpdateMetadataCardTests` gates read completion explicitly, rejects a fabricated selected
+interval during loading/failure, and checks that an out-of-range Unix timestamp cannot wrap
+into a misleading date. `UpdatesCardTests` waits for the actual persisted selection before
+asserting the disabled pre-publication controls. Owner replacement/disposal is covered by
+the shared `NativeReadTests` used by this card. `UpdateAvailabilityTests` renders
+typed core current/package/source states and absent/unsupported/malformed cases,
+asserting localized copy without any version comparison or network request.
+
 Private profile-view checks separate presentation lifetime from core policy. Android
 `ProfileViewDisclosureTests` waits on controlled IO entry/completion signals and checks readiness,
 disposal, replacement and exactly one invocation per opening. Native Rust checks cover actual
@@ -29,6 +54,8 @@ controller with explicitly released promises: core page/cursor pass-through, pen
 refresh failure retention, query replacement and retired completions. The CI web entrypoint invokes both Node fixture suites through the mapped quiet runner with the
 explicit spec reporter; real assertion-failure controls verify test names, source and errors survive.
 The controller owns UI request lifetime only; the shared Rust pager retains filtering, counts and cursor policy.
+The native smoke bridge regression checks every direct `appBindings`/`appApi` reference against
+its declared getter/setter namespace before building a webview; runtime checks still prove behavior.
 The Tauri received-view smoke drives the actual Privacy pane: read-only loading, unchanged native
 cursors/dates, query reset, failure retention, explicit profile opening and Back focus after read
 completion. A held refresh completes after leaving the pane and must not replace known rows or

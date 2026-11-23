@@ -1,8 +1,13 @@
-//! Pure stable-version, feed-schema and update-check cadence rules.
-//! Transport and persistence integration are not implemented here.
+//! Shared stable versions, feed validation, cadence and bounded HTTPS transport.
+//! Installation IO, native lifecycle integration and activation remain separate.
 
+pub mod availability;
+pub mod checker;
 pub mod coordinator;
 pub mod feed;
+pub mod notices;
+pub mod snapshot;
+pub mod storage;
 pub mod transport;
 
 /// A stable release version, compared by numeric components.
@@ -38,6 +43,12 @@ impl Version {
     #[must_use]
     pub fn parse_tag(tag: &str) -> Option<Self> {
         Self::parse(tag.strip_prefix('v')?)
+    }
+}
+
+impl std::fmt::Display for Version {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "{}.{}.{}", self.major, self.minor, self.patch)
     }
 }
 

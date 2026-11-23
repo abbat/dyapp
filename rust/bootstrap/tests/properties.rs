@@ -3,6 +3,10 @@
 //! Practice B3: every wire and storage type has a `decode(encode(x)) == x` property below;
 //! `tests/scripts/check-repository.py` fails when a protobuf or serde type is missing.
 use dyapp_bootstrap::replication::ReplicationFragment;
+use dyapp_client::updates::{
+    coordinator::Checkpoint, feed::Platform, snapshot::Snapshot, transport::Cache, CheckState,
+    Interval, Version,
+};
 use dyapp_identity::{Domain, Identity, SignedRecord};
 use dyapp_messaging::{Message, MessageStatus, Timestamp};
 use dyapp_p2p_net::proto::*;
@@ -185,5 +189,41 @@ proptest! {
         let mut tampered = decoded;
         tampered.payload.push(0);
         prop_assert!(tampered.verify(domain).is_err());
+    }
+
+    #[test]
+    fn update_checkpoint_round_trip(
+        version in (any::<u32>(), any::<u32>(), any::<u32>()),
+        now in any::<u64>(),
+        failures in any::<u32>(),
+        in_flight in any::<bool>(),
+        interval in prop::sample::select(vec![Interval::SixHours, Interval::TwelveHours, Interval::Day, Interval::Week]),
+    ) {
+        let (major, minor, patch) = version;
+        let version = Version { major, minor, patch };
+        let text = format!("{major}.{minor}.{patch}");
+        prop_assert_eq!(version.to_string(), text.as_str());
+        let feed = serde_json::json!({
+            "schema": 1, "channel": "stable",
+            "targets": {"android": {"version": text, "tag": format!("v{text}"), "method": "package"}}
+        });
+        let cache = Cache::restore(serde_json::to_vec(&feed)?, Some("\"property\""))?;
+        let mut snapshot = Snapshot::default();
+        snapshot.admit(cache)?;
+        let checkpoint = Checkpoint {
+            interval,
+            state: CheckState {
+                last_attempt: Some(now),
+                last_success: Some(now),
+                consecutive_failures: failures,
+            },
+            in_flight,
+        };
+        snapshot.set_checkpoint(checkpoint);
+        let encoded = snapshot.encode()?;
+        let restored = Snapshot::decode(&encoded)?;
+        prop_assert_eq!(restored.encode()?, encoded);
+        prop_assert_eq!(restored.checkpoint(), checkpoint);
+        prop_assert_eq!(restored.highest(Platform::Android), Some(version));
     }
 }

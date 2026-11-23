@@ -25,7 +25,25 @@ pub enum Platform {
 }
 
 impl Platform {
-    fn parse(value: &str) -> Option<Self> {
+    pub(super) const ALL: [Self; 5] = [
+        Self::LinuxX86_64,
+        Self::WindowsX86_64,
+        Self::MacosUniversal,
+        Self::Android,
+        Self::Ios,
+    ];
+
+    pub(super) const fn key(self) -> &'static str {
+        match self {
+            Self::LinuxX86_64 => "linux-x86_64",
+            Self::WindowsX86_64 => "windows-x86_64",
+            Self::MacosUniversal => "macos-universal",
+            Self::Android => "android",
+            Self::Ios => "ios",
+        }
+    }
+
+    pub(super) fn parse(value: &str) -> Option<Self> {
         match value {
             "linux-x86_64" => Some(Self::LinuxX86_64),
             "windows-x86_64" => Some(Self::WindowsX86_64),
@@ -82,12 +100,7 @@ impl Release {
     /// Canonical release tag, constructed from validated numeric components.
     #[must_use]
     pub fn tag(&self) -> String {
-        let Version {
-            major,
-            minor,
-            patch,
-        } = self.version;
-        format!("v{major}.{minor}.{patch}")
+        format!("v{}", self.version)
     }
 
     /// The fixed official information page; this is not an installer or a store destination.

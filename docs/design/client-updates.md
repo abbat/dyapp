@@ -7,17 +7,48 @@ The shared Rust client core provides strict version/cadence/feed helpers in
 `rust/client/src/updates.rs`, `updates/feed.rs` and `updates/coordinator.rs`.
 Those helpers have no network or storage side effects. `updates::transport::Client`
 adds explicitly invoked bounded HTTPS transport; platform controls still do not call it.
-Persisted app-wide state, response rollback integration, native APIs and lifecycle/timer hooks
-remain planned. Clients stay disabled until live-feed verification and those integrations pass.
+`updates::snapshot::Snapshot` validates a bounded local record with cadence, exact feed/ETag cache
+and per-target version high-water marks. Candidate rollback is rejected before changing any target;
+omitting a target retains its previous mark across encoding/restart. Corrupt or inconsistent records
+fail closed, never becoming fresh defaults. Snapshot encoding alone performs no IO.
+`updates::storage::LockedState` adds atomic SQLite writes in the private installation root
+(`updates.sqlite`) under an independent, nonblocking OS lease (`updates.lock`). The lease spans
+admission/HTTP/completion; it never takes a profile, chat or node operation lock. SQLite FULL
+synchronization and a single-record transaction keep cache and high-water state together.
+Foreign schemas, missing records and corrupt payloads fail closed without repair or truncation.
+A save also compares persisted high-water marks inside the transaction, refusing accidental resets.
+Initialization obtains one local jitter seed from OS randomness inside the first transaction;
+reopening never regenerates it and saves cannot replace it. Randomness failure leaves no partial state.
+This seed enters only cadence calculation, never the HTTP request or identity storage.
+`updates::checker` connects these components on an IO worker: admission is committed before
+fetch, and validated completion is committed before returning a new trusted snapshot. Failed
+transport/rollback/clock results retain the prior cache and persist failure backoff; interrupted
+requests are counted once on restore. Busy check callers do not start another request. Interval
+changes commit immediately in a separate short SQLite transaction during HTTP, without canceling
+the request. Admission and completion mutate the latest record atomically, so a completed request
+cannot overwrite a newer interval and admission uses the interval already committed by Settings.
+The checker tests observe a child process exiting after durable admission without running Drop,
+then require successful lease reacquisition and exactly one interrupted-attempt failure. A pipe-EOF
+completion signal has a failure deadline; no elapsed sleep establishes process readiness.
+`updates::availability` projects only the installed target from a previously successful snapshot:
+no cache/success marker is never-checked, a missing target is not-published, and only a numerically
+newer target yields a package/source offer with a fixed official release page. Store methods remain
+unavailable until an approved pinned listing exists. Native adapters do not compare versions or
+construct destinations. `checker::read_state` reads the same bounded snapshot during an active
+request through a short read transaction, without starting HTTP or inventing empty state.
+`MobileClientUpdates` exposes metadata reads, immediate interval writes, the separate undismissed
+notice and durable exact-version actions through the common native bridge. Its action record
+contains committed state and an applied flag; native code neither compares versions nor infers
+success. Native HTTP/lifecycle wiring and UI/OS notice presentation remain planned.
+Clients stay disabled until live-feed verification and those integrations pass.
 
 The pure `updates::coordinator::Coordinator` now owns simultaneous-trigger admission and attempt
 completion for one installation. Its opaque ticket is consumed by completion; dropping it is
 reaped once as failure. A checkpoint records an in-flight request so restore applies interrupted
-request backoff, and clock rollback admits one catch-up without a retry loop. The future shared
-checker must persist checkpoints before HTTP and after completion, and must validate transport
-and feed/cache trust before recording `Completion::Validated`. This enum is not a native caller's
-assertion of trust. Durable storage, cross-process exclusion, checker integration, FFI and activation remain
-pending; these pure helpers perform no check or installation themselves.
+request backoff, and clock rollback admits one catch-up without a retry loop. The shared checker
+persists checkpoints before HTTP and after completion, and validates transport and feed/cache
+trust before recording `Completion::Validated`. This enum is not a native caller's assertion of trust.
+FFI and activation remain pending; the coordinator itself performs no IO or installation.
 
 ## Goal and boundary
 
@@ -104,7 +135,7 @@ pending. Offline parsing does not enable any check.
 ### Shared HTTPS transport checkpoint
 
 `updates::transport::Client` performs one blocking GET to the fixed endpoint, on an IO worker.
-The pinned `ureq` adapter enables only rustls with WebPKI roots, preserving certificate/SNI
+The pinned `ureq 3.5.1` adapter enables only rustls with WebPKI roots, preserving certificate/SNI
 verification without Android platform-verifier JNI initialization. Redirect following and proxy
 inheritance are disabled; no cookies or decompression feature is enabled. Its global network
 budget is 30 seconds. Streaming reads consume at most 64 KiB plus one size-probe byte before the
@@ -256,7 +287,21 @@ unsigned build an installable update.
 | `ios` | The CI IPA is unsigned and cannot be installed as published; no Apple Developer Program account exists. | `build-from-source` with the iOS self-signing manual. `store` requires an actual approved listing. |
 
 The Android publisher must also check a matching application ID, compatible
-signing certificate and increasing `versionCode`; otherwise installing the
+signing certificate and increasing `versionCode`. The SDK verification helper
+`tools/scripts/android-release-package.py` reads `apkanalyzer apk summary` and
+requires successful `apksigner verify` plus one signer matching a trusted public
+SHA-256 certificate pin. It rejects incompatible/non-increasing upgrades and
+permits an identical same-version replay. Inventory verification accepts the validated previous feed before comparing
+Android packages; previous APK bytes require their own exact-tag provenance.
+Candidate discovery and feed staging support the exact signed Android APK
+alongside Linux/Windows. Android admission also requires the trusted public
+certificate pin and the preceding verified Android APK for a newer publication;
+missing or incompatible evidence blocks staging without replacing the prior feed.
+The release gate reuses completed-success Android emulator and permission jobs
+from the same exact-tag/commit CI run as the original Apple acceptance. Missing,
+running, cancelled or failed native results cannot publish; no duplicate
+emulator or macOS jobs are launched by the release gate.
+Without these compatibility gates, installing the
 candidate can fail or require uninstalling the existing app, which loses data.
 [Android's update rules](https://developer.android.com/google/play/app-updates)
 specify these conditions. The current Apple manuals describe the unsigned
@@ -295,6 +340,14 @@ it past due schedules a check, lengthening it does not force one. The setting
 and dismissal state belong to the installation, not to an identity. While the
 feed or platform destination is unfinished, controls remain disabled with a
 specific explanation, as required by the [screen draft](v0.0.1-client-screens.md).
+Android reads installation metadata off the UI thread through the shared
+UniFFI object, independently of the active identity. Pending and failed reads
+show explicit status and no fabricated interval selection or successful-check
+date. Formatting a stored date uses the current locale and checked conversion
+from Unix seconds; this metadata read admits no HTTP request. The Settings
+status renders the core-derived current/package/source state and its exact
+version, rather than always claiming not-published. Unsupported store targets
+remain unavailable; an available state without its offer is a metadata error.
 
 On a newly discovered higher version, show one in-app notice with installed and
 available versions. While background execution succeeds, the app may also
@@ -325,6 +378,16 @@ The notice controls are **Open official release / Открыть официал�
 сборке**) and **Later / Позже**. Display release notes only on the fixed
 external page, not as untrusted HTML in the app. Background failures do not
 raise repetitive dialogs or OS alerts; manual checks explain the failure.
+The common snapshot stores per-target dismissal and OS-notification version
+marks. Actions name the exact displayed version, so stale completion cannot
+consume a newer offer. A native OS request is permitted only after an atomic
+first claim is committed; a crash after that commit may lose an OS alert, but
+leaves the in-app notice and Settings badge available. Native permission must
+be available before claiming. Missing notice fields in earlier valid snapshots
+default to no marks; malformed or regressing marks fail closed. The shared `notices::dismiss` and `notices::claim_notification` actions reread
+current state inside the short SQLite transaction and return acknowledgement
+only after commit, including while a separate HTTP lease is held. Native UI
+and OS integration remain separate from these shared persistence rules.
 
 ## Acceptance matrix
 

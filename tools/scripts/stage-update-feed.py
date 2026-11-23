@@ -7,7 +7,6 @@ Requires a checked-out tag and gh authentication. Does not deploy Pages.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from email.message import Message
 
 import types
@@ -88,10 +87,12 @@ def prior_feed(tag: str, opener: rc.Opener | None = None) -> object:
 def stage(
     tag: str,
     opener: rc.Opener | None = None,
-    inventory_fn: Callable[[str], rc.Inventory] = VERIFY.inventory,
+    inventory_fn: rc.InventoryFactory = VERIFY.inventory,
 ) -> rc.Feed:
-    inventory = inventory_fn(tag)
-    previous = prior_feed(tag, opener)
+    previous = BUILD.build(
+        {"schema": 1, "releases": []}, prior_feed(tag, opener)
+    )
+    inventory = inventory_fn(tag, previous=previous)
     return BUILD.build(inventory, previous)
 
 

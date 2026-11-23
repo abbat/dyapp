@@ -70,11 +70,16 @@ inventory accepted by the generator below.
 tag with GitHub CLI authentication. It fetches release metadata and exact
 client packages, verifies downloaded bytes against GitHub's digest and requires
 a build attestation pinned to the repository, release workflow, tag and commit.
-Only its output can become the trusted inventory below. The tagged release
-workflow runs `stage-update-feed.py` after publishing assets and uploads the
-validated JSON as the `stable-update-feed` workflow artifact; Pages deployment
-is still planned. Running the verifier locally requires a published tag and
-matching checkout.
+Only its output can become the trusted inventory below. Android verification
+also requires the validated preceding feed supplied by `stage-update-feed.py`,
+the independent `ANDROID_RELEASE_CERT_SHA256` pin and managed SDK tools. It
+checks application/version/signature and compares the preceding attested APK;
+direct invocation without prior context refuses Android inventory. The tagged
+release workflow reuses completed-success Apple and Android runtime checks
+from the same tag/commit, stages the feed after publishing assets, and uploads
+`stable-update-feed` plus the Pages artifact. The deployment job is wired;
+first live publication remains unverified. Running the verifier locally
+requires a published tag and matching checkout.
 
 `python3 tools/scripts/build-update-feed.py INVENTORY.json [PREVIOUS.json]`
 prints a deterministic schema 1 stable feed. The inventory is trusted release-CI
@@ -82,8 +87,8 @@ input, and the optional previous feed must already come from the fixed trusted
 origin. The script checks structure, asset names and digests, supported methods,
 version order and rollback; it does not fetch releases, verify attestations or
 publish Pages. See [client updates](../design/client-updates.md#offline-feed-generator-checkpoint)
-for the inventory contract and current platform limits. Release-CI integration
-is still planned.
+for the inventory contract and current platform limits. Release CI gates this
+output before Pages; source wiring is implemented, live acceptance remains open.
 
 ## What each script does
 

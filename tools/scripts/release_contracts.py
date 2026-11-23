@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 from contextlib import AbstractContextManager
+from pathlib import Path
 from re import Pattern
 from typing import NotRequired, Protocol, TypedDict
 from urllib.request import Request
@@ -62,6 +63,31 @@ class Package(TypedDict):
     size: int
 
 
+class AndroidPackage(TypedDict):
+    application_id: str
+    version_name: str
+    version_code: int
+    certificate_sha256: str
+
+
+class AndroidPackageModule(Protocol):
+    def metadata(
+        self,
+        apk: "Path",
+        expected_version: str,
+        certificate: str,
+        run: "CommandRunner",
+    ) -> AndroidPackage:
+        """Verify APK metadata and signature using managed SDK commands."""
+        ...
+
+    def verify_upgrade(
+        self, current: AndroidPackage, previous: AndroidPackage
+    ) -> None:
+        """Reject incompatible or non-increasing Android publications."""
+        ...
+
+
 class Candidates(TypedDict):
     schema: int
     tag: str
@@ -106,8 +132,14 @@ class FeedModule(Protocol):
         ...
 
 
+class InventoryFactory(Protocol):
+    def __call__(self, tag: str, *, previous: Feed) -> Inventory:
+        """Verify a publication against its validated previous feed."""
+        ...
+
+
 class InventoryModule(Protocol):
-    def inventory(self, tag: str) -> Inventory:
+    def inventory(self, tag: str, *, previous: Feed) -> Inventory:
         """Verify published packages and create feed input."""
         ...
 

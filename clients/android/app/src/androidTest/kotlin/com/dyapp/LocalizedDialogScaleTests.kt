@@ -1,7 +1,9 @@
 package com.dyapp
 
 import android.content.Context
+import android.content.MutableContextWrapper
 import android.content.res.Configuration
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.result.ActivityResultRegistryOwner
 import androidx.compose.material3.AlertDialog
@@ -20,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
@@ -28,15 +31,36 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.Density
 import androidx.test.platform.app.InstrumentationRegistry
+import com.dyapp.ui.theme.DYAppTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
 class LocalizedDialogScaleTests {
     @get:Rule
     val compose = createComposeRule()
+
+    @Test
+    fun theThemeAndAppearanceResolveTheActivityThroughTheRealLocalizedHost() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        compose.setContent {
+            val expected = checkNotNull(LocalActivity.current)
+            LocalizedTestContext(context, 2f) {
+                val actual = LocalActivity.current
+                val view = LocalView.current
+                SideEffect {
+                    assertSame(expected, actual)
+                    assertTrue(view.context is MutableContextWrapper)
+                    assertEquals(2f, view.resources.configuration.fontScale, 0f)
+                }
+                DYAppTheme { AppearanceCard() }
+            }
+        }
+        compose.awaitNode(hasTestTag("theme-dark"))
+    }
 
     @Test
     fun aBareCompositionOverrideCannotProvideDialogScaleEvidence() {
