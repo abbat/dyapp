@@ -261,6 +261,10 @@ JPEG, transfers its references and invokes the original review thumbnail binding
 separate enrollment, private-sync and revocation assertions. They do not substitute for full screen
 review or all recovery-policy branches.
 
+The owner approval dialog handles its own IME insets with an inset-aware window and `imePadding`;
+its fixed action row must remain above the real keyboard while the body scrolls. The real-IME test
+retains full glyph/action containment at each selection and the original per-transition deadlines.
+
 Android stale-callback checks capture the installed `applicationClickKey` action, rather than a
 Compose `SemanticsActions.OnClick` wrapper: modifier nodes may reuse that wrapper for a new opening
 or require attachment before invoking it. Identity durability acknowledgement uses that same exact

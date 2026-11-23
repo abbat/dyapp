@@ -3,6 +3,7 @@ package com.dyapp
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -19,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 
 @Composable
 internal fun LinkApprovalDialog(session: LinkApprovalSession, identity: String, dismiss: () -> Unit) {
@@ -31,7 +33,8 @@ internal fun LinkApprovalDialog(session: LinkApprovalSession, identity: String, 
     }
     AlertDialog(
         onDismissRequest = dismiss,
-        modifier = Modifier.testTag("owner-dialog"),
+        modifier = Modifier.imePadding().testTag("owner-dialog"),
+        properties = DialogProperties(decorFitsSystemWindows = false),
         title = { Text(stringResource(title)) },
         text = { LinkApprovalBody(session, view, identity, draft) },
         confirmButton = { LinkApprovalSubmit(session, view, draft.value) },
