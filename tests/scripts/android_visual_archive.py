@@ -57,6 +57,13 @@ VIEW_SCREENS = (
     "settings-views-error",
     "settings-views-stale",
 )
+UPDATE_SCREENS = (
+    "update-notice-package",
+    "update-notice-source",
+    "update-notice-saving",
+    "update-notice-write-error",
+    "update-notice-open-error",
+)
 MAX_BYTES = 512 * 1024 * 1024
 
 
@@ -79,19 +86,21 @@ def unpack(
 ) -> None:
     if archive.stat().st_size > MAX_BYTES:
         raise ValueError("Native visual archive exceeds its limit")
-    if kind not in ("visual", "ime", "receive", "views"):
+    if kind not in ("visual", "ime", "receive", "views", "updates"):
         raise ValueError("Unknown native evidence kind")
     folder = {
         "visual": "owner-approval-visual",
         "ime": "owner-approval-ime",
         "receive": "receive-visual",
         "views": "received-views-visual",
+        "updates": "update-notice-visual",
     }[kind]
     prefix = f"files/{folder}/{width}"
     folders = {"files", f"files/{folder}", prefix}
     screen = {
         "receive": r"link-[a-z-]+",
         "views": r"settings-views(?:-[a-z]+)?",
+        "updates": r"update-notice-[a-z-]+",
     }.get(kind, r"owner-[a-z-]+")
     suffix = r"[0-9]{1,4}" if kind == "ime" else r"(top|bottom)"
     pattern = re.compile(
@@ -279,7 +288,7 @@ def main() -> None:
     parser.add_argument("--source", required=True)
     parser.add_argument(
         "--kind",
-        choices=("visual", "ime", "receive", "views"),
+        choices=("visual", "ime", "receive", "views", "updates"),
         default="visual",
     )
     args = parser.parse_args()
@@ -289,9 +298,11 @@ def main() -> None:
     if args.kind == "ime":
         count = validate_ime(args.output, args.width, args.source)
     else:
-        screens = {"receive": RECEIVE_SCREENS, "views": VIEW_SCREENS}.get(
-            args.kind, SCREENS
-        )
+        screens = {
+            "receive": RECEIVE_SCREENS,
+            "views": VIEW_SCREENS,
+            "updates": UPDATE_SCREENS,
+        }.get(args.kind, SCREENS)
         count = validate(args.output, args.width, args.source, screens)
     print(f"OK native visual matrix: {count} frames")
 

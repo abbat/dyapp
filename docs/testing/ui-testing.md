@@ -80,6 +80,15 @@ separate. The bounded `android_visual_archive.py --kind views` validator require
 frames, exact producer SHA, locale/theme/font/outcome matrix, actual text-scale witnesses, matching
 PNG dimensions and the dedicated archive namespace. A matrix proves captured controlled rendering,
 not live private delivery, and still requires review of the frames.
+The independent `suite=updates` phase uses `UpdateNoticeVisualTests` with `updatesVisual=1`.
+It renders the production update dialog with controlled core records for package/source offers,
+pending dismissal, write failure and an actual controlled browser exception. Each width requires
+eighty EN/RU/theme/font/top-bottom frames under `files/update-notice-visual/<width>/`;
+`android_visual_archive.py --kind updates` enforces the exact source, inventory, real native
+text-scale witnesses and PNG/viewport dimensions. Geometry checks expose every text line through
+current semantic scroll viewports and require both actions to remain visible. Run it with an APK
+producer containing these fixtures; authored checks are not captured/reviewed evidence and do not
+prove native persistence, live publication, OS notifications or update activation.
 
 Native receiving completion checks retain a recovery review prepared before setup finishes:
 preparing another review after the pending link has been cleared is correctly refused. Publication
@@ -1425,7 +1434,8 @@ integrity and coverage, not the visual quality of the rendered screens or the re
 Run `gh workflow run android-visual.yml -f producer_run=RUN_ID` after that main CI run's Android
 build succeeds. The default `suite=standard` retains owner, receiving and IME coverage; pass
 `-f suite=comparison` for the separate complete-form matrix, using a producer that contains
-`LinkReviewVisualTests`. The two suites keep independent native archives and validations. Each width gets a fresh KVM emulator without host nodes or network peers. The workflow
+`LinkReviewVisualTests`. Use `-f suite=views` or `-f suite=updates` for their independent matrices.
+The suites keep independent native archives and validations. Each width gets a fresh KVM emulator without host nodes or network peers. The workflow
 checks out the exact producer for toolchain inputs and records the current trusted runner separately;
 it never rebuilds APKs. Live density determines the physical viewport, and instrumentation requires
 the requested dp width. The keyboard-disabled rendering phase has no submission retries. Always-run

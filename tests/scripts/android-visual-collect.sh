@@ -4,7 +4,7 @@ set -euo pipefail
 report=${1:?report directory}
 directory=${2:?remote capture directory}
 name=${3:?archive name}
-[[ $name == native || $name == ime || $name == receive || $name == comparison || $name == views ]]
+[[ $name == native || $name == ime || $name == receive || $name == comparison || $name == views || $name == updates ]]
 [[ $directory =~ ^files/[a-z-]+$ ]]
 diagnostic="$report/$name-collection-error.txt"
 remote="files/native-visual-export-$name.tar"

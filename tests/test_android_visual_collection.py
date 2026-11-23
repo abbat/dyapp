@@ -142,6 +142,20 @@ class AndroidVisualCollection(unittest.TestCase):
             self.calls()[0][-2], "files/native-visual-export-views.tar"
         )
 
+    def test_update_phase_uses_the_same_verified_transfer(self) -> None:
+        result = self.run_export(
+            "success", "files/update-notice-visual", "updates"
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            (self.report / "updates.tar").read_bytes(),
+            self.payload.read_bytes(),
+        )
+        self.assertEqual(self.calls()[0][-1], "files/update-notice-visual")
+        self.assertEqual(
+            self.calls()[0][-2], "files/native-visual-export-updates.tar"
+        )
+
     def test_unentered_phase_has_diagnostics_instead_of_a_fake_archive(
         self,
     ) -> None:

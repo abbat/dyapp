@@ -386,6 +386,8 @@ until Later (including Back) durably acknowledges it; a successful browser hando
 Open tap in that mounted dialog. A failed handoff stays visible and retryable. A pending write
 disables both actions, and write failure keeps the notice. Replacing or disposing the displayed
 offer retires its callbacks, so old UI events cannot open or dismiss a replacement notice.
+The dedicated Android `suite=updates` native visual matrix covers five notice outcomes with
+source-bound metadata; actual capture and frame review remain required for acceptance.
 Background failures do not
 raise repetitive dialogs or OS alerts; manual checks explain the failure.
 The common snapshot stores per-target dismissal and OS-notification version

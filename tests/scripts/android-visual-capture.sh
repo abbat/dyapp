@@ -5,10 +5,11 @@ bash /runner/tests/scripts/check-container-isolation.sh
 width=${DYAPP_VISUAL_WIDTH:?}
 source_sha=${DYAPP_VISUAL_SOURCE:?}
 suite=${DYAPP_VISUAL_SUITE:-standard}
-[[ $suite == standard || $suite == comparison || $suite == views ]]
+[[ $suite == standard || $suite == comparison || $suite == views || $suite == updates ]]
 visual_archives=(native:files/owner-approval-visual ime:files/owner-approval-ime receive:files/receive-visual)
 if [[ $suite == comparison ]]; then visual_archives=(comparison:files/comparison-visual); fi
 if [[ $suite == views ]]; then visual_archives=(views:files/received-views-visual); fi
+if [[ $suite == updates ]]; then visual_archives=(updates:files/update-notice-visual); fi
 [[ $width == 360 || $width == 412 ]]
 [[ $source_sha =~ ^[0-9a-f]{40}$ ]]
 report=/reports/$width
@@ -43,13 +44,15 @@ timeout 30 adb -s emulator-5554 shell wm size > "$report/size-after.txt"
 timeout 30 adb -s emulator-5554 shell input keyevent KEYCODE_WAKEUP
 timeout 30 adb -s emulator-5554 shell wm dismiss-keyguard
 timeout 30 adb -s emulator-5554 shell ime disable com.android.inputmethod.latin/.LatinIME
-if [[ $suite == views ]]; then
+if [[ $suite == views || $suite == updates ]]; then
+    visual_argument=viewsVisual visual_class=ReceivedViewsVisualTests
+    if [[ $suite == updates ]]; then visual_argument=updatesVisual visual_class=UpdateNoticeVisualTests; fi
     python3 /runner/tests/scripts/android_instrumentation.py \
-        --report "$report/views-instrumentation.txt" --deadline 900 --phase-callbacks -- \
+        --report "$report/$suite-instrumentation.txt" --deadline 900 --phase-callbacks -- \
         adb -s emulator-5554 shell am instrument -w -r \
-        -e viewsVisual 1 -e sourceSha "$source_sha" -e expectedWidth "$width" \
-        -e class com.dyapp.ReceivedViewsVisualTests com.dyapp.test/androidx.test.runner.AndroidJUnitRunner
-    python3 /runner/tests/scripts/check-instrumentation-results.py "$report/views-instrumentation.txt" 1
+        -e "$visual_argument" 1 -e sourceSha "$source_sha" -e expectedWidth "$width" \
+        -e class "com.dyapp.$visual_class" com.dyapp.test/androidx.test.runner.AndroidJUnitRunner
+    python3 /runner/tests/scripts/check-instrumentation-results.py "$report/$suite-instrumentation.txt" 1
     exit 0
 fi
 if [[ $suite == comparison ]]; then
