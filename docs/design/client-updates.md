@@ -62,7 +62,8 @@ reaped once as failure. A checkpoint records an in-flight request so restore app
 request backoff, and clock rollback admits one catch-up without a retry loop. The shared checker
 persists checkpoints before HTTP and after completion, and validates transport and feed/cache
 trust before recording `Completion::Validated`. This enum is not a native caller's assertion of trust.
-Native HTTP entry points and activation remain pending; the coordinator itself performs no IO or installation.
+The shared native bridge exposes an explicit checker entry point; platform lifecycle wiring and
+activation remain pending. The coordinator itself performs no IO or installation.
 
 ## Goal and boundary
 
@@ -144,7 +145,8 @@ installed version is current. It authenticates neither hosting origin nor
 publisher, and a store method still needs a separately verified pinned listing.
 The fixed transport enforces origin and response bounds; actual source-bound HTTPS acceptance
 is still required. The shared checker supplies persisted rollback/cadence state and the native
-bridge exposes metadata/actions; HTTP/lifecycle exports and activation remain pending.
+bridge exposes metadata/actions and the explicit checker operation. No current client lifecycle or
+control invokes that operation; activation remains pending.
 Offline parsing does not enable any check.
 
 ### Shared HTTPS transport checkpoint
