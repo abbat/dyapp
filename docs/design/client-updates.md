@@ -51,7 +51,9 @@ only: the badge remains while core still offers that version, independently of t
 The badge exposes the available version through localized accessibility text; Kotlin does not
 compare versions or derive a separate update policy.
 The native bridge exposes an explicit checker operation with distinct Busy/NotDue/Validated/Failed
-results; no current Android lifecycle or control invokes it. Client activation/HTTP lifecycle wiring
+results. Each result carries the documented committed or retained metadata; failure details are
+plain diagnostics, never an actionable URL or proof of success. No current Android lifecycle or
+control invokes it. Client activation/HTTP lifecycle wiring
 remains planned. Android can request cached OS notices through its
 existing mail worker; fresh native runtime verification is still pending. Update check controls
 stay disabled until live-feed verification and the remaining integrations pass.

@@ -29,9 +29,15 @@ impl From<MobileUpdateTrigger> for core::Trigger {
 #[derive(Clone, Debug, Eq, PartialEq, uniffi::Enum)]
 pub enum MobileUpdateCheckFailure {
     /// Request, response or feed parsing failed; details are diagnostic text, not markup or a URL action.
-    Transport { details: String },
+    Transport {
+        /// Diagnostic request, response or feed-parsing failure; never an actionable destination.
+        details: String,
+    },
     /// Shared snapshot validation rejected the candidate.
-    Rejected { details: String },
+    Rejected {
+        /// Reason the shared core rejected the candidate snapshot.
+        details: String,
+    },
     /// Completion time was unavailable.
     Clock,
 }
@@ -42,12 +48,20 @@ pub enum MobileUpdateCheck {
     /// Another caller owns the independent update lease; no request was started here.
     Busy,
     /// Cadence refused a request; this is existing metadata, not a successful new check.
-    NotDue { state: MobileUpdateState },
+    NotDue {
+        /// Retained installation metadata when cadence admits no new request.
+        state: MobileUpdateState,
+    },
     /// Validated completion was committed by shared core.
-    Validated { state: MobileUpdateState },
+    Validated {
+        /// Installation metadata after the validated completion was committed.
+        state: MobileUpdateState,
+    },
     /// Failed completion/backoff was committed while preserving earlier trusted metadata.
     Failed {
+        /// Retained trusted metadata and the committed failure/backoff checkpoint.
         state: MobileUpdateState,
+        /// Failure of this attempt, independent of any retained offer.
         failure: MobileUpdateCheckFailure,
     },
 }
