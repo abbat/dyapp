@@ -1,16 +1,28 @@
 """Require source-bound update notices at every native visual configuration."""
 
-from itertools import product
 import json
-from pathlib import Path
 import re
 import tarfile
 import tempfile
+from itertools import product
+from pathlib import Path
 from unittest import TestCase, main
 
 from test_android_visual_archive import ARCHIVE, PNG, SOURCE, add
 
 ROOT = Path(__file__).resolve().parents[1]
+EXPECTED_SCREENS = (
+    "update-notice-package",
+    "update-notice-source",
+    "update-notice-saving",
+    "update-notice-write-error",
+    "update-notice-open-error",
+    "update-notice-permission-allowed",
+    "update-notice-permission-blocked",
+    "update-notice-permission-pending",
+    "update-notice-permission-failed",
+    "update-notice-permission-unknown",
+)
 
 
 class AndroidUpdateVisualArchive(TestCase):
@@ -27,7 +39,7 @@ class AndroidUpdateVisualArchive(TestCase):
         prefix = f"files/update-notice-visual/{width}"
         with tarfile.open(source, "w") as archive:
             for screen, language, theme, font, edge in product(
-                ARCHIVE.UPDATE_SCREENS,
+                EXPECTED_SCREENS,
                 ("en", "ru"),
                 ("light", "dark"),
                 (100, 200),
@@ -69,8 +81,8 @@ class AndroidUpdateVisualArchive(TestCase):
             / "UpdateNoticeVisualHost.kt"
         ).read_text()
         screens = set(re.findall(r'"(update-notice-[a-z-]+)"', native))
-        self.assertEqual(screens, set(ARCHIVE.UPDATE_SCREENS))
-        self.assertEqual(len(screens), 5)
+        self.assertEqual(screens, set(EXPECTED_SCREENS))
+        self.assertEqual(set(ARCHIVE.UPDATE_SCREENS), set(EXPECTED_SCREENS))
         for width in (360, 412):
             with self.subTest(width=width):
                 source = self.matrix(width)
@@ -80,7 +92,7 @@ class AndroidUpdateVisualArchive(TestCase):
                     ARCHIVE.validate(
                         output, width, SOURCE, ARCHIVE.UPDATE_SCREENS
                     ),
-                    80,
+                    len(EXPECTED_SCREENS) * 2 * 2 * 2 * 2,
                 )
                 manifest = output / "manifest.json"
                 original = json.loads(manifest.read_text())

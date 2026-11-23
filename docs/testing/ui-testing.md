@@ -103,7 +103,8 @@ outcomes use the real ActivityResult registration with a controlled registry; no
 are opened. Each width requires 160 EN/RU/theme/font/top-bottom frames under
 `files/update-notice-visual/<width>/`;
 `android_visual_archive.py --kind updates` enforces the exact source, inventory, real native
-text-scale witnesses and PNG/viewport dimensions. Geometry checks expose every text line through
+text-scale witnesses and PNG/viewport dimensions. Its regression independently enumerates all ten
+native dialog/permission states and rejects incomplete manifests at both widths. Geometry checks expose every text line through
 current semantic scroll viewports and require both actions to remain visible. Run it with an APK
 producer containing these fixtures; authored checks are not captured/reviewed evidence and do not
 prove native persistence, live publication, OS notifications or update activation.
