@@ -5,6 +5,7 @@ pub mod availability;
 pub mod checker;
 pub mod coordinator;
 pub mod feed;
+pub mod notices;
 pub mod snapshot;
 pub mod storage;
 pub mod transport;

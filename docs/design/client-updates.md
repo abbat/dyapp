@@ -365,8 +365,10 @@ consume a newer offer. A native OS request is permitted only after an atomic
 first claim is committed; a crash after that commit may lose an OS alert, but
 leaves the in-app notice and Settings badge available. Native permission must
 be available before claiming. Missing notice fields in earlier valid snapshots
-default to no marks; malformed or regressing marks fail closed. Native action
-integration remains separate from these shared policy and persistence rules.
+default to no marks; malformed or regressing marks fail closed. The shared `notices::dismiss` and `notices::claim_notification` actions reread
+current state inside the short SQLite transaction and return acknowledgement
+only after commit, including while a separate HTTP lease is held. Native UI
+and OS integration remain separate from these shared persistence rules.
 
 ## Acceptance matrix
 

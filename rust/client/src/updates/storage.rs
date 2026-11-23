@@ -106,14 +106,21 @@ pub(super) fn change_interval(root: &Path, interval: super::Interval) -> Result<
         snapshot.set_checkpoint(checkpoint);
         Ok(())
     };
-    let changed = if let Some(mut state) = LockedState::try_open(root)? {
-        state.update(change)?
+    Ok(change_state(root, change)?.0)
+}
+
+// Pure policy only; hold the short transaction through validation and the durable commit.
+pub(super) fn change_state<T>(
+    root: &Path,
+    change: impl FnOnce(&mut Snapshot) -> Result<T, Error>,
+) -> Result<(Snapshot, T), Error> {
+    if let Some(mut state) = LockedState::try_open(root)? {
+        state.update(change)
     } else {
         // A running request owns the OS lease, but holds no SQLite transaction during HTTP.
         let mut connection = existing_connection(root)?;
-        mutate(&mut connection, change)?
-    };
-    Ok(changed.0)
+        mutate(&mut connection, change)
+    }
 }
 
 pub(super) fn read_state(root: &Path) -> Result<Snapshot, Error> {
