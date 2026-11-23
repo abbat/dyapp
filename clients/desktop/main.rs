@@ -845,6 +845,7 @@ const GENERATED_COMMAND_HANDLER: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = ta
     chat_photos::cache::media_cache,
     chat_photos::cache::set_media_cache,
     chat_photos::cache::clear_media_cache,
+    chat_photos::cache::change_media_cache,
     chats::commands::send_chat_text,
     chats::forward::forward_chat_text,
     chats::send_photo::send_chat_photo,

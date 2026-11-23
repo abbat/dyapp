@@ -59,6 +59,10 @@
  * @typedef {'byNetwork' | 'always' | 'onTap'} AutoDownloadMode
  * @typedef {{ enabled: boolean, limitBytes: number, usedBytes: number, minBytes: number,
  *   maxBytes: number }} MediaCache
+ * @typedef {{ kind: 'retention', enabled: boolean } | { kind: 'budget', mib: string } |
+ *   { kind: 'clear' }} MediaCacheEdit
+ * @typedef {MediaCache & { limitMib: string, minMib: string, maxMib: string,
+ *   confirmationRequired: boolean }} MediaCacheDecision
  * @typedef {{ id: number[], bytes: number, name: string | null, stickers: number | null,
  *   error: string | null }} StickerPack
  * @typedef {{ entries: StickerPack[], next: number[] | null, usedBytes: number,
@@ -193,6 +197,7 @@
  *   media_cache: Command<[{ identityId: string }], MediaCache>,
  *   set_media_cache: Command<[{ identityId: string, enabled: boolean, limitBytes: number }], MediaCache>,
  *   clear_media_cache: Command<[{ identityId: string }], MediaCache>,
+ *   change_media_cache: Command<[{ identityId: string, change: MediaCacheEdit, confirmed: boolean }], MediaCacheDecision>,
  *   remove_saved_sticker_pack: Command<[{ identityId: string, packId: number[] }], boolean>,
  *   import_sticker_pack: Command<[{ identityId: string, bytes: number[] }], number[]>,
  *   saved_sticker_packs: Command<[{ identityId: string, after?: number[] | null }], StickerPacks>,

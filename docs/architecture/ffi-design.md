@@ -115,6 +115,10 @@ warning if required, and only resubmit that owner-bound intent after explicit co
 The original byte-based exports remain available. Android Photos uses these targeted exports for
 retention, numeric MiB input, usage, refresh and confirmed clear. Its presentation stores raw input
 and an owner-bound pending intent; it does not parse budgets or decide whether changes erase data.
+Tauri additionally exposes `change_media_cache(identity_id, change, confirmed)` and exact MiB
+strings on cache snapshots. The command holds the shared session guard through core admission,
+mutation and measured readback; `invalidLimit` remains distinct from uncertain storage failures.
+The web-form cutover and retirement of its old whole-snapshot commands are still planned.
 Native compilation, runtime and visual acceptance are tracked separately.
 
 > ⚠️ **Prototype.** This page is the single source of truth for the Rust ↔ native
