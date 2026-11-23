@@ -196,7 +196,11 @@ The IDs inside each section are the desktop ones; only the frame differs.
   `search-recovery-owner`, explains `search-recovery-status` and offers the explicit
   `search-recovery-action` or `search-recovery-cancel`. Opening/cancelling never signs; retries
   deliver only already-confirmed core records. Closing a committed result cannot cancel delivery.
-  Native presentation remains planned until its implementation and source-bound acceptance.
+  Native Android now prepares an original-owner FFI review beside the existing editor, preserving
+  unsaved fields. Explicit confirmation alone queues withdrawal; retries deliver only that confirmed
+  record. Retiring an opening releases its handle after admitted IO completes. Native pending state
+  gives no unsupported-server diagnosis: only the core's queued/acknowledged result is shown.
+  Source-bound native runtime and geometry acceptance remain pending.
 - Network, `network`, `network-checking` and `network-error`: `network-name-field`,
   `network-seeds`, `seed-rows`, `check-and-connect`, `cancel-check`, `network-error-details`.
   One action checks and, when a node answered, activates; a failed or cancelled check keeps the

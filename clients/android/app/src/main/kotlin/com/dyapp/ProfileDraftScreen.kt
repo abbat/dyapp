@@ -74,6 +74,7 @@ private fun ProfileDraftForm(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         HideCard(opened, visibility, editor.unsaved)
+        SearchRecoveryCard(opened, visibility)
         key(editor) { PhotosCard(opened) }
         BasicsCard(basics, editor.values, editor.birth, editor.name)
         PlaceCard(editor.place)

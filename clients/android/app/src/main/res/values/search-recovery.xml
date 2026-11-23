@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_recovery_title">Restore search hiding</string>
+    <string name="search_recovery_review">The old hiding request needs your confirmation. Your private profile edits and device access stay unchanged.</string>
+    <string name="search_recovery_busy">Processing the hiding request…</string>
+    <string name="search_recovery_pending">The hiding request is saved and waiting for delivery.</string>
+    <string name="search_recovery_sent">Delivery of the hiding request is confirmed. Other nodes may still hold an older search entry.</string>
+    <string name="search_recovery_error">The operation could not be confirmed. Your saved data is retained.</string>
+    <string name="search_recovery_confirm">Confirm hiding</string>
+    <string name="search_recovery_close">Close</string>
+    <string name="search_recovery_retry">Retry delivery</string>
+    <string name="search_recovery_refresh">Read current state</string>
+</resources>

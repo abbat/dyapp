@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_recovery_title">Восстановить скрытие из поиска</string>
+    <string name="search_recovery_review">Старый запрос скрытия требует вашего подтверждения. Личные правки анкеты и доступ устройств сохранятся.</string>
+    <string name="search_recovery_busy">Обработка запроса скрытия…</string>
+    <string name="search_recovery_pending">Запрос скрытия сохранён и ожидает отправки.</string>
+    <string name="search_recovery_sent">Доставка запроса скрытия подтверждена. На других узлах ещё может оставаться старая запись поиска.</string>
+    <string name="search_recovery_error">Не удалось подтвердить выполнение. Сохранённые данные остались на месте.</string>
+    <string name="search_recovery_confirm">Подтвердить скрытие</string>
+    <string name="search_recovery_close">Закрыть</string>
+    <string name="search_recovery_retry">Повторить отправку</string>
+    <string name="search_recovery_refresh">Прочитать текущее состояние</string>
+</resources>
