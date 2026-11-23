@@ -20,6 +20,7 @@ import { controller as profilePhotosController } from './profile-photos.js';
 import { showSeeking, profileFormValid } from './profile-seeking.js';
 import { publicFacts, publicFields } from './profile-public.js';
 import { controller as searchController } from './search.js';
+import { openSearchRecovery } from './search-recovery-host.js';
 import { controller as settingsController } from './settings.js';
 import { progress } from './ui-progress.js';
 export const controller = {};
@@ -357,6 +358,7 @@ const showArea = (area) => {
   setMenu(false);
   // The page scrolls as a whole, so a new area would open at the old area's offset.
   window.scrollTo(0, 0);
+  if (area === 'profile-area') openSearchRecovery(profileRecoveryMetadata);
   if (area === 'settings') controller.settingsShown = settingsController.showSettings();
   if (area === 'chats-area') progress.chatsDone = chatsUiController.showChats();
 };
@@ -521,6 +523,11 @@ const showSearchWait = (view, send = sendSearchProfile) => {
     },
     (minutes || 1) * 60_000,
   );
+};
+/** @param {profileFieldsModule.ProfileView} view */
+const profileRecoveryMetadata = (view) => {
+  showSearchWait(view);
+  showHidden(view);
 };
 const showProfile = async (call = invoke) => {
   const generation = identityState.generation;

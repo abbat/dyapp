@@ -202,6 +202,7 @@
         </div>
       </div>
       <div class="notice warn" id="profile-hidden-notice" data-on="profile-hidden" data-t="profile.hidden.notice"></div>
+      <section id="profile-search-recovery" data-on="profile-recovery-review profile-recovery-busy profile-recovery-pending profile-recovery-sent profile-recovery-read-error profile-recovery-confirm-error profile-recovery-retry-error profile-recovery-stale profile-recovery-review-required profile-recovery-link-pending profile-recovery-version-exhausted profile-recovery-wrong-owner" hidden></section>
       <div class="card">
         <h2 data-t="profile.photos"></h2>
         <div id="profile-photos" class="photo-grid">
@@ -948,7 +949,7 @@ const t = lang === 'en-XA'
 window.strings = t;
 const shownScreen = screen === 'chat-draft' || screen.startsWith('sticker-picker-')
   || screen.startsWith('chat-sticker-') ? 'chat'
-  : screen === 'profile-goal-dialog' ? 'profile' : screen;
+  : screen.startsWith('profile-recovery-') ? 'profile-hidden' : screen === 'profile-goal-dialog' ? 'profile' : screen;
 const has = (el, name) => el.dataset[name].split(' ').some((state) => state === shownScreen || state === screen);
 document.documentElement.lang = lang;
 document.documentElement.dataset.screen = screen;
@@ -989,6 +990,7 @@ installIdentifiers(window.strings);
 </script>
 <script type="module" src="profile-choice-fixture.js"></script>
 <script type="module" src="forward-state.js"></script>
+<script>window.searchRecoveryReady = import('./search-recovery-fixture.js').then(m => m.showSearchRecoveryFixture());</script>
 <script type="module">
 import { installCollections } from './collection-fixture.js';
 installCollections(window.strings);

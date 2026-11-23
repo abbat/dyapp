@@ -889,7 +889,9 @@ then delegates the local commit to core. Idle handles retain no keys, sessions o
 Tauri recovery commands likewise retain opaque original-owner/directory/generation handles and
 return structured errors with a `kind`: `closed`, `changed`, `reviewRequired`, `linkPending`,
 `versionExhausted`, `wrongOwner`, or `failed` with a diagnostic `reason`. Presentation must use
-these kinds rather than parse backend text; the desktop recovery screen remains planned.
+these kinds rather than parse backend text. The desktop inline recovery card prepares read-only,
+requires explicit confirmation and retries only the retained receipt; leaving the original screen
+retires its presentation opening. Completion refreshes status metadata without refilling raw inputs.
 `dismiss` invalidates the shared review; generated object disposal only releases its wrapper.
 `SearchRecoverySaved` reports the shared core's consistent local draft/visibility/search-pending
 snapshot. Confirmation only queues bytes and captures a public signed receipt after the commit.

@@ -171,6 +171,7 @@ published and a notice explains how to return. `profile-dark`: the same screen i
 | Status | `profile-status` | Draft, published with version, or hidden |
 | Hide from search | `profile-hidden` | Switch |
 | Hidden notice | `profile-hidden-notice` | Only while hidden |
+| Legacy Hide recovery | `profile-search-recovery` | Read-only preparation; explicit confirmation and retry of the original receipt |
 | Photos | `profile-photos` | Up to six tiles, the first marked main; Move left, Move right and Remove on each, with no move past an end |
 | Add photo | `profile-photo-add` | Disabled at six; `profile-photo-limit` then replaces `profile-photo-hint` |
 | Public name | `profile-name` | Optional, at most 64 characters, no hidden symbols |
@@ -182,6 +183,16 @@ published and a notice explains how to return. `profile-dark`: the same screen i
 | More about you | `profile-more` | Collapsed optional fields |
 | Save draft | `profile-save` | |
 | Preview and publish | `profile-publish` | Primary; opens the dialog |
+
+The inline recovery card appears only for a recoverable legacy Hide or a preparation failure.
+It shows the original full Peer ID, a separate Copy action and explicit confirmation before signing.
+Pending delivery retains that confirmed receipt for Retry; typed refusals require reading current
+state again. Closing, leaving Profile, changing identity or hiding the document retires the opening.
+Completion updates status metadata without refilling unsaved draft inputs. Prototype states use the
+following names: `profile-recovery-review`, `profile-recovery-busy`, `profile-recovery-pending`,
+`profile-recovery-sent`, `profile-recovery-read-error`, `profile-recovery-confirm-error`,
+`profile-recovery-retry-error`, `profile-recovery-stale`, `profile-recovery-review-required`,
+`profile-recovery-link-pending`, `profile-recovery-version-exhausted` and `profile-recovery-wrong-owner`.
 
 `profile-goal-dialog` captures the open native choice dialog, `profile-goal-picker`.
 It lists the core's six relationship goals plus unset, shows the current choice and has Cancel

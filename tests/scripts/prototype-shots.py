@@ -278,6 +278,18 @@ DESKTOP = [
     "profile",
     "profile-goal-dialog",
     "profile-hidden",
+    "profile-recovery-review",
+    "profile-recovery-busy",
+    "profile-recovery-pending",
+    "profile-recovery-sent",
+    "profile-recovery-read-error",
+    "profile-recovery-confirm-error",
+    "profile-recovery-retry-error",
+    "profile-recovery-stale",
+    "profile-recovery-review-required",
+    "profile-recovery-link-pending",
+    "profile-recovery-version-exhausted",
+    "profile-recovery-wrong-owner",
     "profile-dark",
     "publish-dialog",
     "photo-remove-dialog",
@@ -532,9 +544,14 @@ READY_MEASURE = (
     """
 let timer;
 try {
+  const recovery = document.documentElement.dataset.screen
+    ?.startsWith('profile-recovery-');
+  if (recovery && !window.searchRecoveryReady)
+    throw new Error('search recovery fixture is not admitted');
   await Promise.race([
-    document.fonts.ready.then(() => new Promise(resolve =>
-      requestAnimationFrame(() => requestAnimationFrame(resolve)))),
+    Promise.all([document.fonts.ready, window.searchRecoveryReady])
+      .then(() => new Promise(resolve =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)))),
     new Promise((_, reject) => {
       timer = setTimeout(() => reject(new Error('layout readiness deadline')),
                          30000);

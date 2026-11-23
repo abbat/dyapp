@@ -77,6 +77,7 @@ class CheckOutput(unittest.TestCase):
         for name in (
             "web-profile-view-fixtures",
             "web-received-view-fixtures",
+            "web-search-recovery-fixtures",
         ):
             with (
                 self.subTest(name=name),

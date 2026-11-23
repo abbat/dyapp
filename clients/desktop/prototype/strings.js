@@ -2,6 +2,37 @@
 // biome-ignore lint/correctness/noUnusedVariables: a global read by the inline script of index.html
 const STRINGS = {
   en: {
+    'searchRecovery.title': 'Restore search hiding',
+    'searchRecovery.owner': 'Profile',
+    'searchRecovery.review':
+      'Reauthorize the saved request to hide this profile from search. Local data stays.',
+    'searchRecovery.reading': 'Reading the current search hiding request…',
+    'searchRecovery.saving': 'Saving search hiding…',
+    'searchRecovery.sending': 'Delivering search hiding…',
+    'searchRecovery.pending':
+      'Search hiding is saved and waiting for delivery. This does not prove removal from every search node.',
+    'searchRecovery.sent':
+      'Search hiding was delivered. Other nodes may still retain an older entry.',
+    'searchRecovery.none': 'No search hiding request needs recovery.',
+    'searchRecovery.failure.failed':
+      'The operation could not be confirmed. Your saved data is retained.',
+    'searchRecovery.failure.closed':
+      'This review changed. Read the current state before confirming again.',
+    'searchRecovery.failure.changed':
+      'This review changed. Read the current state before confirming again.',
+    'searchRecovery.failure.reviewRequired':
+      'Profile visibility needs review. Check the draft before publishing or hiding again.',
+    'searchRecovery.failure.linkPending':
+      'Complete setup of this linked device before restoring search hiding. Saved data is retained.',
+    'searchRecovery.failure.versionExhausted':
+      'Recovery cannot advance this profile version. Saved data is retained.',
+    'searchRecovery.failure.wrongOwner':
+      'The profile credentials changed. Reopen the intended profile before reviewing this request.',
+    'searchRecovery.confirm': 'Confirm search hiding',
+    'searchRecovery.retry': 'Retry delivery',
+    'searchRecovery.refresh': 'Read current state',
+    'searchRecovery.close': 'Close',
+    'action.copied': 'Copied',
     'views.title': 'Viewed you',
     'views.hint': 'Latest received viewing day (UTC). This local list does not send views.',
     'views.error': 'Could not read received views. Refresh to try again.',
@@ -458,6 +489,37 @@ const STRINGS = {
       'Its chats, matches and likes on this computer are deleted with it. Other identities stay.',
   },
   ru: {
+    'searchRecovery.title': 'Восстановить скрытие из поиска',
+    'searchRecovery.owner': 'Профиль',
+    'searchRecovery.review':
+      'Подтвердите сохранённый запрос на скрытие этого профиля из поиска. Локальные данные останутся.',
+    'searchRecovery.reading': 'Читаем текущий запрос на скрытие из поиска…',
+    'searchRecovery.saving': 'Сохраняем скрытие из поиска…',
+    'searchRecovery.sending': 'Отправляем скрытие из поиска…',
+    'searchRecovery.pending':
+      'Скрытие из поиска сохранено и ожидает отправки. Это не подтверждает удаление со всех поисковых узлов.',
+    'searchRecovery.sent':
+      'Скрытие из поиска отправлено. На других узлах ещё может сохраняться прежняя запись.',
+    'searchRecovery.none': 'Запросов на скрытие из поиска, требующих восстановления, нет.',
+    'searchRecovery.failure.failed':
+      'Не удалось подтвердить выполнение. Сохранённые данные остались на месте.',
+    'searchRecovery.failure.closed':
+      'Состояние изменилось. Прочитайте его заново перед новым подтверждением.',
+    'searchRecovery.failure.changed':
+      'Состояние изменилось. Прочитайте его заново перед новым подтверждением.',
+    'searchRecovery.failure.reviewRequired':
+      'Видимость анкеты требует проверки. Проверьте черновик перед новой публикацией или скрытием.',
+    'searchRecovery.failure.linkPending':
+      'Сначала завершите настройку этого связанного устройства, затем восстановите скрытие. Сохранённые данные остались на месте.',
+    'searchRecovery.failure.versionExhausted':
+      'Для восстановления нельзя повысить версию этой анкеты. Сохранённые данные остались на месте.',
+    'searchRecovery.failure.wrongOwner':
+      'Ключи профиля изменились. Заново откройте нужный профиль перед проверкой этого запроса.',
+    'searchRecovery.confirm': 'Подтвердить скрытие',
+    'searchRecovery.retry': 'Повторить отправку',
+    'searchRecovery.refresh': 'Прочитать текущее состояние',
+    'searchRecovery.close': 'Закрыть',
+    'action.copied': 'Скопировано',
     'views.title': 'Просмотры вашей анкеты',
     'views.hint':
       'Последний полученный день просмотра (UTC). Этот локальный список не отправляет просмотры.',

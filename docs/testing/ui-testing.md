@@ -88,6 +88,10 @@ controller with explicitly released promises: core page/cursor pass-through, pen
 refresh failure retention, query replacement and retired completions. The CI web entrypoint invokes both Node fixture suites through the mapped quiet runner with the
 explicit spec reporter; real assertion-failure controls verify test names, source and errors survive.
 The controller owns UI request lifetime only; the shared Rust pager retains filtering, counts and cursor policy.
+`node --test tools/web-lint/search-recovery-fixtures.mjs` checks search recovery request lifetime:
+explicit-only confirmation, immutable review tokens, retained confirmed receipts, typed refusal refresh
+and retirement during preparation, confirmation or rendering. The mapped `web-search-recovery-fixtures`
+CI check retains assertion diagnostics; signing and delivery authorization remain in Rust.
 The native smoke bridge regression checks every direct `appBindings`/`appApi` reference against
 its declared getter/setter namespace before building a webview; runtime checks still prove behavior.
 The Tauri received-view smoke drives the actual Privacy pane: read-only loading, unchanged native

@@ -86,5 +86,79 @@
       card.remove();
     }
   };
-  smoke.uiSmokeProfileViews = { checkProfileViews, checkHiddenProfileView };
+  const checkRecovery = (condition, reason) => {
+    if (!condition) throw new Error(reason);
+  };
+  const recoveryCardFixture = async () => {
+    const { searchRecoveryCard } = await import(
+      new URL('search-recovery.js', document.baseURI).href
+    );
+    const root = document.createElement('section');
+    root.id = 'search-recovery-smoke';
+    document.getElementById('profile-area').append(root);
+    const pending = smoke.pendingSmokeCall();
+    const calls = [];
+    let completed;
+    const completion = new Promise((resolve) => {
+      completed = resolve;
+    });
+    const saved = { version: 8, hidden: true, searchPending: true };
+    const call = (command, args) => {
+      calls.push([command, args]);
+      if (command === 'prepare_search_recovery') return Promise.resolve('original-review');
+      if (command === 'confirm_search_recovery') return pending.call();
+      return Promise.resolve();
+    };
+    const card = searchRecoveryCard(
+      root,
+      '9'.repeat(64),
+      call,
+      () => true,
+      appApi.strings,
+      completed,
+    );
+    return { card, root, calls, pending, saved, completion };
+  };
+  const checkSearchRecoveryCard = async () => {
+    await openArea('profile-area');
+    const { card, root, calls, pending, saved, completion } = await recoveryCardFixture();
+    const input = document.getElementById('profile-name');
+    const previous = input.value;
+    input.value = 'unsaved recovery draft';
+    try {
+      await card.prepare();
+      const action = root.querySelector('#search-recovery-smoke-action');
+      checkRecovery(
+        calls.length === 1 && action.textContent === appApi.strings['searchRecovery.confirm'],
+        'Recovery signed without consent or lost its localized confirmation',
+      );
+      action.click();
+      await smoke.waitForSignal('recovery confirmation entry', pending.started);
+      action.click();
+      if (calls.length !== 2) throw new Error('Busy recovery admitted a duplicate confirmation');
+      pending.resolve(saved);
+      await smoke.waitForSignal('recovery confirmed receipt rendered', completion);
+      if (card.model.state.saved !== saved || input.value !== 'unsaved recovery draft')
+        throw new Error('Recovery lost its receipt or overwrote unsaved profile input');
+      if (action.textContent !== appApi.strings['searchRecovery.retry'])
+        throw new Error('Confirmed pending recovery did not offer delivery retry');
+      const captured = action.onclick;
+      root.hidden = true;
+      captured();
+      if (calls.length !== 2) throw new Error('Hidden recovery admitted a captured retry');
+      await card.retire();
+      captured();
+      if (calls.length !== 3 || calls[2][1].token !== 'original-review')
+        throw new Error('Recovery retirement did not release only its original token');
+    } finally {
+      await card.retire();
+      input.value = previous;
+      root.remove();
+    }
+  };
+  smoke.uiSmokeProfileViews = {
+    checkProfileViews,
+    checkHiddenProfileView,
+    checkSearchRecoveryCard,
+  };
 })();
