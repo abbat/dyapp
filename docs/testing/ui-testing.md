@@ -1479,9 +1479,10 @@ review and the existing real two-device UI/JNI journey remain separate acceptanc
 The owner visual fixtures provide twelve controlled native-shaped outcomes through production
 dialog controls, one reusable Compose root, matching EN/RU resources and font configuration, and
 completion-owned worker retirement. They never overwrite presentation StateFlows or host a node.
-The visual driver activates current enabled Send/Retry application callbacks; it does not use
-coordinate taps to establish controlled outcomes. The same production session rechecks expiry and
-publishes completion; the ordinary large-text driver regression requires expiry and zero sends.
+Before real Send/Retry clicks, the visual driver waits for the current Cancel focus restored by the
+production completion effect. The worker state alone does not establish native focus readiness.
+The ordinary large-text regression physically clicks Send after preparation and requires expiry,
+zero sends, the refusal UI and an actual text-scale witness.
 This foundation does not establish native authorization, transfer, rendered visual acceptance or
 real IME/editor scrolling.
 The phase-only `OwnerApprovalVisualTests` requires instrumentation arguments `ownerVisual=1`,

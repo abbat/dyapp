@@ -65,10 +65,8 @@ internal class OwnerVisualDriver(private val compose: ComposeContentTestRule) {
     }
 
     private fun activate(tag: String) {
-        val action = compose.awaitNode(hasTestTag(tag) and isEnabled())
-            .fetchSemanticsNode()
-            .config[applicationClickKey]
-        compose.runOnIdle { action() }
+        compose.awaitNode(hasTestTag("owner-cancel") and isFocused())
+        compose.awaitNode(hasTestTag(tag) and isEnabled()).performClick()
     }
 
     private fun awaitDirectory(backend: OwnerVisualBackend) =
