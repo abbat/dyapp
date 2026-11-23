@@ -36,7 +36,8 @@ newer target yields a package/source offer with a fixed official release page. S
 unavailable until an approved pinned listing exists. Native adapters do not compare versions or
 construct destinations. `checker::read_state` reads the same bounded snapshot during an active
 request through a short read transaction, without starting HTTP or inventing empty state.
-Native FFI/lifecycle wiring and notice dismissal remain planned.
+`MobileClientUpdates` exposes metadata reads and immediate interval writes through the common
+native bridge. Native HTTP/lifecycle wiring and notice dismissal remain planned.
 Clients stay disabled until live-feed verification and those integrations pass.
 
 The pure `updates::coordinator::Coordinator` now owns simultaneous-trigger admission and attempt

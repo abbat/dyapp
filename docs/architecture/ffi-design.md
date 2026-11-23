@@ -1,5 +1,13 @@
 # FFI Contract
 
+`MobileClientUpdates(root, platform)` binds the private installation root and native build version,
+independently of identity selection. `read_state` and `set_interval` delegate to the shared update
+checker/storage and availability projection on an IO worker. Metadata reads remain available during
+an HTTP lease; interval changes commit immediately. Returned records contain typed cadence,
+attempt/success times, in-flight state and a core-built offer; raw feed, high-water map and jitter
+are not exported. These methods initiate no HTTP and do not activate unpublished update controls.
+The installed version must match the packaged app version; native runtime checks retain that contract.
+
 `local_collection_page` delegates local collection presentation to
 `dyapp_client::local_collection`: input-order-preserving pages of at most 32 rows, complete raw-target
 or local-label substring search using shared input trimming and Unicode lowercase, total/matched
