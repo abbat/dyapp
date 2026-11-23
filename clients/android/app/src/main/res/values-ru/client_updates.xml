@@ -6,4 +6,11 @@
     <string name="update_current">Версия %1$s актуальна.</string>
     <string name="update_available_package">Доступна версия %1$s. Откройте официальную страницу релиза.</string>
     <string name="update_available_source">Доступны исходники версии %1$s. Соберите и подпишите приложение по инструкции для вашей платформы.</string>
+    <string name="update_installed">Установленная версия: %1$s</string>
+    <string name="update_open_release">Открыть официальный релиз</string>
+    <string name="update_open_source">Инструкция по сборке</string>
+    <string name="update_later">Позже</string>
+    <string name="update_notice_saving">Сохранение выбора…</string>
+    <string name="update_notice_failed">Не удалось сохранить выбор. Нажмите «Позже» ещё раз.</string>
+    <string name="update_open_failed">Не удалось открыть страницу релиза. Повторите попытку или выберите «Позже».</string>
 </resources>

@@ -42,7 +42,9 @@ contains committed state and an applied flag; native code neither compares versi
 success. Android's `UpdateNoticeActions` dispatches reads and exact-version dismissal off UI,
 excludes duplicate taps before dispatch, and adopts only the returned committed native state.
 A failed write retains the prior notice for retry; a disposed coroutine owner drops late completion.
-The global notice host, external opening, HTTP/lifecycle wiring and OS presentation remain planned.
+Android's unlocked `MainScreen` hosts the dialog above identity routes, using the private
+installation root. It shows only an undismissed core offer; reads and dismissal never initiate HTTP.
+Native HTTP/lifecycle wiring and OS presentation remain planned.
 Clients stay disabled until live-feed verification and those integrations pass.
 
 The pure `updates::coordinator::Coordinator` now owns simultaneous-trigger admission and attempt
@@ -379,7 +381,12 @@ JSON are rendered as markup.
 The notice controls are **Open official release / Открыть официальный релиз**
 (or **Open store / Открыть магазин**, **Build instructions / Инструкция по
 сборке**) and **Later / Позже**. Display release notes only on the fixed
-external page, not as untrusted HTML in the app. Background failures do not
+external page, not as untrusted HTML in the app. In Android, Open leaves the notice available
+until Later (including Back) durably acknowledges it; a successful browser handoff disables another
+Open tap in that mounted dialog. A failed handoff stays visible and retryable. A pending write
+disables both actions, and write failure keeps the notice. Replacing or disposing the displayed
+offer retires its callbacks, so old UI events cannot open or dismiss a replacement notice.
+Background failures do not
 raise repetitive dialogs or OS alerts; manual checks explain the failure.
 The common snapshot stores per-target dismissal and OS-notification version
 marks. Actions name the exact displayed version, so stale completion cannot

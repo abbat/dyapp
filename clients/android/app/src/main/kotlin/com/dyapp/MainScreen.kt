@@ -37,6 +37,7 @@ internal fun MainScreen(
     val receiving = rememberSaveable(stateSaver = receiveWizardIntentSaver) { mutableStateOf(ReceiveWizardIntent()) }
     val navigation = remember(actions, receiving) { IdentityNavigation(start, actions, receiving) { onLock() } }
     val state by actions.state.collectAsState()
+    UpdateNoticeHost(visible = !state.loading)
     ObserveIdentityCleanup(actions, slots, navigation)
     Box(
         Modifier.testTag("identity-state").semantics {
