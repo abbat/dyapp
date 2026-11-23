@@ -50,6 +50,7 @@ mod profile_visibility;
 pub use profile_views::ReceivedProfileView;
 mod profile_work;
 pub use profile_work::{ProfileWork, ProfileWorkResult};
+pub mod read_projection;
 mod reads;
 mod search_projection;
 mod search_publish;

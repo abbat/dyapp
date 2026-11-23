@@ -193,8 +193,7 @@ impl ChatSession {
             .into_iter()
             .map(Into::into)
             .collect();
-        let own = self.key.identity.peer_id();
-        reads::project_reads(store, &peer_id, &own, &mut messages)?;
+        reads::project_reads(store, &peer_id, &mut messages)?;
         Ok(ChatHistory {
             state: store.conversation(&peer_id).map_err(failed)?.into(),
             messages,

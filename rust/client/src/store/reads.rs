@@ -3,7 +3,8 @@
 //! Receipt order uses `chat_messages` rowid, now a non-reused local arrival ordinal. Clear chat
 //! may remove the marked text; the next text then starts a new receipt sequence for that group.
 
-use super::{Error, Store};
+use super::read_projection::ReadCoverage;
+use super::{collect_bounded, Error, Store, MAX_RESULT_ROWS};
 use crate::PreparedEnvelope;
 use rusqlite::{params, Connection, OptionalExtension};
 
@@ -20,6 +21,38 @@ CREATE TABLE `read_marks` (
 ";
 
 impl Store {
+    /// Snapshot own unmodified messages covered by this peer's group-bound read marks.
+    /// Coverage uses persisted arrival ordinals, never HLC or presentation order.
+    ///
+    /// # Errors
+    /// Returns storage, malformed-message-key or bounded-result errors.
+    pub fn read_coverage(&self, peer: &str) -> Result<ReadCoverage, Error> {
+        let mut query = self.db.prepare(
+            "SELECT `m`.`group_id`, `m`.`message_id`
+             FROM `chat_messages` AS `m`
+             JOIN `read_marks` AS `r`
+               ON `r`.`group_id` = `m`.`group_id` AND `r`.`peer_id` = ?1
+             JOIN `chat_messages` AS `marked`
+               ON `marked`.`group_id` = `r`.`group_id`
+              AND `marked`.`author` = `m`.`author`
+              AND `marked`.`message_id` = `r`.`received_up_to`
+             WHERE `m`.`author` = ?2
+               AND `m`.`arrival_order` <= `marked`.`arrival_order`
+               AND `m`.`edited` = 0 AND `m`.`deleted` = 0",
+        )?;
+        let rows = query.query_map(params![peer, &self.owner_peer_id], |row| {
+            Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, Vec<u8>>(1)?))
+        })?;
+        let keys = collect_bounded(
+            rows.map(|row| -> Result<_, Error> {
+                let (group, id) = row?;
+                Ok((group, id.try_into().map_err(|_| Error::InboxConflict)?))
+            }),
+            MAX_RESULT_ROWS,
+        )?;
+        Ok(ReadCoverage::new(&self.owner_peer_id, keys))
+    }
+
     /// Whether read receipts are sent; absent means off.
     ///
     /// # Errors
@@ -249,6 +282,65 @@ mod tests {
         assert!(store.draft_read(GROUP, &b, [3; 16]).unwrap());
         store.set_blocked(&b, true).unwrap();
         assert!(!store.draft_read(GROUP, &b, [3; 16]).unwrap());
+    }
+
+    fn set_display_hlc(store: &Store, own: &str, id: u8, hlc: i64) {
+        store
+            .db
+            .execute(
+                "UPDATE `chat_messages` SET `original_hlc` = ?1
+             WHERE `group_id` = ?2 AND `author` = ?3 AND `message_id` = ?4",
+                rusqlite::params![hlc, GROUP, own, [id; 16].as_slice()],
+            )
+            .unwrap();
+    }
+
+    fn assert_read_flag(store: &Store, peer: &str, own: &str, id: u8, expected: bool) {
+        assert_eq!(
+            store
+                .read_coverage(peer)
+                .unwrap()
+                .read_flag(GROUP, own, &[id; 16], false, false),
+            Some(expected),
+            "logical ID {id}",
+        );
+    }
+
+    #[test]
+    fn read_coverage_uses_arrival_when_a_late_text_has_an_older_hlc() {
+        let dir = dyapp_test_support::test_dir().unwrap();
+        let owner = Identity::try_generate().unwrap();
+        let own = owner.peer_id();
+        let peer = Identity::try_generate().unwrap().peer_id();
+        let mut store = Store::open(&dir.path().join("coverage.db"), &owner).unwrap();
+        crate::store::tests::catalog_group(&mut store, GROUP, &peer);
+        text(&mut store, &own, 9);
+        text(&mut store, &own, 1);
+        set_display_hlc(&store, &own, 9, 200);
+        set_display_hlc(&store, &own, 1, 100);
+        assert_eq!(
+            store
+                .current_chat_messages(&peer)
+                .unwrap()
+                .iter()
+                .map(|message| message.key.id[0])
+                .collect::<Vec<_>>(),
+            [1, 9]
+        );
+        assert!(store.receive_read(GROUP, &peer, [9; 16]).unwrap());
+        assert_read_flag(&store, &peer, &own, 9, true);
+        assert_read_flag(&store, &peer, &own, 1, false);
+        store
+            .db
+            .execute(
+                "UPDATE `chat_messages` SET `edited` = 1 WHERE `message_id` = ?1",
+                [[9u8; 16].as_slice()],
+            )
+            .unwrap();
+        assert_read_flag(&store, &peer, &own, 9, false);
+        store.clear_chat_pair(&peer).unwrap();
+        text(&mut store, &own, 2);
+        assert_read_flag(&store, &peer, &own, 2, false);
     }
 
     #[test]

@@ -72,6 +72,11 @@ the group. An ID that is not one of the receiver's own texts in that group is ig
 that is not later in the receiver's order than the read mark it already holds. The read mark
 never notifies and never changes the messages.
 
+Display coverage is projected by the shared Store from the sender's persisted arrival ordinals,
+using the exact group, author and logical message ID. A different HLC sort position cannot expand
+the acknowledged prefix. A physically cleared marker target covers nothing; edited or deleted
+rows remain unmarked. This does not change receipt IDs or recipient-side anchor selection.
+
 ### Limits
 
 - The desktop sees a window as hidden only when the system reports it: minimized on most desktops,

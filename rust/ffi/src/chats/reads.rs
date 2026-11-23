@@ -6,7 +6,7 @@ use crate::profile_network::{active_network, connect, on_network_stack};
 use crate::CoreError;
 use dyapp_client::session::Session;
 use dyapp_client::store::{Conversation, Store};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::BTreeMap;
 
 /// A group ID and the latest partner text ID in it.
 type Due = (Vec<u8>, [u8; 16]);
@@ -33,36 +33,25 @@ fn due_reads(store: &Store, peer_id: &str) -> Result<Vec<Due>, CoreError> {
     Ok(due)
 }
 
-/// Set `read` on own messages up to the peer's read mark of their group; see [`covered`].
+/// Apply the core's persisted-arrival read snapshot to native display records.
 pub(super) fn project_reads(
     store: &Store,
     peer_id: &str,
-    own: &str,
     messages: &mut [ChatMessage],
 ) -> Result<(), CoreError> {
-    let mut marks = HashMap::new();
-    for message in messages.iter() {
-        if !marks.contains_key(&message.group_id) {
-            let mark = store
-                .read_up_to(&message.group_id, peer_id)
-                .map_err(failed)?;
-            marks.insert(message.group_id.clone(), mark.map(|id| id.to_vec()));
+    let coverage = store.read_coverage(peer_id).map_err(failed)?;
+    for message in messages {
+        if let Some(read) = coverage.read_flag(
+            &message.group_id,
+            &message.author,
+            &message.id,
+            message.edited,
+            message.deleted,
+        ) {
+            message.read = read;
         }
     }
-    covered(&marks, own, messages);
     Ok(())
-}
-
-/// A mark covers its text and every earlier own one of the group. A mark whose text was cleared
-/// here marks nothing, and it says nothing about an edit made after reading or a deleted text.
-fn covered(marks: &HashMap<Vec<u8>, Option<Vec<u8>>>, own: &str, messages: &mut [ChatMessage]) {
-    let mut reached = HashSet::new();
-    for message in messages.iter_mut().rev().filter(|m| m.author == own) {
-        if marks[&message.group_id].as_ref() == Some(&message.id) {
-            reached.insert(message.group_id.clone());
-        }
-        message.read = reached.contains(&message.group_id) && !message.edited && !message.deleted;
-    }
 }
 
 #[uniffi::export]
@@ -150,16 +139,29 @@ mod tests {
 
     #[test]
     fn a_mark_covers_earlier_live_own_texts_of_its_group_only() {
+        let dir = dyapp_test_support::test_dir().unwrap();
+        let owner = crate::IdentityKey::generate().unwrap();
+        let own = owner.peer_id();
+        let peer = crate::IdentityKey::generate().unwrap().peer_id();
+        let mut store = Store::open(&dir.path().join("reads.db"), &owner.identity).unwrap();
         let mut messages = vec![
-            message(1, "me", 1),
-            message(1, "peer", 2),
-            message(1, "me", 3),
-            message(1, "me", 4),
-            message(2, "me", 5),
+            message(1, &own, 1),
+            message(1, &peer, 2),
+            message(1, &own, 3),
+            message(1, &own, 4),
+            message(2, &own, 5),
         ];
+        for message in &messages {
+            let key = dyapp_client::store::messages::MessageKey {
+                group: message.group_id.clone(),
+                author: message.author.clone(),
+                id: message.id.as_slice().try_into().unwrap(),
+            };
+            assert!(store.record_chat_text(&key, b"text").unwrap());
+        }
+        assert!(store.receive_read(&[1], &peer, [3; 16]).unwrap());
         messages[0].edited = true;
-        let marks = HashMap::from([(vec![1], Some(vec![3; 16])), (vec![2], None)]);
-        covered(&marks, "me", &mut messages);
+        project_reads(&store, &peer, &mut messages).unwrap();
         let read: Vec<_> = messages.iter().map(|message| message.read).collect();
         assert_eq!(read, [false, false, true, false, false]);
     }

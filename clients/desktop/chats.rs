@@ -127,7 +127,7 @@ pub fn chat_history(
         .into_iter()
         .map(Into::into)
         .collect();
-    reads::project_reads(&store, peer_id, &identity.peer_id(), &mut messages)?;
+    reads::project_reads(&store, peer_id, &mut messages)?;
     view::mark_photos(&mut messages, presence::now_ms()?, dir);
     let state = store
         .conversation(peer_id)

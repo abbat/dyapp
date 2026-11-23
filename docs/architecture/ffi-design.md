@@ -201,6 +201,12 @@ metadata occupies separate lines, preserving preview width at narrow/large-font 
 conversation text remains separate. Android native runtime/visual acceptance and iOS adoption
 remain pending behind their respective screen gates.
 
+Core `Store::read_coverage` snapshots own-message keys covered by the peer's group-bound read
+marks using persisted arrival ordinals. UI/HLC ordering cannot acknowledge a later arrival.
+`ReadCoverage::read_flag` matches group, author and logical ID, excludes edited/deleted rows,
+and leaves foreign-author flags untouched. Missing or cleared markers cover nothing; neither
+snapshot nor display projection stages a receipt.
+
 Core `Store::like_state` projects the owner's like, mutual match and independent local pass flag
 for Tauri and common native records. It only reads the existing ledgers; display refresh cannot
 stage a Like/Unlike or change a pass decision.

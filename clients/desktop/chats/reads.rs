@@ -1,6 +1,6 @@
 //! Opt-in read receipts of one open chat; see docs/design/read-receipts.md.
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use dyapp_client::session::Session;
@@ -75,36 +75,27 @@ pub(super) async fn send_read_receipts(
     Ok(due.len())
 }
 
-/// Mark own messages up to the peer's read mark of their group; see [`covered`].
+/// Apply the core's persisted-arrival read snapshot to display records.
 pub(super) fn project_reads(
     store: &Store,
     peer_id: &str,
-    own: &str,
     views: &mut [MessageView],
 ) -> Result<(), String> {
-    let mut marks = HashMap::new();
-    for view in views.iter() {
-        if !marks.contains_key(&view.group_id) {
-            let mark = store
-                .read_up_to(&view.group_id, peer_id)
-                .map_err(|e| e.to_string())?;
-            marks.insert(view.group_id.clone(), mark);
+    let coverage = store
+        .read_coverage(peer_id)
+        .map_err(|error| error.to_string())?;
+    for view in views {
+        if let Some(read) = coverage.read_flag(
+            &view.group_id,
+            &view.author,
+            &view.id,
+            view.edited,
+            view.deleted,
+        ) {
+            view.read = read;
         }
     }
-    covered(&marks, own, views);
     Ok(())
-}
-
-/// A mark covers its text and every earlier own one of the group. A mark whose text was cleared
-/// here marks nothing, and it says nothing about an edit made after reading or a deleted text.
-fn covered(marks: &HashMap<Vec<u8>, Option<[u8; 16]>>, own: &str, views: &mut [MessageView]) {
-    let mut reached = HashSet::new();
-    for view in views.iter_mut().rev().filter(|view| view.author == own) {
-        if marks[&view.group_id] == Some(view.id) {
-            reached.insert(view.group_id.clone());
-        }
-        view.read = reached.contains(&view.group_id) && !view.edited && !view.deleted;
-    }
 }
 
 #[cfg(test)]
@@ -165,16 +156,28 @@ mod tests {
 
     #[test]
     fn a_mark_covers_earlier_live_own_texts_of_its_group_only() {
+        let owner = Identity::try_generate().unwrap();
+        let own = owner.peer_id();
+        let peer = Identity::try_generate().unwrap().peer_id();
+        let mut store = Store::open(&temp_dir().join("reads.db"), &owner).unwrap();
         let mut views = vec![
-            view(1, "me", 1),
-            view(1, "peer", 2),
-            view(1, "me", 3),
-            view(1, "me", 4),
-            view(2, "me", 5),
+            view(1, &own, 1),
+            view(1, &peer, 2),
+            view(1, &own, 3),
+            view(1, &own, 4),
+            view(2, &own, 5),
         ];
+        for view in &views {
+            let key = dyapp_client::store::messages::MessageKey {
+                group: view.group_id.clone(),
+                author: view.author.clone(),
+                id: view.id,
+            };
+            assert!(store.record_chat_text(&key, b"text").unwrap());
+        }
+        assert!(store.receive_read(&[1], &peer, [3; 16]).unwrap());
         views[0].edited = true;
-        let marks = HashMap::from([(vec![1], Some([3; 16])), (vec![2], None)]);
-        covered(&marks, "me", &mut views);
+        project_reads(&store, &peer, &mut views).unwrap();
         let read: Vec<_> = views.iter().map(|view| view.read).collect();
         assert_eq!(read, [false, false, true, false, false]);
     }

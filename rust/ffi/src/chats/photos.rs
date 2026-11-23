@@ -57,7 +57,7 @@ impl ChatSession {
                 ChatItem::Photo { .. } | ChatItem::Sticker { .. } => None,
             })
             .collect();
-        super::reads::project_reads(store, &peer_id, &self.key.identity.peer_id(), &mut texts)?;
+        super::reads::project_reads(store, &peer_id, &mut texts)?;
         let mut texts = texts.into_iter();
         for item in &mut items {
             if let ChatItem::Text { message } = item {
