@@ -35,6 +35,7 @@ class NativeClientUpdatesTests {
             assertNull(fresh.lastSuccess)
             assertNull(fresh.offer)
             assertNull(fresh.notice)
+            assertNull(client.claimPendingNotification())
             val dismissal = client.dismissNotice("1.0.0")
             assertFalse(dismissal.applied)
             assertEquals(fresh, dismissal.state)

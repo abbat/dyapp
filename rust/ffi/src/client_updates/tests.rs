@@ -134,6 +134,19 @@ fn committed_notice_actions_preserve_the_badge_and_reject_stale_versions() {
 }
 
 #[test]
+fn the_background_plan_is_selected_and_committed_by_core() {
+    let dir = test_dir().unwrap();
+    let lease = published(&dir);
+    let updates = client(&dir);
+    let before = updates.read_state().unwrap();
+    assert_eq!(updates.claim_pending_notification().unwrap(), before.offer);
+    assert!(updates.claim_pending_notification().unwrap().is_none());
+    assert_eq!(updates.read_state().unwrap().notice, before.notice);
+    drop(lease);
+    assert!(client(&dir).claim_pending_notification().unwrap().is_none());
+}
+
+#[test]
 fn a_failed_notice_write_cannot_acknowledge_an_os_claim_or_dismissal() {
     let dir = test_dir().unwrap();
     let lease = published(&dir);
@@ -142,6 +155,7 @@ fn a_failed_notice_write_cannot_acknowledge_an_os_claim_or_dismissal() {
     let db = rusqlite::Connection::open(dir.join("updates.sqlite")).unwrap();
     db.execute_batch("CREATE TRIGGER `reject_notice` BEFORE UPDATE ON `state` BEGIN SELECT RAISE(ABORT, 'controlled notice failure'); END;").unwrap();
     assert!(updates.claim_notification("2.0.0").is_err());
+    assert!(updates.claim_pending_notification().is_err());
     assert!(updates.dismiss_notice("2.0.0").is_err());
     assert_eq!(updates.read_state().unwrap(), before);
     drop(lease);

@@ -406,6 +406,10 @@ default to no marks; malformed or regressing marks fail closed. The shared `noti
 current state inside the short SQLite transaction and return acknowledgement
 only after commit, including while a separate HTTP lease is held. Native UI
 and OS integration remain separate from these shared persistence rules.
+For background callers, `notices::claim_pending_notification` selects the eligible current offer
+and commits its OS mark in one transaction before returning an optional canonical plan. The common
+native bridge exposes that plan directly, so Kotlin neither picks a version nor acknowledges an
+uncommitted candidate. Native permission must be available before this action too.
 
 ## Acceptance matrix
 

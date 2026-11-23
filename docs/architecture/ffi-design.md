@@ -11,6 +11,9 @@ Rust borrows their version text as `&str`; UniFFI lifts the same native String a
 requiring Rust ownership. Their result contains the committed current state plus `applied`; stale/no-offer actions cannot
 acknowledge a newer version. Native notification permission must be available before claiming,
 and only a committed applied claim permits an OS request. Errors grant no permission.
+For a background caller without a displayed version, `claim_pending_notification` delegates
+selection and durable OS dedupe to one shared transaction and returns an optional canonical offer
+only after commit. Kotlin does not read/choose a version in a separate transaction.
 These methods initiate no HTTP, request no OS notification and do not activate unpublished controls.
 The installed version must match the packaged app version; native runtime checks retain that contract.
 
