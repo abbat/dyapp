@@ -238,6 +238,10 @@ on non-cancellable IO after actual completion, including disposal.
 
 ## Shared mobile identity registry
 
+Tauri candidate inventory also uses the shared Desktop-layout reader, including recoverable
+quarantines and fail-closed duplicate paths. Its local slot conversion is presentation/backend naming;
+ordinary desktop resolution, creation, selection and removal still await complete registry adoption.
+
 The common core `identity_slots::removal_allowed` classifies the existing inventoried resolution
 for presentation: legacy roots, absent inventory and unavailable/damaged keys do not offer removal;
 missing keys and interrupted creation/removal retain explicit cleanup. `Registry::removal_review`

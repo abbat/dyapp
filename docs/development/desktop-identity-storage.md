@@ -66,7 +66,12 @@ choice and its trade-offs.
 
 ## Multiple identity layout
 
-The app opens and creates identities through `clients/desktop/slots.rs`: it keeps an older
+The app opens and creates identities through `clients/desktop/slots.rs`. Candidate inventory
+uses the shared core `identity_slots::list` with the Desktop layout; local slot conversion retains
+only desktop presentation and credential names. Interrupted `.removed` cleanup remains visible,
+and simultaneous live/quarantined paths with one ID produce a damaged candidate without opening
+its keys. Resolution and ordinary lifecycle mutation are still desktop adapters pending migration.
+The app keeps an older
 root `identity.key` / `identity-storage` or `primary` credential readable in place and creates
 **new** identities in independent local slots. The window shows a picker (each slot by Peer ID
 or recovery reason and storage mode), a recovery screen with Retry, and "Switch or add an
@@ -108,9 +113,9 @@ failure; if a usable provider confirms no key, require an explicit retry or remo
 generate a second key simply because an incomplete slot was found. Reject symlinked slot
 directories and files, malformed slot names and ambiguous duplicate credentials.
 
-A linked identity takes the same path: `slots::adopt` reserves a slot in the storage mode of the
-slot the link ran in, then adds the device key, the network settings and the record's state before
-marking it `ready`. A failure leaves the prior selection. The slot the wizard made in this run only
+A linked identity already uses core `Registry::link` through the desktop credential adapter.
+It reserves a slot in the source slot's storage mode, then adds the device key, network settings
+and record state before marking it `ready`. A failure leaves the prior selection. The slot the wizard made in this run only
 to reach a node is then removed, unless it has a profile draft; any other slot stays selectable.
 
 `active-profile` is replaced by a flushed temporary file and same-directory rename. A failed

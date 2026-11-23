@@ -6,25 +6,11 @@ use dyapp_client::identity_slots::{
 };
 use dyapp_identity::Identity;
 
-use crate::slots::{self, Slot};
+use crate::slots::Slot;
 
 /// The desktop view of a core slot, for the desktop's key names and paths.
 pub(crate) fn local(slot: &core::Slot) -> Slot {
-    Slot {
-        id: slot.id.clone(),
-        dir: slot.dir.clone(),
-        mode: match slot.storage {
-            Some(Storage::System) => Some("system"),
-            Some(Storage::File) => Some("file"),
-            Some(Storage::Wrapped) | None => None,
-        },
-        state: match slot.state {
-            core::State::Pending => slots::State::Pending,
-            core::State::Ready => slots::State::Ready,
-            core::State::Deleting => slots::State::Deleting,
-            core::State::Broken => slots::State::Broken,
-        },
-    }
+    Slot::from(slot)
 }
 
 fn name(slot: &core::Slot, role: Credential) -> String {

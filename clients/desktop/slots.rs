@@ -1,5 +1,5 @@
-//! Local identity slots: `profiles/<uuid>/` directories beside the legacy root key, discovered by
-//! a directory scan rather than a registry; see docs/development/desktop-identity-storage.md.
+//! Desktop identity views and remaining lifecycle adapters. Inventory is delegated to the shared
+//! core registry; see docs/development/desktop-identity-storage.md.
 
 use std::fs::{self, OpenOptions};
 use std::io::{ErrorKind, Read, Write};
@@ -134,23 +134,6 @@ fn read_marker(path: &Path) -> Result<Option<String>, String> {
     Ok(Some(value))
 }
 
-fn parse_mode(value: &str) -> Option<&'static str> {
-    match value {
-        "system\n" => Some("system"),
-        "file\n" => Some("file"),
-        _ => None,
-    }
-}
-
-fn parse_state(value: &str) -> State {
-    match value {
-        "pending\n" => State::Pending,
-        "ready\n" => State::Ready,
-        "deleting\n" => State::Deleting,
-        _ => State::Broken,
-    }
-}
-
 fn state_name(state: State) -> &'static str {
     match state {
         State::Pending => "pending\n",
@@ -186,96 +169,35 @@ fn write_atomic(path: &Path, value: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn read_slot(id: String, dir: PathBuf) -> Slot {
-    let mode = read_marker(&dir.join("storage-mode"))
-        .ok()
-        .flatten()
-        .as_deref()
-        .and_then(parse_mode);
-    let state = match read_marker(&dir.join("state")) {
-        Ok(Some(state)) if mode.is_some() => parse_state(&state),
-        _ => State::Broken,
-    };
-    Slot {
-        id,
-        dir,
-        mode,
-        state,
+impl From<&dyapp_client::identity_slots::Slot> for Slot {
+    fn from(slot: &dyapp_client::identity_slots::Slot) -> Self {
+        use dyapp_client::identity_slots as core;
+        Self {
+            id: slot.id.clone(),
+            dir: slot.dir.clone(),
+            mode: match slot.storage {
+                Some(core::Storage::System) => Some("system"),
+                Some(core::Storage::File) => Some("file"),
+                Some(core::Storage::Wrapped) | None => None,
+            },
+            state: match slot.state {
+                core::State::Pending => State::Pending,
+                core::State::Ready => State::Ready,
+                core::State::Deleting => State::Deleting,
+                core::State::Broken => State::Broken,
+            },
+        }
     }
 }
 
-/// All local slots: the legacy one if its key or marker exists, then each UUID directory under
-/// `profiles/`. Other names there are not ours and are skipped.
+/// Core inventory includes interrupted cleanup and refuses ambiguous duplicate paths.
+/// Caller-held writer locks must not be reacquired through Registry::list here.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn list(root: &Path) -> Result<Vec<Slot>, String> {
-    let mut slots = Vec::new();
-    append_legacy(root, &mut slots);
-    append_profiles(root, &mut slots)?;
-    Ok(slots)
-}
-
-fn append_legacy(root: &Path, slots: &mut Vec<Slot>) {
-    let legacy_mode = read_marker(&root.join("identity-storage"));
-    let legacy_key = fs::symlink_metadata(root.join("identity.key")).is_ok();
-    match legacy_mode {
-        Ok(None) if !legacy_key => {}
-        Ok(mode) => {
-            let mode = mode.as_deref().and_then(parse_mode);
-            let state = if mode.is_some() {
-                State::Ready
-            } else {
-                State::Broken
-            };
-            slots.push(Slot {
-                id: LEGACY.into(),
-                dir: root.to_owned(),
-                mode,
-                state,
-            });
-        }
-        Err(_) => slots.push(Slot {
-            id: LEGACY.into(),
-            dir: root.to_owned(),
-            mode: None,
-            state: State::Broken,
-        }),
-    }
-}
-
-fn append_profiles(root: &Path, slots: &mut Vec<Slot>) -> Result<(), String> {
-    let entries = match fs::read_dir(root.join("profiles")) {
-        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(()),
-        entries => entries.map_err(|e| e.to_string())?,
-    };
-    let mut profiles = Vec::new();
-    for entry in entries {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let Some(id) = entry_id(&entry) else {
-            continue;
-        };
-        let slot = if entry.file_type().map_err(|e| e.to_string())?.is_dir() {
-            read_slot(id, entry.path())
-        } else {
-            Slot {
-                id,
-                dir: entry.path(),
-                mode: None,
-                state: State::Broken,
-            }
-        };
-        profiles.push(slot);
-    }
-    profiles.sort_by(|a, b| a.id.cmp(&b.id));
-    slots.extend(profiles);
-    Ok(())
-}
-
-fn entry_id(entry: &fs::DirEntry) -> Option<String> {
-    entry
-        .file_name()
-        .to_str()
-        .filter(|n| is_uuid(n))
-        .map(str::to_owned)
+    use dyapp_client::identity_slots::{self as core, Layout};
+    core::list(root, Layout::Desktop)
+        .map(|slots| slots.iter().map(Slot::from).collect())
+        .map_err(|error| error.to_string())
 }
 
 /// Reserves a fresh slot for a key in `mode`, written as `pending` before any key exists.
@@ -510,7 +432,7 @@ pub fn remove(
             return Err("The identity folder holds other files".into());
         }
     }
-    // The rename drops the slot from `list` at once; a crash after it leaves only hidden markers.
+    // Core inventory keeps this quarantine discoverable if cleanup is interrupted.
     let removed = slot.dir.with_file_name(format!(".{id}.removed"));
     fs::rename(&slot.dir, &removed).map_err(|e| e.to_string())?;
     fs::remove_dir_all(&removed).map_err(|e| e.to_string())?;
@@ -834,6 +756,41 @@ mod tests {
         assert_eq!(state(&first.id), None);
         fs::write(root.join("identity-storage"), "file\n").unwrap();
         assert!(remove(&root, LEGACY, None, &load, &erase).is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn quarantined_cleanup_remains_visible_and_duplicate_paths_fail_closed() {
+        let root = temp_root();
+        let mut slot = reserve(&root, "file").unwrap();
+        set_state(&mut slot, State::Ready).unwrap();
+        let hidden = slot.dir.with_file_name(format!(".{}.removed", slot.id));
+        fs::rename(&slot.dir, &hidden).unwrap();
+        let mut listed = list(&root).unwrap();
+        assert_eq!(listed.len(), 1);
+        let quarantined = listed.pop().unwrap();
+        assert_eq!(quarantined.id, slot.id);
+        assert_eq!(quarantined.dir, hidden);
+        assert_eq!(quarantined.mode, Some("file"));
+        assert_eq!(quarantined.state, State::Deleting);
+        assert_eq!(quarantined.system_name(), slot.system_name());
+        assert_eq!(quarantined.device_name(), slot.device_name());
+        assert_eq!(quarantined.seal_name(), slot.seal_name());
+        fs::create_dir(&slot.dir).unwrap();
+        let mut listed = list(&root).unwrap();
+        assert_eq!(listed.len(), 1);
+        let ambiguous = listed.pop().unwrap();
+        assert_eq!(ambiguous.id, slot.id);
+        assert_eq!(ambiguous.dir, slot.dir);
+        assert_eq!(ambiguous.mode, None);
+        assert_eq!(ambiguous.state, State::Broken);
+        assert!(matches!(
+            open_slot(ambiguous, &|_| panic!(
+                "Broken candidates must not open keys"
+            ))
+            .unwrap(),
+            Opened::Recovery(_, "damaged", None)
+        ));
         fs::remove_dir_all(root).unwrap();
     }
 
