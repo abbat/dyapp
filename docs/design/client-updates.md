@@ -1,8 +1,8 @@
 # Client update discovery and notifications
 
 Status: client checks and live Pages verification are pending.
-No client currently checks for updates. The tagged release workflow packages
-`dyappd`, Linux and Windows clients, and stages a verified client update feed.
+No client currently checks for updates. The tagged release workflow collects
+per-platform release artifacts with `dyappd` and stages a verified client update feed.
 The shared Rust client core provides strict version/cadence/feed helpers in
 `rust/client/src/updates.rs`, `updates/feed.rs` and `updates/coordinator.rs`.
 Those helpers have no network or storage side effects. `updates::transport::Client`
@@ -57,7 +57,7 @@ reaped once as failure. A checkpoint records an in-flight request so restore app
 request backoff, and clock rollback admits one catch-up without a retry loop. The shared checker
 persists checkpoints before HTTP and after completion, and validates transport and feed/cache
 trust before recording `Completion::Validated`. This enum is not a native caller's assertion of trust.
-FFI and activation remain pending; the coordinator itself performs no IO or installation.
+Native HTTP entry points and activation remain pending; the coordinator itself performs no IO or installation.
 
 ## Goal and boundary
 
@@ -104,7 +104,7 @@ contains no arbitrary URL, release-note HTML, script or executable command.
 ### Release candidate adapter checkpoint
 
 `tools/scripts/release-candidates.py RELEASE.json TAG COMMIT` parses the bounded
-GitHub REST get-by-tag response into exact Linux and Windows package candidates.
+GitHub REST get-by-tag response into exact Linux, Windows and Android package candidates.
 It rejects draft/prerelease, unpublished or mismatched tags, duplicate or wrong-
 version client assets, missing SHA-256 digests and invalid package sizes. The
 commit argument must come from a separately resolved, checked-out tag; GitHub's
@@ -138,8 +138,9 @@ version components. Missing targets remain absent; parsing does not prove an
 installed version is current. It authenticates neither hosting origin nor
 publisher, and a store method still needs a separately verified pinned listing.
 The fixed transport enforces origin and response bounds; actual source-bound HTTPS acceptance
-is still required. Persisted rollback/cadence state, native exports and client activation remain
-pending. Offline parsing does not enable any check.
+is still required. The shared checker supplies persisted rollback/cadence state and the native
+bridge exposes metadata/actions; HTTP/lifecycle exports and activation remain pending.
+Offline parsing does not enable any check.
 
 ### Shared HTTPS transport checkpoint
 
@@ -327,13 +328,14 @@ them done.
 | App-store-only notices | Stores own listing and delivery on mobile | Does not cover Linux/Windows and cannot provide one version contract across clients |
 
 The tagged [`release.yml`](../../.github/workflows/release.yml) collects tested
-Linux and Windows client packages with `dyappd` files. It prepares a Pages
+per-platform client artifacts with `dyappd` files. Verified Android packages additionally require
+the signing, identity and upgrade evidence described above. It prepares a Pages
 artifact only after release publication, exact package verification, and feed
 validation. The Pages job depends on that step, has only `pages: write` and
 `id-token: write`, and names the `github-pages` environment. A failed gate
 prevents a new Pages deployment, leaving the last verified deployment in place.
 The `github-pages` environment allows only `v*.*.*` tags. The repository has
-no Pages site yet; configure Pages for GitHub Actions and perform the live
+Pages configured for GitHub Actions, with first publication still unverified; perform the live
 HTTPS smoke before enabling client checks ([deployment guide](../operations/deployment.md)).
 GitHub documents [Pages workflow permissions](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages),
 [release API ordering](https://docs.github.com/en/rest/releases/releases) and
