@@ -4,7 +4,8 @@ use crate::CoreError;
 use dyapp_client::photo;
 #[cfg(test)]
 use photo::MAX_BYTES;
-pub(crate) use photo::MAX_SIDE;
+#[cfg(test)]
+use photo::MAX_SIDE;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 static METERED: AtomicBool = AtomicBool::new(true);
@@ -59,11 +60,6 @@ pub fn check_preview(bytes: Vec<u8>) -> Result<Rgba, CoreError> {
             pixels: decoded.pixels,
         })
         .map_err(failed)
-}
-
-/// Inspect a JPEG frame through the shared core without decoding pixels.
-pub(crate) fn frame_size(bytes: &[u8]) -> Result<(u32, u32), CoreError> {
-    photo::frame_size(bytes).map_err(failed)
 }
 
 /// Report metered or unknown network state; platform adapters own this report.

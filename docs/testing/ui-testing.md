@@ -1647,6 +1647,11 @@ This covers fallback presentation, while native sticker exchange and planned pic
 retain their separate acceptance.
 The queued outcome of a send has no two-peer test:
 the FFI stages only after it reached the node, so only a node refusing the write could cause it.
+Core profile-image tests use bounded framing witnesses for exact byte/pixel limits, distinguish
+received originals from the profile editor target and thumbnail side, and reject PNG, empty and
+malformed headers before platform decoding. Desktop and common native cache/editor regressions
+exercise the same core verdict; image framing admission does not claim successful entropy decoding.
+
 `ChatRulesTests` cover how a staged failure reads and `ChatScreenTests` cover its line.
 The iOS and macOS network form UI tests save bootstrap rows and a network name, relaunch the app
 in the same isolated slot root, and check that the values reappear in the automatic form while Ready remains

@@ -482,6 +482,12 @@ directly to Rust clients, with no UniFFI dependency. It retains the current 320 
 preview policy and 1 MiB decoder allocation cap, and rejects overflowing raw pixel dimensions.
 Frame inspection rejects standalone and fill markers before the first scan, so malformed segments
 cannot hide a different oversized frame from the pre-decode bounds.
+`photo::profile_acceptable` owns profile-JPEG admission for Tauri and UniFFI profile writers and
+peer caches. `ProfileImage` distinguishes received originals, prepared originals and thumbnails:
+shared byte limits always apply, received originals use the source-pixel cap, prepared originals
+must fit the existing profile decode target, and thumbnails use the preview side bound. Invalid
+profile bytes fail as `corrupted` before writes; Store count/revision checks remain independent.
+This does not change the JPEG/PNG allowance or wire budget for incoming chat originals.
 The common UniFFI preview adapter delegates to this core and only converts pixel records and
 errors. Its Kotlin/Swift API stays unchanged; Tauri can call the same core functions directly.
 `dyapp_client::photo::prepare` now owns typed profile/chat purposes, source limits, decode

@@ -7,21 +7,24 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use dyapp_client::attachment;
-use dyapp_client::store::profile_photos::{fits, MAX_PHOTO_BYTES, MAX_THUMBNAIL_BYTES};
+use dyapp_client::photo::{profile_acceptable, ProfileImage};
+#[cfg(test)]
+use dyapp_client::store::profile_photos::{MAX_PHOTO_BYTES, MAX_THUMBNAIL_BYTES};
 use dyapp_identity::network::{self, Settings};
 
-use crate::chat_photos::{check_image, metered};
+use crate::chat_photos::metered;
 use crate::profile;
 use crate::search::{ProfileCache, SearchState};
 
-/// A node returns what a peer uploaded, so the bounds hold again before the page decodes it.
 fn acceptable(bytes: &[u8], full: bool) -> bool {
-    let limit = if full {
-        MAX_PHOTO_BYTES
-    } else {
-        MAX_THUMBNAIL_BYTES
-    };
-    fits(bytes, limit) && check_image(bytes).is_ok()
+    profile_acceptable(
+        bytes,
+        if full {
+            ProfileImage::Original
+        } else {
+            ProfileImage::Thumbnail
+        },
+    )
 }
 
 /// Fetches what the cache lacks over one set of connections, so a page of cards costs one connect.
@@ -147,6 +150,12 @@ mod tests {
         let jpeg = encoded(ImageFormat::Jpeg);
         assert!(acceptable(&jpeg, false) && acceptable(&jpeg, true));
         assert!(!acceptable(&encoded(ImageFormat::Png), true));
+        let mut wide = Cursor::new(Vec::new());
+        RgbImage::new(dyapp_client::photo::MAX_SIDE + 1, 2)
+            .write_to(&mut wide, ImageFormat::Jpeg)
+            .unwrap();
+        assert!(!acceptable(wide.get_ref(), false));
+        assert!(acceptable(wide.get_ref(), true));
         assert!(!acceptable(&[0xFF, 0xD8, 0xFF, 0xE0], true));
         let mut padded = jpeg;
         padded.resize(MAX_THUMBNAIL_BYTES + 1, 0);

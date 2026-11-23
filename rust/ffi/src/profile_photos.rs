@@ -1,16 +1,18 @@
 //! The profile editor's own photos in the unpublished draft, the same commands as
 //! `clients/desktop/profile_photos.rs`; see docs/design/profile-photos.md. The app re-encodes a
 //! picked file, so a full image arrives as a bare JPEG of at most 2048 px with its 320 px
-//! thumbnail; the frame headers are checked here, the bytes and count in the client store.
+//! thumbnail; shared core admission checks headers and bounds, and the Store owns count and writes.
 
-use crate::preview::{frame_size, MAX_SIDE};
 use crate::profile_draft::database;
 use crate::{CoreError, IdentityKey};
+#[cfg(test)]
+use dyapp_client::photo::MAX_SIDE;
+use dyapp_client::photo::{profile_acceptable, ProfileImage};
 use dyapp_client::store::{Error, Store};
 use dyapp_profile::Profile;
 use std::sync::Arc;
 
-/// Longest side of a full image, the first size the editor tries.
+#[cfg(test)]
 const MAX_FULL_SIDE: u32 = 2048;
 
 fn store(dir: &str, key: &IdentityKey) -> Result<Store, CoreError> {
@@ -31,13 +33,6 @@ fn thumbnails(draft: &Profile) -> Vec<Vec<u8>> {
         .iter()
         .map(|photo| photo.thumbnail.clone())
         .collect()
-}
-
-fn checked(jpeg: &[u8], side: u32) -> Result<(), CoreError> {
-    match frame_size(jpeg) {
-        Ok((width, height)) if width > 0 && height > 0 && width.max(height) <= side => Ok(()),
-        _ => Err(CoreError::Failed("corrupted".into())),
-    }
 }
 
 fn index(value: u32) -> usize {
@@ -61,14 +56,14 @@ pub fn profile_photos(dir: String, key: Arc<IdentityKey>) -> Result<Vec<Vec<u8>>
 }
 
 /// Appends a photo to the draft and returns the thumbnail hashes. Errors are `corrupted` for a
-/// frame header that is not a JPEG within 2048 px (320 px for the thumbnail), `photoRefused` for a
-/// seventh photo or an oversized blob, or a storage message.
+/// JPEG outside the shared byte/frame bounds or editor decode target, `photoRefused` for a
+/// seventh photo, or a storage message.
 #[uniffi::export]
 ///
 /// # Errors
 ///
-/// Returns `corrupted` for invalid JPEG dimensions, `photoRefused` for count
-/// or byte limits, or a storage error. The blobs and updated draft commit together;
+/// Returns `corrupted` for invalid JPEG format, dimensions or byte bounds, `photoRefused` for count
+/// limits, or a storage error. The blobs and updated draft commit together;
 /// a failed save retains the previous draft and blobs.
 #[expect(
     clippy::needless_pass_by_value,
@@ -80,8 +75,11 @@ pub fn add_profile_photo(
     full: Vec<u8>,
     thumbnail: Vec<u8>,
 ) -> Result<Vec<Vec<u8>>, CoreError> {
-    checked(&full, MAX_FULL_SIDE)?;
-    checked(&thumbnail, MAX_SIDE)?;
+    if !profile_acceptable(&full, ProfileImage::PreparedOriginal)
+        || !profile_acceptable(&thumbnail, ProfileImage::Thumbnail)
+    {
+        return Err(CoreError::Failed("corrupted".into()));
+    }
     let mut store = store(&dir, &key)?;
     Ok(thumbnails(
         &store.add_profile_photo(&full, &thumbnail).map_err(code)?,

@@ -3,44 +3,37 @@
 //! [`ProfileSearcher`] only, so nothing on disk says whose profile the user looked at. A blob that
 //! is missing or refused is not remembered, so the next view asks again.
 
-use crate::preview::{frame_size, network_metered, MAX_SIDE};
+use crate::preview::network_metered;
 use crate::profile_draft::database;
 use crate::profile_network::{active_network, on_network_stack};
 use crate::profile_search::ProfileSearcher;
 use crate::{CoreError, IdentityKey};
 use dyapp_client::contact_verification::Generation;
 pub(crate) use dyapp_client::peer_photo_cache::Cache as PhotoCache;
-use dyapp_client::store::profile_photos::{fits, MAX_PHOTO_BYTES, MAX_THUMBNAIL_BYTES};
+#[cfg(test)]
+use dyapp_client::photo::MAX_SIDE;
+use dyapp_client::photo::{profile_acceptable, ProfileImage};
+#[cfg(test)]
+use dyapp_client::store::profile_photos::MAX_THUMBNAIL_BYTES;
 use dyapp_client::store::Store;
 use dyapp_client::{attachment, Node};
 use dyapp_identity::network::Network;
 use dyapp_p2p_net::{seed, Protocols};
 use std::sync::Arc;
 
-/// The desktop's bound on a full image's frame header.
-const MAX_PIXELS: u64 = 64_000_000;
-
 fn failed(error: impl std::fmt::Display) -> CoreError {
     CoreError::Failed(error.to_string())
 }
 
-/// A node returns what a peer uploaded, so the bounds hold again before the app decodes it: a
-/// thumbnail must also pass `check_preview`, a full image stays within 64 megapixels.
 pub(crate) fn acceptable(bytes: &[u8], full: bool) -> bool {
-    let limit = if full {
-        MAX_PHOTO_BYTES
-    } else {
-        MAX_THUMBNAIL_BYTES
-    };
-    let Ok((width, height)) = frame_size(bytes) else {
-        return false;
-    };
-    let sized = if full {
-        u64::from(width).saturating_mul(u64::from(height)) <= MAX_PIXELS
-    } else {
-        width.max(height) <= MAX_SIDE
-    };
-    fits(bytes, limit) && width > 0 && height > 0 && sized
+    profile_acceptable(
+        bytes,
+        if full {
+            ProfileImage::Original
+        } else {
+            ProfileImage::Thumbnail
+        },
+    )
 }
 
 /// The first answering node of each seed row, as the desktop asks: a blob one node lacks may be

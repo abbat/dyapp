@@ -101,8 +101,11 @@ The store holds own photos until a publish drops them, so ordinary repair needs 
 Node handover confirmation requires complete holder inventories and successful write acknowledgments;
 source availability separately controls client reupload. A refused replica write leaves the handover
 for retry without making readable source photos missing to the client.
-The bare JPEG and byte limits are checked where the blob enters the store; the desktop and
-Android check full-image pixels before that; full-source decoding remains a platform service,
+The Store checks JPEG bytes and quotas; Tauri and common native adapters first use shared
+`photo::profile_acceptable` header admission. Received originals use the source-pixel bound,
+prepared originals must fit the profile decode target, and thumbnails use the preview side bound.
+Invalid profile bytes, including PNG, fail as `corrupted` before writes; Store count and revision
+refusals keep their own errors. Full-source decoding remains a platform service,
 while the shared core bounds and decodes previews. On Android and Apple
 draft writes still hold a process-local lock around proof/publication and their other writers.
 Shared core transactions now serialize editable saves and photo changes across database handles;

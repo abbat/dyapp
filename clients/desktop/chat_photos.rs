@@ -10,15 +10,9 @@ use dyapp_client::Error;
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
 use dyapp_p2p_net::proto::Status;
-use image::ImageFormat;
-use std::io::Cursor;
 use std::path::Path;
 #[cfg(target_os = "windows")]
 use windows::Networking::Connectivity::NetworkCostType;
-
-/// The most pixels the page may decode. A 6 MiB original can claim gigabytes of decoded image, and
-/// the header states the size before any decoding.
-const MAX_PIXELS: u64 = 64_000_000;
 
 fn stored(
     dir: &Path,
@@ -31,25 +25,6 @@ fn stored(
     let store = chats::open_visible_chat(dir, identity, peer_id)?;
     attachment::original::select(&store, peer_id, group_id, author, id)
         .map_err(|error| error.to_string())
-}
-
-fn fits(width: u32, height: u32) -> bool {
-    u64::from(width) * u64::from(height) <= MAX_PIXELS
-}
-
-/// Refuses anything but a JPEG or PNG whose header is within the bound.
-pub(crate) fn check_image(bytes: &[u8]) -> Result<(), String> {
-    let reader = image::ImageReader::new(Cursor::new(bytes))
-        .with_guessed_format()
-        .map_err(|e| e.to_string())?;
-    if !matches!(reader.format(), Some(ImageFormat::Jpeg | ImageFormat::Png)) {
-        return Err("corrupted".into());
-    }
-    let (width, height) = reader.into_dimensions().map_err(|_| "corrupted")?;
-    if !fits(width, height) {
-        return Err("corrupted".into());
-    }
-    Ok(())
 }
 
 /// The page's code for a failed fetch. Anything else is a transport or node failure to retry.
@@ -298,24 +273,7 @@ pub(crate) fn set_kept_originals_mib(
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        check_image, code, fits, mode_name, parse_mode, Error, ImageFormat, Status, MODES,
-    };
-    use image::RgbImage;
-    use std::io::Cursor;
-
-    #[test]
-    fn only_a_real_image_within_the_bound_passes() {
-        let mut png = Cursor::new(Vec::new());
-        RgbImage::new(3, 2)
-            .write_to(&mut png, ImageFormat::Png)
-            .unwrap();
-        assert_eq!(check_image(png.get_ref()), Ok(()));
-        assert_eq!(check_image(b"not an image"), Err("corrupted".into()));
-        assert!(fits(8_000, 8_000));
-        assert!(!fits(8_001, 8_000));
-        assert!(!fits(u32::MAX, u32::MAX));
-    }
+    use super::{code, mode_name, parse_mode, Error, Status, MODES};
 
     /// Only an unrestricted plan with no limit flag lets `ByNetwork` download; the live query
     /// answers on the runner whatever its network.

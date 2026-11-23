@@ -132,6 +132,53 @@ fn fit(width: u32, height: u32, side: u32) -> (u32, u32) {
     (scale(width), scale(height))
 }
 
+/// The bounds for a received or newly prepared profile JPEG.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ProfileImage {
+    /// A received original, before platform decoding.
+    Original,
+    /// A locally prepared original, within the profile editor's decode target.
+    PreparedOriginal,
+    /// A profile thumbnail, within the shared preview bounds.
+    Thumbnail,
+}
+
+/// Admit a profile JPEG before platform decoding, storage or in-memory cache insertion.
+/// This checks framing only; platform decoders must still reject invalid pixel data.
+#[must_use]
+pub fn profile_acceptable(bytes: &[u8], kind: ProfileImage) -> bool {
+    use crate::store::profile_photos::{fits, MAX_PHOTO_BYTES, MAX_THUMBNAIL_BYTES};
+
+    let limit = if kind == ProfileImage::Thumbnail {
+        MAX_THUMBNAIL_BYTES
+    } else {
+        MAX_PHOTO_BYTES
+    };
+    if !fits(bytes, limit) {
+        return false;
+    }
+    let Ok((width, height)) = frame_size(bytes) else {
+        return false;
+    };
+    if width == 0 || height == 0 {
+        return false;
+    }
+    match kind {
+        ProfileImage::Original => {
+            u64::from(width) * u64::from(height) <= prepare::MAX_SOURCE_PIXELS
+        }
+        ProfileImage::Thumbnail => width.max(height) <= MAX_SIDE,
+        ProfileImage::PreparedOriginal => prepare::decode_plan(
+            "image/jpeg",
+            width,
+            height,
+            u64::try_from(bytes.len()).unwrap_or(u64::MAX),
+            prepare::Purpose::Profile,
+        )
+        .is_ok_and(|plan| plan.width == width && plan.height == height),
+    }
+}
+
 /// Decode a peer preview with 24 KiB input, 320 px sides and a 1 MiB decoder allocation limit.
 ///
 /// # Errors
@@ -249,5 +296,8 @@ fn rgba_pixels(decoded: &[u8], format: PixelFormat, pixels: usize) -> Result<Vec
     Ok(rgba)
 }
 
+#[cfg(test)]
+#[path = "photo/profile_tests.rs"]
+mod profile_tests;
 #[cfg(test)]
 mod tests;

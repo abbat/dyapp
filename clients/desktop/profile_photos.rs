@@ -4,12 +4,12 @@
 use std::path::Path;
 
 use dyapp_client::photo::prepare::Purpose;
+use dyapp_client::photo::{profile_acceptable, ProfileImage};
 use dyapp_client::store::profile_photos::PhotoEdit;
 use dyapp_client::store::{Error, Store};
 use dyapp_identity::Identity;
 use dyapp_profile::Profile;
 
-use crate::chat_photos::check_image;
 use crate::profile::{self, View};
 
 fn change(
@@ -27,8 +27,11 @@ fn change(
 }
 
 fn add(dir: &Path, identity: &Identity, full: &[u8], thumbnail: &[u8]) -> Result<View, String> {
-    check_image(full)?;
-    check_image(thumbnail)?;
+    if !profile_acceptable(full, ProfileImage::PreparedOriginal)
+        || !profile_acceptable(thumbnail, ProfileImage::Thumbnail)
+    {
+        return Err("corrupted".into());
+    }
     change(dir, identity, |store| {
         store.add_profile_photo(full, thumbnail)
     })
@@ -146,10 +149,7 @@ mod tests {
         let refused = add(&dir, &identity, &first, &[1, 2, 3]).unwrap_err();
         assert_eq!(refused, "corrupted");
         let png = encoded(ImageFormat::Png, 3);
-        assert_eq!(
-            add(&dir, &identity, &png, &first).unwrap_err(),
-            "photoRefused"
-        );
+        assert_eq!(add(&dir, &identity, &png, &first).unwrap_err(), "corrupted");
 
         add(&dir, &identity, &first, &first).unwrap();
         let added = add(&dir, &identity, &second, &second).unwrap();
