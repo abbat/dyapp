@@ -738,7 +738,9 @@ A fetch completion must still belong to an active producer before it can publish
 applies normalized fields to an existing `dyapp_profile::Profile`. It trims name/about, clears
 seeking fields for not-looking, and preserves proof progress, photos, devices and all other
 noneditable fields. Editor categorical/seeking codes use the closed vocabulary; node verification
-retains its separate forward-compatible contract. Apply alone supports eligibility and search
+retains its separate forward-compatible contract. A desktop selector without a selected option
+refuses serialization, including optional scales; only an explicitly selected zero option means unset.
+Apply alone supports eligibility and search
 projections; persistence callers must validate first. `profile_editor::normalize_interests` owns shared
 interest-list limits and NFC/trim/lowercase normalization; Tauri and native saves use it.
 Tauri draft saves also validate and apply editable fields through this shared API before opening

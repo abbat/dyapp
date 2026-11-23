@@ -256,6 +256,29 @@
     row.click();
     if (opened !== 1) throw new Error('Chat row did not retain its opening callback');
   };
+  const checkMissingScaleSelection = (scale, scales, fields, profileForm) => {
+    const key = fields.scaleKey(scale.key);
+    const id = scale.key === 'relationship_goal' ? 'goal' : scale.key;
+    const select = document.getElementById(`profile-${id}`);
+    select.value = '999';
+    if (select.selectedIndex !== -1 || select.value !== '' || Number(select.value) !== 0)
+      throw new Error('Missing-option counterexample was not established by the real select');
+    let refused = false;
+    try {
+      profileForm.readScales(scales);
+    } catch {
+      refused = true;
+    }
+    if (!refused) throw new Error(`Missing ${key} selection became an implicit unset`);
+    select.value = '0';
+    const draft = profileForm.readScales(scales);
+    if (
+      draft[key] !== 0 ||
+      scales.some((other) => other !== scale && draft[fields.scaleKey(other.key)] !== 7)
+    )
+      throw new Error('Explicit unset changed other profile selections');
+    select.value = '7';
+  };
   const checkProfileScales = async () => {
     const fields = await import(new URL('profile-fields.js', document.baseURI).href);
     const { profileForm } = await import(new URL('profile-form.js', document.baseURI).href);
@@ -302,6 +325,7 @@
         rejected += 1;
       }
       if (rejected !== 2) throw new Error('Unknown or missing profile scales were accepted');
+      for (const scale of scales) checkMissingScaleSelection(scale, scales, fields, profileForm);
     } finally {
       fixture.remove();
     }

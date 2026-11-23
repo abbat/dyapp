@@ -2116,6 +2116,12 @@ identity and uncertain-write checks. The actual native settings smoke also refus
 that floating-point conversion would round to a whole-byte budget, checking the unchanged stored
 limit and exact raw input.
 
+Desktop profile-scale checks distinguish a real select with no selected option from an explicitly
+selected zero-valued unset. All offered scales exercise serialization refusal; actual editor saves
+also assert zero persistence calls for missing required/optional selections and preserve unrelated
+fields on explicit unset. Native Store checks refuse unknown required/optional codes without
+replacing the saved draft.
+
 Desktop profile-input checks await the actual core interpretation and the field-assessment
 completion promise. Held assessment failures are delivered after replacing the text and after
 reopening an equal editor through real identity navigation; neither may invalidate the current

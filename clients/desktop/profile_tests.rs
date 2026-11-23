@@ -286,6 +286,13 @@ fn habits_and_about_are_saved_cleared_and_refused_when_invalid() {
         ..filled.clone()
     };
     assert!(save(&dir, &alice, unknown).is_err());
+    assert_eq!(load(&dir, &alice).unwrap().draft, saved);
+    let unknown_required = Draft {
+        gender: dyapp_profile::Gender::MAX + 1,
+        ..filled.clone()
+    };
+    assert!(save(&dir, &alice, unknown_required).is_err());
+    assert_eq!(load(&dir, &alice).unwrap().draft, saved);
     save(&dir, &alice, woman(None)).unwrap();
     assert_eq!(load(&dir, &alice).unwrap().draft, woman(None));
 }

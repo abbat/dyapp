@@ -245,6 +245,7 @@
   "network.row.wrongPeer": "answered with a different Peer ID",
   "network.row.wrongNetwork": "belongs to another network",
   "profile.unset": "Not published",
+  "profile.scaleInvalid": "Choose a value for each empty profile list, or explicitly choose “Not published”.",
   "profile.save": "Save draft",
   "profile.saved": "Draft saved.",
   "profile.draft": "Draft has unpublished changes.",

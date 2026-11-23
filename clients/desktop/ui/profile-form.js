@@ -16,7 +16,7 @@ export const profileForm = {
           domById(
             `profile-${scale.key === 'relationship_goal' ? 'goal' : scale.key}`,
             HTMLSelectElement,
-          ).value,
+          ).selectedOptions[0]?.value,
         ),
       ]),
     );
@@ -31,8 +31,12 @@ export const profileForm = {
       'fitnessLevel',
       'zodiac',
     ];
-    if (required.some((key) => !Number.isInteger(values[key])))
-      throw new Error('Missing required profile scales');
+    // An absent option is not the owner's explicit choice of the zero-valued unset option.
+    if (
+      Object.values(values).some((value) => !Number.isInteger(value)) ||
+      required.some((key) => !Number.isInteger(values[key]))
+    )
+      throw new Error(strings['profile.scaleInvalid']);
     return {
       ...values,
       gender: values.gender,

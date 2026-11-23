@@ -1,5 +1,52 @@
 // Scoped fixture/assertion helpers and shared smoke scenarios.
 {
+  const checkMissingProfileSelection = async (id, key, expected) => {
+    const select = document.getElementById(id);
+    const original = select.value;
+    let writes = 0;
+    const save = async (command, { draft }) => {
+      if (command !== 'save_profile') throw new Error('Unexpected profile persistence command');
+      writes += 1;
+      return { draft, problem: null, ages: null };
+    };
+    try {
+      select.value = '999';
+      if (select.selectedIndex !== -1 || select.value !== '')
+        throw new Error('Real editor did not expose the unsupported selection');
+      let refused = false;
+      try {
+        await smoke.waitForSignal(
+          'missing profile selection refusal',
+          appBindings.saveProfile(save),
+        );
+      } catch {
+        refused = true;
+      }
+      if (!refused || writes || select.selectedIndex !== -1)
+        throw new Error('Missing profile selection reached persistence or lost its draft');
+      select.value = '0';
+      const accepted = await smoke.waitForSignal(
+        'explicit profile unset admission',
+        appBindings.saveProfile(save),
+      );
+      if (
+        writes !== 1 ||
+        !accepted ||
+        accepted.draft[key] !== 0 ||
+        JSON.stringify({ ...accepted.draft, [key]: expected[key] }) !== JSON.stringify(expected)
+      )
+        throw new Error('Explicit unset was refused or changed unrelated profile fields');
+    } finally {
+      select.value = original;
+    }
+  };
+  const checkMissingProfileSelections = async () => {
+    await appBindings.showProfile();
+    const expected = await appBindings.profileDraft();
+    for (const key of ['gender', 'smoking', 'pets'])
+      await checkMissingProfileSelection(`profile-${key}`, key, expected);
+    await appBindings.showProfile();
+  };
   // Profile loads have two await boundaries; an old save must not repaint Ready either.
   const checkStaleProfilePlace = async (readyState) => {
     const finishPlaceCall = smoke.pendingSmokeCall();
@@ -56,6 +103,7 @@
     }
   };
   const checkStaleProfileLoad = async () => {
+    await checkMissingProfileSelections();
     const readyState = appBindings.current;
     const finishLoadCall = smoke.pendingSmokeCall();
     const oldLoad = appBindings.showProfile((command) =>

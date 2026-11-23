@@ -245,6 +245,7 @@
   "network.row.wrongPeer": "ответил с другим Peer ID",
   "network.row.wrongNetwork": "относится к другой сети",
   "profile.unset": "Не публиковать",
+  "profile.scaleInvalid": "Выберите значение в каждом пустом списке профиля или явно выберите «Не публиковать».",
   "profile.save": "Сохранить черновик",
   "profile.saved": "Черновик сохранён.",
   "profile.draft": "В черновике есть неопубликованные изменения.",
