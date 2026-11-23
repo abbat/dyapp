@@ -4,9 +4,10 @@
 //! may remove the marked text; the next text then starts a new receipt sequence for that group.
 
 use super::read_projection::ReadCoverage;
-use super::{collect_bounded, Error, Store, MAX_RESULT_ROWS};
+use super::{collect_bounded, Conversation, Error, Store, MAX_RESULT_ROWS};
 use crate::PreparedEnvelope;
 use rusqlite::{params, Connection, OptionalExtension};
+use std::collections::BTreeMap;
 
 const SETTING: &str = "send_read_receipts";
 
@@ -51,6 +52,31 @@ impl Store {
             MAX_RESULT_ROWS,
         )?;
         Ok(ReadCoverage::new(&self.owner_peer_id, keys))
+    }
+
+    /// Latest peer text per group that currently owes a receipt, in stable group order.
+    /// Uses canonical chat-history anchor selection and existing opt-in/block/mark checks.
+    /// Reading this list neither stages a receipt nor connects to the network.
+    ///
+    /// # Errors
+    /// Returns existing conversation, history or read-admission storage errors.
+    pub fn due_read_receipts(&self, peer: &str) -> Result<Vec<(Vec<u8>, [u8; 16])>, Error> {
+        if self.conversation(peer)? != Conversation::Open {
+            return Ok(Vec::new());
+        }
+        let latest: BTreeMap<_, _> = self
+            .current_chat_messages(peer)?
+            .into_iter()
+            .filter(|message| message.key.author == peer)
+            .map(|message| (message.key.group, message.key.id))
+            .collect();
+        let mut due = Vec::new();
+        for (group, id) in latest {
+            if self.draft_read(&group, peer, id)? {
+                due.push((group, id));
+            }
+        }
+        Ok(due)
     }
 
     /// Whether read receipts are sent; absent means off.
@@ -284,13 +310,13 @@ mod tests {
         assert!(!store.draft_read(GROUP, &b, [3; 16]).unwrap());
     }
 
-    fn set_display_hlc(store: &Store, own: &str, id: u8, hlc: i64) {
+    fn set_display_hlc(store: &Store, group: &[u8], own: &str, id: u8, hlc: i64) {
         store
             .db
             .execute(
                 "UPDATE `chat_messages` SET `original_hlc` = ?1
              WHERE `group_id` = ?2 AND `author` = ?3 AND `message_id` = ?4",
-                rusqlite::params![hlc, GROUP, own, [id; 16].as_slice()],
+                rusqlite::params![hlc, group, own, [id; 16].as_slice()],
             )
             .unwrap();
     }
@@ -316,8 +342,8 @@ mod tests {
         crate::store::tests::catalog_group(&mut store, GROUP, &peer);
         text(&mut store, &own, 9);
         text(&mut store, &own, 1);
-        set_display_hlc(&store, &own, 9, 200);
-        set_display_hlc(&store, &own, 1, 100);
+        set_display_hlc(&store, GROUP, &own, 9, 200);
+        set_display_hlc(&store, GROUP, &own, 1, 100);
         assert_eq!(
             store
                 .current_chat_messages(&peer)
@@ -341,6 +367,74 @@ mod tests {
         store.clear_chat_pair(&peer).unwrap();
         text(&mut store, &own, 2);
         assert_read_flag(&store, &peer, &own, 2, false);
+    }
+
+    fn open_for_reads(store: &mut Store, own: &str, peer: &str) {
+        use crate::interactions::{Interaction, Kind};
+        for (sender, target, id) in [(own, peer, 1u8), (peer, own, 2u8)] {
+            assert!(store
+                .apply_interaction(
+                    sender,
+                    target,
+                    &[1; 32],
+                    Interaction {
+                        kind: Kind::Like,
+                        event_id: [id; 16],
+                        hlc: u64::from(id) << 16,
+                    }
+                )
+                .unwrap());
+        }
+    }
+
+    fn ordered_peer_text(store: &mut Store, group: &[u8], peer: &str, id: u8, hlc: i64) {
+        crate::store::tests::catalog_group(store, group, peer);
+        let key = MessageKey {
+            group: group.to_vec(),
+            author: peer.to_owned(),
+            id: [id; 16],
+        };
+        assert!(store.record_chat_text(&key, b"text").unwrap());
+        set_display_hlc(store, group, peer, id, hlc);
+    }
+
+    #[test]
+    fn due_receipts_preserve_history_anchors_group_order_and_privacy_gates() {
+        let dir = dyapp_test_support::test_dir().unwrap();
+        let owner = Identity::try_generate().unwrap();
+        let own = owner.peer_id();
+        let peer = Identity::try_generate().unwrap().peer_id();
+        let mut store = Store::open(&dir.path().join("due.db"), &owner).unwrap();
+        let other = &[4u8][..];
+        for (group, id, hlc) in [(GROUP, 9, 200), (GROUP, 1, 100), (other, 2, 50)] {
+            ordered_peer_text(&mut store, group, &peer, id, hlc);
+        }
+        assert!(store.due_read_receipts(&peer).unwrap().is_empty());
+        open_for_reads(&mut store, &own, &peer);
+        assert!(store.due_read_receipts(&peer).unwrap().is_empty());
+        store.set_send_read_receipts(true).unwrap();
+        let expected = vec![(GROUP.to_vec(), [9; 16]), (other.to_vec(), [2; 16])];
+        assert_eq!(store.due_read_receipts(&peer).unwrap(), expected);
+        assert_eq!(store.due_read_receipts(&peer).unwrap(), expected);
+        let write = prepare_put(&[7; 32], vec![5]).unwrap();
+        store
+            .stage_read(
+                GROUP,
+                &peer,
+                [9; 16],
+                b"sealed",
+                std::slice::from_ref(&write),
+            )
+            .unwrap();
+        assert_eq!(
+            store.due_read_receipts(&peer).unwrap(),
+            [(other.to_vec(), [2; 16])]
+        );
+        store.set_blocked(&peer, true).unwrap();
+        assert!(store.due_read_receipts(&peer).unwrap().is_empty());
+        store.set_blocked(&peer, false).unwrap();
+        store.set_send_read_receipts(false).unwrap();
+        assert!(store.due_read_receipts(&peer).unwrap().is_empty());
     }
 
     #[test]

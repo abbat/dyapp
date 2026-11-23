@@ -205,7 +205,10 @@ Core `Store::read_coverage` snapshots own-message keys covered by the peer's gro
 marks using persisted arrival ordinals. UI/HLC ordering cannot acknowledge a later arrival.
 `ReadCoverage::read_flag` matches group, author and logical ID, excludes edited/deleted rows,
 and leaves foreign-author flags untouched. Missing or cleared markers cover nothing; neither
-snapshot nor display projection stages a receipt.
+snapshot nor display projection stages a receipt. `Store::due_read_receipts` centralizes the existing
+open-chat, canonical-history anchor choice and opt-in/block/prior-marker admission. It returns
+stable group order without staging or networking; display-prefix corrections do not change
+recipient receipt anchors.
 
 Core `Store::like_state` projects the owner's like, mutual match and independent local pass flag
 for Tauri and common native records. It only reads the existing ledgers; display refresh cannot

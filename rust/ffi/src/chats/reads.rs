@@ -5,8 +5,7 @@ use super::{failed, ChatMessage, ChatSession};
 use crate::profile_network::{active_network, connect, on_network_stack};
 use crate::CoreError;
 use dyapp_client::session::Session;
-use dyapp_client::store::{Conversation, Store};
-use std::collections::BTreeMap;
+use dyapp_client::store::Store;
 
 /// A group ID and the latest partner text ID in it.
 type Due = (Vec<u8>, [u8; 16]);
@@ -14,23 +13,7 @@ type Due = (Vec<u8>, [u8; 16]);
 /// The latest partner text of each group that still owes a receipt. A request owes none: only an
 /// accepted conversation may learn when the chat was opened.
 fn due_reads(store: &Store, peer_id: &str) -> Result<Vec<Due>, CoreError> {
-    if store.conversation(peer_id).map_err(failed)? != Conversation::Open {
-        return Ok(Vec::new());
-    }
-    let latest: BTreeMap<_, _> = store
-        .current_chat_messages(peer_id)
-        .map_err(failed)?
-        .into_iter()
-        .filter(|message| message.key.author == peer_id)
-        .map(|message| (message.key.group, message.key.id))
-        .collect();
-    let mut due = Vec::new();
-    for (group, id) in latest {
-        if store.draft_read(&group, peer_id, id).map_err(failed)? {
-            due.push((group, id));
-        }
-    }
-    Ok(due)
+    store.due_read_receipts(peer_id).map_err(failed)
 }
 
 /// Apply the core's persisted-arrival read snapshot to native display records.
@@ -120,6 +103,7 @@ impl ChatSession {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use dyapp_client::store::Conversation;
 
     fn message(group: u8, author: &str, id: u8) -> ChatMessage {
         ChatMessage {

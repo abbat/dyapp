@@ -1,10 +1,9 @@
 //! Opt-in read receipts of one open chat; see docs/design/read-receipts.md.
 
-use std::collections::BTreeMap;
 use std::path::Path;
 
 use dyapp_client::session::Session;
-use dyapp_client::store::{Conversation, Store};
+use dyapp_client::store::Store;
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
 
@@ -16,27 +15,9 @@ type PendingRead = (Vec<u8>, [u8; 16]);
 /// The latest partner text of each group that still owes a receipt. A request owes none: only an
 /// accepted conversation may learn when the chat was opened.
 fn due_reads(store: &Store, peer_id: &str) -> Result<Vec<PendingRead>, String> {
-    if store.conversation(peer_id).map_err(|e| e.to_string())? != Conversation::Open {
-        return Ok(Vec::new());
-    }
-    let messages = store
-        .current_chat_messages(peer_id)
-        .map_err(|e| e.to_string())?;
-    let latest: BTreeMap<_, _> = messages
-        .into_iter()
-        .filter(|message| message.key.author == peer_id)
-        .map(|message| (message.key.group, message.key.id))
-        .collect();
-    let mut due = Vec::new();
-    for (group, id) in latest {
-        if store
-            .draft_read(&group, peer_id, id)
-            .map_err(|e| e.to_string())?
-        {
-            due.push((group, id));
-        }
-    }
-    Ok(due)
+    store
+        .due_read_receipts(peer_id)
+        .map_err(|error| error.to_string())
 }
 
 /// Send what the shown chat owes and return how many receipts went out. With nothing due, which
