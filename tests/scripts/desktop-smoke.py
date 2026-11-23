@@ -44,7 +44,6 @@ forge_search_signature = native.forge_search_signature
 expire_sticker_media = native.expire_sticker_media
 video_smoke = native.video_smoke
 start_smoke_node = native.start_smoke_node
-moderation_panels = native.moderation_panels
 
 
 class DesktopSmoke:
@@ -944,7 +943,8 @@ class DesktopSmoke:
         self.storage_modes(flows)
         self.network_flows(flows)
         if flows:
-            moderation_panels(self.case, self.reports, self.executable)
+            native.moderation_panels(self.case, self.reports, self.executable)
+            native.received_views(self.case, self.reports, self.executable)
         language_step = "--ui-test-step=settings-language"
         with tempfile.TemporaryDirectory(dir=self.reports) as profile:
             self.case(

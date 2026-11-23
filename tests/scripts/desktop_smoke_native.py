@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import contextlib
 import hashlib
+from itertools import product
 from concurrent.futures import ThreadPoolExecutor
 import json
 import os
@@ -384,6 +385,64 @@ def moderation_panels(
                 "executable_sha256": binary_sha256,
                 "platform": sys.platform,
                 "cases": ["moderation-en", "moderation-ru"],
+                "captures": captures,
+            },
+            indent=2,
+        )
+    )
+
+
+def received_views(
+    case: dc.CaseRunner, reports: Path, executable: str
+) -> None:
+    """Audit actual panes and retain source-bound Linux frames."""
+    output = Path(
+        tempfile.mkdtemp(prefix="received-views-shots-", dir=reports)
+    )
+    captures = {}
+    cases = []
+    states = (
+        "loading",
+        "populated",
+        "empty",
+        "initial-error",
+        "retained-error",
+        "no-query-match",
+        "page-transition",
+        "profile-return",
+    )
+    for language, theme, (scale, text) in product(
+        ("en", "ru"), ("light", "dark"), (("100", "normal"), ("200", "large"))
+    ):
+        name = f"received-views-{language}-{theme}-{text}"
+        flags = [
+            "--ui-test-file",
+            f"--ui-test-step=received-views:{theme}:{scale}",
+        ]
+        if language == "ru":
+            flags.append("--ui-test-ru")
+        env = {"DYAPP_SMOKE_RU": "0"}
+        if sys.platform.startswith("linux"):
+            env["DYAPP_UI_SHOTS"] = str(output)
+        with tempfile.TemporaryDirectory(dir=reports) as profile:
+            case(name, flags, profile, timeout=300, extra_env=env)
+        cases.append(name)
+        if sys.platform.startswith("linux"):
+            for state, width in product(states, (440, 1280)):
+                image = output / (
+                    f"received-views-{state}-{theme}-{text}"
+                    f"-{language}-{width}.png"
+                )
+                if image.stat().st_size == 0:
+                    raise RuntimeError(f"Empty native view capture: {image}")
+                captures[image.name] = _file_sha256(image)
+    (output / "receipt.json").write_text(
+        json.dumps(
+            {
+                "source_sha": os.environ.get("GITHUB_SHA"),
+                "executable_sha256": _file_sha256(Path(executable)),
+                "platform": sys.platform,
+                "cases": cases,
                 "captures": captures,
             },
             indent=2,

@@ -121,11 +121,13 @@ jobs:
       matrix:
         include:
           - lane: android-emulator
+            emulator_service: android-emulator
             image_service: android-build
             image: dyapp:android-tools
             artifact: android-check-output
             budget: 30
           - lane: android-permissions
+            emulator_service: android-permission-emulator
             image_service: android-permission-emulator
             image: dyapp:android-permission-tools
             artifact: android-permission-check-output
@@ -147,16 +149,28 @@ jobs:
         with:
           name: android-runtime-packages
           path: build/android-build
-      - name: test
-        env:
-          DYAPP_KVM: "1"
-          DYAPP_ANDROID_SKIP_BUILD: "1"
+      - name: prepare runtime
         run: |
           chmod +x build/android-build/debug/dyappd build/android-build/debug/examples/android_photo_fixture
           python3 tools/scripts/docker-local.py -f tests/docker/compose.ui.yml --profile all build ${{ matrix.image_service }}
           mkdir -p build/android-reports/build-provenance
           git rev-parse HEAD > build/android-reports/build-provenance/source-head.txt
           docker image inspect --format '{{.Id}}' ${{ matrix.image }} > build/android-reports/build-provenance/android-tools-image.txt
+      - name: emulator readiness
+        timeout-minutes: 15
+        env:
+          EMULATOR_SERVICE: ${{ matrix.emulator_service }}
+        run: |
+          DYAPP_KVM_GID=$(stat -c %g /dev/kvm)
+          export DYAPP_KVM_GID
+          python3 tools/scripts/docker-local.py -f tests/docker/compose.ui.yml \
+            -f tests/docker/compose.kvm.yml --profile all \
+            up --no-build --pull never --wait "$EMULATOR_SERVICE"
+      - name: test
+        env:
+          DYAPP_KVM: "1"
+          DYAPP_ANDROID_SKIP_BUILD: "1"
+        run: |
           timeout --kill-after=30s "${{ matrix.budget }}m" bash tests/scripts/ui-test.sh ${{ matrix.lane }}
       - name: logs
         if: always()
@@ -221,6 +235,7 @@ jobs:
             build/platform-check-output/
             ${{ runner.temp }}/desktop-ui-results.json
             ${{ runner.temp }}/moderation-shots-*/
+            ${{ runner.temp }}/received-views-shots-*/
             build/complexity/linux/*/clippy.stderr
             build/complexity/linux/*/clippy.jsonl
             build/complexity/linux/*/report.json
@@ -302,6 +317,7 @@ jobs:
             ${{ runner.temp }}/apple-results/
             ${{ runner.temp }}/desktop-ui-results.json
             ${{ runner.temp }}/moderation-shots-*/
+            ${{ runner.temp }}/received-views-shots-*/
           if-no-files-found: error
 
   windows:
@@ -349,6 +365,7 @@ jobs:
             build/debug/dyapp-windows.exe
             ${{ runner.temp }}/desktop-ui-results.json
             ${{ runner.temp }}/moderation-shots-*/
+            ${{ runner.temp }}/received-views-shots-*/
           if-no-files-found: error
 
   summary:

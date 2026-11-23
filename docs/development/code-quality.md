@@ -363,6 +363,11 @@ The shared client pins `url` to 2.5.9, which avoids recursive origin resolution 
 `blob:` URLs (RUSTSEC-2026-0592). Keep this security update in the root, fuzz and all three
 native desktop lockfiles when resolving their separate dependency graphs.
 
+The three native desktop lockfiles select `cookie` 0.18.3 or newer to fix private-cookie nonce
+reuse after a Unix fork (RUSTSEC-2026-0594). Update each separate graph; do not replace this
+patched dependency with an advisory ignore. Its exact 0.18.3 age exception permits the urgent
+security patch during the 14-day maturity window; remove it after 2026-12-07.
+
 To accept an advisory, add its ID to `[advisories] ignore` with a comment giving the reason and an
 issue to remove it. That hides the advisory; it does not fix it.
 

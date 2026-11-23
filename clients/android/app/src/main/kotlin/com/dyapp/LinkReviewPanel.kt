@@ -171,23 +171,30 @@ private fun LinkReviewPreviewFailure(failure: Throwable?) {
 }
 
 @Composable
+private fun LinkReviewSaveControl(form: LinkReviewFormState, controls: LinkReviewControls) {
+    Button(
+        controls.save,
+        Modifier.testTag("link-review-confirm").applicationClick(controls.save),
+        form.available && form.complete
+    ) { Text(stringResource(R.string.link_review_save)) }
+}
+
+@Composable
 private fun LinkReviewFooter(form: LinkReviewFormState, controls: LinkReviewControls) {
-    val focus = rememberLinkReviewFocus(
-        form.preview != null,
-        form.available,
-        controls.snapshot.enrollment.failure ?: form.failure,
-        controls.canLeave
-    )
+    val failure = controls.snapshot.enrollment.failure ?: form.failure
+    val focus = rememberLinkReviewFocus(form.preview != null, form.available, failure, controls.canLeave)
     var backFocused by remember { mutableStateOf(false) }
-    LinkReviewRecoveryFrame(controls.snapshot.enrollment.failure ?: form.failure, backFocused) {
-        LinkReviewPreviewFailure(form.failure)
-        LinkReviewRecovery(controls.snapshot, controls.actions)
+    LinkReviewRecoveryFrame(
+        failure,
+        backFocused,
+        feedback = {
+            LinkReviewPreviewFailure(form.failure)
+            LinkEnrollmentNotice(controls.snapshot.enrollment)
+        }
+    ) {
+        LinkEnrollmentAction(controls.snapshot, controls.actions)
         LinkReviewPreviewControl(form, focus)
-        Button(
-            controls.save,
-            Modifier.testTag("link-review-confirm").applicationClick(controls.save),
-            form.available && form.complete
-        ) { Text(stringResource(R.string.link_review_save)) }
+        LinkReviewSaveControl(form, controls)
         TextButton(
             controls.back,
             Modifier.testTag("link-review-back").onFocusChanged { backFocused = it.isFocused }

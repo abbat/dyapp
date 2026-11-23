@@ -180,6 +180,13 @@ must compile the changed callers and generated bindings. Fixture helpers that ca
 take `ComposeContentTestRule`; base `ComposeTestRule` supports synchronization/input only.
 Call `setContent` once per test. Multiple native UI phases reuse a mutable root scene with fresh
 reference-owned routes and await disposal/completion instead of installing another Compose root.
+`Opened.Ready` and `Opened.Recovery` deliberately keep reference equality: reopening the same
+slot/peer is a new UI owner. Preserve these class identities and key asynchronous routes by the
+opening, not only its coordinates; stale callbacks must not act on an equal-coordinate replacement.
+Revalidate CodeQL dispositions against `most_recent_instance.commit_sha`. GitHub limits
+`dismissed_comment` to 280 characters; retain full evidence in the bead, send exact JSON through
+`gh api --input`, and inspect the returned state/reason. Verify workflows and other scanner tools
+separately from alert dispositions.
 For Kotlin CodeQL findings, inspect compiler lowering before changing working source. CodeQL 2.27.5
 can label `UInt` constants as `Integer` at `List<UInt>.contains`; Kotlin 2.4.21 actually inserts
 `UInt.box-impl`. A small Docker probe with present/absent fields and a deliberately boxed `Int`

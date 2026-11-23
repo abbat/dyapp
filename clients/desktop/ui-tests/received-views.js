@@ -3,6 +3,15 @@
   const check = (value, reason) => {
     if (!value) throw new Error(reason);
   };
+  const emptyPage = {
+    total: 0,
+    matched: 0,
+    number: 0,
+    pages: 0,
+    entries: [],
+    previous: null,
+    next: null,
+  };
   const fixture = () => {
     const peer = '9'.repeat(64);
     const calls = [];
@@ -32,6 +41,7 @@
       peer,
       calls,
       cursor,
+      reply,
       call,
       setRead: (value) => {
         read = value;
@@ -90,7 +100,7 @@
     await appApi.receivedViews.viewsShown;
     check(!byId('received-views-rows').children.length, 'explicit empty retry retained stale rows');
   };
-  const checkReceivedViewOpening = async () => {
+  const checkReceivedViewOpening = async (afterReturn = async () => {}) => {
     await openArea('settings', 'views');
     const test = fixture();
     await appApi.receivedViews.showReceivedViews(test.call);
@@ -116,21 +126,14 @@
       document.activeElement?.dataset.peerId === test.peer,
       'Back did not focus the current row',
     );
+    await afterReturn();
     const stale = byId('received-views-rows').querySelector('button');
     const held = smoke.pendingSmokeCall();
     test.setRead(held.call);
     byId('received-views-refresh').click();
     const done = appApi.receivedViews.viewsShown;
     await openArea('profile-area');
-    held.resolve({
-      total: 0,
-      matched: 0,
-      number: 0,
-      pages: 0,
-      entries: [],
-      previous: null,
-      next: null,
-    });
+    held.resolve(emptyPage);
     await done;
     const before = test.calls.length;
     stale.click();
@@ -162,6 +165,114 @@
       await appApi.receivedViews.showReceivedViews(invokeTest);
     }
   };
+  const withCaptureAppearance = async (theme, scale, show) => {
+    check(['light', 'dark'].includes(theme), 'unknown capture theme');
+    check(['100', '200'].includes(scale), 'unknown capture text scale');
+    const root = document.documentElement;
+    const originalTheme = root.dataset.theme;
+    /** @type {[HTMLElement, string, number][]} */
+    const originals = [root, document.body].map((element) => [
+      element,
+      element.style.fontSize,
+      parseFloat(getComputedStyle(element).fontSize),
+    ]);
+    try {
+      root.dataset.theme = theme;
+      for (const [element, , pixels] of originals)
+        element.style.fontSize = `${(pixels * Number(scale)) / 100}px`;
+      await document.fonts.ready;
+      await frames();
+      for (const [element, , pixels] of originals)
+        check(
+          parseFloat(getComputedStyle(element).fontSize) === (pixels * Number(scale)) / 100,
+          'capture text scale was not applied',
+        );
+      await show();
+    } finally {
+      for (const [element, size] of originals) element.style.fontSize = size;
+      if (originalTheme) root.dataset.theme = originalTheme;
+      else delete root.dataset.theme;
+    }
+  };
+  const transition = (name, action) => smoke.timedChecks({ [name]: action })[name]();
+  const captureLoading = async (shot) => {
+    const held = smoke.pendingSmokeCall();
+    const loading = fixture();
+    loading.setRead(held.call);
+    const completion = appApi.receivedViews.showReceivedViews(loading.call);
+    try {
+      check(byId('received-views-refresh').disabled, 'loading did not disable refresh');
+      await shot('loading');
+    } finally {
+      held.resolve(loading.reply);
+      await transition('received-views-loading-completed', () => completion);
+    }
+    await shot('populated');
+    loading.setRead(() => Promise.reject(new Error('controlled capture refresh failure')));
+    byId('received-views-refresh').click();
+    await transition('received-views-refresh-completed', () => appApi.receivedViews.viewsShown);
+    check(byId('received-views-rows').textContent.includes(loading.peer), 'retained row lost');
+    await shot('retained-error');
+  };
+  const captureEmptyStates = async (shot) => {
+    const expose = async (state, response) => {
+      const test = fixture();
+      test.setRead(() => response);
+      await transition(`received-views-${state}-ready`, () =>
+        appApi.receivedViews.showReceivedViews(test.call),
+      );
+      await shot(state);
+      check(
+        test.calls.every(([command]) => command === 'received_profile_views'),
+        'capture list read fetched a profile or sent a view',
+      );
+    };
+    await expose('initial-error', Promise.reject(new Error('controlled capture read failure')));
+    await expose('empty', Promise.resolve(emptyPage));
+    byId('received-views-query').value = 'missing-target';
+    await expose('no-query-match', Promise.resolve({ ...emptyPage, total: 71 }));
+  };
+  const captureNextPage = async (shot) => {
+    byId('received-views-query').value = '';
+    const page = fixture();
+    await transition('received-views-page-ready', () =>
+      appApi.receivedViews.showReceivedViews(page.call),
+    );
+    page.setRead(() =>
+      Promise.resolve({
+        ...page.reply,
+        number: 2,
+        previous: page.cursor,
+        next: null,
+      }),
+    );
+    byId('received-views-next').click();
+    await transition('received-views-next-completed', () => appApi.receivedViews.viewsShown);
+    check(page.calls.at(-1)[1].cursor === page.cursor, 'capture lost the core cursor');
+    await shot('page-transition');
+  };
+  smoke.checkReceivedViewsCapture = (theme, scale) =>
+    withCaptureAppearance(theme, scale, async () => {
+      const textMode = scale === '100' ? 'normal' : 'large';
+      const shot = (state) => {
+        const name = `received-views-${state}-${theme}-${textMode}`;
+        return transition(name, () => smoke.shot(name));
+      };
+      try {
+        await openArea('settings', 'views');
+        byId('received-views-query').value = '';
+        await captureLoading(shot);
+        await captureEmptyStates(shot);
+        await captureNextPage(shot);
+        await transition('received-views-profile-return-completed', () =>
+          checkReceivedViewOpening(() => shot('profile-return')),
+        );
+      } finally {
+        byId('received-views-query').value = '';
+        await openArea('profile-area');
+        await appApi.receivedViews.showReceivedViews(invokeTest);
+      }
+    });
   smoke.uiSmokeReceivedViews = {
     checkReceivedViews,
     checkReceivedViewOpening,

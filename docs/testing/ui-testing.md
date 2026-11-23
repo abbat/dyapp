@@ -103,6 +103,12 @@ separate. The bounded `android_visual_archive.py --kind views` validator require
 frames, exact producer SHA, locale/theme/font/outcome matrix, actual text-scale witnesses, matching
 PNG dimensions and the dedicated archive namespace. A matrix proves captured controlled rendering,
 not live private delivery, and still requires review of the frames.
+`NativeProfileViewDeliveryTests` separately exercises actual generated JNI and first-contact
+mail delivery between existing test peers: disabled/retired opening refusal, explicit View,
+recipient readback with its own sending disabled, one-shot replay and no Like/chat/notice side effect.
+Receive completions advance its readiness checks. UTC-day deduplication stays in fixed-clock core
+tests; this runtime test does not assume the wall clock remains on one day. Execution belongs to
+Android CI, separately from controlled rendering acceptance.
 The independent `suite=updates` phase uses `UpdateNoticeVisualTests` with `updatesVisual=1`.
 It renders the production update dialog with controlled core records for package/source offers,
 pending dismissal, write failure and an actual controlled browser exception. Five additional
@@ -147,6 +153,9 @@ acknowledged, read failure, confirmation refusal, retry failure and the five typ
 Each width requires 192
 EN/RU/theme/font/top-bottom frames under `files/search-recovery-visual/<width>/`, validated by
 `android_visual_archive.py --kind recovery` with the exact producer and real text-scale witnesses.
+Recovery uses the same completed remote tar and SHA-256-verified transfer as every native visual
+phase. The collector regression exercises every archive declared by the capture runner; a passing
+instrumentation test cannot substitute for its required archive.
 Controlled callbacks retain busy states until capture finishes; cleanup awaits admitted completion.
 Fixtures have no registry or credentials and cannot sign or contact a node. Actual JNI authorization
 and manual review of these captures remain separate acceptance requirements.
@@ -195,9 +204,10 @@ Each recovery control is then exposed and checked with fresh bounds in EN/RU at 
 confirmation refusal belongs to the separately retained enrollment state. Its typed notice and
 existing recovery actions render beside the active form footer, or beside the reopen/saved state;
 receipt-only outcomes keep their original notice. After the safe Back control reports actual focus,
-a non-empty leading region derived from its actual text baseline requests visibility; focus alone
-is not a scroll completion signal. Changes to that measured region retrigger the request without
-a guessed delay. A footer taller than its viewport need not fit simultaneously: the full refusal is
+the measured feedback container requests visibility using its full bounds, separately from the
+action controls; focus alone is not a scroll completion signal. Changes to its measured size
+retrigger the request without a guessed delay. A footer taller than its viewport need not fit
+simultaneously: the full refusal is
 checked first, followed by individual measured recovery-control reachability.
 The phase-only `LinkReviewVisualTests` renders the actual complete comparison in the receiving
 Settings frame: choices, preview, saving, typed refusal and unavailable photos, in EN/RU, both
@@ -297,6 +307,13 @@ Linux additionally retains the loaded panels at 440/1280 widths in a fresh `mode
 directory; a receipt binds all eight required PNG files to their hashes and the executable hash.
 Missing/empty captures fail the exposure. CI uploads this directory with native diagnostics;
 its Linux setup includes the same ImageMagick capture tool already used by the Docker test image.
+
+Native desktop received-view capture cases exercise loading, populated, empty, initial-error,
+retained-error, no-query-match, next-page and profile-return states in EN/RU, both themes and
+measured 100/200-percent text. Linux retains all 128 required 440/1280 PNGs in a fresh
+`received-views-shots-*` directory with source SHA, executable and image hashes. Other desktops run
+the same actual-pane accessibility checks without the Linux capture tool. Held callbacks and
+controller completion signals establish states; capture evidence still requires rendered review.
 
 The prototype keyboard fixture calibrates requested switcher visibility against both the real
 visible menu and a controlled hidden sidebar. It must reject all three missing identity actions;
@@ -1463,6 +1480,10 @@ review and the existing real two-device UI/JNI journey remain separate acceptanc
 The owner visual fixtures provide twelve controlled native-shaped outcomes through production
 dialog controls, one reusable Compose root, matching EN/RU resources and font configuration, and
 completion-owned worker retirement. They never overwrite presentation StateFlows or host a node.
+Before real Send/Retry clicks, the visual driver waits for the current Cancel focus restored by the
+production completion effect. The worker state alone does not establish native focus readiness.
+The ordinary large-text regression physically clicks Send after preparation and requires expiry,
+zero sends, the refusal UI and an actual text-scale witness.
 This foundation does not establish native authorization, transfer, rendered visual acceptance or
 real IME/editor scrolling.
 The phase-only `OwnerApprovalVisualTests` requires instrumentation arguments `ownerVisual=1`,

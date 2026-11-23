@@ -20,6 +20,34 @@ fn snapshot(mut snapshot: Snapshot) -> Snapshot {
 }
 
 #[test]
+fn connections_enforce_full_sync_and_native_snapshot_length_bounds() {
+    let connection = Connection::open_in_memory().unwrap();
+    // Do not let SQLite's default FULL setting hide a skipped durability configuration.
+    connection
+        .pragma_update(None, "synchronous", "OFF")
+        .unwrap();
+    configure(&connection).unwrap();
+    let synchronous: i64 = connection
+        .pragma_query_value(None, "synchronous", |row| row.get(0))
+        .unwrap();
+    assert_eq!(synchronous, 2); // SQLite's documented FULL mode.
+    let valid = vec![0u8; snapshot::MAX_BYTES];
+    let length: i64 = connection
+        .query_row("SELECT length(?1)", params![valid], |row| row.get(0))
+        .unwrap();
+    assert_eq!(usize::try_from(length).unwrap(), snapshot::MAX_BYTES);
+    let oversized = vec![0u8; snapshot::MAX_BYTES * 2];
+    let result = connection.query_row("SELECT length(?1)", params![oversized], |row| {
+        row.get::<_, i64>(0)
+    });
+    assert!(matches!(
+        result,
+        Err(rusqlite::Error::SqliteFailure(failure, _))
+            if failure.extended_code == rusqlite::ffi::SQLITE_TOOBIG
+    ));
+}
+
+#[test]
 fn initialization_generates_jitter_once_and_preserves_all_seed_boundaries() {
     for jitter in [0, 1, u64::MAX] {
         let mut database = Connection::open_in_memory().unwrap();

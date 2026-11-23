@@ -120,17 +120,22 @@ above each measured size, so routine growth does not fail the nightly gate; the 
 applies on top. Against the old budgets the Windows EXE grew by 235.6% since its 2026-10-20
 baseline, as it began to link the client core and libp2p; Linux by 18.4%, the IPA by 8.2%, the
 ZIP by 7.8% and `dyappd` by 0.2%, while the APK fell by 15.3% and the AAB by 4.1%.
-The universal Tauri macOS ZIP budget is 31,143,613 bytes, measured on `77981508` in the
+The universal Tauri macOS ZIP was measured at 31,143,613 bytes on `77981508` in the
 [2026-11-10 native release run](https://github.com/abbat/dyapp/actions/runs/42804780601).
-It replaces the SwiftUI budget after the shared desktop and embedded-node migration (+41.13%).
-This budget records the exact measurement without added headroom; subsequent builds retain the
-same 5% gate.
+It replaced the SwiftUI budget after the shared desktop and embedded-node migration (+41.13%).
+The measurement had no added headroom; subsequent builds retained the same 5% gate.
 The Windows EXE baseline is 40,073,728 bytes, measured on `56deca3a` in the
 [2026-11-20 release run](https://github.com/abbat/dyapp/actions/runs/44741192593).
 It grew 5.19% from the 2026-11-11 measurement across Windows toast/network-cost integration and
 shared client-core additions. The release build and production-asset check passed; individual
 symbol contributions were not measured. This records the exact CI size without extra headroom;
 the 5% threshold and fail-closed checks remain unchanged.
+The macOS ZIP and iOS IPA baselines now record 32,936,665 and 12,414,436 bytes from `afc286c3` in the
+[2026-11-23 unsigned release run](https://github.com/abbat/dyapp/actions/runs/45138013897).
+Build, packaging and hardening passed; the size gate rejected 5.76% and 6.15% growth since their
+previous measurements during shared client-core/native API development. Individual symbol
+contributions were not measured. The maintainer approved these exact measurements without extra
+headroom; the checker, 5% tolerance and signed-release requirements stay unchanged.
 `reproducible.yml` checks the real first output of each verified pair against its
 matching Ubuntu baseline, and archives `artifact-size-<target>.json`. Scheduled
 and manual runs use the single source commit range `HEAD^..HEAD`, recorded as

@@ -742,10 +742,15 @@ const checkInitialSettingsStep = async (state, mode, step) => {
   if (step === 'settings-language') {
     await checkSettingsLanguage();
     await checkPrivacy(false);
+  } else if (step.startsWith('received-views:')) {
+    await smoke.checkReceivedViewsCapture(...step.slice('received-views:'.length).split(':'));
   } else await smoke.checkModerationHints();
 };
 const runSmokeFallbackStep = async (state, mode, existing, step, readySteps) => {
-  if (['settings-language', 'settings-moderation'].includes(step)) {
+  if (
+    ['settings-language', 'settings-moderation'].includes(step) ||
+    step.startsWith('received-views:')
+  ) {
     await checkInitialSettingsStep(state, mode, step);
   } else if (Object.hasOwn(readySteps, step)) {
     if (state.status !== 'ready') throw new Error('identity not reopened');

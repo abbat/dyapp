@@ -43,7 +43,7 @@ internal class OwnerVisualDriver(private val compose: ComposeContentTestRule) {
         if (backend.state == OwnerVisualState.CONFIRM_EXPIRED) {
             backend.inspect.set { MobileLinkCodeStatus.EXPIRED }
         }
-        compose.awaitNode(hasTestTag("owner-send") and isEnabled()).performClick()
+        activate("owner-send")
         if (backend.state == OwnerVisualState.SENDING) {
             awaitEntered(backend)
             return
@@ -58,10 +58,15 @@ internal class OwnerVisualDriver(private val compose: ComposeContentTestRule) {
             OwnerVisualState.UNCERTAIN_CHECK_ERROR -> backend.inspect.set { error("Controlled code-check failure") }
             else -> return
         }
-        compose.awaitNode(hasTestTag("owner-retry") and isEnabled()).performClick()
+        activate("owner-retry")
         compose.awaitSnapshot(backend.approval.state, 5_000, "owner retry") {
             !it.busy && it.codeStatus != MobileLinkCodeStatus.VALID
         }
+    }
+
+    private fun activate(tag: String) {
+        compose.awaitNode(hasTestTag("owner-cancel") and isFocused())
+        compose.awaitNode(hasTestTag(tag) and isEnabled()).performClick()
     }
 
     private fun awaitDirectory(backend: OwnerVisualBackend) =
@@ -75,7 +80,7 @@ internal class OwnerVisualDriver(private val compose: ComposeContentTestRule) {
         }
 
     private fun awaitSend(backend: OwnerVisualBackend) =
-        compose.awaitSnapshot(backend.approval.state, 5_000, "owner delivery") {
+        compose.awaitSnapshot(backend.approval.state, 5_000, "owner delivery ${backend.state}") {
             !it.busy && (it.delivery != null || it.codeStatus != MobileLinkCodeStatus.VALID)
         }
 
