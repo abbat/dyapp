@@ -142,6 +142,42 @@ fn interest_limits_apply_after_normalization() {
 }
 
 #[test]
+fn impossible_birth_input_never_replaces_the_saved_draft_or_creates_a_store() {
+    let (dir, alice) = (temp_dir(), Identity::try_generate().unwrap());
+    let accepted = Draft {
+        birth_day: Some(29),
+        ..woman(Some(2000))
+    };
+    let invalid = Draft {
+        birth_year: Some(2001),
+        ..accepted.clone()
+    };
+    assert_eq!(
+        save(&dir, &alice, invalid.clone()),
+        Err("invalid birth date".into())
+    );
+    assert!(!dir.join("client.db").exists());
+    save(&dir, &alice, accepted.clone()).unwrap();
+    for rejected in [
+        invalid,
+        Draft {
+            birth_month: Some(13),
+            ..accepted.clone()
+        },
+        Draft {
+            birth_year: Some(0),
+            ..accepted.clone()
+        },
+    ] {
+        assert_eq!(
+            save(&dir, &alice, rejected),
+            Err("invalid birth date".into())
+        );
+        assert_eq!(load(&dir, &alice).unwrap().draft, accepted);
+    }
+}
+
+#[test]
 fn height_is_saved_cleared_and_refused_out_of_range() {
     let (dir, alice) = (temp_dir(), Identity::try_generate().unwrap());
     let tall = |height| Draft {

@@ -18,7 +18,7 @@ use dyapp_identity::network::{self, Network, Settings};
 use dyapp_identity::Identity;
 use dyapp_p2p_net::proto::Status;
 use dyapp_p2p_net::{seed, Protocols};
-use dyapp_profile::{is_clean_text, CivilDate, Profile, MAX_FIELD_CHARS};
+use dyapp_profile::{CivilDate, Profile};
 
 // Nonces between saves and cancellation checks: a fraction of a second of Argon2id.
 const STEP: u64 = 8;
@@ -336,84 +336,21 @@ pub fn save(dir: &Path, identity: &Identity, draft: Draft) -> Result<View, Strin
 }
 
 impl Draft {
-    fn scale_values(&self) -> [(u32, u32); 14] {
-        [
-            (dyapp_profile::Gender::FIELD, self.gender),
-            (dyapp_profile::Orientation::FIELD, self.orientation),
-            (
-                dyapp_profile::RelationshipGoal::FIELD,
-                self.relationship_goal,
-            ),
-            (dyapp_profile::RolePreference::FIELD, self.role_preference),
-            (dyapp_profile::CareerAmbition::FIELD, self.career_ambition),
-            (
-                dyapp_profile::FinancialPhilosophy::FIELD,
-                self.financial_philosophy,
-            ),
-            (
-                dyapp_profile::EmploymentStatus::FIELD,
-                self.employment_status,
-            ),
-            (dyapp_profile::FitnessLevel::FIELD, self.fitness_level),
-            (dyapp_profile::Zodiac::FIELD, self.zodiac),
-            (dyapp_profile::Smoking::FIELD, self.smoking),
-            (dyapp_profile::Drinking::FIELD, self.drinking),
-            (dyapp_profile::Tattoos::FIELD, self.tattoos),
-            (dyapp_profile::MaritalStatus::FIELD, self.marital_status),
-            (dyapp_profile::Pets::FIELD, self.pets),
-        ]
-    }
-
     fn validate(&self) -> Result<Vec<String>, String> {
-        for (field, value) in self.scale_values() {
-            if !dyapp_profile::scale(field).is_some_and(|scale| scale.knows(value)) {
-                return Err("invalid profile scale".into());
-            }
-        }
-        if !places::known(&self.country, &self.place) {
-            return Err("invalid place".into());
-        }
-        let name = self.name.trim();
-        if name.chars().count() > MAX_FIELD_CHARS || !is_clean_text(name) {
-            return Err("invalidName".into());
-        }
-        if !dyapp_profile::valid_height(self.height) {
-            return Err("invalidHeight".into());
-        }
         let interests = canonical_interests(&self.interests)?;
-        if !dyapp_profile::valid_about(self.about.trim()) {
-            return Err("invalidAbout".into());
-        }
-        let (genders, from, to) = if self.not_looking {
-            (&[][..], None, None)
-        } else {
-            (
-                self.seeking_genders.as_slice(),
-                self.seeking_age_from,
-                self.seeking_age_to,
-            )
-        };
-        if !dyapp_profile::valid_seeking(genders, from, to)
-            || !dyapp_profile::scale(dyapp_profile::Gender::FIELD)
-                .is_some_and(|scale| genders.iter().all(|&code| scale.knows(code)))
-        {
-            return Err("invalid profile seeking".into());
-        }
+        let editable = self
+            .clone()
+            .into_profile(Profile::default(), interests.clone());
+        dyapp_client::profile_editor::validate(&editable).map_err(|error| match error {
+            dyapp_client::profile_editor::DraftError::Seeking => "invalid profile seeking".into(),
+            other => other.to_string(),
+        })?;
         Ok(interests)
     }
 
-    fn into_profile(self, base: Profile, interests: Vec<String>) -> Profile {
-        let (seeking_genders, seeking_age_from, seeking_age_to) = if self.not_looking {
-            (Vec::new(), None, None)
-        } else {
-            (
-                self.seeking_genders,
-                self.seeking_age_from,
-                self.seeking_age_to,
-            )
-        };
-        Profile {
-            name: self.name.trim().to_owned(),
+    fn into_profile(self, mut base: Profile, interests: Vec<String>) -> Profile {
+        let editable = Profile {
+            name: self.name,
             gender: self.gender,
             orientation: self.orientation,
             relationship_goal: self.relationship_goal,
@@ -427,8 +364,7 @@ impl Draft {
             birth_month: self.birth_month,
             birth_day: self.birth_day,
             height: self.height,
-            about: self.about.trim().to_owned(),
-            interests,
+            about: self.about,
             smoking: self.smoking,
             drinking: self.drinking,
             tattoos: self.tattoos,
@@ -436,12 +372,15 @@ impl Draft {
             pets: self.pets,
             country: self.country,
             place: self.place,
-            seeking_genders,
-            seeking_age_from,
-            seeking_age_to,
+            seeking_genders: self.seeking_genders,
+            seeking_age_from: self.seeking_age_from,
+            seeking_age_to: self.seeking_age_to,
             not_looking: self.not_looking,
-            ..base
-        }
+            ..Profile::default()
+        };
+        dyapp_client::profile_editor::apply(&editable, &mut base);
+        base.interests = interests;
+        base
     }
 }
 

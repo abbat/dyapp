@@ -610,6 +610,7 @@ const saveProfile = async (call = invoke) => {
       invalidHeight: 'profile.heightInvalid',
       invalidAbout: 'profile.aboutInvalid',
       invalidInterests: 'profile.interestsInvalid',
+      'invalid birth date': 'profile.problem.invalidBirthDate',
     }[String(error)];
     throw refusal ? localeModule_strings[refusal] : error;
   });

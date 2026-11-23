@@ -731,7 +731,11 @@ seeking fields for not-looking, and preserves proof progress, photos, devices an
 noneditable fields. Editor categorical/seeking codes use the closed vocabulary; node verification
 retains its separate forward-compatible contract. Apply alone supports eligibility and search
 projections; persistence callers must validate first. `profile_editor::normalize_interests` owns shared
-interest-list limits and NFC/trim/lowercase normalization; Tauri and native saves use it. Native
+interest-list limits and NFC/trim/lowercase normalization; Tauri and native saves use it.
+Tauri draft saves also validate and apply editable fields through this shared API before opening
+storage. Impossible partial birth dates are refused without replacing the saved draft; underage
+but valid dates remain editable and keep their separate publication restriction. Desktop preserves
+its existing seeking-error transport code while delegating the rule to the core. Native
 `PublicProfileDraft.interests` is an optional edit: None preserves stored tags, Some(empty) clears,
 and loaded drafts return Some with the actual tags. This keeps unrelated edits by older callers from
 erasing interests. `profile_editor::parse_interest_lines` additionally accepts one tag per nonempty
