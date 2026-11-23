@@ -13,6 +13,11 @@ The chat empty-state test checks its native registry and chat rows, retains the 
 and verifies the displayed peer against that same owned identity. Fixture context wrappers retain
 the caller's Activity chain while overriding only application storage.
 
+Real-IME owner checks refetch control semantics on every readiness attempt and combine those
+measurements with the current native window transform and visible frame. A failed containment
+check reports the control tag and measured rectangles; stale pre-keyboard geometry cannot establish
+readiness or obscure a persistent enlarged-text layout defect.
+
 `NativeClientUpdatesTests` checks the actual JNI metadata bridge: the native installed version
 matches `BuildConfig.VERSION_NAME`, fresh state never claims current, and all four installation
 intervals survive a separate native handle. This fixture performs no HTTP and does not enable
