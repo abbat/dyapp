@@ -47,10 +47,11 @@ private fun SearchRecoveryContent(peer: String, session: SearchRecoverySession, 
     if (state.saved?.searchPending != false) {
         SearchRecoveryAction(session, state)
     }
+    val close: () -> Unit = { session.retire() }
     TextButton(
-        onClick = { session.retire() },
+        onClick = close,
         enabled = !state.busy,
-        modifier = Modifier.fillMaxWidth().testTag("search-recovery-close")
+        modifier = Modifier.fillMaxWidth().testTag("search-recovery-close").applicationClick(close)
     ) {
         val label = if (state.saved == null && state.failure == null) {
             R.string.remove_cancel
@@ -63,17 +64,18 @@ private fun SearchRecoveryContent(peer: String, session: SearchRecoverySession, 
 
 @Composable
 private fun SearchRecoveryAction(session: SearchRecoverySession, state: SearchRecoveryView) {
+    val action: () -> Unit = {
+        val opening = state.opening
+        when {
+            state.canRetry && opening != null -> session.retry(opening)
+            state.failure != null -> session.prepare(opening)
+            opening != null -> session.confirm(opening)
+        }
+    }
     Button(
-        onClick = {
-            val opening = state.opening
-            when {
-                state.canRetry && opening != null -> session.retry(opening)
-                state.failure != null -> session.prepare(opening)
-                opening != null -> session.confirm(opening)
-            }
-        },
+        onClick = action,
         enabled = !state.busy,
-        modifier = Modifier.fillMaxWidth().testTag("search-recovery-action")
+        modifier = Modifier.fillMaxWidth().testTag("search-recovery-action").applicationClick(action)
     ) { Text(stringResource(recoveryAction(state))) }
 }
 

@@ -7,7 +7,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -77,6 +76,6 @@ internal class SearchRecoveryUIFixture(
         compose.awaitNode(hasTestTag("search-recovery-action"))
     }
 
-    fun callback(tag: String): () -> Boolean =
-        checkNotNull(compose.onNodeWithTag(tag).fetchSemanticsNode().config[SemanticsActions.OnClick].action)
+    fun callback(tag: String): () -> Unit =
+        compose.onNodeWithTag(tag).fetchSemanticsNode().config[applicationClickKey]
 }

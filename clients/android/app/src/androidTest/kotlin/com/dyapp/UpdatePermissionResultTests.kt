@@ -10,7 +10,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasTestTag
@@ -128,6 +127,21 @@ class UpdatePermissionResultTests {
         }
     }
 
+    @Test
+    fun retiredFailedReadActionCannotQueryTheReplacementOpening() {
+        queryFailure = true
+        show()
+        val oldClick = clickAction()
+        compose.runOnIdle { owner++ }
+        compose.awaitNode(hasTestTag("update-notice-allow"))
+        compose.runOnIdle {
+            val before = reads
+            oldClick()
+            assertEquals(before, reads)
+            assertEquals(emptyList<Int>(), registry.requests)
+        }
+    }
+
     private fun state(value: Lifecycle.State) =
         compose.runOnIdle { lifecycleOwner.registry.currentState = value }
 
@@ -150,9 +164,9 @@ class UpdatePermissionResultTests {
         compose.awaitNode(hasTestTag("update-notice-allow"))
     }
 
-    private fun clickAction(): () -> Boolean {
+    private fun clickAction(): () -> Unit {
         val node = compose.onNodeWithTag("update-notice-allow").fetchSemanticsNode()
-        return checkNotNull(node.config[SemanticsActions.OnClick].action)
+        return node.config[applicationClickKey]
     }
 
     private fun snapshot() = MobileUpdateState(

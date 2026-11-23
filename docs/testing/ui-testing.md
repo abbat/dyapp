@@ -124,6 +124,9 @@ again, and an old opening cannot consume results or launch into its replacement.
 LifecycleRegistry transitions also verify foreground permission readback, visible query failures,
 detached disposed observers and pending-launch admission preserved across pause/resume. These checks
 open no system settings and do not substitute for actual Android permission enforcement.
+Permission-row and search-recovery retirement tests capture the guarded application action through
+`applicationClickKey`; a retained Foundation `OnClick` wrapper may access a detached Modifier node
+before reaching application admission. A retired permission row also refuses failed-read refreshes.
 `UpdateNotificationTests` requires immutable Activity pending intents on every supported device
 (minimum API 31), with no version branch that could skip those assertions. It also checks that
 opening the exact core-provided release URI adds no installer, identity or private payload.

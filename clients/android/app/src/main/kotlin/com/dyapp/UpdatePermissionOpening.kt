@@ -10,7 +10,8 @@ internal class UpdatePermissionOpening {
         private set
     var asked = false
         private set
-    private var active = true
+    var active = true
+        private set
 
     fun begin(requestPermission: Boolean, launch: () -> Unit) {
         if (!active || pending) return
