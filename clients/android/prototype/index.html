@@ -647,13 +647,13 @@ search providers asked: 0 of 3</pre>
     <section id="settings-views" class="content" style="padding:0" data-on="settings-views settings-views-loading settings-views-empty settings-views-error settings-views-stale">
       <div class="backbar"><button type="button" class="icon-btn" data-go="settings-privacy" data-ta="nav.back"><svg aria-hidden="true" class="icon"><use href="#i-back"/></svg></button><h1 class="title" data-t="views.title"></h1></div>
       <div class="card"><p class="caption" data-t="views.hint"></p>
-        <p id="received-views-loading" role="status" data-on="settings-views-loading" data-t="search.loading"></p>
+        <p id="received-views-loading" role="status" data-on="settings-views-loading" data-t="views.loading"></p>
         <p id="received-views-error" class="notice error" role="alert" data-on="settings-views-error settings-views-stale" data-t="views.error"></p>
-        <div data-on="settings-views settings-views-empty settings-views-stale">
+        <div class="received-views-list" data-on="settings-views settings-views-empty settings-views-stale">
           <div class="field"><label for="settings-views-search" data-t="settings.collection.search"></label><input id="settings-views-search" type="text"></div>
           <p id="settings-views-status" class="caption" role="status" aria-live="polite"></p>
           <table class="collection-table"><tbody id="received-views-rows"><tr data-peer-id="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"><td class="who"><span class="avatar" aria-hidden="true">5d</span><code class="grow">0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef</code></td><td><p class="caption" data-t="views.sampleDate"></p><a class="btn" href="#profile-view" data-t="views.open">Open profile</a></td></tr></tbody></table>
-          <p id="received-views-empty" data-on="settings-views-empty" data-t="views.empty"></p>
+          <p id="received-views-empty" role="status" aria-live="polite" data-on="settings-views-empty" data-t="views.empty"></p>
           <div class="actions"><button id="settings-views-previous" class="btn" type="button" disabled data-t="settings.collection.previous"></button><button id="settings-views-next" class="btn" type="button" disabled data-t="settings.collection.next"></button></div>
         </div>
         <button id="settings-views-refresh" class="btn" type="button" data-go="settings-views" data-disabled="settings-views-loading" data-t="settings.collection.refresh"></button>

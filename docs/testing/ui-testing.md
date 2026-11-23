@@ -72,7 +72,10 @@ Controlled completion signals check pending admission, failed acknowledgements, 
 exact external destination, persistent availability badge and retired callbacks; live native/core
 acceptance remains separate. Actions use the existing current-geometry reachability helper.
 The five Android `settings-views` prototype outcomes run `views-fixture-tests.js` after capture.
-They check read-outcome rows/errors, full-target search across bounded pages, explicit Open and
+Loading copy describes the local list read. An empty collection has one dedicated status; a
+search miss in a populated collection retains distinct no-match feedback. Their checks cover these
+states and the actual CSS-token gap between search/status and date/Open, alongside read-outcome
+rows/errors, full-target search across bounded pages, explicit Open and
 current-geometry control reachability. Non-shipping samples reuse existing prototype collection
 navigation; production Android and Tauri filtering/paging remain owned by the Rust core.
 `ReceivedViewsVisualTests` is a dedicated `viewsVisual=1` capture phase for all five read outcomes,

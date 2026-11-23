@@ -21,6 +21,7 @@ export const installViewsFixture = (strings, screen) => {
       strings[`settings.collection.${key}`],
     ]),
   );
+  state.status.hidden = screen === 'settings-views-empty';
   renderCollectionView(state, words);
   state.search.disabled = screen === 'settings-views-loading';
   state.refresh.disabled = screen === 'settings-views-loading';
