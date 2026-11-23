@@ -147,7 +147,8 @@ widgets in EN/RU at both text scales, checks real text density and viewport boun
 fixed groups, raw accessibility text and exact system-clipboard values. The established link-code
 copy tag stays stable while all identifiers reuse the shared display component.
 `LinkReviewFailureTests` rejects a preview after all 31 explicit choices inside the actual receiving
-Settings frame, acknowledges safe Back focus, and checks the error and all recovery controls against
+Settings frame, acknowledges safe Back focus and the recovery relocation-completion signal, and
+checks the error and all recovery controls against
 the current viewport in EN/RU at both text scales. This covers preview refusal only; authoritative
 confirmation refusal belongs to the separately retained enrollment state. Its typed notice and
 existing recovery actions render beside the active form footer, or beside the reopen/saved state;

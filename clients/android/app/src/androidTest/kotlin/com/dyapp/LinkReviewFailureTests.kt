@@ -2,6 +2,7 @@ package com.dyapp
 
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsFocused
@@ -79,13 +80,14 @@ class LinkReviewFailureTests {
                 .getOrNull(SemanticsProperties.Focused) == true
         }
         compose.onNodeWithTag("link-review-back").assertIsFocused()
+        compose.awaitNode(SemanticsMatcher.expectValue(LinkReviewRecoveryReady, true))
     }
 
     private fun visible(tag: String) {
         val bounds = compose.onNodeWithTag(tag).assertIsDisplayed().getUnclippedBoundsInRoot()
         val viewport = compose.onNodeWithTag("settings-receive").getUnclippedBoundsInRoot()
         assertTrue(
-            "Refusal and recovery stay in the current viewport: $tag",
+            "Refusal/recovery $tag bounds=$bounds viewport=$viewport",
             bounds.left >= viewport.left && bounds.right <= viewport.right &&
                 bounds.top >= viewport.top && bounds.bottom <= viewport.bottom
         )
