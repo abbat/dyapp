@@ -103,6 +103,12 @@ separate. The bounded `android_visual_archive.py --kind views` validator require
 frames, exact producer SHA, locale/theme/font/outcome matrix, actual text-scale witnesses, matching
 PNG dimensions and the dedicated archive namespace. A matrix proves captured controlled rendering,
 not live private delivery, and still requires review of the frames.
+`NativeProfileViewDeliveryTests` separately exercises actual generated JNI and first-contact
+mail delivery between existing test peers: disabled/retired opening refusal, explicit View,
+recipient readback with its own sending disabled, one-shot replay and no Like/chat/notice side effect.
+Receive completions advance its readiness checks. UTC-day deduplication stays in fixed-clock core
+tests; this runtime test does not assume the wall clock remains on one day. Execution belongs to
+Android CI, separately from controlled rendering acceptance.
 The independent `suite=updates` phase uses `UpdateNoticeVisualTests` with `updatesVisual=1`.
 It renders the production update dialog with controlled core records for package/source offers,
 pending dismissal, write failure and an actual controlled browser exception. Five additional
