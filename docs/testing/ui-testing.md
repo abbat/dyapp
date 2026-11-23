@@ -20,6 +20,15 @@ index, current rectangle and visible frame, active accessibility root, matching 
 focus/visibility and extra-data refresh result. Stale pre-keyboard geometry cannot establish
 readiness or obscure a persistent enlarged-text layout defect.
 
+The manual `android-node-fixture` workflow accepts an exact successful main Android producer run.
+It reuses that producer's validated host `dyappd`, generates a deliberately public test credential
+with 22-bit node proof, verifies it using production `probe-key`, and uploads it only after matching
+the generated Peer ID. The artifact retains producer metadata, generator source/run and binary/key
+SHA-256 receipts. Invoke it with `gh workflow run android-node-fixture.yml -f producer_run=RUN`.
+This provisioning workflow builds no APK and starts no emulator. Never use its public credential
+for real nodes or user data. Normal emulator startup still generates a key until the verified
+fixture is integrated; creating this workflow alone does not fix that startup wait.
+
 `ChatLinkHostsTests` renders actual message bubbles through the shared JNI URL projection. EN/RU
 captions retain ASCII/Punycode, nondefault ports and first-occurrence deduplication, exclude misleading
 credentials, update after edits, and disappear for deleted/null/no-web-link text. Normal and 200%

@@ -1,0 +1,77 @@
+name: android-node-fixture
+
+on:
+  workflow_dispatch:
+    inputs:
+      producer_run:
+        description: Exact main CI run with a successful Android build
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  generate:
+    name: android - node fixture
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: validate exact producer
+        id: validate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRODUCER_RUN: ${{ inputs.producer_run }}
+        run: |
+          set -euo pipefail
+          [[ "$PRODUCER_RUN" =~ ^[1-9][0-9]{0,19}$ ]]
+          report=build/android-node-fixture/producer
+          mkdir -p "$report"
+          endpoint="repos/$GITHUB_REPOSITORY/actions/runs/$PRODUCER_RUN"
+          gh api "$endpoint" > "$report/producer.json"
+          gh api --paginate --slurp "$endpoint/jobs?per_page=100" > "$report/jobs.json"
+          gh api --paginate --slurp "$endpoint/artifacts?per_page=100" > "$report/artifacts.json"
+          python3 -B tests/scripts/android_visual_producer.py --directory "$report" \
+            --repository "$GITHUB_REPOSITORY" --run "$PRODUCER_RUN" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ steps.validate.outputs.artifact_id }}
+          merge-multiple: true
+          run-id: ${{ inputs.producer_run }}
+          github-token: ${{ github.token }}
+          path: build/android-node-producer
+      - name: generate public test credential once
+        run: |
+          set -euo pipefail
+          report="$GITHUB_WORKSPACE/build/android-node-fixture"
+          binary="$GITHUB_WORKSPACE/build/android-node-producer/debug/dyappd"
+          test -f "$binary" && test ! -L "$binary"
+          chmod u+x "$binary"
+          git rev-parse HEAD > "$report/generator-head.txt"
+          sha256sum "$binary" > "$report/binary.sha256"
+          printf '%s\n' "$GITHUB_RUN_ID" > "$report/generator-run.txt"
+          # Empty explicit config and a fresh owned directory exclude host node settings/data.
+          printf '' > "$report/node.toml"
+          mkdir -m 700 "$report/storage"
+          export DYAPPD_STORAGE_DIR="$report/storage" DYAPPD_NETWORK_ID_POW_BITS=22
+          export DYAPPD_LISTEN='["127.0.0.1:33445"]'
+          # This expensive search belongs only to manual provisioning, never emulator readiness.
+          timeout 55m "$binary" --config "$report/node.toml" keygen > "$report/keygen.txt"
+          "$binary" --config "$report/node.toml" probe-key > "$report/probe-key.txt"
+          cmp "$report/keygen.txt" "$report/probe-key.txt"
+          test "$(cat "$report/storage/node.id")" = "$(cat "$report/probe-key.txt")"
+          sha256sum "$report/storage/node.key" > "$report/key.sha256"
+          printf '%s\n' \
+            'PUBLIC TEST CREDENTIAL: never use this key for a real node or user data.' \
+            'Generated once with id_pow_bits=22; probe-key validated the production proof and binding.' \
+            > "$report/README.txt"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-node-fixture
+          path: build/android-node-fixture/
+          if-no-files-found: error
