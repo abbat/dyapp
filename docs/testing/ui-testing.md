@@ -200,8 +200,10 @@ The instrumentation progress JSONL appends attempts to one file. Split records a
 `runner_started` before counting results or claiming first-attempt acceptance; a later retry's
 success never replaces a primary failure, and an unfinished retry supplies no terminal result.
 Desktop forwarding failure feedback sits after the selector beside its recovery actions.
-After target rows render, the prototype explicitly reveals that recovery region, including when
-Cancel already holds focus; repeated focus alone does not acknowledge the changed layout.
+After target rows render, the prototype waits for the browser's animation-frame callback and scrolls
+the owning dialog to its measured end, including when Cancel already holds focus. The callback is
+bound to that opening; repeated focus or scrolling during the mutation callback does not acknowledge
+the changed layout.
 The keyboard plan checks their current viewport geometry together; calibration moves the alert
 back above the long list to require rejection, then restores it. Controlled admitted completion
 retains the existing Escape refusal and mounted-view acknowledgement before checking feedback.

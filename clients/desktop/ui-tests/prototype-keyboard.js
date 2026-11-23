@@ -362,7 +362,30 @@ export const checkForwardFailure = async () => {
     controller.showState('chat-forward-pending');
     await frames();
     await prepareAdmittedPhase();
-    if (forwardFailureProblems().length) throw new Error('Forward completion hid its failure');
+    if (forwardFailureProblems().length) {
+      const geometry = [
+        '#forward-send-failure',
+        '#chat-forward-cancel',
+        '#chat-forward-confirm',
+      ].map((selector) => {
+        const node = element(selector);
+        const rect = node.getBoundingClientRect();
+        const hit = document.elementFromPoint(
+          Math.max(0, Math.min(innerWidth - 1, (rect.left + rect.right) / 2)),
+          Math.max(0, Math.min(innerHeight - 1, (rect.top + rect.bottom) / 2)),
+        );
+        return {
+          selector,
+          rect: rect.toJSON(),
+          exposed: exposed(node),
+          hit: hit?.id || hit?.className,
+        };
+      });
+      const dialog = element('#chat-forward-dialog');
+      throw new Error(
+        `Forward completion hid its failure: ${JSON.stringify({ geometry, scrollTop: dialog.scrollTop, scrollHeight: dialog.scrollHeight, clientHeight: dialog.clientHeight, overflow: getComputedStyle(dialog).overflow, dialog: dialog.getBoundingClientRect().toJSON() })}`,
+      );
+    }
     feedback = element('#forward-send-failure');
     next = feedback.nextSibling;
     if (!next) throw new Error('Forward failure lost its action region');

@@ -36,16 +36,18 @@ const mount = () => {
   if (menu.contains(focused)) focused.focus();
   if (screen === 'chat-forward-send-error') {
     byId('chat-forward-cancel', HTMLButtonElement).focus();
-    // Rendering the targets can move an already focused button outside the viewport.
-    byId('chat-forward-recovery', HTMLElement).scrollIntoView({
-      block: 'end',
-      behavior: 'instant',
+    // Reveal the final recovery region in its owning scroll container after rendering.
+    const dialog = byId('chat-forward-dialog', HTMLElement);
+    const opening = forwardOpening;
+    requestAnimationFrame(() => {
+      if (!opening.current()) return;
+      dialog.scrollTop = dialog.scrollHeight - dialog.clientHeight;
+      if (completed) {
+        const resolve = completed;
+        completed = null;
+        resolve();
+      }
     });
-    if (completed) {
-      const resolve = completed;
-      completed = null;
-      resolve();
-    }
   }
 };
 const navigation = new MutationObserver(mount);
