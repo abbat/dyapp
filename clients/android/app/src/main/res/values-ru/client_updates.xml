@@ -13,4 +13,5 @@
     <string name="update_notice_saving">Сохранение выбора…</string>
     <string name="update_notice_failed">Не удалось сохранить выбор. Нажмите «Позже» ещё раз.</string>
     <string name="update_open_failed">Не удалось открыть страницу релиза. Повторите попытку или выберите «Позже».</string>
+    <string name="update_available_badge">Доступна версия %1$s</string>
 </resources>

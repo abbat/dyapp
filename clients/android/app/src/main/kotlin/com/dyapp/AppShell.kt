@@ -196,6 +196,8 @@ private fun ShellNavigationBar(current: Section, chatsBadge: ULong, open: (Start
                     BadgedBox(badge = {
                         if (item.target == StartTarget.CHATS && chatsBadge > 0uL) {
                             UnreadBadge(chatsBadge, Modifier.testTag("chats-unread"))
+                        } else if (item.target == StartTarget.SETTINGS) {
+                            UpdateAvailableBadge()
                         }
                     }) {
                         Icon(painterResource(item.icon), contentDescription = null)

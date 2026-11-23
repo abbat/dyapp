@@ -13,4 +13,5 @@
     <string name="update_notice_saving">Saving your choice…</string>
     <string name="update_notice_failed">Your choice could not be saved. Try Later again.</string>
     <string name="update_open_failed">The release page could not be opened. Try again or choose Later.</string>
+    <string name="update_available_badge">Version %1$s is available</string>
 </resources>

@@ -44,6 +44,10 @@ excludes duplicate taps before dispatch, and adopts only the returned committed 
 A failed write retains the prior notice for retry; a disposed coroutine owner drops late completion.
 Android's unlocked `MainScreen` hosts the dialog above identity routes, using the private
 installation root. It shows only an undismissed core offer; reads and dismissal never initiate HTTP.
+The same native snapshot supplies the Settings navigation badge. Later changes the interruption
+only: the badge remains while core still offers that version, independently of the chosen identity.
+The badge exposes the available version through localized accessibility text; Kotlin does not
+compare versions or derive a separate update policy.
 Native HTTP/lifecycle wiring and OS presentation remain planned.
 Clients stay disabled until live-feed verification and those integrations pass.
 
