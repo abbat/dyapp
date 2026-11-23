@@ -1,5 +1,6 @@
 package com.dyapp
 
+import android.content.Context
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.OutlinedButton
@@ -33,7 +34,11 @@ internal fun UpdatesCard() {
 
 /** Owner-keyed reads discard completion after the card leaves or changes ownership. */
 @Composable
-internal fun UpdateMetadataCard(owner: Any, read: () -> MobileUpdateState) {
+internal fun UpdateMetadataCard(
+    owner: Any,
+    readPermission: (Context) -> Boolean = ::updateNoticePermission,
+    read: () -> MobileUpdateState,
+) {
     val loaded by rememberNativeRead(owner, read = read)
     val snapshot = loaded?.getOrNull()
     FormCard(Modifier.testTag("updates")) {
@@ -46,7 +51,7 @@ internal fun UpdateMetadataCard(owner: Any, read: () -> MobileUpdateState) {
         }
         UpdateReadStatus(loaded)
         UpdateAvailabilityLabel(snapshot)
-        UpdateNoticePermission(owner, snapshot)
+        UpdateNoticePermission(owner, snapshot, readPermission)
         OutlinedButton(onClick = {}, Modifier.testTag("update-check"), enabled = false) {
             Text(stringResource(R.string.update_check))
         }

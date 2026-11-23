@@ -407,8 +407,10 @@ and cannot change the mail worker's completion result. For a core-supported avai
 Settings shows actual app/channel permission and an explicit permission or system-settings action.
 This action never changes chat-notice preferences, checks the feed or dismisses the in-app offer.
 Its pending and retired openings reject duplicate launches and stale results. Live feed activation remains separate.
-The dedicated Android `suite=updates` native visual matrix covers five notice outcomes with
-source-bound metadata; actual capture and frame review remain required for acceptance.
+The dedicated Android `suite=updates` native visual matrix covers five notice outcomes and five
+permission outcomes in the production About frame, with source-bound metadata. Pending and failed
+permission launches use a controlled ActivityResult registry; query failure and allowed/blocked
+states use the platform-read boundary. Actual capture and frame review remain required for acceptance.
 Background failures do not
 raise repetitive dialogs or OS alerts; manual checks explain the failure.
 The common snapshot stores per-target dismissal and OS-notification version

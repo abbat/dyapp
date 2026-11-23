@@ -93,8 +93,12 @@ PNG dimensions and the dedicated archive namespace. A matrix proves captured con
 not live private delivery, and still requires review of the frames.
 The independent `suite=updates` phase uses `UpdateNoticeVisualTests` with `updatesVisual=1`.
 It renders the production update dialog with controlled core records for package/source offers,
-pending dismissal, write failure and an actual controlled browser exception. Each width requires
-eighty EN/RU/theme/font/top-bottom frames under `files/update-notice-visual/<width>/`;
+pending dismissal, write failure and an actual controlled browser exception. Five additional
+`update-notice-permission-*` outcomes render the production update Settings card inside the About
+frame: allowed, blocked, pending launcher, failed launcher and failed permission query. Launcher
+outcomes use the real ActivityResult registration with a controlled registry; no system settings
+are opened. Each width requires 160 EN/RU/theme/font/top-bottom frames under
+`files/update-notice-visual/<width>/`;
 `android_visual_archive.py --kind updates` enforces the exact source, inventory, real native
 text-scale witnesses and PNG/viewport dimensions. Geometry checks expose every text line through
 current semantic scroll viewports and require both actions to remain visible. Run it with an APK

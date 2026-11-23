@@ -61,7 +61,8 @@ class UpdateNoticeVisualTests {
     ) {
         try {
             host.show(scene)
-            compose.awaitNode(hasTestTag("update-notice"))
+            compose.awaitNode(hasTestTag(scene.metadata.rootTag))
+            if (scene.state.permission) preparePermission(scene)
             if (scene.state == UpdateNoticeVisualState.OPEN_ERROR) {
                 compose.onNodeWithTag("update-notice-open").performClick()
                 val message = scene.context.getString(R.string.update_open_failed)
@@ -78,12 +79,40 @@ class UpdateNoticeVisualTests {
         geometry.first()
         output.capture(compose, scene.metadata, "top")
         geometry.check()
+        checkActions(scene)
+        output.capture(compose, scene.metadata, "bottom")
+    }
+
+    private fun preparePermission(scene: UpdateNoticeVisualScene) {
+        compose.awaitNode(hasTestTag("update-notice-permission"))
+        if (scene.state == UpdateNoticeVisualState.PERMISSION_PENDING ||
+            scene.state == UpdateNoticeVisualState.PERMISSION_FAILED
+        ) {
+            NativeVisualGeometry(compose, scene.metadata.rootTag).check()
+            compose.onNodeWithTag("update-notice-allow").performClick()
+            compose.runOnIdle {
+                val expected = if (scene.state == UpdateNoticeVisualState.PERMISSION_PENDING) 1 else 0
+                check(scene.registry.requests.size == expected)
+            }
+        }
+        if (scene.state == UpdateNoticeVisualState.PERMISSION_FAILED) {
+            compose.awaitNode(hasText(scene.context.getString(R.string.update_notice_permission_failed)))
+        }
+    }
+
+    private fun checkActions(scene: UpdateNoticeVisualScene) {
+        if (scene.state.permission) {
+            compose.onNodeWithTag("update-notice-allow").assertIsDisplayed()
+            if (scene.state == UpdateNoticeVisualState.PERMISSION_PENDING) {
+                compose.onNodeWithTag("update-notice-allow").assertIsNotEnabled()
+            }
+            return
+        }
         compose.onNodeWithTag("update-notice-open").assertIsDisplayed()
         compose.onNodeWithTag("update-notice-later").assertIsDisplayed()
         if (scene.state == UpdateNoticeVisualState.SAVING) {
             compose.onNodeWithTag("update-notice-open").assertIsNotEnabled()
             compose.onNodeWithTag("update-notice-later").assertIsNotEnabled()
         }
-        output.capture(compose, scene.metadata, "bottom")
     }
 }

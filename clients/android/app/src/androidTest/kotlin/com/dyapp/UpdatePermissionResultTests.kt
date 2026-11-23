@@ -112,7 +112,8 @@ class UpdatePermissionResultTests {
 }
 
 /** Launch capture controls the real registry completion without opening Android settings. */
-private class UpdatePermissionRegistry : ActivityResultRegistry(), ActivityResultRegistryOwner {
+internal class UpdatePermissionRegistry(private val failLaunch: Boolean = false) :
+    ActivityResultRegistry(), ActivityResultRegistryOwner {
     val requests = mutableListOf<Int>()
     override val activityResultRegistry: ActivityResultRegistry get() = this
 
@@ -122,6 +123,7 @@ private class UpdatePermissionRegistry : ActivityResultRegistry(), ActivityResul
         input: I,
         options: ActivityOptionsCompat?,
     ) {
+        check(!failLaunch) { "Controlled unavailable system settings" }
         requests.add(requestCode)
     }
 }
