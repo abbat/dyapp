@@ -140,7 +140,8 @@ presence-delivery and lifecycle tests; authored fixtures alone do not prove rend
 
 The independent `suite=recovery` runs `SearchRecoveryVisualTests` with `recoveryVisual=1`.
 It captures the production search-hiding recovery card for review, busy confirmation, queued,
-acknowledged, read failure, confirmation refusal and retry failure. Each width requires 112
+acknowledged, read failure, confirmation refusal, retry failure and the five typed review refusals.
+Each width requires 192
 EN/RU/theme/font/top-bottom frames under `files/search-recovery-visual/<width>/`, validated by
 `android_visual_archive.py --kind recovery` with the exact producer and real text-scale witnesses.
 Controlled callbacks retain busy states until capture finishes; cleanup awaits admitted completion.

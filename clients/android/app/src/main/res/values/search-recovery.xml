@@ -10,4 +10,9 @@
     <string name="search_recovery_close">Close</string>
     <string name="search_recovery_retry">Retry delivery</string>
     <string name="search_recovery_refresh">Read current state</string>
+    <string name="search_recovery_stale">This review has changed. Read the current state before confirming again.</string>
+    <string name="search_recovery_review_required">The profile visibility needs review. Check the draft before publishing or hiding it again.</string>
+    <string name="search_recovery_link_pending">Complete setup of this linked device before restoring search hiding. Saved data is retained.</string>
+    <string name="search_recovery_version_exhausted">Recovery cannot advance this profile version. Saved data is retained.</string>
+    <string name="search_recovery_wrong_owner">The profile credentials changed. Reopen the intended profile before reviewing this request.</string>
 </resources>

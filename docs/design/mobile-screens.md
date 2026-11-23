@@ -192,7 +192,9 @@ The IDs inside each section are the desktop ones; only the frame differs.
   instead of the elapsed time, and the signed readback appears on the form after the dialog closes.
   Prototype-only owner recovery uses `search-recovery-review`, `search-recovery-busy`,
   `search-recovery-pending`, `search-recovery-sent`, `search-recovery-stale`,
-  `search-recovery-error` and `search-recovery-unsupported`. The `search-recovery` card names
+  `search-recovery-error`, `search-recovery-unsupported`, `search-recovery-review-required`,
+  `search-recovery-link-pending`, `search-recovery-version-exhausted` and `search-recovery-wrong-owner`.
+  The `search-recovery` card names
   `search-recovery-owner`, explains `search-recovery-status` and offers the explicit
   `search-recovery-action` or `search-recovery-cancel`. Opening/cancelling never signs; retries
   deliver only already-confirmed core records. Closing a committed result cannot cancel delivery.

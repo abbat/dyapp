@@ -10,4 +10,9 @@
     <string name="search_recovery_close">Закрыть</string>
     <string name="search_recovery_retry">Повторить отправку</string>
     <string name="search_recovery_refresh">Прочитать текущее состояние</string>
+    <string name="search_recovery_stale">Состояние изменилось. Прочитайте его заново перед новым подтверждением.</string>
+    <string name="search_recovery_review_required">Видимость анкеты требует проверки. Проверьте черновик перед повторной публикацией или скрытием.</string>
+    <string name="search_recovery_link_pending">Сначала завершите настройку этого подключённого устройства, затем восстановите скрытие. Сохранённые данные остались на месте.</string>
+    <string name="search_recovery_version_exhausted">Для восстановления нельзя повысить версию этой анкеты. Сохранённые данные остались на месте.</string>
+    <string name="search_recovery_wrong_owner">Ключи профиля изменились. Заново откройте нужный профиль перед проверкой этого запроса.</string>
 </resources>

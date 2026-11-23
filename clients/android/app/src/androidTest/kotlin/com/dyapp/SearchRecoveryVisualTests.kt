@@ -78,7 +78,7 @@ class SearchRecoveryVisualTests {
         compose.awaitSnapshot(scene.session.state, 5_000, "search recovery prepared") {
             !it.busy && (it.opening != null || it.failure != null)
         }
-        if (scene.state !in listOf(SearchRecoveryVisualState.REVIEW, SearchRecoveryVisualState.READ_ERROR)) {
+        if (scene.state != SearchRecoveryVisualState.REVIEW && scene.state.preparationFailure == null) {
             val opening = checkNotNull(scene.session.state.value.opening)
             checkNotNull(scene.session.confirm(opening))
             if (scene.state == SearchRecoveryVisualState.BUSY) {
@@ -101,13 +101,6 @@ class SearchRecoveryVisualTests {
         if (busy) close.assertIsNotEnabled() else close.assertIsEnabled()
         val action = compose.onNodeWithTag("search-recovery-action")
         if (sent) action.assertDoesNotExist() else if (busy) action.assertIsNotEnabled() else action.assertIsEnabled()
-        val message = when (scene.state) {
-            SearchRecoveryVisualState.REVIEW -> R.string.search_recovery_review
-            SearchRecoveryVisualState.BUSY -> R.string.search_recovery_busy
-            SearchRecoveryVisualState.PENDING -> R.string.search_recovery_pending
-            SearchRecoveryVisualState.SENT -> R.string.search_recovery_sent
-            else -> R.string.search_recovery_error
-        }
-        compose.onNodeWithTag("search-recovery-status").assertTextEquals(scene.context.getString(message))
+        compose.onNodeWithTag("search-recovery-status").assertTextEquals(scene.context.getString(scene.state.message))
     }
 }

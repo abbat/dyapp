@@ -16,6 +16,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import uniffi.dyapp.SearchRecoveryException
 
 /** Existing-owner recovery never replaces the profile editor or its unsaved fields. */
 @Composable
@@ -78,10 +79,19 @@ private fun SearchRecoveryAction(session: SearchRecoverySession, state: SearchRe
 
 private fun recoveryMessage(state: SearchRecoveryView): Int = when {
     state.busy -> R.string.search_recovery_busy
-    state.failure != null -> R.string.search_recovery_error
+    state.failure != null -> recoveryFailure(state.failure)
     state.saved?.searchPending == true -> R.string.search_recovery_pending
     state.saved != null -> R.string.search_recovery_sent
     else -> R.string.search_recovery_review
+}
+
+private fun recoveryFailure(failure: Throwable): Int = when (failure) {
+    is SearchRecoveryException.Closed, is SearchRecoveryException.Changed -> R.string.search_recovery_stale
+    is SearchRecoveryException.ReviewRequired -> R.string.search_recovery_review_required
+    is SearchRecoveryException.LinkPending -> R.string.search_recovery_link_pending
+    is SearchRecoveryException.VersionExhausted -> R.string.search_recovery_version_exhausted
+    is SearchRecoveryException.WrongOwner -> R.string.search_recovery_wrong_owner
+    else -> R.string.search_recovery_error
 }
 
 private fun recoveryAction(state: SearchRecoveryView): Int = when {

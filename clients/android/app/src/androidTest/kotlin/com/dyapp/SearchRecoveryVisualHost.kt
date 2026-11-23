@@ -23,14 +23,43 @@ import uniffi.dyapp.SearchRecoverySaved
 import java.io.File
 import java.util.concurrent.CountDownLatch
 
-internal enum class SearchRecoveryVisualState(val screen: String) {
-    REVIEW("search-recovery-review"),
-    BUSY("search-recovery-busy"),
-    PENDING("search-recovery-pending"),
-    SENT("search-recovery-sent"),
-    READ_ERROR("search-recovery-read-error"),
-    CONFIRM_ERROR("search-recovery-confirm-error"),
-    RETRY_ERROR("search-recovery-retry-error")
+internal enum class SearchRecoveryVisualState(
+    val screen: String,
+    val message: Int,
+    val preparationFailure: SearchRecoveryException? = null
+) {
+    REVIEW("search-recovery-review", R.string.search_recovery_review),
+    BUSY("search-recovery-busy", R.string.search_recovery_busy),
+    PENDING("search-recovery-pending", R.string.search_recovery_pending),
+    SENT("search-recovery-sent", R.string.search_recovery_sent),
+    READ_ERROR(
+        "search-recovery-read-error",
+        R.string.search_recovery_error,
+        SearchRecoveryException.Failed("Controlled read failure")
+    ),
+    CONFIRM_ERROR("search-recovery-confirm-error", R.string.search_recovery_error),
+    RETRY_ERROR("search-recovery-retry-error", R.string.search_recovery_error),
+    STALE("search-recovery-stale", R.string.search_recovery_stale, SearchRecoveryException.Changed()),
+    REVIEW_REQUIRED(
+        "search-recovery-review-required",
+        R.string.search_recovery_review_required,
+        SearchRecoveryException.ReviewRequired()
+    ),
+    LINK_PENDING(
+        "search-recovery-link-pending",
+        R.string.search_recovery_link_pending,
+        SearchRecoveryException.LinkPending()
+    ),
+    VERSION_EXHAUSTED(
+        "search-recovery-version-exhausted",
+        R.string.search_recovery_version_exhausted,
+        SearchRecoveryException.VersionExhausted()
+    ),
+    WRONG_OWNER(
+        "search-recovery-wrong-owner",
+        R.string.search_recovery_wrong_owner,
+        SearchRecoveryException.WrongOwner()
+    )
 }
 
 internal class SearchRecoveryVisualScene(
@@ -48,7 +77,7 @@ internal class SearchRecoveryVisualScene(
         PRESENCE_VISUAL_PEER
     )
     val session = SearchRecoverySession {
-        check(state != SearchRecoveryVisualState.READ_ERROR) { "Controlled prepare failure" }
+        state.preparationFailure?.let { throw it }
         SearchRecoveryCalls(::confirm, ::retry, {})
     }
 

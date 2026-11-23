@@ -1,5 +1,14 @@
 export let searchRecoveryFixture = null;
 
+const READ_STATES = new Set([
+  'stale',
+  'error',
+  'review-required',
+  'link-pending',
+  'version-exhausted',
+  'wrong-owner',
+]);
+
 /** Named core outcomes only: no purpose inference, version arithmetic, signing or network access. */
 export const installSearchRecoveryFixture = (strings, screen) => {
   if (!screen.startsWith('search-recovery-')) return;
@@ -23,7 +32,7 @@ export const installSearchRecoveryFixture = (strings, screen) => {
     card.hidden = !state.present;
     status.textContent = strings[`searchRecovery.${state.stage}`];
     const retry = ['pending', 'unsupported'].includes(state.stage);
-    const refresh = ['stale', 'error'].includes(state.stage);
+    const refresh = READ_STATES.has(state.stage);
     action.textContent =
       strings[
         retry
@@ -42,7 +51,7 @@ export const installSearchRecoveryFixture = (strings, screen) => {
     if (!state.active || !state.present || state.stage === 'busy' || state.stage === 'sent') return;
     const kind = ['pending', 'unsupported'].includes(state.stage)
       ? 'retry'
-      : ['stale', 'error'].includes(state.stage)
+      : READ_STATES.has(state.stage)
         ? 'read'
         : 'confirm';
     if (kind === 'confirm') state.confirmations++;

@@ -26,7 +26,7 @@ class AndroidRecoveryVisualArchive(TestCase):
         screens.remove("search-recovery-root")
         screens.remove("search-recovery-visual")
         self.assertEqual(screens, set(ARCHIVE.RECOVERY_SCREENS))
-        self.assertEqual(len(screens), 7)
+        self.assertEqual(len(screens), 12)
         with tempfile.TemporaryDirectory(dir=ROOT / "build") as temporary:
             root = Path(temporary)
             for width in (360, 412):
@@ -78,7 +78,7 @@ class AndroidRecoveryVisualArchive(TestCase):
         frames = manifest["frames"]
         self.assertEqual(
             ARCHIVE.validate(output, width, SOURCE, ARCHIVE.RECOVERY_SCREENS),
-            112,
+            192,
         )
         for key, value in (
             ("source_sha", "b" * 40),

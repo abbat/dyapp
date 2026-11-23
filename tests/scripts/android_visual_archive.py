@@ -87,6 +87,11 @@ RECOVERY_SCREENS = (
     "search-recovery-read-error",
     "search-recovery-confirm-error",
     "search-recovery-retry-error",
+    "search-recovery-stale",
+    "search-recovery-review-required",
+    "search-recovery-link-pending",
+    "search-recovery-version-exhausted",
+    "search-recovery-wrong-owner",
 )
 MAX_BYTES = 512 * 1024 * 1024
 
