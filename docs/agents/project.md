@@ -519,6 +519,9 @@ generated FFI member exists; the Android/CodeQL compilation jobs supply that evi
 Hawk includes test and other non-production consumers. New regression tests can make an old
 `hawk::dead_public` expectation stale; remove the stale marker instead of relaxing the audit.
 On failure, inspect only the `diagnostics` list in the container's `build/unused-public.json`.
+Its production roots in `hawk.toml` exclude the standalone desktop workspaces. A core wrapper used
+only by desktop can therefore look unused: reuse an existing shared entry point when sufficient,
+and do not introduce a new dead-public exception merely to expose a thin representation adapter.
 
 `make msrv` covers only the root Cargo workspace; it does not compile the separate
 `clients/linux`, `clients/windows` and `clients/macos` test binaries. Their native CI jobs cover them.
