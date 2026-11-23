@@ -36,8 +36,10 @@ newer target yields a package/source offer with a fixed official release page. S
 unavailable until an approved pinned listing exists. Native adapters do not compare versions or
 construct destinations. `checker::read_state` reads the same bounded snapshot during an active
 request through a short read transaction, without starting HTTP or inventing empty state.
-`MobileClientUpdates` exposes metadata reads and immediate interval writes through the common
-native bridge. Native HTTP/lifecycle wiring and notice dismissal remain planned.
+`MobileClientUpdates` exposes metadata reads, immediate interval writes, the separate undismissed
+notice and durable exact-version actions through the common native bridge. Its action record
+contains committed state and an applied flag; native code neither compares versions nor infers
+success. Native HTTP/lifecycle wiring and UI/OS notice presentation remain planned.
 Clients stay disabled until live-feed verification and those integrations pass.
 
 The pure `updates::coordinator::Coordinator` now owns simultaneous-trigger admission and attempt

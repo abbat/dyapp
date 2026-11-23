@@ -136,4 +136,15 @@ pub struct MobileUpdateState {
     pub availability: MobileUpdateAvailability,
     /// Present only for a supported newer target.
     pub offer: Option<MobileUpdateOffer>,
+    /// Undismissed in-app interruption, independently of the Settings offer/badge.
+    pub notice: Option<MobileUpdateOffer>,
+}
+
+/// A committed exact-version action result; stale/no-offer actions report applied=false.
+#[derive(Clone, Debug, Eq, PartialEq, uniffi::Record)]
+pub struct MobileUpdateNoticeAction {
+    /// Current core-projected state from the same committed transaction.
+    pub state: MobileUpdateState,
+    /// Whether that exact displayed version was dismissed or granted its first OS claim.
+    pub applied: bool,
 }

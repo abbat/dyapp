@@ -107,6 +107,52 @@ fn active_request_metadata_retains_offer_and_accepts_immediate_interval_changes(
 }
 
 #[test]
+fn committed_notice_actions_preserve_the_badge_and_reject_stale_versions() {
+    let dir = test_dir().unwrap();
+    let lease = published(&dir);
+    let updates = client(&dir);
+    let initial = updates.read_state().unwrap();
+    assert_eq!(initial.notice, initial.offer);
+    assert!(initial.notice.is_some());
+    assert!(updates.dismiss_notice("v2.0.0".into()).is_err());
+    assert!(updates.claim_notification("02.0.0".into()).is_err());
+    let stale = updates.dismiss_notice("1.9.9".into()).unwrap();
+    assert!(!stale.applied);
+    assert_eq!(stale.state, initial);
+    let claimed = updates.claim_notification("2.0.0".into()).unwrap();
+    assert!(claimed.applied);
+    assert!(claimed.state.notice.is_some());
+    assert!(
+        !client(&dir)
+            .claim_notification("2.0.0".into())
+            .unwrap()
+            .applied
+    );
+    let dismissed = updates.dismiss_notice("2.0.0".into()).unwrap();
+    assert!(dismissed.applied);
+    assert_eq!(dismissed.state.offer, initial.offer);
+    assert!(dismissed.state.notice.is_none());
+    drop(lease);
+    let reopened = client(&dir).read_state().unwrap();
+    assert_eq!(reopened, dismissed.state);
+    assert!(!client(&dir).dismiss_notice("2.0.0".into()).unwrap().applied);
+}
+
+#[test]
+fn a_failed_notice_write_cannot_acknowledge_an_os_claim_or_dismissal() {
+    let dir = test_dir().unwrap();
+    let lease = published(&dir);
+    let updates = client(&dir);
+    let before = updates.read_state().unwrap();
+    let db = rusqlite::Connection::open(dir.join("updates.sqlite")).unwrap();
+    db.execute_batch("CREATE TRIGGER `reject_notice` BEFORE UPDATE ON `state` BEGIN SELECT RAISE(ABORT, 'controlled notice failure'); END;").unwrap();
+    assert!(updates.claim_notification("2.0.0".into()).is_err());
+    assert!(updates.dismiss_notice("2.0.0".into()).is_err());
+    assert_eq!(updates.read_state().unwrap(), before);
+    drop(lease);
+}
+
+#[test]
 fn malformed_records_remain_errors_instead_of_empty_native_state() {
     let dir = test_dir().unwrap();
     let updates = client(&dir);

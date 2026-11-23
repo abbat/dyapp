@@ -1,4 +1,4 @@
-//! Thin installation-scoped native metadata; no update HTTP or activation is initiated here.
+//! Thin installation-scoped update state/actions; no HTTP or activation is initiated here.
 use crate::CoreError;
 use dyapp_client::updates as core;
 use std::path::PathBuf;
@@ -6,8 +6,8 @@ use std::sync::Arc;
 
 mod types;
 pub use types::{
-    MobileUpdateAvailability, MobileUpdateDelivery, MobileUpdateInterval, MobileUpdateOffer,
-    MobileUpdatePlatform, MobileUpdateState,
+    MobileUpdateAvailability, MobileUpdateDelivery, MobileUpdateInterval, MobileUpdateNoticeAction,
+    MobileUpdateOffer, MobileUpdatePlatform, MobileUpdateState,
 };
 
 /// Bind once to the private application root, independently of the selected identity.
@@ -62,9 +62,56 @@ impl MobileClientUpdates {
             .map_err(|error| CoreError::Failed(error.to_string()))?;
         Ok(self.project(&snapshot))
     }
+    /// Dismiss exactly the displayed version after committing shared installation state.
+    ///
+    /// # Errors
+    /// Refuses malformed versions or persistence failures without acknowledging success.
+    pub fn dismiss_notice(
+        &self,
+        expected_version: String,
+    ) -> Result<MobileUpdateNoticeAction, CoreError> {
+        let expected = core::Version::parse(&expected_version)
+            .ok_or_else(|| CoreError::Failed("invalidUpdateVersion".into()))?;
+        self.notice_result(core::notices::dismiss(
+            &self.root,
+            self.platform,
+            self.installed,
+            expected,
+        ))
+    }
+
+    /// Claim one OS notification only after the native caller has confirmed permission.
+    /// A true applied result is durable; this method never requests an OS notification.
+    ///
+    /// # Errors
+    /// Refuses malformed versions or persistence failures; no OS request is permitted on error.
+    pub fn claim_notification(
+        &self,
+        expected_version: String,
+    ) -> Result<MobileUpdateNoticeAction, CoreError> {
+        let expected = core::Version::parse(&expected_version)
+            .ok_or_else(|| CoreError::Failed("invalidUpdateVersion".into()))?;
+        self.notice_result(core::notices::claim_notification(
+            &self.root,
+            self.platform,
+            self.installed,
+            expected,
+        ))
+    }
 }
 
 impl MobileClientUpdates {
+    fn notice_result(
+        &self,
+        result: Result<(core::snapshot::Snapshot, bool), core::storage::Error>,
+    ) -> Result<MobileUpdateNoticeAction, CoreError> {
+        let (snapshot, applied) = result.map_err(|error| CoreError::Failed(error.to_string()))?;
+        Ok(MobileUpdateNoticeAction {
+            state: self.project(&snapshot),
+            applied,
+        })
+    }
+
     fn project(&self, snapshot: &core::snapshot::Snapshot) -> MobileUpdateState {
         use dyapp_client::updates::availability::Availability as A;
         let (availability, offer) =
@@ -86,6 +133,10 @@ impl MobileClientUpdates {
             in_flight: checkpoint.in_flight,
             availability,
             offer,
+            notice: snapshot
+                .notice(self.platform, self.installed)
+                .as_ref()
+                .map(Into::into),
         }
     }
 }

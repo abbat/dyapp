@@ -78,5 +78,6 @@ class UpdateMetadataCardTests {
         inFlight = false,
         availability = MobileUpdateAvailability.NEVER_CHECKED,
         offer = null,
+        notice = null,
     )
 }

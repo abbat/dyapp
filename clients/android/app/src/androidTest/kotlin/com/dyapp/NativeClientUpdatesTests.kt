@@ -34,6 +34,13 @@ class NativeClientUpdatesTests {
             assertFalse(fresh.inFlight)
             assertNull(fresh.lastSuccess)
             assertNull(fresh.offer)
+            assertNull(fresh.notice)
+            val dismissal = client.dismissNotice("1.0.0")
+            assertFalse(dismissal.applied)
+            assertEquals(fresh, dismissal.state)
+            val claim = client.claimNotification("1.0.0")
+            assertFalse(claim.applied)
+            assertEquals(fresh, claim.state)
             for (interval in listOf(
                 MobileUpdateInterval.SIX_HOURS,
                 MobileUpdateInterval.TWELVE_HOURS,
