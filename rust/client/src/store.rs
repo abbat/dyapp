@@ -63,7 +63,7 @@ mod tokens;
 pub use chat_list::ChatRow;
 pub use conversations::Conversation;
 pub use last_resort::LastResort;
-pub use likes::Likes;
+pub use likes::{LikeState, Likes};
 pub use notice::NoticeContent;
 pub use peers::{ContactName, ContactView};
 

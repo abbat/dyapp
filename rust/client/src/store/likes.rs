@@ -19,6 +19,17 @@ pub struct Likes {
     pub theirs: bool,
 }
 
+/// The like and local pass state shown for one peer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LikeState {
+    /// This owner currently likes the peer.
+    pub ours: bool,
+    /// Both owners currently like each other.
+    pub matched: bool,
+    /// This owner locally passed on the peer.
+    pub passed: bool,
+}
+
 impl Likes {
     /// A match is a like in both directions.
     #[must_use]
@@ -28,6 +39,19 @@ impl Likes {
 }
 
 impl Store {
+    /// Project current like/match and independent local pass state without staging an event.
+    ///
+    /// # Errors
+    /// Returns existing like-ledger or local pass lookup errors.
+    pub fn like_state(&self, peer_id: &str) -> Result<LikeState, Error> {
+        let likes = self.likes(peer_id)?;
+        Ok(LikeState {
+            ours: likes.ours,
+            matched: likes.matched(),
+            passed: self.passed(peer_id)?,
+        })
+    }
+
     /// Choose an event without changing the store. The caller encrypts this exact event, then
     /// commits it with the sealed MLS state and prepared outbound writes via [`Self::stage_interaction`].
     /// A disabled or already-sent daily view returns `None`.
@@ -541,12 +565,21 @@ mod tests {
         let alice = Identity::try_generate().unwrap();
         let (a, b) = (alice.peer_id(), Identity::try_generate().unwrap().peer_id());
         let mut store = Store::open(&path, &alice).unwrap();
+        let state = |ours, matched, passed| super::LikeState {
+            ours,
+            matched,
+            passed,
+        };
+        assert_eq!(store.like_state(&b).unwrap(), state(false, false, false));
         assert!(put(&mut store, &a, &b, b"a1", event(Kind::Like, 1, 10)));
+        assert_eq!(store.like_state(&b).unwrap(), state(true, false, false));
         assert!(!store.likes(&b).unwrap().matched());
         assert!(put(&mut store, &b, &a, b"b1", event(Kind::Like, 2, 5)));
         assert!(store.likes(&b).unwrap().matched());
+        assert_eq!(store.like_state(&b).unwrap(), state(true, true, false));
         assert!(store.set_pass(&b, true, Timestamp::new(20, 0)).unwrap());
         assert!(store.likes(&b).unwrap().matched());
+        assert_eq!(store.like_state(&b).unwrap(), state(true, true, true));
 
         // An unlike that arrives before its older like stays a tombstone, replays included.
         assert!(put(&mut store, &b, &a, b"b1", event(Kind::Unlike, 3, 30)));
@@ -564,6 +597,7 @@ mod tests {
 
         let mut store = Store::open(&path, &alice).unwrap();
         assert!(!store.likes(&b).unwrap().matched());
+        assert_eq!(store.like_state(&b).unwrap(), state(true, false, true));
         assert_equal_hlc_ordering(&mut store, &a, &b);
     }
 

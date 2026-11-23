@@ -201,6 +201,10 @@ metadata occupies separate lines, preserving preview width at narrow/large-font 
 conversation text remains separate. Android native runtime/visual acceptance and iOS adoption
 remain pending behind their respective screen gates.
 
+Core `Store::like_state` projects the owner's like, mutual match and independent local pass flag
+for Tauri and common native records. It only reads the existing ledgers; display refresh cannot
+stage a Like/Unlike or change a pass decision.
+
 Core `Store::contact_view` projects a contact's local/public/unnamed label, public verification
 mark and first cached thumbnail for both Tauri and common native adapters. Without a cached profile,
 only the local label is available; a local label hides the public mark while retaining a cached photo.

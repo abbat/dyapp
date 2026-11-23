@@ -207,11 +207,11 @@ async fn refill_if_due(
 }
 
 fn likes_in(store: &Store, peer_id: &str) -> Result<ChatLikes, CoreError> {
-    let likes = store.likes(peer_id).map_err(failed)?;
+    let state = store.like_state(peer_id).map_err(failed)?;
     Ok(ChatLikes {
-        ours: likes.ours,
-        matched: likes.matched(),
-        passed: store.passed(peer_id).map_err(failed)?,
+        ours: state.ours,
+        matched: state.matched,
+        passed: state.passed,
     })
 }
 

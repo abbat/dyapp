@@ -260,11 +260,13 @@ pub(crate) async fn send_text(
 }
 
 fn likes_in(store: &Store, peer_id: &str) -> Result<Likes, String> {
-    let likes = store.likes(peer_id).map_err(|e| e.to_string())?;
+    let state = store
+        .like_state(peer_id)
+        .map_err(|error| error.to_string())?;
     Ok(Likes {
-        ours: likes.ours,
-        matched: likes.matched(),
-        passed: store.passed(peer_id).map_err(|e| e.to_string())?,
+        ours: state.ours,
+        matched: state.matched,
+        passed: state.passed,
     })
 }
 
