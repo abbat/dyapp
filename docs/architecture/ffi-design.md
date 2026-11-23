@@ -882,6 +882,10 @@ draft, pending link or exhausted version requires explicit resolution. Opening n
 re-signs state. Common native exports `MobileSearchRecovery.prepare` return an optional opaque
 `SearchWithdrawalReview`; `confirm` reacquires existing original-slot credentials and binding,
 then delegates the local commit to core. Idle handles retain no keys, sessions or leases.
+Tauri recovery commands likewise retain opaque original-owner/directory/generation handles and
+return structured errors with a `kind`: `closed`, `changed`, `reviewRequired`, `linkPending`,
+`versionExhausted`, `wrongOwner`, or `failed` with a diagnostic `reason`. Presentation must use
+these kinds rather than parse backend text; the desktop recovery screen remains planned.
 `dismiss` invalidates the shared review; generated object disposal only releases its wrapper.
 `SearchRecoverySaved` reports the shared core's consistent local draft/visibility/search-pending
 snapshot. Confirmation only queues bytes and captures a public signed receipt after the commit.

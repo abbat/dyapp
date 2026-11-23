@@ -1,6 +1,6 @@
 //! Desktop command transport for the shared owner search recovery.
 use crate::identity_runtime::IdentityState;
-use crate::search_recovery_state::{RecoveryState, Saved};
+use crate::search_recovery_state::{Failure, RecoveryState, Saved};
 use dyapp_client::store::{SearchWithdrawalRecovery, Store};
 use dyapp_identity::network::{self, Settings};
 use std::path::Path;
@@ -11,15 +11,15 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub(super) async fn prepare_search_recovery(
     state: tauri::State<'_, IdentityState>,
     reviews: tauri::State<'_, RecoveryState>,
-) -> Result<Option<String>, String> {
-    let lease = state.lease()?;
+) -> Result<Option<String>, Failure> {
+    let lease = state.lease().map_err(Failure::failed)?;
     let reviews = reviews.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let (identity, dir) = lease.active();
         reviews.prepare(identity, dir, lease.generation())
     })
     .await
-    .map_err(|error| error.to_string())?
+    .map_err(Failure::failed)?
 }
 
 #[tauri::command]
@@ -27,15 +27,15 @@ pub(super) async fn confirm_search_recovery(
     state: tauri::State<'_, IdentityState>,
     reviews: tauri::State<'_, RecoveryState>,
     token: String,
-) -> Result<Saved, String> {
-    let lease = state.lease()?;
+) -> Result<Saved, Failure> {
+    let lease = state.lease().map_err(Failure::failed)?;
     let reviews = reviews.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let (identity, dir) = lease.active();
         reviews.confirm(identity, dir, lease.generation(), &token)
     })
     .await
-    .map_err(|error| error.to_string())?
+    .map_err(Failure::failed)?
 }
 
 #[tauri::command]
@@ -43,14 +43,14 @@ pub(super) async fn retry_search_recovery(
     state: tauri::State<'_, IdentityState>,
     reviews: tauri::State<'_, RecoveryState>,
     token: String,
-) -> Result<Saved, String> {
-    let lease = state.lease()?;
+) -> Result<Saved, Failure> {
+    let lease = state.lease().map_err(Failure::failed)?;
     let reviews = reviews.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let (identity, dir) = lease.active();
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|error| error.to_string())?
+            .map_err(Failure::failed)?
             .as_secs();
         reviews.retry(
             identity,
@@ -62,18 +62,18 @@ pub(super) async fn retry_search_recovery(
         )
     })
     .await
-    .map_err(|error| error.to_string())?
+    .map_err(Failure::failed)?
 }
 
 #[tauri::command]
 pub(super) async fn dismiss_search_recovery(
     reviews: tauri::State<'_, RecoveryState>,
     token: String,
-) -> Result<(), String> {
+) -> Result<(), Failure> {
     let reviews = reviews.inner().clone();
     tauri::async_runtime::spawn_blocking(move || reviews.dismiss(&token))
         .await
-        .map_err(|error| error.to_string())?
+        .map_err(Failure::failed)?
 }
 
 async fn send(
@@ -94,7 +94,7 @@ async fn send(
     let mut reached = dyapp_client::search::connect_search_nodes_with_scores(
         &mut entry,
         protocols,
-        2,
+        dyapp_client::publish::SEARCH_NODES,
         &mut scores,
     )
     .await;
