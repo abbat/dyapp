@@ -217,7 +217,10 @@ fixtures in `rust/bootstrap/tests/fixtures/` and the existing prost/serde_json d
   settings. Dynamic paths, timestamps and incidental messages are not snapshotted.
 - Real-binary CLI tests check Russian and English operator diagnostics and deny-list confirmations,
   while the `status` field names and values remain stable across locales. Client argument tests
-  also check translated errors and the current default port in address guidance. Config-loading
+  also check translated errors and the current default port in address guidance. Their shared
+  assertion helper executes every table row in both locales, including the media size boundary
+  and flood argument parser; fixture extraction must retain all rows and the address hint check.
+  Config-loading
   tests cover localized option, seed, TURN, removed-key, startup validation and node-key guidance
   with stable English diagnostics and without replacing existing node data or a malformed network marker.
   Real-binary EN/RU checks cover missing config files and TOML syntax errors; the latter must
