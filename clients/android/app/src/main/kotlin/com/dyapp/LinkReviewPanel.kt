@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.launch
@@ -120,15 +121,6 @@ private fun LinkReviewContent(form: LinkReviewFormState, photos: LinkReviewPhoto
             LinkReviewPreviewCard(form, field, photos, scales)
         }
     }
-    form.failure?.let { failure ->
-        ErrorNotice(
-            stringResource(R.string.link_review_preview_error),
-            "link-review-preview-error",
-            failure.toString(),
-            "link-review-preview-details",
-            "link-review-preview-copy"
-        )
-    }
     LinkReviewFooter(form, controls)
 }
 
@@ -166,6 +158,19 @@ private fun LinkReviewPreviewControl(form: LinkReviewFormState, focus: LinkRevie
 }
 
 @Composable
+private fun LinkReviewPreviewFailure(failure: Throwable?) {
+    failure?.let {
+        ErrorNotice(
+            stringResource(R.string.link_review_preview_error),
+            "link-review-preview-error",
+            it.toString(),
+            "link-review-preview-details",
+            "link-review-preview-copy"
+        )
+    }
+}
+
+@Composable
 private fun LinkReviewFooter(form: LinkReviewFormState, controls: LinkReviewControls) {
     val focus = rememberLinkReviewFocus(
         form.preview != null,
@@ -173,20 +178,25 @@ private fun LinkReviewFooter(form: LinkReviewFormState, controls: LinkReviewCont
         controls.snapshot.enrollment.failure ?: form.failure,
         controls.canLeave
     )
-    LinkReviewRecovery(controls.snapshot, controls.actions)
-    LinkReviewPreviewControl(form, focus)
-    Button(
-        controls.save,
-        Modifier.testTag("link-review-confirm").applicationClick(controls.save),
-        form.available && form.complete
-    ) { Text(stringResource(R.string.link_review_save)) }
-    TextButton(
-        controls.back,
-        Modifier.testTag("link-review-back").focusRequester(focus.back)
-            .focusProperties { canFocus = true }
-            .applicationClick(controls.back),
-        controls.canLeave
-    ) {
-        Text(stringResource(R.string.link_review_back_receipt))
+    var backFocused by remember { mutableStateOf(false) }
+    LinkReviewRecoveryFrame(controls.snapshot.enrollment.failure ?: form.failure, backFocused) {
+        LinkReviewPreviewFailure(form.failure)
+        LinkReviewRecovery(controls.snapshot, controls.actions)
+        LinkReviewPreviewControl(form, focus)
+        Button(
+            controls.save,
+            Modifier.testTag("link-review-confirm").applicationClick(controls.save),
+            form.available && form.complete
+        ) { Text(stringResource(R.string.link_review_save)) }
+        TextButton(
+            controls.back,
+            Modifier.testTag("link-review-back").onFocusChanged { backFocused = it.isFocused }
+                .focusRequester(focus.back)
+                .focusProperties { canFocus = true }
+                .applicationClick(controls.back),
+            controls.canLeave
+        ) {
+            Text(stringResource(R.string.link_review_back_receipt))
+        }
     }
 }

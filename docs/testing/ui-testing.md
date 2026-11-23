@@ -128,7 +128,9 @@ Settings frame, acknowledges safe Back focus, and checks the error and all recov
 the current viewport in EN/RU at both text scales. This covers preview refusal only; authoritative
 confirmation refusal belongs to the separately retained enrollment state. Its typed notice and
 existing recovery actions render beside the active form footer, or beside the reopen/saved state;
-receipt-only outcomes keep their original notice.
+receipt-only outcomes keep their original notice. After the safe Back control reports actual focus,
+the measured feedback/recovery group requests visibility as a unit; focus alone is not a scroll
+completion signal. Group-size changes retrigger that request without a guessed delay.
 The phase-only `LinkReviewVisualTests` renders the actual complete comparison in the receiving
 Settings frame: choices, preview, saving, typed refusal and unavailable photos, in EN/RU, both
 colour themes and actual 100/200% text scales. With `comparisonVisual=1`, `sourceSha` and
