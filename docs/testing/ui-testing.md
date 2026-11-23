@@ -138,6 +138,15 @@ read-only retry. The host has no identity/network owner or peer-photo loader, so
 announce activity or fetch profiles. Capture/frame review complements the separate actual JNI
 presence-delivery and lifecycle tests; authored fixtures alone do not prove rendered acceptance.
 
+The independent `suite=recovery` runs `SearchRecoveryVisualTests` with `recoveryVisual=1`.
+It captures the production search-hiding recovery card for review, busy confirmation, queued,
+acknowledged, read failure, confirmation refusal and retry failure. Each width requires 112
+EN/RU/theme/font/top-bottom frames under `files/search-recovery-visual/<width>/`, validated by
+`android_visual_archive.py --kind recovery` with the exact producer and real text-scale witnesses.
+Controlled callbacks retain busy states until capture finishes; cleanup awaits admitted completion.
+Fixtures have no registry or credentials and cannot sign or contact a node. Actual JNI authorization
+and manual review of these captures remain separate acceptance requirements.
+
 Native receiving completion checks retain a recovery review prepared before setup finishes:
 preparing another review after the pending link has been cleared is correctly refused. Publication
 preview tests await their expected current row after the native draft read, before scrolling.

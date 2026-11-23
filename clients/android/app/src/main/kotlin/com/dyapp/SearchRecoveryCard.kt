@@ -19,8 +19,12 @@ import androidx.compose.ui.semantics.semantics
 
 /** Existing-owner recovery never replaces the profile editor or its unsaved fields. */
 @Composable
-internal fun SearchRecoveryCard(opened: Opened.Ready, visibility: VisibilityState) {
-    val session = remember(opened) { searchRecoverySession(opened) }
+internal fun SearchRecoveryCard(
+    opened: Opened.Ready,
+    visibility: VisibilityState,
+    create: () -> SearchRecoverySession = { searchRecoverySession(opened) }
+) {
+    val session = remember(opened) { create() }
     val state by session.state.collectAsState()
     LaunchedEffect(session) { session.prepare(null) }
     DisposableEffect(session) { onDispose { session.retire() } }
