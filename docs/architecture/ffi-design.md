@@ -1147,8 +1147,10 @@ Swift pass raw field text to this parser and retain field keys and rendering onl
 the returned core keys to its optional display fields; impossible dates fail at parsing.
 The Tauri `profile_editor_input` command accepts raw birth, height, multiline interests and seeking
 text and returns typed editable fields through these same parsers. It performs no identity or
-storage operation. Web-form adoption of this raw-input boundary is planned; saved-profile responses
-remain typed. The adapter converts checkbox-code representation only
+storage operation. The web form passes the original strings and awaits these parsed fields before
+saving or constructing a public preview; saved-profile responses remain typed. Live field errors
+are bound to the captured input, assessment revision and identity generation, so retired responses
+cannot invalidate a replacement editor. The adapter converts checkbox-code representation only
 after the core's normalized seeking state says hidden values matter; vocabulary, bounds, ordering
 and not-looking behavior remain in `editor_input::parse_seeking`.
 Tests crossing this adapter run in Android instrumentation or native Swift tests, where the

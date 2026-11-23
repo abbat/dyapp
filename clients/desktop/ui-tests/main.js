@@ -768,7 +768,7 @@ const runSmokeFallbackStep = async (state, mode, existing, step, readySteps) => 
 const checkModuleStartup = async () => {
   await smoke.checkDomContracts();
   await smoke.checkFoundationContracts();
-  const [localization, interests, pixels, fields, form, seeking, peers] = await Promise.all([
+  const [localization, interests, pixels, fields, form, seeking, peers, input] = await Promise.all([
     import(new URL('locale.js', document.baseURI).href),
     import(new URL('profile-interests.js', document.baseURI).href),
     import(new URL('sticker-pixels.js', document.baseURI).href),
@@ -776,12 +776,16 @@ const checkModuleStartup = async () => {
     import(new URL('profile-form.js', document.baseURI).href),
     import(new URL('profile-seeking.js', document.baseURI).href),
     import(new URL('peer-labels.js', document.baseURI).href),
+    import(new URL('profile-input.js', document.baseURI).href),
   ]);
   if (
     localization.strings !== appApi.strings ||
     localization.locale !== appApi.locale ||
     localization.pseudoLocale !== appApi.pseudoLocale ||
-    interests.profileInterestTags !== appApi.profileInterestTags ||
+    typeof input.profileTextInput !== 'function' ||
+    input.profileTextInput !== appBindings.profileTextInput ||
+    input.profileInputReady !== appBindings.profileInputReady ||
+    input.assessProfileInput !== appBindings.assessProfileInput ||
     interests.showProfileInterests !== appApi.showProfileInterests ||
     pixels.stickerPixels !== appApi.stickerPixels ||
     pixels.stickerBinaryPixels !== appApi.stickerBinaryPixels ||

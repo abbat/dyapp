@@ -1,6 +1,6 @@
 import { all as domAll, byId as domById } from './dom.js';
 import { strings } from './locale.js';
-import { checkRange, scaleFields } from './profile-fields.js';
+import { scaleFields } from './profile-fields.js';
 
 const profileForm = domById('profile', HTMLFormElement);
 
@@ -14,9 +14,9 @@ const genderName = (choice) => strings[`profile.value.gender.${choice.key}`];
 export const seekingDraft = () => ({
   seekingGenders: [
     ...domAll(document, '#profile-seeking-genders input:checked', HTMLInputElement),
-  ].map((box) => Number(box.value)),
-  seekingAgeFrom: Number(domById('profile-seeking-age-from', HTMLInputElement).value) || null,
-  seekingAgeTo: Number(domById('profile-seeking-age-to', HTMLInputElement).value) || null,
+  ].map((box) => box.value),
+  seekingAgeFrom: domById('profile-seeking-age-from', HTMLInputElement).value,
+  seekingAgeTo: domById('profile-seeking-age-to', HTMLInputElement).value,
   notLooking: notLooking.checked,
 });
 /** @typedef {Pick<import('./profile-fields.js').ProfileDraft, 'seekingGenders' | 'seekingAgeFrom' | 'seekingAgeTo' | 'notLooking'>} SeekingDraft */
@@ -56,11 +56,8 @@ export const seekingFacts = (draft) => {
     ...(draft.seekingAgeTo ? [[strings['profile.seekingAgeTo'], String(draft.seekingAgeTo)]] : []),
   ];
 };
-// A reversed age range is explained at its upper field; a disabled one is not checked.
-export const profileFormValid = () => {
-  checkRange('profile-seeking-age-from', 'profile-seeking-age-to');
-  return profileForm.reportValidity();
-};
+// Domain validity is supplied by the core; the browser presents the current field error.
+export const profileFormValid = () => profileForm.reportValidity();
 notLooking.addEventListener('change', () => {
   seekingFields.disabled = notLooking.checked;
 });

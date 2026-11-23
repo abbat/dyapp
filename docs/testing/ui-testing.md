@@ -2110,6 +2110,12 @@ read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID
   The existing native checks also reject positive `tabindex`, missing focus rings and
   horizontal overflow at 440 px. Mobile native accessibility audits remain deferred.
 
+Desktop profile-input checks await the actual core interpretation and the field-assessment
+completion promise. Held assessment failures are delivered after replacing the text and after
+reopening an equal editor through real identity navigation; neither may invalidate the current
+form. Publish/solve fixtures acknowledge actual invocation through their held-call signal, with
+a fresh check deadline for each awaited transition.
+
 ### Desktop prototype screenshots
 
 Run `.github/workflows/prototype-review.yml` manually from GitHub Actions for current desktop

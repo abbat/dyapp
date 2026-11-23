@@ -295,9 +295,12 @@
     )
       throw new Error('failed note save lost draft/retry');
   };
-  const assertContactNotesPrivateNoteLeakedIntoPreviewSearch = (saved) => {
+  const assertContactNotesPrivateNoteLeakedIntoPreviewSearch = async (saved) => {
     if (
-      appBindings.publicFields(appBindings.profileDraft()).join('\n').includes(saved) ||
+      appBindings
+        .publicFields(await appBindings.profileDraft())
+        .join('\n')
+        .includes(saved) ||
       JSON.stringify(appBindings.searchQuery()).includes(saved)
     ) {
       throw new Error('private note leaked into preview/search');
@@ -401,7 +404,7 @@
     fixture.hold = false;
     if (fixture.saved !== 'Case\nЛичная заметка') throw new Error('note case/lines changed');
     await smoke.shot('profile-private-note');
-    assertContactNotesPrivateNoteLeakedIntoPreviewSearch(fixture.saved);
+    await assertContactNotesPrivateNoteLeakedIntoPreviewSearch(fixture.saved);
     appBindings.closeFound();
     appBindings.openFound(found, card, call);
     await appApi.noteShown;

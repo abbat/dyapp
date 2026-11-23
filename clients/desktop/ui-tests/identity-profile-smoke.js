@@ -22,9 +22,7 @@
         });
       return finishPlaceCall.call();
     });
-    await new Promise((resolve) => {
-      setTimeout(resolve, 0);
-    });
+    await smoke.waitForSignal('old profile place lookup admission', finishPlaceCall.started);
     if (!finishPlaceCall.resolve) throw new Error('old place lookup did not start');
     await appBindings.act(Promise.resolve({ status: 'picker' }));
     await appBindings.act(Promise.resolve(readyState));
@@ -33,12 +31,37 @@
     await oldPlace;
     if (appBindings.placeInput.value !== place) throw new Error('old place changed new editor');
   };
+  const checkStaleProfileInterpretation = async (readyState) => {
+    const draft = await appBindings.profileDraft();
+    const held = smoke.pendingSmokeCall();
+    let writes = 0;
+    const pending = appBindings.saveProfile(
+      () => {
+        writes += 1;
+        return Promise.resolve({});
+      },
+      () => held.call(),
+    );
+    try {
+      await smoke.waitForSignal('profile interpretation admission', held.started);
+      await appBindings.act(Promise.resolve({ status: 'picker' }));
+      await appBindings.act(Promise.resolve(readyState));
+      const status = appBindings.profileStatus.textContent;
+      held.resolve(draft);
+      await smoke.waitForSignal('retired profile interpretation', pending);
+      if (writes || appBindings.profileStatus.textContent !== status)
+        throw new Error('old interpreted draft saved or repainted the next identity');
+    } finally {
+      held.resolve(draft);
+    }
+  };
   const checkStaleProfileLoad = async () => {
     const readyState = appBindings.current;
     const finishLoadCall = smoke.pendingSmokeCall();
     const oldLoad = appBindings.showProfile((command) =>
       command === 'load_profile' ? finishLoadCall.call() : Promise.resolve([]),
     );
+    await smoke.waitForSignal('old profile load admission', finishLoadCall.started);
     await appBindings.act(Promise.resolve({ status: 'picker' }));
     await appBindings.act(Promise.resolve(readyState));
     const status = appBindings.profileStatus.textContent;
@@ -48,8 +71,10 @@
       throw new Error('old profile load changed new editor');
 
     await checkStaleProfilePlace(readyState);
+    await checkStaleProfileInterpretation(readyState);
     const finishSaveCall = smoke.pendingSmokeCall();
     const oldSave = appBindings.saveProfile(() => finishSaveCall.call());
+    await smoke.waitForSignal('old profile save admission', finishSaveCall.started);
     if (!finishSaveCall.resolve) throw new Error('old save did not start');
     await appBindings.act(Promise.resolve({ status: 'picker' }));
     await appBindings.act(Promise.resolve(readyState));
@@ -139,28 +164,27 @@
   const checkStalePublishAndHide = async () => {
     const readyState = appBindings.current;
     const published = { published: 1, hidden: false, searchMinutes: null };
-    const openDialog = () => {
-      appBindings.openPublishDialog({ draft: appBindings.profileDraft() });
+    const openDialog = async () => {
+      appBindings.openPublishDialog({ draft: await appBindings.profileDraft() });
       appBindings.profileAttested.checked = true;
       appBindings.profileDisclosure.checked = true;
       appBindings.publishConfirm.disabled = false;
     };
-    openDialog();
+    await openDialog();
     const finishOldPublishCall = smoke.pendingSmokeCall();
     const oldPublish = appBindings.confirmPublish((command) =>
       command === 'solve_profile' ? Promise.resolve() : finishOldPublishCall.call(),
     );
-    await new Promise((resolve) => {
-      setTimeout(resolve, 0);
-    });
+    await smoke.waitForSignal('old profile publish admission', finishOldPublishCall.started);
     if (!finishOldPublishCall.resolve) throw new Error('old profile publish did not start');
     await appBindings.act(Promise.resolve({ status: 'picker' }));
     await appBindings.act(Promise.resolve(readyState));
-    openDialog();
+    await openDialog();
     const finishNewSolveCall = smoke.pendingSmokeCall();
     const newPublish = appBindings.confirmPublish((command) =>
       command === 'publish_profile' ? Promise.resolve(published) : finishNewSolveCall.call(),
     );
+    await smoke.waitForSignal('new profile solve admission', finishNewSolveCall.started);
     finishOldPublishCall.resolve(published);
     await oldPublish;
     assertStalePublishAndHideOldPublishChangedNewDialog();

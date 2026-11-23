@@ -14,9 +14,10 @@ import { controller as peerNamesController } from './peer-names.js';
 import { placePicker } from './places.js';
 import * as profileFieldsModule from './profile-fields.js';
 import { profileForm as profileFormModule_profileForm } from './profile-form.js';
-import { profileInterestTags, showProfileInterests } from './profile-interests.js';
+import { showProfileInterests } from './profile-interests.js';
+import { profileTextInput, resetProfileInput } from './profile-input.js';
 import { controller as profilePhotosController } from './profile-photos.js';
-import { seekingDraft, showSeeking, profileFormValid } from './profile-seeking.js';
+import { showSeeking, profileFormValid } from './profile-seeking.js';
 import { publicFacts, publicFields } from './profile-public.js';
 import { controller as searchController } from './search.js';
 import { controller as settingsController } from './settings.js';
@@ -449,12 +450,6 @@ const profileDisclosure = domById('profile-disclosure', HTMLInputElement);
 const profileCancel = domById('profile-cancel', HTMLButtonElement);
 let profileBusy = false;
 let profilePublished = false;
-/** @param {string} part */
-const birthValue = (part) => {
-  const value = domById(`birth-${part}`, HTMLInputElement).value;
-  return value === '' ? null : Number(value);
-};
-
 // The place input holds a suggestion's text; ids maps each shown suggestion to its GeoNames ID,
 // so typed text that is no suggestion fails validation instead of being saved or searched.
 // Editing the country clears the place.
@@ -467,19 +462,19 @@ const profilePlace = placePicker(
   domById('profile-places', HTMLDataListElement),
   () => placeCountry.value,
 );
-const profileDraft = () => ({
-  name: domById('profile-name', HTMLInputElement).value,
-  ...profileFormModule_profileForm.readScales(profileFieldsModule.scaleFields),
-  birthYear: birthValue('year'),
-  birthMonth: birthValue('month'),
-  birthDay: birthValue('day'),
-  height: Number(domById('profile-height', HTMLInputElement).value) || null,
-  about: domById('profile-about', HTMLTextAreaElement).value,
-  interests: profileInterestTags(),
-  country: placeCountry.value,
-  place: profilePlace.id(),
-  ...seekingDraft(),
-});
+const profileDraft = () => {
+  const draft = {
+    name: domById('profile-name', HTMLInputElement).value,
+    ...profileFormModule_profileForm.readScales(profileFieldsModule.scaleFields),
+    about: domById('profile-about', HTMLTextAreaElement).value,
+    country: placeCountry.value,
+    place: profilePlace.id(),
+  };
+  return invoke('profile_editor_input', { input: profileTextInput() }).then((fields) => ({
+    ...draft,
+    ...fields,
+  }));
+};
 // Without an answering node the way on is the Network area, so the message offers it.
 /**
  * @param {HTMLParagraphElement} status @param {string} open @param {string} detail
@@ -535,6 +530,7 @@ const showProfile = async (call = invoke) => {
     call('place_countries'),
   ]);
   if (!identityCurrent(generation)) return;
+  resetProfileInput();
   showSearchWait(view);
   if (view.searchMinutes === 0) sendSearchProfile(generation);
   profileFieldsModule.setScaleFields(scales);
@@ -600,20 +596,23 @@ const listItems = (values) =>
     item.textContent = value;
     return item;
   });
-const saveProfile = async (call = invoke) => {
+const saveProfile = async (call = invoke, readDraft = profileDraft) => {
   if (!profileFormValid()) return null;
   const generation = identityState.generation;
-  const view = await call('save_profile', { draft: profileDraft() }).catch((error) => {
-    if (!identityCurrent(generation)) return null;
-    const refusal = {
-      invalidName: 'profile.nameInvalid',
-      invalidHeight: 'profile.heightInvalid',
-      invalidAbout: 'profile.aboutInvalid',
-      invalidInterests: 'profile.interestsInvalid',
-      'invalid birth date': 'profile.problem.invalidBirthDate',
-    }[String(error)];
-    throw refusal ? localeModule_strings[refusal] : error;
-  });
+  const view = await readDraft()
+    .then((draft) => (identityCurrent(generation) ? call('save_profile', { draft }) : null))
+    .catch((error) => {
+      if (!identityCurrent(generation)) return null;
+      const refusal = {
+        invalidName: 'profile.nameInvalid',
+        invalidHeight: 'profile.heightInvalid',
+        invalidAbout: 'profile.aboutInvalid',
+        invalidInterests: 'profile.interestsInvalid',
+        'invalid birth date': 'profile.problem.invalidBirthDate',
+        'invalid profile seeking': 'search.rangeReversed',
+      }[String(error)];
+      throw refusal ? localeModule_strings[refusal] : error;
+    });
   if (!identityCurrent(generation) || !view) return null;
   showProfileInterests(view.draft.interests);
   showAge(view);

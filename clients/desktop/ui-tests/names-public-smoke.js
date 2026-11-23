@@ -42,7 +42,7 @@
     const input = document.getElementById('profile-name');
     const before = input.value;
     input.value = 'Anna';
-    if (appBindings.profileDraft().name !== 'Anna')
+    if ((await appBindings.profileDraft()).name !== 'Anna')
       throw new Error('the draft lost the public name');
     input.value = before;
     await smoke.shot('profile-public-name');
@@ -354,30 +354,83 @@
     appBindings.closeFound();
     document.getElementById('chat-back').click();
   };
+  const checkLoadedProfileInput = async () => {
+    const fields = [
+      'birth-day',
+      'profile-height',
+      'profile-interests',
+      'profile-seeking-age-to',
+    ].map((id) => document.getElementById(id));
+    for (const field of fields) field.setCustomValidity('retired assessment');
+    await appBindings.showProfile();
+    if (fields.some((field) => !field.checkValidity()))
+      throw new Error('loaded profile retained a retired field error');
+  };
+  const checkReplacedInputAssessment = async () => {
+    const input = document.getElementById('profile-interests');
+    const original = input.value;
+    const held = smoke.pendingSmokeCall();
+    const pending = appBindings.assessProfileInput(() => held.call());
+    try {
+      await smoke.waitForSignal('input assessment admission', held.started);
+      input.value = `${original}\nreplacement`;
+      held.reject('invalidInterests');
+      await smoke.waitForSignal('replaced input assessment', pending);
+      if (!input.checkValidity()) throw new Error('old assessment invalidated replacement input');
+    } finally {
+      input.value = original;
+      held.resolve({});
+    }
+  };
+  const checkRetiredInputAssessment = async () => {
+    const ready = appBindings.current;
+    const snapshot = JSON.stringify(appBindings.profileTextInput());
+    const held = smoke.pendingSmokeCall();
+    const pending = appBindings.assessProfileInput(() => held.call());
+    try {
+      await smoke.waitForSignal('old owner assessment admission', held.started);
+      await appBindings.act(Promise.resolve({ status: 'picker' }));
+      await appBindings.act(Promise.resolve(ready));
+      await openArea('profile-area');
+      if (JSON.stringify(appBindings.profileTextInput()) !== snapshot)
+        throw new Error('reopened-input ownership calibration changed its text');
+      held.reject('invalidInterests');
+      await smoke.waitForSignal('retired owner assessment', pending);
+      if (!document.getElementById('profile-interests').checkValidity())
+        throw new Error('old assessment invalidated an equal reopened editor');
+    } finally {
+      held.resolve({});
+    }
+  };
   const checkInterests = async () => {
     await openArea('profile-area');
+    await checkLoadedProfileInput();
+    await checkReplacedInputAssessment();
+    await checkRetiredInputAssessment();
     const input = document.getElementById('profile-interests');
     const before = input.value;
     input.value = '  Музыка  \nJazz, blues\n\n';
-    const tags = appBindings.profileDraft().interests;
-    if (tags.join('|') !== 'Музыка|Jazz, blues')
+    const tags = (await appBindings.profileDraft()).interests;
+    if (tags.join('|') !== 'музыка|jazz, blues')
       throw new Error('interest lines lost tags or punctuation');
     input.value = Array(33).fill('music').join('\n');
     input.dispatchEvent(new Event('input'));
+    await smoke.waitForSignal('core interest assessment', appBindings.profileInputReady());
     if (input.checkValidity()) throw new Error('too many interests passed the form');
     appApi.showProfileInterests(['Музыка', 'Jazz, blues']);
     if (!input.checkValidity()) throw new Error('loaded interests retained an old error');
     const canonical = ['музыка', 'jazz, blues'];
+    const typedDraft = await appBindings.profileDraft();
     await appBindings.saveProfile(() =>
       Promise.resolve({
-        draft: { ...appBindings.profileDraft(), interests: canonical },
+        draft: { ...typedDraft, interests: canonical },
         ages: null,
       }),
     );
     if (input.value !== canonical.join('\n'))
       throw new Error('save did not show canonical interests');
     const fields = appBindings.publicFields({
-      ...appBindings.profileDraft(),
+      ...(await appBindings.profileDraft()),
       interests: canonical,
     });
     if (!fields.includes(`${appApi.strings['profile.interests']}: ${canonical.join('; ')}`)) {
@@ -393,9 +446,12 @@
     if (refusal !== appApi.strings['profile.interestsInvalid'])
       throw new Error('interest error not explained');
     appApi.showProfileInterests([]);
-    if (appBindings.profileDraft().interests.length)
+    if ((await appBindings.profileDraft()).interests.length)
       throw new Error('clearing interests retained tags');
     input.value = before;
+    await checkInterestSearchInput();
+  };
+  const checkInterestSearchInput = async () => {
     await openArea('search-area');
     const search = document.getElementById('search-interest');
     // The core trims the interest and builds its condition from the offered fields.

@@ -26,6 +26,7 @@ const privacyUiModule = await import(new URL('privacy-ui.js', document.baseURI).
 const profileFieldsModule = await import(new URL('profile-fields.js', document.baseURI).href);
 const profileFormModule = await import(new URL('profile-form.js', document.baseURI).href);
 const profileInterestsModule = await import(new URL('profile-interests.js', document.baseURI).href);
+const profileInputModule = await import(new URL('profile-input.js', document.baseURI).href);
 const profilePhotosModule = await import(new URL('profile-photos.js', document.baseURI).href);
 const profileSeekingModule = await import(new URL('profile-seeking.js', document.baseURI).href);
 const removeModule = await import(new URL('remove.js', document.baseURI).href);
@@ -292,6 +293,15 @@ const appBindings = {
   },
   get profileDraft() {
     return appModule.profileDraft;
+  },
+  get assessProfileInput() {
+    return profileInputModule.assessProfileInput;
+  },
+  get profileInputReady() {
+    return profileInputModule.profileInputReady;
+  },
+  get profileTextInput() {
+    return profileInputModule.profileTextInput;
   },
   get profileFailure() {
     return appModule.profileFailure;
@@ -652,9 +662,6 @@ const appApi = {
   },
   get profileFormValid() {
     return profileSeekingModule.profileFormValid;
-  },
-  get profileInterestTags() {
-    return profileInterestsModule.profileInterestTags;
   },
   get profilePhotoChanged() {
     return profilePhotosModule.controller.profilePhotoChanged;
