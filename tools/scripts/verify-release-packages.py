@@ -3,6 +3,8 @@
 
 Usage: verify-release-packages.py TAG > inventory.json
 Run from the checked-out release tag with gh authentication.
+Android inventory additionally requires the validated prior feed supplied by
+stage-update-feed.py; direct invocation cannot establish that baseline.
 """
 
 from __future__ import annotations
@@ -13,6 +15,8 @@ from typing import TYPE_CHECKING, cast
 import hashlib
 import importlib.util
 import json
+import os
+import types
 from pathlib import Path
 import subprocess
 import sys
@@ -23,15 +27,26 @@ if TYPE_CHECKING:
     import release_contracts as rc
 
 ROOT = Path(__file__).resolve().parents[2]
-SPEC = importlib.util.spec_from_file_location(
-    "release_candidates", ROOT / "tools/scripts/release-candidates.py"
+
+
+def load_module(script: str) -> types.ModuleType:
+    name = Path(script).stem.replace("-", "_")
+    spec = importlib.util.spec_from_file_location(
+        name, ROOT / "tools/scripts" / script
+    )
+    assert spec is not None and spec.loader is not None, (
+        "Python source loader is unavailable"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+CANDIDATES = cast("rc.CandidateModule", load_module("release-candidates.py"))
+ANDROID = cast(
+    "rc.AndroidPackageModule", load_module("android-release-package.py")
 )
-assert SPEC is not None and SPEC.loader is not None, (
-    "Python source loader is unavailable"
-)
-_module = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(_module)
-CANDIDATES = cast("rc.CandidateModule", _module)
+BUILD = cast("rc.FeedModule", load_module("build-update-feed.py"))
 REPO = "abbat/dyapp"
 SIGNER = "abbat/dyapp/.github/workflows/release.yml"
 
@@ -49,15 +64,23 @@ def command(args: Sequence[str], timeout: int = 120) -> bytes:
         raise ValueError(f"verification command failed: {args[0]}") from error
 
 
-def release_commit(tag: str, run: rc.CommandRunner = command) -> str:
+def tag_commit(tag: str, run: rc.CommandRunner) -> str:
     CANDIDATES.stable_tag(tag)
-    raw_commit = run(["git", "rev-parse", f"refs/tags/{tag}^{{commit}}"])
-    commit = raw_commit.decode("ascii").strip()
+    commit = (
+        run(["git", "rev-parse", f"refs/tags/{tag}^{{commit}}"])
+        .decode("ascii")
+        .strip()
+    )
+    if not CANDIDATES.SHA.fullmatch(commit):
+        raise ValueError("invalid tag commit")
+    return commit
+
+
+def release_commit(tag: str, run: rc.CommandRunner = command) -> str:
+    commit = tag_commit(tag, run)
     head = run(["git", "rev-parse", "HEAD"]).decode("ascii").strip()
     if commit != head:
         raise ValueError("checkout does not match release tag")
-    if not CANDIDATES.SHA.fullmatch(commit):
-        raise ValueError("invalid tag commit")
     return commit
 
 
@@ -125,19 +148,62 @@ def verify_package(
         raise ValueError("no verified package attestation")
 
 
-def inventory(tag: str, run: rc.CommandRunner = command) -> rc.Inventory:
-    commit = release_commit(tag, run)
-    response = run(
-        [
-            "gh",
-            "api",
-            f"repos/{REPO}/releases/tags/{tag}",
-        ]
-    )
+def published_candidates(
+    tag: str, commit: str, run: rc.CommandRunner
+) -> rc.Candidates:
+    response = run(["gh", "api", f"repos/{REPO}/releases/tags/{tag}"])
     if len(response) > CANDIDATES.MAX_BYTES:
         raise ValueError("release response exceeds size limit")
     release = json.loads(response, object_pairs_hook=CANDIDATES.unique_object)
-    found = CANDIDATES.candidates(release, tag, commit)
+    return CANDIDATES.candidates(release, tag, commit)
+
+
+def verify_android(
+    package: rc.Package,
+    tag: str,
+    directory: Path,
+    previous: rc.Feed | None,
+    certificate: str,
+    run: rc.CommandRunner,
+) -> None:
+    if previous is None:
+        raise ValueError(
+            "Android inventory requires a validated previous feed"
+        )
+    current = ANDROID.metadata(
+        directory / package["name"], tag[1:], certificate, run
+    )
+    prior = previous["targets"].get("android")
+    if prior is None:
+        return
+    if prior["method"] != "package":
+        raise ValueError("Android delivery migration is not verified")
+    previous_tag = prior["tag"]
+    if previous_tag == tag:
+        return
+    commit = tag_commit(previous_tag, run)
+    candidates = published_candidates(previous_tag, commit, run)
+    older = candidates["packages"].get("android")
+    if older is None:
+        raise ValueError("previous Android package is unavailable")
+    previous_directory = directory / "previous-android"
+    previous_directory.mkdir()
+    verify_package(older, previous_tag, commit, previous_directory, run)
+    baseline = ANDROID.metadata(
+        previous_directory / older["name"], previous_tag[1:], certificate, run
+    )
+    ANDROID.verify_upgrade(current, baseline)
+
+
+def inventory(
+    tag: str,
+    run: rc.CommandRunner = command,
+    *,
+    previous: rc.Feed | None = None,
+    certificate: str | None = None,
+) -> rc.Inventory:
+    commit = release_commit(tag, run)
+    found = published_candidates(tag, commit, run)
     assets: list[rc.Asset] = []
     attestations: list[rc.Attestation] = []
     targets: dict[str, rc.Claim] = {}
@@ -145,6 +211,13 @@ def inventory(tag: str, run: rc.CommandRunner = command) -> rc.Inventory:
         directory = Path(temporary)
         for target, package in sorted(found["packages"].items()):
             verify_package(package, tag, commit, directory, run)
+            if target == "android":
+                pin = (
+                    os.environ.get("ANDROID_RELEASE_CERT_SHA256", "")
+                    if certificate is None
+                    else certificate
+                )
+                verify_android(package, tag, directory, previous, pin, run)
             asset: rc.Asset = {
                 "name": package["name"],
                 "state": "uploaded",

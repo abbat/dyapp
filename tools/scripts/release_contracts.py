@@ -132,8 +132,14 @@ class FeedModule(Protocol):
         ...
 
 
+class InventoryFactory(Protocol):
+    def __call__(self, tag: str, *, previous: Feed) -> Inventory:
+        """Verify a publication against its validated previous feed."""
+        ...
+
+
 class InventoryModule(Protocol):
-    def inventory(self, tag: str) -> Inventory:
+    def inventory(self, tag: str, *, previous: Feed) -> Inventory:
         """Verify published packages and create feed input."""
         ...
 

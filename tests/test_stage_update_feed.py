@@ -12,6 +12,7 @@ from email.message import Message
 
 if typing.TYPE_CHECKING:
     import fixture_contracts as fc
+    import release_contracts as rc
 
 
 SCRIPT = Path(__file__).parents[1] / "tools/scripts/stage-update-feed.py"
@@ -25,7 +26,12 @@ DIGEST = "b" * 64
 COMMIT = "a" * 40
 
 
-def inventory(tag: "str", platform: "str | None" = None) -> "fc.Inventory":
+def inventory(
+    tag: "str",
+    platform: "str | None" = None,
+    *,
+    previous: "rc.Feed | None" = None,
+) -> "fc.Inventory":
     assets: list["fc.Asset"] = []
     attestations: list["fc.Attestation"] = []
     targets: dict[str, "fc.TargetClaim"] = {}
@@ -92,9 +98,31 @@ class StageUpdateFeed(unittest.TestCase):
         feed = STAGE.stage(
             "v0.0.1",
             Opener(missing()),
-            inventory_fn=lambda tag: inventory(tag, "linux-x86_64"),
+            inventory_fn=lambda tag, *, previous: inventory(
+                tag, "linux-x86_64"
+            ),
         )
         self.assertEqual(feed["targets"]["linux-x86_64"]["tag"], "v0.0.1")
+
+    def test_inventory_receives_only_a_validated_previous_feed(self) -> None:
+        prior = STAGE.BUILD.build(inventory("v0.0.1", "linux-x86_64"))
+        received: list["rc.Feed"] = []
+
+        def verify(tag: str, *, previous: "rc.Feed") -> "fc.Inventory":
+            received.append(previous)
+            return inventory(tag)
+
+        result = STAGE.stage(
+            "v0.0.2",
+            Opener(Response(json.dumps(prior).encode())),
+            inventory_fn=verify,
+        )
+        self.assertEqual(received, [prior])
+        self.assertEqual(result, prior)
+        received.clear()
+        with self.assertRaises(ValueError):
+            STAGE.stage("v0.0.2", Opener(Response(b"{}")), inventory_fn=verify)
+        self.assertEqual(received, [])
 
     def test_server_only_release_preserves_prior_target(self) -> None:
         prior = STAGE.BUILD.build(inventory("v0.0.1", "linux-x86_64"))
@@ -126,7 +154,9 @@ class StageUpdateFeed(unittest.TestCase):
             STAGE.stage(
                 "v0.0.1",
                 Opener(response),
-                inventory_fn=lambda tag: inventory(tag, "linux-x86_64"),
+                inventory_fn=lambda tag, *, previous: inventory(
+                    tag, "linux-x86_64"
+                ),
             )
 
 

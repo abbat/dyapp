@@ -3,6 +3,7 @@
 import typing
 
 
+from collections.abc import Sequence
 import hashlib
 import importlib.util
 import json
@@ -80,6 +81,60 @@ def fake_runner(
 
 
 class VerifyReleasePackages(unittest.TestCase):
+    def test_android_requires_prior_context_pin_and_a_supported_baseline(
+        self,
+    ) -> None:
+        pin = "c" * 64
+        package = {
+            "name": "dyapp-0.0.1-android.apk",
+            "size": 1,
+            "sha256": DIGEST,
+        }
+        prior = {"schema": 1, "channel": "stable", "targets": {}}
+        calls: list[list[str]] = []
+
+        def sdk(args: Sequence[str], timeout: int = 120) -> bytes:
+            calls.append(list(args))
+            if args[0] == "apkanalyzer":
+                return b"com.dyapp 1 0.0.1"
+            if args[0] == "apksigner":
+                return f"Signer #1 certificate SHA-256 digest: {pin}".encode()
+            raise AssertionError(args)
+
+        with self.assertRaisesRegex(ValueError, "previous feed"):
+            VERIFY.verify_android(
+                package, TAG, Path("published"), None, pin, sdk
+            )
+        self.assertEqual(calls, [])
+        with self.assertRaisesRegex(ValueError, "certificate pin"):
+            VERIFY.verify_android(
+                package, TAG, Path("published"), prior, "", sdk
+            )
+        self.assertEqual(calls, [])
+        VERIFY.verify_android(package, TAG, Path("published"), prior, pin, sdk)
+        self.assertEqual(len(calls), 2)
+        for method in ["package", "store", "build-from-source"]:
+            baseline = {
+                "schema": 1,
+                "channel": "stable",
+                "targets": {
+                    "android": {
+                        "version": "0.0.1",
+                        "tag": TAG,
+                        "method": method,
+                    }
+                },
+            }
+            if method == "package":
+                VERIFY.verify_android(
+                    package, TAG, Path("published"), baseline, pin, sdk
+                )
+            else:
+                with self.assertRaisesRegex(ValueError, "migration"):
+                    VERIFY.verify_android(
+                        package, TAG, Path("published"), baseline, pin, sdk
+                    )
+
     def test_verified_package_becomes_trusted_inventory(self) -> None:
         run, calls = fake_runner()
         result = VERIFY.inventory(TAG, run)
