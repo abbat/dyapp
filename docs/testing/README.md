@@ -456,7 +456,9 @@ network chain. They inspect the fixed GET/conditional header, response metadata,
 status and cache admission; a separate test inspects the production HTTPS,
 proxy, redirect, request-budget and identifying-header configuration. These
 tests perform no DNS or external requests and do not replace live TLS/feed
-acceptance before activation.
+acceptance before activation. ETag cases include a missing opening quote with a
+valid closing quote, plus exact-bound and one-byte-over strong/weak tags; broad
+malformed-header examples alone do not distinguish these operator regressions.
 
 Bootstrap model-based proptests compare mailbox, profile, keypackage, deny-list and search
 transitions with small reference models. Mailbox sequences include explicit-time expiry, reopen
