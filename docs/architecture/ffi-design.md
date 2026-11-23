@@ -96,7 +96,9 @@ only enabled state, remembered byte budget and used bytes. Calls hold the same s
 mutex as media retrieval, use no network and preserve history and saved sticker packs.
 Desktop exposes the same three commands with the viewed identity ID and a lease retained
 through background filesystem work. A fetch already in flight may retain a new copy after
-a desktop clear; the returned usage is measured from disk.
+a desktop clear; the returned usage is measured from disk. Desktop cached-original reads and
+retention hold the ordinary session guard; transport runs outside it and releases the scores guard
+before reentering session-protected retention.
 
 The common `store::originals::input` helpers parse exact decimal/exponent MiB without floating-point
 rounding, preserve exact integral-byte budgets in displayed MiB text and classify destructive edits.

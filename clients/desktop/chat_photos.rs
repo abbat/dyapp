@@ -65,18 +65,19 @@ async fn original(
     root: &Path,
     dir: &Path,
     identity: &Identity,
-    peer_id: &str,
-    group_id: &[u8],
-    author: &str,
-    id: &[u8; 16],
+    photo: Snapshot,
+    sessions: &std::sync::Mutex<()>,
 ) -> Result<Vec<u8>, String> {
-    let photo = stored(dir, identity, peer_id, group_id, author, id)?;
     let store = chats::open(dir, identity)?;
-    let seal_key = crate::sealing_key(root, dir, &store)?;
-    if let Some(bytes) = photo
-        .local(&store, dir, &seal_key)
-        .map_err(|error| error.to_string())?
-    {
+    let (seal_key, cached) = {
+        let _sessions = sessions.lock().map_err(|error| error.to_string())?;
+        let seal_key = crate::sealing_key(root, dir, &store)?;
+        let cached = photo
+            .local(&store, dir, &seal_key)
+            .map_err(|error| error.to_string())?;
+        (seal_key, cached)
+    };
+    if let Some(bytes) = cached {
         return Ok(bytes);
     }
     let active = network::load(dir, Settings::Active)
@@ -92,6 +93,9 @@ async fn original(
     let bytes = attachment::fetch_with_scores(&mut nodes, photo.attachment(), &mut scores)
         .await
         .map_err(code)?;
+    // Other session-held operations acquire scores; never reenter sessions while holding them.
+    drop(scores);
+    let _sessions = sessions.lock().map_err(|error| error.to_string())?;
     photo
         .finish(&store, dir, &seal_key, &bytes)
         .map_err(|error| error.to_string())?;
@@ -107,6 +111,7 @@ pub(crate) mod cache;
 pub(crate) async fn chat_photo_original(
     app: tauri::AppHandle,
     state: tauri::State<'_, crate::IdentityState>,
+    sessions: tauri::State<'_, chats::Sessions>,
     peer_id: String,
     group_id: Vec<u8>,
     author: String,
@@ -115,11 +120,11 @@ pub(crate) async fn chat_photo_original(
     let lease = state.lease()?;
     let (identity, dir) = lease.active().clone();
     let root = crate::config_dir(&app)?;
+    let sessions = std::sync::Arc::clone(&sessions.0);
     let bytes = tauri::async_runtime::spawn_blocking(move || {
         let _lease = lease;
-        tauri::async_runtime::block_on(original(
-            &root, &dir, &identity, &peer_id, &group_id, &author, &id,
-        ))
+        let photo = stored(&dir, &identity, &peer_id, &group_id, &author, &id)?;
+        tauri::async_runtime::block_on(original(&root, &dir, &identity, photo, &sessions))
     })
     .await
     .map_err(|e| e.to_string())??;
