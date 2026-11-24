@@ -16,8 +16,6 @@
   grid-row: span 2;
 }
 .statusbar {
-  position: sticky;
-  bottom: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 0 var(--space-4);
