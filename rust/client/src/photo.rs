@@ -247,7 +247,10 @@ pub fn frame_size(bytes: &[u8]) -> Result<(u32, u32), PhotoError> {
             .saturating_add(2)
             .saturating_add(usize::from(u16::from_be_bytes([len_hi, len_lo])));
     }
-    complete_frame(size, &bytes[at..])
+    complete_frame(
+        size,
+        bytes.get(at..).ok_or_else(|| failed("truncated JPEG"))?,
+    )
 }
 
 fn complete_frame(size: Option<(u32, u32)>, scan: &[u8]) -> Result<(u32, u32), PhotoError> {

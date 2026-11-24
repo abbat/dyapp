@@ -63,10 +63,6 @@ fn validate_target(
     .map_err(|error| error.to_string())
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "keep storage paths, author/device keys and authenticated message key explicit at the operation boundary"
-)]
 fn open_validated(
     dir: &Path,
     identity: &Identity,
@@ -92,6 +88,10 @@ fn open_validated(
     Ok(store)
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "keep storage paths, author/device keys and authenticated message key explicit at the operation boundary"
+)]
 async fn operate(
     root: &Path,
     dir: &Path,

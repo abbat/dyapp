@@ -215,8 +215,9 @@
       const { ui, call, calls } = fixture;
       await ui.open(call);
       const expected = calls[0].args.identityId;
+      const before = calls.length;
       await ui.importFile({ size: 1, arrayBuffer: async () => new ArrayBuffer(1) });
-      const imported = calls.find((item) => item.command === 'import_sticker_pack');
+      const imported = calls.slice(before).find((item) => item.command === 'import_sticker_pack');
       check(
         imported?.args.identityId === expected && imported.args.bytes.length === 1,
         'Import lost identity or bytes',
