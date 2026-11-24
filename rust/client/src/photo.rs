@@ -202,7 +202,7 @@ pub fn check_preview(bytes: &[u8]) -> Result<Rgba, PhotoError> {
 /// # Errors
 /// Rejects incomplete JPEGs, malformed markers, missing frame headers and repeated frame headers.
 pub fn frame_size(bytes: &[u8]) -> Result<(u32, u32), PhotoError> {
-    if !bytes.starts_with(&[0xFF, 0xD8]) || !bytes.ends_with(&[0xFF, 0xD9]) {
+    if !bytes.starts_with(&[0xFF, 0xD8]) {
         return Err(failed("not a whole JPEG"));
     }
     let mut at = 2usize;

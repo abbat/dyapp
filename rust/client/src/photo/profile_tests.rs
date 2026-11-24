@@ -15,7 +15,6 @@ fn padded(length: usize) -> Vec<u8> {
     let mut bytes = frame(3, 2);
     assert!(length >= bytes.len());
     bytes.resize(length, 0);
-    bytes[length - 2..].copy_from_slice(&[0xff, 0xd9]);
     bytes
 }
 

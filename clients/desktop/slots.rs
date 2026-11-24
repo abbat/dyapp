@@ -191,7 +191,7 @@ impl From<&dyapp_client::identity_slots::Slot> for Slot {
 }
 
 /// Core inventory includes interrupted cleanup and refuses ambiguous duplicate paths.
-/// Caller-held writer locks must not be reacquired through Registry::list here.
+/// Caller-held writer locks must not be reacquired through `Registry::list` here.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn list(root: &Path) -> Result<Vec<Slot>, String> {
     use dyapp_client::identity_slots::{self as core, Layout};

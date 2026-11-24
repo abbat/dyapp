@@ -25,8 +25,10 @@ internal fun AppLockStartup(
     var initialized by remember(owner) { mutableStateOf(false) }
     LaunchedEffect(owner, saved) {
         saved?.let {
-            initialize(it.getOrDefault(StoredLock.PIN))
-            initialized = true
+            if (!initialized) {
+                initialize(it.getOrDefault(StoredLock.PIN))
+                initialized = true
+            }
         }
     }
     if (initialized) {
