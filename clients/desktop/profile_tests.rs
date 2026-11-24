@@ -416,11 +416,7 @@ fn publication_response_keeps_exact_accepted_version_and_current_pending_fields(
         ..accepted.clone()
     };
     store.save_profile_draft(&current).unwrap();
-    let date = CivilDate {
-        year: 2026,
-        month: 1,
-        day: 2,
-    };
+    let date = CivilDate::new(2026, 1, 2).unwrap();
     let shown = publication_view(&store, &owner, &accepted, date).unwrap();
     assert_eq!(shown.draft.name, "Pending");
     assert_eq!(shown.published, 3);

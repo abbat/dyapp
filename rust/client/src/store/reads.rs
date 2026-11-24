@@ -434,10 +434,10 @@ mod tests {
             [(other.to_vec(), [2; 16])]
         );
         store.set_blocked(&peer, true).unwrap();
-        assert!(store.due_read_receipts(&peer).unwrap().is_empty());
+        assert_eq!(store.due_read_receipts(&peer).unwrap(), []);
         store.set_blocked(&peer, false).unwrap();
         store.set_send_read_receipts(false).unwrap();
-        assert!(store.due_read_receipts(&peer).unwrap().is_empty());
+        assert_eq!(store.due_read_receipts(&peer).unwrap(), []);
     }
 
     #[test]

@@ -546,6 +546,17 @@ mod tests {
             .unwrap()
     }
 
+    fn assert_like_state(store: &Store, peer: &str, ours: bool, matched: bool, passed: bool) {
+        assert_eq!(
+            store.like_state(peer).unwrap(),
+            super::LikeState {
+                ours,
+                matched,
+                passed,
+            }
+        );
+    }
+
     fn assert_equal_hlc_ordering(store: &mut Store, a: &str, b: &str) {
         // Equal HLC values tie by device ID, then by event ID.
         assert!(put(store, b, a, b"b2", event(Kind::Like, 5, 30)));
@@ -565,21 +576,16 @@ mod tests {
         let alice = Identity::try_generate().unwrap();
         let (a, b) = (alice.peer_id(), Identity::try_generate().unwrap().peer_id());
         let mut store = Store::open(&path, &alice).unwrap();
-        let state = |ours, matched, passed| super::LikeState {
-            ours,
-            matched,
-            passed,
-        };
-        assert_eq!(store.like_state(&b).unwrap(), state(false, false, false));
+        assert_like_state(&store, &b, false, false, false);
         assert!(put(&mut store, &a, &b, b"a1", event(Kind::Like, 1, 10)));
-        assert_eq!(store.like_state(&b).unwrap(), state(true, false, false));
+        assert_like_state(&store, &b, true, false, false);
         assert!(!store.likes(&b).unwrap().matched());
         assert!(put(&mut store, &b, &a, b"b1", event(Kind::Like, 2, 5)));
         assert!(store.likes(&b).unwrap().matched());
-        assert_eq!(store.like_state(&b).unwrap(), state(true, true, false));
+        assert_like_state(&store, &b, true, true, false);
         assert!(store.set_pass(&b, true, Timestamp::new(20, 0)).unwrap());
         assert!(store.likes(&b).unwrap().matched());
-        assert_eq!(store.like_state(&b).unwrap(), state(true, true, true));
+        assert_like_state(&store, &b, true, true, true);
 
         // An unlike that arrives before its older like stays a tombstone, replays included.
         assert!(put(&mut store, &b, &a, b"b1", event(Kind::Unlike, 3, 30)));
@@ -597,7 +603,7 @@ mod tests {
 
         let mut store = Store::open(&path, &alice).unwrap();
         assert!(!store.likes(&b).unwrap().matched());
-        assert_eq!(store.like_state(&b).unwrap(), state(true, false, true));
+        assert_like_state(&store, &b, true, false, true);
         assert_equal_hlc_ordering(&mut store, &a, &b);
     }
 

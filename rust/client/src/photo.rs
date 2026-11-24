@@ -164,9 +164,9 @@ pub fn profile_acceptable(bytes: &[u8], kind: ProfileImage) -> bool {
         return false;
     }
     match kind {
-        ProfileImage::Original => {
-            u64::from(width) * u64::from(height) <= prepare::MAX_SOURCE_PIXELS
-        }
+        ProfileImage::Original => u64::from(width)
+            .checked_mul(u64::from(height))
+            .is_some_and(|pixels| pixels <= prepare::MAX_SOURCE_PIXELS),
         ProfileImage::Thumbnail => width.max(height) <= MAX_SIDE,
         ProfileImage::PreparedOriginal => prepare::decode_plan(
             "image/jpeg",

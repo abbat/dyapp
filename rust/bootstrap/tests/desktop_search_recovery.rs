@@ -223,7 +223,7 @@ fn a_newer_head_is_not_sent_through_the_old_review() {
 }
 
 #[test]
-fn changing_database_coordinates_refuses_before_opening_or_creating_a_store() {
+fn changing_database_coordinates_refuses_confirmation_and_fresh_prepare_creates_no_store() {
     let f = Fixture::new();
     let token = f.prepare();
     let other = f.dir.join("other");
@@ -234,6 +234,9 @@ fn changing_database_coordinates_refuses_before_opening_or_creating_a_store() {
         .is_err());
     assert!(!other.exists());
     let reviews = RecoveryState::default();
-    assert!(reviews.prepare(&f.key, &other, lease.generation()).is_err());
+    assert_eq!(
+        reviews.prepare(&f.key, &other, lease.generation()).unwrap(),
+        None
+    );
     assert!(!other.exists());
 }

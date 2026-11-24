@@ -16,10 +16,10 @@
     "evidence": "https://github.com/abbat/dyapp/actions/runs/41191897049"
   },
   "linux-ubuntu24-x86_64-release": {
-    "bytes": 57598429,
+    "bytes": 60733256,
     "environment": "ubuntu-24.04; rustc 1.99.0; x86_64; reproducible release runner",
-    "revision": "47c17300df5146e5b16673615efad2c64da83315",
-    "evidence": "https://github.com/abbat/dyapp/actions/runs/41191897049"
+    "revision": "f2945217d79a3f8bb1dfd1872cfc34b5a37845cf",
+    "evidence": "https://github.com/abbat/dyapp/actions/runs/45178420402"
   },
   "windows-2022-x86_64-release": {
     "bytes": 40073728,

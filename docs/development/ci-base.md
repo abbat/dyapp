@@ -130,6 +130,11 @@ It grew 5.19% from the 2026-11-11 measurement across Windows toast/network-cost 
 shared client-core additions. The release build and production-asset check passed; individual
 symbol contributions were not measured. This records the exact CI size without extra headroom;
 the 5% threshold and fail-closed checks remain unchanged.
+The native Ubuntu Linux baseline was measured at 60,733,256 bytes on `f2945217` in the
+[2026-11-23 reproducible run](https://github.com/abbat/dyapp/actions/runs/45178420402).
+Both clean builds matched byte-for-byte; only the size gate rejected 5.44% growth during shared
+client-core and native API development. This records the exact CI size without extra headroom;
+the 5% threshold and fail-closed checks remain unchanged.
 The macOS ZIP and iOS IPA baselines now record 32,936,665 and 12,414,436 bytes from `afc286c3` in the
 [2026-11-23 unsigned release run](https://github.com/abbat/dyapp/actions/runs/45138013897).
 Build, packaging and hardening passed; the size gate rejected 5.76% and 6.15% growth since their
