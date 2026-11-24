@@ -641,7 +641,7 @@ const sendInChat = async (send, sent, failure, call) => {
   chatSending = true;
   chatComposeStatus.textContent = strings['chats.sending'];
   updateComposer();
-  let result = 'sent';
+  let result;
   let errorText = '';
   try {
     const submitted = await send(peerId);
@@ -697,7 +697,7 @@ const editChatText = async (call = invoke) => {
   editBusy = true;
   editCancel.disabled = true;
   updateEdit();
-  let result = 'editSent';
+  let result;
   let errorText = '';
   try {
     const submitted = await call('edit_chat_text', {
@@ -741,7 +741,7 @@ const deleteChatText = async (call = invoke) => {
   deleteBusy = true;
   deleteCancel.disabled = true;
   deleteConfirm.disabled = true;
-  let result = 'deleteSent';
+  let result;
   let errorText = '';
   try {
     const submitted = await call('delete_chat_text', {
