@@ -358,14 +358,14 @@ const checkSeekingForm = async () => {
   const to = byId('profile-seeking-age-to');
   to.value = '20';
   to.dispatchEvent(new Event('input', { bubbles: true }));
-  await appApi.profileInputReady();
+  await appBindings.profileInputReady();
   byId('profile-save').click();
   if (to.validationMessage !== appApi.strings['search.rangeReversed']) {
     throw new Error(`reversed partner age: ${to.validationMessage}`);
   }
   to.value = '60';
   to.dispatchEvent(new Event('input', { bubbles: true }));
-  await appApi.profileInputReady();
+  await appBindings.profileInputReady();
   const saved = waitForProfileStatus('profile.saved');
   byId('profile-save').click();
   await saved;
