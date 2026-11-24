@@ -1,8 +1,8 @@
 pluginManagement {
     repositories {
         google()
-        mavenCentral()
         gradlePluginPortal()
+        mavenCentral()
     }
 }
 // Redirect old AGP requests before Gradle reads their vulnerable module metadata.

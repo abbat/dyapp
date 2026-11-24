@@ -247,7 +247,16 @@ pub fn frame_size(bytes: &[u8]) -> Result<(u32, u32), PhotoError> {
             .saturating_add(2)
             .saturating_add(usize::from(u16::from_be_bytes([len_hi, len_lo])));
     }
-    size.ok_or_else(|| failed("no SOF before the scan"))
+    complete_frame(size, &bytes[at..])
+}
+
+fn complete_frame(size: Option<(u32, u32)>, scan: &[u8]) -> Result<(u32, u32), PhotoError> {
+    let size = size.ok_or_else(|| failed("no SOF before the scan"))?;
+    if scan.windows(2).any(|pair| pair == [0xFF, 0xD9]) {
+        Ok(size)
+    } else {
+        Err(failed("not a whole JPEG"))
+    }
 }
 
 fn decode(bytes: &[u8], width: u32, height: u32) -> Result<Rgba, PhotoError> {

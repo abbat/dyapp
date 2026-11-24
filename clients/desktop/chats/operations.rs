@@ -67,16 +67,14 @@ fn validate_target(
     clippy::too_many_arguments,
     reason = "keep storage paths, author/device keys and authenticated message key explicit at the operation boundary"
 )]
-async fn operate(
-    root: &Path,
+fn open_validated(
     dir: &Path,
     identity: &Identity,
-    device_key: &Identity,
     peer_id: &str,
     group_id: &[u8],
     message_id: [u8; 16],
     text: Option<&str>,
-) -> Result<super::submission::Submitted, String> {
+) -> Result<Store, String> {
     if let Some(text) = text {
         if text.is_empty() || text.len() > MAX_TEXT_BYTES {
             return Err("invalidText".into());
@@ -91,6 +89,20 @@ async fn operate(
         message_id,
         text.is_none(),
     )?;
+    Ok(store)
+}
+
+async fn operate(
+    root: &Path,
+    dir: &Path,
+    identity: &Identity,
+    device_key: &Identity,
+    peer_id: &str,
+    group_id: &[u8],
+    message_id: [u8; 16],
+    text: Option<&str>,
+) -> Result<super::submission::Submitted, String> {
+    let store = open_validated(dir, identity, peer_id, group_id, message_id, text)?;
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;

@@ -773,9 +773,14 @@ mod tests {
         assert_eq!(quarantined.dir, hidden);
         assert_eq!(quarantined.mode, Some("file"));
         assert_eq!(quarantined.state, State::Deleting);
-        assert_eq!(quarantined.system_name(), slot.system_name());
-        assert_eq!(quarantined.device_name(), slot.device_name());
-        assert_eq!(quarantined.seal_name(), slot.seal_name());
+        assert_eq!(
+            (
+                quarantined.system_name(),
+                quarantined.device_name(),
+                quarantined.seal_name()
+            ),
+            (slot.system_name(), slot.device_name(), slot.seal_name())
+        );
         fs::create_dir(&slot.dir).unwrap();
         let mut listed = list(&root).unwrap();
         assert_eq!(listed.len(), 1);
