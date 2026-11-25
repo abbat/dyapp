@@ -16,6 +16,8 @@ TARGETS = [
     "client_replies",
     "deny_reply",
     "media_reply",
+    "profile_link",
+    "safety_qr",
 ]
 CARGO = """#!/usr/bin/env python3
 import json, os, sys
@@ -30,7 +32,7 @@ if sys.argv[1:3] == ["fuzz", "list"]:
         sys.exit(0)
     print(
         "node\\nsticker_webp\\nkeypackage\\nclient_replies"
-        "\\ndeny_reply\\nmedia_reply"
+        "\\ndeny_reply\\nmedia_reply\\nprofile_link\\nsafety_qr"
     )
 elif sys.argv[1:3] == ["fuzz", "build"]:
     selected = [
@@ -43,6 +45,8 @@ elif sys.argv[1:3] == ["fuzz", "build"]:
             "client_replies",
             "deny_reply",
             "media_reply",
+            "profile_link",
+            "safety_qr",
         )
     ]
     selected = selected or [
@@ -52,6 +56,8 @@ elif sys.argv[1:3] == ["fuzz", "build"]:
         "client_replies",
         "deny_reply",
         "media_reply",
+        "profile_link",
+        "safety_qr",
     ]
     if os.environ.get("FAIL_TARGET") in selected:
         sys.exit(42)
@@ -131,6 +137,7 @@ class FuzzRunner(unittest.TestCase):
             "sticker_webp",
             "keypackage",
             "client_replies deny_reply media_reply",
+            "profile_link safety_qr",
             "node sticker_webp",
             "sticker_webp node",
         ]:
@@ -155,6 +162,12 @@ class FuzzRunner(unittest.TestCase):
                     )
                     self.assertEqual(
                         "-max_len=20480" in row, row[1] == "keypackage"
+                    )
+                    self.assertEqual(
+                        "-max_len=4096" in row, row[1] == "profile_link"
+                    )
+                    self.assertEqual(
+                        "-max_len=589829" in row, row[1] == "safety_qr"
                     )
                     self.assertEqual(
                         "-max_len=1089536" in row,

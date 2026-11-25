@@ -234,6 +234,8 @@ step() {
                 local -a limits=()
                 [[ $target == sticker_webp ]] && limits=(-max_len=262144)
                 [[ $target == chat_body ]] && limits=(-max_len=102400)
+                [[ $target == profile_link ]] && limits=(-max_len=4096)
+                [[ $target == safety_qr ]] && limits=(-max_len=589829)
                 [[ $target == keypackage ]] && limits=(-max_len=20480)
                 [[ $target == client_replies || $target == deny_reply || $target == media_reply ]] && limits=(-max_len=1089536)
                 # The binary itself: `cargo fuzz run` writes into the read-only tests/fuzz/artifacts.

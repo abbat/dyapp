@@ -12,6 +12,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4.13"
 prost = "0.14"
+quircs = "=0.10.3"
 dyapp-bootstrap = { path = "../../rust/bootstrap" }
 dyapp-client = { path = "../../rust/client" }
 dyapp-ffi = { path = "../../rust/ffi" }
@@ -132,6 +133,20 @@ bench = false
 [[bin]]
 name = "chat_body"
 path = "fuzz_targets/chat_body.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "profile_link"
+path = "fuzz_targets/profile_link.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "safety_qr"
+path = "fuzz_targets/safety_qr.rs"
 test = false
 doc = false
 bench = false

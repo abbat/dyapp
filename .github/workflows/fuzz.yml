@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [node, profile, mailbox, keypackage, client_replies, deny_reply, media_reply, media, search, inventory, digest, gossip, mls, chat_body, sframe, sdp, preview, photo_prepare, strip, sticker_tar, sticker_webp, replication, catch_up, mailbox_replica]
+        target: [node, profile, mailbox, keypackage, client_replies, deny_reply, media_reply, media, search, inventory, digest, gossip, mls, chat_body, profile_link, safety_qr, sframe, sdp, preview, photo_prepare, strip, sticker_tar, sticker_webp, replication, catch_up, mailbox_replica]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

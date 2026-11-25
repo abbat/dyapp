@@ -428,6 +428,9 @@ client targets feed what a client reads from other people.
 | `digest` | `Service::search_digest` | `DigestRequest` (`/dyapp/digest`), from a search peer |
 | `gossip` | `Service::search_gossip` | gossip bytes |
 | `mls` | `mls::group_of`, `Device::create_group`, `Device::join`, `Group::process` | a KeyPackage, Welcome or group message, by the first byte |
+| `chat_body` | `chat::unpad`, `Body::decode` | decrypted MLS application plaintext and every chat-body variant from a contact |
+| `profile_link` | `profile_link::parse_profile_link` | arbitrary bytes and UTF-8 pasted as one profile link |
+| `safety_qr` | `safety::qr_matches_peer_ids`, `quircs::Quirc` | a safety payload or a bounded grayscale QR frame, selected by the first byte |
 | `sframe` | `sframe::Receiver::decrypt` | an SFrame video frame; the first byte is the metadata length |
 | `sdp` | `RTCSessionDescription::answer`, `unmarshal_candidate` (rtc) | a call peer's SDP answer or ICE candidate |
 | `preview` | `dyapp_ffi::check_preview` | a preview or profile thumbnail; seeds include small JPEGs, saved OOM inputs and the malformed JPEG that exposed a `zune-jpeg` AVX2 panic |
@@ -444,6 +447,9 @@ ownership records also re-sign only with their fixed protocol domains. A random 
 verifies, so without this the payload parsers behind the signature check would stay out of reach. Fetch and ack requests still
 stop at the nonce, which each input cannot know. A random MLS signature never verifies either,
 so `mls` reaches the TLS decoders and signature checks but not the content behind them.
+
+The `safety_qr` selector chooses raw payload verification or a grayscale frame. Frame inputs carry
+little-endian 16-bit width and height, with the same 768-pixel side cap as the desktop scanner.
 Mailbox pushes have no target yet (planned). The reply targets do not expose private network state
 machines; their deterministic unit and integration tests remain the behavioral coverage.
 `replication` calls replica, shard and inventory handlers directly because
