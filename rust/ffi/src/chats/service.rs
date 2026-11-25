@@ -44,13 +44,22 @@ impl ChatSession {
                         error => failed(error),
                     })?
                     .published;
-                // shortcut: a fixed batch per publish, as on desktop; peers can exhaust it until
-                // the next publish, so refill it when the receive loop lands.
+                if session.store().last_resort().map_err(failed)?.is_none() {
+                    session
+                        .publish_key_packages(
+                            &mut node,
+                            &self.device_key.identity,
+                            KEY_PACKAGES,
+                            &self.seal_key,
+                        )
+                        .await
+                        .map_err(failed)?;
+                }
                 session
-                    .publish_key_packages(
+                    .keep_last_resort(
                         &mut node,
                         &self.device_key.identity,
-                        KEY_PACKAGES,
+                        dyapp_client::now(),
                         &self.seal_key,
                     )
                     .await

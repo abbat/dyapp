@@ -4,8 +4,12 @@ use dyapp_client::{publish, store::Store, Node};
 use std::path::Path;
 
 fn owner(peer: &NativePeer) -> Identity {
+    unwrap_identity(&peer.key)
+}
+
+fn unwrap_identity(key: &Arc<IdentityKey>) -> Identity {
     let secret = TestStore
-        .unwrap(peer.key.wrap(Arc::new(TestStore)).unwrap())
+        .unwrap(key.wrap(Arc::new(TestStore)).unwrap())
         .unwrap();
     Identity::from_secret(secret.as_slice().try_into().unwrap())
 }
@@ -153,4 +157,47 @@ fn refused_native_connection_cannot_record_a_hidden_draft_as_device_listing() {
     assert!(peer.open().publish_profile(true).is_err());
     assert_eq!(store.device_listed().unwrap(), factual);
     assert_eq!(store.profile_draft().unwrap(), Some(before));
+}
+
+#[test]
+fn repeated_native_saves_keep_one_initial_batch_and_one_last_resort_record() {
+    let (runtime, address) = node();
+    let peer = retained_person(&address);
+    let identity = owner(&peer);
+    let device = unwrap_identity(&peer.device);
+    let store = Store::open_existing(&Path::new(&peer.dir).join("client.db"), &identity).unwrap();
+    let first = store.last_resort().unwrap().unwrap();
+    assert!(first.published);
+    let mut remote = runtime
+        .block_on(Node::connect(
+            address,
+            Arc::new(dyapp_p2p_net::Protocols::public()),
+        ))
+        .unwrap();
+    let profile = runtime
+        .block_on(remote.get_profile(&identity.peer_id()))
+        .unwrap();
+    let mailbox = dyapp_client::mailbox(&device.public_key());
+    let mut previous = runtime
+        .block_on(remote.fetch_key_package(&profile, &mailbox))
+        .unwrap();
+    let fallback = loop {
+        let next = runtime
+            .block_on(remote.fetch_key_package(&profile, &mailbox))
+            .unwrap();
+        if next == previous {
+            break next;
+        }
+        previous = next;
+    };
+    for _ in 0..2 {
+        peer.open().publish_profile(true).unwrap();
+        assert_eq!(store.last_resort().unwrap(), Some(first.clone()));
+        assert_eq!(
+            runtime
+                .block_on(remote.fetch_key_package(&profile, &mailbox))
+                .unwrap(),
+            fallback
+        );
+    }
 }

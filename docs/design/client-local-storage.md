@@ -552,8 +552,8 @@ not a reason for an unbounded refetch loop.
 ### KeyPackage recovery boundary
 
 A device needs an available KeyPackage on a node before a new peer can create its MLS
-group. The desktop publishes four single-use packages with the device's first profile
-publish, then one reusable last-resort package. Bootstrap consumes one before replying to a fetch, per holder and
+group. Desktop and common native publication send four single-use packages with the device's first
+profile publish, then one reusable last-resort package; repeated saves do not repeat the initial batch. Bootstrap consumes one before replying to a fetch, per holder and
 allocation slot, and returns `NOT_FOUND` when stock is empty; it allows at most 20
 unconsumed ordinary packages per device. `Session::refill` requests *write tokens*
 from existing groups, not KeyPackages, and the single-use batch is never refilled.
