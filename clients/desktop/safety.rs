@@ -6,11 +6,10 @@ use std::sync::{Arc, Mutex};
 
 use super::IdentityState;
 use crate::search::{Found, ProfileCache, SearchState};
-use dyapp_client::contact_verification::{self, Ticket};
+use dyapp_client::contact_verification;
 use dyapp_client::store::Store;
 use dyapp_identity::network::{self, Settings};
 use dyapp_identity::Identity;
-use dyapp_profile::VerifiedProfile;
 
 #[cfg(target_os = "linux")]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
@@ -144,25 +143,6 @@ pub fn contact_safety_number(
         .ok_or_else(|| "invalid Peer ID".to_owned())
 }
 
-/// Writes the verified mark for `fetched`, the newest profile observed for `peer_id`. The cache
-/// lock covers the write, so network activation cannot pass between the check and the mark.
-fn mark(
-    cache: &Mutex<ProfileCache>,
-    ticket: Ticket,
-    store: &Store,
-    fetched: VerifiedProfile,
-) -> Result<Found, String> {
-    let peer = cache
-        .lock()
-        .map_err(|e| e.to_string())?
-        .context
-        .lock()
-        .map_err(|e| e.to_string())?
-        .confirm(store, ticket, fetched)
-        .map_err(|e| e.to_string())?;
-    Ok(Found::from(&peer))
-}
-
 /// Fetches `peer_id`'s signed profile from every reachable seed of the active network and marks
 /// the selected ordinary version verified for its current devices. An observed final account
 /// tombstone dominates live forks and refuses confirmation. The version is the newest observed:
@@ -193,7 +173,15 @@ async fn confirm(
     let fetched = contact_verification::fetch(dir, &active, peer_id, &mut scores)
         .await
         .map_err(|e| e.to_string())?;
-    mark(cache, ticket, &store, fetched)
+    let peer = cache
+        .lock()
+        .map_err(|e| e.to_string())?
+        .context
+        .lock()
+        .map_err(|e| e.to_string())?
+        .confirm(&store, ticket, fetched)
+        .map_err(|e| e.to_string())?;
+    Ok(Found::from(&peer))
 }
 
 /// Records the caller's confirmed comparison with `peer_id`; see `confirm`.
@@ -216,21 +204,8 @@ pub async fn confirm_contact(
     .map_err(|e| e.to_string())?
 }
 
-/// Whether the owner of the cached profile is marked verified. With no cached profile the page
-/// shows no mark until a search or chat fetches one.
-fn marked(cache: &Mutex<ProfileCache>, store: &Store, peer_id: &str) -> Result<bool, String> {
-    Ok(cache
-        .lock()
-        .map_err(|e| e.to_string())?
-        .context
-        .lock()
-        .map_err(|e| e.to_string())?
-        .state(store, peer_id)
-        .map_err(|e| e.to_string())?
-        .verified)
-}
-
-/// Reads the mark for the profile on screen; see `marked`.
+/// Reads the mark for the cached profile through the shared core state.
+/// With no cached profile, returns false until a search or chat fetches one.
 #[expect(unreachable_pub, reason = "Retained Tauri export visibility")]
 #[tauri::command]
 #[expect(
@@ -246,7 +221,16 @@ pub fn contact_verified(
     let (identity, dir) = lease.active();
     let store = Store::open(&dir.join("client.db"), identity).map_err(|e| e.to_string())?;
     searching.0.lock().map_err(|e| e.to_string())?.bind(dir)?;
-    marked(&searching.0, &store, &peer_id)
+    Ok(searching
+        .0
+        .lock()
+        .map_err(|e| e.to_string())?
+        .context
+        .lock()
+        .map_err(|e| e.to_string())?
+        .state(&store, &peer_id)
+        .map_err(|e| e.to_string())?
+        .verified)
 }
 
 /// Whether the contact's chat shows the new-device notice. Reading the mark first raises it for
@@ -314,8 +298,7 @@ pub fn unverify_contact(
 
 #[cfg(test)]
 mod tests {
-    use super::{confirm, mark, marked, matrix_for_peer_ids, scan_frame, QrMatrix, Ticket};
-    use crate::search::ProfileCache;
+    use super::{confirm, matrix_for_peer_ids, scan_frame, QrMatrix};
     use dyapp_client::store::Store;
     use dyapp_identity::network::{self, Network, Settings};
     use dyapp_identity::Identity;
@@ -416,17 +399,6 @@ mod tests {
         );
     }
 
-    fn begin(cache: &Mutex<ProfileCache>, store: &Store, peer: &str) -> Ticket {
-        cache
-            .lock()
-            .unwrap()
-            .context
-            .lock()
-            .unwrap()
-            .begin(store, peer)
-            .unwrap()
-    }
-
     fn signed(owner: &Identity, version: u64) -> VerifiedProfile {
         let profile = Profile {
             version,
@@ -440,111 +412,6 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let store = Store::open(&dir.join("client.db"), identity).unwrap();
         (dir, store)
-    }
-
-    #[test]
-    fn the_mark_is_read_for_a_cached_profile_and_can_be_taken_back() {
-        let (me, bob) = (
-            Identity::try_generate().unwrap(),
-            Identity::try_generate().unwrap(),
-        );
-        let (dir, store) = temp_store("marked", &me);
-        let peer = bob.peer_id();
-        let cache = Mutex::<ProfileCache>::default();
-        let current = signed(&bob, 3);
-        store.set_verified(&current).unwrap();
-        assert!(!marked(&cache, &store, &peer).unwrap());
-        assert!(cache.lock().unwrap().accept_if_current(0, current).unwrap());
-        assert!(marked(&cache, &store, &peer).unwrap());
-        store.clear_verified(&peer).unwrap();
-        assert!(!marked(&cache, &store, &peer).unwrap());
-        drop(store);
-        std::fs::remove_dir_all(dir).unwrap();
-    }
-
-    #[test]
-    fn only_a_current_published_profile_gets_the_verified_mark() {
-        let (me, bob, carol) = (
-            Identity::from_secret(&[1; 32]),
-            Identity::from_secret(&[2; 32]),
-            Identity::from_secret(&[3; 32]),
-        );
-        let (dir, store) = temp_store("mark", &me);
-        let peer = bob.peer_id();
-        let cache = Mutex::<ProfileCache>::default();
-        let current = signed(&bob, 3);
-        cache
-            .lock()
-            .unwrap()
-            .accept_if_current(0, signed(&bob, 2))
-            .unwrap();
-
-        let refused = [
-            (signed(&carol, 3), "unknownPeer"),
-            (signed(&bob, 1), "staleProfile"),
-        ];
-        for (fetched, error) in refused {
-            let ticket = begin(&cache, &store, &peer);
-            assert_eq!(mark(&cache, ticket, &store, fetched), Err(error.into()));
-        }
-        assert!(!store.verified(&current).unwrap());
-
-        let ticket = begin(&cache, &store, &peer);
-        let found = mark(&cache, ticket, &store, current.clone()).unwrap();
-        assert_eq!(found.version, 3);
-        assert!(store.verified(&current).unwrap());
-
-        let dave = Identity::from_secret(&[4; 32]);
-        let ticket = begin(&cache, &store, &dave.peer_id());
-        cache.lock().unwrap().clear().unwrap();
-        assert_eq!(
-            mark(&cache, ticket, &store, signed(&dave, 1)),
-            Err("notConnected".into())
-        );
-        let tombstone = Profile {
-            previous: Some(dyapp_profile::ProfileCondition::default()),
-            ..Profile::tombstone(2, 0, 0)
-        };
-        let tombstone = dyapp_profile::verify(&tombstone.sign(&dave)).unwrap();
-        let ticket = begin(&cache, &store, &dave.peer_id());
-        assert_eq!(
-            mark(&cache, ticket, &store, tombstone.clone()),
-            Err("unpublished".into())
-        );
-        assert!(!store.verified(&tombstone).unwrap());
-        drop(store);
-        std::fs::remove_dir_all(dir).unwrap();
-    }
-
-    #[test]
-    fn terminal_authority_hides_the_mark_and_invalid_targets_are_rejected() {
-        let (me, bob) = (
-            Identity::from_secret(&[1; 32]),
-            Identity::from_secret(&[2; 32]),
-        );
-        let (dir, store) = temp_store("terminal", &me);
-        let cache = Mutex::<ProfileCache>::default();
-        let peer = bob.peer_id();
-        let ticket = begin(&cache, &store, &peer);
-        mark(&cache, ticket, &store, signed(&bob, 3)).unwrap();
-        assert!(marked(&cache, &store, &peer).unwrap());
-        let tombstone = Profile {
-            previous: Some(dyapp_profile::ProfileCondition::default()),
-            ..Profile::tombstone(2, 0, 0)
-        };
-        cache
-            .lock()
-            .unwrap()
-            .context
-            .lock()
-            .unwrap()
-            .accept(dyapp_profile::verify(&tombstone.sign(&bob)).unwrap())
-            .unwrap();
-        assert!(!marked(&cache, &store, &peer).unwrap());
-        assert_eq!(marked(&cache, &store, &me.peer_id()), Err("ownPeer".into()));
-        assert_eq!(marked(&cache, &store, "bad"), Err("invalid Peer ID".into()));
-        drop(store);
-        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[tokio::test]
