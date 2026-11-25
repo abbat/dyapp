@@ -102,6 +102,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "chat_body"
+path = "fuzz_targets/chat_body.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "sframe"
 path = "fuzz_targets/sframe.rs"
 test = false

@@ -459,7 +459,11 @@ The WebP target sets
 `-max_len=262144` to cover its full compressed-byte limit. Its libwebp 1.5.0 seeds
 encode 1×1 RGB `[10,20,30]` at quality 80 and lossless RGBA `[10,20,30,127]`; the
 animation wraps two lossy frames at 100 ms each, and the corrupt seed retains only
-the lossless dimension header. Seed replay does not establish fuzz coverage.
+the lossless dimension header. The chat-body target starts after MLS authentication,
+uses production plaintext unpadding and body decoding, and redecodes every accepted
+body after encoding it. Its valid padded-text seed gets mutations past the length
+prefix, and `-max_len=102400` covers the 100-KiB signed mailbox envelope bound.
+Seed replay does not establish fuzz coverage.
 libFuzzer first runs every
 input in `tests/fuzz/corpus/<target>/`, then mutates them; new inputs go to `build/fuzz-corpus/` and a
 crash to `build/fuzz-artifacts/<target>/`, with the panic in the log.
