@@ -85,7 +85,7 @@ async fn send(
     let network = network::load(dir, Settings::Active)
         .map_err(|error| error.to_string())?
         .ok_or("notConnected")?;
-    let mut entry = crate::profile::connect(&network).await?;
+    let mut entry = crate::profile::connect_at(dir, &network).await?;
     let protocols =
         Arc::new(dyapp_p2p_net::Protocols::new(&network.name).map_err(|error| error.to_string())?);
     let scores =

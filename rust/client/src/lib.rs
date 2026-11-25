@@ -29,6 +29,8 @@ pub mod mail_notices;
 pub mod media_ownership;
 pub mod message_actions;
 pub mod network_check;
+mod node_cache;
+use node_cache::Cache;
 pub mod peer_photo_cache;
 pub mod photo;
 pub mod places;
@@ -78,9 +80,10 @@ use dyapp_profile::VerifiedProfile;
 use libp2p::futures::StreamExt;
 use libp2p::identity::Keypair;
 use libp2p::kad;
+use libp2p::multiaddr::Protocol;
 use libp2p::request_response::{Event, Message as RrMessage};
 use libp2p::swarm::SwarmEvent;
-use libp2p::{Multiaddr, PeerId, Swarm};
+use libp2p::{identify, Multiaddr, PeerId, Swarm};
 use prost::Message as _;
 use std::future::Future;
 use std::sync::{Arc, OnceLock};
@@ -193,6 +196,7 @@ pub struct Node {
     swarm: Swarm<Behaviour>,
     peer: PeerId,
     address: Multiaddr,
+    cache: Option<Cache>,
 }
 
 impl Node {
@@ -202,6 +206,41 @@ impl Node {
     /// Returns [`Error::Connect`] for swarm setup or dial failure, or
     /// [`Error::Timeout`] if no connection is established before the deadline.
     pub async fn connect(addr: Multiaddr, protocols: Arc<Protocols>) -> Result<Self, Error> {
+        Self::connect_inner(addr, protocols, None, false).await
+    }
+
+    pub(crate) async fn connect_with_cache(
+        addr: Multiaddr,
+        protocols: Arc<Protocols>,
+        cache: Cache,
+        validate: bool,
+    ) -> Result<Self, Error> {
+        Self::connect_inner(addr, protocols, Some(cache), validate).await
+    }
+
+    pub(crate) async fn connect_optional_cache(
+        addr: Multiaddr,
+        protocols: Arc<Protocols>,
+        cache: Option<Cache>,
+    ) -> Result<Self, Error> {
+        Self::connect_inner(addr, protocols, cache, false).await
+    }
+
+    pub(crate) fn cache(&self) -> Option<Cache> {
+        self.cache.clone()
+    }
+
+    async fn connect_inner(
+        addr: Multiaddr,
+        protocols: Arc<Protocols>,
+        cache: Option<Cache>,
+        validate: bool,
+    ) -> Result<Self, Error> {
+        let version = protocols.version.clone();
+        let pinned = addr.iter().last().and_then(|part| match part {
+            Protocol::P2p(peer) => Some(peer),
+            _ => None,
+        });
         let options = SwarmOptions {
             mode: Mode::Client,
             protocols,
@@ -214,21 +253,17 @@ impl Node {
             .dial(addr.clone())
             .map_err(|error| Error::Connect(error.to_string()))?;
         timeout(async {
+            let mut established = None;
             loop {
-                match swarm.select_next_some().await {
-                    SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-                        // A DHT lookup starts from this node.
-                        swarm
-                            .behaviour_mut()
-                            .kad
-                            .add_address(&peer_id, addr.clone());
-                        return Ok(peer_id);
-                    }
-                    SwarmEvent::OutgoingConnectionError { error, .. } => {
-                        return Err(Error::Connect(error.to_string()));
-                    }
-                    _ => {}
-                }
+                let event = swarm.select_next_some().await;
+                let Some(result) =
+                    connection_peer(event, pinned, validate, &mut established, &version)
+                else {
+                    continue;
+                };
+                let peer = result?;
+                swarm.behaviour_mut().kad.add_address(&peer, addr.clone());
+                return Ok(peer);
             }
         })
         .await
@@ -236,6 +271,7 @@ impl Node {
             swarm,
             peer,
             address: addr,
+            cache,
         })
     }
 
@@ -934,7 +970,11 @@ impl Node {
         &mut self,
         pick: impl Fn(BehaviourEvent) -> Option<Result<R, Error>>,
     ) -> Result<R, Error> {
-        timeout(self.wait_reply(pick)).await
+        let response = timeout(self.wait_reply(pick)).await?;
+        if let Some(cache) = &self.cache {
+            cache.record(self.peer, self.address.clone());
+        }
+        Ok(response)
     }
 
     async fn wait_reply<R>(
@@ -969,6 +1009,43 @@ pub fn mailbox(device_key: &[u8; 32]) -> [u8; 32] {
 #[must_use]
 pub fn owner_binding(device_key: &Identity, identity: &[u8; 32]) -> SignedRecord {
     device_key.sign(Domain::DeviceOwner, identity.to_vec())
+}
+
+fn connection_peer(
+    event: SwarmEvent<BehaviourEvent>,
+    pinned: Option<PeerId>,
+    validate: bool,
+    established: &mut Option<PeerId>,
+    version: &str,
+) -> Option<Result<PeerId, Error>> {
+    match event {
+        SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+            if pinned.is_some_and(|expected| expected != peer_id) {
+                return Some(Err(Error::Connect("wrong peer ID".into())));
+            }
+            if validate {
+                *established = Some(peer_id);
+                None
+            } else {
+                Some(Ok(peer_id))
+            }
+        }
+        SwarmEvent::Behaviour(BehaviourEvent::Identify(identify::Event::Received {
+            peer_id,
+            info,
+            ..
+        })) if validate && *established == Some(peer_id) => {
+            if info.protocol_version == version {
+                Some(Ok(peer_id))
+            } else {
+                Some(Err(Error::Connect("wrong network".into())))
+            }
+        }
+        SwarmEvent::OutgoingConnectionError { error, .. } => {
+            Some(Err(Error::Connect(error.to_string())))
+        }
+        _ => None,
+    }
 }
 
 async fn timeout<R>(request: impl Future<Output = Result<R, Error>>) -> Result<R, Error> {

@@ -82,6 +82,24 @@ first peers. A unit test checks the anchor list. It dials the seeds again on eve
 maintenance run (the first at start) and every 5 minutes while its routing table is empty. A unit
 test joins through a seed, then joins a second swarm from the first one's cache alone.
 
+Client applications keep a separate installation-scoped `node-cache-<network>` file, outside every
+identity database. A successfully decoded protocol response adds the node's absolute Peer ID and
+pinned multiaddress; explicit seed rows and their TCP/QUIC order are always tried first. Only when
+no seed answers do `seed_connections::{first_cached,reachable_cached}` try at most four cached
+candidates under the existing 30-second operation budget. Fallback revalidates the pinned Peer ID,
+node-ID proof of work and expected identify network before returning the connection; ordinary
+response validation remains mandatory. The cache has at most 128 endpoints, eight per IP group and
+two addresses per Peer ID. Existing entries are not rewritten on every response, writes are atomic
+and best effort, and corrupt storage never prevents explicit seeds from working. Cache order is
+shuffled before fallback so file order alone does not choose the first peer.
+
+The endpoint cache stores no latency, fault, health or reputation score and no account identifier.
+Membership is only an untrusted discovery hint: after restart every cached node enters the existing
+health policy as a cold candidate. This preserves the in-memory work-to-rule/Italian-strike defence
+and its rolling-cost challenger replacement instead of carrying manipulated reputation across
+restarts. Multi-group Sybil flooding can still deny fallback availability; it cannot bypass Peer ID,
+network or protocol validation.
+
 **Routing defences** ([ADR 0008](../decisions/0008-sybil-and-eclipse-defences.md)). Lookups use
 disjoint query paths. Kademlia inserts nothing on its own (`BucketInserts::Manual`): every peer,
 whether dialled, found by a lookup, cached or announced by identify, goes through `add_peer`.
@@ -136,7 +154,7 @@ Not implemented yet:
   never enter either DHT and are not probed as claims. A dial to a peer adds a circuit through
   every connected relay but that peer; smart dial starts circuits after the private and public
   direct addresses (250 ms later when public ones exist) and before DNS-only ones.
-- No seed list is built in: operators set `seeds` themselves, and no client joins yet.
+- No seed list is built in: operators set `seeds` themselves; a client with no configured network or cached candidates does not join on its own.
 
 ## Dial filtering
 

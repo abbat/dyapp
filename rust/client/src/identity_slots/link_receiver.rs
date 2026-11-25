@@ -10,6 +10,7 @@ use crate::link::Code;
 use crate::Node;
 use dyapp_identity::network::Network;
 use std::future::Future;
+use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
 
 struct State<T, E> {
@@ -88,7 +89,7 @@ impl<T, E> LinkReceiver<T, E> {
         keys: &dyn KeyReader,
         view: &ProfileView,
         now: u64,
-        connect: impl FnOnce(Network) -> F,
+        connect: impl FnOnce(Network, PathBuf) -> F,
         install: impl FnOnce(&mut ReceivedLink) -> Result<T, E>,
     ) -> Result<LinkPhase, String>
     where

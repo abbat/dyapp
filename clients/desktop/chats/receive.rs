@@ -49,7 +49,7 @@ pub async fn receive(
     if !cache.lock().map_err(|e| e.to_string())?.current(epoch)? {
         return Err("notConnected".into());
     }
-    let mut node = profile::connect(&active).await?;
+    let mut node = profile::connect_at(dir, &active).await?;
     let protocols = std::sync::Arc::new(
         dyapp_p2p_net::Protocols::new(&active.name).map_err(|e| e.to_string())?,
     );

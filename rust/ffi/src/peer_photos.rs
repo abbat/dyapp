@@ -18,6 +18,7 @@ use dyapp_client::store::profile_photos::MAX_THUMBNAIL_BYTES;
 use dyapp_client::store::Store;
 use dyapp_client::{attachment, Node};
 use dyapp_identity::network::Network;
+use std::path::Path;
 use std::sync::Arc;
 
 fn failed(error: impl std::fmt::Display) -> CoreError {
@@ -35,10 +36,9 @@ pub(crate) fn acceptable(bytes: &[u8], full: bool) -> bool {
     )
 }
 
-/// The first answering node of each seed row, as the desktop asks: a blob one node lacks may be
-/// on another.
-pub(crate) async fn reachable(network: &Network) -> Result<Vec<Node>, CoreError> {
-    dyapp_client::seed_connections::reachable(network)
+/// Seed rows with installation-scoped cached fallback after complete seed failure.
+pub(crate) async fn reachable_at(dir: &Path, network: &Network) -> Result<Vec<Node>, CoreError> {
+    dyapp_client::seed_connections::reachable_cached(network, dir)
         .await
         .map_err(failed)
 }
@@ -118,7 +118,7 @@ impl ProfileSearcher {
         };
         on_network_stack(|| {
             self.runtime.block_on(async {
-                let mut nodes = reachable(&network).await?;
+                let mut nodes = reachable_at(&self.dir, &network).await?;
                 if nodes.is_empty() {
                     return Err(failed("notConnected"));
                 }

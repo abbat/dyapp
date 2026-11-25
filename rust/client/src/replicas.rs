@@ -1,6 +1,6 @@
 //! Discovery of the nodes holding the independent replicas of one mailbox.
 
-use crate::{Node, OPERATION_TIMEOUT, TIMEOUT};
+use crate::{node_cache::Cache, Node, OPERATION_TIMEOUT, TIMEOUT};
 use dyapp_p2p_net::{id_has_pow, id_pow_bits, replica_key, BehaviourEvent, Protocols, REPLICAS};
 use libp2p::futures::StreamExt;
 use libp2p::kad;
@@ -70,11 +70,19 @@ impl Node {
             keys: keys.clone(),
         };
         let mut connected = HashMap::<PeerId, usize>::new();
+        let cache = self.cache();
         let discovery = async {
             for (index, key) in keys.iter().enumerate() {
                 let candidates = self.closest(key).await;
-                if !add_new_holder(&mut result, &mut connected, index, &candidates, &protocols)
-                    .await
+                if !add_new_holder(
+                    &mut result,
+                    &mut connected,
+                    index,
+                    &candidates,
+                    &protocols,
+                    cache.as_ref(),
+                )
+                .await
                 {
                     reuse_holder(&mut result, &connected, index, &candidates);
                 }
@@ -148,12 +156,22 @@ async fn add_new_holder(
     index: usize,
     candidates: &[kad::PeerInfo],
     protocols: &Arc<Protocols>,
+    cache: Option<&Cache>,
 ) -> bool {
     for candidate in candidates {
         if connected.contains_key(&candidate.peer_id) {
             continue;
         }
-        if add_holder(result, connected, index, candidate.clone(), protocols).await {
+        if add_holder(
+            result,
+            connected,
+            index,
+            candidate.clone(),
+            protocols,
+            cache,
+        )
+        .await
+        {
             return true;
         }
     }
@@ -180,6 +198,7 @@ async fn add_holder(
     index: usize,
     candidate: kad::PeerInfo,
     protocols: &Arc<Protocols>,
+    cache: Option<&Cache>,
 ) -> bool {
     if !id_has_pow(&candidate.peer_id, id_pow_bits()) {
         return false;
@@ -191,7 +210,7 @@ async fn add_holder(
         *slot = Some(holder);
         return true;
     }
-    let Some(node) = connect(candidate.peer_id, candidate.addrs, protocols).await else {
+    let Some(node) = connect(candidate.peer_id, candidate.addrs, protocols, cache).await else {
         return false;
     };
     let holder = result.nodes.len();
@@ -208,9 +227,12 @@ async fn connect(
     peer: PeerId,
     addresses: Vec<Multiaddr>,
     protocols: &Arc<Protocols>,
+    cache: Option<&Cache>,
 ) -> Option<Node> {
     for address in addresses {
-        let Ok(node) = Node::connect(address, Arc::clone(protocols)).await else {
+        let reached =
+            Node::connect_optional_cache(address, Arc::clone(protocols), cache.cloned()).await;
+        let Ok(node) = reached else {
             continue;
         };
         if node.peer() == peer {

@@ -6,7 +6,7 @@ use super::{
 };
 use crate::contact_names::fetch_profiles;
 use crate::profile_network::{
-    active_network, connect, on_network_stack, publishable_attempt, send_held, ProfilePublished,
+    active_network, connect_at, on_network_stack, publishable_attempt, send_held, ProfilePublished,
 };
 use crate::{CoreError, FoundProfile};
 use dyapp_client::{
@@ -30,7 +30,7 @@ impl ChatSession {
         let network = active_network(&self.dir)?;
         let published = on_network_stack(|| {
             self.runtime.block_on(async {
-                let mut node = connect(&network).await?;
+                let mut node = connect_at(&self.dir, &network).await?;
                 let published = session
                     .publish_profile(
                         &mut node,
@@ -118,7 +118,7 @@ impl ChatSession {
         let network = active_network(&self.dir);
         on_network_stack(|| {
             self.runtime.block_on(async {
-                let connected = async { connect(&network?).await }.await;
+                let connected = async { connect_at(&self.dir, &network?).await }.await;
                 let mut node = match connected {
                     Ok(node) => node,
                     Err(error) => {
@@ -269,7 +269,7 @@ impl ChatSession {
         let kind = if liked { Kind::Like } else { Kind::Unlike };
         on_network_stack(|| {
             self.runtime.block_on(async {
-                let mut node = connect(&network).await?;
+                let mut node = connect_at(&self.dir, &network).await?;
                 let peer = node.get_profile(&peer_id).await.map_err(failed)?;
                 let submission = session
                     .submit_interaction_with(

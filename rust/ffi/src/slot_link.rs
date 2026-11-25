@@ -2,7 +2,7 @@
 #[cfg(test)]
 mod tests;
 
-use crate::profile_network::{connect, on_network_stack};
+use crate::profile_network::{connect_at, on_network_stack};
 use crate::slot_keys::SlotKeys;
 use crate::{
     CoreError, MobileIdentityRegistry, MobileLinkFailure, MobileLinkPhase, MobileLinkReceipt,
@@ -104,17 +104,17 @@ impl MobileLinkReceiver {
     pub fn poll(&self) -> Result<MobileLinkPhase, CoreError> {
         on_network_stack(|| {
             self.runtime
-                .block_on(
-                    self.receiver.poll_with(
-                        self.registry.link_keys(),
-                        &self.registry.view,
-                        dyapp_client::now(),
-                        |network| async move {
-                            connect(&network).await.map_err(|error| error.to_string())
-                        },
-                        |received| install(received, self.registry.link_keys()),
-                    ),
-                )
+                .block_on(self.receiver.poll_with(
+                    self.registry.link_keys(),
+                    &self.registry.view,
+                    dyapp_client::now(),
+                    |network, dir| async move {
+                        connect_at(&dir, &network)
+                            .await
+                            .map_err(|error| error.to_string())
+                    },
+                    |received| install(received, self.registry.link_keys()),
+                ))
                 .map(Into::into)
                 .map_err(CoreError::Failed)
         })

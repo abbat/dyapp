@@ -6,6 +6,7 @@ use crate::Node;
 use dyapp_identity::network::{self, Network, Settings};
 use dyapp_identity::Identity;
 use std::future::Future;
+use std::path::PathBuf;
 
 /// A waiting invitation owns secret keys, but holds no idle registry operation.
 /// Frontends separately admit cancellation and their profile-view generation before installation.
@@ -69,7 +70,7 @@ impl LinkInvitation {
         &mut self,
         keys: &dyn KeyReader,
         now: u64,
-        connect: impl FnOnce(Network) -> F,
+        connect: impl FnOnce(Network, PathBuf) -> F,
     ) -> Result<Option<ReceivedLink>, String>
     where
         F: Future<Output = Result<Node, String>>,
@@ -92,7 +93,7 @@ impl LinkInvitation {
             let network = network::load(&operation.slot().dir, Settings::Active)
                 .map_err(|error| error.to_string())?
                 .ok_or("notConnected")?;
-            let mut node = connect(network).await?;
+            let mut node = connect(network, operation.slot().dir.clone()).await?;
             waiting
                 .invite
                 .receive(&mut node, &waiting.device, now)

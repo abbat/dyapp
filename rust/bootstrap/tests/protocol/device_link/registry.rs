@@ -83,7 +83,7 @@ async fn a_wire_invitation_releases_admission_before_retained_installation() {
         .await
         .unwrap();
     let mut received = waiting
-        .poll_with(&Files, now, |actual| async move {
+        .poll_with(&Files, now, |actual, _| async move {
             assert_eq!(actual, network);
             dyapp_client::Node::connect(address, protocols)
                 .await

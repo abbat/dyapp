@@ -233,14 +233,21 @@ Always; with Always the notice keeps the fixed text. A tap opens the app behind 
 notices only after asking the user, and the app asks when the notice is turned on or on Allow, never
 at launch.
 
-## Proposed node health selection
+## Node health selection and fallback metadata
 
-The [sufficient-node selection design](../design/node-selection.md) is not implemented. Its bounded
+The [sufficient-node selection design](../design/node-selection.md) is implemented. Its bounded
 exploration can disclose an existing operation's mailbox, profile, search or media interest to one
 additional eligible operator in at most 5% of operations with a sufficient pool, or 10% while below
 target. Exploration and recovery reuse real operations: no idle health traffic, broadcast probes or
-persistent health/contact history are proposed. These limits reduce additional exposure but do not
-hide metadata from the operators already contacted.
+persistent health/reputation history. These limits reduce additional exposure but do not hide
+metadata from the operators already contacted.
+
+For seed outage recovery, each app installation also keeps up to 128 network-scoped Peer ID and
+pinned-address pairs, shared by its profiles and outside account databases. This is a local history
+of infrastructure endpoints, not a list of contacts and not a health score. Removing an account does
+not remove installation-wide endpoint history; clearing the app's data does. Fallback adds no idle
+probe and reuses the original connection operation, but cached operators may learn the subsequent
+request just like an explicitly configured seed.
 
 Attacks and verdicts: [Threat Model](threat-model.md#traffic-analysis).
 

@@ -4,7 +4,7 @@
 mod tests;
 
 use super::{failed, ChatSession};
-use crate::peer_photos::reachable;
+use crate::peer_photos::reachable_at;
 use crate::profile_network::{active_network, on_network_stack};
 use crate::CoreError;
 use dyapp_client::attachment;
@@ -57,7 +57,7 @@ impl ChatSession {
             let scores = self.contact_context.lock().map_err(failed)?.scores();
             let mut scores = self.runtime.block_on(scores.lock());
             let bytes = self.runtime.block_on(async {
-                let mut nodes = reachable(&network).await?;
+                let mut nodes = reachable_at(&self.dir, &network).await?;
                 if nodes.is_empty() {
                     return Err(failed("notConnected"));
                 }

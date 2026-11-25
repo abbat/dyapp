@@ -540,3 +540,45 @@ async fn search_calls_solve_the_puzzle_and_surface_busy_nodes() {
     assert_search_requests(&received);
     task.abort();
 }
+
+#[tokio::test]
+async fn cached_discovered_endpoint_reconnects_after_all_seeds_fail() {
+    dyapp_p2p_net::set_id_pow_bits(0);
+    let root = dyapp_test_support::test_dir().unwrap();
+    let mut server =
+        build_configured_swarm(Keypair::generate_ed25519(), SwarmOptions::default()).unwrap();
+    let expected_peer = *server.local_peer_id();
+    server
+        .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+        .unwrap();
+    let address = loop {
+        if let SwarmEvent::NewListenAddr { address, .. } = server.select_next_some().await {
+            break address;
+        }
+    };
+    let task = spawn_mailbox_put_server(server, Arc::new(Mutex::new(Vec::new())));
+    let cache = crate::node_cache::Cache::at(root.path(), "");
+    let mut initial =
+        Node::connect_with_cache(address, Arc::new(Protocols::public()), cache, false)
+            .await
+            .unwrap();
+    initial
+        .put_prepared(&prepare_put(&[9; 32], vec![1]).unwrap())
+        .await
+        .unwrap();
+    drop(initial);
+
+    let network = dyapp_identity::network::Network {
+        seeds: vec!["127.0.0.1:1".into()],
+        name: String::new(),
+    };
+    let mut reconnected = crate::seed_connections::first_cached(&network, root.path())
+        .await
+        .unwrap();
+    assert_eq!(reconnected.peer(), expected_peer);
+    reconnected
+        .put_prepared(&prepare_put(&[9; 32], vec![2]).unwrap())
+        .await
+        .unwrap();
+    task.abort();
+}

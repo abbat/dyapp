@@ -1,6 +1,6 @@
 //! Thin explicit-opening bridge; privacy and lifetime policy remain in the shared core.
 use super::{failed, listed_own, ChatSession, ChatSubmission};
-use crate::profile_network::{active_network, connect, on_network_stack};
+use crate::profile_network::{active_network, connect_at, on_network_stack};
 use crate::{CoreError, ProfileSearcher};
 use dyapp_client::interactions::{profile_view, Kind};
 use dyapp_client::session::{Session, Submission};
@@ -88,7 +88,7 @@ impl ChatSession {
         let own = listed_own(session, &self.key.identity)?;
         on_network_stack(move || {
             self.runtime.block_on(async move {
-                let mut node = connect(&network).await?;
+                let mut node = connect_at(&self.dir, &network).await?;
                 let peer = node
                     .get_profile(opening.opening.peer())
                     .await

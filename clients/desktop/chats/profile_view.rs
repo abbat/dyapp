@@ -126,7 +126,7 @@ async fn send(
     let device = crate::device_key(root, dir, identity)?;
     let mut session = super::shared_session(store, identity, &device, &seal_key, dir)?;
     let own = super::share::share_owner(&session, identity)?;
-    let mut node = crate::profile::connect(&active).await?;
+    let mut node = crate::profile::connect_at(dir, &active).await?;
     let peer = node
         .get_profile(capture.opening.peer())
         .await

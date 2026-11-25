@@ -1,6 +1,6 @@
 //! Stored text forwarding keeps core selection and committed delivery outcomes intact.
 use super::{listed_own, ChatSession, ChatSubmission};
-use crate::profile_network::{active_network, connect, on_network_stack};
+use crate::profile_network::{active_network, connect_at, on_network_stack};
 use crate::CoreError;
 use dyapp_client::forwarding;
 
@@ -136,7 +136,9 @@ impl ChatSession {
         let network = active_network(&self.dir).map_err(ChatForwardError::from)?;
         on_network_stack(|| {
             Ok(self.runtime.block_on(async {
-                let mut node = connect(&network).await.map_err(ChatForwardError::from)?;
+                let mut node = connect_at(&self.dir, &network)
+                    .await
+                    .map_err(ChatForwardError::from)?;
                 let target = node.get_profile(&target_peer_id).await.map_err(failed)?;
                 if target.profile.deleted || target.profile.version == 0 {
                     return Err(ChatForwardError::Unpublished);

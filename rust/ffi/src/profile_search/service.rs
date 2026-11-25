@@ -3,7 +3,7 @@
 use super::{
     failed, is_partial, ProfileSearchResult, ProfileSearcher, SearchCondition, SearchEmployer,
 };
-use crate::profile_network::{active_network, connect, on_network_stack};
+use crate::profile_network::{active_network, connect_at, on_network_stack};
 use crate::{CoreError, IdentityKey};
 use dyapp_client::compatibility;
 use dyapp_client::search::{self, Employer, SearchFailure, SearchResults, SEARCH_NODES};
@@ -101,7 +101,7 @@ impl ProfileSearcher {
                     (cache.scores(), cache.profiles().clone())
                 };
                 let mut scores = scores.lock().await;
-                let mut entry = connect(network).await?;
+                let mut entry = connect_at(&self.dir, network).await?;
                 let mut reached = search::connect_search_nodes_with_scores(
                     &mut entry,
                     protocols,

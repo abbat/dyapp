@@ -1,4 +1,6 @@
 use super::*;
+use crate::node_cache::Candidate;
+use libp2p::PeerId;
 use std::future::ready;
 
 fn network(rows: &[&str]) -> Network {
@@ -89,4 +91,57 @@ async fn empty_invalid_and_bad_configuration_have_distinct_results() {
         reachable(&invalid).await,
         Err(ConnectError::Configuration(_))
     ));
+}
+
+#[tokio::test]
+async fn cached_fallback_is_bounded_and_stops_at_the_first_success() {
+    let candidates: Vec<_> = (1..=6)
+        .map(|port| Candidate {
+            peer: PeerId::random(),
+            address: format!("/ip4/127.0.0.1/tcp/{port}").parse().unwrap(),
+        })
+        .collect();
+    let mut called = Vec::new();
+    let (nodes, error) = fallback_candidates(candidates, 1, |candidate| {
+        let port = candidate.address.to_string();
+        called.push(port.clone());
+        ready(if port.ends_with("/2") {
+            Ok(2)
+        } else {
+            Err(port)
+        })
+    })
+    .await;
+    assert_eq!(nodes, [2]);
+    assert_eq!(called.len(), 2);
+    assert!(error.is_some());
+}
+
+#[tokio::test]
+async fn cached_fallback_never_exceeds_four_failed_candidates() {
+    let candidates: Vec<_> = (1..=8)
+        .map(|port| Candidate {
+            peer: PeerId::random(),
+            address: format!("/ip4/127.0.0.1/tcp/{port}").parse().unwrap(),
+        })
+        .collect();
+    let mut calls = 0;
+    let (nodes, error) = fallback_candidates::<(), _, _, _>(candidates, 1, |_| {
+        calls += 1;
+        ready(Err(calls))
+    })
+    .await;
+    assert_eq!(nodes, []);
+    assert_eq!(calls, MAX_CACHED_ATTEMPTS);
+    assert_eq!(error, Some(MAX_CACHED_ATTEMPTS));
+}
+
+#[test]
+fn cache_root_covers_legacy_and_slot_layouts_without_account_paths() {
+    let root = Path::new("/tmp/install");
+    assert_eq!(installation_root(root), root);
+    let slot = root.join("profiles/123e4567-e89b-42d3-a456-426614174000");
+    assert_eq!(installation_root(&slot), root);
+    let not_slot = root.join("profiles/not-a-slot");
+    assert_eq!(installation_root(&not_slot), not_slot);
 }

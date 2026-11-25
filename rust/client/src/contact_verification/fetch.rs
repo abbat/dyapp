@@ -2,6 +2,7 @@
 use crate::{profiles, scores::Scores};
 use dyapp_identity::network::Network;
 use dyapp_profile::VerifiedProfile;
+use std::path::Path;
 
 /// Why the active network could not supply an observed confirmation profile.
 #[derive(Debug, thiserror::Error)]
@@ -26,11 +27,12 @@ pub enum FetchError {
 /// # Errors
 /// Returns invalid network configuration, no reachable seeds, or no available valid profile.
 pub async fn fetch(
+    dir: &Path,
     network: &Network,
     peer: &str,
     scores: &mut Scores,
 ) -> Result<VerifiedProfile, FetchError> {
-    let mut nodes = crate::seed_connections::reachable(network)
+    let mut nodes = crate::seed_connections::reachable_cached(network, dir)
         .await
         .map_err(|error| FetchError::Network(error.to_string()))?;
     if nodes.is_empty() {
@@ -47,13 +49,14 @@ mod tests {
 
     #[tokio::test]
     async fn absent_or_invalid_seed_rows_cannot_supply_confirmation_authority() {
+        let dir = dyapp_test_support::test_dir().unwrap();
         for seeds in [vec![], vec!["invalid seed".into()]] {
             let network = Network {
                 seeds,
                 name: String::new(),
             };
             assert!(matches!(
-                fetch(&network, "unused", &mut Scores::default()).await,
+                fetch(dir.path(), &network, "unused", &mut Scores::default()).await,
                 Err(FetchError::NotConnected)
             ));
         }

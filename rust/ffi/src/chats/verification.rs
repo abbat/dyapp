@@ -41,9 +41,12 @@ impl ChatSession {
             on_network_stack(|| {
                 let scores = self.contact_context.lock().map_err(failed)?.scores();
                 let mut scores = self.runtime.block_on(scores.lock());
-                Ok(self
-                    .runtime
-                    .block_on(contact_verification::fetch(network, peer, &mut scores)))
+                Ok(self.runtime.block_on(contact_verification::fetch(
+                    &self.dir,
+                    network,
+                    peer,
+                    &mut scores,
+                )))
             })?
             .map_err(failed)
         })

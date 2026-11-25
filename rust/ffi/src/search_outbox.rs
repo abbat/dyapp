@@ -1,5 +1,5 @@
 //! Reopen and deliver an original slot's already signed search outbox after process restart.
-use crate::profile_network::{active_network, connect, on_network_stack};
+use crate::profile_network::{active_network, connect_at, on_network_stack};
 use crate::slot_operation::SlotWorker;
 use crate::{CoreError, MobileIdentityRegistry};
 use dyapp_client::store::{SearchOutboxSchedule, Store};
@@ -113,7 +113,7 @@ async fn send(
     dir: &Path,
     now: u64,
 ) -> Result<(), CoreError> {
-    let mut entry = connect(network).await?;
+    let mut entry = connect_at(dir, network).await?;
     let protocols = Arc::new(dyapp_p2p_net::Protocols::new(&network.name).map_err(failed)?);
     let scores = dyapp_client::contact_verification::scores(dir).map_err(failed)?;
     let mut scores = scores.lock().await;

@@ -2,7 +2,7 @@
 #[cfg(test)]
 mod tests;
 
-use crate::profile_network::{connect, on_network_stack};
+use crate::profile_network::{connect_at, on_network_stack};
 use crate::{CoreError, MobileIdentityRegistry};
 use dyapp_client::link::{parse_input, CodeInputError};
 use std::sync::Arc;
@@ -87,16 +87,16 @@ impl MobileLinkApproval {
     pub fn confirm_and_send(&self) -> Result<(), CoreError> {
         on_network_stack(|| {
             self.runtime
-                .block_on(
-                    self.sender.confirm_and_send_with(
-                        self.registry.link_keys(),
-                        &self.registry.view,
-                        dyapp_client::now(),
-                        |network| async move {
-                            connect(&network).await.map_err(|error| error.to_string())
-                        },
-                    ),
-                )
+                .block_on(self.sender.confirm_and_send_with(
+                    self.registry.link_keys(),
+                    &self.registry.view,
+                    dyapp_client::now(),
+                    |network, dir| async move {
+                        connect_at(&dir, &network)
+                            .await
+                            .map_err(|error| error.to_string())
+                    },
+                ))
                 .map_err(CoreError::Failed)
         })
     }

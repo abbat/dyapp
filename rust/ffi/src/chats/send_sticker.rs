@@ -1,6 +1,6 @@
 //! Saved sticker selections delegate authentication, upload policy and commitment to core.
 use super::{failed, listed_own, ChatSession, ChatSubmission};
-use crate::peer_photos::reachable;
+use crate::peer_photos::reachable_at;
 use crate::profile_network::{active_network, on_network_stack};
 use crate::CoreError;
 
@@ -43,7 +43,7 @@ impl ChatSession {
         let network = active_network(&self.dir)?;
         on_network_stack(|| {
             self.runtime.block_on(async {
-                let mut nodes = reachable(&network).await?;
+                let mut nodes = reachable_at(&self.dir, &network).await?;
                 if nodes.is_empty() {
                     return Err(failed("notConnected"));
                 }

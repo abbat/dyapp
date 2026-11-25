@@ -151,7 +151,7 @@ async fn receive(pending: &mut Pending, now: u64) -> Result<Option<Linked>, Stri
     let active = network::load(&pending.dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
-    let mut node = crate::profile::connect(&active).await?;
+    let mut node = crate::profile::connect_at(&pending.dir, &active).await?;
     pending
         .invite
         .receive(&mut node, &pending.device, now)

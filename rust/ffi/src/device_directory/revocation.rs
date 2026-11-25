@@ -1,5 +1,5 @@
 //! Opaque authority minted only by the shared core's verified mailbox/profile decision.
-use super::{active_network, connect, failed, on_network_stack, MobileDeviceDirectory};
+use super::{active_network, connect_at, failed, on_network_stack, MobileDeviceDirectory};
 use crate::slot_operation::SlotWorker;
 use crate::{CoreError, KeyStore};
 use dyapp_client::identity_slots::ChatBinding;
@@ -30,7 +30,7 @@ impl MobileDeviceDirectory {
                 let admitted = self.open()?;
                 let network = active_network(&admitted.operation.slot().dir)?;
                 let confirmed = self.runtime.block_on(async {
-                    let mut node = connect(&network).await?;
+                    let mut node = connect_at(&admitted.operation.slot().dir, &network).await?;
                     admitted
                         .session
                         .probe_mailbox_revocation(&mut node, admitted.operation.device())

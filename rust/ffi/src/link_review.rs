@@ -7,7 +7,7 @@ pub use error::LinkReviewError;
 pub use fields::{LinkReviewChoice, LinkReviewField, LinkReviewSource};
 pub use view::{LinkReviewPhoto, LinkReviewProfile, LinkReviewSaved, LinkReviewSnapshot};
 
-use crate::profile_network::{active_network, connect, on_network_stack};
+use crate::profile_network::{active_network, connect_at, on_network_stack};
 use crate::slot_operation::SlotWorker;
 use crate::{CoreError, KeyStore, MobileIdentityRegistry};
 use dyapp_client::{
@@ -85,7 +85,7 @@ impl MobileLinkRecovery {
                 .map_err(|error| failed(error.to_string()))?;
             let mut scores = runtime.block_on(scores.lock());
             let review = runtime.block_on(async {
-                let mut node = connect(&network).await?;
+                let mut node = connect_at(&admitted.operation.slot().dir, &network).await?;
                 publish::review_adoption_with_scores(
                     admitted.session.store(),
                     &mut node,
@@ -172,7 +172,7 @@ impl ProfileAdoptionReview {
                 .map_err(|error| failed(error.to_string()))?;
             let mut scores = runtime.block_on(scores.lock());
             runtime.block_on(async {
-                let mut node = connect(&self.network).await?;
+                let mut node = connect_at(&admitted.operation.slot().dir, &self.network).await?;
                 publish::confirm_adoption_review_with_scores(
                     &admitted.session,
                     &mut node,
@@ -212,7 +212,7 @@ impl ProfileAdoptionReview {
             let Admitted { session, operation } = admitted;
             // The moved session lives in the awaited future; its admission outlives that future.
             runtime.block_on(async {
-                let mut node = connect(&self.network).await?;
+                let mut node = connect_at(&operation.slot().dir, &self.network).await?;
                 session
                     .resume_link(
                         &mut node,

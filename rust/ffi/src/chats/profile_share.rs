@@ -1,6 +1,6 @@
 //! Profile sharing uses core admission in the same session that commits the ordinary link text.
 use super::{failed, listed_own, ChatSession, ChatSubmission};
-use crate::profile_network::{active_network, connect, on_network_stack};
+use crate::profile_network::{active_network, connect_at, on_network_stack};
 use crate::CoreError;
 use dyapp_client::session::{Error, Session};
 
@@ -38,7 +38,7 @@ impl ChatSession {
         let network = active_network(&self.dir);
         on_network_stack(|| {
             self.runtime.block_on(async {
-                let connected = async { connect(&network?).await }.await;
+                let connected = async { connect_at(&self.dir, &network?).await }.await;
                 let Ok(mut node) = connected else {
                     return session
                         .submit_established_profile_share(

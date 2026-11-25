@@ -412,18 +412,18 @@ pub fn solve(
     }
 }
 
-/// The first node of the active network that answers, over each row's TCP, then QUIC address.
+/// Connect seeds with installation-scoped cached fallback after complete seed failure.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
-pub async fn connect(network: &Network) -> Result<Node, String> {
-    dyapp_client::seed_connections::first(network)
+pub async fn connect_at(root: &Path, network: &Network) -> Result<Node, String> {
+    dyapp_client::seed_connections::first_cached(network, root)
         .await
         .map_err(|error| error.to_string())
 }
 
-/// Every answering node of the active network, at most one per seed row.
+/// Connect seed rows with installation-scoped cached fallback after complete seed failure.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
-pub async fn reachable(network: &Network) -> Result<Vec<Node>, String> {
-    dyapp_client::seed_connections::reachable(network)
+pub async fn reachable_at(root: &Path, network: &Network) -> Result<Vec<Node>, String> {
+    dyapp_client::seed_connections::reachable_cached(network, root)
         .await
         .map_err(|error| error.to_string())
 }
@@ -464,7 +464,7 @@ pub async fn publish(
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
-    let mut node = connect(&active).await?;
+    let mut node = connect_at(dir, &active).await?;
     let seal_key = crate::sealing_key(root, dir, &store)?;
     let mut session = Session::open_or_create_with_scores(
         store,
@@ -528,7 +528,7 @@ pub async fn hide(dir: &Path, identity: &Identity) -> Result<View, String> {
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
-    let mut node = connect(&active).await?;
+    let mut node = connect_at(dir, &active).await?;
     let hidden = publish::hide(&store, identity, &draft).map_err(|e| e.to_string())?;
     send_held(&store, &mut node, &active, dir).await?;
     view(&hidden, today()?, Some(&store))
@@ -556,7 +556,7 @@ pub async fn devices(
 ) -> Result<Vec<Device>, String> {
     let draft = stored(&open(dir, identity)?)?;
     let held = match network::load(dir, Settings::Active) {
-        Ok(Some(active)) if live => match connect(&active).await {
+        Ok(Some(active)) if live => match connect_at(dir, &active).await {
             Ok(mut node) => match dyapp_client::contact_verification::scores(dir) {
                 Ok(scores) => {
                     let mut scores = scores.lock().await;
@@ -595,7 +595,7 @@ pub async fn revoke_device(
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
-    let mut node = connect(&active).await?;
+    let mut node = connect_at(dir, &active).await?;
     let scores =
         dyapp_client::contact_verification::scores(dir).map_err(|error| error.to_string())?;
     let mut scores = scores.lock().await;
@@ -635,7 +635,7 @@ pub async fn send_link(dir: &Path, identity: &Identity, text: &str) -> Result<()
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
-    let mut node = connect(&active).await?;
+    let mut node = connect_at(dir, &active).await?;
     code.send(&mut node, identity, &state, now)
         .await
         .map_err(|e| e.to_string())
@@ -650,7 +650,7 @@ pub async fn withdraw(dir: &Path, identity: &Identity) -> Result<View, String> {
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
-    let mut node = connect(&active).await?;
+    let mut node = connect_at(dir, &active).await?;
     let scores =
         dyapp_client::contact_verification::scores(dir).map_err(|error| error.to_string())?;
     let mut scores = scores.lock().await;
@@ -705,7 +705,7 @@ pub async fn finish_link(
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
-    let mut node = connect(&active).await?;
+    let mut node = connect_at(dir, &active).await?;
     let seal_key = crate::sealing_key(root, dir, &store)?;
     let now = unix_now()?;
     let scores = dyapp_client::contact_verification::scores(dir).map_err(|e| e.to_string())?;
@@ -739,7 +739,7 @@ pub async fn send_search(dir: &Path, identity: &Identity) -> Result<View, String
         let active = network::load(dir, Settings::Active)
             .map_err(|e| e.to_string())?
             .ok_or("notConnected")?;
-        let mut node = connect(&active).await?;
+        let mut node = connect_at(dir, &active).await?;
         send_held(&store, &mut node, &active, dir).await?;
     }
     view(&stored(&store)?, today()?, Some(&store))

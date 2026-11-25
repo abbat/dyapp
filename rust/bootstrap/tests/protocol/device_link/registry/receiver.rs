@@ -70,7 +70,7 @@ async fn assert_terminal_poll(
                 &Files,
                 view,
                 now,
-                |_| async { panic!("terminal receiver dialed again") },
+                |_, _| async { panic!("terminal receiver dialed again") },
                 |_| panic!("terminal receiver wrote again")
             )
             .await
@@ -91,7 +91,7 @@ async fn empty_poll_restores_the_invitation_and_success_never_repeats_network_or
             &Files,
             &fixture.view,
             now,
-            |_| async {
+            |_, _| async {
                 assert_eq!(receiver.result().unwrap(), None);
                 connect(address.clone()).await
             },
@@ -113,7 +113,13 @@ async fn empty_poll_restores_the_invitation_and_success_never_repeats_network_or
     .unwrap();
     assert_eq!(
         receiver
-            .poll_with(&Files, &fixture.view, now, |_| connect(address), install_id)
+            .poll_with(
+                &Files,
+                &fixture.view,
+                now,
+                |_, _| connect(address),
+                install_id
+            )
             .await
             .unwrap(),
         LinkPhase::Completed
@@ -146,7 +152,7 @@ async fn cancellation_during_receive_retains_the_record_without_installing_it() 
             &Files,
             &fixture.view,
             now,
-            |_| async {
+            |_, _| async {
                 assert_eq!(receiver.result().unwrap(), None);
                 assert_eq!(receiver.cancel(), LinkPhase::Cancelled);
                 connect(address).await
@@ -181,7 +187,7 @@ async fn a_callback_unwind_retains_interrupted_state_instead_of_retrying() {
         &Files,
         &fixture.view,
         now,
-        |_| connect(address),
+        |_, _| connect(address),
         |received| {
             received
                 .install_with(&Files, &|_, _| panic!("controlled platform unwind"))
@@ -202,7 +208,7 @@ async fn a_callback_unwind_retains_interrupted_state_instead_of_retrying() {
                 &Files,
                 &fixture.view,
                 now,
-                |_| async { panic!("interrupted receiver dialed again") },
+                |_, _| async { panic!("interrupted receiver dialed again") },
                 |_| panic!("interrupted receiver retried installation")
             )
             .await
@@ -234,7 +240,7 @@ async fn a_writer_failure_is_cached_without_a_second_destination_or_callback() {
             &Files,
             &fixture.view,
             now,
-            |_| connect(address),
+            |_, _| connect(address),
             |received| {
                 received
                     .install_with(&Files, &|_, _| Err("platform unavailable".into()))
@@ -256,7 +262,7 @@ async fn a_writer_failure_is_cached_without_a_second_destination_or_callback() {
                 &Files,
                 &fixture.view,
                 now,
-                |_| async { panic!("failed receiver dialed again") },
+                |_, _| async { panic!("failed receiver dialed again") },
                 |_| panic!("failed receiver retried installation")
             )
             .await

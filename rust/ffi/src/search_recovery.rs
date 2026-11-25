@@ -230,7 +230,7 @@ async fn send_recovery(
     dir: &Path,
     now: u64,
 ) -> Result<(), SearchRecoveryError> {
-    let mut entry = crate::profile_network::connect(network).await?;
+    let mut entry = crate::profile_network::connect_at(dir, network).await?;
     let protocols = Arc::new(dyapp_p2p_net::Protocols::new(&network.name).map_err(network_failed)?);
     let scores = dyapp_client::contact_verification::scores(dir).map_err(network_failed)?;
     let mut scores = scores.lock().await;

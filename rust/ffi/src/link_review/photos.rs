@@ -26,7 +26,11 @@ impl ProfileAdoptionReview {
             let decoded = match cached {
                 Some(decoded) => decoded,
                 None => runtime.block_on(async {
-                    let mut nodes = crate::peer_photos::reachable(&self.network).await?;
+                    let mut nodes = crate::peer_photos::reachable_at(
+                        &admitted.operation.slot().dir,
+                        &self.network,
+                    )
+                    .await?;
                     self.review
                         .fetch_thumbnail(&mut nodes, source, index)
                         .await

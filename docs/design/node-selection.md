@@ -212,14 +212,18 @@ ring, active eclipse or attacker-controlled admission can also invalidate the fi
 
 Keep at most 128 health entries per active network, with bounded per-operation pools. Evict stale
 open/degraded entries before sufficient entries and never grow the map merely because an attacker
-advertises more Peer IDs. No health entry is persisted by default.
+advertises more Peer IDs. No health entry is persisted by default. The installation endpoint cache
+used only after complete seed failure is separate: it stores bounded pinned Peer ID/address hints,
+not scores or health state, and every fallback candidate starts cold after restart.
 
 ## Privacy and residual risk
 
 Exploration can expose the requested mailbox, profile, search or media interest to one additional
 eligible operator. The 5%/10% schedules and real-operation-only rule bound but do not eliminate
 that exposure. An empty-pool discovery pass has the same metadata sensitivity as ordinary
-discovery. No broadcast health probes or persistent health/contact history are part of this design.
+discovery. No broadcast health probes or persistent health/reputation history are part of this
+design. Seed-fallback endpoint hints are stored separately from health, as described in
+[client networking](../architecture/p2p-networking.md); they are never treated as reputation.
 
 A coordinated swarm across independent IP groups can still dominate discovery. A valid response
 just below the soft threshold opens no circuit and can hold a substantial share until challenger

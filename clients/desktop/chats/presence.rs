@@ -37,7 +37,7 @@ async fn announce(
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
-    let mut node = profile::connect(&active).await?;
+    let mut node = profile::connect_at(dir, &active).await?;
     let seal_key = crate::sealing_key(root, dir, &store)?;
     let mut session = Session::open_or_create_with_scores(
         store,

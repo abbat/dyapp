@@ -1,6 +1,6 @@
 //! Thin adapters for common presence policy; only an explicit foreground call announces activity.
 use super::{failed, ChatSession};
-use crate::profile_network::{active_network, connect, on_network_stack};
+use crate::profile_network::{active_network, connect_at, on_network_stack};
 use crate::CoreError;
 use dyapp_client::session::Session;
 
@@ -42,7 +42,7 @@ impl ChatSession {
         let network = active_network(&self.dir)?;
         on_network_stack(|| {
             self.runtime.block_on(async {
-                let mut node = connect(&network).await?;
+                let mut node = connect_at(&self.dir, &network).await?;
                 session
                     .announce_presence(std::slice::from_mut(&mut node), &self.seal_key)
                     .await

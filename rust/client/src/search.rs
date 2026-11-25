@@ -174,7 +174,8 @@ pub async fn connect_search_nodes_with_scores(
     let (mut nodes, mut infos, mut failures) = (Vec::new(), Vec::new(), Vec::new());
     for addr in entry.providers(dyapp_p2p_net::SEARCH_KEY, max).await {
         let started = Instant::now();
-        let reached = match Node::connect(addr, protocols.clone()).await {
+        let connection = Node::connect_optional_cache(addr, protocols.clone(), entry.cache()).await;
+        let reached = match connection {
             Ok(mut node) => node.info().await.map(|info| (node, info)),
             Err(error) => Err(error),
         };

@@ -1,7 +1,7 @@
 //! Peer names and main photos from the searcher's profile cache, by the desktop rule: a local name,
 //! else the public name with its mark, else none.
 
-use crate::profile_network::{active_network, connect, on_network_stack};
+use crate::profile_network::{active_network, connect_at, on_network_stack};
 use crate::profile_search::{FoundProfile, ProfileSearcher};
 use crate::{CoreError, IdentityKey};
 use dyapp_client::store::Store;
@@ -39,7 +39,7 @@ pub(crate) fn fetch_profiles(
     let network = active_network(dir)?;
     on_network_stack(|| {
         runtime.block_on(async {
-            let mut node = connect(&network).await?;
+            let mut node = connect_at(dir, &network).await?;
             let mut found = Vec::new();
             for peer_id in peer_ids {
                 if let Ok(verified) = node.get_profile(&peer_id).await {

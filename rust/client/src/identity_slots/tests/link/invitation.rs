@@ -61,7 +61,7 @@ async fn expired_and_changed_source_polling_never_dials() {
         .unwrap();
     let expiry = waiting.code().unwrap().expires_at;
     let result = waiting
-        .poll_with(&Files, expiry, |_| async { panic!("expired dial") })
+        .poll_with(&Files, expiry, |_, _| async { panic!("expired dial") })
         .await;
     assert!(matches!(result, Err(error) if error == "bad client input: the link code expired"));
     let mut waiting = registry
@@ -69,7 +69,7 @@ async fn expired_and_changed_source_polling_never_dials() {
         .unwrap();
     registry.create(Storage::File, &Files).unwrap();
     let result = waiting
-        .poll_with(&Files, 100, |_| async { panic!("stale dial") })
+        .poll_with(&Files, 100, |_, _| async { panic!("stale dial") })
         .await;
     assert!(matches!(result, Err(error) if error == "The link source changed"));
     mutation_guard(&root).try_lock().unwrap();
@@ -93,7 +93,7 @@ fn pending_connection_uses_active_network_and_holds_only_its_operation_lease() {
         .unwrap();
     let connected = Cell::new(false);
     {
-        let future = waiting.poll_with(&Files, 100, |actual| {
+        let future = waiting.poll_with(&Files, 100, |actual, _| {
             assert_eq!(actual, network);
             connected.set(true);
             pending()
@@ -134,7 +134,7 @@ async fn a_transient_connection_failure_keeps_the_same_code_and_releases_admissi
         .unwrap();
     let code = waiting.code();
     let result = waiting
-        .poll_with(&Files, 100, |_| async { Err("offline".into()) })
+        .poll_with(&Files, 100, |_, _| async { Err("offline".into()) })
         .await;
     assert!(matches!(result, Err(error) if error == "offline"));
     assert_eq!(waiting.code(), code);

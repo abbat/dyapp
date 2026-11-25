@@ -2,7 +2,7 @@
 //! docs/design/read-receipts.md.
 
 use super::{failed, ChatMessage, ChatSession};
-use crate::profile_network::{active_network, connect, on_network_stack};
+use crate::profile_network::{active_network, connect_at, on_network_stack};
 use crate::CoreError;
 use dyapp_client::session::Session;
 use dyapp_client::store::Store;
@@ -80,7 +80,7 @@ impl ChatSession {
         let network = active_network(&self.dir)?;
         on_network_stack(|| {
             self.runtime.block_on(async {
-                let mut node = connect(&network).await?;
+                let mut node = connect_at(&self.dir, &network).await?;
                 for (group, seen) in &due {
                     let nodes = std::slice::from_mut(&mut node);
                     session

@@ -69,7 +69,7 @@ async fn prepared_targets_hold_no_idle_lease_and_stale_aba_approval_never_dials(
         fixture.registry.select(&fixture.source.id, &Files).unwrap();
     }
     let result = sender
-        .confirm_and_send_with(&Files, &fixture.view, 100, |_| async {
+        .confirm_and_send_with(&Files, &fixture.view, 100, |_, _| async {
             panic!("stale approval dialed")
         })
         .await;
@@ -83,14 +83,17 @@ async fn expiry_and_external_selection_change_refuse_transfer_before_snapshot_or
     let fixture = Fixture::new();
     let sender = fixture.sender();
     let result = sender
-        .confirm_and_send_with(&Files, &fixture.view, fixture.code.expires_at, |_| async {
-            panic!("expired approval dialed")
-        })
+        .confirm_and_send_with(
+            &Files,
+            &fixture.view,
+            fixture.code.expires_at,
+            |_, _| async { panic!("expired approval dialed") },
+        )
         .await;
     assert!(matches!(result, Err(error) if error == "expired"));
     fixture.registry.create(Storage::File, &Files).unwrap();
     let result = sender
-        .confirm_and_send_with(&Files, &fixture.view, 100, |_| async {
+        .confirm_and_send_with(&Files, &fixture.view, 100, |_, _| async {
             panic!("changed source dialed")
         })
         .await;
@@ -110,7 +113,7 @@ fn actual_pending_delivery_retains_its_operation_and_releases_it_on_worker_drop(
     network::save(&fixture.source.dir, Settings::Active, &network).unwrap();
     let connected = Cell::new(false);
     {
-        let future = sender.confirm_and_send_with(&Files, &fixture.view, 100, |actual| {
+        let future = sender.confirm_and_send_with(&Files, &fixture.view, 100, |actual, _| {
             assert_eq!(actual, network);
             connected.set(true);
             pending()

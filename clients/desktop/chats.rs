@@ -232,7 +232,7 @@ pub(crate) async fn send_text(
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
-    let mut node = profile::connect(&active).await?;
+    let mut node = profile::connect_at(dir, &active).await?;
     let fetched = node.get_profile(peer_id).await.map_err(|e| e.to_string())?;
     let peer = accept_peer(cache, epoch, peer_id, fetched)?;
     if peer.profile.deleted || peer.profile.version == 0 {
@@ -315,7 +315,7 @@ pub async fn block(
         Ok(None) => return Ok(BlockResult::pending("notConnected")),
         Err(error) => return Ok(BlockResult::pending(&error)),
     };
-    let mut node = match profile::connect(&active).await {
+    let mut node = match profile::connect_at(dir, &active).await {
         Ok(node) => node,
         Err(error) => return Ok(BlockResult::pending(&error)),
     };
@@ -376,7 +376,7 @@ pub async fn like(
     if !cache.lock().map_err(|e| e.to_string())?.current(epoch)? {
         return Err("notConnected".into());
     }
-    let mut node = profile::connect(&active).await?;
+    let mut node = profile::connect_at(dir, &active).await?;
     let seal_key = crate::sealing_key(root, dir, &store)?;
     let mut session = shared_session(store, identity, device_key, &seal_key, dir)?;
     let kind = if liked { Kind::Like } else { Kind::Unlike };
@@ -412,7 +412,7 @@ pub async fn liked_you(
     if !cache.lock().map_err(|e| e.to_string())?.current(epoch)? {
         return Err("notConnected".into());
     }
-    let mut node = profile::connect(&active).await?;
+    let mut node = profile::connect_at(dir, &active).await?;
     let mut found = Vec::new();
     for peer_id in peers {
         let Ok(verified) = node.get_profile(&peer_id).await else {

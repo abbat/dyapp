@@ -112,9 +112,11 @@ fn empty_routing_has_explicit_missing_coverage() {
 async fn an_unavailable_holder_is_skipped() {
     let protocols = Arc::new(Protocols::public());
     let unavailable = "/ip4/127.0.0.1/tcp/1".parse().expect("address");
-    assert!(connect(PeerId::random(), vec![unavailable], &protocols)
-        .await
-        .is_none());
+    assert!(
+        connect(PeerId::random(), vec![unavailable], &protocols, None)
+            .await
+            .is_none()
+    );
 }
 
 #[tokio::test]

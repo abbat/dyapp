@@ -1,6 +1,6 @@
 //! Mail progress and optional core-admitted notification content share one native session owner.
 use super::{failed, refill_if_due, ChatSession};
-use crate::profile_network::{active_network, connect, on_network_stack};
+use crate::profile_network::{active_network, connect_at, on_network_stack};
 use crate::CoreError;
 use dyapp_client::{
     contact_verification::Generation, mail_notices, session::Session, store::Store, Node,
@@ -80,7 +80,7 @@ impl ChatSession {
         // The guard stays on this thread and lends the session until actual network completion.
         on_network_stack(|| {
             self.runtime.block_on(async {
-                let mut node = connect(&network).await?;
+                let mut node = connect_at(&self.dir, &network).await?;
                 let changed = self
                     .receive_connected(session, &network, &mut node, &generation, now)
                     .await?;

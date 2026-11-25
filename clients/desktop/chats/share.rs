@@ -29,7 +29,7 @@ async fn fetch(
     if !cache.lock().map_err(|e| e.to_string())?.current(epoch)? {
         return Err("notConnected".into());
     }
-    let mut node = profile::connect(&active).await?;
+    let mut node = profile::connect_at(dir, &active).await?;
     let fetched = node.get_profile(peer_id).await.map_err(|e| e.to_string())?;
     if fetched.profile.deleted || fetched.profile.version == 0 {
         return Err("unpublished".into());
@@ -86,7 +86,7 @@ async fn send(
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
-    let mut node = profile::connect(&active).await?;
+    let mut node = profile::connect_at(dir, &active).await?;
     let fetched = node
         .get_profile(target_peer)
         .await

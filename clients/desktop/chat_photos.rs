@@ -58,7 +58,7 @@ async fn original(
     let active = network::load(dir, Settings::Active)
         .map_err(|e| e.to_string())?
         .ok_or("notConnected")?;
-    let mut nodes = profile::reachable(&active).await?;
+    let mut nodes = profile::reachable_at(dir, &active).await?;
     if nodes.is_empty() {
         return Err("notConnected".into());
     }

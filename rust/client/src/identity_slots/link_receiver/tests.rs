@@ -64,7 +64,7 @@ impl Fixture {
                     &self.keys,
                     &self.view,
                     100,
-                    |_| async { panic!("terminal receiver dialed again") },
+                    |_, _| async { panic!("terminal receiver dialed again") },
                     |_| panic!("terminal receiver wrote again")
                 )
                 .await

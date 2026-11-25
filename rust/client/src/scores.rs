@@ -14,8 +14,7 @@ use std::time::{Duration, Instant};
 pub const HALF_LIFE: u64 = 24 * 3_600;
 
 /// Penalty and the time it was last raised, per node, plus the selection policy.
-// shortcut: held in memory only, a restart forgives every node; persist it when the app
-// stores client state.
+// shortcut: held in memory only; persist health only with a separate privacy and poisoning design.
 #[derive(Debug, Clone)]
 pub struct Scores {
     penalties: HashMap<PeerId, (u32, u64)>,

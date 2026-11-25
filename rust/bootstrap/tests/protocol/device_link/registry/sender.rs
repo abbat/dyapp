@@ -65,7 +65,7 @@ async fn confirmed_owner_transfer_delivers_the_same_identity_and_complete_privat
     let destination = address.clone();
     let expected = &source.network;
     sender
-        .confirm_and_send_with(&Files, &view, now, |actual| async move {
+        .confirm_and_send_with(&Files, &view, now, |actual, _| async move {
             assert_eq!(&actual, expected);
             dyapp_client::Node::connect(destination, Arc::new(dyapp_p2p_net::Protocols::public()))
                 .await

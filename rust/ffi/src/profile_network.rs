@@ -96,9 +96,9 @@ pub(crate) fn active_network(dir: &Path) -> Result<Network, CoreError> {
         .ok_or_else(|| CoreError::Failed("notConnected".into()))
 }
 
-/// Dial the first answering bootstrap node over each row's TCP and then QUIC address.
-pub(crate) async fn connect(network: &Network) -> Result<Node, CoreError> {
-    dyapp_client::seed_connections::first(network)
+/// Dial seeds with installation-scoped cached fallback after complete seed failure.
+pub(crate) async fn connect_at(dir: &Path, network: &Network) -> Result<Node, CoreError> {
+    dyapp_client::seed_connections::first_cached(network, dir)
         .await
         .map_err(failed)
 }
@@ -217,7 +217,11 @@ impl ProfilePublisher {
     pub fn check_connection(&self) -> Result<(), CoreError> {
         let _serial = self.serial.lock().map_err(failed)?;
         let network = active_network(&self.dir)?;
-        on_network_stack(|| self.runtime.block_on(connect(&network)).map(|_| ()))
+        on_network_stack(|| {
+            self.runtime
+                .block_on(connect_at(&self.dir, &network))
+                .map(|_| ())
+        })
     }
 
     /// Publish solved editable fields through verified network directory authority.
@@ -246,7 +250,7 @@ impl ProfilePublisher {
             // The connection is Send but not Sync, so it moves to the network thread.
             let store = store;
             self.runtime.block_on(async {
-                let mut node = connect(&network).await?;
+                let mut node = connect_at(&self.dir, &network).await?;
                 let scores = dyapp_client::contact_verification::scores(&self.dir)
                     .map_err(|error| failed(error.to_string()))?;
                 let mut scores = scores.lock().await;
@@ -291,7 +295,7 @@ impl ProfilePublisher {
             // The connection is Send but not Sync, so it moves to the network thread.
             let store = store;
             self.runtime.block_on(async {
-                let mut node = connect(&network).await?;
+                let mut node = connect_at(&self.dir, &network).await?;
                 let hidden = publish::hide(&store, &key.identity, &draft).map_err(failed)?;
                 send_held(&store, &mut node, &network, &self.dir).await?;
                 Ok(hidden)
@@ -325,7 +329,7 @@ impl ProfilePublisher {
             // The connection is Send but not Sync, so it moves to the network thread.
             let store = store;
             self.runtime.block_on(async {
-                let mut node = connect(&network).await?;
+                let mut node = connect_at(&self.dir, &network).await?;
                 let scores = dyapp_client::contact_verification::scores(&self.dir)
                     .map_err(|error| failed(error.to_string()))?;
                 let mut scores = scores.lock().await;
@@ -440,7 +444,7 @@ mod tests {
                 .build()
                 .unwrap();
             runtime.block_on(async {
-                let mut node = connect(&network).await?;
+                let mut node = connect_at(&dir, &network).await?;
                 // Nothing held: nothing is sent.
                 send_held(&store, &mut node, &network, &dir).await?;
                 store.hold_search_profile(&record).map_err(failed)?;

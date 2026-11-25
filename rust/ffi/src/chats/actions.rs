@@ -1,7 +1,7 @@
 //! Clearing, reading, editing, deleting and blocking in one pair's chat, as on desktop.
 
 use super::{failed, ChatLikes, ChatSession, ChatSubmission};
-use crate::profile_network::{active_network, connect, on_network_stack};
+use crate::profile_network::{active_network, connect_at, on_network_stack};
 use crate::CoreError;
 use dyapp_client::chat::{PeerChange, MAX_TEXT_BYTES};
 use dyapp_client::message_actions::{self, Kind, Source};
@@ -215,7 +215,7 @@ impl ChatSession {
                     Err(error) => return Ok(ChatBlock::pending(error)),
                 }
                 let revoked = async {
-                    let mut node = connect(&active_network(&self.dir)?).await?;
+                    let mut node = connect_at(&self.dir, &active_network(&self.dir)?).await?;
                     session
                         .block(
                             std::slice::from_mut(&mut node),
@@ -372,7 +372,7 @@ impl ChatSession {
         let network = active_network(&self.dir)?;
         on_network_stack(|| {
             self.runtime.block_on(async {
-                let mut node = connect(&network).await?;
+                let mut node = connect_at(&self.dir, &network).await?;
                 let nodes = std::slice::from_mut(&mut node);
                 let sent = match text {
                     Some(text) => {

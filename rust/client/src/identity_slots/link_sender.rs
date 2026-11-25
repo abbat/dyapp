@@ -6,6 +6,7 @@ use crate::store::Store;
 use crate::Node;
 use dyapp_identity::network::{self, Network, Settings};
 use std::future::Future;
+use std::path::PathBuf;
 use zeroize::Zeroizing;
 
 /// Prepared target only. Preparation never sends identity material or private state.
@@ -64,7 +65,7 @@ impl LinkSender {
         keys: &dyn KeyReader,
         view: &ProfileView,
         now: u64,
-        connect: impl FnOnce(Network) -> F,
+        connect: impl FnOnce(Network, PathBuf) -> F,
     ) -> Result<(), String>
     where
         F: Future<Output = Result<Node, String>>,
@@ -88,7 +89,7 @@ impl LinkSender {
             .map_err(|error| error.to_string())?
             .ok_or("notConnected")?;
         drop(view);
-        let mut node = connect(network).await?;
+        let mut node = connect(network, operation.slot().dir.clone()).await?;
         code.send(&mut node, operation.identity(), &state, now)
             .await
             .map_err(|error| error.to_string())

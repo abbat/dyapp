@@ -1,7 +1,7 @@
 //! Thin native ownership for common-core own-device directory operations.
 mod projection;
 mod revocation;
-use crate::profile_network::{active_network, connect, on_network_stack};
+use crate::profile_network::{active_network, connect_at, on_network_stack};
 use crate::slot_operation::SlotWorker;
 use crate::{CoreError, KeyStore, MobileIdentityRegistry};
 use dyapp_client::{
@@ -110,7 +110,7 @@ impl MobileDeviceDirectory {
             let remote = live.then(|| {
                 self.runtime.block_on(async {
                     let network = active_network(&admitted.operation.slot().dir)?;
-                    let mut node = connect(&network).await?;
+                    let mut node = connect_at(&admitted.operation.slot().dir, &network).await?;
                     let scores =
                         dyapp_client::contact_verification::scores(&admitted.operation.slot().dir)
                             .map_err(failed)?;
@@ -159,7 +159,7 @@ impl MobileDeviceDirectory {
             let draft = store.profile_draft().map_err(failed)?.unwrap_or_default();
             let network = active_network(&admitted.operation.slot().dir)?;
             self.runtime.block_on(async {
-                let mut node = connect(&network).await?;
+                let mut node = connect_at(&admitted.operation.slot().dir, &network).await?;
                 let scores =
                     dyapp_client::contact_verification::scores(&admitted.operation.slot().dir)
                         .map_err(|error| failed(error.to_string()))?;
