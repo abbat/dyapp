@@ -5,6 +5,28 @@ fn address(port: u16) -> Multiaddr {
 }
 
 #[test]
+fn shuffling_uses_every_seed_bit_for_a_stable_permutation() {
+    let mut entries: Vec<_> = (1..=5)
+        .map(|port| Candidate {
+            peer: PeerId::random(),
+            address: address(port),
+        })
+        .collect();
+    let original = entries.clone();
+    shuffle(&mut entries, 1);
+    let order: Vec<_> = entries
+        .iter()
+        .map(|entry| {
+            original
+                .iter()
+                .position(|candidate| candidate == entry)
+                .unwrap()
+        })
+        .collect();
+    assert_eq!(order, [2, 3, 0, 4, 1]);
+}
+
+#[test]
 fn endpoints_survive_reopen_but_network_scopes_do_not_mix() {
     let dir = dyapp_test_support::test_dir().unwrap();
     dyapp_p2p_net::set_id_pow_bits(0);

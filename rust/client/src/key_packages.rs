@@ -102,3 +102,7 @@ impl Node {
         Err(last)
     }
 }
+
+#[cfg(test)]
+#[path = "key_packages/tests.rs"]
+mod tests;
