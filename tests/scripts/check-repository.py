@@ -140,6 +140,7 @@ PROTOTYPE_ID = re.compile(r'\b(?:id|data-on)="([^"]+)"')
 HANDLERS = (
     "rust/bootstrap/src/service.rs",
     "rust/bootstrap/src/service/mailbox.rs",
+    "rust/bootstrap/src/service/keypackages.rs",
     "rust/bootstrap/src/service/media.rs",
     "rust/bootstrap/src/service/search.rs",
 )

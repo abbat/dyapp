@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-TARGETS = ["node", "sticker_webp"]
+TARGETS = ["node", "sticker_webp", "keypackage"]
 CARGO = """#!/usr/bin/env python3
 import json, os, sys
 from pathlib import Path
@@ -21,10 +21,14 @@ if sys.argv[1:3] == ["fuzz", "list"]:
         sys.exit(43)
     if os.environ.get("EMPTY_LIST"):
         sys.exit(0)
-    print("node\\nsticker_webp")
+    print("node\\nsticker_webp\\nkeypackage")
 elif sys.argv[1:3] == ["fuzz", "build"]:
-    selected = [arg for arg in sys.argv[3:] if arg in ("node", "sticker_webp")]
-    selected = selected or ["node", "sticker_webp"]
+    selected = [
+        arg
+        for arg in sys.argv[3:]
+        if arg in ("node", "sticker_webp", "keypackage")
+    ]
+    selected = selected or ["node", "sticker_webp", "keypackage"]
     if os.environ.get("FAIL_TARGET") in selected:
         sys.exit(42)
     for target in selected:
@@ -101,6 +105,7 @@ class FuzzRunner(unittest.TestCase):
         for selected in [
             None,
             "sticker_webp",
+            "keypackage",
             "node sticker_webp",
             "sticker_webp node",
         ]:
@@ -122,6 +127,9 @@ class FuzzRunner(unittest.TestCase):
                     self.assertIn("-max_total_time=1", row)
                     self.assertEqual(
                         "-max_len=262144" in row, row[1] == "sticker_webp"
+                    )
+                    self.assertEqual(
+                        "-max_len=20480" in row, row[1] == "keypackage"
                     )
                     self.assertTrue(
                         any(

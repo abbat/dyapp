@@ -415,6 +415,7 @@ client targets feed what a client reads from other people.
 | `node` | `Service::node` | `NodeRequest` (`/dyapp/node`) |
 | `profile` | `Service::profile`, `dyapp_profile::verify` | `ProfileRequest` (`/dyapp/profile`) |
 | `mailbox` | `Service::mailbox` | `MailboxRequest` (`/dyapp/mailbox`), envelopes included |
+| `keypackage` | `Service::keypackage` | `KeyPackageRequest` (`/dyapp/keypackage`): publish, fetch and node replication |
 | `media` | `Service::media` | `MediaRequest` (`/dyapp/media`) |
 | `replication` | `Service::media`, `Service::store_media`, `Service::store_shard`, `Service::media_inventory` | node-to-node `MediaRequest`: replica, shard, inventory and keep catch-up input |
 | `catch_up` | `catch_up::on_digest`, `catch_up::on_inventory` | `DigestResponse` and `InventoryResponse` from another search node |
@@ -433,7 +434,9 @@ client targets feed what a client reads from other people.
 | `sticker_webp` | `sticker_webp::decode::first_frame` | WebP container and first frame; bounded RGBA/alpha checks, with caught decoder panics promoted to saved fuzz failures |
 
 The first input byte decides whether the signed records in the request are signed again by a fixed
-key; its low bits pick the signature domain. A random signature never verifies, so without this the
+key; its low bits pick the signature domain. The keypackage target instead always uses
+`Domain::KeyPackage` when re-signing, leaving the existing targets' domain selection unchanged, and
+routes replica puts through the node peer. A random signature never verifies, so without this the
 payload parsers behind the signature check would stay out of reach. Fetch and ack requests still
 stop at the nonce, which each input cannot know. A random MLS signature never verifies either,
 so `mls` reaches the TLS decoders and signature checks but not the content behind them.
@@ -443,7 +446,7 @@ target yet (planned). `replication` calls replica, shard and inventory handlers 
 `Service::media`; it and `mailbox_replica` use a separate libp2p node peer to pass the trust check.
 
 `check-repository.py` requires a target for every `pub fn` of `Service` in
-`rust/bootstrap/src/service.rs` and its `mailbox.rs`, `media.rs` and `search.rs` modules that takes a `request: …Request` or `data: &[u8]`: it looks for
+`rust/bootstrap/src/service.rs` and its `mailbox.rs`, `keypackages.rs`, `media.rs` and `search.rs` modules that takes a `request: …Request` or `data: &[u8]`: it looks for
 `SERVICE.<name>(` in `tests/fuzz/fuzz_targets/`.
 
 **Runs.** `make fuzz` (`rust-check.sh fuzz`) runs each target (`FUZZ_TARGETS`, default all) for
@@ -463,6 +466,10 @@ the lossless dimension header. The chat-body target starts after MLS authenticat
 uses production plaintext unpadding and body decoding, and redecodes every accepted
 body after encoding it. Its valid padded-text seed gets mutations past the length
 prefix, and `-max_len=102400` covers the 100-KiB signed mailbox envelope bound.
+The keypackage target's deterministic publish/replica seeds reach `KeyPackageRecord` decoding with
+a time-independent expiry, while the fetch seed reaches lookup validation. `-max_len=20480` covers
+both sides of the 16-KiB signed-record acceptance bound without fuzzing at the much larger
+transport limit.
 Seed replay does not establish fuzz coverage.
 libFuzzer first runs every
 input in `tests/fuzz/corpus/<target>/`, then mutates them; new inputs go to `build/fuzz-corpus/` and a

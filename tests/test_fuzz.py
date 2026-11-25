@@ -53,7 +53,7 @@ class Fuzz(unittest.TestCase):
                 len(CHECK.HANDLER.findall(texts[name]))
                 for name in CHECK.HANDLERS
             ),
-            8,
+            9,
         )
 
     def test_daily_matrix_matches_declared_targets(self) -> None:
