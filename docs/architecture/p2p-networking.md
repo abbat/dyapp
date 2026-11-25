@@ -89,8 +89,10 @@ no seed answers do `seed_connections::{first_cached,reachable_cached}` try at mo
 candidates under the existing 30-second operation budget. Fallback revalidates the pinned Peer ID,
 node-ID proof of work and expected identify network before returning the connection; ordinary
 response validation remains mandatory. The cache has at most 128 endpoints, eight per IP group and
-two addresses per Peer ID. Existing entries are not rewritten on every response, writes are atomic
-and best effort, and corrupt storage never prevents explicit seeds from working. Cache order is
+two addresses per Peer ID. New endpoints enter memory immediately, while dirty snapshots are flushed
+atomically at most once per 60 seconds; exit can lose hints not yet flushed. Existing
+entries are not rewritten on every response, writes are best effort, and corrupt storage never
+prevents explicit seeds from working. Cache order is
 shuffled before fallback so file order alone does not choose the first peer.
 
 The endpoint cache stores no latency, fault, health or reputation score and no account identifier.

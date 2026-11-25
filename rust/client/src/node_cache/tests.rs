@@ -78,3 +78,31 @@ fn corrupt_or_foreign_files_fail_closed_without_touching_seeds() {
         "dyapp-node-cache 1\nname private\n"
     );
 }
+
+#[test]
+fn new_endpoints_coalesce_disk_writes_for_one_minute() {
+    let dir = dyapp_test_support::test_dir().unwrap();
+    dyapp_p2p_net::set_id_pow_bits(0);
+    let cache = Cache::at(dir.path(), "");
+    let started = Instant::now();
+    cache.record_at(PeerId::random(), address(1), started);
+    let path = cache.inner.lock().unwrap().path.clone();
+    let saved = || fs::read_to_string(&path).unwrap();
+    assert_eq!(saved().matches("node ").count(), 1);
+    for (port, seconds) in [(2, 1), (3, 59)] {
+        cache.record_at(
+            PeerId::random(),
+            address(port),
+            started + Duration::from_secs(seconds),
+        );
+    }
+    assert_eq!(cache.candidates().len(), 3);
+    assert_eq!(saved().matches("node ").count(), 1);
+    cache.record_at(
+        PeerId::random(),
+        address(4),
+        started + Duration::from_secs(60),
+    );
+    assert_eq!(cache.candidates().len(), 4);
+    assert_eq!(saved().matches("node ").count(), 4);
+}

@@ -6,12 +6,14 @@ use std::io::{self, ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::{Arc, Mutex, OnceLock, PoisonError, Weak};
+use std::time::{Duration, Instant};
 
 const HEADER: &str = "dyapp-node-cache 1";
 const MAX_BYTES: u64 = 64 * 1024;
 const MAX_ENTRIES: usize = 128;
 const MAX_GROUP_ENTRIES: usize = 8;
 const MAX_PEER_ADDRESSES: usize = 2;
+const WRITE_INTERVAL: Duration = Duration::from_secs(60);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct Candidate {
@@ -24,6 +26,8 @@ struct Inner {
     path: PathBuf,
     network: String,
     entries: Vec<Candidate>,
+    dirty: bool,
+    last_write: Option<Instant>,
 }
 
 /// Untrusted, installation-scoped hints for seed fallback; health remains in memory.
@@ -51,12 +55,18 @@ impl Cache {
             entries: read(&path, network).unwrap_or_default(),
             path: path.clone(),
             network: network.to_owned(),
+            dirty: false,
+            last_write: None,
         }));
         caches.insert(path, Arc::downgrade(&inner));
         Self { inner }
     }
 
-    pub(crate) fn record(&self, peer: PeerId, mut address: Multiaddr) {
+    pub(crate) fn record(&self, peer: PeerId, address: Multiaddr) {
+        self.record_at(peer, address, Instant::now());
+    }
+
+    fn record_at(&self, peer: PeerId, mut address: Multiaddr, now: Instant) {
         if !id_has_pow(&peer, id_pow_bits()) {
             return;
         }
@@ -65,23 +75,33 @@ impl Cache {
         }
         let candidate = Candidate { peer, address };
         let mut inner = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
-        if inner.entries.contains(&candidate) {
+        if !inner.entries.contains(&candidate) {
+            let group = dyapp_p2p_net::ip_group(&candidate.address, false).unwrap_or_default();
+            evict(
+                &mut inner.entries,
+                |entry| dyapp_p2p_net::ip_group(&entry.address, false).unwrap_or_default() == group,
+                MAX_GROUP_ENTRIES,
+            );
+            evict(
+                &mut inner.entries,
+                |entry| entry.peer == peer,
+                MAX_PEER_ADDRESSES,
+            );
+            evict(&mut inner.entries, |_| true, MAX_ENTRIES);
+            inner.entries.push(candidate);
+            inner.dirty = true;
+        }
+        if !inner.dirty
+            || inner
+                .last_write
+                .is_some_and(|written| now.saturating_duration_since(written) < WRITE_INTERVAL)
+        {
             return;
         }
-        let group = dyapp_p2p_net::ip_group(&candidate.address, false).unwrap_or_default();
-        evict(
-            &mut inner.entries,
-            |entry| dyapp_p2p_net::ip_group(&entry.address, false).unwrap_or_default() == group,
-            MAX_GROUP_ENTRIES,
-        );
-        evict(
-            &mut inner.entries,
-            |entry| entry.peer == peer,
-            MAX_PEER_ADDRESSES,
-        );
-        evict(&mut inner.entries, |_| true, MAX_ENTRIES);
-        inner.entries.push(candidate);
-        let _ = write(&inner);
+        inner.last_write = Some(now);
+        if write(&inner).is_ok() {
+            inner.dirty = false;
+        }
     }
 
     pub(crate) fn candidates(&self) -> Vec<Candidate> {
