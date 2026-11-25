@@ -17,6 +17,38 @@ env:
   DYAPP_CHECK_LOG_DIR: build/release-check-output
 
 jobs:
+  sticker-webp:
+    if: ${{ !inputs.macos_only }}
+    name: sticker WebP measurements
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: '1.99.0'
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: ". -> build"
+      - name: build measurement
+        run: |
+          python3 tools/scripts/run-check.py --log-dir build/release-check-output sticker-webp-build -- cargo build --release -p dyapp-client --example sticker_webp_measurement --locked
+      - name: measure
+        run: |
+          python3 -B tests/scripts/sticker-webp-measure.py --binary build/release/examples/sticker_webp_measurement --work-dir build/sticker-webp-measurement --report build/sticker-webp-measurements.json
+      - name: evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sticker-webp-metrics
+          path: |
+            build/release-check-output/
+            build/sticker-webp-measurement/
+            build/sticker-webp-measurements.json
+          if-no-files-found: error
+
   windows:
     if: ${{ !inputs.macos_only }}
     name: release - windows

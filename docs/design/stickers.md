@@ -29,11 +29,20 @@ scanned before allocation. The full encoded record plus chunked AES-GCM tags mus
 fit 6 MiB. RGBA is checked one frame at a time and discarded during pack validation.
 Pack storage, the composer's collection manager and tag-14 receive are implemented;
 Session supports saved-pack upload reuse, metadata sends, guarded pack-control receive and
-bounded request/answer workers. Desktop has picker/send, image and Add-pack controls. Decoder CPU,
-representative-file measurements, successful decoder fuzz CI runs and release-size
-verification remain required. The WebP fuzz target and static/animated/corrupt seeds
-are configured; its 256 KiB input cap covers the allowed compressed-byte range.
-The numbers marked *assumed* need measurement and may change.
+bounded request/answer workers. Desktop has picker/send, image and Add-pack controls. Scheduled
+fuzz run 45385347498 passed `fuzz - sticker_webp` and retained its corpus/crash artifact.
+The `release-sizes` workflow has a `sticker WebP measurements` job: its release-measurement
+example and Python wrapper record real first-frame CPU/wall time, process peak RSS and input metadata
+for deterministic 512x512 static and 30-frame/3-second animated inputs. Its
+`sticker-webp-metrics` artifact remains required on this change. Peak RSS includes process
+and allocator high-water state, and first-frame numbers do not measure playback.
+Windows final-client CI measured 33,354,240 bytes at 71b8db6f (run 42027448931) before the
+decoder and 34,326,016 bytes at 36eb6369 (run 42366936875) after it. The 971,776-byte
+(2.9135%) range includes unrelated intervening changes and is an upper bound, not isolated
+decoder cost; the existing 5% final-artifact budget remains the regression gate.
+The WebP fuzz target and static/animated/corrupt seeds are configured; its 256 KiB input cap
+covers the allowed compressed-byte range. The numbers marked *assumed* need measurement and
+may change.
 The reader caps the archive envelope at 8 MiB (including TAR padding), files at
 121 including the 64 KiB manifest, and sticker file bytes at 256 KiB. The separate
 6 MiB sealed-pack limit is enforced by pack validation. GNU tar fixture bytes

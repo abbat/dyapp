@@ -371,8 +371,30 @@ The fuzz corpus also retains an animation whose first VP8 frame has only its hea
 its RIFF/frame lengths remain valid. A core regression requires successful container checks
 followed by actual decoder rejection, covering corrupt animation beyond the header guard.
 These small vectors do not establish representative CPU/memory or release-size cost.
-Decoder fuzzing is configured in the push and nightly suites; successful CI runs
-and representative measurements remain release checks.
+Scheduled fuzz run 45385347498 completed `fuzz - sticker_webp` successfully and retained
+`fuzz-sticker_webp`; keep retaining nightly corpus/crash artifacts for later regressions.
+
+`rust/client/examples/sticker_webp_measurement.rs` generates deterministic, nonuniform
+512x512 static and 30-frame/3,000 ms animated inputs within the 256 KiB bound. Its
+`generate`, `baseline` and `decode` modes exercise the production `first_frame` decoder;
+`tests/scripts/sticker-webp-measure.py` runs generation separately, repeats read-only
+baseline and decode processes, and records input bytes/frames/duration, internal decode
+wall time, process wall/user/system CPU and peak RSS in JSON. The scheduled
+`release-sizes` job `sticker WebP measurements` uploads these reports and fixtures as
+`sticker-webp-metrics`; a green run on the change remains required. To reproduce it:
+
+```sh
+cargo build --release -p dyapp-client --example sticker_webp_measurement --locked
+python3 -B tests/scripts/sticker-webp-measure.py \
+  --binary build/release/examples/sticker_webp_measurement \
+  --work-dir build/sticker-webp-measurement \
+  --report build/sticker-webp-measurements.json
+```
+
+Peak RSS is process-wide and includes allocator retention; subtracting the same-binary
+baseline does not turn it into a decoder allocation bound. Shared-runner CPU/wall values
+are measurements, not latency budgets. Only the first frame is decoded, so these numbers
+say nothing about animated playback or later-frame decoding.
 
 ## Fuzzing
 

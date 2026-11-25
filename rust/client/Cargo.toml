@@ -42,5 +42,9 @@ tokio = { version = "1", features = ["macros", "rt", "test-util"] }
 name = "android_photo_fixture"
 test = true
 
+[[example]]
+name = "sticker_webp_measurement"
+test = true
+
 [lints]
 workspace = true
