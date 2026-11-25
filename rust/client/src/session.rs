@@ -150,7 +150,9 @@ impl Session {
                     revision,
                     rotate_at,
                     published: false,
-                    record: crate::sign_key_package(device_key, owner, package, true, revision)?,
+                    record: crate::key_packages::sign_key_package(
+                        device_key, owner, package, true, revision,
+                    )?,
                 };
                 self.store.save_last_resort(&state)?;
                 state

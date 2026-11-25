@@ -129,7 +129,7 @@ fn network_key(network: &str) -> String {
     if network.is_empty() {
         return "public".into();
     }
-    let mut key = String::with_capacity(network.len() * 2);
+    let mut key = String::with_capacity(network.len().saturating_mul(2));
     for byte in network.as_bytes() {
         let _ = std::fmt::write(&mut key, format_args!("{byte:02x}"));
     }
@@ -226,8 +226,8 @@ fn shuffle(entries: &mut [Candidate], mut seed: u64) {
         seed ^= seed << 13;
         seed ^= seed >> 7;
         seed ^= seed << 17;
-        let width = u64::try_from(index + 1).unwrap_or(u64::MAX);
-        let selected = usize::try_from(seed % width).unwrap_or(0);
+        let width = u64::try_from(index.saturating_add(1)).unwrap_or(u64::MAX);
+        let selected = usize::try_from(seed.checked_rem(width).unwrap_or(0)).unwrap_or(0);
         entries.swap(index, selected);
     }
 }

@@ -65,16 +65,24 @@ async fn check_connect_refusals(seed: &str) {
     }
 }
 
-pub(super) fn set_seed(peer: &NativePeer, seed: String) {
+fn set_network(peer: &NativePeer, seed: String, name: &str) {
     network::save(
         std::path::Path::new(&peer.dir),
         Settings::Active,
         &Network {
             seeds: vec![seed],
-            name: String::new(),
+            name: name.into(),
         },
     )
     .unwrap();
+}
+
+pub(super) fn set_seed(peer: &NativePeer, seed: String) {
+    set_network(peer, seed, "");
+}
+
+fn set_uncached_seed(peer: &NativePeer, seed: String) {
+    set_network(peer, seed, "offline-connection-refusal");
 }
 
 fn matched(alice: &ChatSession, bob: &ChatSession, alice_id: &str, bob_id: &str) {
@@ -101,7 +109,8 @@ fn configured_connection_refusal_queues_and_native_receive_delivers_after_reopen
     let (_bob_test_dir, bob_key, bob) = person(&address);
     let (alice_id, bob_id) = (owner.key.peer_id(), bob_key.peer_id());
     matched(&alice, &bob, &alice_id, &bob_id);
-    set_seed(&owner, refusing_seed(&runtime));
+    // A cached public endpoint would legitimately recover; isolate the configured-refusal path.
+    set_uncached_seed(&owner, refusing_seed(&runtime));
     let stranger = IdentityKey::generate().unwrap().peer_id();
     assert!(alice
         .submit_text(stranger.clone(), "first contact".into())
