@@ -67,6 +67,27 @@ doc = false
 bench = false
 
 [[bin]]
+name = "client_replies"
+path = "fuzz_targets/client_replies.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "deny_reply"
+path = "fuzz_targets/deny_reply.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "media_reply"
+path = "fuzz_targets/media_reply.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "media"
 path = "fuzz_targets/media.rs"
 test = false

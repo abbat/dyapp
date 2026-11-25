@@ -416,6 +416,9 @@ client targets feed what a client reads from other people.
 | `profile` | `Service::profile`, `dyapp_profile::verify` | `ProfileRequest` (`/dyapp/profile`) |
 | `mailbox` | `Service::mailbox` | `MailboxRequest` (`/dyapp/mailbox`), envelopes included |
 | `keypackage` | `Service::keypackage` | `KeyPackageRequest` (`/dyapp/keypackage`): publish, fetch and node replication |
+| `client_replies` | `Envelope::decode`, `search_results::check` | `MailboxResponse` envelopes and `SearchResponse` signed profiles from an untrusted node |
+| `deny_reply` | `deny::verify` | `NodeResponse` deny-list records from another bootstrap node |
+| `media_reply` | `MediaManifestExt`, `SignedRecord::verify` | `MediaResponse` inventory manifests, shard data, ownership records and catch-up progress |
 | `media` | `Service::media` | `MediaRequest` (`/dyapp/media`) |
 | `replication` | `Service::media`, `Service::store_media`, `Service::store_shard`, `Service::media_inventory` | node-to-node `MediaRequest`: replica, shard, inventory and keep catch-up input |
 | `catch_up` | `catch_up::on_digest`, `catch_up::on_inventory` | `DigestResponse` and `InventoryResponse` from another search node |
@@ -436,12 +439,14 @@ client targets feed what a client reads from other people.
 The first input byte decides whether the signed records in the request are signed again by a fixed
 key; its low bits pick the signature domain. The keypackage target instead always uses
 `Domain::KeyPackage` when re-signing, leaving the existing targets' domain selection unchanged, and
-routes replica puts through the node peer. A random signature never verifies, so without this the
-payload parsers behind the signature check would stay out of reach. Fetch and ack requests still
+routes replica puts through the node peer. Client search replies, deny-list replies and media
+ownership records also re-sign only with their fixed protocol domains. A random signature never
+verifies, so without this the payload parsers behind the signature check would stay out of reach. Fetch and ack requests still
 stop at the nonce, which each input cannot know. A random MLS signature never verifies either,
 so `mls` reaches the TLS decoders and signature checks but not the content behind them.
-Responses that a node reads as a client, other than search catch-up, and mailbox pushes have no
-target yet (planned). `replication` calls replica, shard and inventory handlers directly because
+Mailbox pushes have no target yet (planned). The reply targets do not expose private network state
+machines; their deterministic unit and integration tests remain the behavioral coverage.
+`replication` calls replica, shard and inventory handlers directly because
 `Service::media` denies node-to-node variants to ordinary peers. Keep catch-up goes through
 `Service::media`; it and `mailbox_replica` use a separate libp2p node peer to pass the trust check.
 
@@ -469,7 +474,12 @@ prefix, and `-max_len=102400` covers the 100-KiB signed mailbox envelope bound.
 The keypackage target's deterministic publish/replica seeds reach `KeyPackageRecord` decoding with
 a time-independent expiry, while the fetch seed reaches lookup validation. `-max_len=20480` covers
 both sides of the 16-KiB signed-record acceptance bound without fuzzing at the much larger
-transport limit.
+transport limit. The client-reply, deny-reply and media-reply targets use `-max_len=1089536`, the
+shared control-message bound. Their seeds reach nested envelopes and profiles, a signed deny list,
+inventory manifests, signed media ownership and catch-up progress. Media shape checks cover every
+manifest, but only the first hashes the response data to avoid quadratic fuzz-only work.
+Node `puts.rs` and `delivery.rs` decode local or outbound records; their remote request boundaries
+are covered by the mailbox, keypackage and replication targets rather than duplicated as replies.
 Seed replay does not establish fuzz coverage.
 libFuzzer first runs every
 input in `tests/fuzz/corpus/<target>/`, then mutates them; new inputs go to `build/fuzz-corpus/` and a

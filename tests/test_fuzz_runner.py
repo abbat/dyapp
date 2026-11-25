@@ -9,7 +9,14 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-TARGETS = ["node", "sticker_webp", "keypackage"]
+TARGETS = [
+    "node",
+    "sticker_webp",
+    "keypackage",
+    "client_replies",
+    "deny_reply",
+    "media_reply",
+]
 CARGO = """#!/usr/bin/env python3
 import json, os, sys
 from pathlib import Path
@@ -21,14 +28,31 @@ if sys.argv[1:3] == ["fuzz", "list"]:
         sys.exit(43)
     if os.environ.get("EMPTY_LIST"):
         sys.exit(0)
-    print("node\\nsticker_webp\\nkeypackage")
+    print(
+        "node\\nsticker_webp\\nkeypackage\\nclient_replies"
+        "\\ndeny_reply\\nmedia_reply"
+    )
 elif sys.argv[1:3] == ["fuzz", "build"]:
     selected = [
         arg
         for arg in sys.argv[3:]
-        if arg in ("node", "sticker_webp", "keypackage")
+        if arg in (
+            "node",
+            "sticker_webp",
+            "keypackage",
+            "client_replies",
+            "deny_reply",
+            "media_reply",
+        )
     ]
-    selected = selected or ["node", "sticker_webp", "keypackage"]
+    selected = selected or [
+        "node",
+        "sticker_webp",
+        "keypackage",
+        "client_replies",
+        "deny_reply",
+        "media_reply",
+    ]
     if os.environ.get("FAIL_TARGET") in selected:
         sys.exit(42)
     for target in selected:
@@ -106,6 +130,7 @@ class FuzzRunner(unittest.TestCase):
             None,
             "sticker_webp",
             "keypackage",
+            "client_replies deny_reply media_reply",
             "node sticker_webp",
             "sticker_webp node",
         ]:
@@ -130,6 +155,11 @@ class FuzzRunner(unittest.TestCase):
                     )
                     self.assertEqual(
                         "-max_len=20480" in row, row[1] == "keypackage"
+                    )
+                    self.assertEqual(
+                        "-max_len=1089536" in row,
+                        row[1]
+                        in {"client_replies", "deny_reply", "media_reply"},
                     )
                     self.assertTrue(
                         any(
