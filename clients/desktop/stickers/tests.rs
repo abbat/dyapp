@@ -51,7 +51,7 @@ fn imported_collection_reopens_with_the_slot_secret() {
         Identity::try_generate().unwrap().peer_id()
     ));
     std::fs::create_dir_all(&root).unwrap();
-    let (slot, identity) = crate::slots::create(&root, "file", &crate::save, &crate::load).unwrap();
+    let (slot, identity, _) = crate::slots::create(&root, "file").unwrap();
     let sessions = chats::Sessions::default();
     let packs = slot.dir.join("sticker-packs");
     std::fs::create_dir(&packs).unwrap();

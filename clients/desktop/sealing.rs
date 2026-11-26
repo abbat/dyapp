@@ -39,7 +39,7 @@ pub(crate) fn sealing_key(
 #[cfg(test)]
 mod tests {
     use super::sealing_key;
-    use crate::{device_key, load, save, slots};
+    use crate::{device_key, slots};
     use dyapp_client::session::Session;
     use dyapp_client::store::Store;
     use dyapp_identity::Identity;
@@ -51,7 +51,7 @@ mod tests {
             Identity::try_generate().unwrap().peer_id()
         ));
         std::fs::create_dir_all(&root).unwrap();
-        let (slot, owner) = slots::create(&root, "file", &save, &load).unwrap();
+        let (slot, owner, _) = slots::create(&root, "file").unwrap();
         let store = Store::open(&slot.dir.join("client.db"), &owner).unwrap();
         let packs = slot.dir.join("sticker-packs");
         std::fs::create_dir(&packs).unwrap();
@@ -71,7 +71,7 @@ mod tests {
             Identity::try_generate().unwrap().peer_id()
         ));
         std::fs::create_dir_all(&root).unwrap();
-        let (slot, owner) = slots::create(&root, "file", &save, &load).unwrap();
+        let (slot, owner, _) = slots::create(&root, "file").unwrap();
         let device = device_key(&root, &slot.dir, &owner).unwrap();
         let path = slot.dir.join("client.db");
         let store = Store::open(&path, &owner).unwrap();
@@ -89,7 +89,7 @@ mod tests {
         let reopened = Store::open(&path, &owner).unwrap();
         assert_eq!(*sealing_key(&root, &slot.dir, &reopened).unwrap(), *seal);
 
-        let (other, other_owner) = slots::create(&root, "file", &save, &load).unwrap();
+        let (other, other_owner, _) = slots::create(&root, "file").unwrap();
         let other_store = Store::open(&other.dir.join("client.db"), &other_owner).unwrap();
         Session::open_or_create(other_store, &other_owner, &device, &[8; 32]).unwrap();
         let other_store = Store::open(&other.dir.join("client.db"), &other_owner).unwrap();

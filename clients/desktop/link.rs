@@ -210,7 +210,9 @@ pub async fn poll_link(
     .map_err(|e| e.to_string())
     .and_then(|written| written);
     match written {
-        Ok((slot, identity)) => crate::respond(Opened::Ready(slot, identity), transition).map(Some),
+        Ok((slot, identity, durability)) => {
+            crate::respond_durable(Opened::Ready(slot, identity), transition, durability).map(Some)
+        }
         Err(error) => {
             IdentityState::reconcile(recover_dir, transition).await?;
             Err(error)
@@ -226,7 +228,14 @@ fn write(
     pending: &Pending,
     linked: &Linked,
     wizard: Option<&str>,
-) -> Result<(Slot, Identity), String> {
+) -> Result<
+    (
+        Slot,
+        Identity,
+        dyapp_client::identity_slots::SelectionDurability,
+    ),
+    String,
+> {
     let from = slots::list(root)?
         .into_iter()
         .find(|slot| slot.dir == pending.dir)
@@ -243,8 +252,9 @@ fn write(
     };
     let registry = Registry::new(root.to_path_buf(), Layout::Desktop);
     let wizard = wizard == Some(from.as_str());
-    let (slot, identity, _) = registry.link(&from, linked, wizard, &slot_keys::Keys, &device)?;
-    Ok((slot_keys::local(&slot), identity))
+    let (slot, identity, durability) =
+        registry.link(&from, linked, wizard, &slot_keys::Keys, &device)?;
+    Ok((slot_keys::local(&slot), identity, durability))
 }
 
 #[cfg(test)]
@@ -261,7 +271,7 @@ mod tests {
             dyapp_client::now()
         ));
         fs::create_dir_all(&root).unwrap();
-        let (old, current) = slots::create(&root, "file", &crate::save, &crate::load).unwrap();
+        let (old, current, _) = slots::create(&root, "file").unwrap();
         let rows = Network {
             seeds: vec!["127.0.0.1:1".into()],
             name: String::new(),
@@ -282,7 +292,7 @@ mod tests {
             state: b"state".to_vec(),
         };
         let wizard = wizard.then_some(old.id.as_str());
-        let (slot, _) = write(&root, &pending, &linked, wizard).unwrap();
+        let (slot, _, _) = write(&root, &pending, &linked, wizard).unwrap();
 
         assert_eq!(slots::active(&root).as_deref(), Some(slot.id.as_str()));
         let opened = crate::load(&slot).unwrap().unwrap();

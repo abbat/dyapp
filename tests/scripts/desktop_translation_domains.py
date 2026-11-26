@@ -107,7 +107,9 @@ def native_domains(texts: dict[str, str]) -> dict[str, list[str]]:
     domains["recovery."] = [
         "recovery." + value
         for value in sorted(
-            function_values(texts["clients/desktop/slots.rs"], "open_slot")
+            function_values(
+                texts["clients/desktop/slots.rs"], "recovery_reason"
+            )
         )
     ]
     profile = {

@@ -2,10 +2,15 @@
 //! core registry; see docs/development/desktop-identity-storage.md.
 
 use std::fs::{self, OpenOptions};
-use std::io::{ErrorKind, Read, Write};
+#[cfg(test)]
+use std::io::Write;
+use std::io::{ErrorKind, Read};
 use std::path::{Path, PathBuf};
 
-use dyapp_client::identity_slots::{self as core, Layout, RecoveryReason, Registry, Resolution};
+use dyapp_client::identity_slots::{
+    self as core, Layout, RecoveryReason, Registry, RemovalOutcome, Resolution,
+    SelectionDurability, Storage,
+};
 use dyapp_identity::Identity;
 
 use crate::slot_keys;
@@ -13,30 +18,6 @@ use crate::slot_keys;
 /// The virtual slot of the root `identity.key` / `identity-storage` installation.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub const LEGACY: &str = "legacy-primary";
-
-/// Files belonging to the slot that a confirmed removal may erase.
-const REMOVABLE: [&str; 18] = [
-    "device.key",
-    "seal.key",
-    "storage-mode",
-    "state",
-    "state.tmp",
-    "network",
-    "network.tmp",
-    "network-draft",
-    "network-draft.tmp",
-    "client.db",
-    "client.db-wal",
-    "client.db-shm",
-    "client.db-journal",
-    "node.json",
-    "node.json.tmp",
-    // Identity-local photo originals and sealed sticker packs.
-    "originals",
-    "sticker-packs",
-    // The node's key and stores.
-    "node",
-];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
@@ -59,7 +40,8 @@ pub struct Slot {
 }
 
 impl Slot {
-    #[expect(unreachable_pub, reason = "Retained module API visibility")]
+    #[cfg(test)]
+    #[expect(unreachable_pub, reason = "Retained test fixture visibility")]
     pub fn key_path(&self) -> PathBuf {
         self.dir.join("identity.key")
     }
@@ -106,6 +88,7 @@ fn is_uuid(name: &str) -> bool {
         })
 }
 
+#[cfg(test)]
 fn new_uuid() -> Result<String, String> {
     // A throwaway key gives 16 OS-random bytes without another crate; it is never an identity.
     let bytes = Identity::try_generate()
@@ -137,6 +120,7 @@ fn read_marker(path: &Path) -> Result<Option<String>, String> {
     Ok(Some(value))
 }
 
+#[cfg(test)]
 fn state_name(state: State) -> &'static str {
     match state {
         State::Pending => "pending\n",
@@ -146,6 +130,7 @@ fn state_name(state: State) -> &'static str {
     }
 }
 
+#[cfg(test)]
 fn write_new(path: &Path, value: &str) -> Result<(), String> {
     let mut file = OpenOptions::new()
         .write(true)
@@ -157,7 +142,7 @@ fn write_new(path: &Path, value: &str) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-/// Replaces `path` by a flushed temporary file and a same-directory rename.
+#[cfg(test)]
 fn write_atomic(path: &Path, value: &str) -> Result<(), String> {
     let temp = path.with_extension("tmp");
     let _ = fs::remove_file(&temp);
@@ -266,8 +251,8 @@ pub fn resolve(root: &Path) -> Result<Opened, String> {
     project(None, resolution)
 }
 
-/// Reserves a fresh slot for a key in `mode`, written as `pending` before any key exists.
-#[expect(unreachable_pub, reason = "Retained module API visibility")]
+#[cfg(test)]
+#[expect(unreachable_pub, reason = "Retained test fixture visibility")]
 pub fn reserve(root: &Path, mode: &'static str) -> Result<Slot, String> {
     let profiles = root.join("profiles");
     fs::create_dir_all(&profiles).map_err(|e| e.to_string())?;
@@ -290,8 +275,8 @@ pub fn reserve(root: &Path, mode: &'static str) -> Result<Slot, String> {
     Err("Could not reserve a new identity slot".into())
 }
 
-/// Moves a profile slot to `state`; the legacy slot has no state file.
-#[expect(unreachable_pub, reason = "Retained module API visibility")]
+#[cfg(test)]
+#[expect(unreachable_pub, reason = "Retained test fixture visibility")]
 pub fn set_state(slot: &mut Slot, state: State) -> Result<(), String> {
     if slot.id == LEGACY || slot.state == State::Broken {
         return Err("Slot state cannot change".into());
@@ -309,11 +294,6 @@ pub fn active(root: &Path) -> Option<String> {
     (id == LEGACY || is_uuid(id)).then(|| id.to_owned())
 }
 
-#[expect(unreachable_pub, reason = "Retained module API visibility")]
-pub fn set_active(root: &Path, id: &str) -> Result<(), String> {
-    write_atomic(&root.join("active-profile"), &format!("{id}\n"))
-}
-
 /// Reads a slot's key: `None` when its backend confirms there is no key.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub type Load<'a> = &'a dyn Fn(&Slot) -> Result<Option<Identity>, String>;
@@ -329,29 +309,6 @@ pub enum Opened {
     Recovery(Slot, &'static str, Option<String>),
 }
 
-/// Opens one listed slot; a key that cannot be read is "unavailable", so the window can retry.
-#[expect(unreachable_pub, reason = "Retained module API visibility")]
-pub fn open_slot(slot: Slot, load: Load<'_>) -> Result<Opened, String> {
-    let reason = match slot.state {
-        State::Ready => match load(&slot) {
-            Ok(Some(identity)) => return Ok(Opened::Ready(slot, identity)),
-            Ok(None) => "missing",
-            Err(_) => "unavailable",
-        },
-        State::Pending | State::Deleting => {
-            let reason = if slot.state == State::Pending {
-                "incomplete"
-            } else {
-                "deleting"
-            };
-            let peer_id = load(&slot)?.map(|identity| identity.peer_id());
-            return Ok(Opened::Recovery(slot, reason, peer_id));
-        }
-        State::Broken => "damaged",
-    };
-    Ok(Opened::Recovery(slot, reason, None))
-}
-
 /// Holds `profiles.lock`, which serializes slot changes across app instances, until dropped.
 fn lock(root: &Path) -> Result<fs::File, String> {
     fs::create_dir_all(root).map_err(|e| e.to_string())?;
@@ -365,42 +322,26 @@ fn lock(root: &Path) -> Result<fs::File, String> {
     Ok(lock)
 }
 
-/// Creates an identity in a fresh slot and makes it active; see [`adopt`].
+/// Creates and verifies a fresh identity through the shared registry.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn create(
     root: &Path,
     mode: &'static str,
-    save: &dyn Fn(&Slot, &Identity) -> Result<(), String>,
-    load: Load<'_>,
-) -> Result<(Slot, Identity), String> {
-    let identity = Identity::try_generate().map_err(|e| e.to_string())?;
-    let slot = adopt(root, mode, &identity, save, load, &|_| Ok(()))?;
-    Ok((slot, identity))
+) -> Result<(Slot, Identity, SelectionDurability), String> {
+    let storage = match mode {
+        "system" => Storage::System,
+        "file" => Storage::File,
+        _ => return Err("Unknown identity storage mode".into()),
+    };
+    let (slot, identity, durability) = registry(root).create(storage, &slot_keys::Keys)?;
+    Ok((Slot::from(&slot), identity, durability))
 }
 
-/// Puts `identity` in a fresh slot and makes it active. The slot is marked ready only after its key
-/// reopens with the same Peer ID and `fill` has added what else it needs, so a failure or a crash
-/// leaves an incomplete slot and the active one in place. `fill` runs under the slot lock.
+/// Selects an existing ready identity through the shared registry.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
-pub fn adopt(
-    root: &Path,
-    mode: &'static str,
-    identity: &Identity,
-    save: &dyn Fn(&Slot, &Identity) -> Result<(), String>,
-    load: Load<'_>,
-    fill: &dyn Fn(&Slot) -> Result<(), String>,
-) -> Result<Slot, String> {
-    let _lock = lock(root)?;
-    let mut slot = reserve(root, mode)?;
-    save(&slot, identity)?;
-    match load(&slot)? {
-        Some(saved) if saved.peer_id() == identity.peer_id() => {}
-        _ => return Err("Saved identity does not reopen".into()),
-    }
-    fill(&slot)?;
-    set_state(&mut slot, State::Ready)?;
-    set_active(root, &slot.id)?;
-    Ok(slot)
+pub fn select(root: &Path, id: &str) -> Result<(Opened, SelectionDurability), String> {
+    let (slot, identity, durability) = registry(root).select(id, &slot_keys::Keys)?;
+    Ok((Opened::Ready(Slot::from(&slot), *identity), durability))
 }
 
 /// The device mailbox key of the ready slot in `dir`, made on first use. It is random and kept
@@ -431,54 +372,10 @@ pub fn device_key(
     }
 }
 
-/// Removes slot `id`. A key that still exists must yield `peer_id`, the Peer ID the user
-/// confirmed. The slot is marked `deleting` before `erase` and its files go only once `load`
-/// confirms the key is absent, so any failure keeps a slot that a retry can finish. The legacy
-/// slot and damaged slots are refused: they need a migration or hold files we cannot interpret.
+/// Removes an explicitly confirmed identity through the shared registry.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
-pub fn remove(
-    root: &Path,
-    id: &str,
-    peer_id: Option<&str>,
-    load: Load<'_>,
-    erase: &dyn Fn(&Slot) -> Result<(), String>,
-) -> Result<(), String> {
-    let _lock = lock(root)?;
-    let mut slot = core::list(root, Layout::Desktop)
-        .map_err(|error| error.to_string())?
-        .into_iter()
-        .map(|slot| Slot::from(&slot))
-        .find(|slot| slot.id == id)
-        .ok_or("Unknown identity")?;
-    if slot.id == LEGACY || slot.state == State::Broken {
-        return Err("This identity cannot be removed".into());
-    }
-    if let Some(identity) = load(&slot)? {
-        if Some(identity.peer_id().as_str()) != peer_id {
-            return Err("The key does not match the confirmed Peer ID".into());
-        }
-    }
-    if slot.state != State::Deleting {
-        set_state(&mut slot, State::Deleting)?;
-    }
-    erase(&slot)?;
-    if load(&slot)?.is_some() {
-        return Err("The key is still present after removal".into());
-    }
-    for entry in fs::read_dir(&slot.dir).map_err(|e| e.to_string())? {
-        let name = entry.map_err(|e| e.to_string())?.file_name();
-        if !name.to_str().is_some_and(|name| REMOVABLE.contains(&name)) {
-            return Err("The identity folder holds other files".into());
-        }
-    }
-    // Core inventory keeps this quarantine discoverable if cleanup is interrupted.
-    let removed = slot.dir.with_file_name(format!(".{id}.removed"));
-    fs::rename(&slot.dir, &removed).map_err(|e| e.to_string())?;
-    fs::remove_dir_all(&removed).map_err(|e| e.to_string())?;
-    if active(root).as_deref() == Some(id) {
-        fs::remove_file(root.join("active-profile")).map_err(|e| e.to_string())?;
-    }
-    Ok(())
+pub fn remove(root: &Path, id: &str, peer_id: Option<&str>) -> Result<RemovalOutcome, String> {
+    registry(root).remove(id, peer_id, &slot_keys::Keys)
 }
 
 #[cfg(test)]
@@ -547,13 +444,7 @@ mod tests {
         };
         let load =
             |name: String| Ok::<_, String>(keys.borrow().get(&name).map(Identity::from_secret));
-        let (slot, alice) = create(
-            &root,
-            "system",
-            &|slot: &Slot, key: &Identity| save(slot.system_name(), key),
-            &|slot: &Slot| load(slot.system_name()),
-        )
-        .unwrap();
+        let (slot, alice, _) = create(&root, "file").unwrap();
         let load_device = |slot: &Slot| load(slot.device_name());
         let save_device = |slot: &Slot, key: &Identity| save(slot.device_name(), key);
         let device = device_key(&root, &slot.dir, &load_device, &save_device).unwrap();

@@ -25,7 +25,7 @@ mod stickers;
 #[cfg(feature = "ui-smoke")]
 #[path = "ui-tests/mod.rs"]
 mod ui_smoke;
-use identity_runtime::{describe, respond, IdentityState};
+use identity_runtime::{describe, respond, respond_durable, with_durability, IdentityState};
 #[path = "link.rs"]
 mod link;
 #[cfg(target_os = "macos")]
@@ -105,30 +105,14 @@ fn save_key(slot: &Slot, path: &Path, name: &str, key: &Identity) -> Result<(), 
     }
 }
 
-fn erase_key(slot: &Slot, path: &Path, name: &str) -> Result<(), String> {
-    match slot.mode {
-        Some("system") => system_store::delete_slot(name),
-        Some(_) => match fs::remove_file(path) {
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            result => result.map_err(|e| e.to_string()),
-        },
-        None => Err("Unknown identity storage mode".into()),
-    }
-}
-
+#[cfg(test)]
 fn load(slot: &Slot) -> Result<Option<Identity>, String> {
     load_key(slot, &slot.key_path(), &slot.system_name())
 }
 
+#[cfg(test)]
 fn save(slot: &Slot, identity: &Identity) -> Result<(), String> {
     save_key(slot, &slot.key_path(), &slot.system_name(), identity)
-}
-
-// Device secrets go first, so a failure leaves the identity key for a retry to confirm.
-fn erase(slot: &Slot) -> Result<(), String> {
-    erase_key(slot, &slot.seal_path(), &slot.seal_name())?;
-    erase_key(slot, &slot.device_path(), &slot.device_name())?;
-    erase_key(slot, &slot.key_path(), &slot.system_name())
 }
 
 /// The open identity's device mailbox key, made on first use; see `slots::device_key`.
@@ -257,19 +241,11 @@ async fn select_identity(
 ) -> Result<HashMap<&'static str, String>, String> {
     let transition = drain_identity(&app, &state).await?;
     let dir = config_dir(&app)?;
-    let opened = tauri::async_runtime::spawn_blocking(move || {
-        let slot = slots::list(&dir)?
-            .into_iter()
-            .find(|listed| listed.id == slot)
-            .ok_or("Unknown identity")?;
-        let id = slot.id.clone();
-        let opened = slots::open_slot(slot, &load)?;
-        slots::set_active(&dir, &id)?;
-        Ok::<_, String>(opened)
-    })
-    .await
-    .map_err(|e| e.to_string())??;
-    respond(opened, transition)
+    let (opened, durability) =
+        tauri::async_runtime::spawn_blocking(move || slots::select(&dir, &slot))
+            .await
+            .map_err(|e| e.to_string())??;
+    respond_durable(opened, transition, durability)
 }
 
 #[tauri::command]
@@ -291,15 +267,15 @@ async fn create_identity(
             system_store::probe()
                 .map_err(|reason| format!("System storage unavailable: {reason:?}"))?;
         }
-        slots::create(&dir, mode, &save, &load)
+        slots::create(&dir, mode)
     })
     .await
     .map_err(|error| error.to_string())
     .and_then(|result| result);
     match result {
-        Ok((slot, identity)) => {
+        Ok((slot, identity, durability)) => {
             app.state::<link::Links>().made(&slot.id);
-            respond(Opened::Ready(slot, identity), transition)
+            respond_durable(Opened::Ready(slot, identity), transition, durability)
         }
         Err(error) => {
             IdentityState::reconcile(recover_dir, transition).await?;
@@ -321,14 +297,14 @@ async fn remove_identity(
     let dir = config_dir(&app)?;
     let recover_dir = dir.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
-        slots::remove(&dir, &slot, peer_id.as_deref(), &load, &erase)?;
-        slots::list(&dir).map(|slots| slots.len())
+        let outcome = slots::remove(&dir, &slot, peer_id.as_deref())?;
+        slots::list(&dir).map(|slots| (slots.len(), outcome.durability_detail))
     })
     .await
     .map_err(|error| error.to_string())
     .and_then(|result| result);
-    let remaining = match result {
-        Ok(remaining) => remaining,
+    let (remaining, durability) = match result {
+        Ok(outcome) => outcome,
         Err(error) => {
             IdentityState::reconcile(recover_dir, transition).await?;
             return Err(error);
@@ -336,9 +312,15 @@ async fn remove_identity(
     };
     transition.commit(None).map_err(|e| format!("{e:?}"))?;
     if remaining == 0 {
-        return storage_options().await;
+        return Ok(with_durability(
+            storage_options().await?,
+            durability.as_deref(),
+        ));
     }
-    Ok(describe(Opened::Picker).0)
+    Ok(with_durability(
+        describe(Opened::Picker).0,
+        durability.as_deref(),
+    ))
 }
 
 /// The open identity's `draft` or `active` bootstrap settings, `null` when never saved.

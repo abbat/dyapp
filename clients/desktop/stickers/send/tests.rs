@@ -16,7 +16,7 @@ fn saved_pack() -> SavedPack {
             Identity::try_generate().unwrap().peer_id()
         ));
     std::fs::create_dir_all(&root).unwrap();
-    let (slot, identity) = crate::slots::create(&root, "file", &crate::save, &crate::load).unwrap();
+    let (slot, identity, _) = crate::slots::create(&root, "file").unwrap();
     let sessions = chats::Sessions::default();
     let pack_id = super::super::import(
         &root,

@@ -68,10 +68,12 @@ choice and its trade-offs.
 
 The app opens and creates identities through `clients/desktop/slots.rs`. Candidate inventory
 uses the shared core `identity_slots::Registry` with the Desktop layout; local slot conversion
-retains only desktop presentation and credential names. Resolution and candidate inspection also
-use the shared registry. Interrupted `.removed` cleanup remains visible, and simultaneous
-live/quarantined paths with one ID produce a damaged candidate without opening its keys. Creation,
-selection and ordinary removal are still desktop adapters pending migration.
+retains only desktop presentation and credential names. Resolution, inspection, creation, verified
+selection, confirmed removal and linked-slot adoption use the same registry. Interrupted `.removed`
+cleanup remains visible, and simultaneous live/quarantined paths with one ID produce a damaged
+candidate without opening its keys. Native responses report a committed but unconfirmed directory
+sync as `storageStatus = unconfirmed`; the corresponding localized acknowledgement is planned in the
+desktop UI step, and no operation is retried automatically.
 The app keeps an older
 root `identity.key` / `identity-storage` or `primary` credential readable in place and creates
 **new** identities in independent local slots. The window shows a picker (each slot by Peer ID

@@ -1,6 +1,7 @@
 //! The desktop's active identity and transition admission.
 use crate::identity_gate::{GateError, IdentityGate, Lease, Transition};
 use crate::slots::{self, Opened};
+use dyapp_client::identity_slots::SelectionDurability;
 use dyapp_identity::Identity;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -135,14 +136,47 @@ pub(super) fn describe(opened: Opened) -> (HashMap<&'static str, String>, Option
     (result, None)
 }
 
+/// Mark a committed operation whose directory persistence is unconfirmed, without exposing
+/// platform diagnostics or turning it into a retryable failure.
+pub(super) fn with_durability(
+    mut result: HashMap<&'static str, String>,
+    detail: Option<&str>,
+) -> HashMap<&'static str, String> {
+    if detail.is_some() {
+        result.insert("storageStatus", "unconfirmed".into());
+    }
+    result
+}
+
+fn respond_with_detail(
+    opened: Opened,
+    transition: Transition<ActiveIdentity>,
+    detail: Option<&str>,
+) -> Result<HashMap<&'static str, String>, String> {
+    let (result, identity) = describe(opened);
+    transition.commit(identity).map_err(gate_error)?;
+    Ok(with_durability(result, detail))
+}
+
 /// Commits an opened identity only after admitted work has drained.
 pub(super) fn respond(
     opened: Opened,
     transition: Transition<ActiveIdentity>,
 ) -> Result<HashMap<&'static str, String>, String> {
-    let (result, identity) = describe(opened);
-    transition.commit(identity).map_err(gate_error)?;
-    Ok(result)
+    respond_with_detail(opened, transition, None)
+}
+
+/// Commits a core-selected identity and reports its independent persistence outcome.
+pub(super) fn respond_durable(
+    opened: Opened,
+    transition: Transition<ActiveIdentity>,
+    durability: SelectionDurability,
+) -> Result<HashMap<&'static str, String>, String> {
+    let detail = match durability {
+        SelectionDurability::Synced => None,
+        SelectionDurability::Unconfirmed { detail } => Some(detail),
+    };
+    respond_with_detail(opened, transition, detail.as_deref())
 }
 
 #[cfg(test)]
@@ -227,6 +261,17 @@ mod tests {
             .unwrap();
     }
 
+    #[test]
+    fn unconfirmed_persistence_is_visible_without_platform_diagnostics() {
+        let result = with_durability(
+            describe(Opened::Picker).0,
+            Some("private filesystem detail"),
+        );
+        assert_eq!(result["storageStatus"], "unconfirmed");
+        assert!(!result.values().any(|value| value.contains("filesystem")));
+        assert!(!with_durability(describe(Opened::Picker).0, None).contains_key("storageStatus"));
+    }
+
     #[tokio::test]
     async fn failed_removal_reopens_the_selection_and_never_another_identity() {
         let root = std::env::temp_dir().join(format!(
@@ -234,8 +279,8 @@ mod tests {
             Identity::try_generate().unwrap().peer_id()
         ));
         std::fs::create_dir_all(&root).unwrap();
-        let (other, _) = slots::create(&root, "file", &crate::save, &crate::load).unwrap();
-        let (slot, identity) = slots::create(&root, "file", &crate::save, &crate::load).unwrap();
+        let (other, _, _) = slots::create(&root, "file").unwrap();
+        let (slot, identity, _) = slots::create(&root, "file").unwrap();
         let peer_id = identity.peer_id();
         let state = IdentityState::new();
         state
@@ -249,9 +294,7 @@ mod tests {
         assert!(!draining.is_finished());
         drop(paused);
         let transition = draining.await.unwrap().unwrap();
-        assert!(
-            slots::remove(&root, &slot.id, Some("wrong"), &crate::load, &crate::erase).is_err()
-        );
+        assert!(slots::remove(&root, &slot.id, Some("wrong")).is_err());
         IdentityState::reconcile(root.clone(), transition)
             .await
             .unwrap();
@@ -259,14 +302,7 @@ mod tests {
 
         // The selected slot is gone: the other identity stays closed until the person picks it.
         let transition = state.start_transition().unwrap();
-        slots::remove(
-            &root,
-            &slot.id,
-            Some(peer_id.as_str()),
-            &crate::load,
-            &crate::erase,
-        )
-        .unwrap();
+        slots::remove(&root, &slot.id, Some(peer_id.as_str())).unwrap();
         IdentityState::reconcile(root.clone(), transition)
             .await
             .unwrap();

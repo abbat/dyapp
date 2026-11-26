@@ -238,10 +238,13 @@ on non-cancellable IO after actual completion, including disposal.
 
 ## Shared mobile identity registry
 
-Tauri candidate inventory, resolution and inspection use the shared Desktop-layout registry,
-including recoverable quarantines and fail-closed duplicate paths. Its local slot conversion is
-presentation/backend naming; ordinary desktop creation, selection and removal still await complete
-registry adoption.
+Tauri candidate inventory, resolution, inspection, creation, verified selection, confirmed removal
+and linked-slot adoption use the shared Desktop-layout registry, including recoverable quarantines
+and fail-closed duplicate paths. Its local slot conversion is presentation/backend naming. Native
+create/select/link responses propagate `SelectionDurability`; removal responses propagate
+`RemovalOutcome`. An unconfirmed directory sync is a committed result marked
+`storageStatus = unconfirmed`, never an automatic retry. The localized visible acknowledgement is planned in the
+remaining desktop UI step.
 
 The common core `identity_slots::removal_allowed` classifies the existing inventoried resolution
 for presentation: legacy roots, absent inventory and unavailable/damaged keys do not offer removal;
