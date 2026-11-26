@@ -171,6 +171,12 @@ tauri,clients/desktop/main.rs#link::linked_device,allow-list,clients/desktop/mai
 tauri,clients/desktop/main.rs#link::poll_link,allow-list,clients/desktop/main.rs#GENERATED_COMMAND_HANDLER
 tauri,clients/desktop/main.rs#link::start_link,allow-list,clients/desktop/main.rs#GENERATED_COMMAND_HANDLER
 tauri,clients/desktop/main.rs#link::ui_test_link_code,allow-list,clients/desktop/main.rs#GENERATED_COMMAND_HANDLER
+tauri,clients/desktop/main.rs#link_review::confirm_link_review,allow-list,clients/desktop/main.rs#GENERATED_COMMAND_HANDLER
+tauri,clients/desktop/main.rs#link_review::dismiss_link_review,allow-list,clients/desktop/main.rs#GENERATED_COMMAND_HANDLER
+tauri,clients/desktop/main.rs#link_review::link_review_photo,allow-list,clients/desktop/main.rs#GENERATED_COMMAND_HANDLER
+tauri,clients/desktop/main.rs#link_review::prepare_link_review,allow-list,clients/desktop/main.rs#GENERATED_COMMAND_HANDLER
+tauri,clients/desktop/main.rs#link_review::preview_link_review,allow-list,clients/desktop/main.rs#GENERATED_COMMAND_HANDLER
+tauri,clients/desktop/main.rs#link_review::resume_link_review,allow-list,clients/desktop/main.rs#GENERATED_COMMAND_HANDLER
 tauri,clients/desktop/main.rs#list_identities,allow-list,clients/desktop/main.rs#GENERATED_COMMAND_HANDLER
 tauri,clients/desktop/main.rs#load_network,allow-list,clients/desktop/main.rs#GENERATED_COMMAND_HANDLER
 tauri,clients/desktop/main.rs#load_profile,allow-list,clients/desktop/main.rs#GENERATED_COMMAND_HANDLER

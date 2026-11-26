@@ -34,8 +34,8 @@ const text = (key) => strings[`linkReview.${key}`];
 /** @param {Opening | null} opening @returns {opening is Opening} */
 const active = (opening) =>
   Boolean(opening && current === opening && dialog.open && identityCurrent(opening.generation));
-/** @type {Record<Field, string>} */
-const fieldLabels = {
+/** @returns {Record<Field, string>} */
+const fieldLabels = () => ({
   name: strings['linkReview.field.name'],
   location: strings['linkReview.field.location'],
   income: strings['linkReview.field.income'],
@@ -67,7 +67,7 @@ const fieldLabels = {
   maritalStatus: strings['linkReview.field.maritalStatus'],
   pets: strings['linkReview.field.pets'],
   seeking: strings['linkReview.field.seeking'],
-};
+});
 const unset = () => text('unpublished');
 /** @param {string | number | null | undefined} value */
 const optional = (value) =>
@@ -336,7 +336,7 @@ const renderField = (opening, field) => {
   group.className = 'card link-review-field';
   group.dataset.field = field;
   const legend = document.createElement('legend');
-  legend.textContent = fieldLabels[field];
+  legend.textContent = fieldLabels()[field];
   group.append(legend);
   for (const source of /** @type {Source[]} */ (['local', 'remote'])) {
     const profile = snapshot[source];
@@ -402,7 +402,7 @@ const render = (opening) => {
           const content = document.createElement('p');
           content.className = 'link-review-value';
           content.dataset.field = field;
-          content.textContent = `${fieldLabels[field]}\n${value(field, preview)}`;
+          content.textContent = `${fieldLabels()[field]}\n${value(field, preview)}`;
           return content;
         })
       : []),
