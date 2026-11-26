@@ -709,6 +709,10 @@ pub async fn finish_link(
     let seal_key = crate::sealing_key(root, dir, &store)?;
     let now = unix_now()?;
     let scores = dyapp_client::contact_verification::scores(dir).map_err(|e| e.to_string())?;
+    // Owner review reopens this original certificate after adoption deliberately refuses a write.
+    Session::open_or_create_with_scores(store, identity, device, &seal_key, scores.clone())
+        .map_err(|error| error.to_string())?;
+    let store = open(dir, identity)?;
     Session::finish_link_with_scores(
         store,
         &mut node,

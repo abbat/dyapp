@@ -28,6 +28,7 @@ mod ui_smoke;
 use identity_runtime::{describe, respond, respond_durable, with_durability, IdentityState};
 #[path = "link.rs"]
 mod link;
+mod link_review;
 #[cfg(target_os = "macos")]
 #[path = "macos.rs"]
 mod macos;
@@ -151,6 +152,7 @@ async fn drain_identity(
         app.state::<ProfileState>().cancel();
         network::cancel(&app.state::<NetworkState>());
     })?;
+    app.state::<link_review::Reviews>().clear();
     let searching = app.state::<search::SearchState>();
     let checks = app.state::<NetworkState>();
     drain_and_clear(transition, &searching, &checks).await
@@ -788,6 +790,12 @@ const GENERATED_COMMAND_HANDLER: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = ta
     link::poll_link,
     link::link_pending,
     link::linked_device,
+    link_review::prepare_link_review,
+    link_review::preview_link_review,
+    link_review::confirm_link_review,
+    link_review::link_review_photo,
+    link_review::resume_link_review,
+    link_review::dismiss_link_review,
     #[cfg(feature = "ui-smoke")]
     link::ui_test_link_code,
     chats::own::check_link_code,
@@ -912,6 +920,7 @@ fn main() {
         .manage(chats::Sessions::default())
         .manage(chats::profile_view::ViewState::default())
         .manage(link::Links::default())
+        .manage(link_review::Reviews::default())
         .manage(window::WindowState::default())
         .manage(tray::Tray::default())
         .setup(|app| {
