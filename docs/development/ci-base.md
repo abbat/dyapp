@@ -340,7 +340,8 @@ All shards still contribute to the unchanged aggregate score and invariant gates
 ### `fuzz` → **fuzz**
 
 Practice B4 ([fuzzing](../testing/README.md#fuzzing)). This job runs on ubuntu-24.04 with a
-30-minute timeout. Both push and nightly fuzz jobs use `rust-build` setup, retaining compiler,
+45-minute timeout, covering the sequential one-minute targets and compilation headroom. Both push
+and nightly fuzz jobs use `rust-build` setup, retaining compiler,
 linker and build libraries without downloading unrelated quality/UI tools. The separate pinned
 setup installs cargo-fuzz 0.13.2; rust-cache keeps `build/fuzz`. Step `fuzz`
 runs `rust-check.sh fuzz`: every target for 60 seconds, its saved corpus first. On failure the
