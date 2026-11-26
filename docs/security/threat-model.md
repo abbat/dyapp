@@ -312,6 +312,18 @@ Volumetric floods below libp2p stay out of scope ([below](#out-of-scope)).
 | Signature and Argon2id checks used to burn CPU | Writes, search | Low × medium | Accept: Ed25519 is cheap and runs after the buckets; Argon2id has its own permits and a cache |
 | Slow or idle streams hold connections | libp2p | Low × medium | Accept: requests time out after 20 s, idle connections after 60 s. Direct and relay setup are bounded to 10 s by the final transport builder and free admission. Client discovery/failover chains have a 30-second total budget |
 
+### Input inventory
+
+`untrusted-inputs.csv` maps each scanned protobuf, image, QR, archive, P2P event, Tauri and
+UniFFI byte/string entry point to a guard. `tests/scripts/check-untrusted-inputs.py` runs in quality,
+uses `rust-functions` identities instead of line numbers, and rejects missing or stale rows and
+missing fuzz targets, tests, limit constants or allow-list symbols. Add or update the row in the same
+commit as the input or guard. Separate multiple same-kind guard references with semicolons.
+
+`allow-list` records an explicitly reviewed boundary, not proof of runtime validation. Prefer a fuzz
+target or behavioral test for a new parser. The scanner recognizes the documented decoder families;
+it is not a semantic data-flow analysis of every possible Rust input.
+
 ### Homoglyphs and Unicode tricks
 
 Class 10 in detail. In place: rustc refuses bidi control characters in Rust code, and

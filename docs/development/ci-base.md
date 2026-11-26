@@ -277,6 +277,7 @@ This job runs on ubuntu-24.04 with a 60-minute timeout and a full-history checko
 | Lint | `check-rust-complexity.py`: strict all-feature/all-target workspace Clippy, 15/50/5 function limits with exact shrinking legacy budgets; `missing_docs` is denied ([B9](code-quality.md#public-api-documentation)). Raw metadata, diagnostics and parser reports stay under `build/complexity/`. `COMPLEXITY_BASE` binds budget changes to the push or PR base. |
 | Explicit panic budgets | `tests/scripts/check-panics.py`: [B8](code-quality.md#explicit-panic-budgets), non-test workspace Clippy `unwrap_used`/`expect_used`/`panic` and `arithmetic_side_effects` counts; JSON artifact `panic-budgets` when the checker ran |
 | Direct clock reads | `tests/scripts/check-clock.py`: bootstrap production code reads time through `rust/bootstrap/src/clock.rs`; per-file budgets of `Instant::now`/`SystemTime::now`/`Utc::now` outside test modules may only shrink |
+| Untrusted input inventory | `tests/scripts/check-untrusted-inputs.py`: every scanned decoder, P2P event, Tauri command and UniFFI byte/string input has a current guard row in `docs/security/untrusted-inputs.csv`; stale rows and removed guards fail ([contract](../security/threat-model.md#input-inventory)) |
 | Rust API docs | `RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --locked --no-deps` |
 
 Quality/security commands use the [shared output contract](code-quality.md#check-output):

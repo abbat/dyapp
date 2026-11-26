@@ -36,6 +36,7 @@ dev Docker container without compiling code. Kotlin lint/format, Protobuf lint/f
 | Secrets | gitleaks on the git history | `.gitleaksignore` | yes | — | enforced |
 | Commit messages, tracker IDs | `tests/scripts/check-repository.py` ([rules](code-quality.md#commit-messages)) | `BASELINE` in the script | yes | — | enforced after the baseline commit |
 | Source file size | `tests/scripts/check-repository.py` ([rules](code-quality.md#size-budgets)) | `[size]` in `tests/scripts/baselines.toml` | yes | — | 1000 lines; older files budgeted |
+| Untrusted input entry points | `tests/scripts/check-untrusted-inputs.py` ([inventory](../security/threat-model.md#input-inventory)) | `docs/security/untrusted-inputs.csv` | yes | — | enforced; missing inputs, stale rows and removed guards fail |
 | Trigger list | `tests/scripts/triggers.py` ([rules](code-quality.md#trigger-list)) | `tests/scripts/triggers.toml` | yes | — | enforced: every glob matches a tracked file |
 | Docs with the code | `tests/scripts/docs-sync.py` ([rules](code-quality.md#docs-change-with-the-code)) | `RULES` in the script | yes | — | enforced: commits since the push or PR base |
 | Spelling | typos on the source tree | `_typos.toml` | yes | — | enforced |
