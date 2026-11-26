@@ -5,7 +5,10 @@ use std::fs::{self, OpenOptions};
 use std::io::{ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
 
+use dyapp_client::identity_slots::{self as core, Layout, RecoveryReason, Registry, Resolution};
 use dyapp_identity::Identity;
+
+use crate::slot_keys;
 
 /// The virtual slot of the root `identity.key` / `identity-storage` installation.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
@@ -190,14 +193,77 @@ impl From<&dyapp_client::identity_slots::Slot> for Slot {
     }
 }
 
+fn registry(root: &Path) -> Registry {
+    Registry::new(root.to_path_buf(), Layout::Desktop)
+}
+
 /// Core inventory includes interrupted cleanup and refuses ambiguous duplicate paths.
-/// Caller-held writer locks must not be reacquired through `Registry::list` here.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn list(root: &Path) -> Result<Vec<Slot>, String> {
-    use dyapp_client::identity_slots::{self as core, Layout};
-    core::list(root, Layout::Desktop)
+    registry(root)
+        .list()
         .map(|slots| slots.iter().map(Slot::from).collect())
-        .map_err(|error| error.to_string())
+}
+
+fn recovery_reason(reason: RecoveryReason) -> &'static str {
+    match reason {
+        RecoveryReason::Missing => "missing",
+        RecoveryReason::Unavailable => "unavailable",
+        RecoveryReason::Incomplete => "incomplete",
+        RecoveryReason::Deleting => "deleting",
+        RecoveryReason::Damaged | RecoveryReason::InvalidPointer => "damaged",
+    }
+}
+
+fn project(slot: Option<Slot>, resolution: Resolution) -> Result<Opened, String> {
+    Ok(match resolution {
+        Resolution::Setup => Opened::Setup,
+        Resolution::Picker(_) => Opened::Picker,
+        Resolution::Ready(slot, identity) => Opened::Ready(Slot::from(&slot), *identity),
+        Resolution::Recovery {
+            reason, peer_id, ..
+        } => Opened::Recovery(
+            slot.ok_or("Identity recovery slot is missing")?,
+            recovery_reason(reason),
+            peer_id,
+        ),
+    })
+}
+
+/// Inspect one inventoried candidate through the core without changing selection.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
+pub fn inspect(root: &Path, slot: Slot) -> Result<Opened, String> {
+    let resolution = registry(root).inspect(&slot.id, &slot_keys::Keys)?;
+    project(Some(slot), resolution)
+}
+
+/// Resolve the persisted selection through the core, retaining the desktop recovery view.
+#[expect(unreachable_pub, reason = "Retained module API visibility")]
+pub fn resolve(root: &Path) -> Result<Opened, String> {
+    let registry = registry(root);
+    let resolution = registry.resolve(&slot_keys::Keys)?;
+    if let Resolution::Recovery {
+        id,
+        reason,
+        peer_id,
+    } = resolution
+    {
+        let slot = registry
+            .list()?
+            .iter()
+            .find(|slot| Some(&slot.id) == id.as_ref())
+            .map_or_else(
+                || Slot {
+                    id: id.unwrap_or_else(|| LEGACY.into()),
+                    dir: root.into(),
+                    mode: None,
+                    state: State::Broken,
+                },
+                Slot::from,
+            );
+        return Ok(Opened::Recovery(slot, recovery_reason(reason), peer_id));
+    }
+    project(None, resolution)
 }
 
 /// Reserves a fresh slot for a key in `mode`, written as `pending` before any key exists.
@@ -249,7 +315,8 @@ pub fn set_active(root: &Path, id: &str) -> Result<(), String> {
 }
 
 /// The slot to open without asking: the active one if listed, else the only ready slot.
-#[expect(unreachable_pub, reason = "Retained module API visibility")]
+#[cfg(test)]
+#[expect(unreachable_pub, reason = "Retained test fixture visibility")]
 pub fn choose<'a>(root: &Path, slots: &'a [Slot]) -> Option<&'a Slot> {
     if let Some(id) = active(root) {
         if let Some(slot) = slots.iter().find(|slot| slot.id == id) {
@@ -279,7 +346,8 @@ pub enum Opened {
 
 /// Opens the slot `choose` picks. A missing key or incomplete slot is a recovery state, never a
 /// reason to create a new identity.
-#[expect(unreachable_pub, reason = "Retained module API visibility")]
+#[cfg(test)]
+#[expect(unreachable_pub, reason = "Retained test fixture visibility")]
 pub fn open(root: &Path, load: Load<'_>) -> Result<Opened, String> {
     let mut slots = list(root)?;
     let index = match choose(root, &slots) {
@@ -379,8 +447,10 @@ pub fn device_key(
     save: &dyn Fn(&Slot, &Identity) -> Result<(), String>,
 ) -> Result<Identity, String> {
     let _lock = lock(root)?;
-    let slot = list(root)?
+    let slot = core::list(root, Layout::Desktop)
+        .map_err(|error| error.to_string())?
         .into_iter()
+        .map(|slot| Slot::from(&slot))
         .find(|slot| slot.dir == dir && slot.state == State::Ready)
         .ok_or("Unknown identity")?;
     if let Some(key) = load(&slot)? {
@@ -407,8 +477,10 @@ pub fn remove(
     erase: &dyn Fn(&Slot) -> Result<(), String>,
 ) -> Result<(), String> {
     let _lock = lock(root)?;
-    let mut slot = list(root)?
+    let mut slot = core::list(root, Layout::Desktop)
+        .map_err(|error| error.to_string())?
         .into_iter()
+        .map(|slot| Slot::from(&slot))
         .find(|slot| slot.id == id)
         .ok_or("Unknown identity")?;
     if slot.id == LEGACY || slot.state == State::Broken {
@@ -546,6 +618,30 @@ mod tests {
             Opened::Picker => "picker".to_owned(),
             Opened::Recovery(slot, reason, peer) => format!("{reason} {} {peer:?}", slot.id),
         }
+    }
+
+    #[test]
+    fn core_resolution_preserves_desktop_states_without_creating_a_key() {
+        let root = temp_root();
+        let state = |root: &Path| describe_opened(&resolve(root).unwrap());
+        assert_eq!(state(&root), "setup");
+        fs::write(root.join("active-profile"), "../escape\n").unwrap();
+        assert_eq!(state(&root), "damaged legacy-primary None");
+        fs::remove_file(root.join("active-profile")).unwrap();
+
+        let mut slot = reserve(&root, "file").unwrap();
+        assert_eq!(state(&root), format!("incomplete {} None", slot.id));
+        let identity = Identity::try_generate().unwrap();
+        crate::save(&slot, &identity).unwrap();
+        let peer = identity.peer_id();
+        assert_eq!(
+            state(&root),
+            format!("incomplete {} Some({peer:?})", slot.id)
+        );
+        set_state(&mut slot, State::Ready).unwrap();
+        assert_eq!(state(&root), format!("ready {} {peer}", slot.id));
+        assert_eq!(list(&root).unwrap().len(), 1);
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

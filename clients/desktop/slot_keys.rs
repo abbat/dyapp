@@ -30,6 +30,14 @@ impl KeyReader for Keys {
         if slot.storage != Some(Storage::System) {
             return Ok(false);
         }
+        // A fresh desktop install must still offer file storage when the optional system provider
+        // is unavailable. Existing legacy markers take the normal core recovery path instead.
+        if slot.id == core::LEGACY
+            && !slot.dir.join("identity-storage").exists()
+            && !slot.dir.join("identity.key").exists()
+        {
+            return Ok(false);
+        }
         for role in [Credential::Identity, Credential::Device, Credential::Seal] {
             if self.credential_present(slot, role)? {
                 return Ok(true);

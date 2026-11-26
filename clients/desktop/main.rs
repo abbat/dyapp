@@ -190,7 +190,7 @@ async fn identity_state(
 ) -> Result<HashMap<&'static str, String>, String> {
     let transition = drain_identity(&app, &state).await?;
     let dir = config_dir(&app)?;
-    let opened = tauri::async_runtime::spawn_blocking(move || slots::open(&dir, &load))
+    let opened = tauri::async_runtime::spawn_blocking(move || slots::resolve(&dir))
         .await
         .map_err(|e| e.to_string())??;
     let setup = matches!(opened, Opened::Setup);
@@ -232,7 +232,7 @@ async fn list_identities(
             .into_iter()
             .map(|slot| {
                 let (id, mode) = (slot.id.clone(), slot.mode);
-                let mut result = match slots::open_slot(slot, &load) {
+                let mut result = match slots::inspect(&dir, slot) {
                     Ok(opened) => describe(opened).0,
                     Err(_) => HashMap::from([
                         ("status", "recovery".into()),

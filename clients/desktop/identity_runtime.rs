@@ -67,7 +67,7 @@ impl IdentityState {
                 )
             });
             match selected {
-                Some(slot) => slots::open_slot(slot, &super::load),
+                Some(slot) => slots::inspect(&root, slot),
                 None => Ok(Opened::Picker),
             }
         })
