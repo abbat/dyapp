@@ -243,8 +243,9 @@ and linked-slot adoption use the shared Desktop-layout registry, including recov
 and fail-closed duplicate paths. Its local slot conversion is presentation/backend naming. Native
 create/select/link responses propagate `SelectionDurability`; removal responses propagate
 `RemovalOutcome`. An unconfirmed directory sync is a committed result marked
-`storageStatus = unconfirmed`, never an automatic retry. The localized visible acknowledgement is planned in the
-remaining desktop UI step.
+`storageStatus = unconfirmed`, never an automatic retry. The desktop shows an acknowledgement-only
+localized notice without raw diagnostics; starting another identity transition or acknowledging it
+dismisses the notice.
 
 The common core `identity_slots::removal_allowed` classifies the existing inventoried resolution
 for presentation: legacy roots, absent inventory and unavailable/damaged keys do not offer removal;

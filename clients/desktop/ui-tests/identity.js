@@ -215,6 +215,29 @@ const switchFromSettings = async (mode) => {
   await waitFor('picker');
   await pickReady(mode);
 };
+const checkDurabilityNotice = async (readyState) => {
+  const notice = document.getElementById('identity-durability');
+  let finishOld;
+  const old = appBindings.act(
+    new Promise((resolve) => {
+      finishOld = resolve;
+    }),
+  );
+  await appBindings.act(Promise.resolve({ status: 'picker' }));
+  finishOld({ ...readyState, storageStatus: 'unconfirmed' });
+  await old;
+  if (!notice.hidden) throw new Error('stale durability notice rendered');
+  await appBindings.act(Promise.resolve({ ...readyState, storageStatus: 'unconfirmed' }));
+  if (
+    notice.hidden ||
+    !notice.textContent.includes(appApi.strings['identity.persistence.notice']) ||
+    notice.querySelectorAll('button').length !== 1
+  )
+    throw new Error('committed durability notice is missing or offers a retry');
+  document.getElementById('identity-durability-ack').click();
+  if (!notice.hidden) throw new Error('durability acknowledgement did not dismiss the notice');
+  await appBindings.act(Promise.resolve(readyState));
+};
 // A pending identity response cannot render after a later transition has shown the picker.
 const checkStaleRender = async () => {
   const readyState = appBindings.current;
@@ -258,6 +281,7 @@ const checkStaleRender = async () => {
   if (document.getElementById('peer-id').textContent !== readyState.peerId || !actions.hidden) {
     throw new Error('retry did not reopen the kept identity');
   }
+  await checkDurabilityNotice(readyState);
 };
 const { checkStaleSearchAndChats, checkStalePeerActions, checkStaleSafety } =
   smoke.uiSmokeIdentityPeer;

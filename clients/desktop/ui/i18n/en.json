@@ -169,6 +169,8 @@
   "identity.switch": "Switch or add an identity",
   "identity.add": "Add a new identity",
   "identity.remove": "Remove this identity…",
+  "identity.persistence.notice": "The identity change is complete, but this device could not confirm durable storage. Do not repeat the action; check that your identity opens after restarting the app.",
+  "identity.persistence.ack": "I understand",
   "settings.title": "Settings",
   "settings.identities": "Identities on this device",
   "settings.active": "active",

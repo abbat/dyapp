@@ -104,12 +104,24 @@ const reasonText = (reason) =>
 
 // A result belongs to the identity view that started it, even after its Rust lease ends.
 
+const durabilityNotice = domById('identity-durability', HTMLDivElement);
+domById('identity-durability-ack', HTMLButtonElement).addEventListener('click', () => {
+  durabilityNotice.hidden = true;
+});
+/** @param {import('./identity-state.js').IdentityResponse} state @param {number} generation */
+const showDurability = (state, generation) => {
+  if (identityCurrent(generation)) {
+    durabilityNotice.hidden = state.storageStatus !== 'unconfirmed';
+  }
+};
+
 /**
  * @param {import('./identity-state.js').IdentityResponse | PromiseLike<import('./identity-state.js').IdentityResponse>} pending
  * @param {boolean | 'link'} [fresh]
  */
 const act = async (pending, fresh = false) => {
   const generation = ++identityState.generation;
+  durabilityNotice.hidden = true;
   document.dispatchEvent(new Event('dyapp:identity-change'));
   clearTimeout(searchWaitTimer);
   clearInterval(elapsedTimer);
@@ -851,6 +863,7 @@ async function renderReady(state, generation, fresh) {
   controller.statusShown = showStatus();
   wizardStep(fresh);
   show(fresh ? wizardNetwork : identity, 'status.ready');
+  showDurability(state, generation);
   return state;
 }
 
@@ -868,6 +881,7 @@ async function render(state, generation = identityState.generation, fresh = fals
     if (!identityCurrent(generation)) return state;
     domById('identities', HTMLDivElement).replaceChildren(...items.map(identityButton));
     show(sections[2], 'status.pick');
+    showDurability(state, generation);
     return state;
   }
   if (state.status === 'recovery') {
@@ -881,6 +895,7 @@ async function render(state, generation = identityState.generation, fresh = fals
     domById('recovery-peer', HTMLElement).textContent = state.peerId || '';
     domById('recovery-peer-row', HTMLParagraphElement).hidden = !state.peerId;
     show(sections[3], 'status.recovery');
+    showDurability(state, generation);
     return state;
   }
   if (state.status !== 'setup') throw new Error('Unknown identity state');
@@ -894,6 +909,7 @@ async function render(state, generation = identityState.generation, fresh = fals
     ? localeModule_strings[state.systemReason ?? '']
     : '';
   show(setup, 'status.choose');
+  showDurability(state, generation);
   return state;
 }
 

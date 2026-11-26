@@ -1,10 +1,7 @@
-//! Desktop identity views and remaining lifecycle adapters. Inventory is delegated to the shared
-//! core registry; see docs/development/desktop-identity-storage.md.
+//! Desktop identity views and device-key helpers. Lifecycle is delegated to the shared core
+//! registry; see docs/development/desktop-identity-storage.md.
 
 use std::fs::{self, OpenOptions};
-#[cfg(test)]
-use std::io::Write;
-use std::io::{ErrorKind, Read};
 use std::path::{Path, PathBuf};
 
 use dyapp_client::identity_slots::{
@@ -78,83 +75,6 @@ impl Slot {
     pub fn seal_name(&self) -> String {
         format!("{}:seal", self.system_name())
     }
-}
-
-fn is_uuid(name: &str) -> bool {
-    name.len() == 36
-        && name.char_indices().all(|(i, c)| match i {
-            8 | 13 | 18 | 23 => c == '-',
-            _ => matches!(c, '0'..='9' | 'a'..='f'),
-        })
-}
-
-#[cfg(test)]
-fn new_uuid() -> Result<String, String> {
-    // A throwaway key gives 16 OS-random bytes without another crate; it is never an identity.
-    let bytes = Identity::try_generate()
-        .map_err(|e| e.to_string())?
-        .public_key();
-    let hex = dyapp_identity::hex(&bytes[..16]);
-    Ok(format!(
-        "{}-{}-{}-{}-{}",
-        &hex[..8],
-        &hex[8..12],
-        &hex[12..16],
-        &hex[16..20],
-        &hex[20..]
-    ))
-}
-
-/// Reads a short marker file; `Ok(None)` if absent, `Err` if it is not a regular file.
-fn read_marker(path: &Path) -> Result<Option<String>, String> {
-    match fs::symlink_metadata(path) {
-        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
-        Err(error) => return Err(error.to_string()),
-        Ok(metadata) if !metadata.is_file() => return Err("Marker is not a regular file".into()),
-        Ok(_) => {}
-    }
-    let mut value = String::new();
-    fs::File::open(path)
-        .and_then(|file| file.take(64).read_to_string(&mut value))
-        .map_err(|e| e.to_string())?;
-    Ok(Some(value))
-}
-
-#[cfg(test)]
-fn state_name(state: State) -> &'static str {
-    match state {
-        State::Pending => "pending\n",
-        State::Ready => "ready\n",
-        State::Deleting => "deleting\n",
-        State::Broken => unreachable!("a broken state is never written"),
-    }
-}
-
-#[cfg(test)]
-fn write_new(path: &Path, value: &str) -> Result<(), String> {
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(path)
-        .map_err(|e| e.to_string())?;
-    file.write_all(value.as_bytes())
-        .and_then(|()| file.sync_all())
-        .map_err(|e| e.to_string())
-}
-
-#[cfg(test)]
-fn write_atomic(path: &Path, value: &str) -> Result<(), String> {
-    let temp = path.with_extension("tmp");
-    let _ = fs::remove_file(&temp);
-    write_new(&temp, value)?;
-    fs::rename(&temp, path).map_err(|e| e.to_string())?;
-    #[cfg(unix)]
-    if let Some(dir) = path.parent() {
-        fs::File::open(dir)
-            .and_then(|dir| dir.sync_all())
-            .map_err(|e| e.to_string())?;
-    }
-    Ok(())
 }
 
 impl From<&dyapp_client::identity_slots::Slot> for Slot {
@@ -251,47 +171,13 @@ pub fn resolve(root: &Path) -> Result<Opened, String> {
     project(None, resolution)
 }
 
-#[cfg(test)]
-#[expect(unreachable_pub, reason = "Retained test fixture visibility")]
-pub fn reserve(root: &Path, mode: &'static str) -> Result<Slot, String> {
-    let profiles = root.join("profiles");
-    fs::create_dir_all(&profiles).map_err(|e| e.to_string())?;
-    for _ in 0..8 {
-        let id = new_uuid()?;
-        let dir = profiles.join(&id);
-        match fs::create_dir(&dir) {
-            Err(error) if error.kind() == ErrorKind::AlreadyExists => continue,
-            result => result.map_err(|e| e.to_string())?,
-        }
-        write_new(&dir.join("storage-mode"), &format!("{mode}\n"))?;
-        write_new(&dir.join("state"), state_name(State::Pending))?;
-        return Ok(Slot {
-            id,
-            dir,
-            mode: Some(mode),
-            state: State::Pending,
-        });
-    }
-    Err("Could not reserve a new identity slot".into())
-}
-
-#[cfg(test)]
-#[expect(unreachable_pub, reason = "Retained test fixture visibility")]
-pub fn set_state(slot: &mut Slot, state: State) -> Result<(), String> {
-    if slot.id == LEGACY || slot.state == State::Broken {
-        return Err("Slot state cannot change".into());
-    }
-    write_atomic(&slot.dir.join("state"), state_name(state))?;
-    slot.state = state;
-    Ok(())
-}
-
 /// The slot named by `active-profile`, if the pointer is valid.
 #[expect(unreachable_pub, reason = "Retained module API visibility")]
 pub fn active(root: &Path) -> Option<String> {
-    let value = read_marker(&root.join("active-profile")).ok()??;
-    let id = value.strip_suffix('\n')?;
-    (id == LEGACY || is_uuid(id)).then(|| id.to_owned())
+    match core::active(root, Layout::Desktop) {
+        core::Active::Selected(id) => Some(id),
+        _ => None,
+    }
 }
 
 /// Reads a slot's key: `None` when its backend confirms there is no key.
@@ -408,6 +294,20 @@ mod tests {
         }
     }
 
+    fn pending(root: &Path) -> Slot {
+        let id = "11111111-1111-1111-1111-111111111111";
+        let dir = root.join("profiles").join(id);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("storage-mode"), "file\n").unwrap();
+        fs::write(dir.join("state"), "pending\n").unwrap();
+        Slot {
+            id: id.into(),
+            dir,
+            mode: Some("file"),
+            state: State::Pending,
+        }
+    }
+
     #[test]
     fn core_resolution_preserves_desktop_states_without_creating_a_key() {
         let root = temp_root();
@@ -417,7 +317,7 @@ mod tests {
         assert_eq!(state(&root), "damaged legacy-primary None");
         fs::remove_file(root.join("active-profile")).unwrap();
 
-        let mut slot = reserve(&root, "file").unwrap();
+        let mut slot = pending(&root);
         assert_eq!(state(&root), format!("incomplete {} None", slot.id));
         let identity = Identity::try_generate().unwrap();
         crate::save(&slot, &identity).unwrap();
@@ -426,7 +326,8 @@ mod tests {
             state(&root),
             format!("incomplete {} Some({peer:?})", slot.id)
         );
-        set_state(&mut slot, State::Ready).unwrap();
+        fs::write(slot.dir.join("state"), "ready\n").unwrap();
+        slot.state = State::Ready;
         assert_eq!(state(&root), format!("ready {} {peer}", slot.id));
         assert_eq!(list(&root).unwrap().len(), 1);
         fs::remove_dir_all(root).unwrap();
@@ -455,7 +356,7 @@ mod tests {
         keys.borrow_mut().remove(&slot.device_name());
         let lost = |_: &Slot, _: &Identity| Ok::<_, String>(());
         assert!(device_key(&root, &slot.dir, &load_device, &lost).is_err());
-        let pending = reserve(&root, "file").unwrap();
+        let pending = pending(&root);
         assert!(device_key(&root, &pending.dir, &load_device, &save_device).is_err());
         fs::remove_dir_all(root).unwrap();
     }

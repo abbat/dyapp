@@ -72,8 +72,9 @@ retains only desktop presentation and credential names. Resolution, inspection, 
 selection, confirmed removal and linked-slot adoption use the same registry. Interrupted `.removed`
 cleanup remains visible, and simultaneous live/quarantined paths with one ID produce a damaged
 candidate without opening its keys. Native responses report a committed but unconfirmed directory
-sync as `storageStatus = unconfirmed`; the corresponding localized acknowledgement is planned in the
-desktop UI step, and no operation is retried automatically.
+sync as `storageStatus = unconfirmed`. The desktop shows an acknowledgement-only localized notice
+without raw diagnostics; starting another identity transition or acknowledging it dismisses the
+notice, and no operation is retried automatically.
 The app keeps an older
 root `identity.key` / `identity-storage` or `primary` credential readable in place and creates
 **new** identities in independent local slots. The window shows a picker (each slot by Peer ID

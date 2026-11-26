@@ -322,6 +322,10 @@ has its own failure deadline and removes listeners even on failure. The test the
 check button using current layout bounds before clicking. Espresso root selection is not the
 readiness signal: on modern Android its focus prerequisite can block the IME action itself.
 
+Desktop identity smoke injects `storageStatus = unconfirmed` through the existing identity `act`
+boundary. It proves that the committed-persistence notice appears only for the current response,
+contains one acknowledgement and no retry, and cannot render over a later identity transition.
+
 Received-message prototype actions use the existing spacing token separately from compact message
 metadata. Empty received-menu holders are hidden; the normal/enlarged layout validator checks the
 actual control separation without allowances.

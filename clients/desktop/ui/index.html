@@ -24,6 +24,11 @@
   </svg>
   <!-- Screen readers hear each state; the visible title is the heading of the screen. -->
   <p id="app-ready" class="sr-only" role="status" data-i18n="status.loading"></p>
+  <div id="identity-durability" class="notice warn" role="status" aria-live="polite" hidden>
+    <span data-i18n="identity.persistence.notice"></span>
+    <button id="identity-durability-ack" class="btn quiet" type="button"
+      data-i18n="identity.persistence.ack"></button>
+  </div>
   <main id="boot" class="page">
     <div class="card">
       <h1 data-i18n="app.name"></h1>
