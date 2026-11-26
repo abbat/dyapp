@@ -100,6 +100,21 @@ class CheckOutput(unittest.TestCase):
                 self.assertIn("controlled.mjs", result.stdout)
                 self.assertNotIn("Unmapped check", result.stdout)
 
+    def test_untrusted_input_failure_keeps_inventory_diagnostic(self) -> None:
+        diagnostic = "missing inventory row: prost rust/ffi/src/lib.rs#receive"
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_check(
+                directory,
+                "untrusted-inputs",
+                [sys.executable, "-c", f"print({diagnostic!r}); exit(1)"],
+            )
+        self.assertEqual(result.returncode, 1)
+        self.assertIn(diagnostic, result.stdout)
+        self.assertIn(
+            "FIX: docs/security/threat-model.md#input-inventory", result.stdout
+        )
+        self.assertNotIn("Unmapped check", result.stdout)
+
     def test_json_failure_omits_passing_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             payload = '{"errors":["broken fixture"],"passing":100}'
