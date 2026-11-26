@@ -132,7 +132,9 @@
     await appApi.linkReview.previewDone;
     check(
       !get('link-review-preview-rows').hidden &&
-        get('link-review-preview-rows').textContent.includes('Preview about'),
+        get('link-review-preview-rows')
+          .querySelector('[data-field="name"]')
+          ?.textContent.endsWith('\nPreview'),
       'Native preview was not rendered',
     );
     await smoke.shot('link-review-preview');

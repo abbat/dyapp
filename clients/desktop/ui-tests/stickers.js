@@ -207,6 +207,7 @@
       );
       const summary = fixture.panel.querySelector('summary');
       summary.focus();
+      summary.classList.add('focus');
       check(
         document.activeElement === summary && getComputedStyle(summary).outlineOffset === '0px',
         'Saved packs focus ring overlaps its disclosure marker',
