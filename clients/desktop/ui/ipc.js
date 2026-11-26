@@ -37,6 +37,25 @@
  * @typedef {{ size: number, modules: boolean[] }} QrMatrix
  * @typedef {'multiple' | 'unreadable' | 'invalid' | 'matched' | 'foreign' | 'notFound'} QrScan
  * @typedef {{ code: string, qr: QrMatrix }} LinkCode
+ * @typedef {'name' | 'location' | 'income' | 'hasKids' | 'wantsMoreKids' | 'interests' |
+ *   'photos' | 'education' | 'profession' | 'company' | 'industry' | 'careerStage' |
+ *   'workLifeBalance' | 'birth' | 'gender' | 'orientation' | 'relationshipGoal' |
+ *   'rolePreference' | 'careerAmbition' | 'financialPhilosophy' | 'employmentStatus' |
+ *   'fitnessLevel' | 'zodiac' | 'height' | 'about' | 'smoking' | 'drinking' | 'tattoos' |
+ *   'maritalStatus' | 'pets' | 'seeking'} LinkReviewField
+ * @typedef {'local' | 'remote'} LinkReviewSource
+ * @typedef {{ field: LinkReviewField, source: LinkReviewSource }} LinkReviewChoice
+ * @typedef {{ thumbnail: number[], full: number[][] }} LinkReviewPhoto
+ * @typedef {{ version: string, fields: import('./profile-fields.js').ProfileDraft,
+ *   incomeFrom: string | null, incomeTo: string | null, hasKids: boolean | null,
+ *   wantsMoreKids: boolean | null, interests: string[], photos: LinkReviewPhoto[],
+ *   educationLevel: number, profession: string, company: string, industry: string,
+ *   careerStage: string, workLifeBalance: string }} LinkReviewProfile
+ * @typedef {{ reviewId: string, local: LinkReviewProfile, remote: LinkReviewProfile,
+ *   differences: LinkReviewField[], hidden: boolean }} LinkReviewSnapshot
+ * @typedef {{ published: LinkReviewProfile, draft: LinkReviewProfile, hidden: boolean,
+ *   pending: boolean }} LinkReviewSaved
+ * @typedef {{ width: number, height: number, pixels: number[] }} LinkReviewPixels
  * @typedef {{ query: string, offset: number }} CollectionCursor
  * @typedef {{ total: number, matched: number, number: number, pages: number,
  *   entries: { target: string, label: string }[], previous: CollectionCursor | null,
@@ -168,6 +187,12 @@
  *   start_link: Command<[], LinkCode>,
  *   cancel_link: Command<[], void>,
  *   link_pending: Command<[], boolean>,
+ *   prepare_link_review: Command<[], LinkReviewSnapshot>,
+ *   preview_link_review: Command<[{ reviewId: string, selected: LinkReviewChoice[] }], LinkReviewProfile>,
+ *   confirm_link_review: Command<[{ reviewId: string, selected: LinkReviewChoice[] }], LinkReviewSaved>,
+ *   link_review_photo: Command<[{ reviewId: string, source: LinkReviewSource, index: number }], LinkReviewPixels>,
+ *   resume_link_review: Command<[{ reviewId: string }], boolean>,
+ *   dismiss_link_review: Command<[{ reviewId: string }], void>,
  *   poll_link: Command<[], ReadyIdentity | null>,
  *   check_link_code: Command<[{ code: string }], void>,
  *   send_link: Command<[{ code: string }], void>,

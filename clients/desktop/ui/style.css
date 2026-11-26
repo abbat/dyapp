@@ -292,6 +292,18 @@ details > summary {
 #sticker-packs > summary.focus {
   outline-offset: 0;
 }
+.link-review-value {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.link-review-field {
+  min-width: 0;
+}
+.link-review-photo {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
 .switch-row {
   display: flex;
   gap: var(--space-3);

@@ -114,6 +114,7 @@
         <p data-i18n="link.done.text"></p>
         <p id="link-pending" class="notice warn" data-i18n="link.done.pending" hidden></p>
         <div class="actions">
+          <button id="link-review-open" class="btn" type="button" data-i18n="link.review.open" hidden></button>
           <button id="link-open" class="btn primary" type="button" data-i18n="link.open"></button>
         </div>
       </div>
@@ -719,6 +720,24 @@
       <span id="status-traffic-note" class="sr-only" data-i18n="statusbar.trafficNote"></span>
     </footer>
   </div>
+  <dialog id="link-review-dialog" class="modal" aria-labelledby="link-review-title" hidden>
+    <h2 id="link-review-title" data-i18n="linkReview.title"></h2>
+    <p data-i18n="linkReview.intro"></p>
+    <p class="caption" data-i18n="linkReview.authority"></p>
+    <p class="caption" data-i18n="linkReview.noPublish"></p>
+    <p id="link-review-status" class="notice" role="status" aria-live="polite" hidden></p>
+    <div id="link-review-fields"></div>
+    <h3 id="link-review-preview-title" data-i18n="linkReview.previewTitle" hidden></h3>
+    <div id="link-review-preview-rows" hidden></div>
+    <div class="actions">
+      <button id="link-review-close" class="btn" type="button" data-i18n="page.cancel"></button>
+      <button id="link-review-refresh" class="btn" type="button" data-i18n="linkReview.refresh"></button>
+      <button id="link-review-edit" class="btn" type="button" data-i18n="linkReview.edit" hidden></button>
+      <button id="link-review-preview" class="btn" type="button" data-i18n="linkReview.preview" disabled></button>
+      <button id="link-review-save" class="btn primary" type="button" data-i18n="linkReview.save" disabled></button>
+      <button id="link-review-resume" class="btn primary" type="button" data-i18n="linkReview.resume" hidden></button>
+    </div>
+  </dialog>
   <dialog id="sticker-manager" class="modal" aria-labelledby="sticker-manager-title" hidden>
         <div id="sticker-collection" class="card">
           <h2 id="sticker-manager-title" data-i18n="stickers.title"></h2>

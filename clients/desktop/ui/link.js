@@ -3,6 +3,7 @@ import { show, sections, who, modeText, showError, identity, act } from './app.j
 import { copyFrom } from './clipboard.js';
 import { invoke } from './ipc.js';
 import { strings } from './locale.js';
+import { controller as linkReviewController } from './link-review.js';
 import { drawContactQr } from './search.js';
 
 // The new computer's side of a link: the code, the wait for the record and the identity joined.
@@ -54,6 +55,7 @@ const finishLink = async (state, call) => {
   const peer = domById('link-peer', HTMLParagraphElement);
   peer.replaceChildren(...who(peer, state.peerId, '', modeText(state)));
   domById('link-pending', HTMLParagraphElement).hidden = !pending;
+  domById('link-review-open', HTMLButtonElement).hidden = !pending;
   linkWait.hidden = true;
   linkDone.hidden = false;
   linkOpen.focus();
@@ -109,6 +111,13 @@ domById('link-cancel', HTMLButtonElement).addEventListener('click', () => {
 });
 linkOpen.addEventListener('click', () => {
   if (linkJoined) act(linkJoined);
+});
+domById('link-review-open', HTMLButtonElement).addEventListener('click', () => {
+  linkReviewController.open();
+});
+document.addEventListener('dyapp:link-review-resumed', () => {
+  domById('link-pending', HTMLParagraphElement).hidden = true;
+  domById('link-review-open', HTMLButtonElement).hidden = true;
 });
 copyFrom(domById('copy-link-code', HTMLButtonElement), domById('link-code', HTMLElement));
 
