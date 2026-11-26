@@ -49,8 +49,12 @@ const busy = (target, value) => {
 /** @param {string} key @param {unknown} error */
 const failure = (key, error) => {
   message(key, true);
-  domById('sticker-details', HTMLDetailsElement).hidden = false;
-  domById('sticker-reason', HTMLParagraphElement).textContent = String(error);
+  const reason = String(error);
+  const showDetails = reason !== '<untrusted>' && reason !== 'Error: <untrusted>';
+  const details = domById('sticker-details', HTMLDetailsElement);
+  details.hidden = !showDetails;
+  if (!showDetails) details.open = false;
+  domById('sticker-reason', HTMLParagraphElement).textContent = showDetails ? reason : '';
 };
 /** @param {import('./ipc.js').StickerPack} entry @param {ManagerView} target */
 const row = (entry, target) => {
@@ -95,6 +99,7 @@ const row = (entry, target) => {
 /** @param {string} notice @param {import('./ipc.js').StickerPacks} page */
 const showCollectionStatus = (page, notice) => {
   const usage = text('usage').replace('{used}', sizeText(page.usedBytes));
+  domById('sticker-hint', HTMLParagraphElement).hidden = notice === 'saved';
   message('');
   domById('sticker-status', HTMLParagraphElement).textContent =
     `${notice ? `${text(notice)} ` : ''}${page.entries.length ? usage : `${text('empty')} ${usage}`}`;
@@ -198,6 +203,7 @@ const close = () => {
   domById('sticker-list', HTMLUListElement).replaceChildren();
   domById('sticker-next', HTMLButtonElement).hidden = true;
   domById('sticker-unknown', HTMLParagraphElement).hidden = true;
+  domById('sticker-hint', HTMLParagraphElement).hidden = false;
   domById('sticker-details', HTMLDetailsElement).hidden = true;
   domById('sticker-details', HTMLDetailsElement).open = false;
   domById('sticker-reason', HTMLParagraphElement).textContent = '';

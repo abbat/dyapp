@@ -288,6 +288,10 @@ details > summary {
   margin-bottom: var(--space-2);
   min-height: 24px;
 }
+#sticker-packs > summary:focus-visible,
+#sticker-packs > summary.focus {
+  outline-offset: 0;
+}
 .switch-row {
   display: flex;
   gap: var(--space-3);

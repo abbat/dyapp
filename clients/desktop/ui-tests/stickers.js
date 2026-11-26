@@ -205,6 +205,13 @@
         removeLabel.includes('<pack>') && removeLabel.includes('07070707'),
         'Remove lost its unambiguous pack target',
       );
+      const summary = fixture.panel.querySelector('summary');
+      summary.focus();
+      check(
+        document.activeElement === summary && getComputedStyle(summary).outlineOffset === '0px',
+        'Saved packs focus ring overlaps its disclosure marker',
+      );
+      await smoke.shot('stickers-collection-focus');
     } catch (error) {
       fixture.close();
       throw error;
@@ -223,8 +230,8 @@
         'Import lost identity or bytes',
       );
       check(
-        get('status').textContent.includes(appApi.strings['stickers.saved']),
-        'Import lacks local confirmation',
+        get('status').textContent.includes(appApi.strings['stickers.saved']) && get('hint').hidden,
+        'Import lacks a single local confirmation',
       );
     } catch (error) {
       fixture.close();
@@ -269,17 +276,25 @@
         throw new Error('<untrusted>');
       });
       check(
-        get('reason').textContent.includes('<untrusted>') &&
-          get('reason').children.length === 0 &&
-          !get('details').hidden,
-        'Read failure lacks text-only details',
+        get('reason').textContent === '' && get('details').hidden,
+        'Read failure exposes a redacted placeholder',
       );
       check(
         get('status').textContent === appApi.strings['stickers.error'],
         'Read failure lacks retry',
       );
-      get('details').open = true;
       await smoke.shot('stickers-read-error');
+      await open(async () => {
+        throw new Error('permission denied');
+      });
+      check(
+        get('reason').textContent.includes('permission denied') &&
+          get('reason').children.length === 0 &&
+          !get('details').hidden,
+        'Read failure lost actionable text-only details',
+      );
+      get('details').open = true;
+      await smoke.shot('stickers-read-error-details');
       ui.close();
       check(
         get('reason').textContent === '' && !get('details').open,

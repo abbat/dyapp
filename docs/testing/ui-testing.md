@@ -758,8 +758,12 @@ and absence of chat rows; this common-core proof does not imply three-device JNI
 
 The shipped desktop sticker-controller paging check awaits its actual listing completion, then
 checks the localized Pack ID label, contiguous eight-digit prefix and accessible Remove target.
-The full removal confirmation retains the complete identifier. Controller readiness and focus
-come from completed callbacks and the current DOM, with no timing or positional assumptions.
+The full removal confirmation retains the complete identifier. Successful import retains one
+local-storage confirmation without repeating the static hint. A collection read failure hides
+only the exact redacted placeholder; genuine errors retain text-only Details. The Saved packs
+focus capture checks that the ring does not overlap the disclosure marker. Controller readiness
+and focus come from completed callbacks and the current DOM, with no timing or positional
+assumptions.
 
 The iOS typed-profile journey awaits editable/hittable field readiness and measured containment
 above the current keyboard. A partially exposed hittable field is insufficient for native entry.
