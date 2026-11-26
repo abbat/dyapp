@@ -403,7 +403,8 @@ Practice B4, with cargo-fuzz 0.13.2 and libfuzzer-sys (pinned in `tools/docker/D
 builds on the pinned stable toolchain because the targets run without a sanitizer (`-s none`):
 safe Rust needs no AddressSanitizer, and panics, overflows (debug assertions and overflow checks are
 explicitly enabled in `tests/fuzz/Cargo.toml`; the shared target module asserts debug assertions at
-compile time), hangs and memory blow-ups still fail.
+compile time), hangs and memory blow-ups still fail. `quircs` is pinned only in this test workspace;
+production clients keep their existing decoder dependencies.
 
 Most targets feed one request handler of a bootstrap node, the code that parses what any peer
 sends. `tests/fuzz/src/lib.rs` opens one node with the media and search roles in a temporary directory,
