@@ -74,6 +74,7 @@ step() {
             check clippy python3 -B tests/scripts/check-rust-complexity.py --raw
             check panics python3 -B tests/scripts/check-panics.py --raw
             check clock python3 -B tests/scripts/check-clock.py
+            check untrusted-inputs python3 -B tests/scripts/check-untrusted-inputs.py
             step rustdoc
             ;;
         unused-dependencies)
