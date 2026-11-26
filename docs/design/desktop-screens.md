@@ -516,6 +516,12 @@ Cancel that lost the race to the record lands here too.
 `link-done` names the identity joined and says chats start now. `link-done-pending`
 adds that the network has not accepted this computer yet; the app keeps trying while it is open.
 The identity the wizard made is erased at this point, and it was never published.
+When linked-device recovery has ambiguous local and verified remote profile fields,
+a Review profile setup action opens a comparison dialog. Every differing field requires an explicit
+On-this-computer/Verified-network choice before preview or save. Full values and photo references
+stay visible when a thumbnail is unavailable. Saving creates only a local draft; Finish device
+setup is a separate action. Changed context or an uncertain result requires a fresh comparison,
+never a blind retry.
 
 | Control | ID | Notes |
 | --- | --- | --- |

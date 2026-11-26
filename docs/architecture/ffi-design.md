@@ -1089,7 +1089,8 @@ errors never grant removal authority. Actual Android integration acceptance rema
 against its saved device before importing pending state, and reuses the ordinary directory/key-package/
 fallback completion. It never creates credentials or a session. The pending row goes last; on failure,
 reopen the original session and retry. Common native `ProfileAdoptionReview.resume_link` delegates to
-this operation; client presentation remains planned.
+this operation. Android and Tauri receiving flows expose it through the review contracts below;
+Apple presentation remains planned.
 New/replaced pending links atomically retain fresh enrollment provenance. Before an unlisted device's
 first relist request, shared core commits an intent bound to the exact pending snapshot, original
 certificate and verified semantic ordinary source, checking the operation's original pending bytes
@@ -1204,8 +1205,21 @@ cannot bypass a required owner choice or publish editable values implicitly. A m
 returns false without connecting. Failed fallback publication keeps the exact saved signed record
 for retry, and a replacement pending link is never cleared by the older completion. Admission stays
 alive until the actual session/future finishes, including after UI handle disposal.
-Tauri adapters, presentation, renewed-owner authorization for uncertain legacy enrollment, and explicit
-legacy private-state recovery remain planned. Automatic
+Tauri `prepare_link_review`, `preview_link_review`, `confirm_link_review`, `link_review_photo`,
+`resume_link_review` and `dismiss_link_review` expose the same core operations without depending on
+`dyapp-ffi`. The desktop adapter reacquires `IdentityState` and `Sessions` only for actual work,
+opens the existing device/sealing secrets without generating replacements, and binds the opening to
+slot/directory/owner, device, sealing-key digest, session certificate and active network. Idle
+reviews hold no lease or plaintext key. Desktop `finish_link` installs the original MLS session
+before adoption so a subsequent review can reopen its certificate; the review adapter itself never
+bootstraps one. Snapshot versions and income bounds use decimal strings rather than lossy WebView
+numbers. A stale opening or changed context returns `reviewRequired`;
+private-state, enrollment-authorization, revoked, selection/profile, unlisted-device, photo and
+backend failures remain distinct. Dismiss affects only its own opening and never cancels admitted
+work. The desktop dialog requires explicit Local/Remote decisions, uses core preview/confirmation,
+shows bounded core-decoded thumbnails and offers separate original-link resumption. An uncertain
+save/resume requires a fresh comparison rather than a blind retry. Renewed-owner authorization for
+uncertain legacy enrollment and explicit legacy private-state recovery remain planned. Automatic
 pre-receipt recovery never treats a malformed or nonmatching existing receipt as absent. Remaining
 client prepared-outcome adapters still require migration before frontend monitors can be removed.
 Search queue hold/ACK/backoff operations also use immediate writer transactions. A durable

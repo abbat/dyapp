@@ -223,6 +223,14 @@ The keyboard plan checks their current viewport geometry together; calibration m
 back above the long list to require rejection, then restores it. Controlled admitted completion
 retains the existing Escape refusal and mounted-view acknowledgement before checking feedback.
 
+Desktop `checkLinkReview` drives the shipped dialog with controlled IPC completion. It covers
+incomplete choices, native preview/save, separate resume, unavailable-photo retry, equal reviews,
+identity retirement, and stale prepare/confirm responses after dismissal and equal-content reopen.
+The captures include chosen values and the saved recovery state. No mock substitutes for native
+field selection, existing-credential admission or link completion: those remain core/adapter and
+native CI responsibilities. EN/RU 440/1280 and normal/200-percent source-bound native runs are
+required before closing the desktop recovery acceptance.
+
 Android receiving-screen checks use the real Settings frame, controls and retained-operation store
 with controlled native completion. They preserve the exact reserved destination, require explicit
 creation and disposition, and invoke captured application callbacks after disposal/equal reopening.

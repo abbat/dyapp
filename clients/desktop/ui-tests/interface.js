@@ -14,6 +14,7 @@ const formattingModule = await import(new URL('formatting.js', document.baseURI)
 const identityStateModule = await import(new URL('identity-state.js', document.baseURI).href);
 const ipcModule = await import(new URL('ipc.js', document.baseURI).href);
 const linkModule = await import(new URL('link.js', document.baseURI).href);
+const linkReviewModule = await import(new URL('link-review.js', document.baseURI).href);
 const localeModule = await import(new URL('locale.js', document.baseURI).href);
 const mediaCacheModule = await import(new URL('media-cache.js', document.baseURI).href);
 const networkModule = await import(new URL('network.js', document.baseURI).href);
@@ -770,6 +771,9 @@ const appApi = {
   },
   get stickerBinaryPixels() {
     return stickerPixelsModule.stickerBinaryPixels;
+  },
+  get linkReview() {
+    return linkReviewModule.controller;
   },
   get stickerCollection() {
     return stickersModule.controller.stickerCollection;

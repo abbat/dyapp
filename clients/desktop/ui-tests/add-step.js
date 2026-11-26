@@ -4,6 +4,7 @@
     if (state.status !== 'ready') throw new Error('identity not reopened');
     await checkSettingsInventory(state.peerId, state.mode);
     await smoke.checkStickerCollection();
+    await smoke.checkLinkReview();
     await smoke.checkStickerRemoval();
     await smoke.checkChatComposer();
     await smoke.checkStickerPicker();

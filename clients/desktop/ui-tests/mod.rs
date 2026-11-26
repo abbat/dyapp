@@ -42,6 +42,7 @@ const SCRIPTS: &[&str] = &[
     include_str!("copy-guard.js"),
     include_str!("settings-guards.js"),
     include_str!("lifecycle-guards.js"),
+    include_str!("link-review.js"),
     include_str!("guards.js"),
     include_str!("stickers.js"),
     include_str!("composer.js"),
