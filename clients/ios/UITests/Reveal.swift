@@ -61,7 +61,7 @@ func reveal(
 }
 
 @MainActor
-private func ready(_ control: XCUIElement, timeout: TimeInterval = 10) -> Bool {
+func ready(_ control: XCUIElement, timeout: TimeInterval = 10) -> Bool {
     let result = XCTWaiter.wait(
         for: [
             XCTNSPredicateExpectation(

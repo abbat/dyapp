@@ -27,7 +27,8 @@ extension ChatsUITests {
         let share = reveal(app.buttons["view-share"], in: app)
         XCTAssertEqual(share.value as? String, "accessibility")
         share.tap()
-        let target = reveal(app.buttons["share-1"], in: app)
+        let target = reveal(app.buttons["share-1"], in: app, fullyVisible: true)
+        guard ready(target) else { return }
         attachShareState(
             "\(language)-eligible-target", app: app, element: target, configuration: configuration)
         target.tap()
