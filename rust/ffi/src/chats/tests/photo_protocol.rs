@@ -231,5 +231,41 @@ fn accepted_native_submission_downloads_its_exact_blob_and_reopens_cached_origin
     let before = snapshot(&f);
     assert_eq!(original(&f, &peer, &item), photo.full);
     assert_eq!(snapshot(&f), before);
-    assert_eq!(f.chats.chat_photos(peer).unwrap().len(), 1);
+    assert_eq!(f.chats.chat_photos(peer.clone()).unwrap().len(), 1);
+    assert_photo_forward_preflight(&f, peer, item);
+}
+
+fn assert_photo_forward_preflight(f: &Fixture, peer: String, item: ChatPhoto) {
+    let target = super::offline::establish_with_event(f, [2; 16]);
+    let source = crate::ChatForwardSource {
+        peer_id: peer,
+        group_id: item.group_id,
+        author: item.author,
+        message_id: item.id,
+    };
+    let before = snapshot(f);
+    assert_eq!(
+        f.chats.forward_photo_targets(source.clone()).unwrap(),
+        vec![target.clone()]
+    );
+    let mut wrong = source.clone();
+    wrong.group_id.clear();
+    assert!(matches!(
+        f.chats.forward_photo_targets(wrong),
+        Err(crate::ChatForwardError::UnknownMessage)
+    ));
+    assert_eq!(snapshot(f), before);
+    f.chats
+        .session
+        .lock()
+        .unwrap()
+        .store()
+        .set_blocked(&target, true)
+        .unwrap();
+    let blocked = snapshot(f);
+    assert!(matches!(
+        f.chats.forward_photo(source, target),
+        Err(crate::ChatForwardError::Blocked)
+    ));
+    assert_eq!(snapshot(f), blocked);
 }
