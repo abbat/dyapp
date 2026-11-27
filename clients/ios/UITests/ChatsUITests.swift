@@ -115,7 +115,6 @@ final class ChatsUITests: XCTestCase {
             app.textFields["chat-input"].waitForExistence(timeout: 30), app.debugDescription)
     }
 
-    /// The DEBUG peer answers with its profile link; its card opens the page, whose Share sends the link back.
     func testSharedProfileOpensFromItsCardAndSharesToAChat() {
         assertProfileShare(language: "en", locale: "en_US", sentLabel: "Profile sent.")
     }
@@ -130,6 +129,7 @@ final class ChatsUITests: XCTestCase {
             "--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)",
             "--ui-test-chat-peer-shares",
             "-AppleLanguages", "(\(language))", "-AppleLocale", locale,
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityM",
         ]
         app.launch()
         createIdentity(app)
