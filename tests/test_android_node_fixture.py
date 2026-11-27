@@ -3,6 +3,8 @@
 from hashlib import sha256
 import importlib.util
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -61,6 +63,29 @@ class NodeFixtureTests(unittest.TestCase):
                 MODULE.install(original, destination, digest)
             self.assertEqual(original.read_bytes(), b"public fixture")
             self.assertTrue(destination.is_symlink())
+
+    def test_cli_installs_once_and_reports_refusal(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, destination = root / "fixture", root / "node.key"
+            source.write_bytes(b"public CLI fixture")
+            command = [
+                sys.executable,
+                "-B",
+                str(SCRIPT),
+                "--source",
+                str(source),
+                "--destination",
+                str(destination),
+                "--sha256",
+                sha256(source.read_bytes()).hexdigest(),
+            ]
+            first = subprocess.run(command, capture_output=True, check=False)
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.assertEqual(destination.read_bytes(), source.read_bytes())
+            again = subprocess.run(command, capture_output=True, check=False)
+            self.assertNotEqual(again.returncode, 0)
+            self.assertEqual(destination.read_bytes(), source.read_bytes())
 
     def test_missing_fixture_never_creates_destination(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

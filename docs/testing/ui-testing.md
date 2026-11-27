@@ -38,6 +38,8 @@ fixture is integrated; creating this workflow alone does not fix that startup wa
 The prepared `android_node_fixture.install` helper accepts only bounded regular-file bytes matching
 a pinned SHA-256, creates the destination exclusively with mode `0600`, and never generates keys.
 Its refusal tests cover altered/missing/empty/oversized input and source/destination symlinks.
+The equivalent CLI is `python3 -B tests/scripts/android_node_fixture.py --source FILE --destination FILE --sha256 DIGEST`;
+a nonzero exit stops startup, with no fallback generation. Existing destinations are never replaced.
 Runtime wiring and production proof/Peer ID validation remain pending verified provisioning output;
 installer unit tests alone do not establish cryptographic proof or emulator acceptance.
 

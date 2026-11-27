@@ -1,5 +1,6 @@
 """Install pinned test bytes; native code must validate proof."""
 
+import argparse
 from hashlib import sha256
 import os
 from pathlib import Path
@@ -29,3 +30,16 @@ def install(source: Path, destination: Path, expected_sha256: str) -> None:
         stream.write(data)
         stream.flush()
         os.fsync(stream.fileno())
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source", type=Path, required=True)
+    parser.add_argument("--destination", type=Path, required=True)
+    parser.add_argument("--sha256", required=True)
+    args = parser.parse_args()
+    install(args.source, args.destination, args.sha256)
+
+
+if __name__ == "__main__":
+    main()
