@@ -44,6 +44,7 @@ dev Docker container without compiling code. Kotlin lint/format, Protobuf lint/f
 | Cargo dependencies | cargo-shear (unused dependencies in every tracked Cargo workspace) | `[package.metadata.cargo-shear]` | yes | — | enforced |
 | Swift (iOS only) | SwiftLint 0.65.1 and strict swift-format from pinned Swift 6.4.0 | `.swiftlint.yml`, `.swift-format` | yes | — | enforced; three SourceKit rules are skipped on Linux |
 | Kotlin | detekt and detekt-formatting 1.23.8 on Android | `detekt.yml`, `detekt-baseline.xml`, `.editorconfig` | yes | Gradle `detekt`, `check` and app `preBuild` | enforced; empty baseline |
+| Shared translations | stdlib Python generator (`--platform desktop --check`) | `i18n/catalogue.json`, language dictionaries | yes | committed native resources | desktop enforced; Android/Apple migration planned |
 | Desktop UI JavaScript types | TypeScript 7.0.2 (`checkJs`, strict, no emit) | `rust-check.sh web-check` | yes | — | enforced |
 | JavaScript, HTML, CSS | Biome 2.6.3 (`biome check` on desktop and Android prototype) | `biome.jsonc` | yes | — | enforced; lint and formatting |
 | Markdown | rumdl 0.3.1 (`rumdl check .`) | `.rumdl.toml` | yes | — | enforced; `.beads/` excluded |

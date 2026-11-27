@@ -2,8 +2,9 @@
 
 Canonical language sources are `i18n/en.json` and `i18n/ru.json`, with typed native
 bindings in `i18n/catalogue.json`. Their import preserves every existing native text and key.
-Current production Android XML, desktop JSON and Apple xcstrings remain unchanged until
-their migrations land. The generator is not wired into standard quality/CI yet.
+Desktop native JSON is generated from these sources; `rust-check.sh web-check` checks
+its committed bytes without changing them. Android XML and Apple xcstrings retain their
+existing layout until their migrations land.
 
 The implemented projection helper is `tools/scripts/translation_templates.py`.
 It accepts canonical text with named arguments, explicit string/integer argument types,
@@ -38,7 +39,7 @@ Aliases are explicit. Android native keys retain existing mixed-case enum suffix
 (for example `profile_value_career_ambition_High`). Loading validates every language and placeholder:
 duplicate keys, non-finite numbers, unsupported schema/fields, unsafe qualifiers, symlink/oversized
 sources, missing/extra messages or language files and duplicate native bindings fail.
-The loader writes nothing. Native migration and standard CI integration remain planned.
+The loader writes nothing. Android and Apple native migrations and their CI checks remain planned.
 
 `translation_renderers.py` builds requested native outputs entirely in memory.
 Android gets one `strings.xml` per configured qualifier, desktop gets one JSON file per language,

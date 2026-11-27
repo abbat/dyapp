@@ -1,5 +1,11 @@
 # UI Testing: Practical Guide
 
+Desktop catalogue values come from the [shared translation sources](../development/translations.md).
+Regeneration checks compare committed output bytes; native UI builds use the committed files and
+need no generator. Existing dynamic-key, unused-key and source-reference checks still run on the
+native output. The repository translation test compares actual desktop/Apple values and Android
+key inventories; SDK resource compilation and rendered native checks establish separate evidence.
+
 Localized native hosts wrap their context to supply actual configuration to child windows.
 Theme and appearance code resolve the Activity through AndroidX `LocalActivity`, never by
 casting a View context. `LocalizedDialogScaleTests` exercises the real wrapped host and

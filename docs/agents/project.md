@@ -678,7 +678,8 @@ discovery and run nothing; regression tests must cover discovery errors and empt
   data without explicit confirmation from the user. The `rm -f` / `apt-get -y` forms in AGENTS.md
   only say *how* to avoid interactive prompts, not that these actions are allowed.
 - The Android prototype imports the desktop prototype `STRINGS` before its local overrides.
-  Shared key splits or renames must update both HTML consumers; native catalogues are separate.
+  Shared key splits or renames must update both HTML consumers. Native catalogue editing follows
+  the [shared source contract](../development/translations.md); prototype overrides remain separate.
 - Before changing the desktop prototype or any client screen, re-check the changed states and
   their neighbours against Nielsen's 10 heuristics and record the findings, as described in the
   [desktop heuristic review](../design/desktop-heuristics.md#when-to-review). No change ships
