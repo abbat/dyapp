@@ -10,6 +10,7 @@ struct LinkReceiveSection: View {
     @State private var opening = UUID()
     @State private var busy = false
     @State private var failed = false
+    @State private var expired = false
 
     private struct Invitation: @unchecked Sendable {
         let receiver: MobileLinkReceiver
@@ -39,12 +40,17 @@ struct LinkReceiveSection: View {
                     .accessibilityIdentifier("link-receive-start")
             }
             if busy { ProgressView() }
-            if failed { Text("devices.uncertain").font(.caption) }
+            if expired {
+                Text("devices.code.expired").font(.caption)
+            } else if failed {
+                Text("devices.uncertain").font(.caption)
+            }
         }
         .onChange(of: feed.owner) { _ in
             _ = invitation?.receiver.cancel()
             invitation = nil
             failed = false
+            expired = false
         }
         .onDisappear {
             opening = UUID()
@@ -83,6 +89,7 @@ struct LinkReceiveSection: View {
         guard !busy, let context = feed.context else { return }
         let ticket = opening
         let wizard = wizard
+        expired = false
         busy = true
         failed = false
         Task {
@@ -138,8 +145,8 @@ struct LinkReceiveSection: View {
                     failed = true
 
                 case .failure:
-                    if phase == .failed || phase == .interrupted || phase == .invalidated
-                        || deviceLinkCodeStatus(text: value.code) == .expired
+                    expired = deviceLinkCodeStatus(text: value.code) == .expired
+                    if phase == .failed || phase == .interrupted || phase == .invalidated || expired
                     {
                         _ = value.receiver.cancel()
                         invitation = nil
