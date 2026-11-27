@@ -640,8 +640,9 @@ lock-screen suppression. It does not count notices, inspect history or sanitize 
 too-long and sendable controls. Loading, a pending outgoing request and a closed chat disable
 submission. The shared protocol limit is 65,536 UTF-8 bytes, inclusive. Blank text follows the
 Linux desktop's ECMAScript trim semantics, including BOM as blank and excluding NEL from blank.
-The common `chat_composer_policy` native adapter converts states/results; Android delegates its
-composer helpers to it. This presentation policy does not replace send authorization. Android
+The common `chat_composer_policy` native adapter converts states/results; Android and iOS delegate
+their composer controls to it, including UTF-8 boundaries and shared blank-text semantics.
+This presentation policy does not replace send authorization. Android
 text/edit/delete and photo actions consume the committed submission APIs below; projection reads
 refresh the UI and never determine whether an operation committed.
 The session staging path separates preflight context, MLS preparation and atomic persistence;

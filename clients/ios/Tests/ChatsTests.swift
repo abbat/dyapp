@@ -31,12 +31,29 @@ final class ChatsTests: XCTestCase {
         XCTAssertFalse(chatWritable(.closed))
         XCTAssertTrue(chatWritable(ChatState.none))
         XCTAssertTrue(chatWritable(.requestReceived))
+        XCTAssertTrue(chatWritable(.open))
+        for state: ChatState? in [nil, .requestSent, .closed] {
+            XCTAssertFalse(chatSendable(state, "hi"))
+        }
+        for state in [ChatState.none, .requestReceived, .open] {
+            XCTAssertTrue(chatSendable(state, "hi"))
+        }
         XCTAssertTrue(chatSendable(.open, "hi"))
         XCTAssertFalse(chatSendable(.open, " \n"))
         XCTAssertTrue(chatSendable(.open, String(repeating: "a", count: 65_536)))
         XCTAssertFalse(chatSendable(.open, String(repeating: "a", count: 65_537)))
         XCTAssertTrue(
-            chatTooLong(String(repeating: "\u{44f}", count: 32_769)), "the limit counts bytes")
+            chatComposerPolicy(state: .open, text: String(repeating: "\u{44f}", count: 32_769))
+                .tooLong,
+            "the limit counts bytes")
+    }
+
+    func testComposerUsesSharedWhitespaceAndMultibyteBoundaries() {
+        // Core uses the same trim rules as Android; Foundation treats BOM and NEL differently.
+        XCTAssertFalse(chatSendable(.open, "\u{feff}\u{a0} \n"))
+        XCTAssertTrue(chatSendable(.open, "\u{85}"))
+        XCTAssertTrue(chatSendable(.open, String(repeating: "\u{44f}", count: 32_768)))
+        XCTAssertFalse(chatSendable(.open, String(repeating: "\u{44f}", count: 32_769)))
     }
 
     func testAFailedSendThatStoredItsTextReadsAsQueued() {

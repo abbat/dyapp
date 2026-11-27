@@ -174,7 +174,9 @@ struct ChatView: View {
                     .accessibilityIdentifier("chat-details")
             }
         }
-        if chatTooLong(draft) { Text("chat.tooLong").font(.caption) }
+        if chatComposerPolicy(state: history?.state, text: draft).tooLong {
+            Text("chat.tooLong").font(.caption)
+        }
         if editing != nil {
             HStack {
                 Text("chat.editing").font(.caption).accessibilityIdentifier("chat-editing")
@@ -355,18 +357,13 @@ extension ChatMessage {
     var threadKey: Data { groupId + id }
 }
 
-/// A shown chat takes text unless the first message waits for a reply or a match ended; nil is still loading.
+/// The common native policy projects controls; send operations still authorize each action.
 func chatWritable(_ state: ChatState?) -> Bool {
-    guard let state else { return false }
-    return state != .requestSent && state != .closed
+    chatComposerPolicy(state: state, text: "").writable
 }
 
-/// As the core's limit.
-func chatTooLong(_ text: String) -> Bool { text.utf8.count > 65_536 }
-
 func chatSendable(_ state: ChatState?, _ text: String) -> Bool {
-    chatWritable(state) && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        && !chatTooLong(text)
+    chatComposerPolicy(state: state, text: text).sendable
 }
 
 /// Whether a failed send still stored its text: another copy from the same draft must not go out.
