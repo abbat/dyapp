@@ -10,6 +10,7 @@ struct ChatPhotoComposer: View {
     @State private var picking = false
     @State private var working = false
     @State private var draft: PreparedPhoto?
+    @State private var preview: Image?
     @State private var confirming = false
     @State private var status: ChatStatus?
 
@@ -25,15 +26,26 @@ struct ChatPhotoComposer: View {
             }
         }
         .fileImporter(isPresented: $picking, allowedContentTypes: [.jpeg, .png]) { result in
-            guard case let .success(url) = result else { return }
-            working = true
-            status = nil
-            Task { await prepare(url) }
+            guard feed.isCurrent(context) else { return }
+            switch result {
+            case let .success(url):
+                working = true
+                status = nil
+                Task { await prepare(url) }
+
+            case let .failure(error):
+                if (error as? CocoaError)?.code != .userCancelled {
+                    status = ChatStatus(key: photoErrorKey(error), details: nil)
+                }
+            }
         }
-        .sheet(isPresented: $confirming, onDismiss: { draft = nil }) {
+        .sheet(isPresented: $confirming, onDismiss: {
+            draft = nil
+            preview = nil
+        }) {
             ScrollingForm {
-                if let draft, let image = (try? checkPreview(bytes: draft.thumbnail)).flatMap(previewImage) {
-                    image.resizable().scaledToFit()
+                if let preview {
+                    preview.resizable().scaledToFit()
                         .accessibilityLabel(Text("chat.photo"))
                 }
                 Button("chat.send") {
@@ -51,17 +63,22 @@ struct ChatPhotoComposer: View {
 
     private func prepare(_ url: URL) async {
         let result = await IdentityIO.performBlocking {
-            Result { try PhotoPrep.prepare(PhotoPrep.read(url)) }
+            Result {
+                let photo = try PhotoPrep.prepare(PhotoPrep.read(url))
+                let image = try checkPreview(bytes: photo.thumbnail)
+                return (photo, DecodedPhoto(image: previewImage(image)))
+            }
         }
         guard feed.isCurrent(context) else { return }
         working = false
         switch result {
-        case let .success(photo):
+        case let .success((photo, decoded)):
             draft = photo
+            preview = decoded.image
             confirming = true
 
-        case .failure:
-            status = ChatStatus(key: "chat.sendFailed", details: nil)
+        case let .failure(error):
+            status = ChatStatus(key: photoErrorKey(error), details: nil)
         }
     }
 
