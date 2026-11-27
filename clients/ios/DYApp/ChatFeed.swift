@@ -59,6 +59,7 @@ final class ChatFeed: ObservableObject {
         likedProfiles = nil
         blocked = nil
         names = [:]
+        photos.reset()
     }
 
     @discardableResult
@@ -76,7 +77,8 @@ final class ChatFeed: ObservableObject {
     /// so a switch never shows the previous identity's chats.
     func poll(_ identity: ChatIdentity) async {
         let context = activate(identity)
-        photos.use(identity)
+        await photos.use(identity)
+        guard isCurrent(context), !Task.isCancelled else { return }
         #if DEBUG
             if ChatTestPeer.enabled, !testPeerStarted {
                 testPeerStarted = true
@@ -210,8 +212,10 @@ final class ChatFeed: ObservableObject {
     func loadNames(_ peers: [String]) async {
         guard !peers.isEmpty, let context else { return }
         await readNames(peers)
-        guard isCurrent(context), let searcher = photos.searcher else { return }
-        await Task.detached(priority: .utility) { _ = try? searcher.profiles(peerIds: peers) }.value
+        guard isCurrent(context), let worker = await photos.use(context.identity),
+            isCurrent(context)
+        else { return }
+        await IdentityIO.performBlocking { _ = try? worker.searcher.profiles(peerIds: peers) }
         guard isCurrent(context) else { return }
         await readNames(peers)
         guard isCurrent(context) else { return }
@@ -236,14 +240,13 @@ final class ChatFeed: ObservableObject {
     private func readNames(_ peers: [String]) async {
         guard let context else { return }
         let identity = context.identity
-        photos.use(identity)
-        guard let searcher = photos.searcher else { return }
-        let read = await Task.detached(priority: .userInitiated) {
+        guard let worker = await photos.use(identity), isCurrent(context) else { return }
+        let read = await IdentityIO.performBlocking {
             ChatOutcome(
                 result: Result {
-                    try RustBridge.contactNames(identity, searcher: searcher, peers: peers)
+                    try RustBridge.contactNames(identity, searcher: worker.searcher, peers: peers)
                 })
-        }.value.result
+        }.result
         guard isCurrent(context), case let .success(views) = read else {
             return
         }

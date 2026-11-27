@@ -143,7 +143,11 @@ Draft serialization is acquired before native admission, including publication t
 lease holder must not wait for that draft lock. Path-only network reads/writes now require the
 expected Peer ID and the same native operation. Proof workers use `ProfileSolve.for_slot`; each
 actual step reacquires protection and cannot recreate a removed identity, while idle proof handles
-do not prevent switching or removal. Photo mutation and escaped search worker migration remain planned.
+do not prevent switching or removal. Peer-photo cache preparation now runs on native IO, with one
+shared pending preparation per exact slot and Peer ID. Readers await that preparation; identity
+changes retire its presentation owner, clear the old cache and ignore late completion. Fetch/decode
+results cannot refresh a successor identity. Photo mutation and escaped search worker migration
+remain planned.
 The reserved `active-profile` value `none\n` means the user explicitly left no identity selected.
 Unlike an absent pointer, it opens the picker even if exactly one ready slot survives; an empty
 store still shows setup unless a legacy Keychain item is stranded. This marker is reserved for

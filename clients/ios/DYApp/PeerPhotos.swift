@@ -47,54 +47,118 @@ func fullPhotoImage(_ bytes: Data) -> Image? {
     return Image(decorative: image, scale: 1)
 }
 
-/// Other people's photos in the searcher's memory cache; see docs/design/profile-photos.md. A list
-/// fetches its photos in one call, then each view decodes from the cache and holds only its image.
+/// An owned presentation handle; native methods synchronize their own work.
+struct PeerPhotoWorker: @unchecked Sendable {
+    let owner: UUID
+    let searcher: ProfileSearcher
+}
+
+private struct PreparedPeerPhotos: @unchecked Sendable {
+    let searcher: ProfileSearcher?
+}
+
+/// A separate native memory cache per exact slot and Peer ID, prepared off the UI actor.
 @MainActor
 final class PeerPhotos: ObservableObject {
-    /// Counts finished fetches, so a photo shown before one reads the cache again after it.
     @Published private(set) var fetched = 0
-    private(set) var searcher: ProfileSearcher?
     private var identity: ChatIdentity?
+    private var owner = UUID()
+    private var worker: PeerPhotoWorker?
+    private var preparing: Task<PreparedPeerPhotos, Never>?
+    private let makeSearcher: @Sendable (ChatIdentity) throws -> ProfileSearcher
 
-    /// Another identity starts with a searcher, and so a cache, of its own.
-    func use(_ identity: ChatIdentity) {
-        if self.identity?.peerId != identity.peerId {
-            searcher = nil
-            fetched += 1
+    init(
+        makeSearcher: @escaping @Sendable (ChatIdentity) throws -> ProfileSearcher = {
+            try RustBridge.profileSearcher(for: $0.candidate)
         }
-        self.identity = identity
-        if searcher == nil { searcher = try? RustBridge.profileSearcher(for: identity.candidate) }
+    ) {
+        self.makeSearcher = makeSearcher
     }
 
-    /// Fetches what the cache lacks; a failure leaves the letters, and a later view tries again.
-    func fetch(_ hashes: [Data], full: Bool) async {
-        let wanted = hashes.filter { !$0.isEmpty }
-        guard let searcher, !wanted.isEmpty else { return }
-        await Task.detached(priority: .utility) {
-            _ = try? searcher.fetchPeerPhotos(hashes: wanted, full: full)
-        }.value
+    func reset() {
+        owner = UUID()
+        identity = nil
+        worker = nil
+        preparing = nil
         fetched += 1
     }
 
-    /// The cached photo, or nil when it is missing or fails its checks. The core decodes thumbnails,
-    /// so a crafted one never reaches the platform decoder.
+    /// Concurrent readers share actual preparation; retiring a view cannot retarget its completion.
+    @discardableResult
+    func use(_ identity: ChatIdentity) async -> PeerPhotoWorker? {
+        guard !Task.isCancelled else { return nil }
+        if self.identity?.peerId != identity.peerId
+            || self.identity?.candidate.location != identity.candidate.location
+        {
+            reset()
+            self.identity = identity
+        }
+        if let worker { return worker }
+        let preparation: Task<PreparedPeerPhotos, Never>
+        if let preparing {
+            preparation = preparing
+        } else {
+            // A failed preparation's late waiter cannot consume a newer retry in the same slot.
+            owner = UUID()
+            let makeSearcher = makeSearcher
+            preparation = Task {
+                await IdentityIO.performBlocking {
+                    PreparedPeerPhotos(searcher: try? makeSearcher(identity))
+                }
+            }
+            preparing = preparation
+        }
+        let ticket = owner
+        let result = await preparation.value
+        guard owner == ticket, !Task.isCancelled else { return nil }
+        if preparing != nil {
+            preparing = nil
+            worker = result.searcher.map { PeerPhotoWorker(owner: ticket, searcher: $0) }
+            fetched += 1
+        }
+        return worker
+    }
+
+    private func currentWorker() async -> PeerPhotoWorker? {
+        guard let identity else { return nil }
+        return await use(identity)
+    }
+
+    /// Fetch what is missing, without letting an obsolete completion refresh another identity.
+    func fetch(_ hashes: [Data], full: Bool) async {
+        let wanted = hashes.filter { !$0.isEmpty }
+        guard !wanted.isEmpty, let worker = await currentWorker(), worker.owner == owner else {
+            return
+        }
+        await IdentityIO.performBlocking {
+            _ = try? worker.searcher.fetchPeerPhotos(hashes: wanted, full: full)
+        }
+        guard worker.owner == owner, !Task.isCancelled else { return }
+        fetched += 1
+    }
+
+    /// Only core-checked thumbnails or bounded native decoding reach the current presentation.
     func decoded(_ hash: Data?, full: Bool) async -> Image? {
-        guard let searcher, let hash, !hash.isEmpty else { return nil }
-        return await Task.detached(priority: .userInitiated) {
-            guard let bytes = try? searcher.peerPhoto(hash: hash) else {
+        guard let hash, !hash.isEmpty, let worker = await currentWorker(), worker.owner == owner
+        else { return nil }
+        let decoded = await IdentityIO.performBlocking {
+            guard let bytes = try? worker.searcher.peerPhoto(hash: hash) else {
                 return DecodedPhoto(image: nil)
             }
             if full { return DecodedPhoto(image: fullPhotoImage(bytes)) }
             return DecodedPhoto(image: (try? checkPreview(bytes: bytes)).flatMap(previewImage))
-        }.value.image
+        }
+        guard worker.owner == owner, !Task.isCancelled else { return nil }
+        return decoded.image
     }
 
-    /// Whether full images load without a tap now.
     func auto() async -> Bool {
         guard let identity else { return false }
-        return await Task.detached(priority: .utility) {
+        let ticket = owner
+        let automatic = await IdentityIO.performBlocking {
             (try? RustBridge.peerPhotosLoadByThemselves(identity)) ?? false
-        }.value
+        }
+        return ticket == owner && !Task.isCancelled && automatic
     }
 }
 

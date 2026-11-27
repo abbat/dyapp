@@ -42,7 +42,10 @@ completion. It requires no draft write before cancellation, an independent retry
 removal without directory resurrection. `NativeTestSignal` shares the one-shot completion/deadline
 helper with app-lock readiness tests; these native fixtures use no local emulator. `BoundProofTests`
 also requires removal to complete with an idle proof handle, then refuses a later step without
-recreating storage.
+recreating storage. `PeerPhotosReadinessTests` holds native preparation behind an entry/release
+signal, prepares a successor with the same Peer ID in another slot, and rejects the old completion
+without refreshing the successor cache. The native constructor is checked off the main thread;
+successful cache reuse avoids another factory call.
 The iOS registry suite drives collisions at the actual native `contains` callback: stranded
 credentials or a newly occupied directory must be skipped without overwriting their payload.
 Picker/invalid-pointer fixtures seed those states after atomic core creation, which already selects
