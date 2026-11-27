@@ -22,8 +22,13 @@ impl ChatSession {
     ///
     /// Returns an error for a blocked peer or inconsistent history projection, or if session
     /// locking, stored history or read-mark lookup fails.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
     pub fn chat_items(&self, peer_id: String) -> Result<Vec<super::ChatItem>, CoreError> {
-        self.chat_thread(peer_id).map(|thread| thread.items)
+        let session = self.session.lock().map_err(failed)?;
+        projected_items(session.store(), &peer_id)
     }
 
     /// Read conversation state and ordered items under one native session lock.
@@ -35,52 +40,63 @@ impl ChatSession {
         reason = "UniFFI lifts owned arguments across the native language boundary"
     )]
     pub fn chat_thread(&self, peer_id: String) -> Result<super::ChatThread, CoreError> {
-        use super::ChatItem;
-        use dyapp_client::store::messages::ChatItem as Stored;
         let session = self.session.lock().map_err(failed)?;
         let store = session.store();
-        if store.blocked(&peer_id).map_err(failed)? {
-            return Err(failed("blocked"));
-        }
-        let mut items: Vec<ChatItem> = store
-            .current_chat_items(&peer_id)
-            .map_err(failed)?
-            .into_iter()
-            .map(|item| match item {
-                Stored::Sticker(sticker) => ChatItem::Sticker {
-                    sticker: sticker.into(),
-                },
-                Stored::Text(message) => ChatItem::Text {
-                    message: message.into(),
-                },
-                Stored::Attachment(photo) => ChatItem::Photo {
-                    photo: photo.into(),
-                },
-            })
-            .collect();
-        let mut texts: Vec<_> = items
-            .iter()
-            .filter_map(|item| match item {
-                ChatItem::Text { message } => Some(message.clone()),
-                ChatItem::Photo { .. } | ChatItem::Sticker { .. } => None,
-            })
-            .collect();
-        super::reads::project_reads(store, &peer_id, &mut texts)?;
-        let mut texts = texts.into_iter();
-        for item in &mut items {
-            if let ChatItem::Text { message } = item {
-                *message = texts
-                    .next()
-                    .ok_or_else(|| failed("history projection mismatch"))?;
-            }
-        }
+        let items = projected_items(store, &peer_id)?;
         Ok(super::ChatThread {
             state: store.conversation(&peer_id).map_err(failed)?.into(),
             muted: store.muted(&peer_id).map_err(failed)?,
             items,
         })
     }
+}
 
+fn projected_items(
+    store: &dyapp_client::store::Store,
+    peer_id: &str,
+) -> Result<Vec<super::ChatItem>, CoreError> {
+    use super::ChatItem;
+    use dyapp_client::store::messages::ChatItem as Stored;
+    if store.blocked(peer_id).map_err(failed)? {
+        return Err(failed("blocked"));
+    }
+    let mut items: Vec<ChatItem> = store
+        .current_chat_items(peer_id)
+        .map_err(failed)?
+        .into_iter()
+        .map(|item| match item {
+            Stored::Sticker(sticker) => ChatItem::Sticker {
+                sticker: sticker.into(),
+            },
+            Stored::Text(message) => ChatItem::Text {
+                message: message.into(),
+            },
+            Stored::Attachment(photo) => ChatItem::Photo {
+                photo: photo.into(),
+            },
+        })
+        .collect();
+    let mut texts: Vec<_> = items
+        .iter()
+        .filter_map(|item| match item {
+            ChatItem::Text { message } => Some(message.clone()),
+            ChatItem::Photo { .. } | ChatItem::Sticker { .. } => None,
+        })
+        .collect();
+    super::reads::project_reads(store, peer_id, &mut texts)?;
+    let mut texts = texts.into_iter();
+    for item in &mut items {
+        if let ChatItem::Text { message } = item {
+            *message = texts
+                .next()
+                .ok_or_else(|| failed("history projection mismatch"))?;
+        }
+    }
+    Ok(items)
+}
+
+#[uniffi::export]
+impl ChatSession {
     /// Safe metadata in core history order, without downloading any original.
     /// A blocked peer is refused just as for text history.
     ///
