@@ -5,6 +5,7 @@ struct LinkReceiveSection: View {
     @ObservedObject var feed: ChatFeed
     let installed: () -> Void
     @State private var invitation: Invitation?
+    @State private var opening = UUID()
     @State private var busy = false
     @State private var failed = false
 
@@ -38,6 +39,7 @@ struct LinkReceiveSection: View {
             failed = false
         }
         .onDisappear {
+            opening = UUID()
             _ = invitation?.receiver.cancel()
             invitation = nil
         }
@@ -62,6 +64,7 @@ struct LinkReceiveSection: View {
 
     private func start() {
         guard !busy, let context = feed.context else { return }
+        let ticket = opening
         busy = true
         failed = false
         Task {
@@ -78,7 +81,10 @@ struct LinkReceiveSection: View {
                 }
             }
             busy = false
-            guard feed.isCurrent(context) else { return }
+            guard opening == ticket, feed.isCurrent(context) else {
+                if case let .success(value) = result { _ = value.receiver.cancel() }
+                return
+            }
             if case let .success(value) = result { invitation = value } else { failed = true }
         }
     }
