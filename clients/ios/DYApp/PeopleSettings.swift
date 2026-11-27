@@ -243,6 +243,45 @@ struct StickerImportSection: View {
     }
 }
 
+@MainActor
+struct LinkedDevicesSection: View {
+    @ObservedObject var feed: ChatFeed
+    @State private var rows: [MobileOwnDevice] = []
+    @State private var failed = false
+
+    var body: some View {
+        Section("devices.title") {
+            ForEach(rows, id: \.key) { device in
+                Text(verbatim: device.key.prefix(3).map { String(format: "%02x", $0) }.joined())
+                    .accessibilityIdentifier(device.current ? "device-current" : "device-other")
+            }
+            if failed {
+                Button("search.retry") { Task { await load() } }
+            }
+        }
+        .task(id: feed.owner) { await load() }
+    }
+
+    private func load() async {
+        guard let context = feed.context else { return }
+        rows = []
+        failed = false
+        let identity = context.identity
+        let result = await IdentityIO.performBlocking {
+            Result {
+                let location = identity.candidate.location
+                let directory = try MobileDeviceDirectory(
+                    registry: RustBridge.identityStore().registry, id: location.marker,
+                    expectedPeer: identity.peerId,
+                    store: RustBridge.keyStore(for: location).requiringExistingKey())
+                return try directory.devices(live: false)
+            }
+        }
+        guard !Task.isCancelled, feed.isCurrent(context) else { return }
+        if case let .success(devices) = result { rows = devices } else { failed = true }
+    }
+}
+
 /// The people this identity blocked, then those it passed on.
 struct PeopleSections: View {
     @ObservedObject var feed: ChatFeed

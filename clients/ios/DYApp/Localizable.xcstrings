@@ -1137,6 +1137,22 @@
         }
       }
     },
+    "devices.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devices"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Устройства"
+          }
+        }
+      }
+    },
     "favorites.add": {
       "localizations": {
         "en": {

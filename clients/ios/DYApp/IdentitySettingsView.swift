@@ -116,6 +116,7 @@ struct IdentitySettingsView: View {
                 ReadReceiptsSection(feed: feed)
                 PhotoDownloadSection(feed: feed)
                 StickerImportSection(feed: feed)
+                LinkedDevicesSection(feed: feed)
                 PeopleSections(feed: feed)
             }
 
