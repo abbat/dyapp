@@ -106,6 +106,7 @@ struct ProfilePhotosSection: View {
     let candidate: IdentityCandidate
     let peerId: String
     let disabled: Bool
+    @Binding var isEditing: Bool
     let changed: () -> Void
     @State private var rows = ProfilePhotoRows(
         hashes: [], previews: [:], revision: Data(), conflict: false)
@@ -115,7 +116,7 @@ struct ProfilePhotosSection: View {
     @State private var removing: ProfilePhotoRemoval?
 
     private var isFull: Bool { rows.hashes.count >= Self.limit }
-    private var locked: Bool { disabled || busy }
+    private var locked: Bool { disabled || busy || isEditing }
 
     var body: some View {
         Section {
@@ -133,7 +134,8 @@ struct ProfilePhotosSection: View {
                     .buttonStyle(.borderless)
                     .disabled(locked || isFull)
                     .accessibilityIdentifier("profile-photo-add")
-                    .task(id: candidate.location.marker + ":" + peerId) {
+                    .task(id: isEditing) {
+                        guard !isEditing else { return }
                         await apply(edits: false) { dir, key in
                             try profilePhotoSnapshot(dir: dir, key: key)
                         }
@@ -279,9 +281,16 @@ struct ProfilePhotosSection: View {
     private func perform(
         edits: Bool, _ work: @escaping @Sendable () throws -> ProfilePhotoRows
     ) async {
-        guard !busy, !Task.isCancelled else { return }
+        guard !busy, !isEditing, !Task.isCancelled, !edits || !disabled else { return }
         busy = true
-        defer { busy = false }
+        if edits {
+            isEditing = true
+            changed()
+        }
+        defer {
+            busy = false
+            if edits { isEditing = false }
+        }
         let result = await IdentityIO.performBlocking { Result { try work() } }
         guard edits || !Task.isCancelled else { return }
         switch result {

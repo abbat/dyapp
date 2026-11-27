@@ -217,7 +217,9 @@ invalidates pending eligibility results. Changing the draft cancels active proof
 including a worker still opening. Proof controls are keyed by slot and Peer ID. Closing them
 cancels proof work, and only the current opening can apply proof or publication results to the
 controls and their busy state. An admitted publication continues after closing. Returning from a
-nested picker preserves edits.
+nested picker preserves edits. Starting a photo write clears publication confirmations and holds
+proof preparation until the write completes. A recreated photo section reads committed rows once
+the write is done.
 The new Rust `ProfilePublisher` takes this selected identity folder and uses only its activated
 network settings to find a node. A draft network is never used for publication. Connection
 preparation does not alter the profile draft. Swift `RustBridge.publishProfile` reopens the

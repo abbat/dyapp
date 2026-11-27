@@ -173,6 +173,7 @@ struct ProfileDraftView: View {
     @State private var eligibilityRevision = 0
     @State private var profileRevision = 0
     @State private var isSolving = false
+    @State private var isEditingPhotos = false
     #if os(macOS)
         @State private var previewing = false
     #endif
@@ -185,17 +186,22 @@ struct ProfileDraftView: View {
             || extras.tracked != savedExtras.tracked
     }
 
+    private var canConfirmPublication: Bool {
+        !isLoading && !isSaving && !isSolving && !isEditingPhotos && !readFailed && !hasUnsavedEdits
+    }
+
     private var canPrepareProof: Bool {
         hasSavedDraft && !hasUnsavedEdits && confirmedAdult && confirmedPublic && eligibilityChecked
             && publishBlock == nil && !eligibilityFailed && !isCheckingEligibility && !isLoading
-            && !isSaving && !isSolving && !readFailed
+            && !isSaving && !isSolving && !isEditingPhotos && !readFailed
     }
 
     private var form: some View {
         ScrollingForm {
             ProfilePhotosSection(
                 candidate: candidate, peerId: peerId,
-                disabled: isLoading || readFailed || isSaving || isSolving
+                disabled: isLoading || readFailed || isSaving || isSolving,
+                isEditing: $isEditingPhotos
             ) {
                 invalidateConsent()
             }.id(editorIdentity)
@@ -248,15 +254,15 @@ struct ProfileDraftView: View {
             if isSaving { Text("profile.saving") }
             Section {
                 Toggle("profile.confirmAdult", isOn: $confirmedAdult)
-                    .disabled(isLoading || isSaving || isSolving || readFailed || hasUnsavedEdits)
+                    .disabled(!canConfirmPublication)
                     .accessibilityIdentifier("profile-confirm-adult")
                 Toggle("profile.confirmPublic", isOn: $confirmedPublic)
-                    .disabled(isLoading || isSaving || isSolving || readFailed || hasUnsavedEdits)
+                    .disabled(!canConfirmPublication)
                     .accessibilityIdentifier("profile-confirm-public")
                 Text(eligibilityStatus)
                     .accessibilityIdentifier("profile-publish-eligibility")
                 ProfileProofControls(
-                    candidate: candidate, peerId: peerId, canPrepare: canPrepareProof,
+                    candidate: candidate, peerId: peerId, canPrepare: { canPrepareProof },
                     attested: confirmedAdult, resetToken: profileRevision,
                     isSolving: $isSolving, clearConfirmations: clearConfirmations).id(editorIdentity)
             }

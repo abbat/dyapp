@@ -89,7 +89,7 @@ private struct ProfileHideControls: View {
 struct ProfileProofControls: View {
     let candidate: IdentityCandidate
     let peerId: String
-    let canPrepare: Bool
+    let canPrepare: @MainActor () -> Bool
     let attested: Bool
     let resetToken: Int
     @Binding var isSolving: Bool
@@ -118,7 +118,7 @@ struct ProfileProofControls: View {
                 let expectedOpening = opening
                 Task { await prepareProof(in: expectedOpening) }
             }
-            .disabled(!canPrepare)
+            .disabled(!canPrepare())
             .accessibilityIdentifier("profile-prepare-publish")
             if isSolving && !isPublishing {
                 ProgressView()
@@ -179,7 +179,7 @@ struct ProfileProofControls: View {
 
     @MainActor
     private func prepareProof(in expectedOpening: UUID) async {
-        guard opening == expectedOpening, canPrepare, !isSolving, !isPublishing else { return }
+        guard opening == expectedOpening, canPrepare(), !isSolving, !isPublishing else { return }
         let confirmedAdult = attested
         clearConfirmations()
         isSolving = true
