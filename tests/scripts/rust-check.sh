@@ -135,7 +135,7 @@ step() {
             check web-received-view-fixtures node --test --test-reporter=spec tools/web-lint/received-view-fixtures.mjs tools/web-lint/native-window-fixtures.mjs
             check web-search-recovery-fixtures node --test --test-reporter=spec tools/web-lint/search-recovery-fixtures.mjs
             check web-translations python3 -B tests/scripts/check-desktop-translations.py --raw
-            check translations python3 -B tools/scripts/generate-translations.py --platform desktop --check
+            check translations python3 -B tools/scripts/generate-translations.py --platform desktop --platform apple --check
             ;;
         web-format)
             biome format --write clients/desktop clients/android/prototype tools/web-lint
