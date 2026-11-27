@@ -160,7 +160,7 @@ struct ProfileDraftView: View {
     @State private var status = ""
     @State private var readFailed = false
     @State private var isLoading = true
-    @State private var loadedMarker: String?
+    @State private var loadedIdentity: String?
     @State private var isSaving = false
     @State private var hasSavedDraft = false
     @State private var confirmedAdult = false
@@ -175,6 +175,8 @@ struct ProfileDraftView: View {
     #if os(macOS)
         @State private var previewing = false
     #endif
+
+    private var editorIdentity: String { candidate.location.marker + ":" + peerId }
 
     private var hasUnsavedEdits: Bool {
         values != savedValues || country != savedCountry || birthYear != savedBirthYear
@@ -259,11 +261,9 @@ struct ProfileDraftView: View {
             }
         }
         .navigationTitle("profile.title")
-        .task(id: candidate.location.marker) {
-            // The task reruns when the country list or the preview pops back; keep the edits.
-            guard loadedMarker != candidate.location.marker else { return }
+        .task(id: editorIdentity) {
+            guard !Task.isCancelled, loadedIdentity != editorIdentity else { return }
             await load()
-            if !Task.isCancelled { loadedMarker = candidate.location.marker }
         }
         .onChange(of: values) { _ in invalidateConsent() }
         .onChange(of: country) { _ in invalidateConsent() }
@@ -315,6 +315,7 @@ extension ProfileDraftView {
     @MainActor
     private func load() async {
         resetFields()
+        invalidateConsent()
         let selected = candidate
         let selectedPeer = peerId
         let result = await IdentityIO.performBlocking { () -> ProfileDraftLoad in
@@ -325,6 +326,7 @@ extension ProfileDraftView {
             }
         }
         guard !Task.isCancelled else { return }
+        loadedIdentity = editorIdentity
         switch result {
         case .loaded(let decoded):
             if let decoded {
