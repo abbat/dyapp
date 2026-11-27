@@ -7185,6 +7185,22 @@
         }
       }
     },
+    "sticker.manager.confirm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove pack"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить набор"
+          }
+        }
+      }
+    },
     "sticker.picker.title": {
       "localizations": {
         "en": {

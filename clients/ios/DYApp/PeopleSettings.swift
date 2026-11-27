@@ -123,6 +123,10 @@ struct StickerImportSection: View {
     @State private var working = false
     @State private var failed = false
     @State private var saved = false
+    @State private var packs: [SavedStickerPackEntry] = []
+    @State private var next: Data?
+    @State private var removing: Data?
+    @State private var confirmRemoval = false
 
     var body: some View {
         Section {
@@ -132,8 +136,28 @@ struct StickerImportSection: View {
             }
                 .disabled(working || feed.context == nil)
                 .accessibilityIdentifier("sticker-import")
+            ForEach(packs, id: \.packId) { pack in
+                HStack {
+                    if case let .ready(name, _) = pack.state {
+                        Text(verbatim: name)
+                    } else {
+                        Text("chat.loadFailed")
+                    }
+                    Button("sticker.manager.confirm", role: .destructive) {
+                        removing = pack.packId
+                        confirmRemoval = true
+                    }
+                    .disabled(working)
+                }
+            }
+            if let next {
+                Button("search.more") { Task { await refresh(after: next) } }.disabled(working)
+            }
             if working { ProgressView() }
-            if failed { Text("stickers.importFailed") }
+            if failed {
+                Text("stickers.importFailed")
+                Button("search.retry") { Task { await refresh() } }.disabled(working)
+            }
             if saved { Image(systemName: "checkmark").accessibilityLabel(Text("stickers.import")) }
         }
         .fileImporter(isPresented: $choosing, allowedContentTypes: [.tar]) { result in
@@ -150,14 +174,62 @@ struct StickerImportSection: View {
                 }
                 working = false
                 guard feed.isCurrent(context) else { return }
+                await refresh()
+                guard feed.isCurrent(context) else { return }
                 if case .success = outcome { saved = true } else { failed = true }
             }
         }
+        .task(id: feed.owner) { await refresh() }
+        .confirmationDialog("sticker.manager.confirm", isPresented: $confirmRemoval) {
+            Button("sticker.manager.confirm", role: .destructive) { remove() }
+            Button("search.cancel", role: .cancel) { removing = nil }
+        }
         .onChange(of: feed.owner) { _ in
+            packs = []
+            next = nil
+            removing = nil
+            confirmRemoval = false
             choosing = false
             importContext = nil
             saved = false
             failed = false
+        }
+    }
+
+    private func refresh(after: Data? = nil) async {
+        guard let context = feed.context else { return }
+        let result = await feed.call(context) { try $0.savedStickerPacks(after: after) }
+        guard !Task.isCancelled, feed.isCurrent(context) else { return }
+        switch result {
+        case let .success(page):
+            packs = (after == nil ? [] : packs) + page.entries
+            next = page.next
+            failed = false
+
+        case .failure:
+            failed = true
+        }
+    }
+
+    private func remove() {
+        guard !working, let pack = removing, let context = feed.context else { return }
+        removing = nil
+        working = true
+        let identity = context.identity
+        Task {
+            let result = await IdentityIO.performBlocking {
+                Result {
+                    let registry = try RustBridge.identityStore().registry
+                    let operation = try registry.operation(
+                        id: identity.candidate.location.marker, expectedPeer: identity.peerId)
+                    return try operation.removeSavedStickerPack(packId: pack)
+                }
+            }
+            guard feed.isCurrent(context) else { working = false; return }
+            await refresh()
+            working = false
+            guard feed.isCurrent(context) else { return }
+            if case .failure = result { failed = true }
         }
     }
 }
