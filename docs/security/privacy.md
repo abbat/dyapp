@@ -137,9 +137,8 @@ no contacts; a separate identity per context is the stronger separation.
 
 The whole profile is public by design
 ([ADR 0003](../decisions/0003-public-signed-profile-encrypted-private-data.md)):
-every published field, including birth-date parts, location and optional sensitive fields
-such as mental-health indicators, is readable by anyone. That is a disclosure,
-not "safe" data. The target design therefore needs:
+every published field, including birth-date parts, location and optional sensitive fields,
+is readable by anyone. That is a disclosure, not "safe" data. The target design therefore needs:
 
 - no field published unless the user fills it in;
 - location published only as a place name (city or district), never as coordinates, and optional;

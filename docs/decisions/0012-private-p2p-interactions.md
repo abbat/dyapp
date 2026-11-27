@@ -12,7 +12,7 @@ keep likes, view history or matching preferences private, or enforce rules such 
 ## Decision
 
 - **Matching uses public fields only.** Search and filters may use any published field, sensitive
-  ones included (for example mental-health indicators): if a field exists, it can be searched.
+  ones included: if a field exists, it can be searched.
   Search preferences, pass history and other settings stay on the device.
 - **Income** is a free "from–to" range with no currency and no protocol-defined brackets. The
   profile gets a **country** field; income is compared only within one country.

@@ -13,8 +13,7 @@ that store and relay them.
 
 - **The profile is public.** Every field a user publishes is plaintext and visible to anyone,
   including bootstrap and index nodes. There is no per-field private flag: a user who does not want
-  a field public does not fill it in. This applies to sensitive optional fields (for example
-  mental-health indicators) as well.
+  a field public does not fill it in. This applies to sensitive optional fields as well.
 - **Location is a place, never coordinates:** the GeoNames ID of a city or district the user
   picks within their country from GeoNames cities1000 (CC BY 4.0), or none. Place names are the
   client's: the picker offers the cities15000 subset with English and Russian names, embedded
