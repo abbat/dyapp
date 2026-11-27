@@ -20,6 +20,13 @@ index, current rectangle and visible frame, active accessibility root, matching 
 focus/visibility and extra-data refresh result. Stale pre-keyboard geometry cannot establish
 readiness or obscure a persistent enlarged-text layout defect.
 
+Desktop `link-review:<theme>:<scale>` smoke captures choices, photo failure, preview and saved
+states in EN/RU, light/dark and normal/200% text. The native runner requires every declared Linux
+440/1280 frame and records source/executable/image hashes under `link-review-shots-*/receipt.json`;
+Windows/macOS execute the UI audits and retain receipts without claiming Linux-only pixel capture.
+Desktop CI retains these directories. Controlled IPC makes these presentation checks reproducible;
+actual core/native recovery authorization tests remain separate acceptance.
+
 The manual `android-node-fixture` workflow accepts an exact successful main Android producer run.
 It reuses that producer's validated host `dyappd`, generates a deliberately public test credential
 with 22-bit node proof, verifies it using production `probe-key`, and uploads it only after matching

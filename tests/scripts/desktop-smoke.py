@@ -943,8 +943,7 @@ class DesktopSmoke:
         self.storage_modes(flows)
         self.network_flows(flows)
         if flows:
-            native.moderation_panels(self.case, self.reports, self.executable)
-            native.received_views(self.case, self.reports, self.executable)
+            native.client_panels(self.case, self.reports, self.executable)
         language_step = "--ui-test-step=settings-language"
         with tempfile.TemporaryDirectory(dir=self.reports) as profile:
             self.case(

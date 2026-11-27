@@ -100,6 +100,12 @@ class NativeSmoke(Protocol):
         """Run both raw video smoke sizes."""
         ...
 
+    def client_panels(
+        self, case: CaseRunner, reports: Path, executable: str
+    ) -> None:
+        """Run focused native presentation audits and capture inventories."""
+        ...
+
     def moderation_panels(
         self, case: CaseRunner, reports: Path, executable: str
     ) -> None:

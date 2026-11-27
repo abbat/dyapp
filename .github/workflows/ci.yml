@@ -236,6 +236,7 @@ jobs:
             ${{ runner.temp }}/desktop-ui-results.json
             ${{ runner.temp }}/moderation-shots-*/
             ${{ runner.temp }}/received-views-shots-*/
+            ${{ runner.temp }}/link-review-shots-*/
             build/complexity/linux/*/clippy.stderr
             build/complexity/linux/*/clippy.jsonl
             build/complexity/linux/*/report.json
@@ -318,6 +319,7 @@ jobs:
             ${{ runner.temp }}/desktop-ui-results.json
             ${{ runner.temp }}/moderation-shots-*/
             ${{ runner.temp }}/received-views-shots-*/
+            ${{ runner.temp }}/link-review-shots-*/
           if-no-files-found: error
 
   windows:
@@ -366,6 +368,7 @@ jobs:
             ${{ runner.temp }}/desktop-ui-results.json
             ${{ runner.temp }}/moderation-shots-*/
             ${{ runner.temp }}/received-views-shots-*/
+            ${{ runner.temp }}/link-review-shots-*/
           if-no-files-found: error
 
   summary:

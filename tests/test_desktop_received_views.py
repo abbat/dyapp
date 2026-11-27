@@ -39,7 +39,31 @@ class ReceivedViewEvidence(unittest.TestCase):
             with self.subTest(platform=platform, defect=defect):
                 self.exercise(platform, defect)
 
-    def exercise(self, platform: str, defect: str) -> None:
+    def test_link_review_capture_contract(self) -> None:
+        for platform, defect in (
+            ("linux", ""),
+            ("linux", "missing"),
+            ("linux", "empty"),
+            ("linux", "refused"),
+            ("win32", ""),
+            ("darwin", ""),
+        ):
+            with self.subTest(platform=platform, defect=defect):
+                self.exercise(platform, defect, panel="link-review")
+
+    def exercise(
+        self, platform: str, defect: str, panel: str = "received-views"
+    ) -> None:
+        states = (
+            STATES
+            if panel == "received-views"
+            else (
+                "choices",
+                "photo-error",
+                "preview",
+                "saved",
+            )
+        )
         with tempfile.TemporaryDirectory(dir=ROOT / "build") as folder:
             root = Path(folder)
             binary = root / "app"
@@ -60,13 +84,11 @@ class ReceivedViewEvidence(unittest.TestCase):
                 calls.append(name)
                 self.assertTrue(Path(profile).is_dir())
                 profiles.append(str(profile))
-                language, theme, text = name.removeprefix(
-                    "received-views-"
-                ).split("-")
-                scale = "100" if text == "normal" else "200"
-                self.assertIn(
-                    f"--ui-test-step=received-views:{theme}:{scale}", flags
+                language, theme, text = name.removeprefix(f"{panel}-").split(
+                    "-"
                 )
+                scale = "100" if text == "normal" else "200"
+                self.assertIn(f"--ui-test-step={panel}:{theme}:{scale}", flags)
                 self.assertEqual("--ui-test-ru" in flags, language == "ru")
                 self.assertEqual(env["DYAPP_SMOKE_RU"], "0")
                 if defect == "refused":
@@ -77,12 +99,12 @@ class ReceivedViewEvidence(unittest.TestCase):
                     return None
                 assert output is not None
                 outputs.append(output)
-                for state in STATES:
+                for state in states:
                     for width in (440, 1280):
-                        if defect == "missing" and state == "profile-return":
+                        if defect == "missing" and state == states[-1]:
                             continue
                         image = Path(output) / (
-                            f"received-views-{state}-{theme}-{text}"
+                            f"{panel}-{state}-{theme}-{text}"
                             f"-{language}-{width}.png"
                         )
                         image.write_bytes(
@@ -96,20 +118,20 @@ class ReceivedViewEvidence(unittest.TestCase):
             ):
                 if defect:
                     with self.assertRaises((OSError, RuntimeError)):
-                        PANELS(render, root, str(binary))
+                        PANELS(render, root, str(binary), panel=panel)
                     self.assertEqual(
-                        list(root.glob("received-views-shots-*/receipt.json")),
+                        list(root.glob(f"{panel}-shots-*/receipt.json")),
                         [],
                     )
                     return
-                PANELS(render, root, str(binary))
+                PANELS(render, root, str(binary), panel=panel)
             self.assertEqual(len(calls), 8)
             self.assertEqual(len(set(calls)), 8)
             self.assertEqual(len(set(profiles)), 8)
             self.assertTrue(
                 all(not Path(profile).exists() for profile in profiles)
             )
-            receipts = list(root.glob("received-views-shots-*/receipt.json"))
+            receipts = list(root.glob(f"{panel}-shots-*/receipt.json"))
             self.assertEqual(len(receipts), 1)
             receipt = json.loads(receipts[0].read_text())
             self.assertEqual(receipt["source_sha"], "a" * 40)
@@ -119,7 +141,8 @@ class ReceivedViewEvidence(unittest.TestCase):
                 hashlib.sha256(binary.read_bytes()).hexdigest(),
             )
             self.assertEqual(
-                len(receipt["captures"]), 128 if platform == "linux" else 0
+                len(receipt["captures"]),
+                len(states) * 16 if platform == "linux" else 0,
             )
             if platform == "linux":
                 self.assertEqual(len(set(outputs)), 1)

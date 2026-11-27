@@ -101,9 +101,10 @@
   };
   const close = () => appApi.linkReview.close();
 
-  const checkChoicePreviewAndPhotos = async (test) => {
+  const checkChoicePreviewAndPhotos = async (test, shot = smoke.shot) => {
     await open(test);
     check(get('link-review-save').disabled, 'Save admitted an incomplete selection');
+    await shot('link-review-choices');
     choose('name', 'local');
     choose('photos', 'remote');
     check(!get('link-review-preview').disabled, 'Complete choices did not enable preview');
@@ -123,6 +124,7 @@
       get('link-review-photos-remote').checked && !get('link-review-photo-retry-remote-0').hidden,
       'Photo failure discarded the source choice or retry',
     );
+    await shot('link-review-photo-error');
     test.handlers.link_review_photo = () =>
       Promise.resolve({ width: 1, height: 1, pixels: [1, 2, 3, 255] });
     get('link-review-photo-retry-remote-0').click();
@@ -137,19 +139,19 @@
           ?.textContent.endsWith('\nPreview'),
       'Native preview was not rendered',
     );
-    await smoke.shot('link-review-preview');
+    await shot('link-review-preview');
     get('link-review-edit').click();
     check(get('link-review-preview-rows').hidden, 'Edit retained the preview');
   };
 
-  const checkSaveAndResume = async (test) => {
+  const checkSaveAndResume = async (test, shot = smoke.shot) => {
     await open(test, '3');
     choose('name', 'remote');
     choose('photos', 'local');
     get('link-review-save').click();
     await appApi.linkReview.confirmDone;
     check(!get('link-review-resume').hidden, 'Saved review did not offer separate completion');
-    await smoke.shot('link-review-saved');
+    await shot('link-review-saved');
     test.handlers.resume_link_review = () => Promise.reject('notConnected');
     get('link-review-resume').click();
     await appApi.linkReview.resumeDone;
@@ -244,6 +246,19 @@
     check(confirmation.args.selected.length === 0, 'Equal review submitted unexpected choices');
     close();
   };
+
+  smoke.checkLinkReviewCapture = (theme, scale) =>
+    smoke.withCaptureAppearance(theme, scale, async () => {
+      const test = fixture();
+      const text = scale === '100' ? 'normal' : 'large';
+      const shot = (name) => smoke.waitForSignal(name, smoke.shot(`${name}-${theme}-${text}`));
+      try {
+        await checkChoicePreviewAndPhotos(test, shot);
+        await checkSaveAndResume(test, shot);
+      } finally {
+        close();
+      }
+    });
 
   smoke.checkLinkReview = async () => {
     const test = fixture();

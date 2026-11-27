@@ -392,16 +392,24 @@ def moderation_panels(
     )
 
 
+def client_panels(case: dc.CaseRunner, reports: Path, executable: str) -> None:
+    moderation_panels(case, reports, executable)
+    received_views(case, reports, executable)
+    received_views(case, reports, executable, panel="link-review")
+
+
 def received_views(
-    case: dc.CaseRunner, reports: Path, executable: str
+    case: dc.CaseRunner,
+    reports: Path,
+    executable: str,
+    *,
+    panel: str = "received-views",
 ) -> None:
     """Audit actual panes and retain source-bound Linux frames."""
-    output = Path(
-        tempfile.mkdtemp(prefix="received-views-shots-", dir=reports)
-    )
+    output = Path(tempfile.mkdtemp(prefix=f"{panel}-shots-", dir=reports))
     captures = {}
     cases = []
-    states = (
+    states: tuple[str, ...] = (
         "loading",
         "populated",
         "empty",
@@ -411,13 +419,17 @@ def received_views(
         "page-transition",
         "profile-return",
     )
+    if panel == "link-review":
+        states = ("choices", "photo-error", "preview", "saved")
+    elif panel != "received-views":
+        raise ValueError("Unknown native capture panel")
     for language, theme, (scale, text) in product(
         ("en", "ru"), ("light", "dark"), (("100", "normal"), ("200", "large"))
     ):
-        name = f"received-views-{language}-{theme}-{text}"
+        name = f"{panel}-{language}-{theme}-{text}"
         flags = [
             "--ui-test-file",
-            f"--ui-test-step=received-views:{theme}:{scale}",
+            f"--ui-test-step={panel}:{theme}:{scale}",
         ]
         if language == "ru":
             flags.append("--ui-test-ru")
@@ -430,8 +442,7 @@ def received_views(
         if sys.platform.startswith("linux"):
             for state, width in product(states, (440, 1280)):
                 image = output / (
-                    f"received-views-{state}-{theme}-{text}"
-                    f"-{language}-{width}.png"
+                    f"{panel}-{state}-{theme}-{text}-{language}-{width}.png"
                 )
                 if image.stat().st_size == 0:
                     raise RuntimeError(f"Empty native view capture: {image}")

@@ -194,6 +194,7 @@
       else delete root.dataset.theme;
     }
   };
+  smoke.withCaptureAppearance = withCaptureAppearance;
   const transition = (name, action) => smoke.timedChecks({ [name]: action })[name]();
   const captureLoading = async (shot) => {
     const held = smoke.pendingSmokeCall();
