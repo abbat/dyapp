@@ -49,14 +49,15 @@ extension ChatsUITests {
     ) {
         XCTAssertTrue(element.exists && element.isHittable)
         let frame = element.frame
-        XCTAssertTrue(!frame.isEmpty && app.frame.intersects(frame))
+        let viewport = app.frame
+        XCTAssertTrue(!frame.isEmpty && viewport.contains(frame))
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "ios-profile-share-\(state)"
         screenshot.lifetime = .keepAlways
         add(screenshot)
         let requested = configuration.joined(separator: " ")
         let geometry = XCTAttachment(
-            string: "element=\(frame) viewport=\(app.frame) requested: \(requested)")
+            string: "element=\(frame) viewport=\(viewport) requested: \(requested)")
         geometry.name = "ios-profile-share-\(state)-geometry"
         geometry.lifetime = .keepAlways
         add(geometry)
