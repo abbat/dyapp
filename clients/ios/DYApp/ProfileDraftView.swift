@@ -198,7 +198,7 @@ struct ProfileDraftView: View {
                 disabled: isLoading || readFailed || isSaving || isSolving
             ) {
                 invalidateConsent()
-            }
+            }.id(editorIdentity)
             ForEach(profileScales(), id: \.field) { scale in
                 // An interpolated key would look up "profile.field.%@"; concatenate instead.
                 Picker(
