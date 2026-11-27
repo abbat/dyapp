@@ -172,7 +172,10 @@ struct ChatView: View {
                             photoBubble(photo)
 
                         case .sticker(let sticker):
-                            Text(verbatim: "\(sticker.emoji) \(sticker.packName)")
+                            if let context = feed.context {
+                                ChatStickerRow(
+                                    feed: feed, context: context, peer: peer, sticker: sticker)
+                            }
                         }
                     }
                 }
@@ -445,6 +448,51 @@ private struct ChatBubble: View {
         .fixedSize()
         .accessibilityLabel(Text("msg.menu"))
         .accessibilityIdentifier(own ? "msg-menu" : "msg-received-menu")
+    }
+}
+
+@MainActor
+private struct ChatStickerRow: View {
+    @ObservedObject var feed: ChatFeed
+    @ObservedObject private var network = NetworkType.shared
+    let context: ChatFeed.Context
+    let peer: String
+    let sticker: ChatSticker
+    @State private var frame: Image?
+    @State private var manual = false
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            if let frame {
+                frame.resizable().scaledToFit().frame(maxWidth: 120, maxHeight: 120)
+                    .accessibilityHidden(true)
+            }
+            Text(verbatim: "\(sticker.emoji) \(sticker.packName)")
+                .accessibilityIdentifier("msg-sticker")
+            if frame == nil {
+                Button("view.photoLoad") { manual = true }
+                    .disabled(manual)
+                    .accessibilityIdentifier("msg-sticker-load")
+            }
+        }
+        .task(id: network.metered) { await load(manually: false) }
+        .task(id: manual) { if manual { await load(manually: true) } }
+    }
+
+    private func load(manually: Bool) async {
+        guard frame == nil else { return }
+        let (peer, group, author, id) = (peer, sticker.groupId, sticker.author, sticker.id)
+        let result = await feed.call(context) {
+            try $0.chatStickerImage(
+                peerId: peer, groupId: group, author: author, id: id, manual: manually)
+        }
+        guard !Task.isCancelled, feed.isCurrent(context) else { return }
+        if manually { manual = false }
+        if case let .success(.ready(pixels)) = result, let image = previewImage(
+            Rgba(width: pixels.width, height: pixels.height, pixels: pixels.pixels))
+        {
+            frame = image
+        }
     }
 }
 
