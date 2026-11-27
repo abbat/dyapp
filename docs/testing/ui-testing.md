@@ -2045,10 +2045,13 @@ retry is [flaky](README.md#flaky-tests): `xcodebuild test` retries a failed test
 `xcresulttool get test-results tests` tree. The iOS profile-share UI test attaches native PNGs
 and viewport/element frames for the eligible target and sent confirmation to its xcresult. The
 English and Russian scenarios request Accessibility Medium text at launch.
-Native CI exports these attachments to `ios-screen-evidence` with the Xcode attachment manifest,
-source commit, simulator destination and SHA-256 of the tested executable. Android's
-`am instrument` has no retries, so the Android
-run reruns up to twice, each time only the tests the failed run lists (`-e class`, checked
+Native CI exports these attachments to `ios-screen-evidence`. For each locale, look up the
+semantic attachment names in `en/manifest.json` or `ru/manifest.json`. The root
+`provenance.json` records the source commit, simulator destination, executable SHA-256 and
+hashes of the named PNG and geometry files. Confirm the source commit before reviewing the PNGs.
+
+Android's `am instrument` has no retries, so CI reruns up to twice, each time only the tests
+the failed run lists (`-e class`, checked
 with a minimum of one test), or the whole suite when it lists none. The tests listed by a
 failed run before a passing one are flaky (`android instrumentation` when a failed run lists
 none). The main suite and explicit peer/photo phase invocations use
