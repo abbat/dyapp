@@ -98,6 +98,10 @@ struct ReceivedViewsSection: View {
         .task(id: expected) {
             if expanded, let context { await refresh(context, opening: expected) }
         }
+        .onChange(of: feed.version) { _ in
+            guard expanded, let context else { return }
+            Task { await refresh(context, opening: expected) }
+        }
         .onDisappear {
             opening = UUID()
             busy = false
