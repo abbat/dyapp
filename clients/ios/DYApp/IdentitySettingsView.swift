@@ -25,6 +25,7 @@ struct IdentitySettingsView: View {
     @State private var removalAllowed = false
     @State private var hasOtherCopy = false
     @State private var withdrawFailed = false
+    @State private var withdrawalRevision = 0
     @State private var opening = UUID()
 
     private var removalWarning: LocalizedStringKey {
@@ -134,14 +135,18 @@ struct IdentitySettingsView: View {
                 }
             }
 
-            if removableSlot != nil {
+            if let id = removableSlot {
                 Section {
-                    Button("settings.remove", role: .destructive) {
-                        withdrawFailed = false
-                        showRemoveConfirmation = true
+                    if withdrawFailed {
+                        removalRecovery(id, opening: currentOpening)
+                    } else {
+                        Button("settings.remove", role: .destructive) {
+                            guard isCurrent(currentOpening) else { return }
+                            showRemoveConfirmation = true
+                        }
+                        .disabled(isLoading || readFailed || isWorking || identities.busy)
+                        .accessibilityIdentifier("settings-remove")
                     }
-                    .disabled(isLoading || readFailed || isWorking || identities.busy)
-                    .accessibilityIdentifier("settings-remove")
                 }
             }
         }
@@ -151,25 +156,10 @@ struct IdentitySettingsView: View {
             "settings.removeTitle", isPresented: $showRemoveConfirmation, presenting: removableSlot
         ) { id in
             Button("settings.removeCancel", role: .cancel) {}
-            if withdrawFailed {
-                Button("identity.retry") {
-                    Task {
-                        guard isCurrent(currentOpening) else { return }
-                        await withdrawThenRemove(id)
-                    }
-                }
-                Button("settings.removeAnyway", role: .destructive) {
-                    Task {
-                        guard isCurrent(currentOpening) else { return }
-                        await remove(id)
-                    }
-                }
-            } else {
-                Button("settings.removeConfirm", role: .destructive) {
-                    Task {
-                        guard isCurrent(currentOpening) else { return }
-                        await withdrawThenRemove(id)
-                    }
+            Button("settings.removeConfirm", role: .destructive) {
+                Task {
+                    guard isCurrent(currentOpening) else { return }
+                    await withdrawThenRemove(id)
                 }
             }
         } message: { _ in
@@ -180,6 +170,35 @@ struct IdentitySettingsView: View {
             opening = UUID()
             isWorking = false
         }
+    }
+
+    private func removalRecovery(_ id: UUID, opening currentOpening: UUID) -> some View {
+        VStack(alignment: .leading) {
+            removalMessage.accessibilityIdentifier("settings-remove-offline")
+                .accessibilityValue(String(withdrawalRevision))
+            Button("settings.removeCancel") {
+                guard isCurrent(currentOpening) else { return }
+                withdrawFailed = false
+            }
+            .accessibilityIdentifier("settings-remove-cancel-offline")
+            Button("identity.retry") {
+                Task {
+                    guard isCurrent(currentOpening) else { return }
+                    await withdrawThenRemove(id)
+                }
+            }
+            .accessibilityIdentifier("settings-remove-retry")
+            Button("settings.removeAnyway", role: .destructive) {
+                Task {
+                    guard isCurrent(currentOpening) else { return }
+                    await remove(id)
+                }
+            }
+            .accessibilityIdentifier("settings-remove-anyway")
+        }
+        // These controls share one Form row; automatic style can activate every button in it.
+        .buttonStyle(.borderless)
+        .disabled(isWorking || identities.busy)
     }
 
     private func statusKey(for state: IdentitySlot.State) -> LocalizedStringKey {
@@ -273,14 +292,12 @@ struct IdentitySettingsView: View {
         }
         guard !Task.isCancelled, isCurrent(currentOpening) else { return }
         isWorking = false
+        withdrawalRevision += 1
         if withdrawn {
             await remove(id)
         } else {
-            // A failure can return at once, and an alert asked for while the last one closes is lost.
-            try? await Task.sleep(nanoseconds: 400_000_000)
-            guard !Task.isCancelled, isCurrent(currentOpening) else { return }
+            // Inline recovery survives even an immediate failure while the alert is dismissing.
             withdrawFailed = true
-            showRemoveConfirmation = true
         }
     }
 

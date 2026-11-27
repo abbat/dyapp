@@ -75,8 +75,10 @@ identity** reopens an existing key before selecting it; an unreadable identity s
 A failed Create or Switch shows an error and keeps your current selection. For a selected UUID
 identity, **Remove this identity** shows its Peer ID and a backup warning; **Keep identity**
 cancels. **Remove permanently** erases that local key and returns to setup or the identity picker.
-A published profile is withdrawn from search first; if no node takes the withdrawal, choose **Retry**,
-**Keep identity** or **Remove anyway**, and the profile then disappears from search within 30 days.
+A published profile is withdrawn from search first; if no node takes the withdrawal, Settings shows
+an inline warning with **Retry**, **Keep identity** and **Remove anyway**. Only the last action
+removes the key without a confirmed withdrawal. The profile can remain searchable until nodes
+expire it, and another device can keep it published. The warning stays until you choose an action.
 Legacy identities cannot be removed here. In the picker, select a surviving Peer ID or create
 another identity explicitly; an unreadable or deleting entry cannot be selected.
 

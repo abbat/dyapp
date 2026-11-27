@@ -76,6 +76,19 @@ final class ProfileUITests: XCTestCase {
             XCTAssertTrue(texts.contains(text), "\(texts)")
         }
         XCTAssertFalse(texts.contains("Birth year (optional)"), "\(texts)")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        let settings = app.buttons["settings-open"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 10))
+        settings.tap()
+        reveal(app.buttons["settings-remove"], in: app).tap()
+        let confirmation = app.alerts["Remove identity?"]
+        XCTAssertTrue(confirmation.waitForExistence(timeout: 10))
+        XCTAssertTrue(
+            confirmation.staticTexts.matching(
+                NSPredicate(format: "label CONTAINS %@", "withdraw")
+            ).firstMatch.exists)
+        confirmation.buttons["Remove permanently"].tap()
+        XCTAssertTrue(app.buttons["identity-create"].waitForExistence(timeout: 30))
         app.terminate()
     }
 
@@ -247,6 +260,65 @@ final class ProfileUITests: XCTestCase {
             app.descendants(matching: .any)["profile-photo-0"].waitForExistence(timeout: 30))
         XCTAssertFalse(second.exists)
         app.terminate()
+    }
+
+}
+
+extension ProfileUITests {
+    @objc
+    func testFailedWithdrawalRetainsIdentityUntilExplicitRemoveAnyway() throws {
+        let app = unlockedApp()
+        app.launchArguments += ["--ui-test-fail-withdraw"]
+        app.launch()
+        createIdentity(app)
+        connectLocalNode(app)
+        openProfile(app)
+        let save = reveal(app.buttons["profile-save"], in: app)
+        guard ready(save) else { return }
+        save.tap()
+        publish(app)
+        XCTAssertTrue(
+            reveal(
+                app.descendants(matching: .any)["profile-published-readback"],
+                in: app, timeout: 180
+            ).exists)
+        app.terminate()
+        app.launch()
+        let peer = app.staticTexts["peer-id"]
+        XCTAssertTrue(peer.waitForExistence(timeout: 10))
+        let expectedPeer = peer.label
+        app.buttons["settings-open"].tap()
+        openWithdrawalFailure(app)
+        let warning = reveal(app.staticTexts["settings-remove-offline"], in: app)
+        XCTAssertTrue(warning.label.contains(expectedPeer))
+        XCTAssertTrue(
+            warning.label.contains(
+                "Profile withdrawal could not be confirmed. The profile may stay in search until nodes expire it. Another device can keep it published."
+            ))
+        let revision = try XCTUnwrap(warning.value as? String)
+        reveal(app.buttons["settings-remove-retry"], in: app).tap()
+        let retried = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value != %@", revision), object: warning)
+        XCTAssertEqual(XCTWaiter.wait(for: [retried], timeout: 30), .completed)
+        reveal(app.buttons["settings-remove-cancel-offline"], in: app).tap()
+        XCTAssertTrue(reveal(app.buttons["settings-remove"], in: app).exists)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings-active"].label.contains(expectedPeer))
+        openWithdrawalFailure(app)
+        reveal(app.buttons["settings-remove-anyway"], in: app).tap()
+        XCTAssertTrue(app.buttons["identity-create"].waitForExistence(timeout: 30))
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(app.buttons["identity-create"].waitForExistence(timeout: 10))
+        app.terminate()
+    }
+
+    private func openWithdrawalFailure(_ app: XCUIApplication) {
+        reveal(app.buttons["settings-remove"], in: app).tap()
+        let alert = app.alerts["Remove identity?"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        alert.buttons["Remove permanently"].tap()
+        XCTAssertTrue(reveal(app.staticTexts["settings-remove-offline"], in: app).exists)
     }
 
     private func waitEnabled(_ element: XCUIElement) {

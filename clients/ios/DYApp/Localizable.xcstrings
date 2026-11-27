@@ -6310,13 +6310,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No node accepted the withdrawal. The profile disappears from search by itself within 30 days."
+            "value": "Profile withdrawal could not be confirmed. The profile may stay in search until nodes expire it. Another device can keep it published."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ни один узел не принял снятие профиля. Профиль сам исчезнет из поиска в течение 30 дней."
+            "value": "Снятие профиля с поиска не подтверждено. Он может оставаться в поиске, пока узлы его хранят. Другое устройство может продлевать публикацию."
           }
         }
       }

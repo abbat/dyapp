@@ -83,7 +83,10 @@ Selected ready UUID slots can be removed after a second confirmation; the root p
 requires an explicit choice of any survivor. Settings obtains removal eligibility and same-Peer-ID
 local-copy guidance from native `removal_review`, rather than inferring either from row count.
 Failure to read the review or publication state displays Retry and disables removal; an unreadable
-publication state is never treated as an unpublished identity.
+publication state is never treated as an unpublished identity. Failed withdrawal exposes an inline
+recovery choice in Settings, with the confirmed Peer ID and unconfirmed-withdrawal warning. Retry awaits a fresh
+native result; Keep returns to the original removal action, and Remove anyway remains explicit.
+No timed alert dismissal/reopening is required.
 
 Desktop and Android already have UUID slots, an `active-profile` pointer,
 incomplete and unavailable recovery states, and an explicit remove flow. Their

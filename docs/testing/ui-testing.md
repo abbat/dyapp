@@ -529,7 +529,12 @@ The native profile-removal journey checks the complete unconfirmed-withdrawal wa
 text layout before exercising Retry/Cancel, then verifies normal removal after network recovery.
 The separate Remove anyway path retains explicit local key/data-removal acceptance. Resource copy
 must not promise a fixed remote expiry or claim that an unconfirmed completion proves no node
-accepted the withdrawal.
+accepted the withdrawal. iOS uses the same unconfirmed wording. Its native profile journey checks
+signed readback before confirmed withdrawal/removal. A separate controlled withdrawal failure checks
+retained identity, the warning, Retry, Keep and explicit Remove anyway across restart. Retry waits
+for the warning's new completed-operation revision, rather than matching its already visible text.
+Offline choices render inline in Settings, so no alert-dismissal delay is involved. These authored
+journeys require actual `native - ios` execution; Docker lint does not establish runtime acceptance.
 
 The native linked-media protocol regression first establishes a matched chat containing a valid
 JPEG and decoded WebP sticker, verifies both protected node blobs and recipient mixed-history

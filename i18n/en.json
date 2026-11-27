@@ -428,7 +428,7 @@
   "apple.settings.removeCancel": "Keep identity",
   "apple.settings.removeConfirm": "Remove permanently",
   "apple.settings.removeLastWarning": "This is the last local copy shown on this device. The key cannot be recovered without a backup.",
-  "apple.settings.removeOffline": "No node accepted the withdrawal. The profile disappears from search by itself within 30 days.",
+  "apple.settings.removeOffline": "Profile withdrawal could not be confirmed. The profile may stay in search until nodes expire it. Another device can keep it published.",
   "apple.settings.removeTitle": "Remove identity?",
   "apple.settings.removeWarning": "This key cannot be recovered without a backup. Other identities will remain on this device.",
   "apple.settings.select": "Switch to this identity",
