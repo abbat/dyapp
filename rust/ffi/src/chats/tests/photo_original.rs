@@ -108,6 +108,22 @@ fn ids(items: &[ChatItem]) -> Vec<Vec<u8>> {
 }
 
 #[test]
+fn download_policy_survives_reopening_every_mode() {
+    use crate::ChatPhotoDownload;
+
+    let mut fixture = Fixture::new();
+    for mode in [
+        ChatPhotoDownload::Always,
+        ChatPhotoDownload::OnTap,
+        ChatPhotoDownload::ByNetwork,
+    ] {
+        fixture.chats.set_photo_download(mode).unwrap();
+        fixture = fixture.reopen();
+        assert_eq!(fixture.chats.photo_download().unwrap(), mode);
+    }
+}
+
+#[test]
 fn populated_photo_history_and_cached_original_survive_native_reopen_offline() {
     let f = Fixture::new();
     let peer = establish(&f);
