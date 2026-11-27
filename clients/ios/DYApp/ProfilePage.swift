@@ -34,6 +34,7 @@ final class ProfilePage: ObservableObject {
     private let context: ChatFeed.Context?
     private(set) var opening = UUID()
     private var active = true
+    private var viewOpening: ProfileViewOpening?
 
     init(peer: String, known: FoundProfile?, feed: ChatFeed) {
         self.peer = peer
@@ -46,6 +47,8 @@ final class ProfilePage: ObservableObject {
         favorite = FavoriteActionState()
         note = ContactNoteState()
         active = false
+        viewOpening?.retire()
+        viewOpening = nil
         opening = UUID()
     }
 
@@ -58,6 +61,20 @@ final class ProfilePage: ObservableObject {
 
     func current(_ expected: UUID) -> Bool {
         active && opening == expected && context.map { feed.isCurrent($0) } == true
+    }
+
+    func prepareViewDisclosure(opening expected: UUID) async {
+        guard let context, current(expected), peer != context.identity.peerId,
+            let worker = await feed.photos.use(context.identity),
+            !Task.isCancelled, current(expected)
+        else { return }
+        viewOpening = try? worker.searcher.profileViewOpening(
+            ownerPeer: context.identity.peerId, peerId: peer)
+    }
+
+    func discloseShownProfile(opening expected: UUID) async {
+        guard let context, current(expected), found != nil, let viewOpening else { return }
+        _ = await feed.call(context) { try $0.submitProfileView(opening: viewOpening) }
     }
 
     func load() async {

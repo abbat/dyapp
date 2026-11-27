@@ -36,6 +36,8 @@ struct FoundProfileView: View {
             guard !Task.isCancelled else { return }
             page.activate()
             let expected = page.opening
+            await page.prepareViewDisclosure(opening: expected)
+            guard !Task.isCancelled, page.current(expected) else { return }
             if !own {
                 await page.resolveFavorite(change: false, opening: expected)
                 guard !Task.isCancelled, page.current(expected) else { return }
@@ -44,7 +46,9 @@ struct FoundProfileView: View {
             guard !Task.isCancelled, page.current(expected) else { return }
             await page.load()
             guard !Task.isCancelled, page.current(expected) else { return }
+            async let disclosure: Void = page.discloseShownProfile(opening: expected)
             if !own { await page.readLikes() }
+            await disclosure
         }
         .onDisappear { page.retire() }
         // The feed counts its reads, so a like that a receive brought shows here.
@@ -67,13 +71,22 @@ struct FoundProfileView: View {
             Text(LocalizedStringKey(failure.key)).accessibilityIdentifier("view-load")
             Text(verbatim: failure.details ?? "").font(.caption).textSelection(.enabled)
                 .accessibilityIdentifier("view-load-details")
-            Button("search.retry") { Task { await page.load() } }.accessibilityIdentifier(
-                "view-retry")
+            retryButton
         } else if page.searched {
             Text("view.notFound").accessibilityIdentifier("view-load")
-            Button("search.retry") { Task { await page.load() } }.accessibilityIdentifier(
-                "view-retry")
+            retryButton
         }
+    }
+
+    private var retryButton: some View {
+        Button("search.retry") {
+            let expected = page.opening
+            Task {
+                await page.load()
+                await page.discloseShownProfile(opening: expected)
+            }
+        }
+        .accessibilityIdentifier("view-retry")
     }
 
     init(

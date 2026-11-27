@@ -57,7 +57,9 @@ remain read-only. Android's explicit profile page captures the opening through i
 context, waits for a shown profile, and submits once on IO. Disposal retires the opening without
 releasing an admitted native identity lease. Core owns privacy, daily deduplication and immutable
 target/network admission; Compose only supplies readiness and lifetime. Shared Tauri profile pages
-use opaque prepare/submit/retire commands over the same core opening and staging.
+use opaque prepare/submit/retire commands over the same core opening and staging. The iOS
+explicit profile page captures through its current photo searcher, submits through its own chat
+context after the profile resolves, and retires the token when the page disappears.
 The Android received-view collection uses the common local pager and existing full-identifier rows;
 read failures retain known data, disposal retires actions and explicit row selection opens the
 original profile through the shell. Tauri received-view UI remains planned; native
