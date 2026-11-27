@@ -208,7 +208,8 @@ The shared Swift Rust draft adapter prefers an existing `client.db` draft. If no
 loads the current slot JSON (including the older Peer-ID-named root copy), validates the exact
 editable values and copies them into `client.db`. It leaves both JSON files intact, including after
 failed validation or storage, so migration can be retried. The editor and preview use this adapter
-off the UI thread; corrupted data blocks the editor rather than replacing it.
+on the native IO worker queue for editor loads, saves and publication eligibility checks. Corrupted
+data blocks the editor rather than replacing it.
 The new Rust `ProfilePublisher` takes this selected identity folder and uses only its activated
 network settings to find a node. A draft network is never used for publication. Connection
 preparation does not alter the profile draft. Swift `RustBridge.publishProfile` reopens the

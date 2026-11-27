@@ -317,13 +317,13 @@ extension ProfileDraftView {
         resetFields()
         let selected = candidate
         let selectedPeer = peerId
-        let result = await Task.detached(priority: .userInitiated) { () -> ProfileDraftLoad in
+        let result = await IdentityIO.performBlocking { () -> ProfileDraftLoad in
             do {
                 return .loaded(try RustBridge.loadProfileDraft(for: selected, peerId: selectedPeer))
             } catch {
                 return .failed
             }
-        }.value
+        }
         guard !Task.isCancelled else { return }
         switch result {
         case .loaded(let decoded):
@@ -372,7 +372,7 @@ extension ProfileDraftView {
             let selectedPeer = peerId
             status = ""
             isSaving = true
-            let refusal = await Task.detached(priority: .userInitiated) { () -> String? in
+            let refusal = await IdentityIO.performBlocking { () -> String? in
                 do {
                     try RustBridge.storeProfileDraft(
                         for: selected, peerId: selectedPeer, draft: draft)
@@ -380,7 +380,7 @@ extension ProfileDraftView {
                 } catch {
                     return profileSaveStatus(error)
                 }
-            }.value
+            }
             isSaving = false
             guard !Task.isCancelled else { return }
             status = refusal ?? "profile.saved"
@@ -435,7 +435,7 @@ extension ProfileDraftView {
         let selected = candidate
         let selectedPeer = peerId
         let attested = confirmedAdult
-        let result = await Task.detached(priority: .userInitiated) { () -> ProfileEligibility in
+        let result = await IdentityIO.performBlocking { () -> ProfileEligibility in
             do {
                 if let block = try RustBridge.publicationBlock(
                     for: selected, peerId: selectedPeer,
@@ -447,7 +447,7 @@ extension ProfileDraftView {
             } catch {
                 return .failed
             }
-        }.value
+        }
         guard !Task.isCancelled && revision == eligibilityRevision else { return }
         isCheckingEligibility = false
         eligibilityChecked = true
