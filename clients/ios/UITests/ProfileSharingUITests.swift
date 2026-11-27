@@ -28,7 +28,8 @@ extension ChatsUITests {
         row.tap()
         let profile = app.staticTexts["view-peer"]
         XCTAssertTrue(profile.waitForExistence(timeout: 30))
-        XCTAssertTrue(profile.label.contains(peer))
+        XCTAssertFalse(peer.isEmpty)
+        XCTAssertEqual(profile.label, "Peer ID: \(peer)")
     }
 
     func assertProfileShare(language: String, locale: String, sentLabel: String) {
