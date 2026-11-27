@@ -37,7 +37,11 @@ The iOS registry suite drives collisions at the actual native `contains` callbac
 credentials or a newly occupied directory must be skipped without overwriting their payload.
 Picker/invalid-pointer fixtures seed those states after atomic core creation, which already selects
 its new identity. Erase failures use locked callback control; preserved wrapped bytes and survivor
-Peer IDs remain checked independently of native error wording. DTO tests retain a known recovery
+Peer IDs remain checked independently of native error wording. `IdentityOperationTests` probes the
+actual registry lock with a nonblocking exclusive attempt inside the Swift operation closure, then
+requires admission immediately after return. Wrong Peer IDs and incomplete slots refuse before the
+action and preserve original bytes; no competing mutation is started behind a held lease.
+DTO tests retain a known recovery
 Peer ID and committed persistence warnings without converting them into retryable failures.
 The iOS real-peer sharing scenario opens an incoming ordinary link naming the app owner, shares
 that own profile into the distinct established conversation through the common native operation,

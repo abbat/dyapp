@@ -40,10 +40,8 @@ extension RustBridge {
     static func peerPhotosLoadByThemselves(_ identity: ChatIdentity) throws -> Bool {
         chatsLock.lock()
         defer { chatsLock.unlock() }
-        let key = try identityStore().open(identity.candidate.location)
-        guard key.peerId() == identity.peerId else { throw IdentitySlotError.peerIDMismatch }
-        return try peerPhotoAuto(
-            dir: networkDirectory(root: try directory(), candidate: identity.candidate).path,
-            key: key)
+        return try withIdentity(identity.candidate, peerId: identity.peerId) { dir, key in
+            try peerPhotoAuto(dir: dir, key: key)
+        }
     }
 }

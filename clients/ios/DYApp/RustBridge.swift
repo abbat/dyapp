@@ -164,15 +164,25 @@ enum RustBridge {
         return try write()
     }
 
+    /// Scope nonescaping native work; acquire draft serialization first when it is needed.
+    static func withIdentity<Value>(
+        _ candidate: IdentityCandidate, peerId: String,
+        _ work: (String, IdentityKey) throws -> Value
+    ) throws -> Value {
+        try identityStore().withIdentity(candidate.location, peerId: peerId, work)
+    }
+
     /// Reopen the selected key and load its Rust profile draft, importing old JSON once if needed.
     static func loadProfileDraft(for candidate: IdentityCandidate, peerId: String) throws
         -> ProfileDraft?
     {
-        let key = try identityStore().open(candidate.location)
-        guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
-        let store = ProfileRustDraftStore(
-            root: try directory(), candidate: candidate, peerId: peerId, key: key)
-        return try withDraftLock { try store.load() }
+        try withDraftLock {
+            try withIdentity(candidate, peerId: peerId) { _, key in
+                try ProfileRustDraftStore(
+                    root: directory(), candidate: candidate, peerId: peerId, key: key
+                ).load()
+            }
+        }
     }
 
     /// Persist exact optional profile fields to this identity's Rust client database.
@@ -180,11 +190,13 @@ enum RustBridge {
         for candidate: IdentityCandidate, peerId: String,
         draft: ProfileDraft
     ) throws {
-        let key = try identityStore().open(candidate.location)
-        guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
-        let store = ProfileRustDraftStore(
-            root: try directory(), candidate: candidate, peerId: peerId, key: key)
-        try withDraftLock { try store.save(draft) }
+        try withDraftLock {
+            try withIdentity(candidate, peerId: peerId) { _, key in
+                try ProfileRustDraftStore(
+                    root: directory(), candidate: candidate, peerId: peerId, key: key
+                ).save(draft)
+            }
+        }
     }
 
     /// Publish only the selected identity's solved draft through its active network, off the UI thread.
@@ -199,8 +211,10 @@ enum RustBridge {
             }
         #endif
         // Only a chat session lists this device and its key packages; without them nobody can write here.
-        let result = try withChats(ChatIdentity(candidate: candidate, peerId: peerId)) { session in
-            try withDraftLock { try session.publishProfile(attested: attested) }
+        let result = try withDraftLock {
+            try withChats(ChatIdentity(candidate: candidate, peerId: peerId)) { session in
+                try session.publishProfile(attested: attested)
+            }
         }
         return PublishedProfileSnapshot(
             version: result.version,
@@ -211,34 +225,35 @@ enum RustBridge {
     static func visibility(for candidate: IdentityCandidate, peerId: String) throws
         -> ProfileVisibility
     {
-        let key = try identityStore().open(candidate.location)
-        guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
-        let dir = networkDirectory(root: try directory(), candidate: candidate)
-        return try profileVisibility(dir: dir.path, key: key)
+        try withIdentity(candidate, peerId: peerId) { dir, key in
+            try profileVisibility(dir: dir, key: key)
+        }
     }
 
     /// Take the profile out of search; without a node this throws and changes nothing.
     static func hideProfile(for candidate: IdentityCandidate, peerId: String) throws
         -> ProfileVisibility
     {
-        let key = try identityStore().open(candidate.location)
-        guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
-        let dir = networkDirectory(root: try directory(), candidate: candidate)
-        return try withDraftLock { try ProfilePublisher(dir: dir.path).hide(key: key) }
+        try withDraftLock {
+            try withIdentity(candidate, peerId: peerId) { dir, key in
+                try ProfilePublisher(dir: dir).hide(key: key)
+            }
+        }
     }
 
     /// Sign the withdrawal before the identity is removed; without a node this throws and changes nothing.
     static func withdrawProfile(for candidate: IdentityCandidate, peerId: String) throws {
-        let key = try identityStore().open(candidate.location)
-        guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
-        let dir = networkDirectory(root: try directory(), candidate: candidate)
         #if DEBUG
             // Native UI tests see no node accepting it while their local node keeps running.
             if ProcessInfo.processInfo.arguments.contains("--ui-test-fail-withdraw") {
                 throw CoreError.Failed(message: "notConnected")
             }
         #endif
-        _ = try withDraftLock { try ProfilePublisher(dir: dir.path).withdraw(key: key) }
+        try withDraftLock {
+            try withIdentity(candidate, peerId: peerId) { dir, key in
+                _ = try ProfilePublisher(dir: dir).withdraw(key: key)
+            }
+        }
     }
 
     /// Read-only shared eligibility for the saved identity draft, with fresh 18+ attestation.
@@ -246,10 +261,11 @@ enum RustBridge {
         for candidate: IdentityCandidate, peerId: String,
         attested: Bool
     ) throws -> String? {
-        let key = try identityStore().open(candidate.location)
-        guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
-        let dir = networkDirectory(root: try directory(), candidate: candidate)
-        return try profilePublishBlock(dir: dir.path, key: key, attested: attested)
+        try withDraftLock {
+            try withIdentity(candidate, peerId: peerId) { dir, key in
+                try profilePublishBlock(dir: dir, key: key, attested: attested)
+            }
+        }
     }
 
     /// A new cancellable proof handle for this selected identity; a retry creates a new handle.

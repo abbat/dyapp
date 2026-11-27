@@ -180,6 +180,17 @@ final class IdentitySlotStore: Sendable {
 
     func open(_ slot: IdentitySlot) throws -> IdentityKey { try open(.slot(slot.id)) }
 
+    /// Retain actual admission through blocking completion; never return an escaping native worker.
+    func withIdentity<Value>(
+        _ location: IdentityLocation, peerId: String,
+        _ work: (String, IdentityKey) throws -> Value
+    ) throws -> Value {
+        let operation = try registry.operation(id: location.marker, expectedPeer: peerId)
+        return try withExtendedLifetime(operation) {
+            try work(operation.slot().directory, operation.key())
+        }
+    }
+
     @discardableResult
     func select(_ location: IdentityLocation) throws -> IdentityUpdate {
         try IdentityUpdate(native: registry.select(id: location.marker))

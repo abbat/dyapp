@@ -133,7 +133,11 @@ Chat work now opens through `MobileIdentityRegistry.open_chats` with the slot's 
 Keychain store. Core bootstraps and verifies ancillary keys without replacing initialized state;
 its returned chat session owns registry and chat locks through the actual blocking operation.
 Swift does not generate or write `device.key` or `chat-state.key`. Do not acquire another identity
-lease around chat bootstrap. Shared-lease adoption for non-chat and escaped workers remains planned.
+lease around chat bootstrap. Nonescaping profile draft, visibility, hide/withdraw, publication checks
+and photo-download policy reads use the opaque native identity operation through actual completion.
+Draft serialization is acquired before native admission, including publication through chats; a
+lease holder must not wait for that draft lock. Photo mutation, path-only network operations and
+escaped proof/search/check worker migration remain planned.
 The reserved `active-profile` value `none\n` means the user explicitly left no identity selected.
 Unlike an absent pointer, it opens the picker even if exactly one ready slot survives; an empty
 store still shows setup unless a legacy Keychain item is stranded. This marker is reserved for

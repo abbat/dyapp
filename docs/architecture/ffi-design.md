@@ -301,6 +301,11 @@ secret; corrupt saved content remains removable. Missing files return false. Inv
 refuse before storage work. An error after unlink does not prove rollback: refresh the collection
 before deciding whether to retry. The operation retains its identity lease through completion;
 other packs, history and outbox are untouched. Installation-owned node work must run outside identity leases.
+iOS scopes nonescaping profile draft, visibility, hide/withdraw, publication-eligibility and photo
+policy reads through this native operation. Swift keeps the operation alive through the whole
+blocking closure, rather than retaining only its opaque key. Acquire Swift draft serialization
+before native admission, including chat-backed publication, so a lease holder never waits for that
+lock. Path-only network calls, photo mutation and escaped-worker migration remain separate work.
 Android's `NativeSlotKeys` implements the common credential callback with existing alias names
 and typed errors, using opaque keys. Its callback inputs release their native key handles after
 wrapping. Android's `Slots` now delegates lifecycle operations to this registry. iOS
