@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import socket
 import subprocess
@@ -198,11 +199,12 @@ def validate_ios_attachments(directory: Path, language: str) -> dict[str, str]:
 
 
 def evidence_file(directory: Path, manifest: list[dict], name: str, suffix: str) -> Path:
+    exported_name = re.compile(rf"{re.escape(name)}(?:_\d+)*{re.escape(suffix)}")
     matches = [
         Path(item["exportedFileName"])
         for test in manifest
         for item in test["attachments"]
-        if item.get("suggestedHumanReadableName") == f"{name}{suffix}"
+        if exported_name.fullmatch(item.get("suggestedHumanReadableName", ""))
     ]
     if len(matches) != 1 or matches[0].name != str(matches[0]):
         raise RuntimeError(f"Expected exactly one exported attachment: {name}")

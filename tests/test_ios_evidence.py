@@ -54,7 +54,7 @@ class IosEvidence(unittest.TestCase):
                     attachments.append(
                         {
                             "exportedFileName": exported,
-                            "suggestedHumanReadableName": f"{name}{suffix}",
+                            "suggestedHumanReadableName": f"{name}_0_1{suffix}",
                         }
                     )
             manifest = directory / "manifest.json"
