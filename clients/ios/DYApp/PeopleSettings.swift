@@ -266,8 +266,10 @@ struct LinkedDevicesSection: View {
                     .disabled(busy)
                 }
             }
+            if busy { ProgressView() }
             if failed { Text("devices.uncertain").font(.caption) }
-            Button("devices.refresh") { refresh() }.disabled(busy)
+            Button("devices.refresh") { refresh() }
+                .disabled(busy || feed.context == nil)
         }
         .confirmationDialog("devices.disconnect", isPresented: $confirming) {
             Button("devices.disconnect", role: .destructive, action: revoke)
@@ -275,7 +277,7 @@ struct LinkedDevicesSection: View {
         } message: {
             Text("disconnect.text")
         }
-        .task(id: feed.owner) { await load() }
+        .task(id: feed.owner) { refresh() }
         .onChange(of: feed.owner) { _ in
             rows = []
             revoking = nil
