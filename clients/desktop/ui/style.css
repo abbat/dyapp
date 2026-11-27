@@ -288,8 +288,7 @@ details > summary {
   margin-bottom: var(--space-2);
   min-height: 24px;
 }
-#sticker-packs > summary:focus-visible,
-#sticker-packs > summary.focus {
+#sticker-packs > summary {
   outline-offset: 0;
 }
 .link-review-value {
