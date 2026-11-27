@@ -11,6 +11,7 @@ struct ProfileSeeking: Equatable, Sendable {
 /// A number that is no whole number; its raw value is the status text.
 enum ProfileInputError: String, Error {
     case height = "profile.invalidHeight"
+    case interests = "profile.interestsInvalid"
     case seeking = "profile.invalidSeeking"
 }
 
@@ -21,6 +22,7 @@ func profileSaveStatus(_ error: Error) -> String {
         "invalidName": "profile.invalidName",
         "invalidHeight": ProfileInputError.height.rawValue,
         "invalidAbout": "profile.invalidAbout",
+        "invalidInterests": ProfileInputError.interests.rawValue,
         "invalidSeeking": ProfileInputError.seeking.rawValue,
     ][refusal] ?? "profile.saveFailed"
 }
@@ -30,6 +32,8 @@ struct ProfileExtraInputs: Equatable {
     var name = ""
     var height = ""
     var about = ""
+    var interests = ""
+    private var savedInterests = ""
     var genders: Set<UInt32> = []
     var ageFrom = ""
     var ageTo = ""
@@ -47,10 +51,12 @@ struct ProfileExtraInputs: Equatable {
 
     init() {}
 
-    init(draft: ProfileDraft) {
+    init(draft: ProfileDraft, unchangedInterests: String = "") {
         name = draft.name
         height = draft.height.map(String.init) ?? ""
         about = draft.about
+        interests = draft.interests?.joined(separator: "\n") ?? unchangedInterests
+        savedInterests = interests
         genders = Set(draft.seeking.genders)
         ageFrom = draft.seeking.ageFrom.map(String.init) ?? ""
         ageTo = draft.seeking.ageTo.map(String.init) ?? ""
@@ -70,6 +76,12 @@ struct ProfileExtraInputs: Equatable {
         draft.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         draft.height = parsedHeight["height"].map(UInt32.init)
         draft.about = about.trimmingCharacters(in: .whitespacesAndNewlines)
+        if interests != savedInterests {
+            guard let parsed = parseProfileInterests(typed: interests) else {
+                throw ProfileInputError.interests
+            }
+            draft.interests = parsed
+        }
         draft.seeking = ProfileSeeking(
             genders: seeking.genders, ageFrom: seeking.ageFrom, ageTo: seeking.ageTo,
             notLooking: seeking.notLooking)
@@ -100,6 +112,13 @@ struct ProfileExtraFields: View {
                     .accessibilityLabel(Text("profile.about"))
                     .accessibilityIdentifier("profile-about")
                 Text("profile.aboutHint").font(.caption)
+            }
+            Section(header: Text("profile.interests")) {
+                TextEditor(text: $inputs.interests)
+                    .frame(minHeight: 80)
+                    .accessibilityLabel(Text("profile.interests"))
+                    .accessibilityIdentifier("profile-interests")
+                Text("profile.interestsHint").font(.caption)
             }
             Section(header: Text("profile.seekingTitle")) {
                 Toggle("profile.notLooking", isOn: $inputs.notLooking)

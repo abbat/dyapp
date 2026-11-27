@@ -389,7 +389,7 @@ extension ProfileDraftView {
             (saveTicket, isSaving) = (nil, false)
             status = refusal ?? "profile.saved"
             if refusal == nil {
-                extras = ProfileExtraInputs(draft: draft)
+                extras = ProfileExtraInputs(draft: draft, unchangedInterests: savedExtras.interests)
                 savedExtras = extras
                 hasSavedDraft = true
                 savedValues = values

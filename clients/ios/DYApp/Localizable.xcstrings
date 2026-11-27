@@ -3905,6 +3905,54 @@
         }
       }
     },
+    "profile.interests": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interests"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Интересы"
+          }
+        }
+      }
+    },
+    "profile.interestsHint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One interest per line, up to 32 interests and 64 characters each. These are public. Saving removes surrounding spaces and uses lowercase. Clear all lines to remove them."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По одному интересу в строке: до 32 интересов, до 64 символов каждый. Они публичны. При сохранении убираются пробелы по краям и используется нижний регистр. Удалите все строки, чтобы очистить список."
+          }
+        }
+      }
+    },
+    "profile.interestsInvalid": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use up to 32 interests, each up to 64 characters, with no hidden symbols."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Укажите до 32 интересов, до 64 символов каждый, без скрытых символов."
+          }
+        }
+      }
+    },
     "profile.invalidAbout": {
       "localizations": {
         "en": {
