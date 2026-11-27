@@ -6689,6 +6689,38 @@
         }
       }
     },
+    "search.interest": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interest"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Интерес"
+          }
+        }
+      }
+    },
+    "search.interestInvalid": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the interest: enter one complete tag within the displayed limit."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверьте интерес: укажите один полный тег в пределах указанного ограничения."
+          }
+        }
+      }
+    },
     "search.loading": {
       "localizations": {
         "en": {

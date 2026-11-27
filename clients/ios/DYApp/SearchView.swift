@@ -235,6 +235,10 @@ private struct SearchFilterFields: View {
                 disabled: false,
                 idPrefix: "search", anyLabel: "search.any", placeShown: inputs.placeOffered)
         }
+        if inputs.interestOffered {
+            TextField("search.interest", text: $inputs.interest)
+                .accessibilityIdentifier("search-interest")
+        }
         if inputs.mutualOffered {
             Toggle("search.mutual", isOn: $inputs.mutual).accessibilityIdentifier("search-mutual")
             Text("search.mutualHint").font(.caption)

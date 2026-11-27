@@ -109,6 +109,9 @@ signed copy is yours, not an upstream release. The
 [release page](https://github.com/abbat/dyapp/releases) carries the file with `SHA256SUMS` and build
 provenance; no release has been published yet.
 
+The profile editor accepts one public interest per line. The shared core normalizes tags on save.
+Search offers an interest filter when the network supports it.
+
 ## Linked devices
 
 In identity settings, refresh the device list to check the published profile. You can disconnect another device after confirmation. You can start receiving a profile during first launch or from identity settings. Once the network is active, create a link code and show its QR or copy the text to the device that already owns the profile. On that device, enter the code, choose its QR image, or scan it with the camera on a supported iPhone running iOS 16 or later, then confirm full control. Return to the receiving device and refresh the invitation to check for the transfer.
