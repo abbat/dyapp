@@ -10,6 +10,9 @@ struct ChatStickerRow: View {
     @State private var frame: Image?
     @State private var manual = false
     @State private var failed = false
+    @State private var confirming = false
+    @State private var deleting = false
+    @State private var deleteStatus: ChatStatus?
 
     var body: some View {
         VStack(alignment: .leading) {
@@ -31,9 +34,39 @@ struct ChatStickerRow: View {
                     .disabled(manual)
                     .accessibilityIdentifier("msg-sticker-load")
             }
+            if sticker.author == feed.me {
+                Button("chat.delete", role: .destructive) { confirming = true }
+                    .disabled(deleting)
+                    .accessibilityIdentifier("msg-sticker-delete")
+            }
+            if let deleteStatus { Text(LocalizedStringKey(deleteStatus.key)) }
+        }
+        .confirmationDialog("delete.title", isPresented: $confirming, titleVisibility: .visible) {
+            Button("chat.delete", role: .destructive, action: deleteSticker)
+        } message: {
+            Text("delete.text")
         }
         .task(id: network.metered) { await load(manually: false) }
         .task(id: manual) { if manual { await load(manually: true) } }
+    }
+
+    private func deleteSticker() {
+        guard !deleting, feed.isCurrent(context) else { return }
+        deleting = true
+        let (peer, group, author, id) = (peer, sticker.groupId, sticker.author, sticker.id)
+        Task {
+            let result = await feed.call(context) {
+                try $0.submitDeleteSticker(
+                    peerId: peer, groupId: group, author: author, messageId: id)
+            }
+            guard feed.isCurrent(context) else { return }
+            deleteStatus = chatSendStatus(result)
+            if case .success = result {
+                await feed.read()
+            } else {
+                deleting = false
+            }
+        }
     }
 
     private func load(manually: Bool) async {
