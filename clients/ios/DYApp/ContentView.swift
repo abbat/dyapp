@@ -367,6 +367,7 @@ extension ContentView {
     private func useIdentity(_ selected: IdentityResolution?) {
         if identity != selected {
             chats.deactivate()
+            search.retire()
             activeNetwork = .loading
             startLink = nil
             profilePending = false

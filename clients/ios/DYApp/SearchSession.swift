@@ -1,9 +1,8 @@
 import Foundation
 import SwiftUI
 
-/// One blocking sample; the UniFFI values stay inside the detached task and back on the main actor.
+/// One immutable sample request copied before native IO starts.
 struct SearchRequest: @unchecked Sendable {
-    let searcher: ProfileSearcher
     let candidate: IdentityCandidate
     let peerId: String
     let conditions: [SearchCondition]
@@ -11,7 +10,18 @@ struct SearchRequest: @unchecked Sendable {
     let mutual: Bool
 }
 
-private struct SearchOutcome: @unchecked Sendable {
+struct SearchRun: Sendable {
+    let owner: UUID
+    let id: UUID
+    let request: SearchRequest
+}
+
+private struct CachedSearchWorker: @unchecked Sendable {
+    let value: ProfileSearcher?
+}
+
+struct SearchOutcome: @unchecked Sendable {
+    let searcher: ProfileSearcher?
     let result: Result<ProfileSearchResult, Error>
 }
 
@@ -34,47 +44,84 @@ final class SearchSession: ObservableObject {
     private var candidate: IdentityCandidate?
     private var peerId = ""
     // The searcher keeps verified versions, so a later sample never shows an older one.
-    private var searcher: Result<ProfileSearcher, Error>?
-    private var generation = 0
+    private var searcher: ProfileSearcher?
+    private var pending: UUID?
+    private(set) var owner = UUID()
 
     /// Starts over when the selected identity changed since the screen was last open.
     func open(_ candidate: IdentityCandidate, peerId: String) {
-        guard self.peerId != peerId || searcher == nil else { return }
-        generation += 1
-        self.candidate = candidate
-        self.peerId = peerId
-        filters = SearchFilterInputs()
-        state = .idle
-        searcher = Result { try RustBridge.profileSearcher(for: candidate) }
-    }
-
-    func run() {
-        guard let candidate, let searcher else { return }
-        let request: SearchRequest
-        do {
-            request = SearchRequest(
-                searcher: try searcher.get(), candidate: candidate, peerId: peerId,
-                conditions: try filters.conditions(), employer: filters.employer(),
-                mutual: filters.mutualWanted)
-        } catch {
-            finish(.failure(error))
+        guard self.peerId != peerId || self.candidate?.location != candidate.location else {
             return
         }
-        generation += 1
-        let current = generation
-        state = .loading
-        Task {
-            let outcome = await Task.detached(priority: .userInitiated) {
-                SearchOutcome(result: Result { try RustBridge.searchProfiles(request) })
-            }.value
-            guard current == generation else { return }
-            finish(outcome.result)
+        retire()
+        self.candidate = candidate
+        self.peerId = peerId
+    }
+
+    func context(for candidate: IdentityCandidate, peerId: String) -> UUID? {
+        guard self.candidate?.location == candidate.location, self.peerId == peerId else {
+            return nil
+        }
+        return owner
+    }
+
+    func begin(owner expected: UUID) -> SearchRun? {
+        guard owner == expected, let candidate, !state.isLoading else { return nil }
+        do {
+            let run = SearchRun(
+                owner: owner, id: UUID(),
+                request: SearchRequest(
+                    candidate: candidate, peerId: peerId,
+                    conditions: try filters.conditions(), employer: filters.employer(),
+                    mutual: filters.mutualWanted))
+            pending = run.id
+            state = .loading
+            return run
+        } catch {
+            finish(.failure(error))
+            return nil
         }
     }
 
-    /// Abandons the answer; the blocking call itself runs to its end.
-    func cancel() {
-        generation += 1
+    func run(owner expected: UUID) {
+        guard let run = begin(owner: expected) else { return }
+        let cached = CachedSearchWorker(value: searcher)
+        Task {
+            let outcome = await IdentityIO.performBlocking {
+                let prepared = Result {
+                    try cached.value ?? RustBridge.profileSearcher(for: run.request.candidate)
+                }
+                return SearchOutcome(
+                    searcher: try? prepared.get(),
+                    result: Result {
+                        try RustBridge.searchProfiles(run.request, searcher: prepared.get())
+                    })
+            }
+            complete(outcome, for: run)
+        }
+    }
+
+    func complete(_ outcome: SearchOutcome, for run: SearchRun) {
+        guard owner == run.owner, pending == run.id else { return }
+        pending = nil
+        searcher = outcome.searcher
+        finish(outcome.result)
+    }
+
+    /// Abandons presentation only; the native operation retains its ownership through completion.
+    func cancel(owner expected: UUID) {
+        guard owner == expected else { return }
+        pending = nil
+        state = .idle
+    }
+
+    func retire() {
+        owner = UUID()
+        pending = nil
+        candidate = nil
+        peerId = ""
+        searcher = nil
+        filters = SearchFilterInputs()
         state = .idle
     }
 

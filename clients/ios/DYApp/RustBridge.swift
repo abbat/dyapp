@@ -99,7 +99,9 @@ enum RustBridge {
 
     /// One blocking verified sample; a mutual search without a usable saved gender and age says so
     /// rather than searching unfiltered.
-    static func searchProfiles(_ request: SearchRequest) throws -> ProfileSearchResult {
+    static func searchProfiles(_ request: SearchRequest, searcher: ProfileSearcher) throws
+        -> ProfileSearchResult
+    {
         let key = try identityStore().open(request.candidate.location)
         guard key.peerId() == request.peerId else { throw IdentitySlotError.peerIDMismatch }
         var conditions = request.conditions
@@ -114,7 +116,7 @@ enum RustBridge {
             else { throw CoreError.Failed(message: "mutual unavailable") }
             conditions += mutual
         }
-        let result = try request.searcher.search(
+        let result = try searcher.search(
             key: key, conditions: conditions, employer: request.employer, limit: 0)
         #if DEBUG
             return try withUITestRow(result)

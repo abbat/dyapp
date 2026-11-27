@@ -146,8 +146,11 @@ actual step reacquires protection and cannot recreate a removed identity, while 
 do not prevent switching or removal. Peer-photo cache preparation now runs on native IO, with one
 shared pending preparation per exact slot and Peer ID. Readers await that preparation; identity
 changes retire its presentation owner, clear the old cache and ignore late completion. Fetch/decode
-results cannot refresh a successor identity. Photo mutation and escaped search worker migration
-remain planned.
+results cannot refresh a successor identity. Search-screen selection compares slot and Peer ID;
+each submission has a distinct presentation ticket. Root identity changes retire pending search
+results and announcements immediately, while admitted native work finishes normally. Search-worker
+construction is deferred to actual query IO rather than screen composition. Cancel/retry and old
+screen actions cannot replace a newer ticket. Photo mutation and bound search API migration remain planned.
 The reserved `active-profile` value `none\n` means the user explicitly left no identity selected.
 Unlike an absent pointer, it opens the picker even if exactly one ready slot survives; an empty
 store still shows setup unless a legacy Keychain item is stranded. This marker is reserved for

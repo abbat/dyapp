@@ -13,8 +13,11 @@ struct SearchView: View {
     @State private var chat: OpenedProfile?
 
     var body: some View {
+        let owner = session.context(for: candidate, peerId: peerId)
         Group {
-            if let opened {
+            if owner == nil {
+                ProgressView("search.loading").accessibilityIdentifier("search-preparing")
+            } else if let opened {
                 FoundProfileView(
                     peer: opened.peer, known: opened.known, feed: feed,
                     back: { self.opened = nil },
@@ -45,26 +48,36 @@ struct SearchView: View {
                 ScrollingForm {
                     Text("search.sample").font(.caption)
                     SearchFilterFields(inputs: $session.filters)
-                    Button("search.run") { session.run() }
-                        .disabled(session.state.isLoading)
-                        .accessibilityIdentifier("run-search")
+                    Button("search.run") {
+                        if let owner { session.run(owner: owner) }
+                    }
+                    .disabled(session.state.isLoading)
+                    .accessibilityIdentifier("run-search")
                     status
                 }
             }
         }
         .navigationTitle("search.title")
-        .onAppear { session.open(candidate, peerId: peerId) }
+        .task(id: candidate.location.marker + ":" + peerId) {
+            guard !Task.isCancelled else { return }
+            opened = nil
+            chat = nil
+            session.open(candidate, peerId: peerId)
+        }
     }
 
     @ViewBuilder private var status: some View {
+        let owner = session.context(for: candidate, peerId: peerId)
         switch session.state {
         case .idle:
             Text("search.idle").font(.caption).accessibilityIdentifier("search-status")
 
         case .loading:
             Text("search.loading").font(.caption).accessibilityIdentifier("search-status")
-            Button("search.cancel") { session.cancel() }
-                .accessibilityIdentifier("search-cancel")
+            Button("search.cancel") {
+                if let owner { session.cancel(owner: owner) }
+            }
+            .accessibilityIdentifier("search-cancel")
 
         case let .failed(key, details):
             Text(LocalizedStringKey(key)).accessibilityIdentifier("search-status")
@@ -82,15 +95,17 @@ struct SearchView: View {
                     }
                     .accessibilityIdentifier("search-open-network")
                 }
-                Button("search.retry") { session.run() }
-                    .accessibilityIdentifier("search-retry")
+                Button("search.retry") {
+                    if let owner { session.run(owner: owner) }
+                }
+                .accessibilityIdentifier("search-retry")
             }
 
         case let .done(result):
             SearchResults(
                 result: result, photos: feed.photos,
                 open: { opened = OpenedProfile(peer: $0.peerId, known: $0) },
-                again: { session.run() }
+                again: { if let owner { session.run(owner: owner) } }
             )
         }
     }

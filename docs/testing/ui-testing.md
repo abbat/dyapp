@@ -47,7 +47,9 @@ also requires removal to complete with an idle proof handle, then refuses a late
 recreating storage. `PeerPhotosReadinessTests` holds native preparation behind an entry/release
 signal, prepares a successor with the same Peer ID in another slot, and rejects the old completion
 without refreshing the successor cache. The native constructor is checked off the main thread;
-successful cache reuse avoids another factory call.
+successful cache reuse avoids another factory call. `SearchOwnershipTests` deliver sample callbacks
+directly: same-peer slot changes, cancellation/retry, switch-away-and-back and unchanged-selection
+reopening. They check presentation ownership only; native search/admission remains separate coverage.
 The iOS registry suite drives collisions at the actual native `contains` callback: stranded
 credentials or a newly occupied directory must be skipped without overwriting their payload.
 Picker/invalid-pointer fixtures seed those states after atomic core creation, which already selects
