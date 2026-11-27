@@ -138,6 +138,12 @@ struct LinkReceiveSection: View {
                     failed = true
 
                 case .failure:
+                    if phase == .failed || phase == .interrupted || phase == .invalidated
+                        || deviceLinkCodeStatus(text: value.code) == .expired
+                    {
+                        _ = value.receiver.cancel()
+                        invitation = nil
+                    }
                     failed = true
                 }
             }
