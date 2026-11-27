@@ -121,6 +121,7 @@ final class ChatsUITests: XCTestCase {
         app.launchArguments = [
             "--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)",
             "--ui-test-chat-peer-shares",
+            "-AppleLanguages", "(en)", "-AppleLocale", "en_US",
         ]
         app.launch()
         createIdentity(app)
@@ -138,7 +139,10 @@ final class ChatsUITests: XCTestCase {
         let target = reveal(app.buttons["share-1"], in: app)
         attachShareState("eligible-target", app: app, element: target)
         target.tap()
-        let sent = reveal(shownText("Profile sent.", in: app), in: app, timeout: 60, above: true)
+        let sent = app.staticTexts.matching(identifier: "view-status").matching(
+            NSPredicate(format: "label == %@", "Profile sent.")
+        ).firstMatch
+        reveal(sent, in: app, timeout: 60, above: true)
         attachShareState("sent", app: app, element: sent)
         reveal(app.buttons["view-back"], in: app, above: true).tap()
         XCTAssertTrue(cards.element(boundBy: 1).waitForExistence(timeout: 30), app.debugDescription)
