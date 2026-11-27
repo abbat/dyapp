@@ -213,7 +213,9 @@ data blocks the editor rather than replacing it. The editor keys its initial rea
 and drops results from cancelled reads. A new draft load retires the prior save's presentation
 ticket while the admitted write finishes. Starting a save clears publication confirmations and
 invalidates pending eligibility results. Changing the draft cancels active proof preparation,
-including a worker still opening. Returning from a nested picker preserves edits.
+including a worker still opening. A publication can finish after the proof controls disappear,
+but its readback is shown only in the opening that submitted it. Returning from a nested picker
+preserves edits.
 The new Rust `ProfilePublisher` takes this selected identity folder and uses only its activated
 network settings to find a node. A draft network is never used for publication. Connection
 preparation does not alter the profile draft. Swift `RustBridge.publishProfile` reopens the

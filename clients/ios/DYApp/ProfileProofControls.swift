@@ -102,6 +102,7 @@ struct ProfileProofControls: View {
     @State private var proofFailed = false
     @State private var nextNonce: UInt64 = 0
     @State private var isPublishing = false
+    @State private var opening = UUID()
     @State private var publishErrorKey: String?
     @State private var published: PublishedProfileSnapshot?
     @State private var publishedPreview: ProfilePublicPreview?
@@ -155,7 +156,10 @@ struct ProfileProofControls: View {
             cancelProof()
             resetProofState()
         }
-        .onDisappear(perform: cancelProof)
+        .onDisappear {
+            opening = UUID()
+            cancelProof()
+        }
     }
 
     @MainActor
@@ -247,6 +251,7 @@ struct ProfileProofControls: View {
     @MainActor
     private func publish(attested: Bool) async {
         isPublishing = true
+        let expectedOpening = opening
         let selected = candidate
         let selectedPeer = peerId
         let outcome = await IdentityIO.performBlocking { () -> ProfilePublishAttempt in
@@ -261,7 +266,7 @@ struct ProfileProofControls: View {
         }
         isPublishing = false
         isSolving = false
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled, opening == expectedOpening else { return }
         switch outcome {
         case .published(let snapshot):
             do {
