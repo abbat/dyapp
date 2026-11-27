@@ -337,6 +337,86 @@
         }
       }
     },
+    "chat.forward": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forward"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переслать"
+          }
+        }
+      }
+    },
+    "chat.forwardEmpty": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No other open chats are available."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Других открытых переписок нет."
+          }
+        }
+      }
+    },
+    "chat.forwardFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The message could not be forwarded."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось переслать сообщение."
+          }
+        }
+      }
+    },
+    "chat.forwardLoadFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The source message or destination chats could not be verified."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось проверить исходное сообщение или переписки для пересылки."
+          }
+        }
+      }
+    },
+    "chat.forwardTitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forward message"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переслать сообщение"
+          }
+        }
+      }
+    },
     "chat.loadFailed": {
       "localizations": {
         "en": {

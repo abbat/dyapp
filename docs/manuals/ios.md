@@ -72,6 +72,9 @@ retry. Leaving the page or changing identity retires its private draft and old r
 native writes still finish. Notes never enter the public profile, search result or peer message.
 Native runtime and rendered acceptance remain required.
 
+A text message's menu offers **Forward**. Choose another chat from the list supplied by the
+core. If delivery is queued, the app retains that submission and shows its queued status.
+
 **Settings** lists the device's identities, marks the current one, and opens its network form.
 Once the network is set up it also holds **Notifications**: when iOS lets the closed app receive, new
 messages and likes admitted by the common native mail pass post one replacing notice, and a tap opens the app behind its

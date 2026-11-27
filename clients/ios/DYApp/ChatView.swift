@@ -19,6 +19,7 @@ struct ChatView: View {
     @State private var history: ChatHistory?
     @StateObject private var composer = ChatComposer()
     @State private var deleting: ChatMessage?
+    @State private var forwarding: ForwardOpening?
     @State private var confirmClear = false
     @State private var confirmBlock = false
     @State private var renaming = false
@@ -45,6 +46,9 @@ struct ChatView: View {
             }
             statusLines
             composerInput
+        }
+        .sheet(item: $forwarding) { opening in
+            ChatForwardPicker(feed: feed, opening: opening)
         }
         .padding()
         .accessibilityElement(children: .contain)
@@ -151,7 +155,13 @@ struct ChatView: View {
                             message: message, own: message.author == feed.me,
                             writable: chatWritable(history?.state), sending: sending || busy,
                             openProfile: openProfile,
-                            edit: { startEditing(message) }, delete: { deleting = message }
+                            edit: { startEditing(message) }, delete: { deleting = message },
+                            forward: {
+                                if let context = feed.context {
+                                    forwarding = ForwardOpening(
+                                        message: message, peer: peer, context: context)
+                                }
+                            }
                         )
                     }
                 }
@@ -311,6 +321,7 @@ private struct ChatBubble: View {
     let openProfile: (String) -> Void
     let edit: () -> Void
     let delete: () -> Void
+    let forward: () -> Void
 
     var body: some View {
         HStack {
@@ -337,6 +348,7 @@ private struct ChatBubble: View {
                 RoundedRectangle(cornerRadius: 12).fill(
                     own ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.15)
                 ))
+            if !own, !message.deleted { menu }
             if !own { Spacer(minLength: 48) }
         }
     }
@@ -344,13 +356,16 @@ private struct ChatBubble: View {
     // A button rather than a context menu: right click on selectable text opens the text's own menu.
     private var menu: some View {
         Menu {
-            if writable {
+            Button("chat.forward", action: forward).disabled(sending)
+                .accessibilityIdentifier("msg-forward")
+            if own, writable {
                 Button("chat.edit", action: edit).disabled(sending).accessibilityIdentifier(
                     "msg-edit")
             }
-            Button("chat.delete", role: .destructive, action: delete).disabled(sending)
-                .accessibilityIdentifier(
-                    "msg-delete")
+            if own {
+                Button("chat.delete", role: .destructive, action: delete).disabled(sending)
+                    .accessibilityIdentifier("msg-delete")
+            }
         } label: {
             Image(systemName: "ellipsis")
                 #if os(iOS)
