@@ -22,45 +22,53 @@ struct ChatPhotoComposer: View {
                 pickerDismissed = false
                 picking = true
             }
-                .disabled(disabled || working || !pickerDismissed || draft != nil)
-                .accessibilityIdentifier("chat-photo-attach")
+            .disabled(disabled || working || !pickerDismissed || draft != nil)
+            .accessibilityIdentifier("chat-photo-attach")
             if working { ProgressView() }
             if let status {
                 Text(LocalizedStringKey(status.key))
                     .accessibilityIdentifier("chat-photo-send-status")
             }
         }
-        .sheet(isPresented: $picking, onDismiss: {
-            pickerDismissed = true
-            confirmPreparedPhoto()
-        }, content: {
-            let opening = pickID
-            PhotoPicker { data in
-                guard picking, pickID == opening, feed.isCurrent(context) else { return }
-                picking = false
-                guard let data else { return }
-                working = true
-                status = nil
-                Task { await prepare(data) }
-            }
-        })
-        .sheet(isPresented: $confirming, onDismiss: {
-            draft = nil
-            preview = nil
-        }, content: {
-            ScrollingForm {
-                if let preview {
-                    preview.resizable().scaledToFit()
-                        .accessibilityLabel(Text("chat.photo"))
+        .sheet(
+            isPresented: $picking,
+            onDismiss: {
+                pickerDismissed = true
+                confirmPreparedPhoto()
+            },
+            content: {
+                let opening = pickID
+                PhotoPicker { data in
+                    guard picking, pickID == opening, feed.isCurrent(context) else { return }
+                    picking = false
+                    guard let data else { return }
+                    working = true
+                    status = nil
+                    Task { await prepare(data) }
                 }
-                Button("chat.send") {
-                    send()
-                    confirming = false
-                }
-                .accessibilityIdentifier("chat-photo-confirm")
-                Button("search.cancel", role: .cancel) { confirming = false }
             }
-        })
+        )
+        .sheet(
+            isPresented: $confirming,
+            onDismiss: {
+                draft = nil
+                preview = nil
+            },
+            content: {
+                ScrollingForm {
+                    if let preview {
+                        preview.resizable().scaledToFit()
+                            .accessibilityLabel(Text("chat.photo"))
+                    }
+                    Button("chat.send") {
+                        send()
+                        confirming = false
+                    }
+                    .accessibilityIdentifier("chat-photo-confirm")
+                    Button("search.cancel", role: .cancel) { confirming = false }
+                }
+            }
+        )
         .onChange(of: feed.owner) { _ in
             if !feed.isCurrent(context) {
                 picking = false

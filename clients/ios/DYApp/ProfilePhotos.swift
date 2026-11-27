@@ -73,8 +73,9 @@ func photoErrorKey(_ error: Error) -> String {
 
 /// A core-checked opaque photo preview.
 func previewImage(_ preview: Rgba) -> Image? {
-    rgbaImage(width: preview.width, height: preview.height, pixels: preview.pixels,
-              alpha: .noneSkipLast)
+    rgbaImage(
+        width: preview.width, height: preview.height, pixels: preview.pixels,
+        alpha: .noneSkipLast)
 }
 
 /// A core-decoded sticker carries straight RGBA, including transparent edges.
@@ -82,7 +83,9 @@ func stickerImage(width: UInt32, height: UInt32, pixels: Data) -> Image? {
     rgbaImage(width: width, height: height, pixels: pixels, alpha: .last)
 }
 
-private func rgbaImage(width: UInt32, height: UInt32, pixels: Data, alpha: CGImageAlphaInfo) -> Image? {
+private func rgbaImage(width: UInt32, height: UInt32, pixels: Data, alpha: CGImageAlphaInfo)
+    -> Image?
+{
     guard let space = CGColorSpace(name: CGColorSpace.sRGB),
         let provider = CGDataProvider(data: pixels as CFData),
         let image = CGImage(

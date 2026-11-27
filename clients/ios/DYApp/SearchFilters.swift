@@ -59,7 +59,8 @@ struct SearchFilterInputs {
         let found = try searchCheckedChoiceConditions(
             offered: offered,
             inputs: SearchChoiceInputs(
-                picked: picked.mapValues { Int64($0) }, country: country, interest: interest, place: place
+                picked: picked.mapValues { Int64($0) }, country: country, interest: interest,
+                place: place
             ))
         let ranges = try searchRangeConditions(
             offered: offered,
@@ -77,7 +78,8 @@ struct SearchFilterInputs {
 
 /// Status texts that need the fields fixed, not a connection or the same query again.
 let searchFixTheFields: Set<String> = [
-    "search.ageInvalid", "search.heightInvalid", "search.mutualUnavailable", "search.interestInvalid",
+    "search.ageInvalid", "search.heightInvalid", "search.mutualUnavailable",
+    "search.interestInvalid",
 ]
 
 /// The status text for a failed sample; both the form and the shared core use these error messages.

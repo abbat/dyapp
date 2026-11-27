@@ -134,8 +134,8 @@ struct StickerImportSection: View {
                 importContext = feed.context
                 choosing = importContext != nil
             }
-                .disabled(working || feed.context == nil)
-                .accessibilityIdentifier("sticker-import")
+            .disabled(working || feed.context == nil)
+            .accessibilityIdentifier("sticker-import")
             ForEach(packs, id: \.packId) { pack in
                 HStack {
                     if case let .ready(name, _) = pack.state {
@@ -286,6 +286,19 @@ struct LinkedDevicesSection: View {
             refresh()
         }
     }
+}
+
+extension LinkedDevicesSection {
+    nonisolated private static func directory(_ identity: ChatIdentity) throws
+        -> MobileDeviceDirectory
+    {
+        let location = identity.candidate.location
+        return try MobileDeviceDirectory(
+            registry: RustBridge.identityStore().registry, id: location.marker,
+            expectedPeer: identity.peerId,
+            store: RustBridge.keyStore(for: location).requiringExistingKey())
+    }
+
 
     private func refresh() {
         guard !busy, let context = feed.context else { return }
@@ -314,13 +327,6 @@ struct LinkedDevicesSection: View {
         }
     }
 
-    nonisolated private static func directory(_ identity: ChatIdentity) throws -> MobileDeviceDirectory {
-        let location = identity.candidate.location
-        return try MobileDeviceDirectory(
-            registry: RustBridge.identityStore().registry, id: location.marker,
-            expectedPeer: identity.peerId,
-            store: RustBridge.keyStore(for: location).requiringExistingKey())
-    }
 
     private func load(_ context: ChatFeed.Context) async {
         guard feed.isCurrent(context) else { return }

@@ -176,7 +176,9 @@ struct IdentitySettingsView: View {
             isWorking = false
         }
     }
+}
 
+extension IdentitySettingsView {
     private func removalRecovery(_ id: UUID, opening currentOpening: UUID) -> some View {
         VStack(alignment: .leading) {
             removalMessage.accessibilityIdentifier("settings-remove-offline")

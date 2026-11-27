@@ -2,6 +2,14 @@ import SwiftUI
 
 @MainActor
 struct LinkReceiveSection: View {
+    private struct Invitation: @unchecked Sendable {
+        let receiver: MobileLinkReceiver
+        let code: String
+        let matrix: MobileQrMatrix
+        let context: ChatFeed.Context
+    }
+
+
     @Environment(\.displayScale) private var displayScale
     @ObservedObject var feed: ChatFeed
     var wizard = false
@@ -11,13 +19,6 @@ struct LinkReceiveSection: View {
     @State private var busy = false
     @State private var failed = false
     @State private var expired = false
-
-    private struct Invitation: @unchecked Sendable {
-        let receiver: MobileLinkReceiver
-        let code: String
-        let matrix: MobileQrMatrix
-        let context: ChatFeed.Context
-    }
 
     var body: some View {
         Section {
@@ -72,16 +73,19 @@ struct LinkReceiveSection: View {
             let pixels = (min(size.width, size.height) * displayScale / total).rounded(.down)
             guard pixels >= 1 else { return }
             let step = pixels / displayScale
-            let left = ((size.width - total * step) * displayScale / 2).rounded(.down)
+            let left =
+                ((size.width - total * step) * displayScale / 2).rounded(.down)
                 / displayScale
-            let top = ((size.height - total * step) * displayScale / 2).rounded(.down)
+            let top =
+                ((size.height - total * step) * displayScale / 2).rounded(.down)
                 / displayScale
             var path = Path()
             for (index, dark) in matrix.modules.enumerated() where dark {
-                path.addRect(CGRect(
-                    x: left + CGFloat(index % side + 4) * step,
-                    y: top + CGFloat(index / side + 4) * step,
-                    width: step, height: step))
+                path.addRect(
+                    CGRect(
+                        x: left + CGFloat(index % side + 4) * step,
+                        y: top + CGFloat(index / side + 4) * step,
+                        width: step, height: step))
             }
             context.fill(path, with: .color(.black))
         }

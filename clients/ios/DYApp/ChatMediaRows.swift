@@ -31,8 +31,8 @@ struct ChatStickerRow: View {
                     failed = false
                     manual = true
                 }
-                    .disabled(manual)
-                    .accessibilityIdentifier("msg-sticker-load")
+                .disabled(manual)
+                .accessibilityIdentifier("msg-sticker-load")
             }
             if sticker.author == feed.me {
                 Button("chat.delete", role: .destructive) { confirming = true }
@@ -40,9 +40,11 @@ struct ChatStickerRow: View {
                     .accessibilityIdentifier("msg-sticker-delete")
             }
             if sticker.author != feed.me {
-                ReceivedStickerPack(feed: feed, context: context, packName: sticker.packName, source: ChatForwardSource(
-                    peerId: peer, groupId: sticker.groupId, author: sticker.author,
-                    messageId: sticker.id))
+                ReceivedStickerPack(
+                    feed: feed, context: context, packName: sticker.packName,
+                    source: ChatForwardSource(
+                        peerId: peer, groupId: sticker.groupId, author: sticker.author,
+                        messageId: sticker.id))
             }
             if let deleteStatus { Text(LocalizedStringKey(deleteStatus.key)) }
         }
@@ -83,8 +85,9 @@ struct ChatStickerRow: View {
         }
         guard !Task.isCancelled, feed.isCurrent(context) else { return }
         if manually { manual = false }
-        if case let .success(.ready(pixels)) = result, let image = stickerImage(
-            width: pixels.width, height: pixels.height, pixels: pixels.pixels)
+        if case let .success(.ready(pixels)) = result,
+            let image = stickerImage(
+                width: pixels.width, height: pixels.height, pixels: pixels.pixels)
         {
             frame = image
             failed = false
@@ -116,14 +119,19 @@ private struct ReceivedStickerPack: View {
         if let status {
             switch status.state {
             case .saved:
-                Text(verbatim: String(
-                    format: NSLocalizedString("stickerRequest.saved", comment: ""), packName))
+                Text(
+                    verbatim: String(
+                        format: NSLocalizedString("stickerRequest.saved", comment: ""), packName))
+
             case .waiting:
                 Text("stickerRequest.waiting")
+
             case .downloading:
                 Text("stickerRequest.downloading")
+
             case .failed:
                 Text("chat.loadFailed")
+
             case .new:
                 EmptyView()
             }

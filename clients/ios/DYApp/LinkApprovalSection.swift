@@ -5,34 +5,6 @@ import VisionKit
 
 @available(iOS 16, *)
 private struct LinkCameraScanner: UIViewControllerRepresentable {
-    let picked: (String) -> Void
-    let unavailable: () -> Void
-
-    func makeUIViewController(context: Context) -> DataScannerViewController {
-        let scanner = DataScannerViewController(
-            recognizedDataTypes: [.barcode(symbologies: [.qr])],
-            recognizesMultipleItems: false)
-        scanner.delegate = context.coordinator
-        do {
-            try scanner.startScanning()
-        } catch {
-            Task { @MainActor in unavailable() }
-        }
-        return scanner
-    }
-
-    func updateUIViewController(_ controller: DataScannerViewController, context: Context) {}
-
-    static func dismantleUIViewController(
-        _ controller: DataScannerViewController, coordinator: Coordinator
-    ) {
-        controller.stopScanning()
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(picked: picked, unavailable: unavailable)
-    }
-
     @MainActor
     final class Coordinator: NSObject, DataScannerViewControllerDelegate {
         let picked: (String) -> Void
@@ -65,10 +37,49 @@ private struct LinkCameraScanner: UIViewControllerRepresentable {
             }
         }
     }
+
+
+    let picked: (String) -> Void
+    let unavailable: () -> Void
+
+    static func dismantleUIViewController(
+        _ controller: DataScannerViewController, coordinator: Coordinator
+    ) {
+        controller.stopScanning()
+    }
+
+
+    func makeUIViewController(context: Context) -> DataScannerViewController {
+        let scanner = DataScannerViewController(
+            recognizedDataTypes: [.barcode(symbologies: [.qr])],
+            recognizesMultipleItems: false)
+        scanner.delegate = context.coordinator
+        do {
+            try scanner.startScanning()
+        } catch {
+            Task { @MainActor in unavailable() }
+        }
+        return scanner
+    }
+
+    func updateUIViewController(_ controller: DataScannerViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(picked: picked, unavailable: unavailable)
+    }
+
+
 }
 
 @MainActor
 struct LinkApprovalSection: View {
+    private struct Approval: @unchecked Sendable {
+        let worker: MobileLinkApproval
+        let code: String
+        let context: ChatFeed.Context
+    }
+
+
     @ObservedObject var feed: ChatFeed
     @State private var code = ""
     @State private var picking = false
@@ -81,12 +92,6 @@ struct LinkApprovalSection: View {
     @State private var pending: Approval?
     @State private var opening = UUID()
 
-    private struct Approval: @unchecked Sendable {
-        let worker: MobileLinkApproval
-        let code: String
-        let context: ChatFeed.Context
-    }
-
     var body: some View {
         Section {
             TextField("devices.code.label", text: $code)
@@ -98,8 +103,8 @@ struct LinkApprovalSection: View {
                 opening = UUID()
                 picking = true
             }
-                .disabled(busy || confirming)
-                .accessibilityIdentifier("link-owner-photo")
+            .disabled(busy || confirming)
+            .accessibilityIdentifier("link-owner-photo")
             if #available(iOS 16, *), DataScannerViewController.isSupported {
                 Button("devices.code.camera", action: requestCamera)
                     .disabled(busy || confirming)
@@ -116,7 +121,9 @@ struct LinkApprovalSection: View {
             let context = feed.context
             let ticket = opening
             PhotoPicker { data in
-                guard picking, opening == ticket, let context, feed.isCurrent(context) else { return }
+                guard picking, opening == ticket, let context, feed.isCurrent(context) else {
+                    return
+                }
                 picking = false
                 if let data { scan(data, context: context) }
             }
@@ -161,6 +168,20 @@ struct LinkApprovalSection: View {
         }
     }
 
+    nonisolated private static func linkCode(in data: Data) -> String? {
+        guard let image = try? PhotoPrep.decoded(data, purpose: .chat) else { return nil }
+        let request = VNDetectBarcodesRequest()
+        request.symbologies = [.qr]
+        let handler = VNImageRequestHandler(cgImage: image, options: [:])
+        guard (try? handler.perform([request])) != nil else { return nil }
+        let valid = Set(
+            (request.results ?? []).compactMap(\.payloadStringValue).filter {
+                deviceLinkCodeStatus(text: $0) == .valid
+            })
+        return valid.count == 1 ? valid.first : nil
+    }
+
+
     private func requestCamera() {
         guard !busy, let context = feed.context else { return }
         let ticket = opening
@@ -186,18 +207,6 @@ struct LinkApprovalSection: View {
             guard opening == ticket, feed.isCurrent(context) else { return }
             if let scanned { code = scanned } else { failed = true }
         }
-    }
-
-    nonisolated private static func linkCode(in data: Data) -> String? {
-        guard let image = try? PhotoPrep.decoded(data, purpose: .chat) else { return nil }
-        let request = VNDetectBarcodesRequest()
-        request.symbologies = [.qr]
-        let handler = VNImageRequestHandler(cgImage: image, options: [:])
-        guard (try? handler.perform([request])) != nil else { return nil }
-        let valid = Set((request.results ?? []).compactMap(\.payloadStringValue).filter {
-            deviceLinkCodeStatus(text: $0) == .valid
-        })
-        return valid.count == 1 ? valid.first : nil
     }
 
     private func prepare() {
@@ -237,6 +246,7 @@ struct LinkApprovalSection: View {
             case let .success(approval):
                 pending = approval
                 confirming = true
+
             case .failure:
                 failed = true
             }

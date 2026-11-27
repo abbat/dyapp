@@ -55,12 +55,13 @@ enum PhotoPrep {
         else { throw PhotoProblem.unsupported }
         let plan = try photoDecodePlan(
             mime: mime, width: width, height: height, bytes: UInt64(bytes.count), purpose: purpose)
-        let options = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceShouldCacheImmediately: true,
-            kCGImageSourceThumbnailMaxPixelSize: Int(max(plan.width, plan.height)),
-        ] as CFDictionary
+        let options =
+            [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceShouldCacheImmediately: true,
+                kCGImageSourceThumbnailMaxPixelSize: Int(max(plan.width, plan.height)),
+            ] as CFDictionary
         guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options),
             max(image.width, image.height) <= Int(max(plan.width, plan.height))
         else { throw PhotoProblem.unsupported }
@@ -71,7 +72,8 @@ enum PhotoPrep {
     private static func straightPixels(_ image: CGImage) throws -> Data {
         let width = image.width
         let height = image.height
-        let bitmapInfo = CGBitmapInfo.byteOrder32Big.rawValue
+        let bitmapInfo =
+            CGBitmapInfo.byteOrder32Big.rawValue
             | CGImageAlphaInfo.premultipliedLast.rawValue
         guard let space = CGColorSpace(name: CGColorSpace.sRGB),
             let canvas = CGContext(

@@ -54,8 +54,10 @@ struct ChatView: View {
             statusLines
             composerInput
             if history?.state == .open, let context = feed.context {
-                ChatPhotoComposer(feed: feed, peer: peer, context: context, disabled: busy || sending)
-                ChatStickerPicker(feed: feed, context: context, peer: peer, disabled: busy || sending)
+                ChatPhotoComposer(
+                    feed: feed, peer: peer, context: context, disabled: busy || sending)
+                ChatStickerPicker(
+                    feed: feed, context: context, peer: peer, disabled: busy || sending)
             }
         }
         .sheet(item: $forwarding) { opening in
@@ -336,7 +338,8 @@ extension ChatView {
             openProfile: openProfile,
             edit: { startEditing(message) }, delete: { deleting = message },
             forward: {
-                openForward(group: message.groupId, author: message.author, id: message.id, photo: false)
+                openForward(
+                    group: message.groupId, author: message.author, id: message.id, photo: false)
             }
         )
     }
@@ -349,11 +352,13 @@ extension ChatView {
                     opening: PhotoOpening(source: photoSource(photo), context: context))
             }
             if photo.forwarded {
-                Text(verbatim: String(
-                    format: NSLocalizedString("chats.forwarded", comment: ""),
-                    NSLocalizedString("chat.photo", comment: "")))
-                    .font(.caption)
-                    .accessibilityIdentifier("msg-photo-forwarded")
+                Text(
+                    verbatim: String(
+                        format: NSLocalizedString("chats.forwarded", comment: ""),
+                        NSLocalizedString("chat.photo", comment: ""))
+                )
+                .font(.caption)
+                .accessibilityIdentifier("msg-photo-forwarded")
             } else {
                 Text("chat.photo").accessibilityIdentifier("msg-photo")
             }
@@ -364,7 +369,8 @@ extension ChatView {
             .accessibilityIdentifier("msg-photo-load")
             Menu {
                 Button("chat.forward") {
-                    openForward(group: photo.groupId, author: photo.author, id: photo.id, photo: true)
+                    openForward(
+                        group: photo.groupId, author: photo.author, id: photo.id, photo: true)
                 }
                 .accessibilityIdentifier("msg-forward")
                 .disabled(sending || busy)
@@ -377,7 +383,8 @@ extension ChatView {
     }
 
     private func photoSource(_ photo: ChatPhoto) -> ChatForwardSource {
-        ChatForwardSource(peerId: peer, groupId: photo.groupId, author: photo.author, messageId: photo.id)
+        ChatForwardSource(
+            peerId: peer, groupId: photo.groupId, author: photo.author, messageId: photo.id)
     }
 
     private func openForward(group: Data, author: String, id: Data, photo: Bool) {

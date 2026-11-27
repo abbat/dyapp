@@ -145,7 +145,8 @@ struct ProfileDraftView: View {
     }
     private var canPrepareProof: Bool {
         canConfirmPublication && hasSavedDraft && confirmedAdult && confirmedPublic
-            && eligibilityChecked && publishBlock == nil && !eligibilityFailed && !isCheckingEligibility
+            && eligibilityChecked && publishBlock == nil && !eligibilityFailed
+            && !isCheckingEligibility
     }
 
     private var form: some View {
@@ -216,7 +217,8 @@ struct ProfileDraftView: View {
                 ProfileProofControls(
                     candidate: candidate, peerId: peerId, canPrepare: { canPrepareProof },
                     attested: confirmedAdult, resetToken: profileRevision,
-                    isSolving: $isSolving, clearConfirmations: clearConfirmations).id(editorIdentity)
+                    isSolving: $isSolving, clearConfirmations: clearConfirmations
+                ).id(editorIdentity)
             }
         }
         .navigationTitle("profile.title")

@@ -45,7 +45,9 @@ private struct RecentStickersSheet: View {
                 } else {
                     ForEach(packs, id: \.packId) { pack in
                         if case let .ready(name, _) = pack.state {
-                            Button { selectPack(pack.packId) } label: {
+                            Button {
+                                selectPack(pack.packId)
+                            } label: {
                                 Text(verbatim: name)
                             }
                             .disabled(busy)
@@ -57,12 +59,14 @@ private struct RecentStickersSheet: View {
                 }
                 ForEach(entries.indices, id: \.self) { index in
                     let entry = entries[index]
-                    Button { send(entry) } label: {
+                    Button {
+                        send(entry)
+                    } label: {
                         HStack {
                             let sticker = entry.sticker
                             if let image = stickerImage(
-                                width: sticker.width, height: sticker.height, pixels: sticker.pixels)
-                            {
+                                width: sticker.width, height: sticker.height, pixels: sticker.pixels
+                            ) {
                                 image.resizable().scaledToFit().frame(width: 48, height: 48)
                                     .accessibilityHidden(true)
                             }

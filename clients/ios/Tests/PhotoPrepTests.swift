@@ -51,7 +51,8 @@ final class PhotoPrepTests: XCTestCase {
         let image = try XCTUnwrap(CGImageSourceCreateImageAtIndex(source, 0, nil))
         let bytes = NSMutableData()
         let target = try XCTUnwrap(
-            CGImageDestinationCreateWithData(bytes as CFMutableData, "public.jpeg" as CFString, 1, nil))
+            CGImageDestinationCreateWithData(
+                bytes as CFMutableData, "public.jpeg" as CFString, 1, nil))
         CGImageDestinationAddImage(
             target, image, [kCGImagePropertyOrientation: 6] as CFDictionary)
         XCTAssertTrue(CGImageDestinationFinalize(target))
