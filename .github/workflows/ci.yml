@@ -226,12 +226,16 @@ jobs:
       - name: test
         env:
           COMPLEXITY_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: bash tests/scripts/linux-test.sh
+          DYAPP_UI_SHOTS: ${{ runner.temp }}/linux-smoke-shots
+        run: |
+          mkdir -p "$DYAPP_UI_SHOTS"
+          bash tests/scripts/linux-test.sh
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: linux-check-output
           path: |
+            ${{ runner.temp }}/linux-smoke-shots/
             build/platform-check-output/
             ${{ runner.temp }}/desktop-ui-results.json
             ${{ runner.temp }}/moderation-shots-*/

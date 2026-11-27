@@ -2317,6 +2317,8 @@ read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID
   `linux-test.sh` runs `desktop-smoke.py` again with `DYAPP_SMOKE_RU=1` (every case gets
   `--ui-test-ru`) for the `-ru` files, so the screenshots roughly double the desktop smoke time.
   Without `DYAPP_UI_SHOTS` the command does nothing. A failed or empty screenshot fails the UI case.
+Linux CI sets this variable for the EN/RU smoke runs and includes their PNG files under
+`linux-smoke-shots` in the `linux-check-output` artifact.
   States: `setup`, `wizard-network`, `picker`, `ready`, `settings`, `storage`,
   `settings-storage`, `remove`, `remove-offline`, `recovery`, `recovery-details`,
   `network-empty`, `network-failure`, `network-connected`, `profile-edit`,
