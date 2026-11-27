@@ -159,22 +159,23 @@ fn populated_photo_history_and_cached_original_survive_native_reopen_offline() {
     let file = keep(&f, &attachment, &bytes);
     let sealed = std::fs::read(&file).unwrap();
     assert!(sealed.len() > bytes.len());
+    let automatic = || {
+        f.chats.chat_photo_automatic(
+            peer.clone(),
+            item.group_id.clone(),
+            item.author.clone(),
+            item.id.clone(),
+        )
+    };
+    f.chats
+        .set_photo_download(crate::ChatPhotoDownload::Always)
+        .unwrap();
+    assert_eq!(automatic().unwrap(), bytes);
     f.chats
         .set_photo_download(crate::ChatPhotoDownload::OnTap)
         .unwrap();
     let before = snapshot(&f);
-    assert_eq!(
-        f.chats
-            .chat_photo_automatic(
-                peer.clone(),
-                item.group_id.clone(),
-                item.author.clone(),
-                item.id.clone(),
-            )
-            .unwrap_err()
-            .to_string(),
-        "onTap"
-    );
+    assert_eq!(automatic().unwrap_err().to_string(), "onTap");
     assert_eq!(read(&f.chats, &peer, &item).unwrap(), bytes);
     assert_eq!(snapshot(&f), before);
 
