@@ -1,29 +1,42 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Sending read receipts. A failed read or save keeps the last value and says so.
-struct ReadReceiptsSection: View {
+/// A failed privacy preference read or save keeps the last value and says so.
+struct PrivacyToggleSection: View {
     @ObservedObject var feed: ChatFeed
+    var views = false
     @State private var enabled: Bool?
     @State private var busy = false
     @State private var failed = false
 
     var body: some View {
         Section {
-            Toggle("receipts.toggle", isOn: Binding(get: { enabled ?? false }, set: { save($0) }))
-                .disabled(enabled == nil || busy)
-                .accessibilityIdentifier("send-read-receipts")
-                .task(id: feed.me) { await load() }
-            Text("receipts.hint").font(.caption)
+            Toggle(
+                LocalizedStringKey(views ? "privacy.views" : "receipts.toggle"),
+                isOn: Binding(get: { enabled ?? false }, set: { save($0) })
+            )
+            .disabled(enabled == nil || busy)
+            .accessibilityIdentifier(views ? "send-profile-views" : "send-read-receipts")
+            .task(id: feed.owner) { await load() }
+            Text(LocalizedStringKey(views ? "privacy.views.hint" : "receipts.hint")).font(.caption)
             if failed {
-                Text("receipts.failed").font(.caption).accessibilityIdentifier("receipts-error")
+                Text(LocalizedStringKey(views ? "privacy.views.failed" : "receipts.failed"))
+                    .font(.caption)
+                    .accessibilityIdentifier(views ? "profile-views-error" : "receipts-error")
             }
         }
     }
 
     private func load() async {
-        guard feed.me != nil else { return }
-        let result = await feed.call { try $0.readReceipts() }
+        enabled = nil
+        busy = false
+        failed = false
+        guard let context = feed.context else { return }
+        let views = views
+        let result = await feed.call(context) {
+            try views ? $0.profileViewsEnabled() : $0.readReceipts()
+        }
+        guard !Task.isCancelled, feed.isCurrent(context) else { return }
         switch result {
         case let .success(value):
             enabled = value
@@ -35,9 +48,18 @@ struct ReadReceiptsSection: View {
     }
 
     private func save(_ value: Bool) {
+        guard !busy, enabled != nil, let context = feed.context else { return }
         busy = true
+        let views = views
         Task {
-            let result = await feed.call { try $0.setReadReceipts(enabled: value) }
+            let result = await feed.call(context) {
+                if views {
+                    try $0.setProfileViewsEnabled(enabled: value)
+                } else {
+                    try $0.setReadReceipts(enabled: value)
+                }
+            }
+            guard feed.isCurrent(context) else { return }
             switch result {
             case .success:
                 enabled = value

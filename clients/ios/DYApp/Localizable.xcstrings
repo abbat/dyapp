@@ -3361,6 +3361,54 @@
         }
       }
     },
+    "privacy.views": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tell people when I view their profile"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сообщать, когда я смотрю чужой профиль"
+          }
+        }
+      }
+    },
+    "privacy.views.failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not read received views. Refresh to try again."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось прочитать просмотры. Обновите список, чтобы повторить попытку."
+          }
+        }
+      }
+    },
+    "privacy.views.hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At most once a day per profile. You still see who viewed yours."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не чаще раза в день на профиль. Кто смотрел ваш, вы видите в любом случае."
+          }
+        }
+      }
+    },
     "profile.about": {
       "localizations": {
         "en": {

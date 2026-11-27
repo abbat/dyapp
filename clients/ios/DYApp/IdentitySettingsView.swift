@@ -113,7 +113,8 @@ struct IdentitySettingsView: View {
 
             if let feed {
                 MailNoticeSection(feed: feed)
-                ReadReceiptsSection(feed: feed)
+                PrivacyToggleSection(feed: feed, views: true)
+                PrivacyToggleSection(feed: feed)
                 PhotoDownloadSection(feed: feed)
                 StickerImportSection(feed: feed)
                 LinkedDevicesSection(feed: feed)
