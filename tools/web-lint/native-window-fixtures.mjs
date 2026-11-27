@@ -7,6 +7,34 @@ const source = await readFile(
   new URL('../../clients/desktop/ui-tests/common.js', import.meta.url),
   'utf8',
 );
+const contrastSource = await readFile(
+  new URL('../../clients/desktop/ui-tests/criteria-axe.js', import.meta.url),
+  'utf8',
+);
+test('contrast placement uses current nested content space and retains oversized text behavior', () => {
+  const context = {
+    smoke: {},
+    window: { innerHeight: 600 },
+    getComputedStyle: (element) => element.style,
+  };
+  vm.runInNewContext(
+    contrastSource + '\nglobalThis.alignContrast = contrastScrollAlignment;',
+    context,
+  );
+  const outer = { clientHeight: 500, style: { paddingTop: '20px', paddingBottom: '30px' } };
+  const inner = { clientHeight: 300, style: { paddingTop: '40px', paddingBottom: '50px' } };
+  const target = (height) => ({ getBoundingClientRect: () => ({ height }) });
+  const ancestors = [
+    [outer, 0, 0],
+    [inner, 0, 0],
+  ];
+  assert.equal(context.alignContrast(target(200), ancestors), 'center');
+  assert.equal(context.alignContrast(target(220), ancestors), 'start');
+  inner.clientHeight = 400;
+  assert.equal(context.alignContrast(target(220), ancestors), 'center');
+  context.window.innerHeight = 180;
+  assert.equal(context.alignContrast(target(200), ancestors), 'start');
+});
 const pending = () => {
   let resolve;
   let reject;

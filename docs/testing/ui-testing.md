@@ -29,6 +29,12 @@ geometry cannot establish readiness or obscure a persistent enlarged-text layout
 The owner code editor keeps four visible lines with internal scrolling, retaining the complete code;
 its real-IME matrix still requires start/middle/end glyphs and both actions inside the live viewport.
 
+Scrollable contrast rechecks center a text block when it fits the current nested content space,
+including measured container padding. Oversized text keeps start alignment. This avoids testing
+ordinary text against rounded scroll edges while retaining same-node axe pass/fail requirements,
+real foreground-overlap negative controls and scroll/focus restoration. Scrollable calibration uses
+the actual modal class for both ordinary and oversized text.
+
 Focused `link-review:`, `publication:` and `received-views:` captures use ordinary initialized
 scenario dispatch. Only `link-send:`, `link-wait:`, `link-disconnect` and `link-wiped` enter the
 separate inter-client link protocol; a broad `link-` prefix would misroute profile-review captures.

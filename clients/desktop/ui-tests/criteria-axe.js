@@ -74,6 +74,16 @@ const contrastElement = (node) => {
     return null;
   }
 };
+const contrastScrollAlignment = (element, ancestors) => {
+  const height = Math.min(
+    window.innerHeight,
+    ...ancestors.map(([parent]) => {
+      const style = getComputedStyle(parent);
+      return parent.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+    }),
+  );
+  return element.getBoundingClientRect().height <= height ? 'center' : 'start';
+};
 const contrastAtReadablePosition = async (element, options) => {
   const saved = [];
   for (let parent = element.parentElement; parent; parent = parent.parentElement) {
@@ -82,7 +92,11 @@ const contrastAtReadablePosition = async (element, options) => {
   }
   const position = [scrollX, scrollY];
   try {
-    element.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'instant' });
+    element.scrollIntoView({
+      block: contrastScrollAlignment(element, saved),
+      inline: 'nearest',
+      behavior: 'instant',
+    });
     await paintReady();
     return await window.axe.run(element, options);
   } finally {
@@ -336,7 +350,7 @@ const enlargeContrastText = (fixture, text) => {
 const calibrateScrollableContrast = async (oversized = false) => {
   const previous = document.activeElement;
   const fixture = document.createElement('dialog');
-  fixture.id = 'criteria-scrollable-contrast';
+  Object.assign(fixture, { id: 'criteria-scrollable-contrast', className: 'modal' });
   fixture.setAttribute('aria-label', 'Scrollable contrast calibration');
   fixture.style.cssText =
     'position:fixed;top:0;left:0;width:240px;height:30vh;max-height:30vh;overflow:auto;background:white';
