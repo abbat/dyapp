@@ -61,18 +61,14 @@ final class IdentitySlotStoreTests: XCTestCase {
 
     func testExistingKeychainAccountIsNeverReused() throws {
         let path = try identitySlotTestRoot()
-        let orphan = UUID()
-        let next = UUID()
-        let keyStore = PlatformKeyStore.forSlot(orphan)
-        let secret = Data("orphaned wrapping key".utf8)
-        let original = try keyStore.wrap(secret: secret)
-        var calls = 0
-        let slots = IdentitySlotStore(root: path) {
-            calls += 1
-            return calls == 1 ? orphan : next
-        }
-        XCTAssertEqual(try slots.create().slot.id, next)
-        XCTAssertEqual(try keyStore.unwrap(wrapped: original), secret)
+        let keys = IdentityCollisionKeys(root: path, kind: .credential)
+        let created = try IdentitySlotStore(root: path, keys: keys).create()
+        let orphan = try XCTUnwrap(keys.collision.id)
+        defer { try? keys.erase(slotId: orphan) }
+        XCTAssertNotEqual(created.slot.id.uuidString.lowercased(), orphan)
+        let original = try XCTUnwrap(keys.collision.blob)
+        XCTAssertEqual(
+            try keys.openWrapped(slotId: orphan, wrapped: original)?.peerId(), keys.collision.peer)
     }
 
     func testLegacyRootIdentityReopensWithItsOriginalPeerID() throws {
@@ -85,7 +81,7 @@ final class IdentitySlotStoreTests: XCTestCase {
         let slots = IdentitySlotStore(root: path, legacyStore: legacyStore)
         let ready = IdentityCandidate(location: .legacy, state: .ready)
         XCTAssertEqual(try slots.resolve(), .ready(ready, original.peerId()))
-        XCTAssertEqual(try slots.select(.legacy), original.peerId())
+        XCTAssertEqual(try slots.select(.legacy).resolution, .ready(ready, original.peerId()))
         let reopened = IdentitySlotStore(root: path, legacyStore: legacyStore)
         XCTAssertEqual(try reopened.resolve(), .ready(ready, original.peerId()))
         XCTAssertEqual(try reopened.open(.legacy).peerId(), original.peerId())
@@ -97,16 +93,19 @@ final class IdentitySlotStoreTests: XCTestCase {
         let slots = IdentitySlotStore(root: path, legacyStore: legacyStore)
         let first = try slots.create()
         let second = try slots.create()
+        XCTAssertEqual(try slots.resolve(), second.update.resolution, "Core create already selects")
+        try Data("none\n".utf8).write(
+            to: path.appendingPathComponent("active-profile"), options: .atomic)
         guard case .picker(let choices) = try slots.resolve() else {
             return XCTFail("two unselected slots should show a picker")
         }
         XCTAssertEqual(choices.count, 2)
-        XCTAssertEqual(try slots.select(.slot(first.slot.id)), first.peerId)
+        XCTAssertEqual(try slots.select(.slot(first.slot.id)).resolution, first.update.resolution)
         XCTAssertEqual(
             try slots.resolve(),
             .ready(IdentityCandidate(location: .slot(first.slot.id), state: .ready), first.peerId)
         )
-        XCTAssertEqual(try slots.select(.slot(second.slot.id)), second.peerId)
+        XCTAssertEqual(try slots.select(.slot(second.slot.id)).resolution, second.update.resolution)
         let reopened = IdentitySlotStore(root: path, legacyStore: legacyStore)
         XCTAssertEqual(
             try reopened.resolve(),
@@ -126,10 +125,12 @@ final class IdentitySlotStoreTests: XCTestCase {
         )
         XCTAssertEqual(try Data(contentsOf: pointer), Data("../escape\n".utf8))
         let second = try slots.create()
+        try Data("../escape\n".utf8).write(to: pointer, options: .atomic)
         guard case .picker(let choices) = try slots.resolve() else {
             return XCTFail("invalid pointer with two slots should show a picker")
         }
         XCTAssertEqual(choices.count, 2)
+        XCTAssertEqual(try Data(contentsOf: pointer), Data("../escape\n".utf8))
         XCTAssertEqual(try slots.open(.slot(second.slot.id)).peerId(), second.peerId)
     }
 
@@ -149,7 +150,7 @@ final class IdentitySlotStoreTests: XCTestCase {
             ]))
         XCTAssertEqual(try reopened.open(.slot(only.slot.id)).peerId(), only.peerId)
         XCTAssertEqual(try Data(contentsOf: pointer), Data("none\n".utf8))
-        XCTAssertEqual(try reopened.select(.slot(only.slot.id)), only.peerId)
+        XCTAssertEqual(try reopened.select(.slot(only.slot.id)).resolution, only.update.resolution)
         XCTAssertEqual(
             try reopened.resolve(),
             .ready(IdentityCandidate(location: .slot(only.slot.id), state: .ready), only.peerId))
@@ -288,10 +289,13 @@ final class IdentitySlotStoreTests: XCTestCase {
     }
 
     func testRemovalFromPickerDoesNotAutoSelectSoleSurvivor() throws {
+        let path = try identitySlotTestRoot()
         let store = IdentitySlotStore(
-            root: try identitySlotTestRoot(), legacyStore: PlatformKeyStore.forSlot(UUID()))
+            root: path, legacyStore: PlatformKeyStore.forSlot(UUID()))
         let removed = try store.create()
         let survivor = try store.create()
+        try Data("none\n".utf8).write(
+            to: path.appendingPathComponent("active-profile"), options: .atomic)
         try store.remove(removed.slot.id, confirming: removed.peerId)
         XCTAssertEqual(
             try store.resolve(),
@@ -304,16 +308,11 @@ final class IdentitySlotStoreTests: XCTestCase {
 extension IdentitySlotStoreTests {
     @objc
     func testFailedKeychainEraseLeavesVisibleTombstoneAndRequiresSamePeerIDOnRetry() throws {
-        enum SimulatedFailure: Error { case erase }
         let path = try identitySlotTestRoot()
-        var failErase = true
-        let erase: (UUID) throws -> Void = { id in
-            if failErase { throw SimulatedFailure.erase }
-            try PlatformKeyStore.eraseWrappingKey(forSlot: id)
+        let control = IdentityEraseControl()
+        let store = IdentitySlotStore(root: path, legacyStore: PlatformKeyStore.forSlot(UUID())) {
+            try control.erase($0)
         }
-        let store = IdentitySlotStore(
-            root: path, legacyStore: PlatformKeyStore.forSlot(UUID()),
-            eraseWrappingKey: erase)
         let removed = try store.create()
         let survivor = try store.create()
         try store.select(.slot(removed.slot.id))
@@ -331,7 +330,7 @@ extension IdentitySlotStoreTests {
         XCTAssertThrowsError(try store.remove(removed.slot.id, confirming: survivor.peerId))
         XCTAssertTrue(try PlatformKeyStore.forSlot(removed.slot.id).containsWrappingKey())
 
-        failErase = false
+        control.permit()
         try store.remove(removed.slot.id, confirming: removed.peerId)
         XCTAssertEqual(
             try store.candidates(),
@@ -366,16 +365,22 @@ extension IdentitySlotStoreTests {
     @objc
     func testRemovalVerifiesKeychainItemIsGoneBeforeFileCleanup() throws {
         let path = try identitySlotTestRoot()
-        let skipErase: (UUID) throws -> Void = { _ in }
+        let skipErase: @Sendable (UUID) throws -> Void = { _ in }
         let store = IdentitySlotStore(root: path, eraseWrappingKey: skipErase)
         let slot = try store.create()
+        let wrappedFile = path.appendingPathComponent("profiles")
+            .appendingPathComponent(slot.slot.id.uuidString.lowercased()).appendingPathComponent(
+                "identity.key")
+        let originalWrapped = try Data(contentsOf: wrappedFile)
         XCTAssertThrowsError(try store.remove(slot.slot.id, confirming: slot.peerId)) { error in
-            guard let slotError = error as? IdentitySlotError,
-                case .keyStillPresent = slotError
-            else {
-                return XCTFail("expected a still-present Keychain item")
-            }
+            XCTAssertTrue(
+                error is CoreError, "The common registry must refuse the still-present credential")
         }
+        XCTAssertEqual(try Data(contentsOf: wrappedFile), originalWrapped)
+        XCTAssertEqual(
+            try IdentityKey.unwrap(
+                store: PlatformKeyStore.forSlot(slot.slot.id), wrapped: originalWrapped
+            ).peerId(), slot.peerId)
         XCTAssertTrue(try PlatformKeyStore.forSlot(slot.slot.id).containsWrappingKey())
         XCTAssertEqual(
             try store.candidates(),

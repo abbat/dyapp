@@ -29,7 +29,7 @@ extension IdentitySlotStoreTests {
     }
 
     @objc
-    func testLostSelectedKeyIsUnavailableWithoutReplacement() throws {
+    func testLostSelectedKeyIsConfirmedMissingWithoutReplacement() throws {
         let path = try identitySlotTestRoot()
         let store = IdentitySlotStore(root: path, legacyStore: PlatformKeyStore.forSlot(UUID()))
         let lost = try store.create()
@@ -38,7 +38,7 @@ extension IdentitySlotStoreTests {
         let savedPointer = try Data(contentsOf: pointer)
         try PlatformKeyStore.eraseWrappingKey(forSlot: lost.slot.id)
 
-        XCTAssertEqual(try store.resolve(), .recovery(.slot(lost.slot.id), .unavailable))
+        XCTAssertEqual(try store.resolve(), .recovery(.slot(lost.slot.id), .missing))
         XCTAssertThrowsError(try store.select(.slot(lost.slot.id)))
         XCTAssertEqual(try Data(contentsOf: pointer), savedPointer)
         XCTAssertFalse(try PlatformKeyStore.forSlot(lost.slot.id).containsWrappingKey())
@@ -100,18 +100,21 @@ extension IdentitySlotStoreTests {
     @objc
     func testDirectoryCollisionIsNeverOverwritten() throws {
         let path = try identitySlotTestRoot()
-        let collision = UUID()
-        let next = UUID()
-        let first = IdentitySlotStore(root: path) { collision }
+        let first = IdentitySlotStore(root: path)
         let original = try first.create()
-        var calls = 0
-        let second = IdentitySlotStore(root: path) {
-            calls += 1
-            return calls == 1 ? collision : next
-        }
+        let keys = IdentityCollisionKeys(root: path, kind: .directory)
+        let second = IdentitySlotStore(root: path, keys: keys)
         let another = try second.create()
-        XCTAssertEqual(another.slot.id, next)
+        let collision = try XCTUnwrap(keys.collision.id)
+        XCTAssertNotEqual(another.slot.id.uuidString.lowercased(), collision)
         XCTAssertEqual(try first.open(original.slot).peerId(), original.peerId)
         XCTAssertNotEqual(another.peerId, original.peerId)
+        let folder = path.appendingPathComponent("profiles").appendingPathComponent(collision)
+        XCTAssertEqual(
+            try Data(contentsOf: folder.appendingPathComponent("state")), Data("pending\n".utf8))
+        XCTAssertEqual(
+            try Data(contentsOf: folder.appendingPathComponent("sentinel")),
+            Data("preserve collision".utf8))
+        XCTAssertFalse(try keys.contains(slotId: collision))
     }
 }

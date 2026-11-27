@@ -72,8 +72,16 @@ final class NativeSlotKeysTests: XCTestCase {
         let created = try registry.create()
         defer { _ = try? registry.remove(id: created.slot.id, confirmedPeer: created.key.peerId()) }
         let id = try XCTUnwrap(UUID(uuidString: created.slot.id))
+        let folder = root.appendingPathComponent("profiles").appendingPathComponent(created.slot.id)
+        let wrapped = try Data(contentsOf: folder.appendingPathComponent("identity.key"))
         XCTAssertEqual(
-            try IdentitySlotStore(root: root).open(.slot(id)).peerId(), created.key.peerId())
+            try IdentityKey.unwrap(store: PlatformKeyStore.forSlot(id), wrapped: wrapped).peerId(),
+            created.key.peerId())
+        XCTAssertEqual(
+            try Data(contentsOf: folder.appendingPathComponent("state")), Data("ready\n".utf8))
+        XCTAssertEqual(
+            try Data(contentsOf: root.appendingPathComponent("active-profile")),
+            Data("\(created.slot.id)\n".utf8))
         let reopened = MobileIdentityRegistry(root: root.path, layout: .ios, keys: NativeSlotKeys())
         guard case let .ready(slot, key) = try reopened.resolve() else {
             return XCTFail("The actual exported registry must reopen the same ready identity")

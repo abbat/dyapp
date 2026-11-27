@@ -27,6 +27,12 @@ presentation owner. They exercise text revisions (including change-and-back), su
 held drafts, retired openings and missing/deleted/rotated targets without a clock or scheduler.
 `ChatOwnerTests` exercise real feed activation/deactivation, same-peer different-slot ownership,
 switch-away-and-back, and refusal of an obsolete request before any native action executes.
+The iOS registry suite drives collisions at the actual native `contains` callback: stranded
+credentials or a newly occupied directory must be skipped without overwriting their payload.
+Picker/invalid-pointer fixtures seed those states after atomic core creation, which already selects
+its new identity. Erase failures use locked callback control; preserved wrapped bytes and survivor
+Peer IDs remain checked independently of native error wording. DTO tests retain a known recovery
+Peer ID and committed persistence warnings without converting them into retryable failures.
 The iOS real-peer sharing scenario opens an incoming ordinary link naming the app owner, shares
 that own profile into the distinct established conversation through the common native operation,
 and waits for the peer's acknowledgement of exactly one matching owner-authored link. Its fixture

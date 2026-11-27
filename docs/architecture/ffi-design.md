@@ -304,7 +304,9 @@ and typed errors, using opaque keys. Its callback inputs release their native ke
 wrapping. Android's `Slots` now delegates lifecycle operations to this registry. iOS
 `NativeSlotKeys` implements the same opaque callbacks with existing Keychain accounts, exclusive
 fresh-key creation and existing-only wrapping. Its actual exported-registry fixture is implemented;
-the Swift shell registry and runtime lease cutover remain planned.
+the iOS shell registry now delegates to the same native lifecycle implementation. It preserves
+recovery Peer IDs and independent selection/removal persistence diagnostics; core creation selects
+once, without a second Swift selection. The full runtime operation-lease cutover remains planned.
 
 `Registry::remove` takes the same exclusive lock. It rejects legacy/damaged candidates,
 checks an existing key against the exact confirmed Peer ID and validates all owned files

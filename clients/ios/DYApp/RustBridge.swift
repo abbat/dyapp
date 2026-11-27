@@ -56,28 +56,27 @@ enum RustBridge {
     }
 
     /// Create and select a fresh UUID slot only after an explicit user action.
-    static func createIdentity() throws -> IdentityResolution {
+    static func createIdentity() throws -> IdentityUpdate {
         let store = try identityStore()
         let created = try store.create()
-        let location = IdentityLocation.slot(created.slot.id)
-        let peerID = try store.select(location)
-        return .ready(IdentityCandidate(location: location, state: .ready), peerID)
+        return created.update
     }
 
     /// Select an existing ready slot after its key has been reopened successfully.
-    static func selectIdentity(_ location: IdentityLocation) throws -> IdentityResolution {
+    static func selectIdentity(_ location: IdentityLocation) throws -> IdentityUpdate {
         let store = try identityStore()
-        let peerID = try store.select(location)
-        return .ready(IdentityCandidate(location: location, state: .ready), peerID)
+        return try store.select(location)
     }
 
     /// Remove only the confirmed UUID slot, then resolve the remaining candidates without selection.
-    static func removeIdentity(_ id: UUID, confirming peerID: String) throws -> IdentityResolution {
+    static func removeIdentity(_ id: UUID, confirming peerID: String) throws -> IdentityUpdate {
         chatsLock.lock()
         defer { chatsLock.unlock() }
         let store = try identityStore()
-        try store.remove(id, confirming: peerID)
-        return (try? store.resolve()) ?? .recovery(nil, .unavailable)
+        let detail = try store.remove(id, confirming: peerID)
+        return IdentityUpdate(
+            resolution: (try? store.resolve()) ?? .recovery(nil, .unavailable),
+            durabilityDetail: detail)
     }
 
     /// Existing folder for this identity; the legacy key stays at the app root.

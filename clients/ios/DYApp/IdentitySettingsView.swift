@@ -5,11 +5,11 @@ private enum InventoryLoad: Sendable {
 }
 
 private enum IdentityAction: Sendable {
-    case ready(IdentityCandidate, String), failed
+    case ready(IdentityUpdate), failed
 }
 
 private enum RemovalAction: Sendable {
-    case resolved(IdentityResolution), failed(IdentityResolution)
+    case resolved(IdentityUpdate), failed(IdentityResolution)
 }
 
 /// Inventory and explicit identity actions for the selected Apple key slot.
@@ -19,7 +19,7 @@ struct IdentitySettingsView: View {
     let peerId: String
     /// The chat store of the active identity, once its network is set up.
     let feed: ChatFeed?
-    let onIdentityChanged: (IdentityResolution) -> Void
+    let onIdentityChanged: (IdentityUpdate) -> Void
     /// Replaces the network link where the start screen owns that navigation.
     var openNetwork: (() -> Void)?
     @State private var rows: [IdentityInventoryRow] = []
@@ -210,11 +210,8 @@ struct IdentitySettingsView: View {
         actionFailed = false
         let result = await Task.detached(priority: .userInitiated) { () -> IdentityAction in
             do {
-                if case let .ready(created, peerID) = try RustBridge.createIdentity() {
-                    return .ready(created, peerID)
-                }
+                return .ready(try RustBridge.createIdentity())
             } catch { return .failed }
-            return .failed
         }.value
         finish(result)
     }
@@ -226,11 +223,8 @@ struct IdentitySettingsView: View {
         actionFailed = false
         let result = await Task.detached(priority: .userInitiated) { () -> IdentityAction in
             do {
-                if case let .ready(selected, peerID) = try RustBridge.selectIdentity(location) {
-                    return .ready(selected, peerID)
-                }
+                return .ready(try RustBridge.selectIdentity(location))
             } catch { return .failed }
-            return .failed
         }.value
         finish(result)
     }
@@ -281,7 +275,7 @@ struct IdentitySettingsView: View {
 
         case .failed(let resolution):
             if resolution != .ready(candidate, peerId) {
-                onIdentityChanged(resolution)
+                onIdentityChanged(IdentityUpdate(resolution: resolution))
                 close()
             } else {
                 actionFailed = true
@@ -294,8 +288,8 @@ struct IdentitySettingsView: View {
     private func finish(_ result: IdentityAction) {
         isWorking = false
         switch result {
-        case let .ready(selected, peerID):
-            onIdentityChanged(.ready(selected, peerID))
+        case let .ready(selected):
+            onIdentityChanged(selected)
             close()
 
         case .failed:

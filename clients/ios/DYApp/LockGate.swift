@@ -7,6 +7,7 @@ import UIKit.UIGestureRecognizerSubclass
 struct LockGate: View {
     @Environment(\.scenePhase) private var phase
     @StateObject private var lock = LockModel()
+    @State private var identityPersistenceDetail: String?
 
     var body: some View {
         screen
@@ -38,7 +39,7 @@ struct LockGate: View {
                 SettingsView(lock: lock)
             } else {
                 VStack {
-                    ContentView()
+                    ContentView(persistenceDetail: $identityPersistenceDetail)
                     Button("lock.settings") { lock.openSettings(true) }
                         .accessibilityIdentifier("lock-settings")
                         .padding()

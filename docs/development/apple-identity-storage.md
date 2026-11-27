@@ -10,8 +10,8 @@ Swift wrapping-key layer. Pre-release Swift macOS stores are not migrated automa
 `NativeSlotKeys` implements the shared mobile registry credential callback using those same iOS
 accounts. Fresh wrapping uses exclusive Keychain insertion; existing-only wrapping refuses a
 missing key instead of creating one. Missing credentials return absence, whereas access/unwrap
-failures remain errors. This adapter and real exported-registry conformance tests are implemented;
-the shell still uses `IdentitySlotStore` policy until its common-registry cutover is complete.
+failures remain errors. The shell uses this callback through common `MobileIdentityRegistry`;
+`IdentitySlotStore` projects native DTOs without implementing file, lifecycle or removal policy.
 Isolated UI roots pass their existing per-root legacy store to the callback. A controlled eraser
 can reproduce cleanup failure; the common registry must still verify credential absence itself.
 
@@ -20,7 +20,7 @@ one. A fresh install shows an explicit Create action and a key-loss warning; a
 missing or unavailable key shows recovery and Retry. An existing root
 `identity.key` remains wrapped by the legacy Keychain item
 (`com.dyapp.identity-wrap` / `identity-wrap`) and opens with the same Peer ID.
-The shared `IdentitySlotStore` now enumerates UUID slot directories, creates a
+The common registry enumerates UUID slot directories, creates a
 `pending` slot with an independent `profile:<lowercase UUID>` Keychain item,
 atomically writes its wrapped key, verifies the reopened Peer ID, and marks it
 `ready`. Its advisory lock serializes cooperating app processes. A malformed
@@ -65,8 +65,12 @@ visible, marks the selected slot, names both Keychain and local key file, and ne
 `active-profile` or creates a key. Its network link edits only the selected slot. Settings now
 offers explicit Create and Switch actions in detached tasks; Switch calls the existing guarded
 `select`, and the root screen reloads the newly selected slot's Active network before showing
-Ready or its draft form. A failed Create or Switch keeps the prior UI selection and shows an
-error. Selected ready UUID slots can be removed after a second confirmation; the root picker
+Ready or its draft form. A failed precommit Create or Switch keeps the prior Settings selection
+and shows an error. Core creation already selects the new identity; Swift must not select it again.
+Create, Switch and Remove preserve the independent directory-persistence diagnostic after a
+visible commit. A localized notice with acknowledgement survives navigation, setup and content
+recreation within the app-lock gate. Unconfirmed persistence is not a retryable creation failure.
+Selected ready UUID slots can be removed after a second confirmation; the root picker
 requires an explicit choice of any survivor.
 
 Desktop and Android already have UUID slots, an `active-profile` pointer,
@@ -77,7 +81,7 @@ the same visible states and slot IDs without copying a key between profiles.
 
 ## Decision for the iOS implementation
 
-| Item | Planned location or behavior |
+| Item | Contract |
 |---|---|
 | Local slot | Random UUID in `<Application Support>/<bundle ID>/profiles/<slot>/`; never a Peer ID or name. |
 | Lifecycle | `state` in the slot directory: `pending`, `ready`, `deleting`; a malformed state is recovery `damaged`. |
@@ -85,7 +89,7 @@ the same visible states and slot IDs without copying a key between profiles.
 | Wrapping key | Separate Keychain account `profile:<slot>` under service `com.dyapp.identity-wrap`, with the current `AfterFirstUnlockThisDeviceOnly` accessibility. |
 | Active selection | Root `active-profile` containing the UUID or `legacy-primary`, replaced atomically. |
 | Legacy identity | Existing root `identity.key` and Keychain account `identity-wrap`, exposed as virtual slot `legacy-primary` without moving either. |
-| Other local data | The network form reads and saves the selected slot's draft (legacy root for the existing key), falling back to active settings only when the draft is absent. UniFFI now supports an identity-bound `client.db` profile draft in that folder; the iOS editor still uses its per-slot JSON draft until migration is wired. |
+| Other local data | The network form reads and saves the selected slot's draft, falling back to active settings only when the draft is absent. The profile editor uses identity-bound `client.db` and imports old JSON only when the Rust draft is absent. |
 
 The app enumerates the legacy file and UUID directories, not a second registry.
 On startup it opens a valid active slot, otherwise the only slot, or shows a
@@ -109,9 +113,10 @@ Opening derives the Peer ID from the unwrapped identity every time. A missing
 file, missing Keychain item, locked Keychain, unreadable blob, malformed marker
 or invalid active pointer never creates a replacement. The picker offers Retry
 and a clear recovery reason. A corrupt active pointer falls back to the sole
-usable slot or the picker, without changing any key. Switching stops the old
-identity's future network and message runtime before opening the selected one;
-the current shell has no such runtime yet.
+usable slot or the picker, without changing any key. Switching invalidates old presentation
+callbacks and future receive scheduling; already admitted native calls finish normally.
+Adopting shared operation leases throughout the iOS runtime and moving remaining startup reads
+off the main actor remain planned.
 The reserved `active-profile` value `none\n` means the user explicitly left no identity selected.
 Unlike an absent pointer, it opens the picker even if exactly one ready slot survives; an empty
 store still shows setup unless a legacy Keychain item is stranded. This marker is reserved for
@@ -126,14 +131,14 @@ separate migration flow exists. Removing the active slot returns to the picker;
 it never selects another identity silently. Published network data may remain.
 
 `PlatformKeyStore.eraseWrappingKey(forSlot:)` deletes and verifies only one UUID account.
-`IdentitySlotStore.remove(_:confirming:)` now serializes removal with the slot lock: it checks
+`IdentitySlotStore.remove(_:confirming:)` delegates to the core under its slot lock: it checks
 the ready slot's Peer ID against the confirmation, refuses unknown or nonregular slot content,
 writes the tombstone, records no selection when the removed slot was active or the picker had no
-selection, erases the slot's Keychain item, and removes
-only known files (the key, state and network files, the JSON draft, `client.db` with its WAL, SHM
-and journal files, `device.key` and `chat-state.key`) before removing the tombstone. A retry can finish after the Keychain item or
+selection, erases the slot's Keychain item, and removes validated owned payloads using the shared
+allowlist in the [native registry contract](../architecture/ffi-design.md), before removing the
+tombstone. A retry can finish after the Keychain item or
 directory has gone; if the item still exists, it must open and match the confirmed Peer ID again.
-The store verifies Keychain absence itself after the erase call, including when an injected
+The core verifies Keychain absence itself after the erase call, including when an injected
 erase operation is used by tests. iOS Settings now show the selected UUID's Peer ID,
 backup warning and a second destructive confirmation before calling this operation. A shared
 native test reopens a surviving Peer ID and its active/draft network files after another slot is

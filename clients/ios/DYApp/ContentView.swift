@@ -10,7 +10,7 @@ private enum PickerLoad: Sendable {
 }
 
 private enum PickerSelection: Sendable {
-    case ready(IdentityResolution), failed
+    case ready(IdentityUpdate), failed
 }
 
 /// All start screen entries share one selection: on a macOS sidebar a link left active by its own flag
@@ -35,6 +35,7 @@ struct ScrollingForm<Content: View>: View {
 
 /// The shared start screen opens a selected identity or asks for an explicit first creation.
 struct ContentView: View {
+    @Binding var persistenceDetail: String?
     @State private var identity: IdentityResolution =
         (try? RustBridge.identityState()) ?? .recovery(nil, .unavailable)
     @State private var activeNetwork: ActiveNetworkState = .loading
@@ -110,11 +111,24 @@ struct ContentView: View {
                 detail
             #endif
         }
+        .safeAreaInset(edge: .top) { persistenceNotice }
         .task(id: selectedMarker) { await loadActiveNetwork() }
         .task(id: identity) { await loadPicker() }
         // On the root, as iOS cancels a task of a screen covered by a pushed one.
         .task(id: chatIdentity.map { $0.candidate.location.marker + ":" + $0.peerId }) {
             if let chatIdentity { await chats.poll(chatIdentity) } else { chats.deactivate() }
+        }
+    }
+
+    @ViewBuilder private var persistenceNotice: some View {
+        if let persistenceDetail {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("identity.persistence.notice").font(.caption)
+                Text(verbatim: persistenceDetail).font(.caption).textSelection(.enabled)
+                Button("identity.persistence.ack") { self.persistenceDetail = nil }
+            }
+            .padding()
+            .accessibilityIdentifier("identity-persistence-notice")
         }
     }
 
@@ -354,6 +368,11 @@ extension ContentView {
         identity = selected
     }
 
+    private func useIdentity(_ update: IdentityUpdate) {
+        useIdentity(update.resolution)
+        persistenceDetail = update.durabilityDetail
+    }
+
     private func settingsView(_ candidate: IdentityCandidate, _ peerId: String)
         -> IdentitySettingsView
     {
@@ -371,7 +390,9 @@ extension ContentView {
     }
 
     private func createIdentity() {
-        useIdentity((try? RustBridge.createIdentity()) ?? .recovery(nil, .unavailable))
+        do { useIdentity(try RustBridge.createIdentity()) } catch {
+            useIdentity(.recovery(nil, .unavailable))
+        }
         #if DEBUG
             // Native UI tests exercise the read-error screen in their isolated slot root.
             if ProcessInfo.processInfo.arguments.contains("--ui-test-corrupt-network-draft"),

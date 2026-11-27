@@ -1073,6 +1073,38 @@
         }
       }
     },
+    "identity.persistence.ack": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжить"
+          }
+        }
+      }
+    },
+    "identity.persistence.notice": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The identity change completed, but its persistence could not be confirmed. After restarting the app, check which identity is selected."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменение личности выполнено, но не удалось подтвердить его сохранение. После перезапуска приложения проверьте, какая личность выбрана."
+          }
+        }
+      }
+    },
     "identity.picker": {
       "localizations": {
         "en": {
