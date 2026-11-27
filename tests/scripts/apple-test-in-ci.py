@@ -181,11 +181,11 @@ def keep_log(
             output.write("log show timed out\n")
 
 
-def validate_ios_attachments(directory: Path) -> dict[str, str]:
+def validate_ios_attachments(directory: Path, language: str) -> dict[str, str]:
     manifest = json.loads((directory / "manifest.json").read_text())
     digests = {}
     for state in ("eligible-target", "sent"):
-        name = f"ios-profile-share-{state}"
+        name = f"ios-profile-share-{language}-{state}"
         png = evidence_file(directory, manifest, name, ".png")
         if not png.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"):
             raise RuntimeError(f"Invalid PNG attachment: {name}")
@@ -211,22 +211,32 @@ def evidence_file(directory: Path, manifest: list[dict], name: str, suffix: str)
 
 def export_ios_evidence(reports: Path, result_bundle: Path, apps: list[Path], destination: str) -> None:
     attachments = reports / "attachments"
-    run(
-        [
-            "xcrun",
-            "xcresulttool",
-            "export",
-            "attachments",
-            "--path",
-            str(result_bundle),
-            "--output-path",
-            str(attachments),
-            "--test-id",
-            "ChatsUITests/testSharedProfileOpensFromItsCardAndSharesToAChat()",
-        ],
-        reports / "attachments.log",
-    )
-    digests = validate_ios_attachments(attachments)
+    attachments.mkdir(exist_ok=True)
+    digests = {}
+    for language, test in (
+        ("en", "testSharedProfileOpensFromItsCardAndSharesToAChat"),
+        ("ru", "testSharedProfileInRussian"),
+    ):
+        directory = attachments / language
+        run(
+            [
+                "xcrun",
+                "xcresulttool",
+                "export",
+                "attachments",
+                "--path",
+                str(result_bundle),
+                "--output-path",
+                str(directory),
+                "--test-id",
+                f"ChatsUITests/{test}()",
+            ],
+            reports / f"attachments-{language}.log",
+        )
+        digests.update(
+            {f"{language}/{name}": digest
+             for name, digest in validate_ios_attachments(directory, language).items()}
+        )
     binaries = [app / "DYApp" for app in apps if app.parent.name.endswith("-iphonesimulator")]
     if len(binaries) != 1:
         raise RuntimeError("Expected one tested iOS simulator application")

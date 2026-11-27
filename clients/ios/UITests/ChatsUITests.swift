@@ -117,11 +117,19 @@ final class ChatsUITests: XCTestCase {
 
     /// The DEBUG peer answers with its profile link; its card opens the page, whose Share sends the link back.
     func testSharedProfileOpensFromItsCardAndSharesToAChat() {
+        assertProfileShare(language: "en", locale: "en_US", sentLabel: "Profile sent.")
+    }
+
+    func testSharedProfileInRussian() {
+        assertProfileShare(language: "ru", locale: "ru_RU", sentLabel: "Профиль отправлен.")
+    }
+
+    private func assertProfileShare(language: String, locale: String, sentLabel: String) {
         let app = XCUIApplication()
         app.launchArguments = [
             "--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)",
             "--ui-test-chat-peer-shares",
-            "-AppleLanguages", "(en)", "-AppleLocale", "en_US",
+            "-AppleLanguages", "(\(language))", "-AppleLocale", locale,
         ]
         app.launch()
         createIdentity(app)
@@ -137,13 +145,13 @@ final class ChatsUITests: XCTestCase {
         XCTAssertTrue(app.buttons["view-back"].waitForExistence(timeout: 30), app.debugDescription)
         reveal(app.buttons["view-share"], in: app).tap()
         let target = reveal(app.buttons["share-1"], in: app)
-        attachShareState("eligible-target", app: app, element: target)
+        attachShareState("\(language)-eligible-target", app: app, element: target)
         target.tap()
         let sent = app.staticTexts.matching(identifier: "view-status").matching(
-            NSPredicate(format: "label == %@", "Profile sent.")
+            NSPredicate(format: "label == %@", sentLabel)
         ).firstMatch
         reveal(sent, in: app, timeout: 60, above: true)
-        attachShareState("sent", app: app, element: sent)
+        attachShareState("\(language)-sent", app: app, element: sent)
         reveal(app.buttons["view-back"], in: app, above: true).tap()
         XCTAssertTrue(cards.element(boundBy: 1).waitForExistence(timeout: 30), app.debugDescription)
         XCTAssertTrue(
@@ -379,12 +387,14 @@ extension ChatsUITests {
         reveal(app.buttons["network-check"], in: app).tap()
         // Reveal Continue only after the check answers: its rows move Continue while they appear.
         let status = reveal(app.staticTexts["network-check-status"], in: app)
+        let answered =
+            app.launchArguments.contains("(ru)") ? "Совместимый узел" : "compatible node answered"
         XCTAssertEqual(
             XCTWaiter.wait(
                 for: [
                     XCTNSPredicateExpectation(
                         predicate: NSPredicate(
-                            format: "label CONTAINS %@", "compatible node answered"),
+                            format: "label CONTAINS %@", answered),
                         object: status
                     )
                 ], timeout: 30), .completed)

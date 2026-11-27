@@ -44,7 +44,7 @@ class IosEvidence(unittest.TestCase):
             directory = Path(temporary)
             attachments = []
             for index, state in enumerate(("eligible-target", "sent")):
-                stem = f"ios-profile-share-{state}"
+                stem = f"ios-profile-share-en-{state}"
                 for name, suffix, content in (
                     (stem, ".png", b"\x89PNG\r\n\x1a\n"),
                     (f"{stem}-geometry", ".txt", b"element=(0, 0, 20, 20)"),
@@ -59,9 +59,9 @@ class IosEvidence(unittest.TestCase):
                     )
             manifest = directory / "manifest.json"
             manifest.write_text(json.dumps([{"attachments": attachments}]))
-            digests = APPLE.validate_ios_attachments(directory)
+            digests = APPLE.validate_ios_attachments(directory, "en")
             self.assertEqual(set(digests), {"0.png", "0.txt", "1.png", "1.txt"})
             attachments[2]["suggestedHumanReadableName"] = "unrelated.png"
             manifest.write_text(json.dumps([{"attachments": attachments}]))
-            with self.assertRaisesRegex(RuntimeError, "ios-profile-share-sent"):
-                APPLE.validate_ios_attachments(directory)
+            with self.assertRaisesRegex(RuntimeError, "ios-profile-share-en-sent"):
+                APPLE.validate_ios_attachments(directory, "en")
