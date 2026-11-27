@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 import Vision
 import VisionKit
@@ -84,7 +85,7 @@ struct LinkApprovalSection: View {
                 .disabled(busy || confirming)
                 .accessibilityIdentifier("link-owner-photo")
             if #available(iOS 16, *), DataScannerViewController.isSupported {
-                Button("devices.code.camera") { scanning = true }
+                Button("devices.code.camera", action: requestCamera)
                     .disabled(busy || confirming)
             }
             Button("network.continue") { prepare() }
@@ -141,6 +142,20 @@ struct LinkApprovalSection: View {
             code = ""
             failed = false
             approved = false
+        }
+    }
+
+    private func requestCamera() {
+        guard !busy, let context = feed.context else { return }
+        let ticket = opening
+        busy = true
+        failed = false
+        Task {
+            let granted = await AVCaptureDevice.requestAccess(for: .video)
+            busy = false
+            guard opening == ticket, feed.isCurrent(context) else { return }
+            scanning = granted
+            failed = !granted
         }
     }
 
