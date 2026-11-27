@@ -118,8 +118,12 @@ or invalid active pointer never creates a replacement. The picker offers Retry
 and a clear recovery reason. A corrupt active pointer falls back to the sole
 usable slot or the picker, without changing any key. Switching invalidates old presentation
 callbacks and future receive scheduling; already admitted native calls finish normally.
-Adopting shared operation leases throughout the iOS runtime and moving remaining startup reads
-off the main actor remain planned.
+`IdentitySession` provides an app-owned presentation coordinator with protected initial loading,
+a dedicated serial IO queue, single-mutation admission and owned completion delivery. Superseded
+reads cannot overwrite a committed mutation; cancellation of its initiating Swift task does not
+roll back or discard that native commit. Persistence acknowledgement is independent of readback.
+Wiring the remaining startup and Settings callers to this coordinator and adopting shared operation
+leases throughout the runtime remain planned.
 The reserved `active-profile` value `none\n` means the user explicitly left no identity selected.
 Unlike an absent pointer, it opens the picker even if exactly one ready slot survives; an empty
 store still shows setup unless a legacy Keychain item is stranded. This marker is reserved for
