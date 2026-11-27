@@ -33,7 +33,8 @@ The source loader is `tools/scripts/translation_sources.py`. It reads `i18n/cata
 (schema 1: `default`, `languages`, `messages`) and one JSON text dictionary per configured
 language. `languages` maps language tags to Android qualifiers; the default uses `values`.
 Each message declares `arguments`, a semantic `context` and `bindings` from native keys to tokens.
-Aliases are explicit. Loading validates every language and placeholder before output:
+Aliases are explicit. Android native keys retain existing mixed-case enum suffixes
+(for example `profile_value_career_ambition_High`). Loading validates every language and placeholder:
 duplicate keys, non-finite numbers, unsupported schema/fields, unsafe qualifiers, symlink/oversized
 sources, missing/extra messages or language files and duplicate native bindings fail.
 The loader writes nothing; production shared sources and native migration remain planned.

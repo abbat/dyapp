@@ -14,7 +14,7 @@ KEY = re.compile(r"[a-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+\Z")
 TAG = re.compile(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*\Z")
 QUALIFIER = re.compile(r"values(?:-[A-Za-z0-9+]+)*\Z")
 NATIVE_KEY = re.compile(r"[A-Za-z][A-Za-z0-9_.-]*\Z")
-ANDROID_KEY = re.compile(r"[a-z][a-z0-9_]*\Z")
+ANDROID_KEY = re.compile(r"[a-z][A-Za-z0-9_]*\Z")
 
 
 @dataclass(frozen=True)

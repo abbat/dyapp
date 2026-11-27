@@ -67,6 +67,19 @@ class TranslationSources(unittest.TestCase):
             self.assertEqual(len(entry.bindings), 3)
             self.assertEqual(entry.bindings[0].tokens, {"count": "%1$d"})
 
+    def test_existing_mixed_case_android_enum_key_is_preserved(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            directory = prepare(root)
+            path = directory / "catalogue.json"
+            data = json.loads(path.read_text())
+            entry = data["messages"]["common.total"]
+            key = "profile_value_career_ambition_High"
+            entry["bindings"]["android"] = {key: {"count": "%1$d"}}
+            write(path, data)
+            binding = LOAD(root).messages["common.total"].bindings[0]
+            self.assertEqual(binding.key, key)
+
     def test_bad_metadata_is_refused_before_any_output(self) -> None:
         cases: tuple[tuple[str, Mutation], ...] = (
             ("unknown field", lambda data: data.update(extra=True)),
