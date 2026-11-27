@@ -385,16 +385,16 @@ extension ChatsUITests {
         rows.tap()
         typeSlowly("127.0.0.1:33445", into: rows)
         reveal(app.buttons["network-check"], in: app).tap()
-        // Reveal Continue only after the check answers: its rows move Continue while they appear.
         let status = reveal(app.staticTexts["network-check-status"], in: app)
         let answered =
-            app.launchArguments.contains("(ru)") ? "Совместимый узел" : "compatible node answered"
+            app.launchArguments.contains("(ru)")
+            ? "Совместимый узел ответил." : "A compatible node answered."
         XCTAssertEqual(
             XCTWaiter.wait(
                 for: [
                     XCTNSPredicateExpectation(
                         predicate: NSPredicate(
-                            format: "label CONTAINS %@", answered),
+                            format: "label BEGINSWITH %@", answered),
                         object: status
                     )
                 ], timeout: 30), .completed)
