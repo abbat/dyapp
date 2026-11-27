@@ -95,12 +95,17 @@ async fn photo_upload_refusal_never_stages_a_message() {
 
 #[tokio::test]
 async fn photo_post_upload_phase_retains_id_and_exact_bytes_after_commit() {
+    assert_photo_post_upload_commit(false).await;
+    assert_photo_post_upload_commit(true).await;
+}
+
+async fn assert_photo_post_upload_commit(forwarded: bool) {
     let mut f = open_chat(fixture());
     let (descriptor, _) = photo();
     // Exercise the production phase reached after the upload completion signal, without network timing.
     let outcome = f
         .session
-        .submit_uploaded_attachment(&mut [], &f.group, &descriptor, &f.seal)
+        .submit_uploaded_attachment(&mut [], &f.group, &descriptor, forwarded, &f.seal)
         .await
         .unwrap();
     let id = queued(&outcome);
@@ -108,6 +113,7 @@ async fn photo_post_upload_phase_retains_id_and_exact_bytes_after_commit() {
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].key.id, id);
     assert_eq!(rows[0].message.attachment, descriptor);
+    assert_eq!(rows[0].forwarded, forwarded);
     let before = writes(&f.session);
     drop(f.session);
     let mut reopened = Session::open(Store::open(&f.path, &f.owner).unwrap(), &f.seal).unwrap();

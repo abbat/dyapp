@@ -44,7 +44,11 @@ impl Snapshot {
         &self.photo
     }
 
-    fn current(&self, store: &Store) -> Result<(), LookupError> {
+    pub(crate) fn peer(&self) -> &str {
+        &self.peer
+    }
+
+    pub(crate) fn current(&self, store: &Store) -> Result<(), LookupError> {
         if store.owner_peer_id() != self.owner {
             return Err(LookupError::NotFound);
         }
@@ -55,7 +59,7 @@ impl Snapshot {
         Ok(())
     }
 
-    fn validate(&self, bytes: &[u8]) -> Result<(), LookupError> {
+    pub(crate) fn validate(&self, bytes: &[u8]) -> Result<(), LookupError> {
         if u64::try_from(bytes.len()).ok() != Some(self.photo.size)
             || dyapp_identity::sha256(bytes) != self.photo.plaintext_sha256
         {

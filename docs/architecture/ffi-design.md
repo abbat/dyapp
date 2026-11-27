@@ -700,6 +700,11 @@ Only an absent local group may fall through to online first-contact admission; a
 triggers another submission. The connected path still verifies the peer profile. Offline operation
 cannot discover remote revocations it has not received.
 
+The core `Session::submit_forwarded_photo` accepts a current stored photo selector and validated
+original bytes. It checks that the destination is a different open pair, then encrypts and uploads
+with fresh media credentials before committing a new forwarded message. Native acquisition and
+client presentation for photo forwarding remain planned.
+
 Desktop text, edit, delete, photo and forward commands project the same core `Submission` as
 `{ id, queued }`: `queued: null` means immediate node acceptance; a string means committed with
 retryable delivery work. Command rejection means no successful commitment. The desktop controller

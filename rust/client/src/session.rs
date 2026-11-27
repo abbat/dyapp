@@ -47,6 +47,9 @@ pub enum Error {
     /// A forward needs an existing open conversation.
     #[error("conversation must be open to forward")]
     ConversationNotOpen,
+    /// The original photo is unavailable or invalid.
+    #[error(transparent)]
+    OriginalPhoto(#[from] crate::attachment::original::LookupError),
     /// A profile share names an invalid link or has no distinct open target pair.
     #[error("invalid profile share target")]
     InvalidProfileShare,

@@ -95,7 +95,7 @@ impl Session {
             let mut scores = self.scores.lock().await;
             upload(nodes, identity, attachment, blob, &mut scores).await?;
         }
-        self.submit_uploaded_attachment(nodes, group_id, attachment, seal_key)
+        self.submit_uploaded_attachment(nodes, group_id, attachment, false, seal_key)
             .await
     }
 
@@ -105,6 +105,7 @@ impl Session {
         nodes: &mut [Node],
         group_id: &[u8],
         attachment: &Attachment,
+        forwarded: bool,
         seal_key: &[u8; 32],
     ) -> Result<Submission, Error> {
         let mut id = [0; 16];
@@ -116,6 +117,11 @@ impl Session {
             hlc,
             attachment: attachment.clone(),
         });
+        let body = if forwarded {
+            Body::Forwarded(Box::new(body))
+        } else {
+            body
+        };
         let writes = self.stage_message(group_id, &body, seal_key)?;
         Ok(self.submit_staged(nodes, id, writes, seal_key).await)
     }
@@ -141,6 +147,49 @@ impl Session {
             return Err(Error::ConversationNotOpen);
         }
         self.submit_attachment(nodes, identity, &group_id, attachment, blob, seal_key)
+            .await
+    }
+
+    /// Forward a current photo into another open chat under freshly generated media credentials.
+    ///
+    /// # Errors
+    /// Returns an error for a stale source, invalid original bytes, ineligible destination,
+    /// or a failure to encrypt, upload or stage the forwarded message.
+    pub async fn submit_forwarded_photo(
+        &mut self,
+        nodes: &mut [Node],
+        identity: &Identity,
+        source: &crate::attachment::original::Snapshot,
+        original: &[u8],
+        target_peer: &str,
+        seal_key: &[u8; 32],
+    ) -> Result<Submission, Error> {
+        if source.peer() == target_peer {
+            return Err(Error::ConversationNotOpen);
+        }
+        let group_id = self.pair_group(target_peer).ok_or(Error::UnknownGroup)?;
+        if self.store.blocked(target_peer)? {
+            return Err(crate::store::Error::BlockedPeer.into());
+        }
+        if self.store.conversation(target_peer)? != crate::store::Conversation::Open {
+            return Err(Error::ConversationNotOpen);
+        }
+        source.current(&self.store)?;
+        source.validate(original)?;
+
+        let previous = source.attachment();
+        let (mut attachment, blob) = crate::attachment::seal(original)?;
+        attachment.preview.clone_from(&previous.preview);
+        attachment.mime.clone_from(&previous.mime);
+        attachment.width = previous.width;
+        attachment.height = previous.height;
+        attachment.check()?;
+        {
+            let mut scores = self.scores.lock().await;
+            upload(nodes, identity, &attachment, &blob, &mut scores).await?;
+        }
+        source.current(&self.store)?;
+        self.submit_uploaded_attachment(nodes, &group_id, &attachment, true, seal_key)
             .await
     }
 
