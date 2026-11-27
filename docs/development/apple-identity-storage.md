@@ -12,7 +12,10 @@ accounts. Fresh wrapping uses exclusive Keychain insertion; existing-only wrappi
 missing key instead of creating one. Missing credentials return absence, whereas access/unwrap
 failures remain errors. The shell uses this callback through common `MobileIdentityRegistry`;
 `IdentitySlotStore` projects native DTOs without implementing file, lifecycle or removal policy.
-Isolated UI roots pass their existing per-root legacy store to the callback. A controlled eraser
+`RustBridge` retains one registry instance per application root, shared by foreground and background
+helpers; each isolated UI root keeps its own instance and existing per-root legacy callback.
+This preserves the native ownership view instead of constructing an independent view for every call.
+Explicit unit-test registries remain independent. A controlled eraser
 can reproduce cleanup failure; the common registry must still verify credential absence itself.
 
 The iOS start screen now resolves a saved identity without creating

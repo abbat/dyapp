@@ -15,6 +15,7 @@ struct PublishedProfileSnapshot: Sendable {
 /// Bridge to the Rust core (`rust/ffi`) through its generated UniFFI bindings.
 enum RustBridge {
     private static let draftWrites = NSLock()
+    private static let identityStores = IdentityStoreCache()
 
     private static var uiTestSlotID: UUID? {
         guard
@@ -273,10 +274,8 @@ enum RustBridge {
 
     static func identityStore() throws -> IdentitySlotStore {
         let root = try directory()
-        if let id = uiTestSlotID {
-            return IdentitySlotStore(root: root, legacyStore: .forSlot(id))
-        }
-        return IdentitySlotStore(root: root)
+        return identityStores.store(
+            root: root, legacyStore: uiTestSlotID.map(PlatformKeyStore.forSlot) ?? .shared)
     }
 
     /// The app's own Application Support folder, excluded from backups.

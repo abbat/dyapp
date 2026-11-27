@@ -110,6 +110,22 @@ extension IdentityCandidate {
     }
 }
 
+/// One native ownership view per trusted application root, shared by foreground and background work.
+final class IdentityStoreCache: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stores: [String: IdentitySlotStore] = [:]
+
+    func store(root: URL, legacyStore: PlatformKeyStore) -> IdentitySlotStore {
+        lock.lock()
+        defer { lock.unlock() }
+        let path = root.standardizedFileURL.path
+        if let existing = stores[path] { return existing }
+        let store = IdentitySlotStore(root: root.standardizedFileURL, legacyStore: legacyStore)
+        stores[path] = store
+        return store
+    }
+}
+
 /// DTO facade only: native core owns every identity-file read/write, lock and recovery decision.
 final class IdentitySlotStore: Sendable {
     let registry: MobileIdentityRegistry
