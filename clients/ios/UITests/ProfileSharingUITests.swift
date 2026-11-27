@@ -45,7 +45,9 @@ extension ChatsUITests {
         screenshot.name = "ios-profile-share-\(state)"
         screenshot.lifetime = .keepAlways
         add(screenshot)
-        let geometry = XCTAttachment(string: "element=\(frame) viewport=\(app.frame)")
+        let configuration = app.launchArguments.suffix(6).joined(separator: " ")
+        let geometry = XCTAttachment(
+            string: "element=\(frame) viewport=\(app.frame) requested: \(configuration)")
         geometry.name = "ios-profile-share-\(state)-geometry"
         geometry.lifetime = .keepAlways
         add(geometry)
