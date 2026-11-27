@@ -62,6 +62,7 @@ it are entry points that tools discover by path (see
 - [FFI bindings (UniFFI)](development/ffi-bindings.md)
 - [Protobuf code generation](development/protobuf-codegen.md)
 - [Linting](development/linting.md)
+- [Shared translation catalogue](development/translations.md): native template contracts and migration status
 - [Code quality](development/code-quality.md)
 - [Check output inventory](development/check-output.md): quiet checks and named data consumers
 - [Weekly flow metrics](development/flow-metrics.md): local A7 report over beads, Git and GitHub

@@ -19,6 +19,10 @@ local beads skill or plugin is optional and not part of the repository, so do no
 - Label every bead you create (`-l` on `bd create`, `--add-label` on `bd update`); see
   [Labels](#labels).
 
+Before splitting an existing bead, inspect its children and the close reasons of earlier
+closed children. Reuse surviving tasks: a closed duplicate is not evidence that its work
+was implemented, and parent notes alone are not a subtask inventory.
+
 For a focused issue read, avoid expanding parent/dependency histories unnecessarily:
 
 ```bash
