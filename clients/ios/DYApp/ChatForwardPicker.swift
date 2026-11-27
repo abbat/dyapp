@@ -34,6 +34,15 @@ struct ChatForwardPicker: View {
                     .disabled(busy)
                 }
             }
+            if targets == nil, !busy, status != nil {
+                Button("search.retry") {
+                    guard !busy, feed.isCurrent(opening.context) else { return }
+                    busy = true
+                    status = nil
+                    Task { await load() }
+                }
+                .accessibilityIdentifier("forward-retry")
+            }
             Button("search.cancel") { dismiss() }
                 .disabled(busy && targets != nil)
         }
