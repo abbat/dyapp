@@ -12,6 +12,7 @@ struct LinkApprovalSection: View {
     @State private var codeError: String?
     @State private var approved = false
     @State private var pending: Approval?
+    @State private var opening = UUID()
 
     private struct Approval: @unchecked Sendable {
         let worker: MobileLinkApproval
@@ -52,6 +53,12 @@ struct LinkApprovalSection: View {
             Text("devices.confirm.text")
             if let pending { Text(verbatim: pending.code) }
         }
+        .onDisappear {
+            opening = UUID()
+            pending = nil
+            confirming = false
+            picking = false
+        }
         .onChange(of: code) { _ in codeError = nil }
         .onChange(of: feed.owner) { _ in
             pending = nil
@@ -90,6 +97,7 @@ struct LinkApprovalSection: View {
     private func prepare() {
         guard !busy, let context = feed.context else { return }
         let input = code
+        let ticket = opening
         failed = false
         approved = false
         switch deviceLinkCodeStatus(text: input) {
@@ -118,7 +126,7 @@ struct LinkApprovalSection: View {
                 }
             }
             busy = false
-            guard feed.isCurrent(context) else { return }
+            guard opening == ticket, feed.isCurrent(context) else { return }
             switch result {
             case let .success(approval):
                 pending = approval
