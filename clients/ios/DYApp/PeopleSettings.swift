@@ -277,20 +277,22 @@ struct LinkedDevicesSection: View {
         } message: {
             Text("disconnect.text")
         }
-        .task(id: feed.owner) { refresh() }
-        .onChange(of: feed.owner) { _ in
+        .task(id: feed.owner) {
             rows = []
             revoking = nil
             confirming = false
+            busy = false
+            failed = false
+            refresh()
         }
     }
 
     private func refresh() {
-        guard !busy else { return }
+        guard !busy, let context = feed.context else { return }
         busy = true
         Task {
-            await load()
-            busy = false
+            await load(context)
+            if feed.isCurrent(context) { busy = false }
         }
     }
 
@@ -304,10 +306,11 @@ struct LinkedDevicesSection: View {
                 Result { try Self.directory(identity).revoke(deviceKey: key) }
             }
             if feed.isCurrent(context) {
-                await load()
+                await load(context)
+                guard feed.isCurrent(context) else { return }
                 if case .failure = result { failed = true }
+                busy = false
             }
-            busy = false
         }
     }
 
@@ -319,8 +322,8 @@ struct LinkedDevicesSection: View {
             store: RustBridge.keyStore(for: location).requiringExistingKey())
     }
 
-    private func load() async {
-        guard let context = feed.context else { return }
+    private func load(_ context: ChatFeed.Context) async {
+        guard feed.isCurrent(context) else { return }
         failed = false
         let identity = context.identity
         let result = await IdentityIO.performBlocking {
