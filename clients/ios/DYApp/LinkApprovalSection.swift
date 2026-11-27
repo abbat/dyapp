@@ -9,6 +9,7 @@ struct LinkApprovalSection: View {
     @State private var busy = false
     @State private var confirming = false
     @State private var failed = false
+    @State private var codeError: String?
     @State private var approved = false
     @State private var pending: Approval?
 
@@ -30,6 +31,9 @@ struct LinkApprovalSection: View {
                 .accessibilityIdentifier("link-owner-photo")
             Button("network.continue") { prepare() }
                 .disabled(code.isEmpty || busy || confirming)
+            if let codeError {
+                Text(LocalizedStringKey(codeError)).font(.caption)
+            }
             if failed { Text("devices.uncertain").font(.caption) }
             if approved { Image(systemName: "checkmark").accessibilityLabel(Text("devices.title")) }
         }
@@ -48,6 +52,7 @@ struct LinkApprovalSection: View {
             Text("devices.confirm.text")
             if let pending { Text(verbatim: pending.code) }
         }
+        .onChange(of: code) { _ in codeError = nil }
         .onChange(of: feed.owner) { _ in
             pending = nil
             picking = false
@@ -85,9 +90,22 @@ struct LinkApprovalSection: View {
     private func prepare() {
         guard !busy, let context = feed.context else { return }
         let input = code
-        busy = true
         failed = false
         approved = false
+        switch deviceLinkCodeStatus(text: input) {
+        case .malformed:
+            codeError = "devices.code.bad"
+            return
+
+        case .expired:
+            codeError = "devices.code.expired"
+            return
+
+        case .valid:
+            break
+        }
+        codeError = nil
+        busy = true
         Task {
             let result = await IdentityIO.performBlocking {
                 Result {

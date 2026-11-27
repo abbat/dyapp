@@ -1137,6 +1137,38 @@
         }
       }
     },
+    "devices.code.bad": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is not a link code. Copy the whole code from the new device."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это не код привязки. Скопируйте код с нового устройства целиком."
+          }
+        }
+      }
+    },
+    "devices.code.expired": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This code expired. Show a new one on the new device."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Срок этого кода истёк. Покажите новый на новом устройстве."
+          }
+        }
+      }
+    },
     "devices.code.label": {
       "localizations": {
         "en": {
