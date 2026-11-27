@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -17,6 +18,7 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
@@ -63,12 +65,23 @@ class LocalNetworkDialogTests {
             compose.onNodeWithTag("nav-network").performClick()
             checkWith("not an address", dialog::deny)
             assertPermission(granted = false)
-            recreateDuringRequest(original, dialog)
-            checkWith("another invalid address") {}
-            assertPermission(granted = true)
-            assertEquals(original.peerId, (slots.open() as Opened.Ready).peerId)
-            assertEquals(active, RustBridge.loadNetwork(original, NetworkFile.ACTIVE))
-            assertEquals(listOf("another invalid address"), RustBridge.loadNetwork(original, NetworkFile.DRAFT)?.seeds)
+            PermissionIdentityFixture(slots, original).use { identities ->
+                recreateDuringRequest(original, identities, dialog)
+                identities.restoreOriginal()
+                recreateWithPendingPermission(compose.activity)
+                compose.skipNetworkEntry()
+                compose.onNodeWithTag("nav-network").performClick()
+                checkWith("another invalid address") {}
+                assertPermission(granted = true)
+                assertEquals(original.peerId, (slots.open() as Opened.Ready).peerId)
+                assertEquals(active, RustBridge.loadNetwork(original, NetworkFile.ACTIVE))
+                assertEquals(
+                    listOf("another invalid address"),
+                    RustBridge.loadNetwork(original, NetworkFile.DRAFT)?.seeds
+                )
+                assertNull(RustBridge.loadNetwork(identities.replacement, NetworkFile.DRAFT))
+                assertNull(RustBridge.loadNetwork(identities.replacement, NetworkFile.ACTIVE))
+            }
         }
     }
 
@@ -80,19 +93,32 @@ class LocalNetworkDialogTests {
         compose.onNodeWithTag("check-and-connect").performScrollTo().assertIsDisplayed().performClick()
     }
 
-    private fun recreateDuringRequest(original: Opened.Ready, dialog: PermissionDialog) {
+    private fun recreateDuringRequest(
+        original: Opened.Ready,
+        identities: PermissionIdentityFixture,
+        dialog: PermissionDialog
+    ) {
         val activity = compose.activity
         val before = RustBridge.loadNetwork(original, NetworkFile.DRAFT)
+        val replacement = identities.replacement
+        val replacementDraft = RustBridge.loadNetwork(replacement, NetworkFile.DRAFT)
+        val replacementActive = RustBridge.loadNetwork(replacement, NetworkFile.ACTIVE)
         request("retired request must not run")
         dialog.awaitRequest()
+        identities.selectReplacement()
         recreateWithPendingPermission(activity)
         dialog.allow()
         assertPermission(granted = true)
+        compose.awaitNode(hasTestTag("peer-id") and hasText(replacement.peerId))
+        compose.onNodeWithTag("peer-id").assertTextEquals(replacement.peerId)
         compose.skipNetworkEntry()
         compose.onNodeWithTag("nav-network").performClick()
         compose.awaitNode(hasTestTag("check-and-connect") and isEnabled())
         compose.onNodeWithTag("network-check-status").assertDoesNotExist()
         assertEquals(before, RustBridge.loadNetwork(original, NetworkFile.DRAFT))
+        assertEquals(replacementDraft, RustBridge.loadNetwork(replacement, NetworkFile.DRAFT))
+        assertEquals(replacementActive, RustBridge.loadNetwork(replacement, NetworkFile.ACTIVE))
+        assertEquals(replacement.peerId, (RustBridge.slots(context).open() as Opened.Ready).peerId)
     }
 
     private fun checkWith(seed: String, answer: () -> Unit) {

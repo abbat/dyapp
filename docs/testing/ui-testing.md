@@ -844,10 +844,13 @@ API 37. Setup and restoration retain checked synchronous preference commits, not
 It revokes permission and clears decision flags before starting the instrumentation process, then
 restores the grant even if the foreground test fails. The actual `MainActivity` network form first
 requires a denied request to complete with a native invalid-address result. A second OS request stays
-pending while the activity is recreated; lifecycle callbacks acknowledge old destruction and new
-creation before permission is allowed. Its retired continuation must leave the persisted draft and
-replacement form untouched. A fresh request after the grant must complete normally, with the original
-selection and active network preserved. This uses direct main-thread recreation because
+pending while an owned alternate identity is selected and the activity is recreated; lifecycle
+callbacks acknowledge old destruction and new creation before permission is allowed. The replacement
+screen must show that alternate Peer ID, and the retired continuation must leave both identities'
+drafts and active settings untouched. The fixture then restores the original selection through a
+fresh activity, and a new request after the grant must complete normally. Cleanup verifies the
+original inventory and alternate Peer ID before removing only the created slot; unknown inventory
+changes fail closed. This uses direct main-thread recreation because
 `ActivityScenario.recreate()` first requires RESUMED, which a pending system dialog can prevent.
 Each edit and check-button tap
 scrolls its target into the current viewport; completion requires the result row for that attempt's
