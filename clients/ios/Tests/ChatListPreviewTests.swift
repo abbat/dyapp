@@ -13,6 +13,21 @@ final class ChatListPreviewTests: XCTestCase {
         XCTAssertEqual(chatListPreview(sticker), "\u{1f63a} Cats")
     }
 
+    func testEmptyAndDeletedPreviewsHaveDistinctLabels() {
+        let empty = ChatListPreview(body: .empty, forwarded: false, sentAtMs: nil)
+        let deleted = ChatListPreview(body: .deleted, forwarded: false, sentAtMs: 42)
+        XCTAssertEqual(chatListPreview(empty), NSLocalizedString("chats.noMessages", comment: ""))
+        XCTAssertEqual(chatListPreview(deleted), NSLocalizedString("chats.deleted", comment: ""))
+    }
+
+    func testProfilePreviewShowsOnlyTheShortPeerID() {
+        let peer = String(repeating: "a", count: 58) + "123456"
+        let preview = ChatListPreview(body: .profile(peerId: peer), forwarded: false, sentAtMs: nil)
+        let expected = String(
+            format: NSLocalizedString("chats.profileLink", comment: ""), "@123456")
+        XCTAssertEqual(chatListPreview(preview), expected)
+    }
+
     func testCoreBoundedTextIsRenderedVerbatim() {
         let text = "First line\nSecond line\u{2026}"
         let preview = ChatListPreview(body: .text(text: text), forwarded: false, sentAtMs: nil)
