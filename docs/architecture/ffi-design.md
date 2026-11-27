@@ -1717,6 +1717,12 @@ The boundary is **not** secure today; see
   Activity retains its clock and Handler scheduling, releases the handle on replacement/destruction,
   and ignores OS authentication callbacks after destruction. Lifecycle regressions run through JNI
   in `androidTest`, retaining their injected monotonic clock and all original assertions.
+  iOS `AppLockSession` likewise retains one native handle across scene and authentication events,
+  including while locked. Reading an enabled stored mode can create only a locked timer;
+  background state is replayed when replacing a disabled handle. Only successful credential
+  completion forwards `Unlocked`, which the core can refuse in the background. Swift supplies
+  monotonic time and reschedules its production wakeup from native `remainingMs`; it does not
+  reproduce grace/idle constants, add deadlines or revive the session on a late touch.
 - Core app-lock storage preserves both existing layouts: Android's 51-byte PIN record and separate
   Skip/biometric markers, and iOS's 52-byte PIN or 3-byte Off/biometric record. It does not migrate
   or reset stored locks. Android PIN presence takes precedence over markers after an interrupted

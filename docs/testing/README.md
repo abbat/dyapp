@@ -703,6 +703,12 @@ failed counter-reset persistence, corrupt records and initial-only replacement r
 not substitute a fake PIN verifier. Its existing `AppLockUITests` remains the OS/UI acceptance;
 both suites run in native iOS CI, without a local simulator.
 
+iOS `AppLockTimerTests` drives the real common timer through `AppLockSession` with explicit
+monotonic event times: quick background return, exact expiry, late input, backwards clocks,
+observed-mode re-enablement and refused background/disabled unlock. These tests contain no
+sleep. The production UI wakeup uses the core's remaining duration and is replaced by actual
+interaction/lifecycle events.
+
 | Platform | Command | Runs where |
 |----------|---------|------------|
 | Android unit (1 JUnit) | `make ui-test-android` | Docker, local + CI |

@@ -46,42 +46,6 @@ struct LockGate: View {
     }
 }
 
-/// The unlocked-session deadline: 60 s after backgrounding, or five minutes after the last
-/// foreground touch. Times are milliseconds on a monotonic clock; once expired it stays expired.
-struct AppLockTimer {
-    static let backgroundGrace: UInt64 = 60_000
-    static let foregroundIdle: UInt64 = 300_000
-
-    private(set) var deadline: UInt64
-    private var inBackground = false
-
-    init(now: UInt64) {
-        deadline = now + Self.foregroundIdle
-    }
-
-    /// Counts device sleep too, unlike `systemUptime`.
-    static func uptime() -> UInt64 {
-        clock_gettime_nsec_np(CLOCK_MONOTONIC) / 1_000_000
-    }
-
-    func expired(at now: UInt64) -> Bool { now >= deadline }
-
-    /// Only a foreground touch on a live session restarts the idle limit.
-    mutating func interaction(at now: UInt64) {
-        if !inBackground && !expired(at: now) { deadline = now + Self.foregroundIdle }
-    }
-
-    mutating func background(at now: UInt64) {
-        if !expired(at: now) { deadline = now + Self.backgroundGrace }
-        inBackground = true
-    }
-
-    mutating func foreground(at now: UInt64) {
-        if !expired(at: now) { deadline = now + Self.foregroundIdle }
-        inBackground = false
-    }
-}
-
 /// Lock state for the gate. PIN work runs off the main thread: the Argon2id KDF takes 64 MiB.
 @MainActor
 final class LockModel: ObservableObject {
@@ -124,8 +88,8 @@ final class LockModel: ObservableObject {
     @Published private(set) var recovered = false
     @Published private(set) var biometrics = Biometrics.absent
     private let store: AppLockStore?
-    /// The unlocked session; nil until a PIN entry unlocks the app.
-    private var session: AppLockTimer?
+    /// Retains lifecycle events while locked; credential completion cannot reset the context.
+    private var session = AppLockSession(now: AppLockSession.uptime())
     private var expiry: Task<Void, Never>?
 
     /// Whether a lock is set, so the app is covered whenever it is not active.
@@ -275,11 +239,12 @@ final class LockModel: ObservableObject {
                     || LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: nil))
             biometrics = Self.biometricState()
             watchTouches()
-            session?.foreground(at: AppLockTimer.uptime())
+            try? session.phase(active: true, at: AppLockSession.uptime())
         } else if phase == .background {
-            session?.background(at: AppLockTimer.uptime())
+            try? session.phase(active: false, at: AppLockSession.uptime())
         }
         expireIfDue()
+        watchExpiry()
     }
 
     // ponytail: touches on the app's windows only; keyboard typing lives in a separate system
@@ -291,47 +256,73 @@ final class LockModel: ObservableObject {
         where !(window.gestureRecognizers ?? []).contains(where: { $0 is TouchWatcher }) {
             window.addGestureRecognizer(
                 TouchWatcher { [weak self] in
-                    self?.session?.interaction(at: AppLockTimer.uptime())
+                    try? self?.session.interaction(at: AppLockSession.uptime())
                     self?.expireIfDue()
+                    self?.watchExpiry()
                 })
         }
     }
 
-    /// Sleeps until the deadline, which touches may have moved, and locks once it passes.
+    /// Schedules the core's remaining duration; actual events replace this pending wakeup.
     private func watchExpiry() {
         expiry?.cancel()
+        guard guarded else { return }
+        guard let remaining = (try? session.snapshot(at: AppLockSession.uptime()))?.remainingMs
+        else {
+            expireIfDue()
+            return
+        }
         expiry = Task { [weak self] in
-            while let deadline = self?.session?.deadline, !Task.isCancelled {
-                let now = AppLockTimer.uptime()
-                if now < deadline {
-                    try? await Task.sleep(nanoseconds: (deadline - now) * 1_000_000)
-                }
-                self?.expireIfDue()
-            }
+            do { try await Task.sleep(nanoseconds: remaining * 1_000_000) } catch { return }
+            guard !Task.isCancelled else { return }
+            self?.expireIfDue()
+            self?.watchExpiry()
         }
     }
 
     private func expireIfDue() {
-        guard let session, session.expired(at: AppLockTimer.uptime()) else { return }
-        self.session = nil
-        notice = nil
-        recovered = false
-        settingsOpen = false
-        refresh()
+        guard guarded else { return }
+        guard let snapshot = try? session.snapshot(at: AppLockSession.uptime()) else {
+            screen = .failed
+            return
+        }
+        guard snapshot.locked else { return }
+        if case .failed = screen { return }
+        showLocked()
     }
 
-    private func refresh() {
-        guard let mode = try? store?.mode() else { screen = .failed; return }
+    private func showLocked() {
+        // Repeated locked observations must retain wrong-PIN and device-credential feedback.
+        if case .open = screen { notice = nil }
+        recovered = false
+        settingsOpen = false
+        screen = .unlock
+    }
+
+    @discardableResult
+    private func refresh() -> Bool {
+        guard let mode = try? store?.mode() else { screen = .failed; return false }
         self.mode = mode
-        switch mode {
-        case .new:
-            screen = .setup
+        do {
+            try session.setProtection(guarded, at: AppLockSession.uptime())
+            switch mode {
+            case .new:
+                screen = .setup
 
-        case .off:
-            screen = .open
+            case .off:
+                screen = .open
 
-        case .pin, .biometric:
-            screen = session == nil ? .unlock : .open
+            case .pin, .biometric:
+                if try session.snapshot(at: AppLockSession.uptime()).locked {
+                    showLocked()
+                } else {
+                    screen = .open
+                }
+            }
+            return true
+        } catch {
+            screen = .failed
+            return false
         }
     }
 
@@ -342,11 +333,15 @@ final class LockModel: ObservableObject {
         Task {
             let passed = await Self.deviceOwnerCheck()
             busy = false
-            guard passed else { return }
-            if session == nil {
-                session = AppLockTimer(now: AppLockTimer.uptime())
-                watchExpiry()
+            guard passed, refresh() else { return }
+            if guarded {
+                do { try session.authorize(at: AppLockSession.uptime()) } catch {
+                    notice = "lock.failed"
+                    expireIfDue()
+                    return
+                }
             }
+            watchExpiry()
             then()
             refresh()
         }
@@ -363,9 +358,13 @@ final class LockModel: ObservableObject {
             busy = false
             switch result {
             case let .success(outcome):
-                if outcome.unlocked {
-                    session = AppLockTimer(now: AppLockTimer.uptime())
-                    watchExpiry()
+                guard refresh() else { return }
+                if outcome.unlocked, guarded {
+                    do { try session.authorize(at: AppLockSession.uptime()) } catch {
+                        notice = "lock.failed"
+                        expireIfDue()
+                        return
+                    }
                 }
                 notice = outcome.notice
 
@@ -373,6 +372,7 @@ final class LockModel: ObservableObject {
                 notice = "lock.failed"
             }
             refresh()
+            watchExpiry()
         }
     }
 }
