@@ -28,6 +28,7 @@ final class ProfilePage: ObservableObject {
     @Published private(set) var sending = false
     @Published private(set) var status: ProfilePageStatus?
     @Published private(set) var favorite = FavoriteActionState()
+    @Published private(set) var note = ContactNoteState()
     let peer: String
     private let feed: ChatFeed
     private let context: ChatFeed.Context?
@@ -43,6 +44,7 @@ final class ProfilePage: ObservableObject {
 
     func retire() {
         favorite = FavoriteActionState()
+        note = ContactNoteState()
         active = false
         opening = UUID()
     }
@@ -110,6 +112,24 @@ final class ProfilePage: ObservableObject {
         }
         guard current(expected) else { return }
         favorite.complete(result, for: request)
+    }
+
+    func editNote(_ text: String, opening expected: UUID) {
+        guard current(expected) else { return }
+        note.edit(text)
+    }
+
+    func resolveNote(_ action: ContactNoteState.Action, opening expected: UUID) async {
+        guard let context, current(expected), let request = note.begin(action) else { return }
+        let peer = peer
+        let result = await feed.call(context) { session in
+            if let target = request.target {
+                try session.setContactNote(peerId: peer, note: target)
+            }
+            return try session.contactNote(peerId: peer)
+        }
+        guard current(expected) else { return }
+        note.complete(result, for: request)
     }
 
     func like(_ liked: Bool) async {

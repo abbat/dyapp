@@ -65,6 +65,11 @@ without guessing its value, and a failed change keeps the last confirmed state. 
 a collapsible saved-profile list. Expanding or refreshing reads local IDs only; a row opens the
 public profile only after an explicit tap. Remove works without fetching that profile. Failed list
 reads remain errors rather than empty collections, and a failed removal keeps the last rows.
+The same page provides a clearly private multiline note, separate from public fields and Like.
+Save preserves exact valid text through the common note API; Clear explicitly saves an empty note.
+A failed read disables editing and offers Retry. Failed save/clear keeps the draft for correction or
+retry. Leaving the page or changing identity retires its private draft and old responses; admitted
+native writes still finish. Notes never enter the public profile, search result or peer message.
 Native runtime and rendered acceptance remain required.
 
 **Settings** lists the device's identities, marks the current one, and opens its network form.

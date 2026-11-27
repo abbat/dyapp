@@ -2481,6 +2481,198 @@
         }
       }
     },
+    "notes.clear": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear private note"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очистить заметку"
+          }
+        }
+      }
+    },
+    "notes.cleared": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Private note cleared."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приватная заметка очищена."
+          }
+        }
+      }
+    },
+    "notes.hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only your devices share this note. It never appears in your public profile, search, likes or messages."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заметка передаётся только вашим устройствам. Она не попадает в публичную анкету, поиск, симпатии или сообщения."
+          }
+        }
+      }
+    },
+    "notes.invalid": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shorten the note or remove unsupported characters, then try again."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сократите заметку или уберите неподдерживаемые символы и попробуйте ещё раз."
+          }
+        }
+      }
+    },
+    "notes.loadFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The note could not be read. Retry before editing it."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось прочитать заметку. Повторите чтение перед редактированием."
+          }
+        }
+      }
+    },
+    "notes.loading": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading private note…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаем приватную заметку…"
+          }
+        }
+      }
+    },
+    "notes.retry": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry private note"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повторить чтение заметки"
+          }
+        }
+      }
+    },
+    "notes.save": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save private note"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить заметку"
+          }
+        }
+      }
+    },
+    "notes.saveFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The saved note could not be confirmed. Your draft remains; try again."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось подтвердить сохранение заметки. Черновик остался; попробуйте ещё раз."
+          }
+        }
+      }
+    },
+    "notes.saved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Private note saved."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приватная заметка сохранена."
+          }
+        }
+      }
+    },
+    "notes.saving": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saving private note…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохраняем приватную заметку…"
+          }
+        }
+      }
+    },
+    "notes.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Private note"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приватная заметка"
+          }
+        }
+      }
+    },
     "notice.allow": {
       "localizations": {
         "en": {

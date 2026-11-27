@@ -25,6 +25,7 @@ struct FoundProfileView: View {
             if !own {
                 ProfileLikesBlock(page: page, message: message)
                 ProfileFavoriteBlock(page: page)
+                ProfileNoteBlock(page: page)
             }
             ProfileShareBlock(page: page, feed: feed, openChat: openChat)
             if own { ProfileActionStatus(page: page) }
@@ -32,9 +33,17 @@ struct FoundProfileView: View {
             if !own { ProfileQuietActions(page: page, blocked: blocked) }
         }
         .task {
+            guard !Task.isCancelled else { return }
             page.activate()
-            if !own { await page.resolveFavorite(change: false, opening: page.opening) }
+            let expected = page.opening
+            if !own {
+                await page.resolveFavorite(change: false, opening: expected)
+                guard !Task.isCancelled, page.current(expected) else { return }
+                await page.resolveNote(.read, opening: expected)
+            }
+            guard !Task.isCancelled, page.current(expected) else { return }
             await page.load()
+            guard !Task.isCancelled, page.current(expected) else { return }
             if !own { await page.readLikes() }
         }
         .onDisappear { page.retire() }
