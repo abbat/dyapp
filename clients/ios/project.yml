@@ -27,7 +27,7 @@ targets:
               DYApp/MailNoticeCore.swift, DYApp/MailJob.swift, DYApp/ChatBridge.swift, DYApp/ChatFeed.swift, DYApp/ChatComposer.swift, DYApp/ChatPhotoComposer.swift, DYApp/ChatStickerPicker.swift, DYApp/ChatMediaRows.swift, DYApp/ChatsView.swift, DYApp/ChatView.swift, DYApp/ChatBubble.swift, DYApp/ChatRename.swift, DYApp/SafetyNumber.swift, DYApp/PeopleSettings.swift, DYApp/LinkApprovalSection.swift, DYApp/LinkReceiveSection.swift, DYApp/UpdatesSection.swift, DYApp/ChatTestPeer.swift,
               DYApp/FavoriteActionState.swift, DYApp/ProfileFavoriteBlock.swift, DYApp/SavedProfilesBlock.swift,
               DYApp/SavedProfilesModel.swift, DYApp/ContactNoteState.swift, DYApp/ProfileNoteBlock.swift,
-              DYApp/ChatForwardPicker.swift, DYApp/ChatListPreview.swift,
+              DYApp/ChatForwardPicker.swift, DYApp/ChatListPreview.swift, DYApp/ReceivedViewsSection.swift,
               DYApp/Localizable.xcstrings,
               DYApp/Assets.xcassets,
               ../../build/apple/swift/dyapp.swift]
