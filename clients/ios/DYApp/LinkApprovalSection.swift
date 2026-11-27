@@ -29,13 +29,27 @@ private struct LinkCameraScanner: UIViewControllerRepresentable {
         controller.stopScanning()
     }
 
-    func makeCoordinator() -> Coordinator { Coordinator(picked: picked) }
+    func makeCoordinator() -> Coordinator {
+        Coordinator(picked: picked, unavailable: unavailable)
+    }
 
     @MainActor
     final class Coordinator: NSObject, DataScannerViewControllerDelegate {
         let picked: (String) -> Void
+        let unavailable: () -> Void
 
-        init(picked: @escaping (String) -> Void) { self.picked = picked }
+        init(picked: @escaping (String) -> Void, unavailable: @escaping () -> Void) {
+            self.picked = picked
+            self.unavailable = unavailable
+        }
+
+        func dataScanner(
+            _ scanner: DataScannerViewController,
+            becameUnavailableWithError error: DataScannerViewController.ScanningUnavailable
+        ) {
+            scanner.stopScanning()
+            unavailable()
+        }
 
         func dataScanner(
             _ scanner: DataScannerViewController, didAdd addedItems: [RecognizedItem],
