@@ -1281,6 +1281,22 @@
         }
       }
     },
+    "disconnect.text": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It stops getting your chats. Copies already stored on that device may remain. Your contacts see that the device left."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оно перестанет получать ваши чаты. Уже сохранённые на нём копии могут остаться. Контакты увидят, что устройство ушло."
+          }
+        }
+      }
+    },
     "favorites.add": {
       "localizations": {
         "en": {

@@ -271,6 +271,9 @@ struct LinkedDevicesSection: View {
         }
         .confirmationDialog("devices.disconnect", isPresented: $confirming) {
             Button("devices.disconnect", role: .destructive, action: revoke)
+            Button("search.cancel", role: .cancel) { revoking = nil }
+        } message: {
+            Text("disconnect.text")
         }
         .task(id: feed.owner) { await load() }
         .onChange(of: feed.owner) { _ in
