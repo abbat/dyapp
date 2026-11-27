@@ -24,10 +24,14 @@ Real-IME owner checks refetch control semantics on every readiness attempt and c
 measurements with the current native window transform and visible frame. A failed containment
 check reports the control tag and measured rectangles. A glyph failure additionally records its
 index, current rectangle and visible frame, active accessibility root, matching editor selection,
-focus/visibility, extra-data refresh result and selection after that refresh. Stale pre-keyboard
+focus/visibility, extra-data refresh result, current full text-layout size and selection after that
+refresh. Clipped accessibility rectangles must retain the glyph's full measured dimensions at
+physical-pixel precision; mere nonempty containment is insufficient. Stale pre-keyboard
 geometry cannot establish readiness or obscure a persistent enlarged-text layout defect.
-The owner code editor keeps four visible lines with internal scrolling, retaining the complete code;
-its real-IME matrix still requires start/middle/end glyphs and both actions inside the live viewport.
+The owner code editor keeps its bounded multiline layout and internal scrolling, retaining the
+complete code. Its maximum height follows the actual AlertDialog body constraints, so enlarged
+fonts and the real IME cannot make its own viewport taller than the enclosing body. The real-IME
+matrix still requires start/middle/end glyphs and both actions inside the live viewport.
 
 Scrollable contrast rechecks center a text block when it fits the current nested content space,
 including measured container padding. Oversized text keeps start alignment. This avoids testing
@@ -1644,7 +1648,8 @@ The phase-only `OwnerApprovalImeTests` fixture requires `ownerIme=1`, `sourceSha
 `expectedWidth` with the software keyboard enabled. It drives EN/RU, both themes and 100/200% fonts,
 selects the beginning/middle/end of the unchanged full code, and waits for native IME visibility.
 Android accessibility character-location rectangles and the real dialog window origin/visible frame
-establish glyph and control positions; no inferred TextField padding is used. Each width records
+establish glyph and control positions; full glyph dimensions come from the current native
+`TextLayoutResult`, not inferred TextField padding. Each width records
 24 dialog frames plus measured screen coordinates under `files/owner-approval-ime/<width>/`.
 Its preparation fixture rejects any changed input. The manual workflow enables and selects the
 native LatinIME for this separate phase, retains its own instrumentation log and tar, and validates

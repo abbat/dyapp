@@ -5,8 +5,10 @@ import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.core.os.BundleCompat
 import androidx.test.platform.app.InstrumentationRegistry
+import kotlin.math.roundToInt
 
 /** Accessibility supplies actual on-screen glyph rectangles, including the editor's own scrolling. */
 internal class OwnerImeCharacters(private val compose: ComposeContentTestRule, private val window: OwnerImeWindow) {
@@ -20,7 +22,13 @@ internal class OwnerImeCharacters(private val compose: ComposeContentTestRule, p
             compose.waitUntil(10_000) {
                 glyph = character(index)
                 visible = RectF(window.visibleFrame())
-                result = glyph?.takeIf { !it.isEmpty && visible.contains(it) }?.let(::RectF)
+                val expected = compose.onNodeWithTag("owner-code-input").textLayout().getBoundingBox(index)
+                observation += " expectedGlyph=${expected.width}x${expected.height}"
+                result = glyph?.takeIf {
+                    !it.isEmpty && visible.contains(it) &&
+                        it.width().roundToInt() >= expected.width.roundToInt() &&
+                        it.height().roundToInt() >= expected.height.roundToInt()
+                }?.let(::RectF)
                 result != null
             }
         } catch (failure: ComposeTimeoutException) {
