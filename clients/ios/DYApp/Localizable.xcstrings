@@ -1649,6 +1649,38 @@
         }
       }
     },
+    "link.receive.qr": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QR code for receiving this profile"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QR-код для получения профиля"
+          }
+        }
+      }
+    },
+    "link.receive.start": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create link code"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать код привязки"
+          }
+        }
+      }
+    },
     "lock.back": {
       "localizations": {
         "en": {

@@ -118,6 +118,7 @@ struct IdentitySettingsView: View {
                 StickerImportSection(feed: feed)
                 LinkedDevicesSection(feed: feed)
                 LinkApprovalSection(feed: feed)
+                LinkReceiveSection(feed: feed, installed: identities.reload)
                 PeopleSections(feed: feed)
             }
 
