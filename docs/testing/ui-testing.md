@@ -23,7 +23,8 @@ snapshot so navigation cannot retire a queried collection between existence and 
 Known partially exposed rows request their measured edge clearance rather than recentering across
 the viewport; geometry replay tests cover both directions with actual CI scroll-response gains.
 The iOS `ChatComposerTests` deliver typed Accepted/Queued/failure completions directly to the
-presentation owner. They exercise text revisions (including change-and-back), successor edits,
+presentation owner. The model is `composer`; the distinct `composerInput` view binds its draft.
+They exercise text revisions (including change-and-back), successor edits,
 held drafts, retired openings and missing/deleted/rotated targets without a clock or scheduler.
 `ChatOwnerTests` exercise real feed activation/deactivation, same-peer different-slot ownership,
 switch-away-and-back, and refusal of an obsolete request before any native action executes.
@@ -53,7 +54,9 @@ refresh. Clipped accessibility rectangles must retain the glyph's full measured 
 physical-pixel precision; mere nonempty containment is insufficient. Stale pre-keyboard
 geometry cannot establish readiness or obscure a persistent enlarged-text layout defect.
 The owner code editor keeps its bounded multiline layout and internal scrolling, retaining the
-complete code. Its maximum height follows the actual AlertDialog body constraints, so enlarged
+complete code. Capture the AlertDialog body's `maxHeight` in its `BoxWithConstraints` scope before
+entering `ColumnScope`, then pass that value to the editor. Its maximum height follows those
+actual body constraints, so enlarged
 fonts and the real IME cannot make its own viewport taller than the enclosing body. The real-IME
 matrix still requires start/middle/end glyphs and both actions inside the live viewport.
 

@@ -54,10 +54,11 @@ private fun LinkApprovalBody(
 ) {
     val scroll = key(view.opening) { rememberScrollState() }
     BoxWithConstraints {
+        val viewportHeight = maxHeight
         Column(Modifier.testTag("owner-body").verticalScroll(scroll), Arrangement.spacedBy(12.dp)) {
             val opening = view.opening
             if (opening == null) {
-                LinkApprovalInput(session, view, draft, maxHeight)
+                LinkApprovalInput(session, view, draft, viewportHeight)
             } else {
                 DeviceIdentifier(identity, "owner-identity", R.string.owner_identity)
                 DeviceIdentifier(opening.code, "owner-recipient", R.string.owner_code_label)

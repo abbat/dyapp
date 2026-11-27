@@ -44,7 +44,7 @@ struct ChatView: View {
                 Text("block.text")
             }
             statusLines
-            composer
+            composerInput
         }
         .padding()
         .accessibilityElement(children: .contain)
@@ -188,7 +188,7 @@ struct ChatView: View {
     }
 
     // shortcut: one line of input, as multi-line TextField needs macOS 13 and iOS 16; use it when the targets rise.
-    private var composer: some View {
+    private var composerInput: some View {
         HStack {
             TextField("chat.placeholder", text: $composer.draft)
                 .disabled(!chatWritable(history?.state))
