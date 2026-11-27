@@ -60,6 +60,7 @@ struct ProfileActionStatus: View {
 
 /// Sends this page's link to an open chat; what it told shows with the like's status above.
 struct ProfileShareBlock: View {
+    @Environment(\.sizeCategory) private var sizeCategory
     @ObservedObject var page: ProfilePage
     @ObservedObject var feed: ChatFeed
     let openChat: (String) -> Void
@@ -80,6 +81,11 @@ struct ProfileShareBlock: View {
         }
         .disabled(page.sending)
         .accessibilityIdentifier("view-share")
+        #if DEBUG
+            .accessibilityValue(
+                ProcessInfo.processInfo.arguments.contains("--ui-test-chat-peer-shares")
+                    ? (sizeCategory.isAccessibilityCategory ? "accessibility" : "standard") : "")
+        #endif
         // A page opened from search comes before Chats has read any name.
         .task(id: open) { if open { await feed.loadNames(targets.map(\.peerId)) } }
         if open {

@@ -24,7 +24,9 @@ extension ChatsUITests {
         XCTAssertTrue(cards.firstMatch.waitForExistence(timeout: 150), app.debugDescription)
         cards.firstMatch.tap()
         XCTAssertTrue(app.buttons["view-back"].waitForExistence(timeout: 30), app.debugDescription)
-        reveal(app.buttons["view-share"], in: app).tap()
+        let share = reveal(app.buttons["view-share"], in: app)
+        XCTAssertEqual(share.value as? String, "accessibility")
+        share.tap()
         let target = reveal(app.buttons["share-1"], in: app)
         attachShareState(
             "\(language)-eligible-target", app: app, element: target, configuration: configuration)
