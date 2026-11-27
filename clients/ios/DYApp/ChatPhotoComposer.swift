@@ -64,7 +64,7 @@ struct ChatPhotoComposer: View {
     private func prepare(_ url: URL) async {
         let result = await IdentityIO.performBlocking {
             Result {
-                let photo = try PhotoPrep.prepare(PhotoPrep.read(url))
+                let photo = try PhotoPrep.prepare(PhotoPrep.read(url), purpose: .chat)
                 let image = try checkPreview(bytes: photo.thumbnail)
                 return (photo, DecodedPhoto(image: previewImage(image)))
             }

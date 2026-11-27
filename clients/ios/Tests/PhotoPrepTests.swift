@@ -35,6 +35,16 @@ final class PhotoPrepTests: XCTestCase {
         XCTAssertEqual(try checkPreview(bytes: photo.thumbnail).width, 320)
     }
 
+    func testChatPreparationUsesItsOwnDecodePlanAndFlattensPartialAlpha() throws {
+        let png = try PhotoPrep.samplePNG(width: 3_000, height: 1_000, red: 1, alpha: 0.5)
+        let photo = try PhotoPrep.prepare(png, purpose: .chat)
+        XCTAssertEqual(photo.width, 2_560)
+        let pixels = try checkPreview(bytes: photo.thumbnail).pixels
+        XCTAssertGreaterThan(pixels[0], 240)
+        XCTAssertTrue((115...140).contains(pixels[1]))
+        XCTAssertTrue((115...140).contains(pixels[2]))
+    }
+
     func testAFullPeerPhotoMustBeAJpeg() throws {
         let png = try PhotoPrep.samplePNG(width: 8, height: 8, red: 1, alpha: 1)
         XCTAssertNil(fullPhotoImage(png))

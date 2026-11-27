@@ -46,7 +46,7 @@ pipeline. Profile originals use the limits above and qualities 85, 70, 55; chat 
 transparency onto white. The platform must decode upright straight RGBA within the returned
 size before calling preparation. Android uses this common API for profile and chat picking,
 including decoder targets for displaying originals. The desktop uses it for profile and chat
-picking. iOS preparation migration remains planned.
+picking. iOS uses the same API for profile and chat preparation.
 
 ## Publishing
 
@@ -59,11 +59,9 @@ picking. iOS preparation migration remains planned.
    original and preview. Core dimensions travel
    with the prepared bytes to chat sending; Kotlin does not parse the JPEG again. Bitmaps are
    recycled after preparation. The system photo picker needs no storage permission.
-   Apple clients do this with ImageIO, then pass the JPEG through the core's `strip_metadata`,
-   because ImageIO may write EXIF of its own; the sRGB profile stays, as it names no device. The FFI
-   independently rejects input or re-encoded output over 64 MiB and rotated JPEGs over 64 million
-   pixels before decoding or unbounded output growth. iOS uses the system photo picker and macOS a
-   file dialog.
+   iOS uses the core decode plan to bound ImageIO's upright decode, converts premultiplied sRGB
+   pixels to straight RGBA and passes them to the shared encoder. Profile picking uses the system
+   photo picker. Chat picking uses the system file importer with security-scoped reads.
 2. The core refuses anything but a JPEG within the size and pixel limits. It keeps both blobs in
    the local store under their SHA-256 hashes and lists them in the profile draft. Addition commits
    both blobs and the latest draft in one SQLite immediate transaction; failure leaves them unchanged.

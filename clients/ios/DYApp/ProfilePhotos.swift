@@ -52,10 +52,10 @@ func profilePhotoRows(
 /// Catalogue key for a failed photo change: the core's codes, then what preparation refused.
 func photoErrorKey(_ error: Error) -> String {
     switch error {
-    case PhotoProblem.tooLarge:
+    case PhotoProblem.tooLarge, PhotoPreparationError.TooLarge:
         return "profile.photoTooLarge"
 
-    case PhotoProblem.unsupported, is CocoaError:
+    case PhotoProblem.unsupported, PhotoPreparationError.Unsupported, is CocoaError:
         return "profile.photoUnsupported"
 
     case CoreError.Failed(message: "photoRefused"),
