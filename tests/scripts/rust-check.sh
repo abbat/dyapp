@@ -132,7 +132,7 @@ step() {
             check web-css node tools/web-lint/check-css.mjs
             check web-css-fixtures node tools/web-lint/css-fixtures.mjs
             check web-profile-view-fixtures node --test --test-reporter=spec tools/web-lint/profile-view-fixtures.mjs
-            check web-received-view-fixtures node --test --test-reporter=spec tools/web-lint/received-view-fixtures.mjs tools/web-lint/native-window-fixtures.mjs
+            check web-received-view-fixtures node --test --test-reporter=spec tools/web-lint/received-view-fixtures.mjs tools/web-lint/native-window-fixtures.mjs tools/web-lint/native-dispatch-fixtures.mjs
             check web-search-recovery-fixtures node --test --test-reporter=spec tools/web-lint/search-recovery-fixtures.mjs
             check web-translations python3 -B tests/scripts/check-desktop-translations.py --raw
             check translations python3 -B tools/scripts/generate-translations.py --check

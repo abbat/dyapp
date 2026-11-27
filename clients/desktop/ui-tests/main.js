@@ -809,6 +809,9 @@ const checkModuleStartup = async () => {
   )
     throw new Error('Desktop module startup bridge is inconsistent');
 };
+const interClientLinkStep = (step) =>
+  ['link-disconnect', 'link-wiped'].includes(step) ||
+  ['link-send:', 'link-wait:'].some((prefix) => step.startsWith(prefix));
 Promise.all([
   appApi.identityShown,
   invokeTest('ui_test_mode'),
@@ -828,7 +831,7 @@ Promise.all([
       await invokeTest('ui_test_hide', { close: false });
       return invokeTest('ui_test_result', { passed: true, peerId: '', reason: '' });
     }
-    if (step.startsWith('link-')) {
+    if (interClientLinkStep(step)) {
       // Not timed like a check: the wait lasts as long as the other client takes.
       const peerId = await smoke.uiSmokeGuards.linkStep(step, mode, state);
       return invokeTest('ui_test_result', { passed: true, peerId, reason: '' });

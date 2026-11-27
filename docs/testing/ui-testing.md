@@ -29,6 +29,12 @@ geometry cannot establish readiness or obscure a persistent enlarged-text layout
 The owner code editor keeps four visible lines with internal scrolling, retaining the complete code;
 its real-IME matrix still requires start/middle/end glyphs and both actions inside the live viewport.
 
+Focused `link-review:`, `publication:` and `received-views:` captures use ordinary initialized
+scenario dispatch. Only `link-send:`, `link-wait:`, `link-disconnect` and `link-wiped` enter the
+separate inter-client link protocol; a broad `link-` prefix would misroute profile-review captures.
+The Node dispatch fixture executes the real entry callback for every capture theme/text scale and
+rejects similar unknown names.
+
 Desktop `link-review:<theme>:<scale>` smoke captures choices, photo failure, preview and saved
 states in EN/RU, light/dark and normal/200% text. The native runner requires every declared Linux
 440/1280 frame and records source/executable/image hashes under `link-review-shots-*/receipt.json`;
