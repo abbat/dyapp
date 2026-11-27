@@ -5,7 +5,7 @@ struct LinkReceiveSection: View {
     @Environment(\.displayScale) private var displayScale
     @ObservedObject var feed: ChatFeed
     var wizard = false
-    let installed: () -> Void
+    let installed: (String?) -> Void
     @State private var invitation: Invitation?
     @State private var opening = UUID()
     @State private var busy = false
@@ -112,7 +112,12 @@ struct LinkReceiveSection: View {
             busy = false
             if case .success(.completed) = result {
                 invitation = nil
-                installed()
+                let receipt = try? value.receiver.result()
+                if case let .installed(selection)? = receipt {
+                    installed(selection.durabilityDetail)
+                } else {
+                    installed(nil)
+                }
             } else if feed.isCurrent(value.context), invitation != nil {
                 switch result {
                 case .success(.waiting), .success(.receiving), .success(.installing):

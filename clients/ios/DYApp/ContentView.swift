@@ -179,9 +179,9 @@ struct ContentView: View {
                         Text("status.ready").accessibilityIdentifier("app-ready")
                     }
                     if receivingFirstProfile {
-                        LinkReceiveSection(feed: chats, wizard: true) {
+                        LinkReceiveSection(feed: chats, wizard: true) { detail in
                             receivingFirstProfile = false
-                            identities.reload()
+                            identities.reloadAfterLink(detail)
                         }
                         Button("search.cancel") { receivingFirstProfile = false }
                     }

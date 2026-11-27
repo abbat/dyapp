@@ -106,5 +106,10 @@ final class IdentitySession: ObservableObject {
         }
     }
 
+    func reloadAfterLink(_ detail: String?) {
+        if let detail { persistenceDetail = detail }
+        reload()
+    }
+
     func acknowledgePersistence() { persistenceDetail = nil }
 }
