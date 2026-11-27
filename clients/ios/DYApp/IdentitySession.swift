@@ -16,6 +16,9 @@ enum IdentityIO {
     private static let workers = DispatchQueue(
         label: "com.dyapp.identity.workers", qos: .userInitiated, attributes: .concurrent)
 
+    // Editor reads follow previously admitted writes, including across view recreation.
+    private static let profileQueue = DispatchQueue(label: "com.dyapp.profile", qos: .userInitiated)
+
     static func performBlocking<Value: Sendable>(_ work: @escaping @Sendable () -> Value) async
         -> Value
     {
@@ -23,9 +26,6 @@ enum IdentityIO {
             workers.async { continuation.resume(returning: work()) }
         }
     }
-
-    // Editor reads follow previously admitted writes, including across view recreation.
-    private static let profileQueue = DispatchQueue(label: "com.dyapp.profile", qos: .userInitiated)
 
     @MainActor
     static func performProfile<Value: Sendable>(

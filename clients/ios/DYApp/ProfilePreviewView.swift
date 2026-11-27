@@ -1,5 +1,53 @@
 import SwiftUI
 
+enum ProfileBirthError: Error { case invalid }
+
+/// Absent text remains absent in the saved draft; the shared Rust profile core checks the parts.
+struct ProfileBirthParts: Equatable {
+    static let keys: Set<String> = ["birthYear", "birthMonth", "birthDay"]
+    let year: UInt32?
+    let month: UInt32?
+    let day: UInt32?
+
+    init(year: UInt32?, month: UInt32?, day: UInt32?) {
+        self.year = year
+        self.month = month
+        self.day = day
+    }
+
+    init(yearText: String, monthText: String, dayText: String) throws {
+        guard let parts = parseProfileBirthParts(year: yearText, month: monthText, day: dayText)
+        else { throw ProfileBirthError.invalid }
+        self.init(
+            year: parts["birth_year"].map(UInt32.init),
+            month: parts["birth_month"].map(UInt32.init),
+            day: parts["birth_day"].map(UInt32.init))
+    }
+
+    init(draft: [String: UInt32]) {
+        self.init(year: draft["birthYear"], month: draft["birthMonth"], day: draft["birthDay"])
+    }
+
+    func inserted(into draft: [String: UInt32]) -> [String: UInt32] {
+        var draft = draft
+        for (key, value) in [("birthYear", year), ("birthMonth", month), ("birthDay", day)] {
+            draft.removeValue(forKey: key)
+            if let value { draft[key] = value }
+        }
+        return draft
+    }
+
+    func validate() throws {
+        guard try assessment().valid else { throw ProfileBirthError.invalid }
+    }
+
+    func assessment() throws -> BirthAssessment {
+        let days = UInt64(max(0, floor(Date().timeIntervalSince1970 / 86_400)))
+        return try assessBirthParts(year: year, month: month, day: day, todayUnixDays: days)
+    }
+}
+
+
 /// Reads the saved draft so unsaved editor changes cannot appear as public data.
 struct ProfilePreviewView: View {
     let candidate: IdentityCandidate
