@@ -266,17 +266,26 @@ struct LinkedDevicesSection: View {
                     .disabled(busy)
                 }
             }
-            if failed {
-                Button("search.retry") { Task { await load() } }
-            }
+            if failed { Text("devices.uncertain").font(.caption) }
+            Button("sticker.pack.refresh") { refresh() }.disabled(busy)
         }
         .confirmationDialog("devices.disconnect", isPresented: $confirming) {
             Button("devices.disconnect", role: .destructive, action: revoke)
         }
         .task(id: feed.owner) { await load() }
         .onChange(of: feed.owner) { _ in
+            rows = []
             revoking = nil
             confirming = false
+        }
+    }
+
+    private func refresh() {
+        guard !busy else { return }
+        busy = true
+        Task {
+            await load()
+            busy = false
         }
     }
 
@@ -307,16 +316,22 @@ struct LinkedDevicesSection: View {
 
     private func load() async {
         guard let context = feed.context else { return }
-        rows = []
         failed = false
         let identity = context.identity
         let result = await IdentityIO.performBlocking {
             Result {
-                try Self.directory(identity).devices(live: false)
+                try Self.directory(identity).snapshot(live: true)
             }
         }
         guard !Task.isCancelled, feed.isCurrent(context) else { return }
-        if case let .success(devices) = result { rows = devices } else { failed = true }
+        switch result {
+        case let .success(snapshot):
+            rows = snapshot.devices
+            failed = snapshot.state != .verified
+
+        case .failure:
+            failed = true
+        }
     }
 }
 

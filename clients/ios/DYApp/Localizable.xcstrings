@@ -1169,6 +1169,22 @@
         }
       }
     },
+    "devices.uncertain": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnection could not be confirmed. Some changes may already have taken effect. Check the network and retry for this device."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отключение не подтверждено. Часть изменений могла уже вступить в силу. Проверьте сеть и повторите для этого устройства."
+          }
+        }
+      }
+    },
     "favorites.add": {
       "localizations": {
         "en": {
@@ -7229,6 +7245,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Удалить набор"
+          }
+        }
+      }
+    },
+    "sticker.pack.refresh": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh status"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновить статус"
           }
         }
       }
