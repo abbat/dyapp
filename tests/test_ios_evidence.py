@@ -59,7 +59,8 @@ class IosEvidence(unittest.TestCase):
                     )
             manifest = directory / "manifest.json"
             manifest.write_text(json.dumps([{"attachments": attachments}]))
-            APPLE.validate_ios_attachments(directory)
+            digests = APPLE.validate_ios_attachments(directory)
+            self.assertEqual(set(digests), {"0.png", "0.txt", "1.png", "1.txt"})
             attachments[2]["suggestedHumanReadableName"] = "unrelated.png"
             manifest.write_text(json.dumps([{"attachments": attachments}]))
             with self.assertRaisesRegex(RuntimeError, "ios-profile-share-sent"):

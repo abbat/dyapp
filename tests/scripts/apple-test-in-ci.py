@@ -181,8 +181,9 @@ def keep_log(
             output.write("log show timed out\n")
 
 
-def validate_ios_attachments(directory: Path) -> None:
+def validate_ios_attachments(directory: Path) -> dict[str, str]:
     manifest = json.loads((directory / "manifest.json").read_text())
+    digests = {}
     for state in ("eligible-target", "sent"):
         name = f"ios-profile-share-{state}"
         png = evidence_file(directory, manifest, name, ".png")
@@ -191,6 +192,9 @@ def validate_ios_attachments(directory: Path) -> None:
         geometry = evidence_file(directory, manifest, f"{name}-geometry", ".txt")
         if not geometry.read_text().startswith("element="):
             raise RuntimeError(f"Invalid geometry attachment: {name}")
+        for attachment in (png, geometry):
+            digests[attachment.name] = hashlib.sha256(attachment.read_bytes()).hexdigest()
+    return digests
 
 
 def evidence_file(directory: Path, manifest: list[dict], name: str, suffix: str) -> Path:
@@ -222,7 +226,7 @@ def export_ios_evidence(reports: Path, result_bundle: Path, apps: list[Path], de
         ],
         reports / "attachments.log",
     )
-    validate_ios_attachments(attachments)
+    digests = validate_ios_attachments(attachments)
     binaries = [app / "DYApp" for app in apps if app.parent.name.endswith("-iphonesimulator")]
     if len(binaries) != 1:
         raise RuntimeError("Expected one tested iOS simulator application")
@@ -232,7 +236,14 @@ def export_ios_evidence(reports: Path, result_bundle: Path, apps: list[Path], de
     if source != os.environ["GITHUB_SHA"]:
         raise RuntimeError("Tested iOS checkout differs from the CI source commit")
     (attachments / "provenance.json").write_text(
-        json.dumps({"source": source, "binary_sha256": binary_sha256, "destination": destination})
+        json.dumps(
+            {
+                "source": source,
+                "binary_sha256": binary_sha256,
+                "destination": destination,
+                "attachment_sha256": digests,
+            }
+        )
     )
 
 
