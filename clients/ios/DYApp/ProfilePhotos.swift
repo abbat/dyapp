@@ -310,7 +310,7 @@ struct ProfilePhotosSection: View {
 
 #if os(iOS)
     /// The system picker runs out of process and needs no photo library permission.
-    private struct PhotoPicker: UIViewControllerRepresentable {
+    struct PhotoPicker: UIViewControllerRepresentable {
         final class Coordinator: NSObject, PHPickerViewControllerDelegate {
             private let picked: @MainActor @Sendable (Data?) -> Void
 

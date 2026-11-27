@@ -1,5 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 @MainActor
 struct ChatPhotoComposer: View {
@@ -8,6 +7,7 @@ struct ChatPhotoComposer: View {
     let context: ChatFeed.Context
     let disabled: Bool
     @State private var picking = false
+    @State private var pickerDismissed = true
     @State private var working = false
     @State private var draft: PreparedPhoto?
     @State private var preview: Image?
@@ -16,7 +16,10 @@ struct ChatPhotoComposer: View {
 
     var body: some View {
         VStack(alignment: .leading) {
-            Button("profile.photoAdd") { picking = true }
+            Button("profile.photoAdd") {
+                pickerDismissed = false
+                picking = true
+            }
                 .disabled(disabled || working)
                 .accessibilityIdentifier("chat-photo-attach")
             if working { ProgressView() }
@@ -25,18 +28,17 @@ struct ChatPhotoComposer: View {
                     .accessibilityIdentifier("chat-photo-send-status")
             }
         }
-        .fileImporter(isPresented: $picking, allowedContentTypes: [.jpeg, .png]) { result in
-            guard feed.isCurrent(context) else { return }
-            switch result {
-            case let .success(url):
+        .sheet(isPresented: $picking, onDismiss: {
+            pickerDismissed = true
+            confirmPreparedPhoto()
+        }) {
+            PhotoPicker { data in
+                guard feed.isCurrent(context) else { return }
+                picking = false
+                guard let data else { return }
                 working = true
                 status = nil
-                Task { await prepare(url) }
-
-            case let .failure(error):
-                if (error as? CocoaError)?.code != .userCancelled {
-                    status = ChatStatus(key: photoErrorKey(error), details: nil)
-                }
+                Task { await prepare(data) }
             }
         }
         .sheet(isPresented: $confirming, onDismiss: {
@@ -61,10 +63,14 @@ struct ChatPhotoComposer: View {
         }
     }
 
-    private func prepare(_ url: URL) async {
+    private func confirmPreparedPhoto() {
+        if pickerDismissed, draft != nil, feed.isCurrent(context) { confirming = true }
+    }
+
+    private func prepare(_ data: Data) async {
         let result = await IdentityIO.performBlocking {
             Result {
-                let photo = try PhotoPrep.prepare(PhotoPrep.read(url), purpose: .chat)
+                let photo = try PhotoPrep.prepare(data, purpose: .chat)
                 let image = try checkPreview(bytes: photo.thumbnail)
                 return (photo, DecodedPhoto(image: previewImage(image)))
             }
@@ -75,7 +81,7 @@ struct ChatPhotoComposer: View {
         case let .success((photo, decoded)):
             draft = photo
             preview = decoded.image
-            confirming = true
+            confirmPreparedPhoto()
 
         case let .failure(error):
             status = ChatStatus(key: photoErrorKey(error), details: nil)

@@ -61,7 +61,7 @@ picking. iOS uses the same API for profile and chat preparation.
    recycled after preparation. The system photo picker needs no storage permission.
    iOS uses the core decode plan to bound ImageIO's upright decode, converts premultiplied sRGB
    pixels to straight RGBA and passes them to the shared encoder. Profile picking uses the system
-   photo picker. Chat picking uses the system file importer with security-scoped reads.
+   photo picker, shared with chat attachments.
 2. The core refuses anything but a JPEG within the size and pixel limits. It keeps both blobs in
    the local store under their SHA-256 hashes and lists them in the profile draft. Addition commits
    both blobs and the latest draft in one SQLite immediate transaction; failure leaves them unchanged.
