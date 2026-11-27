@@ -111,7 +111,7 @@ provenance; no release has been published yet.
 
 ## Linked devices
 
-In identity settings, refresh the device list to check the published profile. You can disconnect another device after confirmation. You can start receiving a profile during first launch or from identity settings. Once the network is active, create a link code and show its QR or copy the text to the device that already owns the profile. On that device, enter the code or choose its QR image, then confirm full control. Return to the receiving device and refresh the invitation to check for the transfer.
+In identity settings, refresh the device list to check the published profile. You can disconnect another device after confirmation. You can start receiving a profile during first launch or from identity settings. Once the network is active, create a link code and show its QR or copy the text to the device that already owns the profile. On that device, enter the code, choose its QR image, or scan it with the camera on a supported iPhone running iOS 16 or later, then confirm full control. Return to the receiving device and refresh the invitation to check for the transfer.
 
 ## Build from source
 

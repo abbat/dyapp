@@ -1153,6 +1153,22 @@
         }
       }
     },
+    "devices.code.camera": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan QR with camera"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сканировать QR камерой"
+          }
+        }
+      }
+    },
     "devices.code.expired": {
       "localizations": {
         "en": {

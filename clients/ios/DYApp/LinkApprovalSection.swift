@@ -1,11 +1,61 @@
 import SwiftUI
 import Vision
+import VisionKit
+
+@available(iOS 16, *)
+private struct LinkCameraScanner: UIViewControllerRepresentable {
+    let picked: (String) -> Void
+    let unavailable: () -> Void
+
+    func makeUIViewController(context: Context) -> DataScannerViewController {
+        let scanner = DataScannerViewController(
+            recognizedDataTypes: [.barcode(symbologies: [.qr])],
+            recognizesMultipleItems: false)
+        scanner.delegate = context.coordinator
+        if (try? scanner.startScanning()) == nil {
+            Task { @MainActor in unavailable() }
+        }
+        return scanner
+    }
+
+    func updateUIViewController(_ controller: DataScannerViewController, context: Context) {}
+
+    static func dismantleUIViewController(
+        _ controller: DataScannerViewController, coordinator: Coordinator
+    ) {
+        controller.stopScanning()
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(picked: picked) }
+
+    @MainActor
+    final class Coordinator: NSObject, DataScannerViewControllerDelegate {
+        let picked: (String) -> Void
+
+        init(picked: @escaping (String) -> Void) { self.picked = picked }
+
+        func dataScanner(
+            _ scanner: DataScannerViewController, didAdd addedItems: [RecognizedItem],
+            allItems: [RecognizedItem]
+        ) {
+            for item in addedItems {
+                guard case let .barcode(barcode) = item, let code = barcode.payloadStringValue,
+                    deviceLinkCodeStatus(text: code) == .valid
+                else { continue }
+                scanner.stopScanning()
+                picked(code)
+                break
+            }
+        }
+    }
+}
 
 @MainActor
 struct LinkApprovalSection: View {
     @ObservedObject var feed: ChatFeed
     @State private var code = ""
     @State private var picking = false
+    @State private var scanning = false
     @State private var busy = false
     @State private var confirming = false
     @State private var failed = false
@@ -33,6 +83,10 @@ struct LinkApprovalSection: View {
             }
                 .disabled(busy || confirming)
                 .accessibilityIdentifier("link-owner-photo")
+            if #available(iOS 16, *), DataScannerViewController.isSupported {
+                Button("devices.code.camera") { scanning = true }
+                    .disabled(busy || confirming)
+            }
             Button("network.continue") { prepare() }
                 .disabled(code.isEmpty || busy || confirming)
             if let codeError {
@@ -50,6 +104,20 @@ struct LinkApprovalSection: View {
                 if let data { scan(data, context: context) }
             }
         }
+        .sheet(isPresented: $scanning) {
+            if #available(iOS 16, *) {
+                let context = feed.context
+                LinkCameraScanner { text in
+                    guard scanning, let context, feed.isCurrent(context) else { return }
+                    code = text
+                    scanning = false
+                } unavailable: {
+                    guard scanning, let context, feed.isCurrent(context) else { return }
+                    scanning = false
+                    failed = true
+                }
+            }
+        }
         .confirmationDialog("devices.confirm.action", isPresented: $confirming) {
             Button("devices.confirm.action", role: .destructive) { send() }
             Button("search.cancel", role: .cancel) { pending = nil }
@@ -62,11 +130,13 @@ struct LinkApprovalSection: View {
             pending = nil
             confirming = false
             picking = false
+            scanning = false
         }
         .onChange(of: code) { _ in codeError = nil }
         .onChange(of: feed.owner) { _ in
             pending = nil
             picking = false
+            scanning = false
             confirming = false
             code = ""
             failed = false
