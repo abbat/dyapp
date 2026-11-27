@@ -138,21 +138,18 @@ struct LinkReceiveSection: View {
                 invitation = nil
                 installed(detail)
             } else if feed.isCurrent(value.context), invitation != nil {
-                switch result {
-                case .success(.waiting), .success(.receiving), .success(.installing):
-                    break
-
-                case .success:
+                expired = deviceLinkCodeStatus(text: value.code) == .expired
+                switch phase {
+                case .waiting where expired:
+                    _ = value.receiver.cancel()
                     invitation = nil
                     failed = true
 
-                case .failure:
-                    expired = deviceLinkCodeStatus(text: value.code) == .expired
-                    if phase == .failed || phase == .interrupted || phase == .invalidated || expired
-                    {
-                        _ = value.receiver.cancel()
-                        invitation = nil
-                    }
+                case .waiting, .receiving, .installing:
+                    if case .failure = result { failed = true }
+
+                case .cancelled, .completed, .failed, .interrupted, .invalidated:
+                    invitation = nil
                     failed = true
                 }
             }
