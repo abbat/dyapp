@@ -1,12 +1,7 @@
 import XCTest
 
-final class RevealGeometryTests: XCTestCase {
-    private let viewport = CGRect(x: 20, y: 100, width: 300, height: 500)
-    private let labels = [
-        CGRect(x: 40, y: 180, width: 120, height: 20),
-        CGRect(x: 40, y: 480, width: 120, height: 20),
-    ]
-
+extension LaunchTests {
+    @objc
     @MainActor
     func testSettingsButtonProvidesANoneditableDragAnchor() {
         continueAfterFailure = false
@@ -14,7 +9,9 @@ final class RevealGeometryTests: XCTestCase {
         app.launch()
         defer { app.terminate() }
         createIdentity(app)
-        app.buttons["settings-open"].tap()
+        let settings = app.buttons["settings-open"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 10))
+        settings.tap()
         reveal(app.buttons["settings-network"], in: app)
         let visible = revealViewport(app)
         let anchors = revealAnchors(app, visible: visible)
@@ -24,6 +21,15 @@ final class RevealGeometryTests: XCTestCase {
         reveal(app.buttons["settings-create"], in: app)
         XCTAssertTrue(app.buttons["settings-create"].isHittable)
     }
+
+}
+
+final class RevealGeometryTests: XCTestCase {
+    private let viewport = CGRect(x: 20, y: 100, width: 300, height: 500)
+    private let labels = [
+        CGRect(x: 40, y: 180, width: 120, height: 20),
+        CGRect(x: 40, y: 480, width: 120, height: 20),
+    ]
 
     func testUnknownRowsUseLiveLabelsAndViewportEdgesInEitherDirection() throws {
         let up = try XCTUnwrap(

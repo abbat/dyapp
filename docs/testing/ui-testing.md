@@ -18,6 +18,8 @@ The iOS `AppLockReadinessTests` hold real native storage reads behind explicit e
 signals. They verify protected loading, read failure and Retry on the same handle, confirmed
 absence/off, and disposal before completion. XCTest callbacks end each wait immediately;
 independent failure deadlines bound a broken transition without adding successful-test delays.
+The native settings-anchor scenario lives with `LaunchTests`, whose instance helpers own isolated
+launch and explicit creation. Pure geometry replay stays in `RevealGeometryTests`.
 The iOS reveal helper reads its form, navigation bar and keyboard from one native accessibility
 snapshot so navigation cannot retire a queried collection between existence and frame reads.
 Known partially exposed rows request their measured edge clearance rather than recentering across
