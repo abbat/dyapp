@@ -471,7 +471,7 @@ storage ADR trailer even when the production schema does not change.
 | `rust/bootstrap/src/bin/` | `dyappd`: the libp2p node; `dyappd/client.rs` holds its client commands (`dyappd info`, ...) used by network tests. |
 | `rust/ffi` | UniFFI 0.32 crate (`cdylib` + `rlib`). Android and Apple apps use identity, lock and profile-scale bindings. |
 | `clients/android/` | Gradle app (Kotlin) with generated Rust bindings. |
-| `clients/ios/` | XcodeGen (`project.yml`) Swift app with generated Rust bindings. |
+| `clients/ios/` | XcodeGen (`project.yml`) Swift app with generated Rust bindings. Add new `DYApp/*.swift` files to the app target's explicit source list. |
 | `clients/linux/`, `clients/windows/`, `clients/macos/` | Separate Tauri crates (excluded from the workspace) serving `clients/desktop/ui`; macOS uses `build-macos-client.py` for `.app` assembly. |
 | `build/` | Ignored local output for Cargo, Gradle (`build/android/`), packages, reports and generated bindings. `.cargo/config.toml` sets Cargo's default target directory; `CARGO_TARGET_DIR` can override it. |
 | `proto/` | Protobuf schemas. |
