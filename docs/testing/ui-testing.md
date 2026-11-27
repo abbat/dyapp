@@ -458,7 +458,9 @@ The owner approval dialog handles its own IME insets with an inset-aware window 
 its fixed action row must remain above the real keyboard while the body scrolls. The real-IME test
 retains full glyph/action containment at each selection and the original per-transition deadlines.
 The code field uses an external visible label and exposes that label as its accessible name.
-A glyph failure reports the editor's screen bounds, visual line and cursor geometry, plus the
+The owner code editor uses the Material 3 label above the field and retains the native editable
+text semantics used by the glyph checks. A glyph failure reports the editor's screen bounds,
+visual line and cursor geometry, plus the
 preceding glyph rectangle when the selected glyph has no accessibility location.
 
 Android stale-callback checks capture the installed `applicationClickKey` action, rather than a

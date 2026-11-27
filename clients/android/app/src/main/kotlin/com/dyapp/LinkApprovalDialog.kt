@@ -7,22 +7,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldLabelPosition
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
@@ -30,7 +29,7 @@ import androidx.compose.ui.window.DialogProperties
 @Composable
 internal fun LinkApprovalDialog(session: LinkApprovalSession, identity: String, dismiss: () -> Unit) {
     val view by session.state.collectAsState()
-    val draft = remember(session) { mutableStateOf("") }
+    val draft = remember(session) { TextFieldState() }
     val title = when {
         view.delivery?.result?.isSuccess == true -> R.string.owner_sent_title
         view.opening != null -> R.string.owner_confirm_title
@@ -42,7 +41,7 @@ internal fun LinkApprovalDialog(session: LinkApprovalSession, identity: String, 
         properties = DialogProperties(decorFitsSystemWindows = false),
         title = { Text(stringResource(title)) },
         text = { LinkApprovalBody(session, view, identity, draft) },
-        confirmButton = { LinkApprovalSubmit(session, view, draft.value) },
+        confirmButton = { LinkApprovalSubmit(session, view, draft.text.toString()) },
         dismissButton = { LinkApprovalDismiss(view, dismiss) }
     )
 }
@@ -52,7 +51,7 @@ private fun LinkApprovalBody(
     session: LinkApprovalSession,
     view: LinkApprovalViewState,
     identity: String,
-    draft: MutableState<String>
+    draft: TextFieldState
 ) {
     val scroll = key(view.opening) { rememberScrollState() }
     BoxWithConstraints {
@@ -76,21 +75,21 @@ private fun LinkApprovalBody(
 private fun LinkApprovalInput(
     session: LinkApprovalSession,
     view: LinkApprovalViewState,
-    draft: MutableState<String>,
+    draft: TextFieldState,
     viewportHeight: Dp
 ) {
     Text(stringResource(R.string.owner_intro))
-    val codeLabel = stringResource(R.string.owner_code_label)
-    Text(codeLabel)
     OutlinedTextField(
-        draft.value,
-        { text -> if (!session.state.value.busy && !session.state.value.retired) draft.value = text },
+        state = draft,
         // The real IME and font scale can leave less room than four intrinsic text lines.
-        Modifier.fillMaxWidth().heightIn(max = viewportHeight)
-            .semantics { contentDescription = codeLabel }
-            .testTag("owner-code-input"),
+        modifier = Modifier.fillMaxWidth().heightIn(max = viewportHeight).testTag("owner-code-input"),
         enabled = !view.busy && !view.retired,
-        minLines = 4,
-        maxLines = 4
+        label = { Text(stringResource(R.string.owner_code_label)) },
+        labelPosition = TextFieldLabelPosition.Above(),
+        lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 4, maxHeightInLines = 4),
+        inputTransformation = {
+            val current = session.state.value
+            if (current.busy || current.retired) revertAllChanges()
+        }
     )
 }
