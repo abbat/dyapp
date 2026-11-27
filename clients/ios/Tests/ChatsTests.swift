@@ -141,6 +141,17 @@ final class ChatsTests: XCTestCase {
         XCTAssertEqual(chatMeta(sent), "")
     }
 
+    func testForwardedTextUsesTheLocalizedMarkerForEitherSender() {
+        for author in ["me", "peer"] {
+            var forwarded = message(author: author, id: 1)
+            forwarded.forwarded = true
+            let expected = String(
+                format: NSLocalizedString("chats.forwarded", comment: ""), forwarded.text)
+            XCTAssertEqual(chatPreview(forwarded), expected)
+            XCTAssertEqual(forwarded.author, author)
+        }
+    }
+
     private func message(author: String, id: UInt8) -> ChatMessage {
         ChatMessage(
             groupId: Data([9]), author: author, id: Data([id]), text: "text", edited: false,
