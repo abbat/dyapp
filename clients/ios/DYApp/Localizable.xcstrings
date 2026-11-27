@@ -1137,6 +1137,54 @@
         }
       }
     },
+    "devices.code.label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code from the new device"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код с нового устройства"
+          }
+        }
+      }
+    },
+    "devices.confirm.action": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Give full control"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дать полный контроль"
+          }
+        }
+      }
+    },
+    "devices.confirm.text": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It gets the key of this identity. It can read new chats, write as you, change your profile and disconnect your other devices, and you cannot take the key back."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Оно получит ключ этой идентичности. Сможет читать новые чаты, писать от вашего имени, менять профиль и отключать другие ваши устройства, а забрать ключ обратно нельзя."
+          }
+        }
+      }
+    },
     "devices.disconnect": {
       "localizations": {
         "en": {
