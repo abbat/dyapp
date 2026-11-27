@@ -11,12 +11,16 @@ struct ReceivedViewsSection: View {
 
     var body: some View {
         let expected = opening
+        let context = feed.context
         DisclosureGroup("privacy.views.received.title", isExpanded: $expanded) {
             Text("privacy.views.received.hint").font(.caption)
             if let rows {
                 ForEach(rows, id: \.peerId) { row in
                     Button {
-                        guard opening == expected, expanded, !busy else { return }
+                        guard let context, feed.isCurrent(context), opening == expected,
+                            expanded, !busy,
+                            self.rows?.contains(where: { $0.peerId == row.peerId }) == true
+                        else { return }
                         open(row.peerId)
                     } label: {
                         VStack(alignment: .leading) {
