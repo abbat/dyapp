@@ -258,7 +258,7 @@ struct ProfileDraftView: View {
                 ProfileProofControls(
                     candidate: candidate, peerId: peerId, canPrepare: canPrepareProof,
                     attested: confirmedAdult, resetToken: profileRevision,
-                    isSolving: $isSolving, clearConfirmations: clearConfirmations)
+                    isSolving: $isSolving, clearConfirmations: clearConfirmations).id(editorIdentity)
             }
         }
         .navigationTitle("profile.title")

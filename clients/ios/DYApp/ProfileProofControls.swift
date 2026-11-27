@@ -115,7 +115,8 @@ struct ProfileProofControls: View {
                         ? "profile.retryPublish"
                         : proofCancelled || proofFailed ? "profile.retryProof" : "profile.publish")
             ) {
-                Task { await prepareProof() }
+                let expectedOpening = opening
+                Task { await prepareProof(in: expectedOpening) }
             }
             .disabled(!canPrepare)
             .accessibilityIdentifier("profile-prepare-publish")
@@ -159,6 +160,9 @@ struct ProfileProofControls: View {
         .onDisappear {
             opening = UUID()
             cancelProof()
+            session = nil
+            isPublishing = false
+            isSolving = false
         }
     }
 
@@ -174,8 +178,8 @@ struct ProfileProofControls: View {
     }
 
     @MainActor
-    private func prepareProof() async {
-        guard canPrepare, !isSolving, !isPublishing else { return }
+    private func prepareProof(in expectedOpening: UUID) async {
+        guard opening == expectedOpening, canPrepare, !isSolving, !isPublishing else { return }
         let confirmedAdult = attested
         clearConfirmations()
         isSolving = true
@@ -185,6 +189,10 @@ struct ProfileProofControls: View {
         let selectedPeer = peerId
         let opened = await IdentityIO.performBlocking {
             try? RustBridge.profileSolveSession(for: selected, peerId: selectedPeer)
+        }
+        guard opening == expectedOpening else {
+            opened?.cancel()
+            return
         }
         guard !Task.isCancelled else {
             opened?.cancel()
@@ -203,13 +211,19 @@ struct ProfileProofControls: View {
             return
         }
         session = opened
-        await runSteps(opened, attested: confirmedAdult)
+        await runSteps(opened, attested: confirmedAdult, in: expectedOpening)
     }
 
     @MainActor
-    private func runSteps(_ opened: ProfileSolveSession, attested: Bool) async {
+    private func runSteps(
+        _ opened: ProfileSolveSession, attested: Bool, in expectedOpening: UUID
+    ) async {
         while true {
             let result = await opened.runStep(attested: attested)
+            guard opening == expectedOpening else {
+                opened.cancel()
+                return
+            }
             guard !Task.isCancelled else {
                 opened.cancel()
                 session = nil
@@ -264,9 +278,10 @@ struct ProfileProofControls: View {
                 return .failed(publicationErrorKey(error))
             }
         }
+        guard opening == expectedOpening else { return }
         isPublishing = false
         isSolving = false
-        guard !Task.isCancelled, opening == expectedOpening else { return }
+        guard !Task.isCancelled else { return }
         switch outcome {
         case .published(let snapshot):
             do {
