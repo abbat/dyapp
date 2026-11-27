@@ -41,6 +41,7 @@ internal class OwnerImeCharacters(private val compose: ComposeContentTestRule, p
         val key = AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY
         val refreshed = editor.refreshWithExtraData(key, arguments)
         observation += " extraData=$refreshed"
+        observation += " refreshedSelection=${editor.textSelectionStart}..${editor.textSelectionEnd}"
         return if (refreshed) {
             BundleCompat.getParcelableArray(editor.extras, key, RectF::class.java)?.firstOrNull() as? RectF
         } else {

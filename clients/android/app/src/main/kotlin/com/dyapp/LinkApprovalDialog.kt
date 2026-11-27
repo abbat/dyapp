@@ -77,6 +77,7 @@ private fun LinkApprovalInput(
         Modifier.fillMaxWidth().testTag("owner-code-input"),
         enabled = !view.busy && !view.retired,
         label = { Text(stringResource(R.string.owner_code_label)) },
-        minLines = 4
+        minLines = 4,
+        maxLines = 4
     )
 }

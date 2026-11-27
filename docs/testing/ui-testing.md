@@ -17,8 +17,10 @@ Real-IME owner checks refetch control semantics on every readiness attempt and c
 measurements with the current native window transform and visible frame. A failed containment
 check reports the control tag and measured rectangles. A glyph failure additionally records its
 index, current rectangle and visible frame, active accessibility root, matching editor selection,
-focus/visibility and extra-data refresh result. Stale pre-keyboard geometry cannot establish
-readiness or obscure a persistent enlarged-text layout defect.
+focus/visibility, extra-data refresh result and selection after that refresh. Stale pre-keyboard
+geometry cannot establish readiness or obscure a persistent enlarged-text layout defect.
+The owner code editor keeps four visible lines with internal scrolling, retaining the complete code;
+its real-IME matrix still requires start/middle/end glyphs and both actions inside the live viewport.
 
 Desktop `link-review:<theme>:<scale>` smoke captures choices, photo failure, preview and saved
 states in EN/RU, light/dark and normal/200% text. The native runner requires every declared Linux
