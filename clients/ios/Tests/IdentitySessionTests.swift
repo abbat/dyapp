@@ -111,6 +111,19 @@ final class IdentitySessionTests: XCTestCase {
         XCTAssertNil(model.persistenceDetail)
     }
 
+    func testLinkReceiptKeepsDurabilityNoticeAfterRegistryReadback() {
+        let queue = HeldIdentityIO()
+        let selected = ready()
+        let model = IdentitySession(read: { selected }, run: queue.run)
+
+        model.reloadAfterLink("not yet synced")
+        XCTAssertNil(model.resolution)
+        XCTAssertEqual(model.persistenceDetail, "not yet synced")
+        queue.complete(0)
+        XCTAssertEqual(model.resolution, selected)
+        XCTAssertEqual(model.persistenceDetail, "not yet synced")
+    }
+
     func testFailedMutationReadsAuthoritativeStateWithoutRetryingTheWrite() async {
         let queue = HeldIdentityIO()
         let selected = ready()
