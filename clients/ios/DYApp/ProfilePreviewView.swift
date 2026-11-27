@@ -28,7 +28,7 @@ struct ProfilePreviewView: View {
             }
         }
         .navigationTitle("profile.preview")
-        .task(id: candidate.location.marker) { await load() }
+        .task(id: candidate.location.marker + ":" + peerId) { await load() }
     }
 
     @MainActor
@@ -38,13 +38,13 @@ struct ProfilePreviewView: View {
         readFailed = false
         let selected = candidate
         let selectedPeer = peerId
-        let result = await Task.detached(priority: .userInitiated) { () -> ProfileDraftLoad in
+        let result = await IdentityIO.performBlocking { () -> ProfileDraftLoad in
             do {
                 return .loaded(try RustBridge.loadProfileDraft(for: selected, peerId: selectedPeer))
             } catch {
                 return .failed
             }
-        }.value
+        }
         guard !Task.isCancelled else { return }
         switch result {
         case .loaded(let draft):
