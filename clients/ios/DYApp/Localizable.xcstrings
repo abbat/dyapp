@@ -3377,6 +3377,22 @@
         }
       }
     },
+    "privacy.views.empty": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No received profile views yet."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Полученных просмотров анкет пока нет."
+          }
+        }
+      }
+    },
     "privacy.views.failed": {
       "localizations": {
         "en": {
@@ -3405,6 +3421,70 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не чаще раза в день на профиль. Кто смотрел ваш, вы видите в любом случае."
+          }
+        }
+      }
+    },
+    "privacy.views.loading": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading received views…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузка полученных просмотров…"
+          }
+        }
+      }
+    },
+    "privacy.views.received.hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Latest received viewing day (UTC). This local list does not send views."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Последний полученный день просмотра (UTC). Этот локальный список не отправляет просмотры."
+          }
+        }
+      }
+    },
+    "privacy.views.received.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Viewed you"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Просмотры вашей анкеты"
+          }
+        }
+      }
+    },
+    "privacy.views.refresh": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh list"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновить список"
           }
         }
       }

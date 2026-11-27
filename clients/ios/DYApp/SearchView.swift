@@ -53,6 +53,13 @@ struct SearchView: View {
                         opened = OpenedProfile(peer: peer, known: nil)
                     }
                     .id(feed.owner)
+                    ReceivedViewsSection(feed: feed) { peer in
+                        guard session.context(for: candidate, peerId: peerId) == owner else {
+                            return
+                        }
+                        opened = OpenedProfile(peer: peer, known: nil)
+                    }
+                    .id(feed.owner)
                     Text("search.sample").font(.caption)
                     SearchFilterFields(inputs: $session.filters)
                     Button("search.run") {
