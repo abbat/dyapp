@@ -174,7 +174,7 @@ fn route(
             },
             ..
         })) => {
-            profile(swarm, request, channel, mode);
+            profile(swarm, &request, channel, mode);
             trace.lock().unwrap().steps.push("profile");
         }
         SwarmEvent::Behaviour(
@@ -189,7 +189,7 @@ fn route(
 
 fn profile(
     swarm: &mut Swarm,
-    request: proto::ProfileRequest,
+    request: &proto::ProfileRequest,
     channel: ResponseChannel<proto::ProfileResponse>,
     mode: &Mode,
 ) {
@@ -228,7 +228,7 @@ fn media(
     };
     match request.request.unwrap() {
         proto::media_request::Request::Attach(record) => {
-            attach(record, mode, owner, trace, &mut response);
+            attach(&record, mode, owner, trace, &mut response);
         }
         proto::media_request::Request::Put(put) => {
             assert_eq!(put.owner, dyapp_identity::key_hash(owner));
@@ -269,7 +269,7 @@ fn media(
 }
 
 fn attach(
-    record: SignedRecord,
+    record: &SignedRecord,
     mode: &Mode,
     owner: &[u8; 32],
     trace: &mut Trace,
