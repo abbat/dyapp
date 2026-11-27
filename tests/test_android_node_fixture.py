@@ -16,7 +16,7 @@ SPEC.loader.exec_module(MODULE)
 class NodeFixtureTests(unittest.TestCase):
     def test_install_preserves_exact_bytes_and_refuses_existing_destination(
         self,
-    ):
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source, destination = root / "fixture", root / "node.key"
@@ -30,7 +30,7 @@ class NodeFixtureTests(unittest.TestCase):
                 MODULE.install(source, destination, digest)
             self.assertEqual(destination.read_bytes(), data)
 
-    def test_invalid_inputs_never_create_destination(self):
+    def test_invalid_inputs_never_create_destination(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source, destination = root / "fixture", root / "node.key"
@@ -45,7 +45,7 @@ class NodeFixtureTests(unittest.TestCase):
                     MODULE.install(source, destination, digest)
                 self.assertFalse(destination.exists())
 
-    def test_symlinks_never_redirect_fixture_installation(self):
+    def test_symlinks_never_redirect_fixture_installation(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source, destination = root / "fixture", root / "node.key"
@@ -62,7 +62,7 @@ class NodeFixtureTests(unittest.TestCase):
             self.assertEqual(original.read_bytes(), b"public fixture")
             self.assertTrue(destination.is_symlink())
 
-    def test_missing_fixture_never_creates_destination(self):
+    def test_missing_fixture_never_creates_destination(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             destination = root / "node.key"
