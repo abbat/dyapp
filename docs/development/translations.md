@@ -29,6 +29,15 @@ tokens, Unicode, repeated/reordered arguments, literal braces/percent signs and 
 bindings. Run it through the Docker Python test inventory; SDK compilation and native UI
 acceptance remain separate checks.
 
+The source loader is `tools/scripts/translation_sources.py`. It reads `i18n/catalogue.json`
+(schema 1: `default`, `languages`, `messages`) and one JSON text dictionary per configured
+language. `languages` maps language tags to Android qualifiers; the default uses `values`.
+Each message declares `arguments`, a semantic `context` and `bindings` from native keys to tokens.
+Aliases are explicit. Loading validates every language and placeholder before output:
+duplicate keys, non-finite numbers, unsupported schema/fields, unsafe qualifiers, symlink/oversized
+sources, missing/extra messages or language files and duplicate native bindings fail.
+The loader writes nothing; production shared sources and native migration remain planned.
+
 The planned shared language sources must preserve existing native keys and wording,
 mark platform-only contexts and keep semantic aliases explicit. Similar-looking text
 alone does not establish that two messages have the same meaning.
