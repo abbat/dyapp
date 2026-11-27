@@ -254,6 +254,7 @@ tauri,clients/desktop/main.rs#withdraw_profile,allow-list,clients/desktop/main.r
 uniffi,rust/ffi/src/birth_input.rs#parse_profile_birth_parts,allow-list,rust/ffi/src/birth_input.rs#parse_profile_birth_parts
 uniffi,rust/ffi/src/chat_composer.rs#chat_composer_policy,allow-list,rust/ffi/src/chat_composer.rs#chat_composer_policy
 uniffi,rust/ffi/src/chat_links.rs#chat_link_hosts,allow-list,rust/ffi/src/chat_links.rs#chat_link_hosts
+uniffi,rust/ffi/src/chats/mail_pass.rs#mail_notice_line,limit,rust/client/src/mail_notices.rs#plain_text
 uniffi,rust/ffi/src/editor_input.rs#parse_profile_height,allow-list,rust/ffi/src/editor_input.rs#parse_profile_height
 uniffi,rust/ffi/src/editor_input.rs#parse_profile_interests,allow-list,rust/ffi/src/editor_input.rs#parse_profile_interests
 uniffi,rust/ffi/src/editor_input.rs#parse_profile_seeking,allow-list,rust/ffi/src/editor_input.rs#parse_profile_seeking
