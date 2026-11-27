@@ -40,7 +40,7 @@ struct ChatStickerRow: View {
                     .accessibilityIdentifier("msg-sticker-delete")
             }
             if sticker.author != feed.me {
-                ReceivedStickerPack(feed: feed, context: context, source: ChatForwardSource(
+                ReceivedStickerPack(feed: feed, context: context, packName: sticker.packName, source: ChatForwardSource(
                     peerId: peer, groupId: sticker.groupId, author: sticker.author,
                     messageId: sticker.id))
             }
@@ -98,6 +98,7 @@ struct ChatStickerRow: View {
 private struct ReceivedStickerPack: View {
     @ObservedObject var feed: ChatFeed
     let context: ChatFeed.Context
+    let packName: String
     let source: ChatForwardSource
     @State private var status: StickerPackSaveStatus?
     @State private var busy = false
@@ -112,6 +113,21 @@ private struct ReceivedStickerPack: View {
     }
 
     @ViewBuilder private var controls: some View {
+        if let status {
+            switch status.state {
+            case .saved:
+                Text(verbatim: String(
+                    format: NSLocalizedString("stickerRequest.saved", comment: ""), packName))
+            case .waiting:
+                Text("stickerRequest.waiting")
+            case .downloading:
+                Text("stickerRequest.downloading")
+            case .failed:
+                Text("chat.loadFailed")
+            case .new:
+                EmptyView()
+            }
+        }
         if let status, status.controls.contains(.request) {
             Button("sticker.pack.request") { update(.request) }.disabled(busy)
         }

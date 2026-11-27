@@ -7281,6 +7281,22 @@
         }
       }
     },
+    "stickerRequest.downloading": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pack download is pending."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ожидаем загрузку набора."
+          }
+        }
+      }
+    },
     "stickerRequest.fresh": {
       "localizations": {
         "en": {
@@ -7297,6 +7313,22 @@
         }
       }
     },
+    "stickerRequest.saved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pack «%1$@» added. It stays here until you remove it."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Набор «%1$@» добавлен. Он останется здесь, пока вы его не удалите."
+          }
+        }
+      }
+    },
     "stickerRequest.stop": {
       "localizations": {
         "en": {
@@ -7309,6 +7341,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Прекратить ожидание"
+          }
+        }
+      }
+    },
+    "stickerRequest.waiting": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for the pack. The request will be sent when connected."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ожидаем набор. Запрос отправится при подключении."
           }
         }
       }
