@@ -115,6 +115,7 @@ final class ChatsUITests: XCTestCase {
             app.textFields["chat-input"].waitForExistence(timeout: 30), app.debugDescription)
     }
 
+
     func testSharedProfileOpensFromItsCardAndSharesToAChat() {
         assertProfileShare(language: "en", locale: "en_US", sentLabel: "Profile sent.")
     }
@@ -122,62 +123,11 @@ final class ChatsUITests: XCTestCase {
     func testSharedProfileInRussian() {
         assertProfileShare(language: "ru", locale: "ru_RU", sentLabel: "Профиль отправлен.")
     }
-
-    private func assertProfileShare(language: String, locale: String, sentLabel: String) {
-        let app = XCUIApplication()
-        app.launchArguments = [
-            "--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)",
-            "--ui-test-chat-peer-shares",
-            "-AppleLanguages", "(\(language))", "-AppleLocale", locale,
-            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityM",
-        ]
-        app.launch()
-        createIdentity(app)
-        connectLocalNode(app)
-        publishProfile(app)
-        app.navigationBars.buttons.element(boundBy: 0).tap()
-        reveal(app.buttons["chats-open"], in: app, timeout: 30).tap()
-        replyToTheRequest(app)
-
-        let cards = app.buttons.matching(identifier: "msg-profile")
-        XCTAssertTrue(cards.firstMatch.waitForExistence(timeout: 150), app.debugDescription)
-        cards.firstMatch.tap()
-        XCTAssertTrue(app.buttons["view-back"].waitForExistence(timeout: 30), app.debugDescription)
-        reveal(app.buttons["view-share"], in: app).tap()
-        let target = reveal(app.buttons["share-1"], in: app)
-        attachShareState("\(language)-eligible-target", app: app, element: target)
-        target.tap()
-        let sent = app.staticTexts.matching(identifier: "view-status").matching(
-            NSPredicate(format: "label == %@", sentLabel)
-        ).firstMatch
-        reveal(sent, in: app, timeout: 60, above: true)
-        attachShareState("\(language)-sent", app: app, element: sent)
-        reveal(app.buttons["view-back"], in: app, above: true).tap()
-        XCTAssertTrue(cards.element(boundBy: 1).waitForExistence(timeout: 30), app.debugDescription)
-        XCTAssertTrue(
-            shownText("Shared profile received", in: app).waitForExistence(timeout: 150),
-            "The distinct peer must receive the exact owner link once")
-    }
-
 }
 
 extension ChatsUITests {
-    private func attachShareState(_ state: String, app: XCUIApplication, element: XCUIElement) {
-        XCTAssertTrue(element.exists && element.isHittable)
-        let frame = element.frame
-        XCTAssertTrue(!frame.isEmpty && app.frame.intersects(frame))
-        let screenshot = XCTAttachment(screenshot: app.screenshot())
-        screenshot.name = "ios-profile-share-\(state)"
-        screenshot.lifetime = .keepAlways
-        add(screenshot)
-        let geometry = XCTAttachment(string: "element=\(frame) viewport=\(app.frame)")
-        geometry.name = "ios-profile-share-\(state)-geometry"
-        geometry.lifetime = .keepAlways
-        add(geometry)
-    }
-
     /// From Chats: opens the peer's first message and answers it.
-    private func replyToTheRequest(_ app: XCUIApplication) {
+    func replyToTheRequest(_ app: XCUIApplication) {
         let requests = app.buttons["chats-requests"]
         XCTAssertTrue(requests.waitForExistence(timeout: 10), app.debugDescription)
         requests.tap()
@@ -325,13 +275,13 @@ extension ChatsUITests {
     }
 
     /// A selectable text may carry its words in its value instead of its label.
-    private func shownText(_ text: String, in app: XCUIApplication) -> XCUIElement {
+    func shownText(_ text: String, in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any).matching(
             NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", text, text)
         ).firstMatch
     }
 
-    private func publishProfile(_ app: XCUIApplication) {
+    func publishProfile(_ app: XCUIApplication) {
         if !app.descendants(matching: .any)["profile-field-gender"].waitForExistence(timeout: 10) {
             reveal(app.buttons["profile-edit"], in: app, timeout: 30).tap()
         }
@@ -364,13 +314,13 @@ extension ChatsUITests {
         }
     }
 
-    private func createIdentity(_ app: XCUIApplication) {
+    func createIdentity(_ app: XCUIApplication) {
         let create = app.buttons["identity-create"]
         XCTAssertTrue(create.waitForExistence(timeout: 10), app.debugDescription)
         if create.exists { create.tap() }
     }
 
-    private func connectLocalNode(_ app: XCUIApplication) {
+    func connectLocalNode(_ app: XCUIApplication) {
         XCTAssertTrue(
             app.buttons["network-save"].waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertEqual(
