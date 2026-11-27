@@ -282,6 +282,7 @@ extension ContentView {
 
         case .profile:
             ProfileDraftView(candidate: candidate, peerId: peerId)
+                .id(candidate.location.marker + ":" + peerId)
 
         case .search:
             SearchView(

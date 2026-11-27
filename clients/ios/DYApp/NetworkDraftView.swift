@@ -204,7 +204,8 @@ struct NetworkDraftView: View {
         // A hidden link inside the lazy form never pushed after activation on iOS.
         .background {
             NavigationLink(
-                destination: ProfileDraftView(candidate: candidate, peerId: peerId),
+                destination: ProfileDraftView(candidate: candidate, peerId: peerId)
+                    .id(candidate.location.marker + ":" + peerId),
                 isActive: $activated
             ) {
                 EmptyView()
