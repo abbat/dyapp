@@ -706,7 +706,9 @@ with fresh media credentials before committing a new forwarded message. `forward
 projects eligible destinations offline. `forward_photo` retrieves the original from the active
 network even when this device has a cached copy. Only current chat photos are eligible. iOS
 renders the common ordered history with photo placeholders and a forwarded label, and uses the
-same destination picker for text and photos. Photo preview and original display remain planned.
+same destination picker for text and photos. Explicit photo loading opens a viewer for the
+core-validated JPEG or PNG and bounds display decoding to 2048 px on the long side. In-thread
+previews and automatic original loading remain planned.
 
 Desktop text, edit, delete, photo and forward commands project the same core `Submission` as
 `{ id, queued }`: `queued: null` means immediate node acceptance; a string means committed with

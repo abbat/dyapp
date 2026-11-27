@@ -31,6 +31,7 @@ final class PhotoPrepTests: XCTestCase {
     func testAFullPeerPhotoMustBeAJpeg() throws {
         let png = try PhotoPrep.samplePNG(width: 8, height: 8, red: 1, alpha: 1)
         XCTAssertNil(fullPhotoImage(png))
+        XCTAssertNotNil(fullPhotoImage(png, allowPNG: true))
         XCTAssertNotNil(fullPhotoImage(try PhotoPrep.prepare(png).full))
     }
 

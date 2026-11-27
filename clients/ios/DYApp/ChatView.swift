@@ -21,6 +21,7 @@ struct ChatView: View {
     @StateObject private var composer = ChatComposer()
     @State private var deleting: ChatMessage?
     @State private var forwarding: ForwardOpening?
+    @State private var viewingPhoto: PhotoOpening?
     @State private var confirmClear = false
     @State private var confirmBlock = false
     @State private var renaming = false
@@ -50,6 +51,9 @@ struct ChatView: View {
         }
         .sheet(item: $forwarding) { opening in
             ChatForwardPicker(feed: feed, opening: opening)
+        }
+        .sheet(item: $viewingPhoto) { opening in
+            ChatPhotoViewer(feed: feed, opening: opening)
         }
         .padding()
         .accessibilityElement(children: .contain)
@@ -195,6 +199,13 @@ struct ChatView: View {
             } else {
                 Text("chat.photo").accessibilityIdentifier("msg-photo")
             }
+            Button("view.photoLoad") {
+                guard let context = feed.context else { return }
+                let source = ChatForwardSource(
+                    peerId: peer, groupId: photo.groupId, author: photo.author, messageId: photo.id)
+                viewingPhoto = PhotoOpening(source: source, context: context)
+            }
+            .accessibilityIdentifier("msg-photo-load")
             Menu {
                 Button("chat.forward") {
                     openForward(group: photo.groupId, author: photo.author, id: photo.id, photo: true)
@@ -422,6 +433,61 @@ private struct ChatBubble: View {
         .fixedSize()
         .accessibilityLabel(Text("msg.menu"))
         .accessibilityIdentifier(own ? "msg-menu" : "msg-received-menu")
+    }
+}
+
+private struct PhotoOpening: Identifiable {
+    let id = UUID()
+    let source: ChatForwardSource
+    let context: ChatFeed.Context
+}
+
+private struct ChatPhotoViewer: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var feed: ChatFeed
+    let opening: PhotoOpening
+    @State private var image: Image?
+    @State private var failed = false
+    @State private var attempt = 0
+
+    var body: some View {
+        ScrollingForm {
+            if let image {
+                image.resizable().scaledToFit()
+                    .accessibilityLabel(Text("chat.photo"))
+                    .accessibilityIdentifier("msg-photo-original")
+            } else if failed {
+                Text("view.photoFailed").accessibilityIdentifier("msg-photo-error")
+                Button("search.retry") {
+                    failed = false
+                    attempt += 1
+                }
+            } else {
+                ProgressView("view.photoLoading")
+            }
+            Button("search.cancel") { dismiss() }
+        }
+        .task(id: attempt) { await load() }
+        .onChange(of: feed.owner) { _ in
+            if !feed.isCurrent(opening.context) { dismiss() }
+        }
+    }
+
+    private func load() async {
+        let source = opening.source
+        let result = await feed.call(opening.context) {
+            try $0.chatPhotoOriginal(
+                peerId: source.peerId, groupId: source.groupId,
+                author: source.author, id: source.messageId)
+        }
+        guard !Task.isCancelled, feed.isCurrent(opening.context) else { return }
+        guard case let .success(bytes) = result else { failed = true; return }
+        let decoded = await Task.detached {
+            DecodedPhoto(image: fullPhotoImage(bytes, allowPNG: true))
+        }.value
+        guard !Task.isCancelled, feed.isCurrent(opening.context) else { return }
+        image = decoded.image
+        failed = image == nil
     }
 }
 

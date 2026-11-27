@@ -26,13 +26,13 @@ enum NetworkType {
 }
 
 /// Crosses back from a detached decode; nothing else holds the image by then.
-private struct DecodedPhoto: @unchecked Sendable {
+struct DecodedPhoto: @unchecked Sendable {
     let image: Image?
 }
 
-/// Decodes at most 2048 px on the long side. Clients publish JPEG only, so other formats never
-/// reach ImageIO's many decoders; the core already held the frame to 64 megapixels.
-func fullPhotoImage(_ bytes: Data) -> Image? {
+/// Decodes core-validated originals at up to 2048 px on the long side.
+/// Profile originals use JPEG. Chat originals may also use PNG.
+func fullPhotoImage(_ bytes: Data, allowPNG: Bool = false) -> Image? {
     let options =
         [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
@@ -41,7 +41,8 @@ func fullPhotoImage(_ bytes: Data) -> Image? {
             kCGImageSourceThumbnailMaxPixelSize: 2_048,
         ] as CFDictionary
     guard let source = CGImageSourceCreateWithData(bytes as CFData, nil),
-        CGImageSourceGetType(source) as String? == UTType.jpeg.identifier,
+        let type = CGImageSourceGetType(source) as String?,
+        type == UTType.jpeg.identifier || (allowPNG && type == UTType.png.identifier),
         let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options)
     else { return nil }
     return Image(decorative: image, scale: 1)
