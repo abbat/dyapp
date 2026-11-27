@@ -175,6 +175,11 @@ struct ProfileExtraRows: View {
         if !draft.about.isEmpty {
             row("profile.about", Text(verbatim: draft.about), "preview-about")
         }
+        if let interests = draft.interests, !interests.isEmpty {
+            row(
+                "profile.interests", Text(verbatim: interests.joined(separator: "\n")),
+                "preview-interests")
+        }
         if draft.seeking.notLooking {
             row("profile.notLooking", Text("profile.notLookingOn"), "preview-not-looking")
         }
