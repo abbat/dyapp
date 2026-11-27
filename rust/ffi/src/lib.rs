@@ -28,10 +28,10 @@ mod chat_links;
 pub use chat_links::{chat_link_hosts, ChatLinkHost};
 mod chats;
 pub use chats::{
-    chat_photo_hours_left, new_chat_state_key, sticker_import_byte_limit, ChatBlock,
-    ChatClearTarget, ChatDelivery, ChatForwardError, ChatForwardSource, ChatHistory, ChatItem,
-    ChatLikeAttempt, ChatLikeState, ChatLikes, ChatListPreview, ChatMailNotice, ChatMailPass,
-    ChatMediaCache, ChatMediaCacheEdit, ChatMediaCacheError, ChatMediaCacheResult,
+    chat_photo_hours_left, mail_notice_line, new_chat_state_key, sticker_import_byte_limit,
+    ChatBlock, ChatClearTarget, ChatDelivery, ChatForwardError, ChatForwardSource, ChatHistory,
+    ChatItem, ChatLikeAttempt, ChatLikeState, ChatLikes, ChatListPreview, ChatMailNotice,
+    ChatMailPass, ChatMediaCache, ChatMediaCacheEdit, ChatMediaCacheError, ChatMediaCacheResult,
     ChatMediaCacheSettings, ChatMessage, ChatNotice, ChatPhoto, ChatPhotoDownload, ChatPreviewBody,
     ChatRevocation, ChatRow, ChatSession, ChatState, ChatSticker, ChatStickerFrame,
     ChatStickerImage, ChatSubmission, ContactNoteError, ContactVerificationState, FavoriteError,

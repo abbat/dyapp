@@ -26,6 +26,14 @@ pub struct ChatMailPass {
     pub notice: Option<ChatMailNotice>,
 }
 
+/// Render a local notification label with the same scalar bound and control cleanup as core bodies.
+/// Platform adapters still resolve local names and supply trusted localized text.
+#[uniffi::export]
+#[must_use]
+pub fn mail_notice_line(text: String) -> String {
+    mail_notices::Preview::Text(text).plain_text("")
+}
+
 pub(super) fn notice_after(
     before: Option<mail_notices::Waiting>,
     store: &Store,

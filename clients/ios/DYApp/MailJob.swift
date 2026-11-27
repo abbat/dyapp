@@ -60,22 +60,10 @@ enum MailJob {
         else { return }
         let identity = ChatIdentity(candidate: candidate, peerId: peerId)
         let pass = try? RustBridge.withChats(identity) { session in
-            let (rows, liked) = (try session.chatRows(), try session.likedYou())
-            _ = try session.receive()
-            return (
-                rows, liked, try session.chatRows(), try session.likedYou(), try session.notice()
-            )
+            try session.receiveWithNotice(
+                stickerLabel: NSLocalizedString("notice.sticker", comment: ""))
         }
-        guard let (rows, liked, newRows, newLiked, notice) = pass, notice != .off,
-            MailNotice.count(rows: newRows, liked: newLiked)
-                > MailNotice.count(rows: rows, liked: liked)
-        else { return }
-        let lines = MailNotice.lines(notice, before: rows, after: newRows) { peer in
-            let view = (try? RustBridge.profileSearcher(for: candidate, peerId: peerId)).flatMap {
-                try? RustBridge.contactNames(searcher: $0, peers: [peer]).first
-            }
-            return contactLabel(peer, view)
-        }
+        guard let notice = pass?.notice else { return }
         let center = UNUserNotificationCenter.current()
         let settings = await withCheckedContinuation {
             (done: CheckedContinuation<(UNAuthorizationStatus, UNShowPreviewsSetting), Never>) in
@@ -83,15 +71,15 @@ enum MailJob {
                 done.resume(returning: ($0.authorizationStatus, $0.showPreviewsSetting))
             }
         }
-        guard settings.0 == .authorized else { return }
-        try? await center.add(MailNotice.request(shown(lines, previews: settings.1)))
-    }
-
-    /// iOS alone decides what its lock screen shows, and an app cannot hide a notice there, so what the
-    /// setting adds goes out only while iOS keeps previews off the lock screen.
-    static func shown(_ lines: MailNotice.Lines?, previews: UNShowPreviewsSetting) -> MailNotice
-        .Lines?
-    {
-        previews == .always ? nil : lines
+        let request = MailNotice.request(
+            notice, authorization: settings.0, previews: settings.1
+        ) { peer in
+            let view = (try? RustBridge.profileSearcher(for: candidate, peerId: peerId)).flatMap {
+                try? RustBridge.contactNames(searcher: $0, peers: [peer]).first
+            }
+            return contactLabel(peer, view)
+        }
+        guard let request else { return }
+        try? await center.add(request)
     }
 }

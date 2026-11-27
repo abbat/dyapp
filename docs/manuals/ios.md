@@ -74,7 +74,7 @@ Native runtime and rendered acceptance remain required.
 
 **Settings** lists the device's identities, marks the current one, and opens its network form.
 Once the network is set up it also holds **Notifications**: when iOS lets the closed app receive, new
-messages and likes from people you did not mute post one notice, and a tap opens the app behind its
+messages and likes admitted by the common native mail pass post one replacing notice, and a tap opens the app behind its
 lock. iOS decides when that happens, at the earliest every 15 minutes and not while Background App
 Refresh is off, so a notice can come late. The section turns it off for this identity or adds the
 sender's name and the message, which show only while Show Previews in iOS Settings is not Always, and

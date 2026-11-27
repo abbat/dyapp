@@ -11,43 +11,18 @@ enum MailNotice {
 
     /// One id, so each notice replaces the previous one.
     private static let requestId = "mail"
-    /// The most of a message a notice shows; the rest waits in the app.
-    private static let textLimit = 200
 
-    /// Unread items and unanswered likes, muted peers left out. A received request counts even when read.
-    static func count(rows: [ChatRow], liked: [String]) -> UInt64 {
-        let unmuted = rows.filter { !$0.muted }
-        let muted = Set(rows.filter(\.muted).map(\.peerId))
-        let unread = unmuted.reduce(UInt64(0)) {
-            $0 + ($1.state == .requestReceived ? max($1.unreadCount, 1) : $1.unreadCount)
+    /// OS gates never change core selection; no notice stays quiet, while no peer means fixed text.
+    static func request(
+        _ notice: ChatMailNotice?, authorization: UNAuthorizationStatus,
+        previews: UNShowPreviewsSetting, name: (String) -> String
+    ) -> UNNotificationRequest? {
+        guard authorization == .authorized, let notice else { return nil }
+        guard previews != .always, let peer = notice.peerId else { return request(nil) }
+        let text = notice.text.flatMap { value in
+            value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : value
         }
-        return unread + UInt64(liked.filter { !muted.contains($0) }.count)
-    }
-
-    /// What `notice` allows for the newest unmuted row with more unread than in `before`; nil keeps the
-    /// fixed text. Only an open chat adds lines: a request or a like would show a stranger's words unasked.
-    static func lines(
-        _ notice: ChatNotice, before: [ChatRow], after: [ChatRow], name: (String) -> String
-    ) -> Lines? {
-        guard notice == .name || notice == .text else { return nil }
-        let grown = after.first { row in
-            !row.muted
-                && row.unreadCount > (before.first { $0.peerId == row.peerId }?.unreadCount ?? 0)
-        }
-        guard let row = grown, row.state == .open else { return nil }
-        // shortcut: the FFI row has no attachment, so a newer unread attachment shows the last unread text.
-        let text = notice == .text && row.lastMessage?.unread == true ? row.lastMessage?.text : nil
-        let line = text.map(oneLine)?.trimmingCharacters(in: .whitespaces)
-        return Lines(sender: oneLine(name(row.peerId)), text: line?.isEmpty == false ? line : nil)
-    }
-
-    /// At most `textLimit` code points on one line: a peer chooses this text.
-    private static func oneLine(_ text: String) -> String {
-        var line = String.UnicodeScalarView()
-        for scalar in text.unicodeScalars.prefix(textLimit) {
-            line.append(CharacterSet.controlCharacters.contains(scalar) ? " " : scalar)
-        }
-        return String(line)
+        return request(Lines(sender: mailNoticeLine(text: name(peer)), text: text))
     }
 
     /// The replacing notice: the fixed text alone, or the lines above it.

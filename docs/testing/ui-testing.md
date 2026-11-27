@@ -78,6 +78,12 @@ hidden text, tabs and non-NFC input while preserving previous bytes. The existin
 also saves multiline private text, reopens the same profile, checks the editor value and clears it,
 waiting for each actual status. These authored tests require `native - ios`; they do not establish
 own-device synchronization or rendered-language acceptance before execution.
+`MailNoticeAdapterTests` consumes typed common mail notices without recounting rows or selecting
+history. It checks quiet no-notice/unauthorized states, fixed-mode resolver exclusion, literal text
+and sticker presentation, blank-body fallback and the exported core sender-label bound. Existing
+app tests retain all three OS preview choices and the single replacement request ID. Shared core
+mail-notice/native-pass tests separately cover mute/block, request/Like totals, owner mismatch and
+newest-media selection; no duplicate Swift policy helper remains.
 The iOS registry suite drives collisions at the actual native `contains` callback: stranded
 credentials or a newly occupied directory must be skipped without overwriting their payload.
 Picker/invalid-pointer fixtures seed those states after atomic core creation, which already selects

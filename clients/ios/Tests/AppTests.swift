@@ -13,10 +13,22 @@ final class AppTests: XCTestCase {
     }
 
     func testNoticeAddsLinesOnlyWhileTheLockScreenHidesThem() {
-        let lines = MailNotice.Lines(sender: "name", text: "hi")
-        XCTAssertNil(MailJob.shown(lines, previews: .always))
-        XCTAssertEqual(MailJob.shown(lines, previews: .whenAuthenticated), lines)
-        XCTAssertEqual(MailJob.shown(lines, previews: .never), lines)
+        let notice = ChatMailNotice(peerId: "peer", text: "hi")
+        let fixed = NSLocalizedString("notice.newMessage", comment: "")
+        let hidden = MailNotice.request(notice, authorization: .authorized, previews: .always) {
+            _ in
+            XCTFail("Always-visible previews must not resolve private names")
+            return "name"
+        }
+        XCTAssertEqual(hidden?.content.title, fixed)
+        XCTAssertEqual(hidden?.content.body, "")
+        for previews: UNShowPreviewsSetting in [.whenAuthenticated, .never] {
+            let shown = MailNotice.request(notice, authorization: .authorized, previews: previews) {
+                _ in "name"
+            }
+            XCTAssertEqual(shown?.content.title, "name")
+            XCTAssertEqual(shown?.content.body, "hi")
+        }
     }
 
     func testNoticeHoldsTheFixedTextWithoutLines() {

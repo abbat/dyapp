@@ -31,7 +31,7 @@ mod service;
 pub use like_submission::{ChatLikeAttempt, ChatLikeState};
 mod mail_pass;
 mod mailbox;
-pub use mail_pass::{ChatMailNotice, ChatMailPass};
+pub use mail_pass::{mail_notice_line, ChatMailNotice, ChatMailPass};
 mod media_cache;
 mod media_cache_control;
 pub use media_cache_control::{

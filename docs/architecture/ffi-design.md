@@ -631,7 +631,12 @@ the mail pass and produces no notice.
 Common `receive_with_notice(sticker_label)` captures/receives/projects under one native session and
 identity lifetime. `ChatMailPass.changed` retains receive's refresh count; optional `ChatMailNotice`
 carries only an admitted sender selector and plain bounded text. The sticker label is trusted local
-UI text supplied by the caller. Notification snapshot/preference/projection failures stay quiet and
+UI text supplied by the caller. iOS and Android consume this shared pass; Swift no longer counts
+unread/Like deltas or selects a message from old text history. Common `mail_notice_line(text)` renders
+a locally resolved sender label through core's existing 200-scalar/control-cleanup policy. Body text
+from the pass remains literal, including the trusted sticker label. iOS keeps its authorized-only
+posting and suppresses private name/text when OS previews are Always; those gates run before local
+name resolution. Notification snapshot/preference/projection failures stay quiet and
 never prevent mail work; network/mail failures keep receive's existing errors. Compatibility
 `receive()` uses the same mail routine without notice snapshots. One entry connection discovers a
 `ReplicaSet`; retry, mailbox/pack work and token refill use all of its connected holders, while
@@ -1523,7 +1528,8 @@ or returns constants.
 | | method | `chat_sticker_frame(peer_id: String, group_id: Vec<u8>, author: String, id: Vec<u8>, manual: bool) -> Result<ChatStickerFrame, CoreError>` | Full-key current-message retrieval through shared media snapshots. Authenticated local originals/saved packs precede network access; automatic download obeys core policy and the current OS report, while manual means an explicit tap. Returns actual dimensions and bounded RGBA8 only, with no compressed peer media or transport descriptor. Core revalidates current identity/content before completion/cache retention. Keep the UI generation guard after cancellation. Errors distinguish onTap, notFound, current-message refusals and network failure. |
 | | method | `chat_sticker_image(peer_id: String, group_id: Vec<u8>, author: String, id: Vec<u8>, manual: bool) -> Result<ChatStickerImage, CoreError>` | Same core read and lifetime as `chat_sticker_frame`, with typed `Ready { frame }`, `OnTap` and `Unavailable` outcomes. No error-string parsing for UI decisions; other current-message, validation and transport failures remain errors. |
 | | method | `chat_photo_auto(peer_id: String) -> Result<bool, CoreError>` | Whether full chat originals may load without a tap now: shared download setting, current platform network report and an open conversation are required. Strangers never auto-download, even with Always; blocked peers err `blocked`. Original retrieval uses the separate method below. |
-| | method | `receive_with_notice(sticker_label: String) -> Result<ChatMailPass, CoreError>` | Same mail work with core-admitted optional sender/plain body under one session owner; OS posting stays in the client. |
+| `mail_notice_line` | function | `(text: String) -> String` | Renders a local sender label using shared `mail_notices::Preview` bounds/control cleanup; no selection, storage or network access. |
+| `ChatSession` | method | `receive_with_notice(sticker_label: String) -> Result<ChatMailPass, CoreError>` | Same mail work with core-admitted optional sender/plain body under one session owner; OS posting stays in the client. |
 | | method | `receive() -> Result<u32, CoreError>` | Over the active network: resends due staged writes, applies this device's mailbox, runs bounded core pack responses/admitted downloads (completed saves add to refresh count) and refills tokens when due, then, best effort as on the desktop, keeps the last-resort key package and runs the daily photo keep refresh. Returns how many events changed a chat. Senders' profiles are fetched from the node on each call; an envelope whose owner has none there waits in the mailbox for the next call. |
 | | method | `chat_rows() -> Result<Vec<ChatRow>, CoreError>`, `chat_history(peer_id: String) -> Result<ChatHistory, CoreError>` | The local projection, no network. Rows leave out blocked peers; a history for a blocked peer errs `blocked`. Both carry `muted`. In a history, `read` on an own live text says the peer's read receipt covers it (the desktop rule); rows leave it false. |
 | `sticker_import_byte_limit` | function | `() -> u64` | Authoritative core picked-TAR byte bound; use it when reading an OS-selected stream. |

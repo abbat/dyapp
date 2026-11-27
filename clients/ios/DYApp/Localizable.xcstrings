@@ -2849,6 +2849,22 @@
         }
       }
     },
+    "notice.sticker": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sticker"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стикер"
+          }
+        }
+      }
+    },
     "notice.title": {
       "localizations": {
         "en": {
