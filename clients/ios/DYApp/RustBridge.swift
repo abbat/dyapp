@@ -276,10 +276,10 @@ enum RustBridge {
     static func profileSolveSession(for candidate: IdentityCandidate, peerId: String) throws
         -> ProfileSolveSession
     {
-        let key = try identityStore().open(candidate.location)
-        guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
-        let dir = networkDirectory(root: try directory(), candidate: candidate)
-        return ProfileSolveSession(solver: try ProfileSolve(dir: dir.path, key: key))
+        ProfileSolveSession(
+            solver: try ProfileSolve.forSlot(
+                registry: identityStore().registry, id: candidate.location.marker,
+                expectedPeer: peerId))
     }
 
     /// The Keychain account wrapping this identity's keys, as `identityStore` opens them.

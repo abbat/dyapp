@@ -176,9 +176,9 @@ struct ProfileProofControls: View {
         resetProofState()
         let selected = candidate
         let selectedPeer = peerId
-        let opened = await Task.detached(priority: .userInitiated) {
+        let opened = await IdentityIO.performBlocking {
             try? RustBridge.profileSolveSession(for: selected, peerId: selectedPeer)
-        }.value
+        }
         guard !Task.isCancelled else {
             opened?.cancel()
             isSolving = false

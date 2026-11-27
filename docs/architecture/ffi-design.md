@@ -371,8 +371,9 @@ before accessing its database and retains it through completion, including cance
 or replaced identity fails admission before storage access; retaining an idle handle cannot prevent
 selection or removal. The internal native admission adapter stores only coordinates and delegates
 all lifecycle/key checks to core `Registry.operation`. The explicit directory/key constructor is
-still unguarded for existing callers. Android proof steps use the bound factory; Apple adoption
-remains planned.
+still unguarded for existing callers. Android and iOS proof steps use the bound factory; iOS
+constructs the worker and runs each step on native IO, with draft serialization acquired before
+native admission. The wrapper remains alive through the actual step despite UI cancellation.
 
 `ConnectionCheck.for_slot` uses the same per-call admission for saving/checking a draft and
 activating a successful check. A retained checked result cannot write into a removed or replaced

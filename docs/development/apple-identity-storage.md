@@ -141,8 +141,9 @@ lease around chat bootstrap. Nonescaping profile draft, visibility, hide/withdra
 and photo-download policy reads use the opaque native identity operation through actual completion.
 Draft serialization is acquired before native admission, including publication through chats; a
 lease holder must not wait for that draft lock. Path-only network reads/writes now require the
-expected Peer ID and the same native operation. Photo mutation and escaped proof/search worker
-migration remain planned.
+expected Peer ID and the same native operation. Proof workers use `ProfileSolve.for_slot`; each
+actual step reacquires protection and cannot recreate a removed identity, while idle proof handles
+do not prevent switching or removal. Photo mutation and escaped search worker migration remain planned.
 The reserved `active-profile` value `none\n` means the user explicitly left no identity selected.
 Unlike an absent pointer, it opens the picker even if exactly one ready slot survives; an empty
 store still shows setup unless a legacy Keychain item is stranded. This marker is reserved for
