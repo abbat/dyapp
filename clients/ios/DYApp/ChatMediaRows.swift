@@ -108,7 +108,7 @@ private struct ReceivedStickerPack: View {
         Group { controls }
             .task(id: feed.version) {
                 guard !busy else { return }
-                await read()
+                await read(background: true)
             }
     }
 
@@ -149,14 +149,14 @@ private struct ReceivedStickerPack: View {
         }
     }
 
-    private func read() async {
+    private func read(background: Bool = false) async {
         let selector = source
         let result = await feed.call(context) {
             try $0.chatStickerPackStatus(
                 peerId: selector.peerId, groupId: selector.groupId, author: selector.author,
                 id: selector.messageId)
         }
-        guard !Task.isCancelled, feed.isCurrent(context) else { return }
+        guard !Task.isCancelled, feed.isCurrent(context), !background || !busy else { return }
         switch result {
         case let .success(current):
             status = current
@@ -171,6 +171,7 @@ private struct ReceivedStickerPack: View {
     private func update(_ action: StickerPackSaveAction?) {
         guard !busy, feed.isCurrent(context) else { return }
         busy = true
+        let version = feed.version
         let selector = source
         Task {
             if let action {
@@ -190,6 +191,7 @@ private struct ReceivedStickerPack: View {
             } else {
                 await read()
             }
+            if version != feed.version { await read() }
             busy = false
         }
     }
