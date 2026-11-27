@@ -443,15 +443,18 @@ private struct ChatBubble: View {
     }
 }
 
+@MainActor
 private struct ChatPhotoPreview: View {
     let bytes: Data
     @ObservedObject var feed: ChatFeed
+    @ObservedObject private var network = NetworkType.shared
     let opening: PhotoOpening
     @State private var image: Image?
+    @State private var original: Image?
 
     var body: some View {
         Group {
-            if let image {
+            if let image = original ?? image {
                 image.resizable().scaledToFit().frame(maxWidth: 120, maxHeight: 120)
                     .accessibilityHidden(true)
             }
@@ -466,12 +469,15 @@ private struct ChatPhotoPreview: View {
                 guard !Task.isCancelled, feed.isCurrent(opening.context) else { return }
                 image = decoded.image
             }
+        }
+        .task(id: network.metered) {
+            guard original == nil else { return }
             let peer = opening.source.peerId
             let policy = await feed.call(opening.context) { try $0.chatPhotoAuto(peerId: peer) }
             guard !Task.isCancelled, case .success(true) = policy else { return }
-            if let original = await loadChatPhoto(feed: feed, opening: opening) {
-                image = original
-            }
+            let loaded = await loadChatPhoto(feed: feed, opening: opening)
+            guard !Task.isCancelled else { return }
+            original = loaded
         }
     }
 }

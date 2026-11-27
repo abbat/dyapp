@@ -2,6 +2,7 @@ import SwiftUI
 
 /// Main app entry point for DYApp iOS
 @main
+@MainActor
 struct DYAppApp: App {
     @Environment(\.scenePhase) private var phase
     @StateObject private var identities = IdentitySession()

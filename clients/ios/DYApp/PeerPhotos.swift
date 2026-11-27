@@ -5,8 +5,17 @@ import UniformTypeIdentifiers
 
 /// Tells the core whether this connection costs money, at launch and on every change, so full
 /// images load by themselves only where that is free. Until the first report it counts as metered.
-enum NetworkType {
+@MainActor
+final class NetworkType: ObservableObject {
+    static let shared = NetworkType()
+    @Published private(set) var metered = true
     private static let monitor = NWPathMonitor()
+
+    private func report(metered: Bool) {
+        guard self.metered != metered else { return }
+        setNetworkMetered(metered: metered)
+        self.metered = metered
+    }
 
     static func startReporting() {
         #if DEBUG
@@ -14,12 +23,13 @@ enum NetworkType {
             let arguments = ProcessInfo.processInfo.arguments
             if arguments.contains("--ui-test-metered-network") { return }
             if arguments.contains("--ui-test-unmetered-network") {
-                setNetworkMetered(metered: false)
+                shared.report(metered: false)
                 return
             }
         #endif
         monitor.pathUpdateHandler = { path in
-            setNetworkMetered(metered: path.isExpensive || path.isConstrained)
+            let metered = path.status != .satisfied || path.isExpensive || path.isConstrained
+            Task { @MainActor in shared.report(metered: metered) }
         }
         monitor.start(queue: DispatchQueue(label: "com.dyapp.network-type"))
     }

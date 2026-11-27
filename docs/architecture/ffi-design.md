@@ -709,7 +709,8 @@ renders the common ordered history with photo placeholders and a forwarded label
 same destination picker for text and photos. Explicit photo loading opens a viewer for the
 core-validated JPEG or PNG and bounds display decoding to 2048 px on the long side. In-thread
 previews use the shared bounded JPEG decoder on existing history bytes in open chats. Those rows
-check `chat_photo_auto` before requesting an original. Other chats present an explicit load action.
+check `chat_photo_auto` before requesting an original and recheck after network cost changes. Other
+chats present an explicit load action.
 
 Desktop text, edit, delete, photo and forward commands project the same core `Submission` as
 `{ id, queued }`: `queued: null` means immediate node acceptance; a string means committed with
