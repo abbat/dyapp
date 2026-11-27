@@ -104,6 +104,14 @@ private struct ReceivedStickerPack: View {
     @State private var failed = false
 
     var body: some View {
+        Group { controls }
+            .task(id: feed.version) {
+                guard !busy else { return }
+                await read()
+            }
+    }
+
+    @ViewBuilder private var controls: some View {
         if let status, status.controls.contains(.request) {
             Button("sticker.pack.request") { update(.request) }.disabled(busy)
         }
@@ -123,9 +131,6 @@ private struct ReceivedStickerPack: View {
         if failed || status?.controls.contains(.refresh) == true {
             Button("search.retry") { update(nil) }.disabled(busy)
         }
-        if status == nil, !failed {
-            Color.clear.frame(height: 0).task { await read() }
-        }
     }
 
     private func read() async {
@@ -135,7 +140,7 @@ private struct ReceivedStickerPack: View {
                 peerId: selector.peerId, groupId: selector.groupId, author: selector.author,
                 id: selector.messageId)
         }
-        guard feed.isCurrent(context) else { return }
+        guard !Task.isCancelled, feed.isCurrent(context) else { return }
         switch result {
         case let .success(current):
             status = current
