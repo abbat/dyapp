@@ -31,8 +31,9 @@ struct LinkReceiveSection: View {
                     .disabled(busy)
                     .accessibilityIdentifier("link-receive-check")
                 Button("search.cancel") {
-                    _ = invitation.receiver.cancel()
-                    self.invitation = nil
+                    if invitation.receiver.cancel() == .cancelled {
+                        self.invitation = nil
+                    }
                 }
                 .accessibilityIdentifier("link-receive-cancel")
             } else {
