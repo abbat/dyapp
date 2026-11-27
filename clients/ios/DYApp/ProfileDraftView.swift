@@ -161,6 +161,7 @@ struct ProfileDraftView: View {
     @State private var readFailed = false
     @State private var isLoading = true
     @State private var loadedIdentity: String?
+    @State private var saveTicket: UUID?
     @State private var isSaving = false
     @State private var hasSavedDraft = false
     @State private var confirmedAdult = false
@@ -287,7 +288,6 @@ struct ProfileDraftView: View {
         if !confirmedPublic { return "profile.confirmPublicRequired" }
         return "profile.eligible"
     }
-
 }
 
 extension ProfileDraftView {
@@ -314,6 +314,7 @@ extension ProfileDraftView {
 
     @MainActor
     private func load() async {
+        (saveTicket, isSaving) = (nil, false)
         resetFields()
         invalidateConsent()
         let selected = candidate
@@ -372,8 +373,8 @@ extension ProfileDraftView {
                 into: ProfileDraft(values: birth.inserted(into: values), country: country))
             let selected = candidate
             let selectedPeer = peerId
-            status = ""
-            isSaving = true
+            let ticket = UUID()
+            (saveTicket, status, isSaving) = (ticket, "", true)
             let refusal = await IdentityIO.performBlocking { () -> String? in
                 do {
                     try RustBridge.storeProfileDraft(
@@ -383,11 +384,10 @@ extension ProfileDraftView {
                     return profileSaveStatus(error)
                 }
             }
-            isSaving = false
-            guard !Task.isCancelled else { return }
+            guard saveTicket == ticket else { return }
+            (saveTicket, isSaving) = (nil, false)
             status = refusal ?? "profile.saved"
             if refusal == nil {
-                // Saving trims the text and clears the choices the not-looking switch disables.
                 extras = ProfileExtraInputs(draft: draft)
                 savedExtras = extras
                 hasSavedDraft = true
