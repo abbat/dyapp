@@ -45,6 +45,26 @@ final class PhotoPrepTests: XCTestCase {
         XCTAssertTrue((115...140).contains(pixels[2]))
     }
 
+    func testExifRotationIsAppliedBeforeSharedEncoding() throws {
+        let png = try PhotoPrep.samplePNG(width: 3_000, height: 1_000, red: 1, alpha: 1)
+        let source = try XCTUnwrap(CGImageSourceCreateWithData(png as CFData, nil))
+        let image = try XCTUnwrap(CGImageSourceCreateImageAtIndex(source, 0, nil))
+        let bytes = NSMutableData()
+        let target = try XCTUnwrap(
+            CGImageDestinationCreateWithData(bytes as CFMutableData, "public.jpeg" as CFString, 1, nil))
+        CGImageDestinationAddImage(
+            target, image, [kCGImagePropertyOrientation: 6] as CFDictionary)
+        XCTAssertTrue(CGImageDestinationFinalize(target))
+
+        let photo = try PhotoPrep.prepare(bytes as Data, purpose: .chat)
+        XCTAssertEqual(photo.height, 2_560)
+        XCTAssertGreaterThan(photo.height, photo.width)
+        let upright = try XCTUnwrap(CGImageSourceCreateWithData(photo.full as CFData, nil))
+        let output = try XCTUnwrap(CGImageSourceCreateImageAtIndex(upright, 0, nil))
+        XCTAssertEqual(output.width, Int(photo.width))
+        XCTAssertEqual(output.height, Int(photo.height))
+    }
+
     func testAFullPeerPhotoMustBeAJpeg() throws {
         let png = try PhotoPrep.samplePNG(width: 8, height: 8, red: 1, alpha: 1)
         XCTAssertNil(fullPhotoImage(png))
