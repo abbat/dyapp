@@ -1,4 +1,5 @@
 @testable import DYApp
+import ImageIO
 import XCTest
 
 final class PhotoPrepTests: XCTestCase {
@@ -25,6 +26,12 @@ final class PhotoPrepTests: XCTestCase {
         let photo = try PhotoPrep.prepare(png)
         XCTAssertEqual(photo.full.prefix(2), Data([0xFF, 0xD8]))
         XCTAssertNil(photo.full.range(of: Data("Exif".utf8)))
+        let source = try XCTUnwrap(CGImageSourceCreateWithData(photo.full as CFData, nil))
+        let metadata = try XCTUnwrap(
+            CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any])
+        XCTAssertEqual(metadata[kCGImagePropertyPixelWidth as String] as? Int, Int(photo.width))
+        XCTAssertEqual(metadata[kCGImagePropertyPixelHeight as String] as? Int, Int(photo.height))
+        XCTAssertLessThan(Int(photo.width), 3_000)
         XCTAssertEqual(try checkPreview(bytes: photo.thumbnail).width, 320)
     }
 
