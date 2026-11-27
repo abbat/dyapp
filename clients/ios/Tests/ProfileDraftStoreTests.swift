@@ -86,7 +86,8 @@ final class ProfileDraftStoreTests: XCTestCase {
 
         saved.interests = []
         try store.save(saved)
-        XCTAssertEqual(try store.load()?.interests, [])
+        XCTAssertTrue(try XCTUnwrap(store.load()).interests == nil)
+        saved.interests = nil
 
         var refused = saved
         for (change, status) in [

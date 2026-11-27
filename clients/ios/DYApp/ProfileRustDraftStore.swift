@@ -90,7 +90,7 @@ struct ProfileRustDraftStore {
             seeking: ProfileSeeking(
                 genders: draft.seekingGenders, ageFrom: draft.seekingAgeFrom,
                 ageTo: draft.seekingAgeTo, notLooking: draft.notLooking),
-            interests: draft.interests
+            interests: draft.interests.flatMap { $0.isEmpty ? nil : $0 }
         )
     }
 
