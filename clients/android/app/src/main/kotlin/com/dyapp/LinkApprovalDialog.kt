@@ -21,6 +21,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
@@ -78,13 +80,16 @@ private fun LinkApprovalInput(
     viewportHeight: Dp
 ) {
     Text(stringResource(R.string.owner_intro))
+    val codeLabel = stringResource(R.string.owner_code_label)
+    Text(codeLabel)
     OutlinedTextField(
         draft.value,
         { text -> if (!session.state.value.busy && !session.state.value.retired) draft.value = text },
         // The real IME and font scale can leave less room than four intrinsic text lines.
-        Modifier.fillMaxWidth().heightIn(max = viewportHeight).testTag("owner-code-input"),
+        Modifier.fillMaxWidth().heightIn(max = viewportHeight)
+            .semantics { contentDescription = codeLabel }
+            .testTag("owner-code-input"),
         enabled = !view.busy && !view.retired,
-        label = { Text(stringResource(R.string.owner_code_label)) },
         minLines = 4,
         maxLines = 4
     )
