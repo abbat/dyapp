@@ -68,7 +68,7 @@ struct PhotoDownloadSection: View {
                 }
                 .disabled(busy)
                 .accessibilityIdentifier("photo-download-policy")
-                Text("photos.hint").font(.caption)
+                Text("photos.retention").font(.caption)
             }
             if failed {
                 Text("profile.photoFailed").font(.caption)
