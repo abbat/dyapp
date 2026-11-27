@@ -16,8 +16,8 @@ struct ChatView: View {
     let back: () -> Void
     /// The block held, so the chat is gone.
     let blocked: () -> Void
-    @State private var history: ChatHistory?
-    @State private var items: [ChatItem] = []
+    @State private var history: ChatThread?
+    private var items: [ChatItem] { history?.items ?? [] }
     @StateObject private var composer = ChatComposer()
     @State private var deleting: ChatMessage?
     @State private var forwarding: ForwardOpening?
@@ -29,7 +29,12 @@ struct ChatView: View {
     /// A clear, mute or block is running.
     @State private var busy = false
 
-    private var messages: [ChatMessage] { history?.messages ?? [] }
+    private var messages: [ChatMessage] {
+        items.compactMap { item in
+            guard case .text(let message) = item else { return nil }
+            return message
+        }
+    }
     private var sending: Bool { composer.sending }
     private var editing: Data? { composer.editing }
 
@@ -277,15 +282,12 @@ struct ChatView: View {
         guard let context = feed.context else { return }
         let opening = composer.opening
         let peer = peer
-        let result = await feed.call(context) {
-            (try $0.chatHistory(peerId: peer), try $0.chatItems(peerId: peer))
-        }
+        let result = await feed.call(context) { try $0.chatThread(peerId: peer) }
         guard !Task.isCancelled, feed.isCurrent(context), composer.opening == opening else {
             return
         }
         switch result {
-        case let .success((loaded, rows)):
-            items = rows
+        case let .success(loaded):
             if history == nil { composer.status = nil }
             history = loaded
             await feed.markRead(peer, in: context)

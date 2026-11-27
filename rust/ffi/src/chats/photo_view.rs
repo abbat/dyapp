@@ -27,6 +27,17 @@ pub enum ChatItem {
 use dyapp_client::attachment::layout_size;
 use dyapp_client::store::messages::ChatAttachment;
 
+/// Conversation state and ordered history read together.
+#[derive(Debug, uniffi::Record)]
+pub struct ChatThread {
+    /// Current conversation state.
+    pub state: super::ChatState,
+    /// Local notification mute preference.
+    pub muted: bool,
+    /// Ordered projected text, photo and sticker metadata.
+    pub items: Vec<ChatItem>,
+}
+
 /// A stored photo message, without encryption keys, release secrets or fetch descriptors.
 #[derive(Clone, Debug, PartialEq, Eq, uniffi::Record)]
 pub struct ChatPhoto {

@@ -49,7 +49,7 @@ pub use media_cache::ChatMediaCache;
 pub use photo_settings::ChatPhotoDownload;
 mod photo_view;
 mod photos;
-pub use photo_view::{ChatItem, ChatPhoto};
+pub use photo_view::{ChatItem, ChatPhoto, ChatThread};
 mod sticker_collection;
 mod sticker_delete;
 pub use sticker_collection::{SavedStickerPackEntry, SavedStickerPackPage, SavedStickerPackState};

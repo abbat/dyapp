@@ -22,11 +22,19 @@ impl ChatSession {
     ///
     /// Returns an error for a blocked peer or inconsistent history projection, or if session
     /// locking, stored history or read-mark lookup fails.
+    pub fn chat_items(&self, peer_id: String) -> Result<Vec<super::ChatItem>, CoreError> {
+        self.chat_thread(peer_id).map(|thread| thread.items)
+    }
+
+    /// Read conversation state and ordered items under one native session lock.
+    ///
+    /// # Errors
+    /// Returns the same read and admission errors as the history methods.
     #[expect(
         clippy::needless_pass_by_value,
         reason = "UniFFI lifts owned arguments across the native language boundary"
     )]
-    pub fn chat_items(&self, peer_id: String) -> Result<Vec<super::ChatItem>, CoreError> {
+    pub fn chat_thread(&self, peer_id: String) -> Result<super::ChatThread, CoreError> {
         use super::ChatItem;
         use dyapp_client::store::messages::ChatItem as Stored;
         let session = self.session.lock().map_err(failed)?;
@@ -66,7 +74,11 @@ impl ChatSession {
                     .ok_or_else(|| failed("history projection mismatch"))?;
             }
         }
-        Ok(items)
+        Ok(super::ChatThread {
+            state: store.conversation(&peer_id).map_err(failed)?.into(),
+            muted: store.muted(&peer_id).map_err(failed)?,
+            items,
+        })
     }
 
     /// Safe metadata in core history order, without downloading any original.
