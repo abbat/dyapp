@@ -61,6 +61,8 @@ class IosEvidence(unittest.TestCase):
             manifest.write_text(json.dumps([{"attachments": attachments}]))
             digests = APPLE.validate_ios_attachments(directory, "en")
             self.assertEqual(set(digests), {"0.png", "0.txt", "1.png", "1.txt"})
+            with self.assertRaisesRegex(RuntimeError, "ios-profile-share-ru-eligible-target"):
+                APPLE.validate_ios_attachments(directory, "ru")
             attachments[2]["suggestedHumanReadableName"] = "unrelated.png"
             manifest.write_text(json.dumps([{"attachments": attachments}]))
             with self.assertRaisesRegex(RuntimeError, "ios-profile-share-en-sent"):
