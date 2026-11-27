@@ -86,8 +86,25 @@ case "${1:?suite required}" in
         # The UI container forges this index after the suite, so it lives on the shared volume.
         rm -rf /reports/node && mkdir -p /reports/node
         # Only the worker lane requests a production-proof key; test traffic always uses 8.
-        DYAPPD_NETWORK_ID_POW_BITS="${DYAPP_TEST_NODE_KEY_ID_POW_BITS:-8}" \
-            /app/build/debug/dyappd keygen > /reports/node/keygen.log 2>&1
+        proof_bits="${DYAPP_TEST_NODE_KEY_ID_POW_BITS:-8}"
+        if [[ "$proof_bits" == 22 ]]; then
+            fixture=/app/tests/fixtures/android-worker-node
+            read -r fixture_sha _ < "$fixture/key.sha256"
+            mkdir -m 700 /reports/node/storage
+            export DYAPPD_STORAGE_KEY=/reports/node/storage/node.key
+            python3 -B /app/tests/scripts/android_node_fixture.py \
+                --source "$fixture/node.key" --destination /reports/node/storage/node.key \
+                --sha256 "$fixture_sha"
+            # A present, pinned key forces the native recovery path, never random proof search.
+            DYAPPD_NETWORK_ID_POW_BITS=22 /app/build/debug/dyappd keygen \
+                > /reports/node/keygen.log 2>&1
+            DYAPPD_NETWORK_ID_POW_BITS=22 /app/build/debug/dyappd probe-key \
+                > /reports/node/probe-key.txt
+            [[ "$(cat /reports/node/probe-key.txt)" == "$(cat "$fixture/node.id")" ]]
+        else
+            DYAPPD_NETWORK_ID_POW_BITS="$proof_bits" \
+                /app/build/debug/dyappd keygen > /reports/node/keygen.log 2>&1
+        fi
         control=/app/tests/scripts/android-node-control.sh
         bash "$control" init /reports/node
         bash "$control" serve /reports/node /app/build/debug/dyappd &

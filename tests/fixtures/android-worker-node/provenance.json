@@ -1,0 +1,15 @@
+{
+  "purpose": "PUBLIC TEST CREDENTIAL: never use for real nodes or user data",
+  "generator_run": 45969801434,
+  "generator_source": "8d234035680ef1479cc65bd8cd2546ae822eb50a",
+  "producer_run": 45960133753,
+  "producer_source": "8d234035680ef1479cc65bd8cd2546ae822eb50a",
+  "producer_artifact": 15180789621,
+  "producer_artifact_sha256": "8aac65cd2964a3c158fefaac217033c989a6dbb6458285e4cb41678df335ff4c",
+  "producer_binary_sha256": "0b130b80c1097939072ee9bdf8529604611d3412b59aa43aebfd67c0d16cbcc5",
+  "key_sha256": "9de81f7147d618724f40ee03db5d9e6753e2d0b16159bb65974e4864ca569181",
+  "required_proof_bits": 22,
+  "peer_id": "12D3KooWP6DpVnjuHEqThGhEY245cnJFBZz767RCp2mB3a6TemKu",
+  "validation": "Producer dyappd keygen and probe-key with proof=22 returned the same stored node.id",
+  "generator_url": "https://github.com/abbat/dyapp/actions/runs/45969801434"
+}

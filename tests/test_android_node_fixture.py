@@ -2,6 +2,7 @@
 
 from hashlib import sha256
 import importlib.util
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -86,6 +87,23 @@ class NodeFixtureTests(unittest.TestCase):
             again = subprocess.run(command, capture_output=True, check=False)
             self.assertNotEqual(again.returncode, 0)
             self.assertEqual(destination.read_bytes(), source.read_bytes())
+
+    def test_checked_in_fixture_and_provenance_are_complete(self) -> None:
+        fixture = Path(__file__).parent / "fixtures" / "android-worker-node"
+        provenance = json.loads((fixture / "provenance.json").read_text())
+        digest = (fixture / "key.sha256").read_text().split()[0]
+        self.assertEqual(digest, provenance["key_sha256"])
+        self.assertEqual(
+            (fixture / "node.id").read_text().strip(), provenance["peer_id"]
+        )
+        self.assertEqual(provenance["required_proof_bits"], 22)
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / "node.key"
+            MODULE.install(fixture / "node.key", destination, digest)
+            self.assertEqual(
+                destination.read_bytes(), (fixture / "node.key").read_bytes()
+            )
+            self.assertEqual(destination.stat().st_mode & 0o777, 0o600)
 
     def test_missing_fixture_never_creates_destination(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

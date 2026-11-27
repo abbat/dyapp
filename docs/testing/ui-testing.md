@@ -38,15 +38,21 @@ with 22-bit node proof, verifies it using production `probe-key`, and uploads it
 the generated Peer ID. The artifact retains producer metadata, generator source/run and binary/key
 SHA-256 receipts. Invoke it with `gh workflow run android-node-fixture.yml -f producer_run=RUN`.
 This provisioning workflow builds no APK and starts no emulator. Never use its public credential
-for real nodes or user data. Normal emulator startup still generates a key until the verified
-fixture is integrated; creating this workflow alone does not fix that startup wait.
-The prepared `android_node_fixture.install` helper accepts only bounded regular-file bytes matching
-a pinned SHA-256, creates the destination exclusively with mode `0600`, and never generates keys.
-Its refusal tests cover altered/missing/empty/oversized input and source/destination symlinks.
-The equivalent CLI is `python3 -B tests/scripts/android_node_fixture.py --source FILE --destination FILE --sha256 DIGEST`;
-a nonzero exit stops startup, with no fallback generation. Existing destinations are never replaced.
-Runtime wiring and production proof/Peer ID validation remain pending verified provisioning output;
-installer unit tests alone do not establish cryptographic proof or emulator acceptance.
+for real nodes or user data. Before provisioning again, inspect successful trusted Android runtime
+artifacts: they may already retain an isolated test-node credential with sufficient proof.
+The worker emulator lane installs `tests/fixtures/android-worker-node/node.key` into fresh `0700`
+storage using its pinned SHA-256 and exclusive `0600` destination. This deliberately public fixture's
+`provenance.json` records its generator, producer, binary hash and required 22-bit proof.
+Production `dyappd keygen` recovers the installed key, validates that proof and writes its node ID;
+`probe-key` revalidates the key and binding, and startup requires the pinned public ID. Missing,
+altered or invalid data fails startup without fallback random proof search. Other emulator lanes
+retain their existing lightweight generation policy; worker runtime traffic still uses 8-bit proof.
+The `android_node_fixture.install` helper accepts only bounded regular-file bytes matching
+the pinned SHA-256. Its refusal tests cover altered/missing/empty/oversized input and source/destination
+symlinks. The equivalent CLI is
+`python3 -B tests/scripts/android_node_fixture.py --source FILE --destination FILE --sha256 DIGEST`;
+a nonzero exit stops startup. Existing destinations are never replaced. Installer unit tests alone
+do not establish native cryptographic proof or actual emulator acceptance.
 
 `ChatLinkHostsTests` renders actual message bubbles through the shared JNI URL projection. EN/RU
 captions retain ASCII/Punycode, nondefault ports and first-occurrence deduplication, exclude misleading
