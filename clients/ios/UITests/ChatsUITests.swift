@@ -120,6 +120,23 @@ final class ChatsUITests: XCTestCase {
         assertProfileShare(language: "en", locale: "en_US", sentLabel: "Profile sent.")
     }
 
+    func testReceivedViewsInitiallyEmptyAndSendingDisabled() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)"]
+        app.launch()
+        createIdentity(app)
+        connectLocalNode(app)
+        XCTAssertTrue(app.buttons["profile-preview"].waitForExistence(timeout: 30))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        reveal(app.buttons["settings-open"], in: app).tap()
+        let preference = reveal(app.switches["send-profile-views"], in: app)
+        guard ready(preference) else { return }
+        XCTAssertEqual(preference.value as? String, "0")
+        reveal(app.buttons["settings-received-views"], in: app).tap()
+        let empty = app.staticTexts["received-views-empty"]
+        XCTAssertTrue(empty.waitForExistence(timeout: 30))
+    }
+
     func testSharedProfileInRussian() {
         assertProfileShare(language: "ru", locale: "ru_RU", sentLabel: "Профиль отправлен.")
     }
