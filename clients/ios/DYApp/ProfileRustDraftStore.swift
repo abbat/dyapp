@@ -9,6 +9,7 @@ struct ProfileDraft: Equatable, Sendable {
     var height: UInt32?
     var about = ""
     var seeking = ProfileSeeking()
+    var interests: [String]?
 }
 
 /// Moves the current identity's JSON draft into the shared Rust store without erasing the source.
@@ -52,7 +53,8 @@ struct ProfileRustDraftStore {
             seekingGenders: draft.seeking.genders,
             seekingAgeFrom: draft.seeking.ageFrom,
             seekingAgeTo: draft.seeking.ageTo,
-            notLooking: draft.seeking.notLooking
+            notLooking: draft.seeking.notLooking,
+            interests: draft.interests
         )
     }
 
@@ -87,7 +89,8 @@ struct ProfileRustDraftStore {
             about: draft.about,
             seeking: ProfileSeeking(
                 genders: draft.seekingGenders, ageFrom: draft.seekingAgeFrom,
-                ageTo: draft.seekingAgeTo, notLooking: draft.notLooking)
+                ageTo: draft.seekingAgeTo, notLooking: draft.notLooking),
+            interests: draft.interests
         )
     }
 
