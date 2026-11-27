@@ -13,7 +13,9 @@ private struct LinkCameraScanner: UIViewControllerRepresentable {
             recognizedDataTypes: [.barcode(symbologies: [.qr])],
             recognizesMultipleItems: false)
         scanner.delegate = context.coordinator
-        if (try? scanner.startScanning()) == nil {
+        do {
+            try scanner.startScanning()
+        } catch {
             Task { @MainActor in unavailable() }
         }
         return scanner
