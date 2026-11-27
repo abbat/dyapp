@@ -1686,6 +1686,9 @@ from foreign code. Rust turns it, and anything else the app throws, into
   setup or private content. Each result belongs to its initiating model/operation, so a disposed
   model cannot publish a late read. Mutations read back the core mode even when they throw;
   cancellation is not evidence that a storage write rolled back.
+  The iOS `ChatComposer` presentation owner uses opening, text and edit revisions to consume only
+  an exact submitted draft after Accepted/Queued. Its transition tests are implemented; wiring the
+  native chat screen and captured feed identity into this owner remains planned.
 
 ## Security boundary
 

@@ -18,6 +18,9 @@ The iOS `AppLockReadinessTests` hold real native storage reads behind explicit e
 signals. They verify protected loading, read failure and Retry on the same handle, confirmed
 absence/off, and disposal before completion. XCTest callbacks end each wait immediately;
 independent failure deadlines bound a broken transition without adding successful-test delays.
+The iOS `ChatComposerTests` deliver typed Accepted/Queued/failure completions directly to the
+presentation owner. They exercise text revisions (including change-and-back), successor edits,
+held drafts, retired openings and missing/deleted/rotated targets without a clock or scheduler.
 Fresh-identity chat and receive fixtures use an owned `NativeSlotFixture` storage context;
 `skipNetworkEntry` alone reuses existing device identities and cannot establish empty storage.
 The chat empty-state test checks its native registry and chat rows, retains the no-badge assertion,
