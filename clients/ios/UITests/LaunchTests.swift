@@ -34,7 +34,7 @@ final class LaunchTests: XCTestCase {
         XCTAssertTrue(receive.waitForExistence(timeout: 10))
         receive.tap()
         XCTAssertTrue(app.buttons["network-save"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["peer-id"].waitForExistence(timeout: 10))
+        let peerID = shownPeerId(app)
         let start = app.buttons["link-receive-start"]
         XCTAssertFalse(start.exists)
         let seeds = reveal(app.textViews["network-bootstrap"], in: app)
@@ -62,6 +62,10 @@ final class LaunchTests: XCTestCase {
         XCTAssertTrue(code.waitForExistence(timeout: 10))
         XCTAssertFalse(code.label.isEmpty)
         XCTAssertNotEqual(code.label, firstCode)
+        reveal(app.buttons["link-receive-exit"], in: app).tap()
+        XCTAssertTrue(app.staticTexts["app-ready"].waitForExistence(timeout: 10))
+        XCTAssertEqual(shownPeerId(app), peerID)
+        XCTAssertFalse(code.exists)
     }
 
     /// The stored identity key survives a restart: the second launch unwraps the same peer ID.
