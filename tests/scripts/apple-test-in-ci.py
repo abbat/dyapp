@@ -181,6 +181,38 @@ def keep_log(
             output.write("log show timed out\n")
 
 
+def export_ios_evidence(reports: Path, result_bundle: Path, apps: list[Path], destination: str) -> None:
+    attachments = reports / "attachments"
+    run(
+        [
+            "xcrun",
+            "xcresulttool",
+            "export",
+            "attachments",
+            "--path",
+            str(result_bundle),
+            "--output-path",
+            str(attachments),
+            "--test-id",
+            "ChatsUITests/testSharedProfileOpensFromItsCardAndSharesToAChat()",
+        ],
+        reports / "attachments.log",
+    )
+    if not (attachments / "manifest.json").is_file():
+        raise RuntimeError("Missing iOS attachment manifest")
+    if len(list(attachments.glob("*.png"))) < 2:
+        raise RuntimeError("Missing iOS profile sharing screenshots in exported attachments")
+    binaries = [app / "DYApp" for app in apps if app.parent.name.endswith("-iphonesimulator")]
+    if len(binaries) != 1:
+        raise RuntimeError("Expected one tested iOS simulator application")
+    with binaries[0].open("rb") as binary:
+        binary_sha256 = hashlib.file_digest(binary, "sha256").hexdigest()
+    source = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    (attachments / "provenance.json").write_text(
+        json.dumps({"source": source, "binary_sha256": binary_sha256, "destination": destination})
+    )
+
+
 def main() -> None:
     if os.environ.get("GITHUB_ACTIONS") != "true":
         raise RuntimeError("Native Apple tests require approved macOS CI")
@@ -349,31 +381,7 @@ def main() -> None:
         json.dumps([str(path) for path in apps])
     )
     if platform == "ios":
-        attachments = reports / "attachments"
-        run(
-            [
-                "xcrun",
-                "xcresulttool",
-                "export",
-                "attachments",
-                "--path",
-                str(result_bundle),
-                "--output-path",
-                str(attachments),
-                "--test-id",
-                "ChatsUITests/testSharedProfileOpensFromItsCardAndSharesToAChat()",
-            ],
-            reports / "attachments.log",
-        )
-        binaries = [app / "DYApp" for app in apps if app.parent.name.endswith("-iphonesimulator")]
-        if len(binaries) != 1:
-            raise RuntimeError("Expected one tested iOS simulator application")
-        with binaries[0].open("rb") as binary:
-            binary_sha256 = hashlib.file_digest(binary, "sha256").hexdigest()
-        source = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-        (attachments / "provenance.json").write_text(
-            json.dumps({"source": source, "binary_sha256": binary_sha256, "destination": destination})
-        )
+        export_ios_evidence(reports, result_bundle, apps, destination)
     print(f"{platform}: application artifacts and native tests verified")
 
 
