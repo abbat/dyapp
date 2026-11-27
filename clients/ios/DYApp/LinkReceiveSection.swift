@@ -2,6 +2,7 @@ import SwiftUI
 
 @MainActor
 struct LinkReceiveSection: View {
+    @Environment(\.displayScale) private var displayScale
     @ObservedObject var feed: ChatFeed
     let installed: () -> Void
     @State private var invitation: Invitation?
@@ -48,11 +49,20 @@ struct LinkReceiveSection: View {
     private func qr(_ matrix: MobileQrMatrix) -> some View {
         Canvas { context, size in
             let side = Int(matrix.size)
-            let step = min(size.width, size.height) / CGFloat(side + 8)
+            guard side > 0 else { return }
+            let total = CGFloat(side + 8)
+            let pixels = (min(size.width, size.height) * displayScale / total).rounded(.down)
+            guard pixels >= 1 else { return }
+            let step = pixels / displayScale
+            let left = ((size.width - total * step) * displayScale / 2).rounded(.down)
+                / displayScale
+            let top = ((size.height - total * step) * displayScale / 2).rounded(.down)
+                / displayScale
             var path = Path()
             for (index, dark) in matrix.modules.enumerated() where dark {
                 path.addRect(CGRect(
-                    x: CGFloat(index % side + 4) * step, y: CGFloat(index / side + 4) * step,
+                    x: left + CGFloat(index % side + 4) * step,
+                    y: top + CGFloat(index / side + 4) * step,
                     width: step, height: step))
             }
             context.fill(path, with: .color(.black))
