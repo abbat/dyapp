@@ -53,7 +53,7 @@ struct ChatView: View {
             }
             statusLines
             composerInput
-            if chatWritable(history?.state), let context = feed.context {
+            if history?.state == .open, let context = feed.context {
                 ChatPhotoComposer(feed: feed, peer: peer, context: context, disabled: busy || sending)
             }
         }
