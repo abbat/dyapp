@@ -644,6 +644,7 @@
     "desktop.photos.cache.saving": {"arguments": {}, "bindings": {"desktop": {"photos.cache.saving": {}}}, "context": "Platform wording/context: desktop:photos.cache.saving"},
     "desktop.photos.cache.title": {"arguments": {}, "bindings": {"desktop": {"photos.cache.title": {}}}, "context": "Platform wording/context: desktop:photos.cache.title"},
     "desktop.photos.cache.used": {"arguments": {}, "bindings": {"desktop": {"photos.cache.used": {}}}, "context": "Platform wording/context: desktop:photos.cache.used"},
+    "apple.devices.code.photo": {"arguments": {}, "bindings": {"apple": {"devices.code.photo": {}}}, "context": "Read device-link QR from a selected photo"},
     "apple.photos.retention": {"arguments": {}, "bindings": {"apple": {"photos.retention": {}}}, "context": "iOS original retention"},
     "desktop.photos.hint": {"arguments": {}, "bindings": {"desktop": {"photos.hint": {}}}, "context": "Platform wording/context: desktop:photos.hint"},
     "desktop.photos.keep": {"arguments": {}, "bindings": {"desktop": {"photos.keep": {}}}, "context": "Platform wording/context: desktop:photos.keep"},

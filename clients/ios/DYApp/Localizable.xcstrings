@@ -1153,6 +1153,22 @@
         }
       }
     },
+    "devices.code.photo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a QR image"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрать изображение QR-кода"
+          }
+        }
+      }
+    },
     "devices.confirm.action": {
       "localizations": {
         "en": {

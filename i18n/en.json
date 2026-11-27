@@ -637,6 +637,7 @@
   "desktop.photos.cache.saving": "Updating cache…",
   "desktop.photos.cache.title": "Opened media cache",
   "desktop.photos.cache.used": "Used:",
+  "apple.devices.code.photo": "Choose a QR image",
   "apple.photos.retention": "Originals from people you have not accepted download only on request. Nodes usually keep originals for 7 days. After that, only the preview may remain.",
   "desktop.photos.hint": "Originals from people you have not accepted download only on request. Nodes keep an original for 7 days, then only its preview remains. Originals you open stay on this computer, encrypted, past those 7 days; at the limit the longest unopened go first. Clear chat erases them. Full photos in a profile follow the same choice.",
   "desktop.photos.keep": "Keep opened originals on this computer",
