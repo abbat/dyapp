@@ -27,6 +27,17 @@ final class LaunchTests: XCTestCase {
         XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
     }
 
+    func testFirstRunReceiveOpensNetworkSetup() {
+        let app = unlockedApp()
+        app.launch()
+        let receive = app.buttons["identity-receive"]
+        XCTAssertTrue(receive.waitForExistence(timeout: 10))
+        receive.tap()
+        XCTAssertTrue(app.buttons["network-save"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["peer-id"].exists)
+        XCTAssertFalse(app.buttons["link-receive-start"].exists)
+    }
+
     /// The stored identity key survives a restart: the second launch unwraps the same peer ID.
     func testRelaunchKeepsPeerId() {
         let app = unlockedApp()
