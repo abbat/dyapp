@@ -78,7 +78,9 @@ internal class OwnerImeCharacters(private val compose: ComposeContentTestRule, p
             val node = pending.removeFirst()
             if (node.isEditable && node.text?.toString() == OWNER_VISUAL_CODE) {
                 observation += " editor=${node.className} focused=${node.isFocused} visible=${node.isVisibleToUser}"
-                observation += " selection=${node.textSelectionStart}..${node.textSelectionEnd}"
+                val bounds = android.graphics.Rect()
+                node.getBoundsInScreen(bounds)
+                observation += " bounds=$bounds selection=${node.textSelectionStart}..${node.textSelectionEnd}"
                 return node
             }
             for (index in 0 until node.childCount) node.getChild(index)?.let(pending::addLast)
