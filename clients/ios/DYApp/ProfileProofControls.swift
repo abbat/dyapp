@@ -241,7 +241,7 @@ struct ProfileProofControls: View {
         isPublishing = true
         let selected = candidate
         let selectedPeer = peerId
-        let outcome = await Task.detached(priority: .userInitiated) { () -> ProfilePublishAttempt in
+        let outcome = await IdentityIO.performBlocking { () -> ProfilePublishAttempt in
             do {
                 return .published(
                     try RustBridge.publishProfile(
@@ -250,7 +250,7 @@ struct ProfileProofControls: View {
             } catch {
                 return .failed(publicationErrorKey(error))
             }
-        }.value
+        }
         isPublishing = false
         isSolving = false
         guard !Task.isCancelled else { return }
