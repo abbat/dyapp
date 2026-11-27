@@ -25,7 +25,7 @@ enum PhotoPrep {
         let file = try FileHandle(forReadingFrom: url)
         defer { try? file.close() }
         var bytes = Data()
-        while let chunk = try file.read(upToCount: 64 * 1024), !chunk.isEmpty {
+        while let chunk = try file.read(upToCount: 64 * 1_024), !chunk.isEmpty {
             guard UInt64(bytes.count) + UInt64(chunk.count) <= limit else {
                 throw PhotoProblem.tooLarge
             }

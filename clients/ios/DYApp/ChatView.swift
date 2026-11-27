@@ -188,63 +188,6 @@ struct ChatView: View {
         .accessibilityIdentifier("chat-thread")
     }
 
-    private func textBubble(_ message: ChatMessage) -> some View {
-        ChatBubble(
-            message: message, own: message.author == feed.me,
-            writable: chatWritable(history?.state), sending: sending || busy,
-            openProfile: openProfile,
-            edit: { startEditing(message) }, delete: { deleting = message },
-            forward: {
-                openForward(group: message.groupId, author: message.author, id: message.id, photo: false)
-            }
-        )
-    }
-
-    private func photoBubble(_ photo: ChatPhoto) -> some View {
-        VStack(alignment: .leading) {
-            if history?.state == .open, let context = feed.context {
-                ChatPhotoPreview(
-                    bytes: photo.preview, feed: feed,
-                    opening: PhotoOpening(source: photoSource(photo), context: context))
-            }
-            if photo.forwarded {
-                Text(verbatim: String(
-                    format: NSLocalizedString("chats.forwarded", comment: ""),
-                    NSLocalizedString("chat.photo", comment: "")))
-                    .font(.caption)
-                    .accessibilityIdentifier("msg-photo-forwarded")
-            } else {
-                Text("chat.photo").accessibilityIdentifier("msg-photo")
-            }
-            Button("view.photoLoad") {
-                guard let context = feed.context else { return }
-                viewingPhoto = PhotoOpening(source: photoSource(photo), context: context)
-            }
-            .accessibilityIdentifier("msg-photo-load")
-            Menu {
-                Button("chat.forward") {
-                    openForward(group: photo.groupId, author: photo.author, id: photo.id, photo: true)
-                }
-                .accessibilityIdentifier("msg-forward")
-                .disabled(sending || busy)
-            } label: {
-                Image(systemName: "ellipsis").frame(minWidth: 44, minHeight: 44)
-            }
-            .accessibilityLabel(Text("msg.menu"))
-            .accessibilityIdentifier("msg-photo-menu")
-        }
-    }
-
-    private func photoSource(_ photo: ChatPhoto) -> ChatForwardSource {
-        ChatForwardSource(peerId: peer, groupId: photo.groupId, author: photo.author, messageId: photo.id)
-    }
-
-    private func openForward(group: Data, author: String, id: Data, photo: Bool) {
-        guard let context = feed.context else { return }
-        let source = ChatForwardSource(peerId: peer, groupId: group, author: author, messageId: id)
-        forwarding = ForwardOpening(source: source, photo: photo, context: context)
-    }
-
     @ViewBuilder private var statusLines: some View {
         if history?.state == .requestSent { Text("chat.firstWait").font(.caption) }
         if sending {
@@ -385,70 +328,62 @@ struct ChatView: View {
     }
 }
 
-private struct ChatBubble: View {
-    let message: ChatMessage
-    let own: Bool
-    let writable: Bool
-    let sending: Bool
-    let openProfile: (String) -> Void
-    let edit: () -> Void
-    let delete: () -> Void
-    let forward: () -> Void
-
-    var body: some View {
-        HStack {
-            if own { Spacer(minLength: 48) }
-            if own, !message.deleted { menu }
-            VStack(alignment: .leading, spacing: 4) {
-                if let shared = sharedProfile(message) {
-                    // It names only the short Peer ID: no message fetches anything before the press.
-                    Button {
-                        openProfile(shared)
-                    } label: {
-                        Label(chatPreview(message), systemImage: "person.crop.circle")
-                    }
-                    .accessibilityIdentifier("msg-profile")
-                } else {
-                    Text(verbatim: chatPreview(message)).textSelection(.enabled)
-                        .accessibilityIdentifier("msg-text")
-                }
-                let meta = chatMeta(message)
-                if !meta.isEmpty { Text(verbatim: meta).font(.caption) }
+extension ChatView {
+    private func textBubble(_ message: ChatMessage) -> some View {
+        ChatBubble(
+            message: message, own: message.author == feed.me,
+            writable: chatWritable(history?.state), sending: sending || busy,
+            openProfile: openProfile,
+            edit: { startEditing(message) }, delete: { deleting = message },
+            forward: {
+                openForward(group: message.groupId, author: message.author, id: message.id, photo: false)
             }
-            .padding(8)
-            .background(
-                RoundedRectangle(cornerRadius: 12).fill(
-                    own ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.15)
-                ))
-            if !own, !message.deleted { menu }
-            if !own { Spacer(minLength: 48) }
+        )
+    }
+
+    private func photoBubble(_ photo: ChatPhoto) -> some View {
+        VStack(alignment: .leading) {
+            if history?.state == .open, let context = feed.context {
+                ChatPhotoPreview(
+                    bytes: photo.preview, feed: feed,
+                    opening: PhotoOpening(source: photoSource(photo), context: context))
+            }
+            if photo.forwarded {
+                Text(verbatim: String(
+                    format: NSLocalizedString("chats.forwarded", comment: ""),
+                    NSLocalizedString("chat.photo", comment: "")))
+                    .font(.caption)
+                    .accessibilityIdentifier("msg-photo-forwarded")
+            } else {
+                Text("chat.photo").accessibilityIdentifier("msg-photo")
+            }
+            Button("view.photoLoad") {
+                guard let context = feed.context else { return }
+                viewingPhoto = PhotoOpening(source: photoSource(photo), context: context)
+            }
+            .accessibilityIdentifier("msg-photo-load")
+            Menu {
+                Button("chat.forward") {
+                    openForward(group: photo.groupId, author: photo.author, id: photo.id, photo: true)
+                }
+                .accessibilityIdentifier("msg-forward")
+                .disabled(sending || busy)
+            } label: {
+                Image(systemName: "ellipsis").frame(minWidth: 44, minHeight: 44)
+            }
+            .accessibilityLabel(Text("msg.menu"))
+            .accessibilityIdentifier("msg-photo-menu")
         }
     }
 
-    // A button rather than a context menu: right click on selectable text opens the text's own menu.
-    private var menu: some View {
-        Menu {
-            Button("chat.forward", action: forward).disabled(sending)
-                .accessibilityIdentifier("msg-forward")
-            if own, writable {
-                Button("chat.edit", action: edit).disabled(sending).accessibilityIdentifier(
-                    "msg-edit")
-            }
-            if own {
-                Button("chat.delete", role: .destructive, action: delete).disabled(sending)
-                    .accessibilityIdentifier("msg-delete")
-            }
-        } label: {
-            Image(systemName: "ellipsis")
-                #if os(iOS)
-                    // The bare glyph is 18 by 5 points, far below a touch target.
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-                #endif
-        }
-        .fixedSize()
-        .accessibilityLabel(Text("msg.menu"))
-        .accessibilityIdentifier(own ? "msg-menu" : "msg-received-menu")
+    private func photoSource(_ photo: ChatPhoto) -> ChatForwardSource {
+        ChatForwardSource(peerId: peer, groupId: photo.groupId, author: photo.author, messageId: photo.id)
+    }
+
+    private func openForward(group: Data, author: String, id: Data, photo: Bool) {
+        guard let context = feed.context else { return }
+        let source = ChatForwardSource(peerId: peer, groupId: group, author: author, messageId: id)
+        forwarding = ForwardOpening(source: source, photo: photo, context: context)
     }
 }
 

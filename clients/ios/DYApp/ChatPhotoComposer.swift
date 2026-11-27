@@ -33,7 +33,7 @@ struct ChatPhotoComposer: View {
         .sheet(isPresented: $picking, onDismiss: {
             pickerDismissed = true
             confirmPreparedPhoto()
-        }) {
+        }, content: {
             let opening = pickID
             PhotoPicker { data in
                 guard picking, pickID == opening, feed.isCurrent(context) else { return }
@@ -43,11 +43,11 @@ struct ChatPhotoComposer: View {
                 status = nil
                 Task { await prepare(data) }
             }
-        }
+        })
         .sheet(isPresented: $confirming, onDismiss: {
             draft = nil
             preview = nil
-        }) {
+        }, content: {
             ScrollingForm {
                 if let preview {
                     preview.resizable().scaledToFit()
@@ -60,7 +60,7 @@ struct ChatPhotoComposer: View {
                 .accessibilityIdentifier("chat-photo-confirm")
                 Button("search.cancel", role: .cancel) { confirming = false }
             }
-        }
+        })
         .onChange(of: feed.owner) { _ in
             if !feed.isCurrent(context) {
                 picking = false

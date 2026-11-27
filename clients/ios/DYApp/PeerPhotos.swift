@@ -8,14 +8,8 @@ import UniformTypeIdentifiers
 @MainActor
 final class NetworkType: ObservableObject {
     static let shared = NetworkType()
-    @Published private(set) var metered = true
     private static let monitor = NWPathMonitor()
-
-    private func report(metered: Bool) {
-        guard self.metered != metered else { return }
-        setNetworkMetered(metered: metered)
-        self.metered = metered
-    }
+    @Published private(set) var metered = true
 
     static func startReporting() {
         #if DEBUG
@@ -32,6 +26,12 @@ final class NetworkType: ObservableObject {
             Task { @MainActor in shared.report(metered: metered) }
         }
         monitor.start(queue: DispatchQueue(label: "com.dyapp.network-type"))
+    }
+
+    private func report(metered: Bool) {
+        guard self.metered != metered else { return }
+        setNetworkMetered(metered: metered)
+        self.metered = metered
     }
 }
 

@@ -147,9 +147,10 @@ impl ChatSession {
         source: ChatForwardSource,
         target_peer_id: String,
     ) -> Result<ChatSubmission, ChatForwardError> {
-        let mut session = self.session.lock().map_err(failed)?;
+        let mut guard = self.session.lock().map_err(failed)?;
+        let session: &mut dyapp_client::session::Session = &mut guard;
         let photo = forwarding::prepare_photo(session.store(), source.borrowed(), &target_peer_id)?;
-        let _own = listed_own(&session, &self.key.identity).map_err(ChatForwardError::from)?;
+        let _own = listed_own(session, &self.key.identity).map_err(ChatForwardError::from)?;
         let network = active_network(&self.dir).map_err(ChatForwardError::from)?;
         on_network_stack(|| {
             Ok(self.runtime.block_on(async {
