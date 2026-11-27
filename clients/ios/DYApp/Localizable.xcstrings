@@ -3185,6 +3185,22 @@
         }
       }
     },
+    "profile.photoConflict": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photos changed elsewhere. Review the updated list and try again."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Список фото изменён. Проверьте обновлённый список и повторите действие."
+          }
+        }
+      }
+    },
     "profile.photoFailed": {
       "localizations": {
         "en": {

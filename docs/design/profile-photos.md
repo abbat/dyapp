@@ -126,15 +126,16 @@ A cleanup failure rolls back all those local projections. Foreign/import project
 Local hide already reads the latest draft and atomically commits its new version/search/hidden state,
 preserving photos and other concurrent local edits instead of copying the caller's old snapshot.
 
-Android and desktop removal and reordering carry the displayed snapshot's opaque core revision. It
+Android, iOS and desktop removal and reordering carry the displayed snapshot's opaque core revision. It
 covers all original and preview hashes, their order and duplicate entries; unrelated fields/proof do
 not change it. Core verification and mutation share the writer transaction. A stale action returns a typed
 conflict, reloads the list and asks the user to review it; the old index is never retried automatically.
 Images and revision publish together, and removal confirmation retains the revision from its opening.
 The desktop profile view carries the revision with its photo list and sends it back with each action.
-Apple adoption of this checked contract remains planned; its legacy index-only UI path still
-requires migration. Swapping identical duplicate entries is equivalent; equal previews of
-different originals are not.
+The iOS photo editor likewise freezes removal revisions at confirmation opening and move revisions
+before native dispatch. A typed conflict refreshes rows and previews together and invalidates editor
+consents, without repeating the old action. Swapping identical duplicate entries is equivalent;
+equal previews of different originals are not.
 
 ## Viewing
 

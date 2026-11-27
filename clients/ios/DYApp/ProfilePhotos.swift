@@ -8,26 +8,45 @@ import UniformTypeIdentifiers
 struct ProfilePhotoRows: Sendable {
     let hashes: [Data]
     let previews: [Data: Rgba]
+    let revision: Data
+    let conflict: Bool
 }
 
 extension RustBridge {
     /// Runs a change or a listing of the draft's photos, then reads the previews it names.
     static func changeProfilePhotos(
         for candidate: IdentityCandidate, peerId: String,
-        change: (String, IdentityKey) throws -> [Data]
+        change: (String, IdentityKey) throws -> ProfilePhotoSnapshot
     ) throws -> ProfilePhotoRows {
         try withDraftLock {
             try withIdentity(candidate, peerId: peerId) { dir, key in
-                let hashes = try change(dir, key)
-                var previews: [Data: Rgba] = [:]
-                for hash in hashes {
-                    previews[hash] = try? checkPreview(
-                        bytes: profilePhoto(dir: dir, key: key, hash: hash))
-                }
-                return ProfilePhotoRows(hashes: hashes, previews: previews)
+                try profilePhotoRows(dir: dir, key: key, change: change)
             }
         }
     }
+}
+
+/// Read one checked result, or refresh a stale action without replaying its numerical positions.
+func profilePhotoRows(
+    dir: String, key: IdentityKey,
+    change: (String, IdentityKey) throws -> ProfilePhotoSnapshot
+) throws -> ProfilePhotoRows {
+    let snapshot: ProfilePhotoSnapshot
+    let conflict: Bool
+    do {
+        snapshot = try change(dir, key)
+        conflict = false
+    } catch ProfilePhotoEditError.Changed {
+        snapshot = try profilePhotoSnapshot(dir: dir, key: key)
+        conflict = true
+    }
+    var previews: [Data: Rgba] = [:]
+    for hash in snapshot.thumbnails {
+        previews[hash] = try? checkPreview(bytes: profilePhoto(dir: dir, key: key, hash: hash))
+    }
+    return ProfilePhotoRows(
+        hashes: snapshot.thumbnails, previews: previews,
+        revision: snapshot.revision, conflict: conflict)
 }
 
 /// Catalogue key for a failed photo change: the core's codes, then what preparation refused.
@@ -39,10 +58,12 @@ func photoErrorKey(_ error: Error) -> String {
     case PhotoProblem.unsupported, is CocoaError:
         return "profile.photoUnsupported"
 
-    case CoreError.Failed(message: "photoRefused"):
+    case CoreError.Failed(message: "photoRefused"),
+        ProfilePhotoEditError.Failed(reason: "photoRefused"):
         return "profile.photoRefused"
 
-    case CoreError.Failed(message: "corrupted"):
+    case CoreError.Failed(message: "corrupted"),
+        ProfilePhotoEditError.Failed(reason: "corrupted"):
         return "profile.photoUnsupported"
 
     default:
@@ -63,6 +84,12 @@ func previewImage(_ preview: Rgba) -> Image? {
     return Image(decorative: image, scale: 1)
 }
 
+/// The confirmed action keeps the revision of the list on which the user chose its index.
+struct ProfilePhotoRemoval: Sendable {
+    let index: UInt32
+    let revision: Data
+}
+
 /// The editor's own photos. They are draft writes, so a change also ends a prepared proof.
 struct ProfilePhotosSection: View {
     private static let limit = 6
@@ -70,11 +97,12 @@ struct ProfilePhotosSection: View {
     let peerId: String
     let disabled: Bool
     let changed: () -> Void
-    @State private var rows = ProfilePhotoRows(hashes: [], previews: [:])
+    @State private var rows = ProfilePhotoRows(
+        hashes: [], previews: [:], revision: Data(), conflict: false)
     @State private var busy = false
     @State private var status = ""
     @State private var picking = false
-    @State private var removing: Int?
+    @State private var removing: ProfilePhotoRemoval?
 
     private var isFull: Bool { rows.hashes.count >= Self.limit }
     private var locked: Bool { disabled || busy }
@@ -97,7 +125,7 @@ struct ProfilePhotosSection: View {
                     .accessibilityIdentifier("profile-photo-add")
                     .task(id: candidate.location.marker) {
                         await apply(edits: false) { dir, key in
-                            try profilePhotos(dir: dir, key: key)
+                            try profilePhotoSnapshot(dir: dir, key: key)
                         }
                     }
                     .confirmationDialog(
@@ -122,10 +150,13 @@ struct ProfilePhotosSection: View {
 
     @ViewBuilder private var removeButtons: some View {
         Button("profile.photoRemoveAction", role: .destructive) {
-            guard let index = removing else { return }
+            guard let removal = removing else { return }
+            removing = nil
             Task {
                 await apply(edits: true) { dir, key in
-                    try removeProfilePhoto(dir: dir, key: key, index: UInt32(index))
+                    try editProfilePhotos(
+                        dir: dir, key: key, expectedRevision: removal.revision,
+                        edit: .remove(index: removal.index))
                 }
             }
         }
@@ -163,7 +194,7 @@ struct ProfilePhotosSection: View {
                 control(
                     "xmark", text("profile.photoRemove", index + 1), "remove-\(index)",
                     enabled: true
-                ) { removing = index }
+                ) { removing = ProfilePhotoRemoval(index: UInt32(index), revision: rows.revision) }
             }
         }
     }
@@ -184,9 +215,12 @@ struct ProfilePhotosSection: View {
     }
 
     private func move(_ from: Int, to: Int) {
+        let expected = rows.revision
         Task {
             await apply(edits: true) { dir, key in
-                try moveProfilePhoto(dir: dir, key: key, from: UInt32(from), to: UInt32(to))
+                try editProfilePhotos(
+                    dir: dir, key: key, expectedRevision: expected,
+                    edit: .move(from: UInt32(from), to: UInt32(to)))
             }
         }
     }
@@ -214,14 +248,16 @@ struct ProfilePhotosSection: View {
             // Decode/encode before draft serialization and native admission, never while holding either.
             let photo = try PhotoPrep.prepare(read())
             return try RustBridge.changeProfilePhotos(for: selected, peerId: peer) { dir, key in
-                try addProfilePhoto(
+                _ = try addProfilePhoto(
                     dir: dir, key: key, full: photo.full, thumbnail: photo.thumbnail)
+                return try profilePhotoSnapshot(dir: dir, key: key)
             }
         }
     }
 
     private func apply(
-        edits: Bool, _ change: @escaping @Sendable (String, IdentityKey) throws -> [Data]
+        edits: Bool,
+        _ change: @escaping @Sendable (String, IdentityKey) throws -> ProfilePhotoSnapshot
     ) async {
         let selected = candidate
         let peer = peerId
@@ -241,7 +277,7 @@ struct ProfilePhotosSection: View {
             rows = fresh
             // A form row that scrolls back into view lists again and must keep the last status.
             if edits {
-                status = "profile.photoChanged"
+                status = fresh.conflict ? "profile.photoConflict" : "profile.photoChanged"
                 changed()
             }
 
