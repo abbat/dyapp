@@ -704,7 +704,8 @@ The core `Session::submit_forwarded_photo` accepts a current stored photo select
 original bytes. It checks that the destination is a different open pair, then encrypts and uploads
 with fresh media credentials before committing a new forwarded message. `forward_photo_targets`
 projects eligible destinations offline. `forward_photo` retrieves the original from the active
-network even when this device has a cached copy. Only current chat photos are eligible. iOS
+network even when this device has a cached copy. Fetch and upload use reachable media nodes.
+Only current chat photos are eligible. iOS
 renders the common ordered history with photo placeholders and a forwarded label, and uses the
 same destination picker for text and photos. Explicit photo loading opens a viewer for the
 core-validated JPEG or PNG and bounds display decoding to 2048 px on the long side. In-thread

@@ -1,5 +1,6 @@
 //! Stored text forwarding keeps core selection and committed delivery outcomes intact.
 use super::{listed_own, ChatSession, ChatSubmission};
+use crate::peer_photos::reachable_at;
 use crate::profile_network::{active_network, connect_at, on_network_stack};
 use crate::CoreError;
 use dyapp_client::forwarding;
@@ -159,13 +160,24 @@ impl ChatSession {
                 if target.profile.deleted || target.profile.version == 0 {
                     return Err(ChatForwardError::Unpublished);
                 }
-                let nodes = std::slice::from_mut(&mut node);
-                let original = dyapp_client::attachment::fetch(nodes, photo.attachment())
+                let mut nodes = reachable_at(&self.dir, &network).await?;
+                if nodes.is_empty() {
+                    return Err(ChatForwardError::NotConnected);
+                }
+                let scores = self.contact_context.lock().map_err(failed)?.scores();
+                let original = {
+                    let mut scores = scores.lock().await;
+                    dyapp_client::attachment::fetch_with_scores(
+                        &mut nodes,
+                        photo.attachment(),
+                        &mut scores,
+                    )
                     .await
-                    .map_err(super::original::fetch_error)?;
+                    .map_err(super::original::fetch_error)?
+                };
                 session
                     .submit_forwarded_photo(
-                        nodes,
+                        &mut nodes,
                         &self.key.identity,
                         &photo,
                         &original,
