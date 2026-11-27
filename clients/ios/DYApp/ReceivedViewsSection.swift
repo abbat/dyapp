@@ -1,12 +1,54 @@
 import SwiftUI
 
+struct ReceivedViewsScreen: View {
+    @ObservedObject var feed: ChatFeed
+    @State private var profile: String?
+    @State private var chat: String?
+
+    var body: some View {
+        Group {
+            if let profile {
+                FoundProfileView(
+                    peer: profile, known: nil, feed: feed,
+                    back: { self.profile = nil },
+                    message: { showChat(profile) },
+                    openChat: showChat, blocked: clearRoute
+                )
+                .id(profile)
+            } else if let chat {
+                ChatView(
+                    feed: feed, peer: chat,
+                    profile: { self.profile = chat },
+                    openProfile: { self.profile = $0 },
+                    back: { self.chat = nil },
+                    blocked: { self.chat = nil }
+                )
+                .id(chat)
+            } else {
+                ScrollingForm {
+                    ReceivedViewsSection(feed: feed) { self.profile = $0 }
+                }
+            }
+        }
+        .navigationTitle("privacy.views.received.title")
+    }
+
+    private func clearRoute() {
+        (profile, chat) = (nil, nil)
+    }
+
+    private func showChat(_ peer: String) {
+        (profile, chat) = (nil, peer)
+    }
+}
+
 struct ReceivedViewsSection: View {
     @ObservedObject var feed: ChatFeed
     let open: (String) -> Void
     @State private var rows: [ReceivedProfileView]?
     @State private var busy = false
     @State private var failed = false
-    @State private var expanded = false
+    @State private var expanded = true
     @State private var opening = UUID()
 
     var body: some View {

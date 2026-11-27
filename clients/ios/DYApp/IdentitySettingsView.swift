@@ -114,6 +114,10 @@ struct IdentitySettingsView: View {
             if let feed {
                 MailNoticeSection(feed: feed)
                 PrivacyToggleSection(feed: feed, views: true)
+                NavigationLink("privacy.views.received.title") {
+                    ReceivedViewsScreen(feed: feed).id(feed.owner)
+                }
+                .accessibilityIdentifier("settings-received-views")
                 PrivacyToggleSection(feed: feed)
                 PhotoDownloadSection(feed: feed)
                 StickerImportSection(feed: feed)

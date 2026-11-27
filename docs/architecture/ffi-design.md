@@ -60,7 +60,7 @@ target/network admission; Compose only supplies readiness and lifetime. Shared T
 use opaque prepare/submit/retire commands over the same core opening and staging. The iOS
 explicit profile page captures through its current photo searcher, submits through its own chat
 context after the profile resolves, and retires the token when the page disappears. iOS settings
-expose the saved send preference. Search contains a received-views collection that reads the core's
+expose the saved send preference and a received-views collection that reads the core's
 local list and UTC dates, and only a row action opens a profile.
 The Android received-view collection uses the common local pager and existing full-identifier rows;
 read failures retain known data, disposal retires actions and explicit row selection opens the
