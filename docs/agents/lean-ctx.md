@@ -38,7 +38,9 @@ lean-ctx keeps the main checkout as its project root, so pass the worktree's abs
 `cwd`: a relative path reads and edits the main checkout instead.
 
 `ctx_patch` `replace_unique` (`path`, `old_text`, `new_text`) needs no prior anchored read, and
-an `ops` array applies several such edits across files in one call, each with a diff. It fails if
+an `ops` array applies several such edits across files in one call, each with a diff. For
+`replace_symbol`, qualify duplicate names as `relative/path.swift:TypeName`: symbol lookup can be
+ambiguous across languages even when `path` is supplied. It fails if
 `old_text` is missing or not unique, so a multi-line refactor stays exact without `sed`/`perl`.
 lean-ctx refuses paths outside the project and home directory (for example harness task output
 under `/tmp`); read those with the harness's own tool.
