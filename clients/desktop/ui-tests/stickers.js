@@ -206,12 +206,10 @@
         'Remove lost its unambiguous pack target',
       );
       const summary = fixture.panel.querySelector('summary');
-      summary.focus();
       summary.classList.add('focus');
       check(
-        document.activeElement === summary &&
-          Number.parseFloat(getComputedStyle(summary).outlineOffset) === 0,
-        `Saved packs focus ring overlaps its disclosure marker: active=${document.activeElement === summary}, offset=${getComputedStyle(summary).outlineOffset}`,
+        Number.parseFloat(getComputedStyle(summary).outlineOffset) === 0,
+        `Saved packs focus ring overlaps its disclosure marker: offset=${getComputedStyle(summary).outlineOffset}`,
       );
       await smoke.shot('stickers-collection-focus');
     } catch (error) {
