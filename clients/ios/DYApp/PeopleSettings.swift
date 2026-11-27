@@ -151,12 +151,12 @@ struct StickerImportSection: View {
                 }
             }
             if let next {
-                Button("search.more") { Task { await refresh(after: next) } }.disabled(working)
+                Button("search.more") { reload(after: next) }.disabled(working)
             }
             if working { ProgressView() }
             if failed {
                 Text("stickers.importFailed")
-                Button("search.retry") { Task { await refresh() } }.disabled(working)
+                Button("search.retry") { reload() }.disabled(working)
             }
             if saved { Image(systemName: "checkmark").accessibilityLabel(Text("stickers.import")) }
         }
@@ -193,6 +193,15 @@ struct StickerImportSection: View {
             importContext = nil
             saved = false
             failed = false
+        }
+    }
+
+    private func reload(after: Data? = nil) {
+        guard !working else { return }
+        working = true
+        Task {
+            await refresh(after: after)
+            working = false
         }
     }
 
