@@ -305,7 +305,8 @@ iOS scopes nonescaping profile draft, visibility, hide/withdraw, publication-eli
 policy reads through this native operation. Swift keeps the operation alive through the whole
 blocking closure, rather than retaining only its opaque key. Acquire Swift draft serialization
 before native admission, including chat-backed publication, so a lease holder never waits for that
-lock. Path-only network calls, photo mutation and escaped-worker migration remain separate work.
+lock. iOS path-only network reads/writes also require the expected Peer ID and native operation.
+Photo mutation and escaped proof/search worker migration remain separate work.
 Android's `NativeSlotKeys` implements the common credential callback with existing alias names
 and typed errors, using opaque keys. Its callback inputs release their native key handles after
 wrapping. Android's `Slots` now delegates lifecycle operations to this registry. iOS
@@ -377,8 +378,10 @@ remains planned.
 activating a successful check. A retained checked result cannot write into a removed or replaced
 identity; an idle checker holds no registry lock. Cancellation retains protection until the current
 run actually returns. These checks only use identity-owned network settings and never start, stop
-or configure the installation node. Android uses the bound checker; its pre-registration
-cancellation ownership and Apple checker adoption remain separate work.
+or configure the installation node. Android and iOS use the bound checker. Both create a
+single-use `ConnectionAttempt` before run dispatch; cancellation remains owned before registration
+and through actual completion. A new retry gets a fresh attempt. iOS cancels on screen disposal,
+refuses cancelled activation and discards results belonging to an obsolete screen opening.
 
 `ProfileSearcher.for_slot` binds searches, contact-name reads and network profile/photo fetches
 without retaining a lease while idle. `search_slot` and `contact_names_slot` obtain the verified

@@ -55,7 +55,8 @@ enum MailJob {
     /// network or a failure stays quiet.
     private static func receiveMail() async {
         guard case let .ready(candidate, peerId) = try? RustBridge.identityState(),
-            (try? RustBridge.loadNetworkSettings(for: candidate, file: .active)) != nil
+            (try? RustBridge.loadNetworkSettings(for: candidate, peerId: peerId, file: .active))
+                != nil
         else { return }
         let identity = ChatIdentity(candidate: candidate, peerId: peerId)
         let pass = try? RustBridge.withChats(identity) { session in

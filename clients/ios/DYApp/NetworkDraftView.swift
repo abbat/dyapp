@@ -27,6 +27,7 @@ struct NetworkDraftView: View {
     @State private var wasCancelled = false
     @State private var checkFailed = false
     @State private var checker: NetworkConnectionSession?
+    @State private var opening = UUID()
     @State private var isActivating = false
     @State private var activationFailed = false
     @State private var activated = false
@@ -107,6 +108,7 @@ struct NetworkDraftView: View {
     }
 
     var body: some View {
+        let currentOpening = opening
         // Not `ScrollingForm`: on macOS its SwiftUI scroll view, under the pointer as Continue
         // swapped the sidebar, crashed the app in an AppKit layout loop.
         Form {
@@ -136,9 +138,14 @@ struct NetworkDraftView: View {
             }
 
             Section {
-                Button("network.save") { Task { await save() } }
-                    .disabled(isLoading || readFailed || isSaving || isChecking || isActivating)
-                    .accessibilityIdentifier("network-save")
+                Button("network.save") {
+                    Task {
+                        guard opening == currentOpening else { return }
+                        await save()
+                    }
+                }
+                .disabled(isLoading || readFailed || isSaving || isChecking || isActivating)
+                .accessibilityIdentifier("network-save")
                 Text(statusKey)
                     .accessibilityIdentifier("network-draft-status")
             }
@@ -149,14 +156,20 @@ struct NetworkDraftView: View {
                         showingCheck || checkFailed || wasCancelled
                             ? "network.retry" : "network.check")
                 ) {
-                    Task { await check() }
+                    Task {
+                        guard opening == currentOpening else { return }
+                        await check()
+                    }
                 }
                 .disabled(isLoading || readFailed || isSaving || isChecking || isActivating)
                 .accessibilityIdentifier("network-check")
                 if isChecking {
-                    Button("network.cancel") { cancelCheck() }
-                        .disabled(cancelRequested)
-                        .accessibilityIdentifier("network-cancel")
+                    Button("network.cancel") {
+                        guard opening == currentOpening else { return }
+                        cancelCheck()
+                    }
+                    .disabled(cancelRequested)
+                    .accessibilityIdentifier("network-cancel")
                 }
                 Text(checkStatusKey).accessibilityIdentifier("network-check-status")
                 if showingCheck {
@@ -172,9 +185,14 @@ struct NetworkDraftView: View {
                         .accessibilityIdentifier("network-row-\(index)")
                     }
                 }
-                Button("network.continue") { Task { await activate() } }
-                    .disabled(!canActivate)
-                    .accessibilityIdentifier("network-continue")
+                Button("network.continue") {
+                    Task {
+                        guard opening == currentOpening else { return }
+                        await activate()
+                    }
+                }
+                .disabled(!canActivate)
+                .accessibilityIdentifier("network-continue")
                 if isActivating {
                     Text("network.activating").accessibilityIdentifier("network-activation-status")
                 } else if activationFailed {
@@ -196,12 +214,22 @@ struct NetworkDraftView: View {
         .task(id: candidate.location.marker) { await load() }
         .onChange(of: bootstrapRows) { _ in invalidateCheck() }
         .onChange(of: networkName) { _ in invalidateCheck() }
+        .onDisappear {
+            opening = UUID()
+            cancelRequested = true
+            checker?.cancel()
+            checker = nil
+            isChecking = false
+            isSaving = false
+            isActivating = false
+        }
     }
 }
 
 extension NetworkDraftView {
     @MainActor
     private func load() async {
+        guard !Task.isCancelled else { return }
         isLoading = true
         readFailed = false
         saveFailed = false
@@ -217,19 +245,23 @@ extension NetworkDraftView {
         savedRows = ""
         savedName = ""
         let selected = candidate
-        let result = await Task.detached(priority: .userInitiated) { () -> NetworkDraftLoad in
+        let selectedPeer = peerId
+        let currentOpening = opening
+        let result = await IdentityIO.performBlocking { () -> NetworkDraftLoad in
             do {
                 let settings =
-                    try RustBridge.loadNetworkSettings(for: selected, file: .draft)
-                    ?? RustBridge.loadNetworkSettings(for: selected, file: .active)
+                    try RustBridge.loadNetworkSettings(
+                        for: selected, peerId: selectedPeer, file: .draft)
+                    ?? RustBridge.loadNetworkSettings(
+                        for: selected, peerId: selectedPeer, file: .active)
                 return .loaded(
                     rows: settings?.seeds.joined(separator: "\n") ?? "",
                     name: settings?.name ?? "")
             } catch {
                 return .failed
             }
-        }.value
-        guard !Task.isCancelled else { return }
+        }
+        guard !Task.isCancelled, opening == currentOpening else { return }
         switch result {
         case let .loaded(rows, name):
             bootstrapRows = rows
@@ -251,10 +283,11 @@ extension NetworkDraftView {
         saveFailed = false
         let rowsText = bootstrapRows
         let name = networkName
+        let currentOpening = opening
         let rows = rowsText.isEmpty ? [] : rowsText.components(separatedBy: "\n")
         let success = await NetworkConnectionSession.persist(
-            candidate: candidate, rows: rows, name: name)
-        guard !Task.isCancelled else { return }
+            candidate: candidate, peerId: peerId, rows: rows, name: name)
+        guard !Task.isCancelled, opening == currentOpening else { return }
         isSaving = false
         saveFailed = !success
         if success {
@@ -267,19 +300,14 @@ extension NetworkDraftView {
     @MainActor
     private func check() async {
         guard !isLoading && !readFailed && !isSaving && !isChecking && !isActivating else { return }
-        editing = false
-        isChecking = true
-        activationFailed = false
-        cancelRequested = false
-        wasCancelled = false
-        checkFailed = false
-        checker = nil
-        rowOutcomes = []
+        beginCheck()
         let rowsText = bootstrapRows
         let name = networkName
+        let currentOpening = opening
         let rows = rowsText.isEmpty ? [] : rowsText.components(separatedBy: "\n")
         let persisted = await NetworkConnectionSession.persist(
-            candidate: candidate, rows: rows, name: name)
+            candidate: candidate, peerId: peerId, rows: rows, name: name)
+        guard !Task.isCancelled, opening == currentOpening else { return }
         guard persisted else {
             isChecking = false
             checkFailed = true
@@ -294,27 +322,44 @@ extension NetworkDraftView {
             wasCancelled = true
             return
         }
-        guard let session = await NetworkConnectionSession.create(candidate: candidate) else {
+        let created = await NetworkConnectionSession.create(candidate: candidate, peerId: peerId)
+        guard !Task.isCancelled, opening == currentOpening else {
+            created?.cancel()
+            return
+        }
+        guard let session = created else {
             isChecking = false
             checkFailed = true
             return
         }
         checker = session
         if cancelRequested {
+            session.cancel()
             isChecking = false
             wasCancelled = true
             checker = nil
             return
         }
         let result = await session.runAsync(rows: rows, name: name)
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled, opening == currentOpening else { return }
         isChecking = false
-        if cancelRequested {
+        if cancelRequested || session.isCancelled {
             wasCancelled = true
             checker = nil
             return
         }
         finishCheck(result, session: session, rowsText: rowsText, name: name)
+    }
+
+    private func beginCheck() {
+        editing = false
+        isChecking = true
+        activationFailed = false
+        cancelRequested = false
+        wasCancelled = false
+        checkFailed = false
+        checker = nil
+        rowOutcomes = []
     }
 
     @MainActor
@@ -361,8 +406,9 @@ extension NetworkDraftView {
         guard canActivate, let checker else { return }
         isActivating = true
         activationFailed = false
+        let currentOpening = opening
         let success = await checker.activateAsync()
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled, opening == currentOpening else { return }
         isActivating = false
         activationFailed = !success
         if success, let onActivated {

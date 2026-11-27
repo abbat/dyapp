@@ -54,9 +54,13 @@ not alter the active settings or key file. They also reopen two slots with disti
 active files. Native UI tests check form persistence across process relaunch, return to Ready
 only after activation with the same Peer ID, and show that a damaged draft blocks Save; their
 corruption fixture is DEBUG-only.
-The iOS connection session now constructs UniFFI `ConnectionCheck` for the selected candidate's
-folder and runs its bounded check in a detached task. It maps row outcomes into Sendable Swift
-values. The shared form now shows Check with ordered row outcomes and retains the checker so
+The iOS connection session constructs `ConnectionCheck.for_slot` with the application registry,
+slot ID and expected Peer ID off the UI actor. Every actual run and activation reacquires native
+admission; idle handles retain no registry lease. Each session owns one `ConnectionAttempt` before
+its run is dispatched, so Cancel remains effective before registration. Retry creates a fresh
+session/attempt. Blocking checks use a concurrent native IO queue, separate from serialized lifecycle
+commands; cancelled attempts cannot activate or publish a late successful UI result. It maps row
+outcomes into Sendable Swift values. The shared form now shows Check with ordered row outcomes and retains the checker so
 Cancel can reach a running call; Retry starts another bounded run. Continue calls Rust
 `activate` off the UI actor only after a compatible result for the current unchanged draft,
 then opens the profile editor. A failed activation keeps the prior active file.
@@ -136,8 +140,9 @@ Swift does not generate or write `device.key` or `chat-state.key`. Do not acquir
 lease around chat bootstrap. Nonescaping profile draft, visibility, hide/withdraw, publication checks
 and photo-download policy reads use the opaque native identity operation through actual completion.
 Draft serialization is acquired before native admission, including publication through chats; a
-lease holder must not wait for that draft lock. Photo mutation, path-only network operations and
-escaped proof/search/check worker migration remain planned.
+lease holder must not wait for that draft lock. Path-only network reads/writes now require the
+expected Peer ID and the same native operation. Photo mutation and escaped proof/search worker
+migration remain planned.
 The reserved `active-profile` value `none\n` means the user explicitly left no identity selected.
 Unlike an absent pointer, it opens the picker even if exactly one ready slot survives; an empty
 store still shows setup unless a legacy Keychain item is stranded. This marker is reserved for

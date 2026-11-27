@@ -32,7 +32,10 @@ The iOS `IdentitySessionTests` control read and mutation completion order. They 
 loading never offers Create, stale reads cannot replace a commit, an admitted mutation survives its
 initiator's cancellation, another mutation is refused, and failure reads back authoritative state.
 Persistence warnings remain until acknowledgement. These tests use explicit entry callbacks and
-fresh failure deadlines, without sleeping or running a simulator locally.
+fresh failure deadlines, without sleeping or running a simulator locally. Network cancellation
+uses the common single-use attempt before dispatch; the native network tests preserve exact
+saved draft and prior active settings through cancellation and an independently fresh retry.
+They do not repeatedly sleep and resend Cancel or assert a guessed elapsed duration.
 The iOS registry suite drives collisions at the actual native `contains` callback: stranded
 credentials or a newly occupied directory must be skipped without overwriting their payload.
 Picker/invalid-pointer fixtures seed those states after atomic core creation, which already selects

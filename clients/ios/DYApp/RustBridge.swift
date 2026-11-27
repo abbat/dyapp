@@ -143,17 +143,21 @@ enum RustBridge {
     #endif
 
     /// Read this identity's draft or active network settings off the UI thread.
-    static func loadNetworkSettings(for candidate: IdentityCandidate, file: NetworkFile) throws
-        -> NetworkSettings?
-    {
-        let dir = networkDirectory(root: try directory(), candidate: candidate)
-        return try loadNetwork(dir: dir.path, file: file)
+    static func loadNetworkSettings(
+        for candidate: IdentityCandidate, peerId: String, file: NetworkFile
+    ) throws -> NetworkSettings? {
+        try withIdentity(candidate, peerId: peerId) { dir, _ in
+            try loadNetwork(dir: dir, file: file)
+        }
     }
 
     /// Persist draft edits beside this identity's key off the UI thread.
-    static func storeNetworkDraft(for candidate: IdentityCandidate, draft: NetworkSettings) throws {
-        let dir = networkDirectory(root: try directory(), candidate: candidate)
-        try saveNetworkDraft(dir: dir.path, draft: draft)
+    static func storeNetworkDraft(
+        for candidate: IdentityCandidate, peerId: String, draft: NetworkSettings
+    ) throws {
+        try withIdentity(candidate, peerId: peerId) { dir, _ in
+            try saveNetworkDraft(dir: dir, draft: draft)
+        }
     }
 
     /// A step or save writes back the draft it read, and a publish drops the photo blobs it did not

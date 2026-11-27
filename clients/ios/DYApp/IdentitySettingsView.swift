@@ -203,7 +203,7 @@ struct IdentitySettingsView: View {
         readFailed = false
         let (current, currentPeerID) = (candidate, peerId)
         let currentOpening = opening
-        let result = await IdentityIO.read { () -> InventoryLoad in
+        let result = await IdentityIO.performBlocking { () -> InventoryLoad in
             do {
                 // Only an open key can sign the withdrawal; an unreadable version counts as never published.
                 let version =
@@ -261,7 +261,7 @@ struct IdentitySettingsView: View {
         actionFailed = false
         let (current, currentPeerID) = (candidate, peerId)
         let currentOpening = opening
-        let withdrawn = await IdentityIO.read {
+        let withdrawn = await IdentityIO.performBlocking {
             (try? RustBridge.withdrawProfile(for: current, peerId: currentPeerID)) != nil
         }
         guard !Task.isCancelled, isCurrent(currentOpening) else { return }

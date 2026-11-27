@@ -317,7 +317,7 @@ extension ContentView {
         pickerRows = []
         pickerLoading = true
         pickerReadFailed = false
-        let result = await IdentityIO.read { () -> PickerLoad in
+        let result = await IdentityIO.performBlocking { () -> PickerLoad in
             do { return .loaded(try RustBridge.identityInventory()) } catch { return .failed }
         }
         guard !Task.isCancelled, pickerRead == ticket else { return }
@@ -347,11 +347,12 @@ extension ContentView {
 
     @MainActor
     private func loadActiveNetwork() async {
-        guard case let .ready(candidate, _)? = identity else { return }
+        guard case let .ready(candidate, peerId)? = identity else { return }
         activeNetwork = .loading
-        let result = await IdentityIO.read { () -> ActiveNetworkState in
+        let result = await IdentityIO.performBlocking { () -> ActiveNetworkState in
             do {
-                return try RustBridge.loadNetworkSettings(for: candidate, file: .active) == nil
+                return try RustBridge.loadNetworkSettings(
+                    for: candidate, peerId: peerId, file: .active) == nil
                     ? .needsSetup : .ready
             } catch {
                 return .readFailed

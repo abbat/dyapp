@@ -44,77 +44,83 @@ enum NetworkCheckAttempt: Sendable {
 /// The Rust object is synchronized internally so its check and cancellation can use separate threads.
 final class NetworkConnectionSession: @unchecked Sendable {
     private let checker: ConnectionCheck
+    private let attempt: ConnectionAttempt
 
-    init(directory: URL) throws {
-        checker = try ConnectionCheck(dir: directory.path)
+    var isCancelled: Bool { attempt.isCancelled() }
+
+    init(checker: ConnectionCheck) {
+        self.checker = checker
+        attempt = ConnectionAttempt(checker: checker)
     }
 
-    convenience init(candidate: IdentityCandidate) throws {
-        let directory = RustBridge.networkDirectory(
-            root: try RustBridge.directory(), candidate: candidate)
-        try self.init(directory: directory)
+    /// Explicit unbound directories are retained for native loopback fixtures only.
+    convenience init(directory: URL) throws {
+        try self.init(checker: ConnectionCheck(dir: directory.path))
     }
 
-    static func start(candidate: IdentityCandidate, rows: [String], name: String) async
-        -> NetworkCheckAttempt
-    {
-        guard let session = await create(candidate: candidate) else { return .failed }
-        return await session.runAsync(rows: rows, name: name)
+    convenience init(candidate: IdentityCandidate, peerId: String) throws {
+        try self.init(
+            checker: ConnectionCheck.forSlot(
+                registry: RustBridge.identityStore().registry,
+                id: candidate.location.marker, expectedPeer: peerId))
     }
 
     /// Construct off the UI actor, then retain this session so Cancel can reach a running check.
-    static func create(candidate: IdentityCandidate) async -> NetworkConnectionSession? {
-        await Task.detached(priority: .userInitiated) {
-            try? NetworkConnectionSession(candidate: candidate)
-        }.value
+    static func create(candidate: IdentityCandidate, peerId: String) async
+        -> NetworkConnectionSession?
+    {
+        await IdentityIO.performBlocking {
+            try? NetworkConnectionSession(candidate: candidate, peerId: peerId)
+        }
     }
 
-    static func persist(candidate: IdentityCandidate, rows: [String], name: String) async -> Bool {
-        await Task.detached(priority: .userInitiated) { () -> Bool in
+    static func persist(candidate: IdentityCandidate, peerId: String, rows: [String], name: String)
+        async -> Bool
+    {
+        await IdentityIO.performBlocking { () -> Bool in
             do {
                 try RustBridge.storeNetworkDraft(
-                    for: candidate, draft: NetworkSettings(seeds: rows, name: name)
+                    for: candidate, peerId: peerId, draft: NetworkSettings(seeds: rows, name: name)
                 )
                 return true
             } catch {
                 return false
             }
-        }.value
+        }
     }
 
     func runAsync(rows: [String], name: String) async -> NetworkCheckAttempt {
-        await Task.detached(priority: .userInitiated) { () -> NetworkCheckAttempt in
+        await IdentityIO.performBlocking { () -> NetworkCheckAttempt in
             do {
                 return .completed(self, try self.run(rows: rows, name: name))
             } catch {
                 return .failed
             }
-        }.value
+        }
     }
 
-    func cancel() {
-        checker.cancel()
-    }
+    func cancel() { attempt.cancel() }
 
     /// Only the Rust checker that reached a compatible node can write active settings.
     func activate() throws {
+        guard !isCancelled else { throw CheckError.Cancelled }
         _ = try checker.activate()
     }
 
     func activateAsync() async -> Bool {
-        await Task.detached(priority: .userInitiated) {
+        await IdentityIO.performBlocking {
             do {
                 try self.activate()
                 return true
             } catch {
                 return false
             }
-        }.value
+        }
     }
 
-    /// Blocking UniFFI call; invoke from a detached task, never the UI actor.
+    /// Single-use blocking UniFFI call; dispatch through native IO, never the UI actor.
     func run(rows: [String], name: String, waitMs: UInt32 = 5_000) throws -> [NetworkRowOutcome] {
-        let results = try checker.run(
+        let results = try attempt.run(
             draft: NetworkSettings(seeds: rows, name: name), waitMs: waitMs)
         return results.map(NetworkRowOutcome.init)
     }

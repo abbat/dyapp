@@ -115,12 +115,13 @@ final class NetworkDraftTests: XCTestCase {
             return
         }
         let pinned = "\(address)/\(peerID)"
+        let pinnedCheck = try NetworkConnectionSession(directory: path)
         XCTAssertEqual(
-            try session.run(rows: [pinned], name: "", waitMs: 5_000),
+            try pinnedCheck.run(rows: [pinned], name: "", waitMs: 5_000),
             [.connected(peerID)])
         XCTAssertNil(try loadNetwork(dir: path.path, file: .active))
 
-        try session.activate()
+        try pinnedCheck.activate()
         let active = try XCTUnwrap(loadNetwork(dir: path.path, file: .active))
         XCTAssertEqual(active.seeds, [pinned])
         XCTAssertEqual(active.name, "")
@@ -165,7 +166,7 @@ final class NetworkDraftTests: XCTestCase {
         XCTAssertNil(try loadNetwork(dir: path.path, file: .active))
     }
 
-    func testCancelRetryKeepsPriorActiveNetwork() async throws {
+    func testCancelRetryKeepsPriorActiveNetwork() throws {
         let path = try folder(root: root(), id: UUID())
         let working = try NetworkConnectionSession(directory: path)
         let good = "127.0.0.1:33445"
@@ -178,31 +179,20 @@ final class NetworkDraftTests: XCTestCase {
         }
         try working.activate()
 
+        // The UI saves its exact draft before dispatching a check. Cancel belongs to that attempt.
+        try saveNetworkDraft(dir: path.path, draft: NetworkSettings(seeds: [silent], name: ""))
         let checking = try NetworkConnectionSession(directory: path)
-        let started = Date()
-        let running = Task.detached { () -> Bool in
-            do {
-                _ = try checking.run(rows: [silent], name: "", waitMs: 30_000)
-                return false
-            } catch {
-                return true
-            }
-        }
-        let stopping = Task.detached {
-            for _ in 0..<20 {
-                try? await Task.sleep(nanoseconds: 100_000_000)
-                checking.cancel()
-            }
-        }
-        let cancelled = await running.value
-        await stopping.value
-        XCTAssertTrue(cancelled)
-        XCTAssertLessThan(Date().timeIntervalSince(started), 10)
+        checking.cancel()
+        XCTAssertTrue(checking.isCancelled)
+        XCTAssertThrowsError(try checking.run(rows: [silent], name: "", waitMs: 30_000))
+        XCTAssertThrowsError(try checking.activate())
         XCTAssertEqual(try XCTUnwrap(loadNetwork(dir: path.path, file: .draft)).seeds, [silent])
         XCTAssertEqual(try XCTUnwrap(loadNetwork(dir: path.path, file: .active)).seeds, [good])
 
         let retry = try NetworkConnectionSession(directory: path)
+        XCTAssertFalse(retry.isCancelled)
         XCTAssertEqual(try retry.run(rows: [silent], name: "", waitMs: 500), [.unreachable])
+        XCTAssertTrue(checking.isCancelled, "A fresh retry cannot reset an earlier attempt owner")
         XCTAssertEqual(try XCTUnwrap(loadNetwork(dir: path.path, file: .active)).seeds, [good])
     }
 }

@@ -13,10 +13,14 @@ enum IdentityIO {
     typealias Runner = @Sendable (@escaping Work, @escaping Completion) -> Void
 
     private static let queue = DispatchQueue(label: "com.dyapp.identity", qos: .userInitiated)
+    private static let workers = DispatchQueue(
+        label: "com.dyapp.identity.workers", qos: .userInitiated, attributes: .concurrent)
 
-    static func read<Value: Sendable>(_ work: @escaping @Sendable () -> Value) async -> Value {
+    static func performBlocking<Value: Sendable>(_ work: @escaping @Sendable () -> Value) async
+        -> Value
+    {
         await withCheckedContinuation { continuation in
-            queue.async { continuation.resume(returning: work()) }
+            workers.async { continuation.resume(returning: work()) }
         }
     }
 
