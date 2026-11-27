@@ -59,6 +59,14 @@ iOS journeys remain separate native acceptance. `SavedProfilesTests` checks dupl
 close/reopen tickets, stale row actions, failed-read versus empty-list distinction, retained rows after
 failed removal and a same-Peer-ID identity replacement under another slot. The production list reads
 only `favorite_peers`; public profile/media requests belong to an explicit Open action.
+`NativeFavoritesTests` uses actual registry-owned sessions and per-slot Keychain wrapping to save,
+reopen, remove and isolate favorites while retaining empty local chat/Like state; typed invalid/self
+refusals cannot create rows. The two-peer liked-profile UI journey saves without Like, opens the
+private list in Search, checks the exact peer, removes/re-adds from the page and removes from the list
+before continuing its existing pass/unpass/match journey. Every transition waits for actual control
+or state readiness. The DEBUG peer creates a fresh identity on each process start, so this UI journey
+does not relaunch it as if it were a stable counterpart; persistence is checked separately by native
+session reopening. Actual own-device sync and rendered EN/RU/enlarged acceptance remain separate.
 The iOS registry suite drives collisions at the actual native `contains` callback: stranded
 credentials or a newly occupied directory must be skipped without overwriting their payload.
 Picker/invalid-pointer fixtures seed those states after atomic core creation, which already selects

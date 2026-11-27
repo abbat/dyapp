@@ -96,6 +96,7 @@ final class ChatsUITests: XCTestCase {
         loadFull.tap()
         waitGone(loadFull, in: app)
 
+        assertPrivateFavoriteRoundTrip(app)
         reveal(app.buttons["view-pass"], in: app).tap()
         reveal(app.buttons["view-unpass"], in: app).tap()
         reveal(app.buttons["view-like"], in: app, above: true).tap()
@@ -365,5 +366,60 @@ extension ChatsUITests {
         let next = reveal(app.buttons["network-continue"], in: app)
         XCTAssertTrue(next.isEnabled)
         next.tap()
+    }
+}
+
+extension ChatsUITests {
+    private func assertPrivateFavoriteRoundTrip(_ app: XCUIApplication) {
+        let peer = app.staticTexts["view-peer"].label
+        favoriteButton(app, label: "Save privately").tap()
+        _ = favoriteButton(app, label: "Remove from saved")
+        XCTAssertTrue(reveal(app.buttons["view-like"], in: app).isEnabled)
+        reveal(app.buttons["view-back"], in: app, above: true).tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        openSavedCollection(app)
+        let saved = app.buttons.matching(
+            NSPredicate(
+                format: "identifier BEGINSWITH %@", "saved-open-")
+        ).firstMatch
+        XCTAssertTrue(saved.waitForExistence(timeout: 30))
+        saved.tap()
+        XCTAssertTrue(app.staticTexts["view-peer"].waitForExistence(timeout: 30))
+        XCTAssertEqual(app.staticTexts["view-peer"].label, peer)
+        favoriteButton(app, label: "Remove from saved").tap()
+        favoriteButton(app, label: "Save privately").tap()
+        _ = favoriteButton(app, label: "Remove from saved")
+        reveal(app.buttons["view-back"], in: app, above: true).tap()
+        reveal(app.buttons["saved-profiles-toggle"], in: app, above: true).tap()
+        let remove = app.buttons.matching(
+            NSPredicate(
+                format: "identifier BEGINSWITH %@", "saved-remove-")
+        ).firstMatch
+        XCTAssertTrue(remove.waitForExistence(timeout: 30))
+        remove.tap()
+        XCTAssertTrue(app.staticTexts["saved-profiles-empty"].waitForExistence(timeout: 30))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        reveal(app.buttons["chats-open"], in: app).tap()
+        reveal(app.buttons["liked-1"], in: app).tap()
+        XCTAssertTrue(app.staticTexts["view-peer"].waitForExistence(timeout: 30))
+        XCTAssertEqual(app.staticTexts["view-peer"].label, peer)
+    }
+
+    private func favoriteButton(_ app: XCUIApplication, label: String) -> XCUIElement {
+        let button = reveal(app.buttons["view-favorite-toggle"], in: app)
+        let completed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@ AND enabled == true", label), object: button
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [completed], timeout: 30), .completed)
+        return button
+    }
+
+    private func openSavedCollection(_ app: XCUIApplication) {
+        let search = app.buttons["search-open"]
+        XCTAssertTrue(search.waitForExistence(timeout: 10))
+        search.tap()
+        let toggle = reveal(app.buttons["saved-profiles-toggle"], in: app)
+        XCTAssertTrue(toggle.waitForExistence(timeout: 10))
+        toggle.tap()
     }
 }
