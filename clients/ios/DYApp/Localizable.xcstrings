@@ -7185,6 +7185,38 @@
         }
       }
     },
+    "sticker.picker.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stickers"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стикеры"
+          }
+        }
+      }
+    },
+    "stickerPicker.noRecent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No recent stickers. Choose a saved pack or import one in Manage packs."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет недавних стикеров. Выберите сохранённый набор или импортируйте его в разделе управления."
+          }
+        }
+      }
+    },
     "unlike.action": {
       "localizations": {
         "en": {

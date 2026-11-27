@@ -55,6 +55,7 @@ struct ChatView: View {
             composerInput
             if history?.state == .open, let context = feed.context {
                 ChatPhotoComposer(feed: feed, peer: peer, context: context, disabled: busy || sending)
+                ChatStickerPicker(feed: feed, context: context, peer: peer, disabled: busy || sending)
             }
         }
         .sheet(item: $forwarding) { opening in

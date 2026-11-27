@@ -709,7 +709,9 @@ renders the common ordered history with photo placeholders and a forwarded label
 same destination picker for text and photos. Explicit photo loading opens a viewer for the
 core-validated JPEG or PNG and bounds display decoding to 2048 px on the long side. In-thread
 previews use the shared bounded JPEG decoder on existing history bytes in open chats.
-iOS sticker history uses the core's first-frame result and keeps emoji and pack name as its label. Photo rows
+iOS sticker history uses the core's first-frame result and keeps emoji and pack name as its label.
+The open-chat iOS picker pages through recent stickers and submits by saved pack ID and manifest
+index. Queued submissions hide the choices to prevent another send from the same opening. Photo rows
 check `chat_photo_auto` before requesting an original and recheck after network cost changes. Other
 chats present an explicit load action. The iOS composer prepares the selected JPEG or PNG off the
 UI actor, shows a confirmation preview and passes the JPEG and its encoded dimensions to
