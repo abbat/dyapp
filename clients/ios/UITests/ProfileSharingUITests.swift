@@ -3,12 +3,15 @@ import XCTest
 extension ChatsUITests {
     func assertProfileShare(language: String, locale: String, sentLabel: String) {
         let app = XCUIApplication()
-        app.launchArguments = [
-            "--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)",
-            "--ui-test-chat-peer-shares",
+        let configuration = [
             "-AppleLanguages", "(\(language))", "-AppleLocale", locale,
             "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityM",
         ]
+        app.launchArguments =
+            [
+                "--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)",
+                "--ui-test-chat-peer-shares",
+            ] + configuration
         app.launch()
         createIdentity(app)
         connectLocalNode(app)
@@ -23,13 +26,14 @@ extension ChatsUITests {
         XCTAssertTrue(app.buttons["view-back"].waitForExistence(timeout: 30), app.debugDescription)
         reveal(app.buttons["view-share"], in: app).tap()
         let target = reveal(app.buttons["share-1"], in: app)
-        attachShareState("\(language)-eligible-target", app: app, element: target)
+        attachShareState(
+            "\(language)-eligible-target", app: app, element: target, configuration: configuration)
         target.tap()
         let sent = app.staticTexts.matching(identifier: "view-status").matching(
             NSPredicate(format: "label == %@", sentLabel)
         ).firstMatch
         reveal(sent, in: app, timeout: 60, above: true)
-        attachShareState("\(language)-sent", app: app, element: sent)
+        attachShareState("\(language)-sent", app: app, element: sent, configuration: configuration)
         reveal(app.buttons["view-back"], in: app, above: true).tap()
         XCTAssertTrue(cards.element(boundBy: 1).waitForExistence(timeout: 30), app.debugDescription)
         XCTAssertTrue(
@@ -37,7 +41,9 @@ extension ChatsUITests {
             "The distinct peer must receive the exact owner link once")
     }
 
-    private func attachShareState(_ state: String, app: XCUIApplication, element: XCUIElement) {
+    private func attachShareState(
+        _ state: String, app: XCUIApplication, element: XCUIElement, configuration: [String]
+    ) {
         XCTAssertTrue(element.exists && element.isHittable)
         let frame = element.frame
         XCTAssertTrue(!frame.isEmpty && app.frame.intersects(frame))
@@ -45,9 +51,9 @@ extension ChatsUITests {
         screenshot.name = "ios-profile-share-\(state)"
         screenshot.lifetime = .keepAlways
         add(screenshot)
-        let configuration = app.launchArguments.suffix(6).joined(separator: " ")
+        let requested = configuration.joined(separator: " ")
         let geometry = XCTAttachment(
-            string: "element=\(frame) viewport=\(app.frame) requested: \(configuration)")
+            string: "element=\(frame) viewport=\(app.frame) requested: \(requested)")
         geometry.name = "ios-profile-share-\(state)-geometry"
         geometry.lifetime = .keepAlways
         add(geometry)
