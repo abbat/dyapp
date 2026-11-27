@@ -705,7 +705,8 @@ original bytes. It checks that the destination is a different open pair, then en
 with fresh media credentials before committing a new forwarded message. `forward_photo_targets`
 projects eligible destinations offline. `forward_photo` retrieves the original from the active
 network even when this device has a cached copy. Only current chat photos are eligible. iOS
-presentation for photo forwarding remains planned.
+renders the common ordered history with photo placeholders and a forwarded label, and uses the
+same destination picker for text and photos. Photo preview and original display remain planned.
 
 Desktop text, edit, delete, photo and forward commands project the same core `Submission` as
 `{ id, queued }`: `queued: null` means immediate node acceptance; a string means committed with

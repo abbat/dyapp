@@ -17,6 +17,7 @@ struct ChatView: View {
     /// The block held, so the chat is gone.
     let blocked: () -> Void
     @State private var history: ChatHistory?
+    @State private var items: [ChatItem] = []
     @StateObject private var composer = ChatComposer()
     @State private var deleting: ChatMessage?
     @State private var forwarding: ForwardOpening?
@@ -150,27 +151,68 @@ struct ChatView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 8) {
-                    ForEach(messages, id: \.threadKey) { message in
-                        ChatBubble(
-                            message: message, own: message.author == feed.me,
-                            writable: chatWritable(history?.state), sending: sending || busy,
-                            openProfile: openProfile,
-                            edit: { startEditing(message) }, delete: { deleting = message },
-                            forward: {
-                                if let context = feed.context {
-                                    forwarding = ForwardOpening(
-                                        message: message, peer: peer, context: context)
-                                }
-                            }
-                        )
+                    ForEach(items, id: \.rowID) { item in
+                        switch item {
+                        case .text(let message):
+                            textBubble(message)
+
+                        case .photo(let photo):
+                            photoBubble(photo)
+
+                        case .sticker(let sticker):
+                            Text(verbatim: "\(sticker.emoji) \(sticker.packName)")
+                        }
                     }
                 }
             }
-            .onChange(of: messages.count) { _ in
-                if let last = messages.last { proxy.scrollTo(last.threadKey, anchor: .bottom) }
+            .onChange(of: items.last?.rowID) { last in
+                if let last { proxy.scrollTo(last, anchor: .bottom) }
             }
         }
         .accessibilityIdentifier("chat-thread")
+    }
+
+    private func textBubble(_ message: ChatMessage) -> some View {
+        ChatBubble(
+            message: message, own: message.author == feed.me,
+            writable: chatWritable(history?.state), sending: sending || busy,
+            openProfile: openProfile,
+            edit: { startEditing(message) }, delete: { deleting = message },
+            forward: {
+                openForward(group: message.groupId, author: message.author, id: message.id, photo: false)
+            }
+        )
+    }
+
+    private func photoBubble(_ photo: ChatPhoto) -> some View {
+        HStack {
+            if photo.forwarded {
+                Text(verbatim: String(
+                    format: NSLocalizedString("chats.forwarded", comment: ""),
+                    NSLocalizedString("chat.photo", comment: "")))
+                    .font(.caption)
+                    .accessibilityIdentifier("msg-photo-forwarded")
+            } else {
+                Text("chat.photo").accessibilityIdentifier("msg-photo")
+            }
+            Menu {
+                Button("chat.forward") {
+                    openForward(group: photo.groupId, author: photo.author, id: photo.id, photo: true)
+                }
+                .accessibilityIdentifier("msg-forward")
+                .disabled(sending || busy)
+            } label: {
+                Image(systemName: "ellipsis").frame(minWidth: 44, minHeight: 44)
+            }
+            .accessibilityLabel(Text("msg.menu"))
+            .accessibilityIdentifier("msg-photo-menu")
+        }
+    }
+
+    private func openForward(group: Data, author: String, id: Data, photo: Bool) {
+        guard let context = feed.context else { return }
+        let source = ChatForwardSource(peerId: peer, groupId: group, author: author, messageId: id)
+        forwarding = ForwardOpening(source: source, photo: photo, context: context)
     }
 
     @ViewBuilder private var statusLines: some View {
@@ -214,12 +256,15 @@ struct ChatView: View {
         guard let context = feed.context else { return }
         let opening = composer.opening
         let peer = peer
-        let result = await feed.call(context) { try $0.chatHistory(peerId: peer) }
+        let result = await feed.call(context) {
+            (try $0.chatHistory(peerId: peer), try $0.chatItems(peerId: peer))
+        }
         guard !Task.isCancelled, feed.isCurrent(context), composer.opening == opening else {
             return
         }
         switch result {
-        case let .success(loaded):
+        case let .success((loaded, rows)):
+            items = rows
             if history == nil { composer.status = nil }
             history = loaded
             await feed.markRead(peer, in: context)
@@ -377,6 +422,27 @@ private struct ChatBubble: View {
         .fixedSize()
         .accessibilityLabel(Text("msg.menu"))
         .accessibilityIdentifier(own ? "msg-menu" : "msg-received-menu")
+    }
+}
+
+private struct ChatRowID: Hashable {
+    let group: Data
+    let author: String
+    let id: Data
+}
+
+extension ChatItem {
+    fileprivate var rowID: ChatRowID {
+        switch self {
+        case .text(let message):
+            return ChatRowID(group: message.groupId, author: message.author, id: message.id)
+
+        case .photo(let photo):
+            return ChatRowID(group: photo.groupId, author: photo.author, id: photo.id)
+
+        case .sticker(let sticker):
+            return ChatRowID(group: sticker.groupId, author: sticker.author, id: sticker.id)
+        }
     }
 }
 

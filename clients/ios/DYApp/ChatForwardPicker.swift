@@ -2,8 +2,8 @@ import SwiftUI
 
 struct ForwardOpening: Identifiable {
     let id = UUID()
-    let message: ChatMessage
-    let peer: String
+    let source: ChatForwardSource
+    let photo: Bool
     let context: ChatFeed.Context
 }
 
@@ -56,7 +56,7 @@ struct ChatForwardPicker: View {
 
     private func load() async {
         let result = await feed.forwardTargets(
-            opening.message, from: opening.peer, in: opening.context)
+            opening.source, photo: opening.photo, in: opening.context)
         guard !Task.isCancelled, feed.isCurrent(opening.context) else { return }
         busy = false
         switch result {
@@ -71,7 +71,7 @@ struct ChatForwardPicker: View {
 
     private func send(_ target: String) async {
         let result = await feed.forward(
-            opening.message, from: opening.peer, to: target, in: opening.context)
+            opening.source, photo: opening.photo, to: target, in: opening.context)
         guard feed.isCurrent(opening.context) else { dismiss(); return }
         busy = false
         switch result {
