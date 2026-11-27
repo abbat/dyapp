@@ -53,9 +53,15 @@ final class LaunchTests: XCTestCase {
         reveal(start, in: app).tap()
         let code = app.staticTexts["link-receive-code"]
         XCTAssertTrue(code.waitForExistence(timeout: 10))
+        let firstCode = code.label
+        XCTAssertFalse(firstCode.isEmpty)
         reveal(app.buttons["link-receive-cancel"], in: app).tap()
         XCTAssertTrue(start.waitForExistence(timeout: 10))
         XCTAssertFalse(code.exists)
+        reveal(start, in: app).tap()
+        XCTAssertTrue(code.waitForExistence(timeout: 10))
+        XCTAssertFalse(code.label.isEmpty)
+        XCTAssertNotEqual(code.label, firstCode)
     }
 
     /// The stored identity key survives a restart: the second launch unwraps the same peer ID.
