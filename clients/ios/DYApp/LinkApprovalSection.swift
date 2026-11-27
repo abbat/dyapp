@@ -27,7 +27,10 @@ struct LinkApprovalSection: View {
                 .autocorrectionDisabled()
                 .disabled(busy || confirming)
                 .accessibilityIdentifier("link-owner-code")
-            Button("devices.code.photo") { picking = true }
+            Button("devices.code.photo") {
+                opening = UUID()
+                picking = true
+            }
                 .disabled(busy || confirming)
                 .accessibilityIdentifier("link-owner-photo")
             Button("network.continue") { prepare() }
@@ -40,8 +43,9 @@ struct LinkApprovalSection: View {
         }
         .sheet(isPresented: $picking) {
             let context = feed.context
+            let ticket = opening
             PhotoPicker { data in
-                guard picking, let context, feed.isCurrent(context) else { return }
+                guard picking, opening == ticket, let context, feed.isCurrent(context) else { return }
                 picking = false
                 if let data { scan(data, context: context) }
             }
@@ -71,13 +75,14 @@ struct LinkApprovalSection: View {
     }
 
     private func scan(_ data: Data, context: ChatFeed.Context) {
+        let ticket = opening
         busy = true
         failed = false
         approved = false
         Task {
             let scanned = await IdentityIO.performBlocking { Self.linkCode(in: data) }
             busy = false
-            guard feed.isCurrent(context) else { return }
+            guard opening == ticket, feed.isCurrent(context) else { return }
             if let scanned { code = scanned } else { failed = true }
         }
     }
