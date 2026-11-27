@@ -28,12 +28,17 @@ enum IdentityIO {
     private static let profileQueue = DispatchQueue(label: "com.dyapp.profile", qos: .userInitiated)
 
     @MainActor
-    static func performProfile<Value: Sendable>(_ work: @escaping @Sendable () -> Value) async
-        -> Value
-    {
+    static func performProfile<Value: Sendable>(
+        _ work: @escaping @Sendable () -> Value
+    ) async -> Value {
         await withCheckedContinuation { continuation in
-            profileQueue.async { continuation.resume(returning: work()) }
+            enqueueProfile { continuation.resume(returning: work()) }
         }
+    }
+
+    @MainActor
+    static func enqueueProfile(_ work: @escaping @Sendable () -> Void) {
+        profileQueue.async(execute: work)
     }
 
     static func perform(_ work: @escaping Work, completion: @escaping Completion) {

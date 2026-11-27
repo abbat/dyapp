@@ -45,6 +45,33 @@ private final class HeldIdentityIO: @unchecked Sendable {
 
 @MainActor
 final class IdentitySessionTests: XCTestCase {
+    func testReopenedProfileReadsTheWriteAdmittedByThePreviousOpening() async throws {
+        let root = try identitySlotTestRoot()
+        let file = root.appendingPathComponent("profile-write")
+        let expected = Data("committed".utf8)
+        let entered = NativeTestSignal("Profile write entered")
+        let release = DispatchSemaphore(value: 0)
+        let write = Task {
+            await IdentityIO.performProfile {
+                entered.signal()
+                guard release.wait(timeout: .now() + 10) == .success else { return false }
+                return (try? expected.write(to: file)) != nil
+            }
+        }
+        defer { release.signal() }
+        guard await entered.wait() else { return XCTFail("Profile write never entered IO") }
+        write.cancel()
+        let read: Data? = await withCheckedContinuation { continuation in
+            IdentityIO.enqueueProfile {
+                continuation.resume(returning: try? Data(contentsOf: file))
+            }
+            release.signal()
+        }
+        XCTAssertEqual(read, expected)
+        let committed = await write.value
+        XCTAssertTrue(committed)
+    }
+
     func testConstructionDoesNotReadAndLoadingCannotOfferCreationBeforeConfirmedAbsence() {
         let queue = HeldIdentityIO()
         let model = IdentitySession(read: { .setup }, run: queue.run)
