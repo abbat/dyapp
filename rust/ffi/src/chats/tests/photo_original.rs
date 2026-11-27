@@ -126,7 +126,20 @@ fn populated_photo_history_and_cached_original_survive_native_reopen_offline() {
         .0
         .to_vec();
     let expected = vec![item.id.clone(), first[0].clone(), last];
-    assert_eq!(ids(&f.chats.chat_items(peer.clone()).unwrap()), expected);
+    let thread = f.chats.chat_thread(peer.clone()).unwrap();
+    let text = f.chats.chat_history(peer.clone()).unwrap();
+    assert_eq!(thread.state, text.state);
+    assert_eq!(thread.muted, text.muted);
+    assert_eq!(ids(&thread.items), expected);
+    let projected_text: Vec<_> = thread
+        .items
+        .into_iter()
+        .filter_map(|row| match row {
+            ChatItem::Text { message } => Some(message),
+            ChatItem::Photo { .. } | ChatItem::Sticker { .. } => None,
+        })
+        .collect();
+    assert_eq!(projected_text, text.messages);
     let file = keep(&f, &attachment, &bytes);
     let sealed = std::fs::read(&file).unwrap();
     assert!(sealed.len() > bytes.len());
