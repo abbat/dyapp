@@ -12,7 +12,10 @@ struct ReceivedViewsSection: View {
     var body: some View {
         let expected = opening
         let context = feed.context
-        DisclosureGroup("privacy.views.received.title", isExpanded: $expanded) {
+        DisclosureGroup(
+            "privacy.views.received.title",
+            isExpanded: Binding(get: { expanded }, set: setExpanded)
+        ) {
             Text("privacy.views.received.hint").font(.caption)
             if let rows {
                 ForEach(rows, id: \.peerId) { row in
@@ -46,13 +49,20 @@ struct ReceivedViewsSection: View {
                 .disabled(busy)
         }
         .accessibilityIdentifier("received-views")
-        .task(id: expanded) {
+        .task(id: expected) {
             if expanded { await refresh(opening: expected) }
         }
         .onDisappear {
             opening = UUID()
             busy = false
         }
+    }
+
+    private func setExpanded(_ value: Bool) {
+        guard expanded != value else { return }
+        opening = UUID()
+        busy = false
+        expanded = value
     }
 
     private func refresh(opening expected: UUID) async {
