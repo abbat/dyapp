@@ -50,6 +50,40 @@ const frames = () =>
   new Promise((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(resolve));
   });
+// Native bounds can precede the WebView resize event. Admit only its current CSS viewport.
+smoke.resizeWindow = async (set) => {
+  let nativeReady = false;
+  let ready;
+  const changed = new Promise((resolve) => {
+    ready = resolve;
+  });
+  const check = () => {
+    if (
+      nativeReady &&
+      window.innerWidth === Math.round(set.width / window.devicePixelRatio) &&
+      window.innerHeight === Math.round(set.height / window.devicePixelRatio)
+    )
+      ready();
+  };
+  window.addEventListener('resize', check);
+  try {
+    await smoke.waitForSignal(
+      'webview resize',
+      (async () => {
+        await invokeTest('ui_test_window', { set });
+        nativeReady = true;
+        check();
+        await changed;
+      })(),
+    );
+  } catch (error) {
+    throw new Error(
+      `${error}; requested ${set.width}x${set.height} physical, viewport ${window.innerWidth}x${window.innerHeight} at DPR ${window.devicePixelRatio}`,
+    );
+  } finally {
+    window.removeEventListener('resize', check);
+  }
+};
 const documentFocused = () =>
   new Promise((resolve, reject) => {
     const finish = () => {
@@ -126,16 +160,14 @@ const audit = (() => {
   const auditViewport = async (problems, scrollLeft, scrollTop) => {
     const root = document.documentElement;
     const [window0] = await invokeTest('ui_test_window', { set: null });
-    await invokeTest('ui_test_window', {
-      set: { ...window0, width: Math.round(440 * devicePixelRatio) },
-    });
+    await smoke.resizeWindow({ ...window0, width: Math.round(440 * devicePixelRatio) });
     await frames();
     const overflow = root.scrollWidth - root.clientWidth;
     const wide = [...document.querySelectorAll('body *')]
       .filter((element) => element.scrollWidth > element.clientWidth + 1 && visible(element))
       .slice(-3)
       .map((element) => element.id || element.className || element.tagName);
-    await invokeTest('ui_test_window', { set: window0 });
+    await smoke.resizeWindow(window0);
     await frames();
     // Focusing and the narrow window scroll the page; the checks after the audit expect it as it was.
     window.scrollTo(scrollLeft, scrollTop);
@@ -172,19 +204,17 @@ smoke.shot = async (name) => {
   const [window0] = await invokeTest('ui_test_window', { set: null });
   try {
     for (const width of widths) {
-      await invokeTest('ui_test_window', {
-        set: {
-          x: 0,
-          y: 0,
-          width: Math.round(width * devicePixelRatio),
-          height: Math.round(1400 * devicePixelRatio),
-        },
+      await smoke.resizeWindow({
+        x: 0,
+        y: 0,
+        width: Math.round(width * devicePixelRatio),
+        height: Math.round(1400 * devicePixelRatio),
       });
       await frames();
       await invokeTest('ui_test_shot', { name, width });
     }
   } finally {
-    await invokeTest('ui_test_window', { set: window0 });
+    await smoke.resizeWindow(window0);
     await frames();
   }
 };

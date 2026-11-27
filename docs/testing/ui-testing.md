@@ -2156,8 +2156,11 @@ read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID
   `ui-test.sh linux` empties `build/ux-research/current/` (gitignored), mounts it at
   `/shots` and sets `DYAPP_UI_SHOTS`. At named checkpoints the injected smoke asks the test-only
   `ui_test_shot` command which widths are missing, resizes the window to 440 and 1280 px wide
-  (1400 px high) through `ui_test_window`, which waits for the native bounds, waits two animation
-  frames, has `ui_test_shot` run ImageMagick `import -window root` and restores the window; the
+  (1400 px high) through `ui_test_window`, which waits for native bounds. The smoke also arms a
+  WebView resize listener before that request and requires its current CSS viewport to match the
+  requested physical dimensions at the current device pixel ratio, under a fresh failure deadline.
+  Two animation frames then paint the admitted geometry before `ui_test_shot` runs ImageMagick
+  `import -window root`. Narrow overflow audits and window restoration use the same readiness; the
   Xvfb screen is 1280x1400. Files are
   `<state>-<lang>-<width>.png`; the first capture of a state wins. After the English pass,
   `linux-test.sh` runs `desktop-smoke.py` again with `DYAPP_SMOKE_RU=1` (every case gets
