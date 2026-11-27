@@ -60,11 +60,12 @@ class IosEvidence(unittest.TestCase):
                     (f"{stem}-geometry", ".txt", b"element=(0, 0, 20, 20)"),
                 ):
                     exported = f"{index}{suffix}"
+                    readable_name = f"{name}_0_1{suffix}"
                     (directory / exported).write_bytes(content)
                     attachments.append(
                         {
                             "exportedFileName": exported,
-                            "suggestedHumanReadableName": f"{name}_0_1{suffix}",
+                            "suggestedHumanReadableName": readable_name,
                         }
                     )
             manifest = directory / "manifest.json"
