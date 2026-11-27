@@ -269,9 +269,11 @@ struct ProfilePhotosSection: View {
     private func perform(
         edits: Bool, _ work: @escaping @Sendable () throws -> ProfilePhotoRows
     ) async {
+        guard !busy, !Task.isCancelled else { return }
         busy = true
+        defer { busy = false }
         let result = await IdentityIO.performBlocking { Result { try work() } }
-        busy = false
+        guard edits || !Task.isCancelled else { return }
         switch result {
         case let .success(fresh):
             rows = fresh

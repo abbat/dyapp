@@ -165,7 +165,8 @@ obtain their own actual admission; do not wrap them in another identity lease. M
 complete and release their scope before a search begins. Own-photo listing and mutation retain the
 native identity operation through the write and all resulting preview reads, with draft serialization
 acquired before native admission. Image decoding/encoding finishes on native IO before either lock is
-acquired; photo work does not block the UI actor. Presentation ownership of editor callbacks remains
+acquired; photo work does not block the UI actor. The editor admits one photo operation at a time
+and drops results from cancelled list reads. Presentation ownership of editor callbacks remains
 a separate acceptance requirement.
 The reserved `active-profile` value `none\n` means the user explicitly left no identity selected.
 Unlike an absent pointer, it opens the picker even if exactly one ready slot survives; an empty
