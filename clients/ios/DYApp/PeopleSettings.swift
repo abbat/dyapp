@@ -247,6 +247,9 @@ struct StickerImportSection: View {
 struct LinkedDevicesSection: View {
     @ObservedObject var feed: ChatFeed
     @State private var rows: [MobileOwnDevice] = []
+    @State private var revoking: (key: Data, context: ChatFeed.Context)?
+    @State private var confirming = false
+    @State private var busy = false
     @State private var failed = false
 
     var body: some View {
@@ -254,12 +257,52 @@ struct LinkedDevicesSection: View {
             ForEach(rows, id: \.key) { device in
                 Text(verbatim: device.key.prefix(3).map { String(format: "%02x", $0) }.joined())
                     .accessibilityIdentifier(device.current ? "device-current" : "device-other")
+                if !device.current {
+                    Button("devices.disconnect", role: .destructive) {
+                        guard let context = feed.context else { return }
+                        revoking = (device.key, context)
+                        confirming = true
+                    }
+                    .disabled(busy)
+                }
             }
             if failed {
                 Button("search.retry") { Task { await load() } }
             }
         }
+        .confirmationDialog("devices.disconnect", isPresented: $confirming) {
+            Button("devices.disconnect", role: .destructive, action: revoke)
+        }
         .task(id: feed.owner) { await load() }
+        .onChange(of: feed.owner) { _ in
+            revoking = nil
+            confirming = false
+        }
+    }
+
+    private func revoke() {
+        guard !busy, let (key, context) = revoking, feed.isCurrent(context) else { return }
+        revoking = nil
+        busy = true
+        let identity = context.identity
+        Task {
+            let result = await IdentityIO.performBlocking {
+                Result { try Self.directory(identity).revoke(deviceKey: key) }
+            }
+            if feed.isCurrent(context) {
+                await load()
+                if case .failure = result { failed = true }
+            }
+            busy = false
+        }
+    }
+
+    nonisolated private static func directory(_ identity: ChatIdentity) throws -> MobileDeviceDirectory {
+        let location = identity.candidate.location
+        return try MobileDeviceDirectory(
+            registry: RustBridge.identityStore().registry, id: location.marker,
+            expectedPeer: identity.peerId,
+            store: RustBridge.keyStore(for: location).requiringExistingKey())
     }
 
     private func load() async {
@@ -269,12 +312,7 @@ struct LinkedDevicesSection: View {
         let identity = context.identity
         let result = await IdentityIO.performBlocking {
             Result {
-                let location = identity.candidate.location
-                let directory = try MobileDeviceDirectory(
-                    registry: RustBridge.identityStore().registry, id: location.marker,
-                    expectedPeer: identity.peerId,
-                    store: RustBridge.keyStore(for: location).requiringExistingKey())
-                return try directory.devices(live: false)
+                try Self.directory(identity).devices(live: false)
             }
         }
         guard !Task.isCancelled, feed.isCurrent(context) else { return }

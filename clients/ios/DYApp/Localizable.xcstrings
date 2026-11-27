@@ -1137,6 +1137,22 @@
         }
       }
     },
+    "devices.disconnect": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnect…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отключить…"
+          }
+        }
+      }
+    },
     "devices.title": {
       "localizations": {
         "en": {
