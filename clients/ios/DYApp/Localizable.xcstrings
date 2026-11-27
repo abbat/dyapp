@@ -1041,6 +1041,182 @@
         }
       }
     },
+    "favorites.add": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save privately"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить приватно"
+          }
+        }
+      }
+    },
+    "favorites.blocked": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This profile is blocked. Unblock it in Settings before saving."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Анкета заблокирована. Разблокируйте её в настройках перед сохранением."
+          }
+        }
+      }
+    },
+    "favorites.changeFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The saved state could not be changed. Try again."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось изменить отметку сохранения. Попробуйте ещё раз."
+          }
+        }
+      }
+    },
+    "favorites.hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only your devices share this saved state. No like or notification is sent to the profile owner."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отметка доступна только вашим устройствам. Владелец анкеты не получит ни симпатию, ни уведомление."
+          }
+        }
+      }
+    },
+    "favorites.loadFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved status could not be read. Retry before changing it."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось прочитать отметку. Повторите чтение перед изменением."
+          }
+        }
+      }
+    },
+    "favorites.loading": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading saved status…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаем отметку сохранения…"
+          }
+        }
+      }
+    },
+    "favorites.remove": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove from saved"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убрать из сохранённых"
+          }
+        }
+      }
+    },
+    "favorites.removed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile removed from saved."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Анкета убрана из сохранённых."
+          }
+        }
+      }
+    },
+    "favorites.retry": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry saved status"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повторить чтение отметки"
+          }
+        }
+      }
+    },
+    "favorites.saved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile saved privately."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Анкета сохранена приватно."
+          }
+        }
+      }
+    },
+    "favorites.saving": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saving…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохраняем…"
+          }
+        }
+      }
+    },
     "identity.create": {
       "localizations": {
         "en": {

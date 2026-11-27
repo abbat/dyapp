@@ -27,6 +27,7 @@ final class ProfilePage: ObservableObject {
     @Published private(set) var likesFailure: ProfilePageStatus?
     @Published private(set) var sending = false
     @Published private(set) var status: ProfilePageStatus?
+    @Published private(set) var favorite = FavoriteActionState()
     let peer: String
     private let feed: ChatFeed
     private let context: ChatFeed.Context?
@@ -41,6 +42,7 @@ final class ProfilePage: ObservableObject {
     }
 
     func retire() {
+        favorite = FavoriteActionState()
         active = false
         opening = UUID()
     }
@@ -94,6 +96,20 @@ final class ProfilePage: ObservableObject {
                     key: profileLoadKey(error), details: String(describing: error))
             }
         }
+    }
+
+    /// A native private change never invokes Like or sends a message to this peer.
+    func resolveFavorite(change: Bool, opening expected: UUID) async {
+        guard let context, current(expected), let request = favorite.begin(change: change) else {
+            return
+        }
+        let peer = peer
+        let result = await feed.call(context) { session in
+            if let target = request.target { try session.setFavorite(peerId: peer, saving: target) }
+            return try session.favoriteState(peerId: peer)
+        }
+        guard current(expected) else { return }
+        favorite.complete(result, for: request)
     }
 
     func like(_ liked: Bool) async {

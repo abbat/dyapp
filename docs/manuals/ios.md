@@ -58,6 +58,12 @@ screen shows the verified version and exact public fields; after failure, repeat
 and retry. After a publication, **Hide from search** takes the profile out of search and keeps the
 draft; publishing again shows it. Anyone with your Peer ID can still open it, and fetched copies remain.
 
+Another person's profile has a private save/remove action, independent of Like. It reads and writes
+this identity's favorites through the shared native session and stages synchronization only for its
+own devices; saving sends no Like or message to that person. An unreadable saved flag offers Retry
+without guessing its value, and a failed change keeps the last confirmed state. The standalone
+saved-profile list and its native runtime acceptance are still planned.
+
 **Settings** lists the device's identities, marks the current one, and opens its network form.
 Once the network is set up it also holds **Notifications**: when iOS lets the closed app receive, new
 messages and likes from people you did not mute post one notice, and a tap opens the app behind its

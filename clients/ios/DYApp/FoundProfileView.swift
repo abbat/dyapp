@@ -24,6 +24,7 @@ struct FoundProfileView: View {
             if let found = page.found { PeerGallery(photos: feed.photos, found: found) }
             if !own {
                 ProfileLikesBlock(page: page, message: message)
+                ProfileFavoriteBlock(page: page)
             }
             ProfileShareBlock(page: page, feed: feed, openChat: openChat)
             if own { ProfileActionStatus(page: page) }
@@ -32,6 +33,7 @@ struct FoundProfileView: View {
         }
         .task {
             page.activate()
+            if !own { await page.resolveFavorite(change: false, opening: page.opening) }
             await page.load()
             if !own { await page.readLikes() }
         }
