@@ -148,7 +148,7 @@ final class ProfileDraftStoreTests: XCTestCase {
 
         inputs.interests = " Music, Art; Books \nE\u{301}COLE"
         let updated = try inputs.inserted(into: ProfileDraft())
-        XCTAssertEqual(updated.interests, ["music, art; books", "école"])
+        XCTAssertEqual(updated.interests, ["music, art; books", "\u{E9}cole"])
         let record = try ProfileRustDraftStore.record(from: updated)
         XCTAssertEqual(ProfileRustDraftStore.values(from: record).interests, updated.interests)
 

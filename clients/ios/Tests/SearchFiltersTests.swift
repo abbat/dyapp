@@ -30,7 +30,7 @@ final class SearchFiltersTests: XCTestCase {
         XCTAssertTrue(try inputs.conditions().isEmpty)
         inputs.offered = [19]
         XCTAssertTrue(inputs.interestOffered)
-        XCTAssertEqual(try inputs.conditions().map(\.strings), [["école"]])
+        XCTAssertEqual(try inputs.conditions().map(\.strings), [["\u{E9}cole"]])
 
         inputs.interest = "music\nother"
         XCTAssertEqual(failure(inputs), "search.interestInvalid")

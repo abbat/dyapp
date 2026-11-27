@@ -182,7 +182,10 @@ struct StickerImportSection: View {
             }
             if saved { Image(systemName: "checkmark").accessibilityLabel(Text("stickers.import")) }
         }
-        .fileImporter(isPresented: $choosing, allowedContentTypes: [.tar]) { result in
+        .fileImporter(
+            isPresented: $choosing,
+            allowedContentTypes: [UTType(filenameExtension: "tar") ?? .archive]
+        ) { result in
             guard let context = importContext, feed.isCurrent(context), !working else { return }
             importContext = nil
             guard case let .success(url) = result else { return }

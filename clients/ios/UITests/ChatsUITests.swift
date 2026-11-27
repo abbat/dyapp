@@ -144,7 +144,11 @@ final class ChatsUITests: XCTestCase {
     }
 
     func testSharedProfileInRussian() {
-        assertProfileShare(language: "ru", locale: "ru_RU", sentLabel: "Профиль отправлен.")
+        assertProfileShare(
+            language: "ru", locale: "ru_RU",
+            sentLabel:
+                "\u{41F}\u{440}\u{43E}\u{444}\u{438}\u{43B}\u{44C} \u{43E}\u{442}\u{43F}\u{440}\u{430}\u{432}\u{43B}\u{435}\u{43D}."
+        )
     }
 }
 
@@ -361,7 +365,8 @@ extension ChatsUITests {
         let status = reveal(app.staticTexts["network-check-status"], in: app)
         let answered =
             app.launchArguments.contains("(ru)")
-            ? "Совместимый узел ответил." : "A compatible node answered."
+            ? "\u{421}\u{43E}\u{432}\u{43C}\u{435}\u{441}\u{442}\u{438}\u{43C}\u{44B}\u{439} \u{443}\u{437}\u{435}\u{43B} \u{43E}\u{442}\u{432}\u{435}\u{442}\u{438}\u{43B}."
+            : "A compatible node answered."
         XCTAssertEqual(
             XCTWaiter.wait(
                 for: [
