@@ -41,7 +41,7 @@ final class RevealGeometryTests: XCTestCase {
         let drag = try XCTUnwrap(
             revealDrag(anchors: labels, visible: viewport, target: target, above: false))
         XCTAssertEqual(drag.start, CGPoint(x: 100, y: 190))
-        XCTAssertEqual(drag.end, CGPoint(x: 100, y: 518))
+        XCTAssertEqual(drag.end, CGPoint(x: 100, y: 312))
         XCTAssertTrue(viewport.contains(drag.end))
     }
 
@@ -60,5 +60,26 @@ final class RevealGeometryTests: XCTestCase {
         XCTAssertFalse(revealFits(CGRect(x: 40, y: 90, width: 120, height: 20), in: viewport))
         XCTAssertTrue(revealFits(CGRect(x: 40, y: -50, width: 120, height: 800), in: viewport))
         XCTAssertFalse(revealFits(CGRect(x: 40, y: 500, width: 120, height: 800), in: viewport))
+    }
+
+    func testPartialKeyboardRowsDoNotOscillateWithMeasuredNativeTravel() throws {
+        // bca native trace: 190.6 requested/372 observed down, 183.6 requested/372 observed up.
+        for scale in [0.8, 1.0, 2.0] {
+            let visible = CGRect(x: 0, y: 97.6667 * scale, width: 393 * scale, height: 358 * scale)
+            let anchor = CGRect(
+                x: 40 * scale, y: 180 * scale, width: 120 * scale, height: 20 * scale)
+            for (position, gain) in [(66.0, 372 / 190.6), (438.0, 372 / 183.6)] {
+                let target = CGRect(
+                    x: 20 * scale, y: position * scale, width: 353 * scale, height: 44 * scale)
+                let drag = try XCTUnwrap(
+                    revealDrag(anchors: [anchor], visible: visible, target: target, above: false))
+                for response in [1.0, gain] {
+                    let moved = target.offsetBy(dx: 0, dy: (drag.end.y - drag.start.y) * response)
+                    XCTAssertTrue(
+                        revealFits(moved, in: visible),
+                        "The same row must fit after completed native travel")
+                }
+            }
+        }
     }
 }

@@ -19,7 +19,17 @@ func revealDrag(
     guard let anchor else { return nil }
     let start = CGPoint(x: anchor.midX, y: anchor.midY)
     let available = (down ? visible.maxY : visible.minY) - start.y
-    let wanted = target.map { visible.midY - $0.midY } ?? available
+    let wanted =
+        target.map { frame in
+            // Centering a partially exposed row can fling it past the opposite edge with native inertia.
+            let clearance = min(frame.height, max(0, visible.height - frame.height)) / 2
+            if frame.height <= visible.height {
+                return down
+                    ? visible.minY - frame.minY + clearance
+                    : visible.maxY - frame.maxY - clearance
+            }
+            return visible.midY - frame.midY
+        } ?? available
     let distance = down ? min(wanted, available) : max(wanted, available)
     guard down ? distance > 0 : distance < 0 else { return nil }
     return RevealDrag(start: start, end: CGPoint(x: start.x, y: start.y + distance))

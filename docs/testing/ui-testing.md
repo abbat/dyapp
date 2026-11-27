@@ -18,6 +18,10 @@ The iOS `AppLockReadinessTests` hold real native storage reads behind explicit e
 signals. They verify protected loading, read failure and Retry on the same handle, confirmed
 absence/off, and disposal before completion. XCTest callbacks end each wait immediately;
 independent failure deadlines bound a broken transition without adding successful-test delays.
+The iOS reveal helper reads its form, navigation bar and keyboard from one native accessibility
+snapshot so navigation cannot retire a queried collection between existence and frame reads.
+Known partially exposed rows request their measured edge clearance rather than recentering across
+the viewport; geometry replay tests cover both directions with actual CI scroll-response gains.
 The iOS `ChatComposerTests` deliver typed Accepted/Queued/failure completions directly to the
 presentation owner. They exercise text revisions (including change-and-back), successor edits,
 held drafts, retired openings and missing/deleted/rotated targets without a clock or scheduler.

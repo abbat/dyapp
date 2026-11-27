@@ -7,21 +7,29 @@ struct RevealAnchor {
 
 @MainActor
 func revealViewport(_ app: XCUIApplication) -> CGRect {
-    let form =
-        [app.collectionViews.firstMatch, app.tables.firstMatch, app.scrollViews.firstMatch]
-        .first { $0.exists } ?? app
-    var area = form.frame.intersection(app.frame)
+    guard let snapshot = try? app.snapshot() else { return .zero }
+    func first(_ type: XCUIElement.ElementType, in node: any XCUIElementSnapshot) -> (
+        any XCUIElementSnapshot
+    )? {
+        if node.elementType == type { return node }
+        for child in node.children {
+            if let match = first(type, in: child) { return match }
+        }
+        return nil
+    }
+    // A completed Back can retire the collection between separate exists/frame queries.
+    let form = [XCUIElement.ElementType.collectionView, .table, .scrollView]
+        .compactMap { first($0, in: snapshot) }.first
+    var area = (form?.frame ?? snapshot.frame).intersection(snapshot.frame)
     guard !area.isEmpty else { return .zero }
-    let bar = app.navigationBars.firstMatch
-    if bar.exists {
+    if let bar = first(.navigationBar, in: snapshot) {
         area = area.intersection(
             CGRect(
                 x: area.minX, y: bar.frame.maxY, width: area.width,
                 height: max(0, area.maxY - bar.frame.maxY)))
     }
     guard !area.isEmpty else { return .zero }
-    let keyboard = app.keyboards.firstMatch
-    if keyboard.exists {
+    if let keyboard = first(.keyboard, in: snapshot) {
         area = area.intersection(
             CGRect(
                 x: area.minX, y: area.minY, width: area.width,

@@ -8,9 +8,9 @@ func reveal(
     above: Bool = false, fullyVisible: Bool = false
 ) -> XCUIElement {
     let row = element.firstMatch
-    var deadline = Date().addingTimeInterval(timeout)
+    var deadline = ProcessInfo.processInfo.systemUptime + timeout
     var visited = Set<String>()
-    while Date() < deadline {
+    while ProcessInfo.processInfo.systemUptime < deadline {
         let visible = revealViewport(app)
         let snapshot = row.exists ? (try? row.snapshot()) : nil
         let frame = snapshot?.frame
@@ -23,11 +23,11 @@ func reveal(
             return element
         }
         if let frame, revealFits(frame, in: visible) {
-            _ = ready(row, timeout: max(0, deadline.timeIntervalSinceNow))
+            _ = ready(row, timeout: max(0, deadline - ProcessInfo.processInfo.systemUptime))
             return element
         }
         let anchors = revealAnchors(app, visible: visible)
-        let state = "\(visible)|\(anchors)"
+        let state = "\(visible)|\(String(describing: frame))|\(anchors)"
         guard visited.insert(state).inserted,
             let drag = revealDrag(
                 anchors: anchors.map(\.frame), visible: visible,
@@ -47,12 +47,14 @@ func reveal(
         }
         coordinate(drag.start).press(forDuration: 0, thenDragTo: coordinate(drag.end))
         let nextVisible = revealViewport(app)
-        let next = "\(nextVisible)|\(revealAnchors(app, visible: nextVisible))"
+        let nextFrame = row.exists ? (try? row.snapshot())?.frame : nil
+        let next =
+            "\(nextVisible)|\(String(describing: nextFrame))|\(revealAnchors(app, visible: nextVisible))"
         guard next != state else {
             XCTFail("Form made no scroll progress revealing \(name), viewport=\(visible)")
             return element
         }
-        deadline = Date().addingTimeInterval(timeout)
+        deadline = ProcessInfo.processInfo.systemUptime + timeout
     }
     XCTFail("Reveal deadline exceeded before the target became ready")
     return element
