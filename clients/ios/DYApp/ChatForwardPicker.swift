@@ -44,6 +44,7 @@ struct ChatForwardPicker: View {
                 .accessibilityIdentifier("forward-retry")
             }
             Button("search.cancel") { dismiss() }
+                .accessibilityIdentifier("forward-cancel")
                 .disabled(busy && targets != nil)
         }
         .interactiveDismissDisabled(busy && targets != nil)
