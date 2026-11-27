@@ -2,9 +2,9 @@
 
 Canonical language sources are `i18n/en.json` and `i18n/ru.json`, with typed native
 bindings in `i18n/catalogue.json`. Their import preserves every existing native text and key.
-Desktop native JSON and the Apple String Catalog are generated from these sources;
-`rust-check.sh web-check` checks their committed bytes without changing them.
-Android XML retains its existing layout until consolidation lands.
+Android XML, desktop JSON and the Apple String Catalog are generated from these sources;
+`rust-check.sh web-check` checks all committed outputs without changing them.
+Native builds consume these committed resources and do not need Python.
 
 The implemented projection helper is `tools/scripts/translation_templates.py`.
 It accepts canonical text with named arguments, explicit string/integer argument types,
@@ -39,11 +39,15 @@ Aliases are explicit. Android native keys retain existing mixed-case enum suffix
 (for example `profile_value_career_ambition_High`). Loading validates every language and placeholder:
 duplicate keys, non-finite numbers, unsupported schema/fields, unsafe qualifiers, symlink/oversized
 sources, missing/extra messages or language files and duplicate native bindings fail.
-The loader writes nothing. Android consolidation and its generation check remain planned.
+Language tags and Android qualifiers must also be unique without case, so generated paths
+cannot collide on Windows or case-insensitive macOS filesystems.
+The loader writes nothing; all configured languages and native bindings validate before output.
 
 `translation_renderers.py` builds requested native outputs entirely in memory.
 Android gets one `strings.xml` per configured qualifier, desktop gets one JSON file per language,
-and Apple gets one xcstrings table containing all configured languages. Native keys and values
+and Apple gets one xcstrings table containing all configured languages. Android also generates
+`res/xml/app_languages.xml` from the same language inventory for the application-owned picker.
+Native keys and values
 are sorted deterministically; source language and translated-unit metadata remain explicit.
 Android strings use AAPT quotes/escapes before XML encoding so whitespace, quotes, backslashes,
 newlines and literal reference prefixes survive. Byte/golden tests verify those boundaries;
@@ -54,8 +58,8 @@ under `build/`); repeat `--platform android|apple|desktop` to limit migration sc
 `--check` writes nothing and returns 1 for differing/missing generated output; invalid sources,
 unsafe destinations and unmanaged native translation files return 2.
 Every source, output byte set and destination is validated before generation writes changed files.
-The tool never deletes unmanaged catalogues; Android consolidation must account for the old
-feature XML files before generation can write its single catalogue per locale.
+The tool never deletes unmanaged catalogues. Android has one `strings.xml` per locale;
+new hand-written feature catalogues are refused rather than silently omitted or deleted.
 
 Edit canonical language sources and their explicit native bindings, then generate the affected
 platforms in Docker. Shared messages use one semantic entry; platform wording/context is

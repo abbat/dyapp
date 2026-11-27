@@ -88,6 +88,14 @@ class TranslationSources(unittest.TestCase):
             ("absent default", lambda data: data.update(default="missing")),
             ("empty messages", lambda data: data.update(messages={})),
             (
+                "case-only language collision",
+                lambda data: data["languages"].update(EN="values-en"),
+            ),
+            (
+                "case-only qualifier collision",
+                lambda data: data["languages"].update(fr="values-RU"),
+            ),
+            (
                 "qualifier collision",
                 lambda data: data["languages"].update(fr="values-ru"),
             ),

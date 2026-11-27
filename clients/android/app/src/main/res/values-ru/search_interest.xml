@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="search_interest">Интерес</string>
-    <string name="search_interest_hint">Совпадение с одним полным интересом, до %1$s символов. Пустое поле — любой интерес.</string>
-    <string name="search_interest_invalid">Проверьте интерес: укажите один полный тег в пределах указанного ограничения.</string>
-</resources>

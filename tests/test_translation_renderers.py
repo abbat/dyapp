@@ -31,7 +31,20 @@ class TranslationRenderers(unittest.TestCase):
             before = set(root.rglob("*"))
             outputs = PLAN(catalogue, ["desktop", "android", "apple"])
             self.assertEqual(set(root.rglob("*")), before)
-            self.assertEqual(len(outputs), 7)
+            self.assertEqual(len(outputs), 8)
+            language_xml = outputs[
+                PurePosixPath("clients/android/app/src/main/res")
+                / "xml/app_languages.xml"
+            ]
+            self.assertEqual(
+                [
+                    item.attrib[
+                        "{http://schemas.android.com/apk/res/android}name"
+                    ]
+                    for item in ElementTree.fromstring(language_xml)
+                ],
+                ["en", "fr", "ru"],
+            )
             for tag, qualifier in catalogue.languages.items():
                 xml = outputs[
                     PurePosixPath("clients/android/app/src/main/res")

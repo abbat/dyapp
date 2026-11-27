@@ -163,7 +163,11 @@ def languages(value: object, default: str) -> dict[str, str]:
             or QUALIFIER.fullmatch(qualifier) is None
         ):
             raise ValueError(f"Invalid language/Android qualifier: {tag}")
-    if len(set(result.values())) != len(result):
+    if len({tag.casefold() for tag in result}) != len(result):
+        raise ValueError("Language tags must be unique without case")
+    if len({qualifier.casefold() for qualifier in result.values()}) != len(
+        result
+    ):
         raise ValueError("Android language qualifiers must be unique")
     if result[default] != "values":
         raise ValueError("Default language must use Android values")

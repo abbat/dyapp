@@ -1,6 +1,6 @@
 # UI Testing: Practical Guide
 
-Desktop and Apple catalogue values come from the
+Android, desktop and Apple catalogue values come from the
 [shared translation sources](../development/translations.md).
 Regeneration checks compare committed output bytes; native UI builds use the committed files and
 need no generator. Existing dynamic-key, unused-key and source-reference checks still run on the

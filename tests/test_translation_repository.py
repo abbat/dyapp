@@ -15,6 +15,16 @@ class TranslationRepository(unittest.TestCase):
     ) -> None:
         catalogue = LOAD(ROOT)
         outputs = PLAN(catalogue, ["android", "desktop", "apple"])
+        locales = ElementTree.parse(
+            ROOT / "clients/android/app/src/main/res/xml/app_languages.xml"
+        ).getroot()
+        self.assertCountEqual(
+            [
+                item.attrib["{http://schemas.android.com/apk/res/android}name"]
+                for item in locales
+            ],
+            catalogue.languages,
+        )
         apple = MODULE["APPLE"]
         self.assertEqual(
             json.loads(outputs[apple]),

@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="sticker_delete_pending">Deletion has started. Closing this dialog cannot recall it.</string>
-    <string name="sticker_delete_applied">Deletion saved on this device.</string>
-</resources>
