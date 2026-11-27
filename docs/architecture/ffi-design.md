@@ -1681,6 +1681,11 @@ from foreign code. Rust turns it, and anything else the app throws, into
   failure selects the protected mode, and a retired Activity cannot publish its late result.
   Android Skip also runs on IO and reads back the core mode: the separate Skip marker never
   authorizes the UI to ignore an existing PIN or biometric choice.
+  iOS serializes app-lock construction, mode reads and mutations on a dedicated IO queue.
+  Its gate starts with a protected loading surface; failed reads offer Retry without opening
+  setup or private content. Each result belongs to its initiating model/operation, so a disposed
+  model cannot publish a late read. Mutations read back the core mode even when they throw;
+  cancellation is not evidence that a storage write rolled back.
 
 ## Security boundary
 

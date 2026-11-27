@@ -22,6 +22,11 @@ struct LockGate: View {
 
     @ViewBuilder private var screen: some View {
         switch lock.screen {
+        case .loading:
+            ProgressView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityIdentifier("lock-loading")
+
         case .setup:
             SetupView(lock: lock)
 
@@ -41,7 +46,10 @@ struct LockGate: View {
             }
 
         case .failed:
-            Text("app.locked").accessibilityIdentifier("app-locked")
+            VStack {
+                Text("app.locked").accessibilityIdentifier("app-locked")
+                Button("identity.retry") { lock.retry() }.accessibilityIdentifier("lock-retry")
+            }
         }
     }
 }
@@ -50,7 +58,7 @@ struct LockGate: View {
 @MainActor
 final class LockModel: ObservableObject {
     /// What the gate shows.
-    enum Screen { case setup, unlock, open, failed }
+    enum Screen { case loading, setup, unlock, open, failed }
 
     /// Whether device biometrics can be offered in place of the PIN.
     enum Biometrics { case ready, notEnrolled, absent }
@@ -75,19 +83,21 @@ final class LockModel: ObservableObject {
         private static let fakeBiometrics = false
     #endif
 
-    @Published private(set) var screen = Screen.failed
+    @Published private(set) var screen = Screen.loading
     @Published private(set) var mode = StoredLock.new
     /// Whether the open app shows its lock settings in place of the start screen.
     @Published private(set) var settingsOpen = false
     /// Catalog key of the message under the PIN field.
     @Published private(set) var notice: String?
-    @Published private(set) var busy = false
+    @Published private(set) var busy = true
     /// Whether the device has a passcode: a PIN needs it, as the only way to recover a forgotten one.
     @Published private(set) var deviceSecure = false
     /// A passed device-passcode check opened the settings: the PIN is replaced or cleared without it.
     @Published private(set) var recovered = false
     @Published private(set) var biometrics = Biometrics.absent
-    private let store: AppLockStore?
+    private var store: AppLockStore?
+    private let makeStore: @Sendable () throws -> AppLockStore
+    private var operation = UUID()
     /// Retains lifecycle events while locked; credential completion cannot reset the context.
     private var session = AppLockSession(now: AppLockSession.uptime())
     private var expiry: Task<Void, Never>?
@@ -98,17 +108,9 @@ final class LockModel: ObservableObject {
     /// Whether a settings change skips the current PIN: a fresh OS check opened the settings.
     var authorized: Bool { recovered || mode == .biometric }
 
-    init() {
-        store = try? AppLockStore.onDevice(directory: RustBridge.directory())
-        #if DEBUG
-            // UI tests start from a known lock state; release builds have no such argument.
-            let arguments = ProcessInfo.processInfo.arguments
-            if arguments.contains("--app-lock-new") || arguments.contains("--app-lock-off") {
-                try? KeychainAppLockVault().delete()
-            }
-            if arguments.contains("--app-lock-off") { try? store?.skip() }
-        #endif
-        refresh()
+    init(makeStore: @escaping @Sendable () throws -> AppLockStore = { try AppLockIO.makeStore() }) {
+        self.makeStore = makeStore
+        readMode()
     }
 
     /// The gate's reading of a counted PIN attempt; five failures leave only the
@@ -149,6 +151,11 @@ final class LockModel: ObservableObject {
             return .ready
         }
         return error?.code == LAError.biometryNotEnrolled.rawValue ? .notEnrolled : .absent
+    }
+
+    func retry() {
+        guard !busy else { return }
+        readMode()
     }
 
     /// First-launch Skip: the start screen opens and no PIN is set.
@@ -209,10 +216,10 @@ final class LockModel: ObservableObject {
     /// with a PIN it also opens the settings, so a forgotten PIN can be replaced. The identity
     /// Keychain items are never touched; a cancelled check leaves the app locked.
     func deviceUnlock() {
-        deviceCheck {
-            if self.mode == .pin {
-                self.recovered = true
-                self.settingsOpen = true
+        deviceCheck { [weak self] in
+            if self?.mode == .pin {
+                self?.recovered = true
+                self?.settingsOpen = true
             }
         }
     }
@@ -222,7 +229,7 @@ final class LockModel: ObservableObject {
         notice = nil
         recovered = false
         if open && mode == .biometric {
-            deviceCheck { self.settingsOpen = true }
+            deviceCheck { [weak self] in self?.settingsOpen = true }
         } else {
             settingsOpen = open
         }
@@ -288,6 +295,7 @@ final class LockModel: ObservableObject {
         }
         guard snapshot.locked else { return }
         if case .failed = screen { return }
+        if case .loading = screen { return }
         showLocked()
     }
 
@@ -300,8 +308,8 @@ final class LockModel: ObservableObject {
     }
 
     @discardableResult
-    private func refresh() -> Bool {
-        guard let mode = try? store?.mode() else { screen = .failed; return false }
+    private func refresh(_ result: Result<StoredLock, Error>) -> Bool {
+        guard let mode = try? result.get() else { screen = .failed; return false }
         self.mode = mode
         do {
             try session.setProtection(guarded, at: AppLockSession.uptime())
@@ -326,54 +334,103 @@ final class LockModel: ObservableObject {
         }
     }
 
-    private func deviceCheck(_ then: @escaping @MainActor () -> Void) {
+    deinit { expiry?.cancel() }
+}
+
+private extension LockModel {
+    func deviceCheck(_ then: @escaping @MainActor @Sendable () -> Void) {
         guard deviceSecure, !busy else { return }
         busy = true
         notice = nil
-        Task {
+        let ticket = UUID()
+        operation = ticket
+        Task { [weak self] in
             let passed = await Self.deviceOwnerCheck()
-            busy = false
-            guard passed, refresh() else { return }
-            if guarded {
-                do { try session.authorize(at: AppLockSession.uptime()) } catch {
-                    notice = "lock.failed"
-                    expireIfDue()
-                    return
-                }
-            }
-            watchExpiry()
-            then()
-            refresh()
+            guard let self, self.operation == ticket else { return }
+            self.busy = false
+            guard passed, let store = self.store else { return }
+            self.performOwned(
+                { try store.mode() },
+                apply: { model, result in
+                    guard model.refresh(result), model.authorize() else { return }
+                    then()
+                    model.refresh(result)
+                    model.watchExpiry()
+                })
         }
     }
 
-    private func run(
+    func readMode() {
+        screen = .loading
+        let current = store
+        let factory = makeStore
+        performOwned(
+            {
+                let store = try current ?? factory()
+                return AppLockLoad(store: store, mode: Result { try store.mode() })
+            },
+            apply: { model, result in
+                switch result {
+                case let .success(load):
+                    model.store = load.store
+                    model.refresh(load.mode)
+                    model.watchExpiry()
+
+                case .failure:
+                    model.screen = .failed
+                }
+            })
+    }
+
+    func performOwned<T>(
+        _ work: @escaping @Sendable () throws -> T,
+        apply: @escaping @MainActor @Sendable (LockModel, Result<T, Error>) -> Void
+    ) {
+        let ticket = UUID()
+        operation = ticket
+        busy = true
+        AppLockIO.perform(work) { [weak self] result in
+            guard let self, self.operation == ticket else { return }
+            self.busy = false
+            apply(self, result)
+        }
+    }
+
+    func authorize() -> Bool {
+        guard guarded else { return true }
+        do {
+            try session.authorize(at: AppLockSession.uptime())
+            return true
+        } catch {
+            notice = "lock.failed"
+            expireIfDue()
+            return false
+        }
+    }
+
+    func run(
         _ action: @escaping @Sendable (AppLockStore) throws -> (unlocked: Bool, notice: String?)
     ) {
         guard let store, !busy else { return }
-        busy = true
         notice = nil
-        Task {
-            let result = await Task.detached { Result { try action(store) } }.value
-            busy = false
-            switch result {
-            case let .success(outcome):
-                guard refresh() else { return }
-                if outcome.unlocked, guarded {
-                    do { try session.authorize(at: AppLockSession.uptime()) } catch {
-                        notice = "lock.failed"
-                        expireIfDue()
-                        return
-                    }
-                }
-                notice = outcome.notice
+        performOwned(
+            {
+                AppLockChange(
+                    outcome: Result { try action(store) }, mode: Result { try store.mode() })
+            },
+            apply: { model, result in
+                guard let change = try? result.get(), model.refresh(change.mode) else { return }
+                switch change.outcome {
+                case let .success(outcome):
+                    if outcome.unlocked, !model.authorize() { return }
+                    model.notice = outcome.notice
 
-            case .failure:
-                notice = "lock.failed"
-            }
-            refresh()
-            watchExpiry()
-        }
+                case .failure:
+                    model.notice = "lock.failed"
+                }
+                model.refresh(change.mode)
+                model.watchExpiry()
+            })
     }
 }
 

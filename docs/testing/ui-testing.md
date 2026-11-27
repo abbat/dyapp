@@ -14,6 +14,10 @@ checks both Activity ownership and the native View font scale before accepting t
 The app-lock restoration fixture creates one controlled IO gate per startup owner, waits for
 actual read entry before releasing it, then asserts the exact initialization history and retained
 private saveable state. Every owner/read/completion transition receives a fresh failure deadline.
+The iOS `AppLockReadinessTests` hold real native storage reads behind explicit entry/release
+signals. They verify protected loading, read failure and Retry on the same handle, confirmed
+absence/off, and disposal before completion. XCTest callbacks end each wait immediately;
+independent failure deadlines bound a broken transition without adding successful-test delays.
 Fresh-identity chat and receive fixtures use an owned `NativeSlotFixture` storage context;
 `skipNetworkEntry` alone reuses existing device identities and cannot establish empty storage.
 The chat empty-state test checks its native registry and chat rows, retains the no-badge assertion,
