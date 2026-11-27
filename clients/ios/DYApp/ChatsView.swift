@@ -216,7 +216,8 @@ private struct ChatListRow: View {
             PeerAvatar(photos: photos, peer: row.peerId, hash: photo)
             VStack(alignment: .leading) {
                 Text(verbatim: label).font(.headline)
-                Text(verbatim: chatListPreview(row.preview)).lineLimit(1)
+                Text(verbatim: chatListPreview(row.preview))
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
             VStack(alignment: .trailing) {
