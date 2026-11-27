@@ -229,6 +229,8 @@ def export_ios_evidence(reports: Path, result_bundle: Path, apps: list[Path], de
     with binaries[0].open("rb") as binary:
         binary_sha256 = hashlib.file_digest(binary, "sha256").hexdigest()
     source = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    if source != os.environ["GITHUB_SHA"]:
+        raise RuntimeError("Tested iOS checkout differs from the CI source commit")
     (attachments / "provenance.json").write_text(
         json.dumps({"source": source, "binary_sha256": binary_sha256, "destination": destination})
     )
