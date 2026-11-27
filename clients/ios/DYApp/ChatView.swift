@@ -190,7 +190,11 @@ struct ChatView: View {
 
     private func photoBubble(_ photo: ChatPhoto) -> some View {
         VStack(alignment: .leading) {
-            ChatPhotoPreview(bytes: photo.preview)
+            if history?.state == .open, let context = feed.context {
+                ChatPhotoPreview(
+                    bytes: photo.preview, feed: feed,
+                    opening: PhotoOpening(source: photoSource(photo), context: context))
+            }
             if photo.forwarded {
                 Text(verbatim: String(
                     format: NSLocalizedString("chats.forwarded", comment: ""),
@@ -202,9 +206,7 @@ struct ChatView: View {
             }
             Button("view.photoLoad") {
                 guard let context = feed.context else { return }
-                let source = ChatForwardSource(
-                    peerId: peer, groupId: photo.groupId, author: photo.author, messageId: photo.id)
-                viewingPhoto = PhotoOpening(source: source, context: context)
+                viewingPhoto = PhotoOpening(source: photoSource(photo), context: context)
             }
             .accessibilityIdentifier("msg-photo-load")
             Menu {
@@ -219,6 +221,10 @@ struct ChatView: View {
             .accessibilityLabel(Text("msg.menu"))
             .accessibilityIdentifier("msg-photo-menu")
         }
+    }
+
+    private func photoSource(_ photo: ChatPhoto) -> ChatForwardSource {
+        ChatForwardSource(peerId: peer, groupId: photo.groupId, author: photo.author, messageId: photo.id)
     }
 
     private func openForward(group: Data, author: String, id: Data, photo: Bool) {
@@ -439,6 +445,8 @@ private struct ChatBubble: View {
 
 private struct ChatPhotoPreview: View {
     let bytes: Data
+    @ObservedObject var feed: ChatFeed
+    let opening: PhotoOpening
     @State private var image: Image?
 
     var body: some View {
@@ -450,13 +458,20 @@ private struct ChatPhotoPreview: View {
         }
         .task(id: bytes) {
             image = nil
-            guard !bytes.isEmpty else { return }
             let input = bytes
-            let decoded = await IdentityIO.performBlocking {
-                DecodedPhoto(image: (try? checkPreview(bytes: input)).flatMap(previewImage))
+            if !input.isEmpty {
+                let decoded = await IdentityIO.performBlocking {
+                    DecodedPhoto(image: (try? checkPreview(bytes: input)).flatMap(previewImage))
+                }
+                guard !Task.isCancelled, feed.isCurrent(opening.context) else { return }
+                image = decoded.image
             }
-            guard !Task.isCancelled else { return }
-            image = decoded.image
+            let peer = opening.source.peerId
+            let policy = await feed.call(opening.context) { try $0.chatPhotoAuto(peerId: peer) }
+            guard !Task.isCancelled, case .success(true) = policy else { return }
+            if let original = await loadChatPhoto(feed: feed, opening: opening) {
+                image = original
+            }
         }
     }
 }
@@ -499,21 +514,29 @@ private struct ChatPhotoViewer: View {
     }
 
     private func load() async {
-        let source = opening.source
-        let result = await feed.call(opening.context) {
-            try $0.chatPhotoOriginal(
-                peerId: source.peerId, groupId: source.groupId,
-                author: source.author, id: source.messageId)
-        }
+        let loaded = await loadChatPhoto(feed: feed, opening: opening)
         guard !Task.isCancelled, feed.isCurrent(opening.context) else { return }
-        guard case let .success(bytes) = result else { failed = true; return }
-        let decoded = await Task.detached {
-            DecodedPhoto(image: fullPhotoImage(bytes, allowPNG: true))
-        }.value
-        guard !Task.isCancelled, feed.isCurrent(opening.context) else { return }
-        image = decoded.image
-        failed = image == nil
+        image = loaded
+        failed = loaded == nil
     }
+}
+
+@MainActor
+private func loadChatPhoto(feed: ChatFeed, opening: PhotoOpening) async -> Image? {
+    let source = opening.source
+    let result = await feed.call(opening.context) {
+        try $0.chatPhotoOriginal(
+            peerId: source.peerId, groupId: source.groupId,
+            author: source.author, id: source.messageId)
+    }
+    guard !Task.isCancelled, feed.isCurrent(opening.context),
+        case let .success(bytes) = result
+    else { return nil }
+    let decoded = await IdentityIO.performBlocking {
+        DecodedPhoto(image: fullPhotoImage(bytes, allowPNG: true))
+    }
+    guard !Task.isCancelled, feed.isCurrent(opening.context) else { return nil }
+    return decoded.image
 }
 
 private struct ChatRowID: Hashable {
