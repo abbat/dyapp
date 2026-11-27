@@ -33,6 +33,8 @@ struct LinkReceiveSection: View {
                 Button("search.cancel") {
                     if invitation.receiver.cancel() == .cancelled {
                         self.invitation = nil
+                        failed = false
+                        expired = false
                     }
                 }
                 .accessibilityIdentifier("link-receive-cancel")
