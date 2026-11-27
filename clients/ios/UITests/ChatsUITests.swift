@@ -97,6 +97,7 @@ final class ChatsUITests: XCTestCase {
         waitGone(loadFull, in: app)
 
         assertPrivateFavoriteRoundTrip(app)
+        assertPrivateNoteRoundTrip(app)
         reveal(app.buttons["view-pass"], in: app).tap()
         reveal(app.buttons["view-unpass"], in: app).tap()
         reveal(app.buttons["view-like"], in: app, above: true).tap()
@@ -403,6 +404,46 @@ extension ChatsUITests {
         reveal(app.buttons["liked-1"], in: app).tap()
         XCTAssertTrue(app.staticTexts["view-peer"].waitForExistence(timeout: 30))
         XCTAssertEqual(app.staticTexts["view-peer"].label, peer)
+    }
+
+    private func assertPrivateNoteRoundTrip(_ app: XCUIApplication) {
+        let text = "Private Case\nLine two"
+        let editor = app.textViews["view-note-text"]
+        revealEditable(editor, in: app)
+        guard ready(editor) else { return }
+        editor.tap()
+        typeSlowly(text, into: editor)
+        awaitNoteValue(text, editor: editor)
+        let save = reveal(app.buttons["view-note-save"], in: app)
+        guard ready(save) else { return }
+        save.tap()
+        awaitNoteStatus("Private note saved.", in: app)
+        reveal(app.buttons["view-back"], in: app, above: true).tap()
+        reveal(app.buttons["liked-1"], in: app).tap()
+        revealEditable(editor, in: app)
+        guard ready(editor) else { return }
+        awaitNoteValue(text, editor: editor)
+        let clear = reveal(app.buttons["view-note-clear"], in: app)
+        guard ready(clear) else { return }
+        clear.tap()
+        awaitNoteStatus("Private note cleared.", in: app)
+        awaitNoteValue("", editor: editor)
+    }
+
+    private func awaitNoteValue(_ text: String, editor: XCUIElement) {
+        let predicate =
+            text.isEmpty
+            ? NSPredicate(format: "enabled == true AND (value == '' OR value == nil)")
+            : NSPredicate(format: "enabled == true AND value == %@", text)
+        let completed = XCTNSPredicateExpectation(predicate: predicate, object: editor)
+        XCTAssertEqual(XCTWaiter.wait(for: [completed], timeout: 10), .completed)
+    }
+
+    private func awaitNoteStatus(_ label: String, in app: XCUIApplication) {
+        let status = reveal(app.staticTexts["view-note-status"], in: app)
+        let completed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", label), object: status)
+        XCTAssertEqual(XCTWaiter.wait(for: [completed], timeout: 30), .completed)
     }
 
     private func favoriteButton(_ app: XCUIApplication, label: String) -> XCUIElement {

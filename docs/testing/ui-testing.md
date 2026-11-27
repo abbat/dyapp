@@ -71,6 +71,13 @@ session reopening. Actual own-device sync and rendered EN/RU/enlarged acceptance
 noneditable, failed save/clear retains the text, submission freezes its exact value, and late reads
 or another opening's results cannot overwrite the current draft. This presentation model delegates
 all text/target policy to native errors; its UI/native adoption is verified separately.
+`NativeContactNoteTests` crosses real registry/Keychain sessions for exact UTF-8 preservation,
+reopening, identity isolation, clear and blocked-contact access without local chat/Like effects.
+Its native boundary case accepts 2000 supplementary Unicode scalars and refuses a 2001st scalar,
+hidden text, tabs and non-NFC input while preserving previous bytes. The existing two-peer UI journey
+also saves multiline private text, reopens the same profile, checks the editor value and clears it,
+waiting for each actual status. These authored tests require `native - ios`; they do not establish
+own-device synchronization or rendered-language acceptance before execution.
 The iOS registry suite drives collisions at the actual native `contains` callback: stranded
 credentials or a newly occupied directory must be skipped without overwriting their payload.
 Picker/invalid-pointer fixtures seed those states after atomic core creation, which already selects
