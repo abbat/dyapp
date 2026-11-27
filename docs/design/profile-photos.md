@@ -16,7 +16,9 @@ searcher fetches when Chats or a chat opens. The Apple profile form adds, moves 
 liked cards, chat rows, the chat header and the profile page (`PeerPhotos.swift`). Apple has no own
 avatar to show. Android reports network capabilities to the core, treating missing or unknown
 capabilities as metered. iOS reports expensive or constrained paths through `NWPathMonitor`, and
-the macOS desktop reads the same path flags through Network.framework's C API.
+the macOS desktop reads the same path flags through Network.framework's C API. iOS Settings
+persists the three-way original download policy per identity. Chat rows and the profile gallery
+recheck automatic downloads when network cost changes.
 Linux asks NetworkManager, and Windows reads the Internet connection cost through
 `NetworkInformation`: only an unrestricted plan with no roaming, data limit or data saver counts
 as unmetered. Until a platform reports its network, the core conservatively treats it as metered.

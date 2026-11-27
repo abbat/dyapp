@@ -207,8 +207,10 @@ struct PeerAvatar: View {
 
 /// All of a peer's photos: the chosen one large and the thumbnails to choose from. A full image
 /// loads by itself only when the core allows it now; otherwise Load full photo asks for it.
+@MainActor
 struct PeerGallery: View {
     @ObservedObject var photos: PeerPhotos
+    @ObservedObject private var network = NetworkType.shared
     let found: FoundProfile
     @State private var chosen = 0
     @State private var auto = false
@@ -229,7 +231,10 @@ struct PeerGallery: View {
             main
                 .task(id: found.peerId) {
                     await photos.fetch(found.photos, full: false)
-                    auto = await photos.auto()
+                }
+                .task(id: network.metered) {
+                    let allowed = await photos.auto()
+                    if !Task.isCancelled { auto = allowed }
                 }
                 .task(id: auto ? full : nil) {
                     if auto, let full { await photos.fetch([full], full: true) }

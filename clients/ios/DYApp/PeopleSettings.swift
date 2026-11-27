@@ -50,6 +50,70 @@ struct ReadReceiptsSection: View {
     }
 }
 
+/// Reads back the persisted selection before updating the control.
+struct PhotoDownloadSection: View {
+    @ObservedObject var feed: ChatFeed
+    @State private var mode: ChatPhotoDownload?
+    @State private var busy = false
+    @State private var failed = false
+
+    var body: some View {
+        Section {
+            if let mode {
+                Picker("photos.mode", selection: Binding(get: { mode }, set: save)) {
+                    Text("photos.byNetwork").tag(ChatPhotoDownload.byNetwork)
+                    Text("photos.always").tag(ChatPhotoDownload.always)
+                    Text("photos.onTap").tag(ChatPhotoDownload.onTap)
+                }
+                .disabled(busy)
+                .accessibilityIdentifier("photo-download-policy")
+                Text("photos.hint").font(.caption)
+            }
+            if failed {
+                Text("profile.photoFailed").font(.caption)
+                Button("search.retry") { Task { await load() } }.disabled(busy)
+            }
+        }
+        .task(id: feed.owner) { await load() }
+    }
+
+    private func load() async {
+        mode = nil
+        failed = false
+        guard let context = feed.context else { return }
+        let result = await feed.call(context) { try $0.photoDownload() }
+        guard !Task.isCancelled, feed.isCurrent(context) else { return }
+        apply(result)
+    }
+
+    private func save(_ value: ChatPhotoDownload) {
+        guard !busy, let context = feed.context else { return }
+        busy = true
+        Task {
+            let result = await feed.call(context) {
+                try $0.setPhotoDownload(mode: value)
+                return try $0.photoDownload()
+            }
+            busy = false
+            guard feed.isCurrent(context) else { return }
+            apply(result)
+            await feed.read()
+        }
+    }
+
+    private func apply(_ result: Result<ChatPhotoDownload, Error>) {
+        switch result {
+        case let .success(value):
+            mode = value
+            failed = false
+
+        case .failure:
+            mode = nil
+            failed = true
+        }
+    }
+}
+
 /// The people this identity blocked, then those it passed on.
 struct PeopleSections: View {
     @ObservedObject var feed: ChatFeed

@@ -114,6 +114,7 @@ struct IdentitySettingsView: View {
             if let feed {
                 MailNoticeSection(feed: feed)
                 ReadReceiptsSection(feed: feed)
+                PhotoDownloadSection(feed: feed)
                 PeopleSections(feed: feed)
             }
 
