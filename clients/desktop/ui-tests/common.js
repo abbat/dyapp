@@ -50,9 +50,24 @@ const frames = () =>
   new Promise((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(resolve));
   });
-// Native bounds can precede the WebView resize event. Admit only its current CSS viewport.
+const physicalViewport = () => ({
+  width: window.innerWidth * window.devicePixelRatio,
+  height: window.innerHeight * window.devicePixelRatio,
+});
+const viewportInsets = async (current) => {
+  while (current()) {
+    const before = physicalViewport();
+    const [native] = await invokeTest('ui_test_window', { set: null });
+    const after = physicalViewport();
+    if (before.width === after.width && before.height === after.height)
+      return { width: native.width - before.width, height: native.height - before.height };
+  }
+};
+// Derive native/WebView insets from live geometry, then require the actual resize callback.
 smoke.resizeWindow = async (set) => {
+  let active = true;
   let nativeReady = false;
+  let insets;
   let ready;
   const changed = new Promise((resolve) => {
     ready = resolve;
@@ -60,13 +75,18 @@ smoke.resizeWindow = async (set) => {
   const check = () => {
     if (
       nativeReady &&
-      window.innerWidth === Math.round(set.width / window.devicePixelRatio) &&
-      window.innerHeight === Math.round(set.height / window.devicePixelRatio)
+      window.innerWidth === Math.round((set.width - insets.width) / window.devicePixelRatio) &&
+      window.innerHeight === Math.round((set.height - insets.height) / window.devicePixelRatio)
     )
       ready();
   };
   window.addEventListener('resize', check);
   try {
+    insets = await smoke.waitForSignal(
+      'viewport geometry',
+      viewportInsets(() => active),
+    );
+    if (!active) return;
     await smoke.waitForSignal(
       'webview resize',
       (async () => {
@@ -81,6 +101,7 @@ smoke.resizeWindow = async (set) => {
       `${error}; requested ${set.width}x${set.height} physical, viewport ${window.innerWidth}x${window.innerHeight} at DPR ${window.devicePixelRatio}`,
     );
   } finally {
+    active = false;
     window.removeEventListener('resize', check);
   }
 };

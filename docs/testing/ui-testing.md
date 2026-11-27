@@ -2178,8 +2178,11 @@ read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID
   `/shots` and sets `DYAPP_UI_SHOTS`. At named checkpoints the injected smoke asks the test-only
   `ui_test_shot` command which widths are missing, resizes the window to 440 and 1280 px wide
   (1400 px high) through `ui_test_window`, which waits for native bounds. The smoke also arms a
-  WebView resize listener before that request and requires its current CSS viewport to match the
-  requested physical dimensions at the current device pixel ratio, under a fresh failure deadline.
+  WebView resize listener before sampling current native/CSS geometry. A viewport change during
+  that sample requires a fresh native reading; their measured insets account for window decorations
+  without platform offsets. Geometry sampling and resizing get separate failure deadlines. The
+  admitted CSS viewport must match the requested physical size minus those insets at current DPR;
+  an expired sampling phase cannot issue a late resize.
   Two animation frames then paint the admitted geometry before `ui_test_shot` runs ImageMagick
   `import -window root`. Narrow overflow audits and window restoration use the same readiness; the
   Xvfb screen is 1280x1400. Files are
