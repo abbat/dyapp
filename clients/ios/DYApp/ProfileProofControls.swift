@@ -56,9 +56,9 @@ private struct ProfileHideControls: View {
     private func load() async {
         let selected = candidate
         let selectedPeer = peerId
-        let read = await Task.detached(priority: .userInitiated) {
+        let read = await IdentityIO.performBlocking {
             try? RustBridge.visibility(for: selected, peerId: selectedPeer)
-        }.value
+        }
         guard !Task.isCancelled else { return }
         visibility = read
     }
@@ -69,10 +69,10 @@ private struct ProfileHideControls: View {
         errorKey = nil
         let selected = candidate
         let selectedPeer = peerId
-        let outcome = await Task.detached(priority: .userInitiated) {
+        let outcome = await IdentityIO.performBlocking {
             () -> Result<ProfileVisibility, Error> in
             Result { try RustBridge.hideProfile(for: selected, peerId: selectedPeer) }
-        }.value
+        }
         isHiding = false
         switch outcome {
         case .success(let hidden):
