@@ -489,8 +489,8 @@ private struct ChatStickerRow: View {
         }
         guard !Task.isCancelled, feed.isCurrent(context) else { return }
         if manually { manual = false }
-        if case let .success(.ready(pixels)) = result, let image = previewImage(
-            Rgba(width: pixels.width, height: pixels.height, pixels: pixels.pixels))
+        if case let .success(.ready(pixels)) = result, let image = stickerImage(
+            width: pixels.width, height: pixels.height, pixels: pixels.pixels)
         {
             frame = image
         }

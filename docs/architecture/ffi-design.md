@@ -709,7 +709,8 @@ renders the common ordered history with photo placeholders and a forwarded label
 same destination picker for text and photos. Explicit photo loading opens a viewer for the
 core-validated JPEG or PNG and bounds display decoding to 2048 px on the long side. In-thread
 previews use the shared bounded JPEG decoder on existing history bytes in open chats.
-iOS sticker history uses the core's first-frame result and keeps emoji and pack name as its label.
+iOS sticker history uses the core's first-frame result, renders its straight RGBA with alpha and
+keeps emoji and pack name as its label.
 The open-chat iOS picker pages through recent stickers and saved packs. It submits by pack ID and manifest
 index. iOS Settings imports TAR packs through the size-limited native file picker and shared
 archive validator. Settings lists saved packs and removes only the explicitly confirmed ID through

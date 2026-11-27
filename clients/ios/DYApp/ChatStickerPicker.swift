@@ -60,8 +60,8 @@ private struct RecentStickersSheet: View {
                     Button { send(entry) } label: {
                         HStack {
                             let sticker = entry.sticker
-                            if let image = previewImage(
-                                Rgba(width: sticker.width, height: sticker.height, pixels: sticker.pixels))
+                            if let image = stickerImage(
+                                width: sticker.width, height: sticker.height, pixels: sticker.pixels)
                             {
                                 image.resizable().scaledToFit().frame(width: 48, height: 48)
                                     .accessibilityHidden(true)

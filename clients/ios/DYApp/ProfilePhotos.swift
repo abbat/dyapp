@@ -71,14 +71,24 @@ func photoErrorKey(_ error: Error) -> String {
     }
 }
 
-/// A core-checked preview as an image; the pixels are opaque, so premultiplying changes nothing.
+/// A core-checked opaque photo preview.
 func previewImage(_ preview: Rgba) -> Image? {
+    rgbaImage(width: preview.width, height: preview.height, pixels: preview.pixels,
+              alpha: .noneSkipLast)
+}
+
+/// A core-decoded sticker carries straight RGBA, including transparent edges.
+func stickerImage(width: UInt32, height: UInt32, pixels: Data) -> Image? {
+    rgbaImage(width: width, height: height, pixels: pixels, alpha: .last)
+}
+
+private func rgbaImage(width: UInt32, height: UInt32, pixels: Data, alpha: CGImageAlphaInfo) -> Image? {
     guard let space = CGColorSpace(name: CGColorSpace.sRGB),
-        let provider = CGDataProvider(data: preview.pixels as CFData),
+        let provider = CGDataProvider(data: pixels as CFData),
         let image = CGImage(
-            width: Int(preview.width), height: Int(preview.height), bitsPerComponent: 8,
-            bitsPerPixel: 32, bytesPerRow: Int(preview.width) * 4, space: space,
-            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+            width: Int(width), height: Int(height), bitsPerComponent: 8,
+            bitsPerPixel: 32, bytesPerRow: Int(width) * 4, space: space,
+            bitmapInfo: CGBitmapInfo(rawValue: alpha.rawValue),
             provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent)
     else { return nil }
     return Image(decorative: image, scale: 1)
