@@ -7,6 +7,13 @@ pub(super) fn establish(f: &Fixture) -> String {
 
 // One author/event ID cannot be reused for another target, even in an isolated fixture.
 pub(super) fn establish_with_event(f: &Fixture, event_id: [u8; 16]) -> String {
+    establish_with_profile(f, event_id).0
+}
+
+pub(super) fn establish_with_profile(
+    f: &Fixture,
+    event_id: [u8; 16],
+) -> (String, dyapp_identity::SignedRecord) {
     let peer = Identity::try_generate().unwrap();
     let key = Identity::try_generate().unwrap();
     let device = dyapp_messaging::mls::Device::new(&peer, key.public_key(), 1).unwrap();
@@ -23,9 +30,10 @@ pub(super) fn establish_with_event(f: &Fixture, event_id: [u8; 16]) -> String {
         ..Default::default()
     };
     session.store().save_profile_draft(&own).unwrap();
+    let signed = profile.sign(&peer);
     let profiles = [
         dyapp_profile::verify(&own.sign(&f.key.identity)).unwrap(),
-        dyapp_profile::verify(&profile.sign(&peer)).unwrap(),
+        dyapp_profile::verify(&signed).unwrap(),
     ];
     let packages = [(
         dyapp_client::mailbox(&key.public_key()).to_vec(),
@@ -50,7 +58,7 @@ pub(super) fn establish_with_event(f: &Fixture, event_id: [u8; 16]) -> String {
     state
         .apply_interaction(&peer_id, &f.key.peer_id(), &[2], like)
         .unwrap();
-    peer_id
+    (peer_id, signed)
 }
 
 #[test]
