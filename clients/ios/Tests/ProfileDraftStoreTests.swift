@@ -127,6 +127,27 @@ final class ProfileDraftStoreTests: XCTestCase {
         }
     }
 
+    func testInterestsDelegateNormalizationAndDistinguishOmissionFromClear() throws {
+        var saved = ProfileDraft()
+        saved.interests = ["music"]
+        var inputs = ProfileExtraInputs(draft: saved)
+        XCTAssertNil(try inputs.inserted(into: ProfileDraft()).interests)
+
+        inputs.interests = ""
+        XCTAssertEqual(try inputs.inserted(into: ProfileDraft()).interests, [])
+
+        inputs.interests = " Music, Art; Books \nE\u{301}COLE"
+        let updated = try inputs.inserted(into: ProfileDraft())
+        XCTAssertEqual(updated.interests, ["music, art; books", "école"])
+        let record = try ProfileRustDraftStore.record(from: updated)
+        XCTAssertEqual(ProfileRustDraftStore.values(from: record).interests, updated.interests)
+
+        inputs.interests = "hidden\u{200B}symbol"
+        XCTAssertThrowsError(try inputs.inserted(into: ProfileDraft())) { error in
+            XCTAssertEqual(error as? ProfileInputError, .interests)
+        }
+    }
+
     func testHeightInputUsesCoreBoundsBeforeSaving() throws {
         let saved = ProfileDraft()
         var inputs = ProfileExtraInputs()
