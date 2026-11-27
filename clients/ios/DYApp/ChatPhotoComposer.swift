@@ -8,6 +8,7 @@ struct ChatPhotoComposer: View {
     let disabled: Bool
     @State private var picking = false
     @State private var pickerDismissed = true
+    @State private var pickID = UUID()
     @State private var working = false
     @State private var draft: PreparedPhoto?
     @State private var preview: Image?
@@ -17,10 +18,11 @@ struct ChatPhotoComposer: View {
     var body: some View {
         VStack(alignment: .leading) {
             Button("profile.photoAdd") {
+                pickID = UUID()
                 pickerDismissed = false
                 picking = true
             }
-                .disabled(disabled || working)
+                .disabled(disabled || working || !pickerDismissed || draft != nil)
                 .accessibilityIdentifier("chat-photo-attach")
             if working { ProgressView() }
             if let status {
@@ -32,8 +34,9 @@ struct ChatPhotoComposer: View {
             pickerDismissed = true
             confirmPreparedPhoto()
         }) {
+            let opening = pickID
             PhotoPicker { data in
-                guard feed.isCurrent(context) else { return }
+                guard picking, pickID == opening, feed.isCurrent(context) else { return }
                 picking = false
                 guard let data else { return }
                 working = true
@@ -59,7 +62,12 @@ struct ChatPhotoComposer: View {
             }
         }
         .onChange(of: feed.owner) { _ in
-            if !feed.isCurrent(context) { confirming = false }
+            if !feed.isCurrent(context) {
+                picking = false
+                confirming = false
+                draft = nil
+                preview = nil
+            }
         }
     }
 
