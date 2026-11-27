@@ -49,6 +49,9 @@ struct ChatForwardPicker: View {
         }
         .interactiveDismissDisabled(busy && targets != nil)
         .task { await load() }
+        .onChange(of: feed.owner) { _ in
+            if !feed.isCurrent(opening.context) { dismiss() }
+        }
     }
 
     private func load() async {
