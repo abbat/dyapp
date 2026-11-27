@@ -34,7 +34,7 @@ final class LaunchTests: XCTestCase {
         XCTAssertTrue(receive.waitForExistence(timeout: 10))
         receive.tap()
         XCTAssertTrue(app.buttons["network-save"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["peer-id"].exists)
+        XCTAssertTrue(app.staticTexts["peer-id"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["link-receive-start"].exists)
     }
 
