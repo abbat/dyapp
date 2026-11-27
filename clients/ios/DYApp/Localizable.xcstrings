@@ -7201,6 +7201,22 @@
         }
       }
     },
+    "sticker.pack.request": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add pack"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить набор"
+          }
+        }
+      }
+    },
     "sticker.picker.title": {
       "localizations": {
         "en": {

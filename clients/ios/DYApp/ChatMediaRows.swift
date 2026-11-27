@@ -39,6 +39,11 @@ struct ChatStickerRow: View {
                     .disabled(deleting)
                     .accessibilityIdentifier("msg-sticker-delete")
             }
+            if sticker.author != feed.me {
+                ReceivedStickerPack(feed: feed, context: context, source: ChatForwardSource(
+                    peerId: peer, groupId: sticker.groupId, author: sticker.author,
+                    messageId: sticker.id))
+            }
             if let deleteStatus { Text(LocalizedStringKey(deleteStatus.key)) }
         }
         .confirmationDialog("delete.title", isPresented: $confirming, titleVisibility: .visible) {
@@ -85,6 +90,73 @@ struct ChatStickerRow: View {
             failed = false
         } else if manually {
             failed = true
+        }
+    }
+}
+
+@MainActor
+private struct ReceivedStickerPack: View {
+    @ObservedObject var feed: ChatFeed
+    let context: ChatFeed.Context
+    let source: ChatForwardSource
+    @State private var status: StickerPackSaveStatus?
+    @State private var busy = false
+    @State private var failed = false
+
+    var body: some View {
+        if let status, status.controls.contains(.request) {
+            Button("sticker.pack.request") { update(.request) }.disabled(busy)
+        }
+        if failed || status?.controls.contains(.refresh) == true {
+            Button("search.retry") { update(nil) }.disabled(busy)
+        }
+        if status == nil, !failed {
+            Color.clear.frame(height: 0).task { await read() }
+        }
+    }
+
+    private func read() async {
+        let selector = source
+        let result = await feed.call(context) {
+            try $0.chatStickerPackStatus(
+                peerId: selector.peerId, groupId: selector.groupId, author: selector.author,
+                id: selector.messageId)
+        }
+        guard feed.isCurrent(context) else { return }
+        switch result {
+        case let .success(current):
+            status = current
+            failed = false
+
+        case .failure:
+            status = nil
+            failed = true
+        }
+    }
+
+    private func update(_ action: StickerPackSaveAction?) {
+        guard !busy, feed.isCurrent(context) else { return }
+        busy = true
+        let selector = source
+        Task {
+            if let action {
+                let result = await feed.call(context) {
+                    try $0.changeStickerPackRequest(
+                        peerId: selector.peerId, groupId: selector.groupId, author: selector.author,
+                        id: selector.messageId, action: action)
+                }
+                guard feed.isCurrent(context) else { return }
+                if case let .success(.ready(current)) = result {
+                    status = current
+                    failed = false
+                } else {
+                    status = nil
+                    failed = true
+                }
+            } else {
+                await read()
+            }
+            busy = false
         }
     }
 }
