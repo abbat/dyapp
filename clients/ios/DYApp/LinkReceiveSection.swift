@@ -118,7 +118,11 @@ struct LinkReceiveSection: View {
                 case .success(.waiting), .success(.receiving), .success(.installing):
                     break
 
-                default:
+                case .success:
+                    invitation = nil
+                    failed = true
+
+                case .failure:
                     failed = true
                 }
             }
