@@ -203,7 +203,10 @@ def validate_ios_attachments(directory: Path, language: str) -> dict[str, str]:
 
 
 def evidence_file(
-    directory: Path, manifest: list[dict], name: str, suffix: str
+    directory: Path,
+    manifest: list[dict[str, list[dict[str, str]]]],
+    name: str,
+    suffix: str,
 ) -> Path:
     exported_name = re.compile(
         rf"{re.escape(name)}(?:_\d+)*{re.escape(suffix)}"
