@@ -43,7 +43,7 @@ enum PhotoPrep {
             full: photo.full, thumbnail: photo.thumbnail, width: photo.width, height: photo.height)
     }
 
-    private static func decoded(_ bytes: Data, purpose: PhotoPurpose) throws -> CGImage {
+    static func decoded(_ bytes: Data, purpose: PhotoPurpose) throws -> CGImage {
         guard UInt64(bytes.count) <= photoPickedByteLimit() else { throw PhotoProblem.tooLarge }
         let lazily = [kCGImageSourceShouldCache: false] as CFDictionary
         guard let source = CGImageSourceCreateWithData(bytes as CFData, lazily),

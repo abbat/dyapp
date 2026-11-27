@@ -71,10 +71,10 @@ struct LinkApprovalSection: View {
     }
 
     nonisolated private static func linkCode(in data: Data) -> String? {
-        guard UInt64(data.count) <= photoPickedByteLimit() else { return nil }
+        guard let image = try? PhotoPrep.decoded(data, purpose: .chat) else { return nil }
         let request = VNDetectBarcodesRequest()
         request.symbologies = [.qr]
-        let handler = VNImageRequestHandler(data: data)
+        let handler = VNImageRequestHandler(cgImage: image, options: [:])
         guard (try? handler.perform([request])) != nil else { return nil }
         let valid = Set((request.results ?? []).compactMap(\.payloadStringValue).filter {
             deviceLinkCodeStatus(text: $0) == .valid
