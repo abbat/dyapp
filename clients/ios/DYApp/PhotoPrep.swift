@@ -11,6 +11,8 @@ enum PhotoProblem: Error {
 struct PreparedPhoto: Sendable {
     let full: Data
     let thumbnail: Data
+    let width: UInt32
+    let height: UInt32
 }
 
 /// Turns a picked file into the bare JPEGs a profile publishes. ImageIO may write EXIF of its own,
@@ -46,7 +48,9 @@ enum PhotoPrep {
             for quality in fullQualities {
                 let full = try jpeg(image, quality: quality)
                 if full.count <= maxFullBytes {
-                    return PreparedPhoto(full: full, thumbnail: try thumbnail(upright))
+                    return PreparedPhoto(
+                        full: full, thumbnail: try thumbnail(upright),
+                        width: UInt32(image.width), height: UInt32(image.height))
                 }
             }
         }

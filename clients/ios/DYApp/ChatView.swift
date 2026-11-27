@@ -48,6 +48,9 @@ struct ChatView: View {
             }
             statusLines
             composerInput
+            if chatWritable(history?.state), let context = feed.context {
+                ChatPhotoComposer(feed: feed, peer: peer, context: context, disabled: busy || sending)
+            }
         }
         .sheet(item: $forwarding) { opening in
             ChatForwardPicker(feed: feed, opening: opening)
