@@ -14,6 +14,12 @@ enum IdentityIO {
 
     private static let queue = DispatchQueue(label: "com.dyapp.identity", qos: .userInitiated)
 
+    static func read<Value: Sendable>(_ work: @escaping @Sendable () -> Value) async -> Value {
+        await withCheckedContinuation { continuation in
+            queue.async { continuation.resume(returning: work()) }
+        }
+    }
+
     static func perform(_ work: @escaping Work, completion: @escaping Completion) {
         queue.async {
             let change = work()
@@ -40,6 +46,11 @@ final class IdentitySession: ObservableObject {
     ) {
         self.read = read
         self.run = run
+    }
+
+    func start() {
+        guard resolution == nil, readTicket == nil else { return }
+        reload()
     }
 
     /// Called only after unlock; construction never reads protected identity storage.

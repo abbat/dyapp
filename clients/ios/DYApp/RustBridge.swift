@@ -26,8 +26,6 @@ enum RustBridge {
         return UUID(uuidString: String(argument.dropFirst("--ui-test-slot-root=".count)))
     }
 
-    // ponytail: Keychain and file I/O on the caller's (main) thread; move off it with the
-    // client runtime.
     /// Resolve the saved selection without creating a replacement identity.
     static func identityState() throws -> IdentityResolution {
         #if DEBUG
@@ -60,6 +58,9 @@ enum RustBridge {
     static func createIdentity() throws -> IdentityUpdate {
         let store = try identityStore()
         let created = try store.create()
+        #if DEBUG
+            seedCreatedIdentityFailure(created.update)
+        #endif
         return created.update
     }
 
@@ -309,6 +310,22 @@ enum RustBridge {
 
 #if DEBUG
     extension RustBridge {
+        /// Keep DEBUG corruption fixtures on the same IO queue as their explicit creation.
+        private static func seedCreatedIdentityFailure(_ update: IdentityUpdate) {
+            guard uiTestSlotID != nil, case let .ready(candidate, _) = update.resolution,
+                let root = try? directory()
+            else { return }
+            let slot = networkDirectory(root: root, candidate: candidate)
+            if ProcessInfo.processInfo.arguments.contains("--ui-test-corrupt-network-draft") {
+                try? Data("invalid network file\n".utf8).write(
+                    to: slot.appendingPathComponent("network-draft"), options: .atomic)
+            }
+            if ProcessInfo.processInfo.arguments.contains("--ui-test-corrupt-identity-key") {
+                try? Data("invalid wrapped key".utf8).write(
+                    to: slot.appendingPathComponent("identity.key"), options: .atomic)
+            }
+        }
+
         /// Seed one identity state into the isolated UI test root only; a relaunch finds it and adds nothing.
         private static func seedUITestIdentity() throws {
             let prefix = "--ui-test-identity-fixture="

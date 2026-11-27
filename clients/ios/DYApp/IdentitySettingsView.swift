@@ -4,14 +4,6 @@ private enum InventoryLoad: Sendable {
     case loaded([IdentityInventoryRow], published: Bool), failed
 }
 
-private enum IdentityAction: Sendable {
-    case ready(IdentityUpdate), failed
-}
-
-private enum RemovalAction: Sendable {
-    case resolved(IdentityUpdate), failed(IdentityResolution)
-}
-
 /// Inventory and explicit identity actions for the selected Apple key slot.
 struct IdentitySettingsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -19,7 +11,7 @@ struct IdentitySettingsView: View {
     let peerId: String
     /// The chat store of the active identity, once its network is set up.
     let feed: ChatFeed?
-    let onIdentityChanged: (IdentityUpdate) -> Void
+    @ObservedObject var identities: IdentitySession
     /// Replaces the network link where the start screen owns that navigation.
     var openNetwork: (() -> Void)?
     @State private var rows: [IdentityInventoryRow] = []
@@ -31,6 +23,7 @@ struct IdentitySettingsView: View {
     /// This identity has published, so removal withdraws its profile first.
     @State private var hasPublished = false
     @State private var withdrawFailed = false
+    @State private var opening = UUID()
 
     private var removalWarning: LocalizedStringKey {
         rows.count == 1 ? "settings.removeLastWarning" : "settings.removeWarning"
@@ -54,6 +47,7 @@ struct IdentitySettingsView: View {
     }
 
     var body: some View {
+        let currentOpening = opening
         ScrollingForm {
             Section {
                 if isLoading {
@@ -81,9 +75,12 @@ struct IdentitySettingsView: View {
                                     ? "settings-active" : "settings-identity-\(row.id)")
                             if row.peerID != nil && row.candidate.location != candidate.location {
                                 Button("settings.select") {
-                                    Task { await select(row.candidate.location) }
+                                    Task {
+                                        guard isCurrent(currentOpening) else { return }
+                                        await select(row.candidate.location)
+                                    }
                                 }
-                                .disabled(isWorking)
+                                .disabled(isWorking || identities.busy)
                                 .accessibilityIdentifier("settings-select-\(row.id)")
                             }
                         }
@@ -122,9 +119,14 @@ struct IdentitySettingsView: View {
 
             Section {
                 Text("settings.createWarning")
-                Button("settings.create") { Task { await create() } }
-                    .disabled(isLoading || readFailed || isWorking)
-                    .accessibilityIdentifier("settings-create")
+                Button("settings.create") {
+                    Task {
+                        guard isCurrent(currentOpening) else { return }
+                        await create()
+                    }
+                }
+                .disabled(isLoading || readFailed || isWorking || identities.busy)
+                .accessibilityIdentifier("settings-create")
                 if isWorking { ProgressView("settings.working") }
                 if actionFailed {
                     Text("settings.actionFailed").accessibilityIdentifier("settings-action-error")
@@ -137,7 +139,7 @@ struct IdentitySettingsView: View {
                         withdrawFailed = false
                         showRemoveConfirmation = true
                     }
-                    .disabled(isLoading || readFailed || isWorking)
+                    .disabled(isLoading || readFailed || isWorking || identities.busy)
                     .accessibilityIdentifier("settings-remove")
                 }
             }
@@ -149,17 +151,34 @@ struct IdentitySettingsView: View {
         ) { id in
             Button("settings.removeCancel", role: .cancel) {}
             if withdrawFailed {
-                Button("identity.retry") { Task { await withdrawThenRemove(id) } }
-                Button("settings.removeAnyway", role: .destructive) { Task { await remove(id) } }
+                Button("identity.retry") {
+                    Task {
+                        guard isCurrent(currentOpening) else { return }
+                        await withdrawThenRemove(id)
+                    }
+                }
+                Button("settings.removeAnyway", role: .destructive) {
+                    Task {
+                        guard isCurrent(currentOpening) else { return }
+                        await remove(id)
+                    }
+                }
             } else {
                 Button("settings.removeConfirm", role: .destructive) {
-                    Task { await withdrawThenRemove(id) }
+                    Task {
+                        guard isCurrent(currentOpening) else { return }
+                        await withdrawThenRemove(id)
+                    }
                 }
             }
         } message: { _ in
             removalMessage
         }
         .task { await load() }
+        .onDisappear {
+            opening = UUID()
+            isWorking = false
+        }
     }
 
     private func statusKey(for state: IdentitySlot.State) -> LocalizedStringKey {
@@ -183,15 +202,16 @@ struct IdentitySettingsView: View {
         isLoading = true
         readFailed = false
         let (current, currentPeerID) = (candidate, peerId)
-        let result = await Task.detached(priority: .userInitiated) { () -> InventoryLoad in
+        let currentOpening = opening
+        let result = await IdentityIO.read { () -> InventoryLoad in
             do {
                 // Only an open key can sign the withdrawal; an unreadable version counts as never published.
                 let version =
                     (try? RustBridge.visibility(for: current, peerId: currentPeerID))?.version ?? 0
                 return .loaded(try RustBridge.identityInventory(), published: version > 0)
             } catch { return .failed }
-        }.value
-        guard !Task.isCancelled else { return }
+        }
+        guard !Task.isCancelled, isCurrent(currentOpening) else { return }
         switch result {
         case let .loaded(items, published):
             rows = items
@@ -203,17 +223,19 @@ struct IdentitySettingsView: View {
         isLoading = false
     }
 
+    private func isCurrent(_ expectedOpening: UUID) -> Bool {
+        opening == expectedOpening && identities.resolution == .ready(candidate, peerId)
+    }
+
     @MainActor
     private func create() async {
         guard !isWorking else { return }
         isWorking = true
         actionFailed = false
-        let result = await Task.detached(priority: .userInitiated) { () -> IdentityAction in
-            do {
-                return .ready(try RustBridge.createIdentity())
-            } catch { return .failed }
-        }.value
-        finish(result)
+        let currentOpening = opening
+        let succeeded = await identities.perform { try RustBridge.createIdentity() }
+        guard !Task.isCancelled, opening == currentOpening else { return }
+        finish(succeeded)
     }
 
     @MainActor
@@ -221,12 +243,10 @@ struct IdentitySettingsView: View {
         guard !isWorking else { return }
         isWorking = true
         actionFailed = false
-        let result = await Task.detached(priority: .userInitiated) { () -> IdentityAction in
-            do {
-                return .ready(try RustBridge.selectIdentity(location))
-            } catch { return .failed }
-        }.value
-        finish(result)
+        let currentOpening = opening
+        let succeeded = await identities.perform { try RustBridge.selectIdentity(location) }
+        guard !Task.isCancelled, opening == currentOpening else { return }
+        finish(succeeded)
     }
 
     /// The tombstone goes first; when no node takes it, the person chooses to wait or remove anyway.
@@ -240,15 +260,18 @@ struct IdentitySettingsView: View {
         isWorking = true
         actionFailed = false
         let (current, currentPeerID) = (candidate, peerId)
-        let withdrawn = await Task.detached(priority: .userInitiated) { () -> Bool in
+        let currentOpening = opening
+        let withdrawn = await IdentityIO.read {
             (try? RustBridge.withdrawProfile(for: current, peerId: currentPeerID)) != nil
-        }.value
+        }
+        guard !Task.isCancelled, isCurrent(currentOpening) else { return }
         isWorking = false
         if withdrawn {
             await remove(id)
         } else {
             // A failure can return at once, and an alert asked for while the last one closes is lost.
             try? await Task.sleep(nanoseconds: 400_000_000)
+            guard !Task.isCancelled, isCurrent(currentOpening) else { return }
             withdrawFailed = true
             showRemoveConfirmation = true
         }
@@ -260,39 +283,26 @@ struct IdentitySettingsView: View {
         isWorking = true
         actionFailed = false
         let confirmedPeerID = peerId
-        let result = await Task.detached(priority: .userInitiated) { () -> RemovalAction in
-            do {
-                return .resolved(try RustBridge.removeIdentity(id, confirming: confirmedPeerID))
-            } catch {
-                return .failed((try? RustBridge.identityState()) ?? .recovery(nil, .unavailable))
-            }
-        }.value
+        let currentOpening = opening
+        let succeeded = await identities.perform {
+            try RustBridge.removeIdentity(id, confirming: confirmedPeerID)
+        }
+        guard !Task.isCancelled, opening == currentOpening else { return }
         isWorking = false
-        switch result {
-        case .resolved(let resolution):
-            onIdentityChanged(resolution)
+        if succeeded || identities.resolution != .ready(candidate, peerId) {
             close()
-
-        case .failed(let resolution):
-            if resolution != .ready(candidate, peerId) {
-                onIdentityChanged(IdentityUpdate(resolution: resolution))
-                close()
-            } else {
-                actionFailed = true
-                await load()
-            }
+        } else {
+            actionFailed = true
+            await load()
         }
     }
 
     @MainActor
-    private func finish(_ result: IdentityAction) {
+    private func finish(_ succeeded: Bool) {
         isWorking = false
-        switch result {
-        case let .ready(selected):
-            onIdentityChanged(selected)
+        if succeeded {
             close()
-
-        case .failed:
+        } else {
             actionFailed = true
         }
     }

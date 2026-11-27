@@ -55,6 +55,18 @@ final class IdentitySessionTests: XCTestCase {
         XCTAssertEqual(model.resolution, .setup)
     }
 
+    func testRepeatedScreenStartDoesNotDuplicateAReadOrReplaceTheLoadedSelection() {
+        let queue = HeldIdentityIO()
+        let selected = ready()
+        let model = IdentitySession(read: { selected }, run: queue.run)
+        model.start()
+        model.start()
+        queue.complete(0)
+        XCTAssertEqual(model.resolution, selected)
+        model.start()
+        XCTAssertEqual(model.resolution, selected)
+    }
+
     func testFailedReadStaysInRecoveryAndRetryCannotAcceptAnObsoleteRead() {
         let queue = HeldIdentityIO()
         let model = IdentitySession(read: { throw IdentityTestFailure() }, run: queue.run)

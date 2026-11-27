@@ -38,7 +38,9 @@ recovery. Multiple candidates show a picker with selection controls.
 The Application Support directory is excluded from backup, and Keychain items use
 `AfterFirstUnlockThisDeviceOnly`. The network draft bridge resolves the selected UUID slot's
 folder or the legacy root before calling UniFFI load/save; it does not create or select a key.
-Startup checks the selected slot's active network in a detached task. A missing active file routes
+After app unlock, the app-owned `IdentitySession` resolves the selection on its dedicated native
+IO queue. Until completion the root shows protected loading, never speculative Create. Retry uses
+that same path. Startup checks the selected slot's active network on the IO queue. A missing active file routes
 straight to the draft form; an unreadable file shows a retryable error and leaves the key and
 file intact. Only an existing active file reaches Ready.
 The shared network form now loads the selected identity's draft, falling back to its active
@@ -62,11 +64,11 @@ The form saves the draft before creating the checker, so an immediate Cancel can
 before Rust `run` begins its own draft write.
 The native iOS test matrix now uses a loopback `dyappd` to verify a pinned check and that
 the active file appears only after explicit activation; the UI suites verify profile navigation.
-The read-only shared Settings inventory calls `candidates()` and reopens ready keys in a detached
-task. It labels missing or unreadable keys as unavailable, keeps pending/deleting/damaged slots
+The read-only Settings inventory calls `candidates()` and reopens ready keys on the dedicated
+identity IO queue. It labels missing or unreadable keys as unavailable, keeps pending/deleting/damaged slots
 visible, marks the selected slot, names both Keychain and local key file, and never changes
 `active-profile` or creates a key. Its network link edits only the selected slot. Settings now
-offers explicit Create and Switch actions in detached tasks; Switch calls the existing guarded
+offers explicit Create and Switch actions through the app-owned coordinator; Switch calls the guarded
 `select`, and the root screen reloads the newly selected slot's Active network before showing
 Ready or its draft form. A failed precommit Create or Switch keeps the prior Settings selection
 and shows an error. Core creation already selects the new identity; Swift must not select it again.
@@ -122,8 +124,12 @@ callbacks and future receive scheduling; already admitted native calls finish no
 a dedicated serial IO queue, single-mutation admission and owned completion delivery. Superseded
 reads cannot overwrite a committed mutation; cancellation of its initiating Swift task does not
 roll back or discard that native commit. Persistence acknowledgement is independent of readback.
-Wiring the remaining startup and Settings callers to this coordinator and adopting shared operation
-leases throughout the runtime remain planned.
+The app retains this coordinator above the lock gate, so recreated content receives authoritative
+selection and unacknowledged warnings. Startup, Retry, Create, Switch and Remove use it; screen-local
+cancellation invalidates presentation effects without discarding a committed result. Changing the
+selection retires the old chat owner and navigation before rendering its successor. Picker reads
+carry replaceable tickets, and Settings continuations belong to a particular opening.
+Adopting shared operation leases throughout the remaining runtime remains planned.
 The reserved `active-profile` value `none\n` means the user explicitly left no identity selected.
 Unlike an absent pointer, it opens the picker even if exactly one ready slot survives; an empty
 store still shows setup unless a legacy Keychain item is stranded. This marker is reserved for

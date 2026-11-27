@@ -28,6 +28,11 @@ They exercise text revisions (including change-and-back), successor edits,
 held drafts, retired openings and missing/deleted/rotated targets without a clock or scheduler.
 `ChatOwnerTests` exercise real feed activation/deactivation, same-peer different-slot ownership,
 switch-away-and-back, and refusal of an obsolete request before any native action executes.
+The iOS `IdentitySessionTests` control read and mutation completion order. They check that initial
+loading never offers Create, stale reads cannot replace a commit, an admitted mutation survives its
+initiator's cancellation, another mutation is refused, and failure reads back authoritative state.
+Persistence warnings remain until acknowledgement. These tests use explicit entry callbacks and
+fresh failure deadlines, without sleeping or running a simulator locally.
 The iOS registry suite drives collisions at the actual native `contains` callback: stranded
 credentials or a newly occupied directory must be skipped without overwriting their payload.
 Picker/invalid-pointer fixtures seed those states after atomic core creation, which already selects
