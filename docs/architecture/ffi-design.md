@@ -393,8 +393,11 @@ before invoking them. In particular, Android search and contact-name calls must 
 old `withKey` wrappers to these keyless methods when adopting the bound factory.
 Pure cached-photo reads and requests already satisfied in memory do not acquire a registry lease;
 network work reacquires protection before reading settings. A stale worker cannot recreate removed
-data or access a replacement identity. Android search and contact-name reads now use these bound
-APIs; Apple adoption remains planned. Android's remaining composition-time factory and data reads
+data or access a replacement identity. Android and iOS search and contact-name reads use these bound
+APIs. iOS creates search/photo workers on native IO with the shared registry, slot ID and expected
+Peer ID; mutual-draft admission ends before the bound query begins. Photo caches retain a separate
+presentation owner, and request tickets reject obsolete UI results without interrupting actual work.
+Android's remaining composition-time factory and data reads
 still require IO dispatch with cancellation-safe resource ownership.
 
 ## Which source is the contract

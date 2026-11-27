@@ -49,7 +49,9 @@ signal, prepares a successor with the same Peer ID in another slot, and rejects 
 without refreshing the successor cache. The native constructor is checked off the main thread;
 successful cache reuse avoids another factory call. `SearchOwnershipTests` deliver sample callbacks
 directly: same-peer slot changes, cancellation/retry, switch-away-and-back and unchanged-selection
-reopening. They check presentation ownership only; native search/admission remains separate coverage.
+reopening. They check presentation ownership only. `BoundSearchTests` separately exercises the real
+exported registry/Keychain: pending slots refuse search and names before database creation, idle
+workers allow removal, and later calls cannot resurrect the deleted directory.
 The iOS registry suite drives collisions at the actual native `contains` callback: stranded
 credentials or a newly occupied directory must be skipped without overwriting their payload.
 Picker/invalid-pointer fixtures seed those states after atomic core creation, which already selects

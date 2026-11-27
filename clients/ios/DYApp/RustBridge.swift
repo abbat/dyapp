@@ -93,8 +93,11 @@ enum RustBridge {
         }
     }
 
-    static func profileSearcher(for candidate: IdentityCandidate) throws -> ProfileSearcher {
-        try ProfileSearcher(dir: networkDirectory(root: try directory(), candidate: candidate).path)
+    static func profileSearcher(for candidate: IdentityCandidate, peerId: String) throws
+        -> ProfileSearcher
+    {
+        try ProfileSearcher.forSlot(
+            registry: identityStore().registry, id: candidate.location.marker, expectedPeer: peerId)
     }
 
     /// One blocking verified sample; a mutual search without a usable saved gender and age says so
@@ -102,22 +105,18 @@ enum RustBridge {
     static func searchProfiles(_ request: SearchRequest, searcher: ProfileSearcher) throws
         -> ProfileSearchResult
     {
-        let key = try identityStore().open(request.candidate.location)
-        guard key.peerId() == request.peerId else { throw IdentitySlotError.peerIDMismatch }
         var conditions = request.conditions
         if request.mutual {
-            let store = ProfileRustDraftStore(
-                root: try directory(), candidate: request.candidate,
-                peerId: request.peerId, key: key)
-            guard let draft = try withDraftLock({ try store.load() }),
+            guard let draft = try loadProfileDraft(for: request.candidate, peerId: request.peerId),
                 case let mutual = try searchMutualConditions(
                     draft: try ProfileRustDraftStore.record(from: draft)),
                 !mutual.isEmpty
             else { throw CoreError.Failed(message: "mutual unavailable") }
             conditions += mutual
         }
-        let result = try searcher.search(
-            key: key, conditions: conditions, employer: request.employer, limit: 0)
+        // The bound worker owns actual admission; the mutual-draft scope has already ended.
+        let result = try searcher.searchSlot(
+            conditions: conditions, employer: request.employer, limit: 0)
         #if DEBUG
             return try withUITestRow(result)
         #else

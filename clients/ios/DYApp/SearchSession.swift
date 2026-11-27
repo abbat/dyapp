@@ -89,7 +89,9 @@ final class SearchSession: ObservableObject {
         Task {
             let outcome = await IdentityIO.performBlocking {
                 let prepared = Result {
-                    try cached.value ?? RustBridge.profileSearcher(for: run.request.candidate)
+                    try cached.value
+                        ?? RustBridge.profileSearcher(
+                            for: run.request.candidate, peerId: run.request.peerId)
                 }
                 return SearchOutcome(
                     searcher: try? prepared.get(),

@@ -150,7 +150,10 @@ results cannot refresh a successor identity. Search-screen selection compares sl
 each submission has a distinct presentation ticket. Root identity changes retire pending search
 results and announcements immediately, while admitted native work finishes normally. Search-worker
 construction is deferred to actual query IO rather than screen composition. Cancel/retry and old
-screen actions cannot replace a newer ticket. Photo mutation and bound search API migration remain planned.
+screen actions cannot replace a newer ticket. Search and photo workers now use `ProfileSearcher.for_slot`
+with the same application registry and expected Peer ID. Keyless `search_slot` and `contact_names_slot`
+obtain their own actual admission; do not wrap them in another identity lease. Mutual-draft reads
+complete and release their scope before a search begins. Photo mutation lease adoption remains planned.
 The reserved `active-profile` value `none\n` means the user explicitly left no identity selected.
 Unlike an absent pointer, it opens the picker even if exactly one ready slot survives; an empty
 store still shows setup unless a legacy Keychain item is stranded. This marker is reserved for

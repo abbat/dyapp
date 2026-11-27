@@ -71,8 +71,8 @@ enum MailJob {
                 > MailNotice.count(rows: rows, liked: liked)
         else { return }
         let lines = MailNotice.lines(notice, before: rows, after: newRows) { peer in
-            let view = (try? RustBridge.profileSearcher(for: candidate)).flatMap {
-                try? RustBridge.contactNames(identity, searcher: $0, peers: [peer]).first
+            let view = (try? RustBridge.profileSearcher(for: candidate, peerId: peerId)).flatMap {
+                try? RustBridge.contactNames(searcher: $0, peers: [peer]).first
             }
             return contactLabel(peer, view)
         }

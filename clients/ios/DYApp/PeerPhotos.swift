@@ -69,7 +69,7 @@ final class PeerPhotos: ObservableObject {
 
     init(
         makeSearcher: @escaping @Sendable (ChatIdentity) throws -> ProfileSearcher = {
-            try RustBridge.profileSearcher(for: $0.candidate)
+            try RustBridge.profileSearcher(for: $0.candidate, peerId: $0.peerId)
         }
     ) {
         self.makeSearcher = makeSearcher

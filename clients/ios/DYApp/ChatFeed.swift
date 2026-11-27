@@ -244,7 +244,7 @@ final class ChatFeed: ObservableObject {
         let read = await IdentityIO.performBlocking {
             ChatOutcome(
                 result: Result {
-                    try RustBridge.contactNames(identity, searcher: worker.searcher, peers: peers)
+                    try RustBridge.contactNames(searcher: worker.searcher, peers: peers)
                 })
         }.result
         guard isCurrent(context), case let .success(views) = read else {
