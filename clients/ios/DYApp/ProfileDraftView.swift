@@ -325,7 +325,7 @@ extension ProfileDraftView {
         invalidateConsent()
         let selected = candidate
         let selectedPeer = peerId
-        let result = await IdentityIO.performBlocking { () -> ProfileDraftLoad in
+        let result = await IdentityIO.performProfile { () -> ProfileDraftLoad in
             do {
                 return .loaded(try RustBridge.loadProfileDraft(for: selected, peerId: selectedPeer))
             } catch {
@@ -382,7 +382,7 @@ extension ProfileDraftView {
             let ticket = UUID()
             (saveTicket, status, isSaving) = (ticket, "", true)
             clearConfirmations()
-            let refusal = await IdentityIO.performBlocking { () -> String? in
+            let refusal = await IdentityIO.performProfile { () -> String? in
                 do {
                     try RustBridge.storeProfileDraft(
                         for: selected, peerId: selectedPeer, draft: draft)
@@ -444,7 +444,7 @@ extension ProfileDraftView {
         let selected = candidate
         let selectedPeer = peerId
         let attested = confirmedAdult
-        let result = await IdentityIO.performBlocking { () -> ProfileEligibility in
+        let result = await IdentityIO.performProfile { () -> ProfileEligibility in
             do {
                 if let block = try RustBridge.publicationBlock(
                     for: selected, peerId: selectedPeer,

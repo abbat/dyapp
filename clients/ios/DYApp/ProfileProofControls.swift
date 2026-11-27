@@ -268,7 +268,7 @@ struct ProfileProofControls: View {
         let expectedOpening = opening
         let selected = candidate
         let selectedPeer = peerId
-        let outcome = await IdentityIO.performBlocking { () -> ProfilePublishAttempt in
+        let outcome = await IdentityIO.performProfile { () -> ProfilePublishAttempt in
             do {
                 return .published(
                     try RustBridge.publishProfile(

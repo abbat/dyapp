@@ -291,7 +291,7 @@ struct ProfilePhotosSection: View {
             busy = false
             if edits { isEditing = false }
         }
-        let result = await IdentityIO.performBlocking { Result { try work() } }
+        let result = await IdentityIO.performProfile { Result { try work() } }
         guard edits || !Task.isCancelled else { return }
         switch result {
         case let .success(fresh):

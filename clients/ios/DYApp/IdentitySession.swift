@@ -24,6 +24,18 @@ enum IdentityIO {
         }
     }
 
+    // Editor reads follow previously admitted writes, including across view recreation.
+    private static let profileQueue = DispatchQueue(label: "com.dyapp.profile", qos: .userInitiated)
+
+    @MainActor
+    static func performProfile<Value: Sendable>(_ work: @escaping @Sendable () -> Value) async
+        -> Value
+    {
+        await withCheckedContinuation { continuation in
+            profileQueue.async { continuation.resume(returning: work()) }
+        }
+    }
+
     static func perform(_ work: @escaping Work, completion: @escaping Completion) {
         queue.async {
             let change = work()

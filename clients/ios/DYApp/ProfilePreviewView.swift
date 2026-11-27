@@ -38,7 +38,7 @@ struct ProfilePreviewView: View {
         readFailed = false
         let selected = candidate
         let selectedPeer = peerId
-        let result = await IdentityIO.performBlocking { () -> ProfileDraftLoad in
+        let result = await IdentityIO.performProfile { () -> ProfileDraftLoad in
             do {
                 return .loaded(try RustBridge.loadProfileDraft(for: selected, peerId: selectedPeer))
             } catch {

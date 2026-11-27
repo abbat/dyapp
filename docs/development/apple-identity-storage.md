@@ -209,7 +209,8 @@ The shared Swift Rust draft adapter prefers an existing `client.db` draft. If no
 loads the current slot JSON (including the older Peer-ID-named root copy), validates the exact
 editable values and copies them into `client.db`. It leaves both JSON files intact, including after
 failed validation or storage, so migration can be retried. The editor and preview use this adapter
-on the native IO worker queue for editor loads, saves and publication eligibility checks. Corrupted
+on a serial native IO queue for editor reads, saves, photo changes and publication. Reopening
+queues its initial reads after writes already admitted by the previous opening. Corrupted
 data blocks the editor rather than replacing it. The editor keys its initial read by slot and Peer ID,
 and drops results from cancelled reads. A new draft load retires the prior save's presentation
 ticket while the admitted write finishes. Starting a save clears publication confirmations and
