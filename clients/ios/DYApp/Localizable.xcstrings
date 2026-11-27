@@ -7217,6 +7217,38 @@
         }
       }
     },
+    "stickerImage.failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not load the sticker. Try again when connected."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось загрузить стикер. Повторите при подключении."
+          }
+        }
+      }
+    },
+    "stickerImage.load": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Load sticker"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузить стикер"
+          }
+        }
+      }
+    },
     "stickerPicker.noRecent": {
       "localizations": {
         "en": {

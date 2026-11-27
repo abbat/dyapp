@@ -21,10 +21,10 @@ struct ChatStickerRow: View {
                 .accessibilityIdentifier("msg-sticker")
             if frame == nil {
                 if failed {
-                    Text("chat.loadFailed").font(.caption)
+                    Text("stickerImage.failed").font(.caption)
                         .accessibilityIdentifier("msg-sticker-error")
                 }
-                Button("search.retry") {
+                Button("stickerImage.load") {
                     failed = false
                     manual = true
                 }
