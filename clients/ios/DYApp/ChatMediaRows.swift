@@ -9,6 +9,7 @@ struct ChatStickerRow: View {
     let sticker: ChatSticker
     @State private var frame: Image?
     @State private var manual = false
+    @State private var failed = false
 
     var body: some View {
         VStack(alignment: .leading) {
@@ -19,7 +20,14 @@ struct ChatStickerRow: View {
             Text(verbatim: "\(sticker.emoji) \(sticker.packName)")
                 .accessibilityIdentifier("msg-sticker")
             if frame == nil {
-                Button("view.photoLoad") { manual = true }
+                if failed {
+                    Text("chat.loadFailed").font(.caption)
+                        .accessibilityIdentifier("msg-sticker-error")
+                }
+                Button("search.retry") {
+                    failed = false
+                    manual = true
+                }
                     .disabled(manual)
                     .accessibilityIdentifier("msg-sticker-load")
             }
@@ -41,6 +49,9 @@ struct ChatStickerRow: View {
             width: pixels.width, height: pixels.height, pixels: pixels.pixels)
         {
             frame = image
+            failed = false
+        } else if manually {
+            failed = true
         }
     }
 }
