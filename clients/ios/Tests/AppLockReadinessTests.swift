@@ -2,35 +2,11 @@ import Combine
 @testable import DYApp
 import XCTest
 
-/// A one-shot callback signal; waiting stops immediately on completion, never after a delay.
-private final class LockSignal: @unchecked Sendable {
-    private let event = XCTestExpectation(description: "App-lock transition")
-    private let lock = NSLock()
-    private var completed = false
-
-    func signal() {
-        lock.lock()
-        defer { lock.unlock() }
-        guard !completed else { return }
-        completed = true
-        event.fulfill()
-    }
-
-    func wait() async -> Bool {
-        await withCheckedContinuation { continuation in
-            DispatchQueue.global().async { [self] in
-                continuation.resume(
-                    returning: XCTWaiter.wait(for: [event], timeout: 10) == .completed)
-            }
-        }
-    }
-}
-
 private struct LockReadFailure: Error {}
 
 /// Tests own the read transition explicitly instead of racing storage or the main run loop.
 private final class HeldLockVault: AppLockVault, @unchecked Sendable {
-    let entered = LockSignal()
+    let entered = NativeTestSignal()
     private let release = DispatchSemaphore(value: 0)
     private let lock = NSLock()
     private var held = true
@@ -82,7 +58,7 @@ final class AppLockReadinessTests: XCTestCase {
         let vault = HeldLockVault()
         let store = AppLockStore(vault: vault)
         let model = LockModel { store }
-        let finished = LockSignal()
+        let finished = NativeTestSignal()
         let observation = model.$screen.sink { if $0 == .unlock { finished.signal() } }
         defer { observation.cancel() }
         let entered = await vault.entered.wait()
@@ -100,8 +76,8 @@ final class AppLockReadinessTests: XCTestCase {
     func testReadFailureStaysProtectedAndRetryUsesTheExistingStore() async {
         let vault = HeldLockVault()
         let model = LockModel { vault.makeStore() }
-        let failed = LockSignal()
-        let ready = LockSignal()
+        let failed = NativeTestSignal()
+        let ready = NativeTestSignal()
         let observation = model.$screen.sink {
             if $0 == .failed { failed.signal() }
             if $0 == .unlock { ready.signal() }
@@ -127,7 +103,7 @@ final class AppLockReadinessTests: XCTestCase {
         ] {
             let vault = HeldLockVault(record: record)
             let model = LockModel { vault.makeStore() }
-            let ready = LockSignal()
+            let ready = NativeTestSignal()
             let observation = model.$screen.sink { if $0 == expected { ready.signal() } }
             let entered = await vault.entered.wait()
             XCTAssertTrue(entered)
@@ -150,7 +126,7 @@ final class AppLockReadinessTests: XCTestCase {
         old = nil
         XCTAssertNil(retired)
         let current = LockModel { throw LockReadFailure() }
-        let failed = LockSignal()
+        let failed = NativeTestSignal()
         let observation = current.$screen.sink { if $0 == .failed { failed.signal() } }
         defer { observation.cancel() }
         vault.resume()

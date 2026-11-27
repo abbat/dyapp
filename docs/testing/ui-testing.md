@@ -36,6 +36,11 @@ fresh failure deadlines, without sleeping or running a simulator locally. Networ
 uses the common single-use attempt before dispatch; the native network tests preserve exact
 saved draft and prior active settings through cancellation and an independently fresh retry.
 They do not repeatedly sleep and resend Cancel or assert a guessed elapsed duration.
+`NetworkAttemptTests` additionally holds the actual exported-registry credential callback only after
+constructing its bound worker, cancels during admission, then releases it and waits for actual
+completion. It requires no draft write before cancellation, an independent retry and refusal after
+removal without directory resurrection. `NativeTestSignal` shares the one-shot completion/deadline
+helper with app-lock readiness tests; these native fixtures use no local emulator.
 The iOS registry suite drives collisions at the actual native `contains` callback: stranded
 credentials or a newly occupied directory must be skipped without overwriting their payload.
 Picker/invalid-pointer fixtures seed those states after atomic core creation, which already selects
