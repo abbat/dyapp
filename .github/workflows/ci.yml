@@ -322,6 +322,7 @@ jobs:
           path: |
             build/platform-check-output/
             ${{ runner.temp }}/apple-results/
+            !${{ runner.temp }}/apple-results/attachments/**
             ${{ runner.temp }}/desktop-ui-results.json
             ${{ runner.temp }}/moderation-shots-*/
             ${{ runner.temp }}/received-views-shots-*/
