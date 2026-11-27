@@ -211,7 +211,7 @@
       check(
         document.activeElement === summary &&
           Number.parseFloat(getComputedStyle(summary).outlineOffset) === 0,
-        'Saved packs focus ring overlaps its disclosure marker',
+        `Saved packs focus ring overlaps its disclosure marker: active=${document.activeElement === summary}, offset=${getComputedStyle(summary).outlineOffset}`,
       );
       await smoke.shot('stickers-collection-focus');
     } catch (error) {
