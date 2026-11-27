@@ -301,8 +301,10 @@ before deciding whether to retry. The operation retains its identity lease throu
 other packs, history and outbox are untouched. Installation-owned node work must run outside identity leases.
 Android's `NativeSlotKeys` implements the common credential callback with existing alias names
 and typed errors, using opaque keys. Its callback inputs release their native key handles after
-wrapping. Android's `Slots` now delegates lifecycle operations to this registry; Swift adoption
-remains planned.
+wrapping. Android's `Slots` now delegates lifecycle operations to this registry. iOS
+`NativeSlotKeys` implements the same opaque callbacks with existing Keychain accounts, exclusive
+fresh-key creation and existing-only wrapping. Its actual exported-registry fixture is implemented;
+the Swift shell registry and runtime lease cutover remain planned.
 
 `Registry::remove` takes the same exclusive lock. It rejects legacy/damaged candidates,
 checks an existing key against the exact confirmed Peer ID and validates all owned files

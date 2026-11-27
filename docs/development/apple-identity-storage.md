@@ -7,6 +7,12 @@ Keychain credentials through the [desktop system-store contract](../decisions/00
 and [desktop slot layout](desktop-identity-storage.md#multiple-identity-layout), without the
 Swift wrapping-key layer. Pre-release Swift macOS stores are not migrated automatically.
 
+`NativeSlotKeys` implements the shared mobile registry credential callback using those same iOS
+accounts. Fresh wrapping uses exclusive Keychain insertion; existing-only wrapping refuses a
+missing key instead of creating one. Missing credentials return absence, whereas access/unwrap
+failures remain errors. This adapter and real exported-registry conformance tests are implemented;
+the shell still uses `IdentitySlotStore` policy until its common-registry cutover is complete.
+
 The iOS start screen now resolves a saved identity without creating
 one. A fresh install shows an explicit Create action and a key-loss warning; a
 missing or unavailable key shows recovery and Retry. An existing root
