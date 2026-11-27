@@ -5,6 +5,19 @@ private struct ChatOutcome<T>: @unchecked Sendable {
     let result: Result<T, Error>
 }
 
+/// Foreground calls enter this serial worker from the main actor before suspending.
+enum ForegroundChatIO {
+    private static let queue = DispatchQueue(
+        label: "com.dyapp.foreground-chat", qos: .userInitiated)
+
+    @MainActor
+    static func perform<Value: Sendable>(_ work: @escaping @Sendable () -> Value) async -> Value {
+        await withCheckedContinuation { continuation in
+            queue.async { continuation.resume(returning: work()) }
+        }
+    }
+}
+
 /// This identity's chat rows. ContentView owns them, as the lists and the mailbox poll outlive the
 /// pages opened over them.
 @MainActor
@@ -116,9 +129,10 @@ final class ChatFeed: ObservableObject {
     ) async -> Result<T, Error> {
         guard isCurrent(context) else { return .failure(IdentitySlotError.peerIDMismatch) }
         let identity = context.identity
-        return await Task.detached(priority: .userInitiated) {
+        let outcome = await ForegroundChatIO.perform {
             ChatOutcome(result: Result { try RustBridge.withChats(identity, action) })
-        }.value.result
+        }
+        return outcome.result
     }
 
     /// Failures stay quiet and keep the last rows: no network and an unpublished profile are normal.

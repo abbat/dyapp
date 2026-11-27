@@ -142,6 +142,9 @@ carry replaceable tickets, and Settings continuations belong to a particular ope
 Chat work now opens through `MobileIdentityRegistry.open_chats` with the slot's existing-only
 Keychain store. Core bootstraps and verifies ancillary keys without replacing initialized state;
 its returned chat session owns registry and chat locks through the actual blocking operation.
+Foreground chat calls enqueue in main-actor admission order on a serial IO queue. An admitted
+write runs to completion even if its initiating task is cancelled, so a subsequent foreground read
+observes the committed result. Background work still coordinates through the existing chat lock.
 Swift does not generate or write `device.key` or `chat-state.key`. Do not acquire another identity
 lease around chat bootstrap. Nonescaping profile draft, visibility, hide/withdraw, publication checks
 and photo-download policy reads use the opaque native identity operation through actual completion.
