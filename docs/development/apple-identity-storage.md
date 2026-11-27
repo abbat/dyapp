@@ -80,7 +80,10 @@ Create, Switch and Remove preserve the independent directory-persistence diagnos
 visible commit. A localized notice with acknowledgement survives navigation, setup and content
 recreation within the app-lock gate. Unconfirmed persistence is not a retryable creation failure.
 Selected ready UUID slots can be removed after a second confirmation; the root picker
-requires an explicit choice of any survivor.
+requires an explicit choice of any survivor. Settings obtains removal eligibility and same-Peer-ID
+local-copy guidance from native `removal_review`, rather than inferring either from row count.
+Failure to read the review or publication state displays Retry and disables removal; an unreadable
+publication state is never treated as an unpublished identity.
 
 Desktop and Android already have UUID slots, an `active-profile` pointer,
 incomplete and unavailable recovery states, and an explicit remove flow. Their

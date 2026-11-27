@@ -1,7 +1,7 @@
 import SwiftUI
 
 private enum InventoryLoad: Sendable {
-    case loaded([IdentityInventoryRow], published: Bool), failed
+    case loaded([IdentityInventoryRow], published: Bool, allowed: Bool, otherCopy: Bool), failed
 }
 
 /// Inventory and explicit identity actions for the selected Apple key slot.
@@ -22,11 +22,13 @@ struct IdentitySettingsView: View {
     @State private var showRemoveConfirmation = false
     /// This identity has published, so removal withdraws its profile first.
     @State private var hasPublished = false
+    @State private var removalAllowed = false
+    @State private var hasOtherCopy = false
     @State private var withdrawFailed = false
     @State private var opening = UUID()
 
     private var removalWarning: LocalizedStringKey {
-        rows.count == 1 ? "settings.removeLastWarning" : "settings.removeWarning"
+        hasOtherCopy ? "settings.removeWarning" : "settings.removeLastWarning"
     }
 
     private var removalMessage: Text {
@@ -38,8 +40,7 @@ struct IdentitySettingsView: View {
     }
 
     private var removableSlot: UUID? {
-        guard case .slot(let id) = candidate.location,
-            rows.first(where: { $0.candidate.location == candidate.location })?.peerID == peerId
+        guard removalAllowed, case .slot(let id) = candidate.location
         else {
             return nil
         }
@@ -201,21 +202,27 @@ struct IdentitySettingsView: View {
     private func load() async {
         isLoading = true
         readFailed = false
+        removalAllowed = false
         let (current, currentPeerID) = (candidate, peerId)
         let currentOpening = opening
         let result = await IdentityIO.performBlocking { () -> InventoryLoad in
             do {
-                // Only an open key can sign the withdrawal; an unreadable version counts as never published.
-                let version =
-                    (try? RustBridge.visibility(for: current, peerId: currentPeerID))?.version ?? 0
-                return .loaded(try RustBridge.identityInventory(), published: version > 0)
+                let review = try RustBridge.identityStore().removalReview(
+                    current.location, peerId: currentPeerID)
+                // Unknown publication state must never authorize skipping withdrawal.
+                let version = try RustBridge.visibility(for: current, peerId: currentPeerID).version
+                return .loaded(
+                    try RustBridge.identityInventory(), published: version > 0,
+                    allowed: review.allowed, otherCopy: review.hasOtherCopy)
             } catch { return .failed }
         }
         guard !Task.isCancelled, isCurrent(currentOpening) else { return }
         switch result {
-        case let .loaded(items, published):
+        case let .loaded(items, published, allowed, otherCopy):
             rows = items
             hasPublished = published
+            removalAllowed = allowed
+            hasOtherCopy = otherCopy
 
         case .failed:
             readFailed = true

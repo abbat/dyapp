@@ -153,6 +153,13 @@ final class IdentitySlotStore: Sendable {
         try registry.list().map { try IdentityCandidate(native: $0) }
     }
 
+    /// Read-only native guidance; removal independently checks the confirmation again.
+    func removalReview(_ location: IdentityLocation, peerId: String) throws
+        -> MobileIdentityRemovalReview
+    {
+        try registry.removalReview(id: location.marker, expectedPeer: peerId)
+    }
+
     func resolve() throws -> IdentityResolution {
         switch try registry.resolve() {
         case .setup:
