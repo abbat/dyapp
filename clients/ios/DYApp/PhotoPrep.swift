@@ -19,10 +19,9 @@ struct PreparedPhoto: Sendable {
 /// ImageIO decodes orientation and sRGB pixels. The shared core prepares the published JPEGs.
 enum PhotoPrep {
     /// Reads a picked file while holding access to the system selection.
-    static func read(_ url: URL) throws -> Data {
+    static func read(_ url: URL, limit: UInt64 = photoPickedByteLimit()) throws -> Data {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-        let limit = photoPickedByteLimit()
         let file = try FileHandle(forReadingFrom: url)
         defer { try? file.close() }
         var bytes = Data()

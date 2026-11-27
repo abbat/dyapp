@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Sending read receipts. A failed read or save keeps the last value and says so.
 struct ReadReceiptsSection: View {
@@ -110,6 +111,53 @@ struct PhotoDownloadSection: View {
         case .failure:
             mode = nil
             failed = true
+        }
+    }
+}
+
+@MainActor
+struct StickerImportSection: View {
+    @ObservedObject var feed: ChatFeed
+    @State private var choosing = false
+    @State private var importContext: ChatFeed.Context?
+    @State private var working = false
+    @State private var failed = false
+    @State private var saved = false
+
+    var body: some View {
+        Section {
+            Button("stickers.import") {
+                importContext = feed.context
+                choosing = importContext != nil
+            }
+                .disabled(working || feed.context == nil)
+                .accessibilityIdentifier("sticker-import")
+            if working { ProgressView() }
+            if failed { Text("stickers.importFailed") }
+            if saved { Image(systemName: "checkmark").accessibilityLabel(Text("stickers.import")) }
+        }
+        .fileImporter(isPresented: $choosing, allowedContentTypes: [.tar]) { result in
+            guard let context = importContext, feed.isCurrent(context), !working else { return }
+            importContext = nil
+            guard case let .success(url) = result else { return }
+            failed = false
+            saved = false
+            working = true
+            Task {
+                let outcome = await feed.call(context) { chats in
+                    let archive = try PhotoPrep.read(url, limit: stickerImportByteLimit())
+                    return try chats.importStickerPack(archive: archive)
+                }
+                working = false
+                guard feed.isCurrent(context) else { return }
+                if case .success = outcome { saved = true } else { failed = true }
+            }
+        }
+        .onChange(of: feed.owner) { _ in
+            choosing = false
+            importContext = nil
+            saved = false
+            failed = false
         }
     }
 }

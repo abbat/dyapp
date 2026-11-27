@@ -7217,6 +7217,38 @@
         }
       }
     },
+    "stickers.import": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import TAR…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Импортировать TAR…"
+          }
+        }
+      }
+    },
+    "stickers.importFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not import this pack. Check Details, correct the TAR file and try again. Saved packs have been kept."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось импортировать набор. Откройте подробности, исправьте TAR-файл и повторите. Сохранённые наборы не изменились."
+          }
+        }
+      }
+    },
     "unlike.action": {
       "localizations": {
         "en": {
