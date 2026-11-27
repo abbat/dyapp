@@ -88,7 +88,7 @@ final class ChatFeed: ObservableObject {
 
     /// Reads the rows, then receives and reads again until cancelled. Another identity starts over,
     /// so a switch never shows the previous identity's chats.
-    func poll(_ identity: ChatIdentity, onRevoked: () -> Void = {}) async {
+    func poll(_ identity: ChatIdentity, onRevoked: (String?) -> Void = { _ in }) async {
         let context = activate(identity)
         await photos.use(identity)
         guard isCurrent(context), !Task.isCancelled else { return }
@@ -105,12 +105,12 @@ final class ChatFeed: ObservableObject {
             #endif
             let received = await call(context) { try $0.receive() }
             if case .failure = received, !Task.isCancelled, isCurrent(context) {
-                let removed = await ForegroundChatIO.perform {
+                let cleanup = await ForegroundChatIO.perform {
                     RustBridge.completeRevokedDevice(identity)
                 }
-                if removed {
+                if cleanup.removed {
                     if isCurrent(context) { deactivate() }
-                    onRevoked()
+                    onRevoked(cleanup.detail)
                     return
                 }
             }

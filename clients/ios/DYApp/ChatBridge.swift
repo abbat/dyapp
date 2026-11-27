@@ -26,18 +26,17 @@ extension RustBridge {
     }
 
     /// The native probe must first establish authority for the original slot and device.
-    static func completeRevokedDevice(_ identity: ChatIdentity) -> Bool {
+    static func completeRevokedDevice(_ identity: ChatIdentity) -> (removed: Bool, detail: String?) {
         do {
             let location = identity.candidate.location
             let directory = try MobileDeviceDirectory(
                 registry: identityStore().registry, id: location.marker,
                 expectedPeer: identity.peerId,
                 store: keyStore(for: location).requiringExistingKey())
-            guard let revoked = try directory.revokedDevice() else { return false }
-            _ = try revoked.complete()
-            return true
+            guard let revoked = try directory.revokedDevice() else { return (false, nil) }
+            return (true, try revoked.complete())
         } catch {
-            return false
+            return (false, nil)
         }
     }
 

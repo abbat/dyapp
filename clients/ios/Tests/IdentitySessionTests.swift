@@ -116,7 +116,7 @@ final class IdentitySessionTests: XCTestCase {
         let selected = ready()
         let model = IdentitySession(read: { selected }, run: queue.run)
 
-        model.reloadAfterLink("not yet synced")
+        model.reloadAfterSlotChange("not yet synced")
         XCTAssertNil(model.resolution)
         XCTAssertEqual(model.persistenceDetail, "not yet synced")
         queue.complete(0)

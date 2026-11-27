@@ -101,7 +101,7 @@ struct ContentView: View {
                         Text("link.receive.title").font(.headline)
                         LinkReceiveSection(feed: chats, wizard: true) { detail in
                             receivingFirstProfile = false
-                            identities.reloadAfterLink(detail)
+                            identities.reloadAfterSlotChange(detail)
                         }
                         Button("search.cancel") { receivingFirstProfile = false }
                             .accessibilityIdentifier("link-receive-exit")
@@ -126,7 +126,7 @@ struct ContentView: View {
         // On the root, as iOS cancels a task of a screen covered by a pushed one.
         .task(id: chatIdentity.map { $0.candidate.location.marker + ":" + $0.peerId }) {
             if let chatIdentity {
-                await chats.poll(chatIdentity) { identities.reload() }
+                await chats.poll(chatIdentity, onRevoked: identities.reloadAfterSlotChange)
             } else {
                 chats.deactivate()
             }

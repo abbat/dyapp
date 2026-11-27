@@ -106,7 +106,7 @@ final class IdentitySession: ObservableObject {
         }
     }
 
-    func reloadAfterLink(_ detail: String?) {
+    func reloadAfterSlotChange(_ detail: String?) {
         if let detail { persistenceDetail = detail }
         reload()
     }
