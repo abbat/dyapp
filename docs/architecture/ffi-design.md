@@ -1687,8 +1687,9 @@ from foreign code. Rust turns it, and anything else the app throws, into
   model cannot publish a late read. Mutations read back the core mode even when they throw;
   cancellation is not evidence that a storage write rolled back.
   The iOS `ChatComposer` presentation owner uses opening, text and edit revisions to consume only
-  an exact submitted draft after Accepted/Queued. Its transition tests are implemented; wiring the
-  native chat screen and captured feed identity into this owner remains planned.
+  an exact submitted draft after Accepted/Queued. The chat screen captures the feed identity before
+  scheduling native work; switching away and back changes its owner token. Retiring an opening
+  suppresses late presentation callbacks without treating cancellation as a native rollback.
 
 ## Security boundary
 

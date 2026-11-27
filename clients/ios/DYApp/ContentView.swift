@@ -113,8 +113,8 @@ struct ContentView: View {
         .task(id: selectedMarker) { await loadActiveNetwork() }
         .task(id: identity) { await loadPicker() }
         // On the root, as iOS cancels a task of a screen covered by a pushed one.
-        .task(id: chatIdentity?.peerId) {
-            if let chatIdentity { await chats.poll(chatIdentity) }
+        .task(id: chatIdentity.map { $0.candidate.location.marker + ":" + $0.peerId }) {
+            if let chatIdentity { await chats.poll(chatIdentity) } else { chats.deactivate() }
         }
     }
 
@@ -321,7 +321,7 @@ extension ContentView {
         pickerWorking = false
         switch result {
         case .ready(let selected):
-            identity = selected
+            useIdentity(selected)
 
         case .failed:
             pickerActionFailed = true
@@ -346,7 +346,12 @@ extension ContentView {
     }
 
     private func refreshIdentity() {
-        identity = (try? RustBridge.identityState()) ?? .recovery(nil, .unavailable)
+        useIdentity((try? RustBridge.identityState()) ?? .recovery(nil, .unavailable))
+    }
+
+    private func useIdentity(_ selected: IdentityResolution) {
+        if identity != selected { chats.deactivate() }
+        identity = selected
     }
 
     private func settingsView(_ candidate: IdentityCandidate, _ peerId: String)
@@ -359,14 +364,14 @@ extension ContentView {
                 startLink = nil
             #endif
             activeNetwork = .loading
-            identity = selected
+            useIdentity(selected)
         }
         view.openNetwork = openNetwork
         return view
     }
 
     private func createIdentity() {
-        identity = (try? RustBridge.createIdentity()) ?? .recovery(nil, .unavailable)
+        useIdentity((try? RustBridge.createIdentity()) ?? .recovery(nil, .unavailable))
         #if DEBUG
             // Native UI tests exercise the read-error screen in their isolated slot root.
             if ProcessInfo.processInfo.arguments.contains("--ui-test-corrupt-network-draft"),

@@ -36,6 +36,7 @@ struct SearchView: View {
                     back: { self.chat = nil },
                     blocked: { self.chat = nil }
                 )
+                .id([feed.owner.uuidString, chat.peer])
             } else {
                 ScrollingForm {
                     Text("search.sample").font(.caption)

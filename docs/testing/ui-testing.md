@@ -21,6 +21,8 @@ independent failure deadlines bound a broken transition without adding successfu
 The iOS `ChatComposerTests` deliver typed Accepted/Queued/failure completions directly to the
 presentation owner. They exercise text revisions (including change-and-back), successor edits,
 held drafts, retired openings and missing/deleted/rotated targets without a clock or scheduler.
+`ChatOwnerTests` exercise real feed activation/deactivation, same-peer different-slot ownership,
+switch-away-and-back, and refusal of an obsolete request before any native action executes.
 Fresh-identity chat and receive fixtures use an owned `NativeSlotFixture` storage context;
 `skipNetworkEntry` alone reuses existing device identities and cannot establish empty storage.
 The chat empty-state test checks its native registry and chat rows, retains the no-badge assertion,

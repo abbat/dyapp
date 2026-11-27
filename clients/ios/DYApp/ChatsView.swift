@@ -35,6 +35,7 @@ struct ChatsView: View {
                     back: { self.chat = nil },
                     blocked: { self.chat = nil }
                 )
+                .id([feed.owner.uuidString, chat])
             } else {
                 list
             }

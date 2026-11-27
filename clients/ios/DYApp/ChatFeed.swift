@@ -9,6 +9,11 @@ private struct ChatOutcome<T>: @unchecked Sendable {
 /// pages opened over them.
 @MainActor
 final class ChatFeed: ObservableObject {
+    struct Context: Sendable {
+        let owner: UUID
+        let identity: ChatIdentity
+    }
+
     private static var receiveIntervalNs: UInt64 {
         #if DEBUG
             if ChatTestPeer.enabled { return 5_000_000_000 }
@@ -21,6 +26,7 @@ final class ChatFeed: ObservableObject {
     @Published private(set) var liked: [String] = []
     /// Counts the reads, so an open chat reloads for a change the rows do not show.
     @Published private(set) var version = 0
+    @Published private(set) var owner = UUID()
     @Published var likedOpen = false
     @Published var requestsOpen = false
     /// The last fetch of the Liked you profiles; nil until the first one ends.
@@ -38,19 +44,38 @@ final class ChatFeed: ObservableObject {
 
     var me: String? { identity?.peerId }
 
+    var context: Context? { identity.map { Context(owner: owner, identity: $0) } }
+
+    func isCurrent(_ context: Context) -> Bool { context.owner == owner && identity != nil }
+
+    /// Invalidates presentation callbacks without interrupting an already owned native operation.
+    func deactivate() {
+        owner = UUID()
+        identity = nil
+        rows = []
+        liked = []
+        likedOpen = false
+        requestsOpen = false
+        likedProfiles = nil
+        blocked = nil
+        names = [:]
+    }
+
+    @discardableResult
+    func activate(_ identity: ChatIdentity) -> Context {
+        if self.identity?.peerId != identity.peerId
+            || self.identity?.candidate.location.marker != identity.candidate.location.marker
+        {
+            deactivate()
+        }
+        self.identity = identity
+        return Context(owner: owner, identity: identity)
+    }
+
     /// Reads the rows, then receives and reads again until cancelled. Another identity starts over,
     /// so a switch never shows the previous identity's chats.
     func poll(_ identity: ChatIdentity) async {
-        if self.identity?.peerId != identity.peerId {
-            rows = []
-            liked = []
-            likedOpen = false
-            requestsOpen = false
-            likedProfiles = nil
-            blocked = nil
-            names = [:]
-        }
-        self.identity = identity
+        let context = activate(identity)
         photos.use(identity)
         #if DEBUG
             if ChatTestPeer.enabled, !testPeerStarted {
@@ -59,15 +84,16 @@ final class ChatFeed: ObservableObject {
             }
         #endif
         await read()
-        while !Task.isCancelled {
+        while !Task.isCancelled && isCurrent(context) {
             #if os(macOS)
                 let (rowsBefore, likedBefore) = (rows, liked)
             #endif
-            _ = await call { try $0.receive() }
+            _ = await call(context) { try $0.receive() }
+            guard !Task.isCancelled, isCurrent(context) else { return }
             await read()
             #if os(macOS)
                 // After a switch `rows` are the next identity's and would count as new.
-                if !Task.isCancelled {
+                if !Task.isCancelled, isCurrent(context) {
                     await noticeNewMail(before: rowsBefore, likedBefore: likedBefore)
                 }
             #endif
@@ -78,7 +104,16 @@ final class ChatFeed: ObservableObject {
     /// Runs a blocking chat call off the main actor.
     func call<T>(_ action: @escaping @Sendable (ChatSession) throws -> T) async -> Result<T, Error>
     {
-        guard let identity else { return .failure(IdentitySlotError.peerIDMismatch) }
+        guard let context else { return .failure(IdentitySlotError.peerIDMismatch) }
+        return await call(context, action)
+    }
+
+    /// Capture at the UI action, before scheduling; a successor owner cannot retarget this call.
+    func call<T>(
+        _ context: Context, _ action: @escaping @Sendable (ChatSession) throws -> T
+    ) async -> Result<T, Error> {
+        guard isCurrent(context) else { return .failure(IdentitySlotError.peerIDMismatch) }
+        let identity = context.identity
         return await Task.detached(priority: .userInitiated) {
             ChatOutcome(result: Result { try RustBridge.withChats(identity, action) })
         }.value.result
@@ -86,9 +121,9 @@ final class ChatFeed: ObservableObject {
 
     /// Failures stay quiet and keep the last rows: no network and an unpublished profile are normal.
     func read() async {
-        let reading = identity?.peerId
-        let result = await call { (try $0.chatRows(), try $0.likedYou()) }
-        guard reading == identity?.peerId, case let .success((rows, liked)) = result else { return }
+        guard let context else { return }
+        let result = await call(context) { (try $0.chatRows(), try $0.likedYou()) }
+        guard isCurrent(context), case let .success((rows, liked)) = result else { return }
         self.rows = rows
         self.liked = liked
         version += 1
@@ -96,53 +131,81 @@ final class ChatFeed: ObservableObject {
 
     /// Stores and sends `text`; nil when it went out, else the line to show.
     func send(_ text: String, to peer: String) async -> ChatStatus? {
-        let sent = await call { try $0.submitText(peerId: peer, text: text) }
-        await read()
-        return chatSendStatus(sent)
+        guard let context else {
+            return chatSendStatus(.failure(IdentitySlotError.peerIDMismatch))
+        }
+        return chatSendStatus(await submit(text, to: peer, in: context))
     }
 
-    /// Replaces the text of the own `message`; nil when a node took it, else the line to show.
-    func edit(_ message: ChatMessage, text: String, peer: String) async -> ChatStatus? {
+    func submit(_ text: String, to peer: String, in context: Context) async -> Result<
+        ChatSubmission, Error
+    > {
+        let sent = await call(context) { try $0.submitText(peerId: peer, text: text) }
+        if isCurrent(context) { await read() }
+        return sent
+    }
+
+    /// Replaces the own message and preserves the native commitment independently of UI lifetime.
+    func edit(_ message: ChatMessage, text: String, peer: String, in context: Context) async
+        -> Result<ChatSubmission, Error>
+    {
         let (group, id) = (message.groupId, message.id)
-        let changed = await call {
+        let changed = await call(context) {
             try $0.submitEditText(peerId: peer, groupId: group, messageId: id, text: text)
         }
-        await read()
-        return chatSendStatus(changed, queued: "chat.editQueued", failed: "chat.editFailed")
+        if isCurrent(context) { await read() }
+        return changed
     }
 
     /// Deletes the own `message` here and asks the peer's app to delete it too.
-    func delete(_ message: ChatMessage, peer: String) async -> ChatStatus? {
+    func delete(_ message: ChatMessage, peer: String, in context: Context) async
+        -> Result<ChatSubmission, Error>
+    {
         let (group, id) = (message.groupId, message.id)
-        let changed = await call {
+        let changed = await call(context) {
             try $0.submitDeleteText(peerId: peer, groupId: group, messageId: id)
         }
-        await read()
-        return chatSendStatus(changed, queued: "chat.deleteQueued", failed: "chat.deleteFailed")
+        if isCurrent(context) { await read() }
+        return changed
     }
 
     /// Clears this device's copy of the chat; nil when it held, else the line to show.
-    func clear(_ peer: String) async -> ChatStatus? {
-        let cleared = await call { try $0.clearChat(peerId: peer) }
-        await read()
+    func clear(_ peer: String, in context: Context? = nil) async -> ChatStatus? {
+        guard let context = context ?? self.context else {
+            return ChatStatus(
+                key: "chat.clearFailed",
+                details: String(describing: IdentitySlotError.peerIDMismatch))
+        }
+        let cleared = await call(context) { try $0.clearChat(peerId: peer) }
+        if isCurrent(context) { await read() }
         guard case let .failure(error) = cleared else { return nil }
         return ChatStatus(key: "chat.clearFailed", details: String(describing: error))
     }
 
-    func setMuted(_ muted: Bool, peer: String) async -> ChatStatus? {
-        let changed = await call { try $0.setMuted(peerId: peer, muted: muted) }
-        await read()
+    func setMuted(_ muted: Bool, peer: String, in context: Context? = nil) async -> ChatStatus? {
+        guard let context = context ?? self.context else {
+            return ChatStatus(
+                key: "chat.muteFailed",
+                details: String(describing: IdentitySlotError.peerIDMismatch))
+        }
+        let changed = await call(context) { try $0.setMuted(peerId: peer, muted: muted) }
+        if isCurrent(context) { await read() }
         guard case let .failure(error) = changed else { return nil }
         return ChatStatus(key: "chat.muteFailed", details: String(describing: error))
     }
 
     /// Blocks `peer` and keeps the outcome for Chats; nil when it held, else the line to show.
-    func block(_ peer: String) async -> ChatStatus? {
-        let result = await call { try $0.block(peerId: peer) }
-        await read()
+    func block(_ peer: String, in context: Context? = nil) async -> ChatStatus? {
+        guard let context = context ?? self.context else {
+            return ChatStatus(
+                key: "chat.blockFailed",
+                details: String(describing: IdentitySlotError.peerIDMismatch))
+        }
+        let result = await call(context) { try $0.block(peerId: peer) }
+        if isCurrent(context) { await read() }
         switch result {
         case let .success(block):
-            blocked = block
+            if isCurrent(context) { blocked = block }
             return nil
 
         case let .failure(error):
@@ -153,11 +216,13 @@ final class ChatFeed: ObservableObject {
     /// Reads the names, then again with the public ones a fetch brings, then the main thumbnails.
     /// A failed fetch keeps what shows, and the next view tries again.
     func loadNames(_ peers: [String]) async {
-        guard !peers.isEmpty else { return }
+        guard !peers.isEmpty, let context else { return }
         await readNames(peers)
-        guard let searcher = photos.searcher else { return }
+        guard isCurrent(context), let searcher = photos.searcher else { return }
         await Task.detached(priority: .utility) { _ = try? searcher.profiles(peerIds: peers) }.value
+        guard isCurrent(context) else { return }
         await readNames(peers)
+        guard isCurrent(context) else { return }
         await photos.fetch(peers.compactMap { names[$0]?.photo }, full: false)
     }
 
@@ -177,7 +242,8 @@ final class ChatFeed: ObservableObject {
 
     /// A failed read keeps the last names.
     private func readNames(_ peers: [String]) async {
-        guard let identity else { return }
+        guard let context else { return }
+        let identity = context.identity
         photos.use(identity)
         guard let searcher = photos.searcher else { return }
         let read = await Task.detached(priority: .userInitiated) {
@@ -186,28 +252,29 @@ final class ChatFeed: ObservableObject {
                     try RustBridge.contactNames(identity, searcher: searcher, peers: peers)
                 })
         }.value.result
-        guard identity.peerId == self.identity?.peerId, case let .success(views) = read else {
+        guard isCurrent(context), case let .success(views) = read else {
             return
         }
         for view in views { names[view.peerId] = view }
     }
 
     /// Marks an open chat read and tells the peer; a read mark that fails to go out waits for the next one.
-    func markRead(_ peer: String) async {
-        let marked = await call { session -> UInt32 in
+    func markRead(_ peer: String, in context: Context) async {
+        let marked = await call(context) { session -> UInt32 in
             let marked = try session.markRead(peerId: peer)
             _ = try? session.sendReads(peerId: peer)
             return marked
         }
-        if case let .success(count) = marked, count > 0 { await read() }
+        if isCurrent(context), case let .success(count) = marked, count > 0 { await read() }
     }
 
     /// Liked you profiles come from the network, so only an open list fetches them.
     func fetchLiked() async {
-        guard likedOpen, !liked.isEmpty else { return }
+        guard likedOpen, !liked.isEmpty, let context else { return }
         let peers = liked
-        let result = await call { try $0.profiles(peerIds: peers) }
-        if !Task.isCancelled { likedProfiles = result }
+        let result = await call(context) { try $0.profiles(peerIds: peers) }
+        guard !Task.isCancelled, isCurrent(context) else { return }
+        likedProfiles = result
         if case let .success(found) = result {
             await photos.fetch(found.compactMap { $0.photos.first }, full: false)
         }

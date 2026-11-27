@@ -17,12 +17,7 @@ struct ChatView: View {
     /// The block held, so the chat is gone.
     let blocked: () -> Void
     @State private var history: ChatHistory?
-    @State private var status: ChatStatus?
-    @State private var draft = ""
-    @State private var sending = false
-    /// The own message the composer changes, and the draft typed before it.
-    @State private var editing: Data?
-    @State private var held = ""
+    @StateObject private var composer = ChatComposer()
     @State private var deleting: ChatMessage?
     @State private var confirmClear = false
     @State private var confirmBlock = false
@@ -32,6 +27,8 @@ struct ChatView: View {
     @State private var busy = false
 
     private var messages: [ChatMessage] { history?.messages ?? [] }
+    private var sending: Bool { composer.sending }
+    private var editing: Data? { composer.editing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -55,6 +52,10 @@ struct ChatView: View {
         // The feed counts its reads, so a received message and a finished send both land here.
         .task(id: feed.version) { await reload() }
         .task(id: peer) { await feed.loadNames([peer]) }
+        .onDisappear {
+            composer.retire()
+            busy = false
+        }
         .sheet(isPresented: $renaming) {
             // The field starts from the local name: a public name is the peer's own claim.
             ChatRenameSheet(
@@ -148,7 +149,7 @@ struct ChatView: View {
                     ForEach(messages, id: \.threadKey) { message in
                         ChatBubble(
                             message: message, own: message.author == feed.me,
-                            writable: chatWritable(history?.state), sending: sending,
+                            writable: chatWritable(history?.state), sending: sending || busy,
                             openProfile: openProfile,
                             edit: { startEditing(message) }, delete: { deleting = message }
                         )
@@ -166,7 +167,7 @@ struct ChatView: View {
         if history?.state == .requestSent { Text("chat.firstWait").font(.caption) }
         if sending {
             Text("chat.sending").font(.caption).accessibilityIdentifier("chat-status")
-        } else if let status {
+        } else if let status = composer.status {
             Text(LocalizedStringKey(status.key)).font(.caption).accessibilityIdentifier(
                 "chat-status")
             if let details = status.details {
@@ -174,13 +175,13 @@ struct ChatView: View {
                     .accessibilityIdentifier("chat-details")
             }
         }
-        if chatComposerPolicy(state: history?.state, text: draft).tooLong {
+        if chatComposerPolicy(state: history?.state, text: composer.draft).tooLong {
             Text("chat.tooLong").font(.caption)
         }
         if editing != nil {
             HStack {
                 Text("chat.editing").font(.caption).accessibilityIdentifier("chat-editing")
-                Button("search.cancel", action: endEditing).accessibilityIdentifier(
+                Button("search.cancel", action: composer.endEditing).accessibilityIdentifier(
                     "chat-edit-cancel")
             }
         }
@@ -189,101 +190,113 @@ struct ChatView: View {
     // shortcut: one line of input, as multi-line TextField needs macOS 13 and iOS 16; use it when the targets rise.
     private var composer: some View {
         HStack {
-            TextField("chat.placeholder", text: $draft)
+            TextField("chat.placeholder", text: $composer.draft)
                 .disabled(!chatWritable(history?.state))
                 .onSubmit(send)
                 .accessibilityIdentifier("chat-input")
             Button("chat.send", action: send)
-                .disabled(sending || !chatSendable(history?.state, draft))
+                .disabled(busy || sending || !chatSendable(history?.state, composer.draft))
                 .accessibilityIdentifier("chat-send")
         }
     }
 
     private func reload() async {
+        guard let context = feed.context else { return }
+        let opening = composer.opening
         let peer = peer
-        let result = await feed.call { try $0.chatHistory(peerId: peer) }
-        if Task.isCancelled { return }
+        let result = await feed.call(context) { try $0.chatHistory(peerId: peer) }
+        guard !Task.isCancelled, feed.isCurrent(context), composer.opening == opening else {
+            return
+        }
         switch result {
         case let .success(loaded):
-            if history == nil { status = nil }
+            if history == nil { composer.status = nil }
             history = loaded
-            await feed.markRead(peer)
+            await feed.markRead(peer, in: context)
 
         case let .failure(error):
             if history == nil {
-                status = ChatStatus(key: "chat.loadFailed", details: String(describing: error))
+                composer.status = ChatStatus(
+                    key: "chat.loadFailed", details: String(describing: error))
             }
         }
     }
 
     private func send() {
-        let text = draft
-        guard !sending, chatSendable(history?.state, text) else { return }
-        let target = messages.first { $0.threadKey == editing }
-        // An edit whose message is gone must not go out as a new text.
-        if editing != nil, target == nil { return }
-        sending = true
-        status = nil
-        Task {
-            let outcome: ChatStatus?
-            if let target {
-                outcome = await feed.edit(target, text: text, peer: peer)
+        guard !busy, let context = feed.context,
+            let submission = composer.begin(state: history?.state, messages: messages)
+        else { return }
+        let (feed, peer) = (feed, peer)
+        Task { [weak composer] in
+            let result: Result<ChatSubmission, Error>
+            if let target = submission.target {
+                result = await feed.edit(target, text: submission.text, peer: peer, in: context)
             } else {
-                outcome = await feed.send(text, to: peer)
+                result = await feed.submit(submission.text, to: peer, in: context)
             }
-            sending = false
-            status = outcome
-            guard outcome?.details == nil else { return }
-            // The field stays editable during a send, so text typed meanwhile is kept.
-            if target != nil { endEditing() } else if draft == text { draft = "" }
+            guard feed.isCurrent(context) else { return }
+            composer?.complete(submission, result: result)
         }
     }
 
     private func startEditing(_ message: ChatMessage) {
-        if editing == nil { held = draft }
-        draft = message.text ?? ""
-        editing = message.threadKey
-        status = nil
-    }
-
-    private func endEditing() {
-        draft = held
-        held = ""
-        editing = nil
+        guard !busy, !sending else { return }
+        composer.edit(message)
     }
 
     private func delete(_ message: ChatMessage) {
+        guard !busy, !sending, let context = feed.context else { return }
+        let (opening, edit) = (composer.opening, composer.edit)
+        busy = true
         Task {
-            status = await feed.delete(message, peer: peer)
+            let result = await feed.delete(message, peer: peer, in: context)
+            guard feed.isCurrent(context), composer.opening == opening else { return }
+            busy = false
+            composer.status = chatSendStatus(
+                result, queued: "chat.deleteQueued", failed: "chat.deleteFailed")
             // A deleted message has nothing left to edit.
-            if status?.details == nil, editing == message.threadKey { endEditing() }
+            if case .success = result, editing == message.threadKey {
+                composer.endEditing(ifUnchanged: edit)
+            }
         }
     }
 
     private func clear() {
+        guard !busy, !sending, let context = feed.context else { return }
+        let (opening, edit) = (composer.opening, composer.edit)
         busy = true
         Task {
-            let failed = await feed.clear(peer)
-            status = failed ?? ChatStatus(key: "chat.cleared", details: nil)
-            if failed == nil, editing != nil { endEditing() }
+            let failed = await feed.clear(peer, in: context)
+            guard feed.isCurrent(context), composer.opening == opening else { return }
+            composer.status = failed ?? ChatStatus(key: "chat.cleared", details: nil)
+            if failed == nil { composer.endEditing(ifUnchanged: edit) }
             busy = false
         }
     }
 
     private func setMuted(_ muted: Bool) {
+        guard !busy, !sending, let context = feed.context else { return }
+        let opening = composer.opening
         busy = true
         Task {
-            status = await feed.setMuted(muted, peer: peer)
+            let status = await feed.setMuted(muted, peer: peer, in: context)
+            guard feed.isCurrent(context), composer.opening == opening else { return }
+            composer.status = status
             // The menu stays off until its label can tell the new state.
             await reload()
+            guard feed.isCurrent(context), composer.opening == opening else { return }
             busy = false
         }
     }
 
     private func block() {
+        guard !busy, !sending, let context = feed.context else { return }
+        let opening = composer.opening
         busy = true
         Task {
-            status = await feed.block(peer)
+            let status = await feed.block(peer, in: context)
+            guard feed.isCurrent(context), composer.opening == opening else { return }
+            composer.status = status
             busy = false
             if status == nil { blocked() }
         }
@@ -335,8 +348,9 @@ private struct ChatBubble: View {
                 Button("chat.edit", action: edit).disabled(sending).accessibilityIdentifier(
                     "msg-edit")
             }
-            Button("chat.delete", role: .destructive, action: delete).accessibilityIdentifier(
-                "msg-delete")
+            Button("chat.delete", role: .destructive, action: delete).disabled(sending)
+                .accessibilityIdentifier(
+                    "msg-delete")
         } label: {
             Image(systemName: "ellipsis")
                 #if os(iOS)
