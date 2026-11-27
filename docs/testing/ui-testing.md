@@ -28,6 +28,11 @@ SHA-256 receipts. Invoke it with `gh workflow run android-node-fixture.yml -f pr
 This provisioning workflow builds no APK and starts no emulator. Never use its public credential
 for real nodes or user data. Normal emulator startup still generates a key until the verified
 fixture is integrated; creating this workflow alone does not fix that startup wait.
+The prepared `android_node_fixture.install` helper accepts only bounded regular-file bytes matching
+a pinned SHA-256, creates the destination exclusively with mode `0600`, and never generates keys.
+Its refusal tests cover altered/missing/empty/oversized input and source/destination symlinks.
+Runtime wiring and production proof/Peer ID validation remain pending verified provisioning output;
+installer unit tests alone do not establish cryptographic proof or emulator acceptance.
 
 `ChatLinkHostsTests` renders actual message bubbles through the shared JNI URL projection. EN/RU
 captions retain ASCII/Punycode, nondefault ports and first-occurrence deduplication, exclude misleading
