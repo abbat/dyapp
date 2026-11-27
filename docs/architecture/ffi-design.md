@@ -711,8 +711,8 @@ core-validated JPEG or PNG and bounds display decoding to 2048 px on the long si
 previews use the shared bounded JPEG decoder on existing history bytes in open chats.
 iOS sticker history uses the core's first-frame result, renders its straight RGBA with alpha and
 keeps emoji and pack name as its label.
-The open-chat iOS picker pages through recent stickers and saved packs. It submits by pack ID and manifest
-index. iOS Settings imports TAR packs through the size-limited native file picker and shared
+The open-chat iOS picker pages through recent stickers and saved packs. It submits a saved sticker
+by pack ID and manifest index. iOS Settings imports TAR packs through the size-limited native file picker and shared
 archive validator. Settings lists saved packs and removes only the explicitly confirmed ID through
 an admitted identity operation, then refreshes the list. Queued submissions hide the choices to prevent another send from the same opening. Photo rows
 request originals through `chat_photo_automatic`, which enforces the policy in the retrieval call,

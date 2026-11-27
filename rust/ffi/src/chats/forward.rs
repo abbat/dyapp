@@ -128,7 +128,8 @@ impl ChatSession {
         source: ChatForwardSource,
     ) -> Result<Vec<String>, ChatForwardError> {
         let session = self.session.lock().map_err(failed)?;
-        forwarding::photo_targets(session.store(), source.borrowed()).map_err(ChatForwardError::from)
+        forwarding::photo_targets(session.store(), source.borrowed())
+            .map_err(ChatForwardError::from)
     }
 
     /// Forward a current photo whose original is still retrievable from the network.

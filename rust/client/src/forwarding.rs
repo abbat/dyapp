@@ -144,11 +144,13 @@ fn selected_photo(
 ) -> Result<crate::attachment::original::Snapshot, Error> {
     use crate::attachment::original::{select, LookupError};
 
-    select(store, source.peer, source.group, source.author, source.id).map_err(|error| match error {
-        LookupError::Blocked => Error::Blocked,
-        LookupError::NotFound | LookupError::Corrupted => Error::UnknownMessage,
-        LookupError::Store(error) => Error::Store(error),
-    })
+    select(store, source.peer, source.group, source.author, source.id).map_err(
+        |error| match error {
+            LookupError::Blocked => Error::Blocked,
+            LookupError::NotFound | LookupError::Corrupted => Error::UnknownMessage,
+            LookupError::Store(error) => Error::Store(error),
+        },
+    )
 }
 
 fn eligible_targets(store: &Store, source_peer: &str) -> Result<Vec<String>, Error> {
