@@ -38,6 +38,15 @@ duplicate keys, non-finite numbers, unsupported schema/fields, unsafe qualifiers
 sources, missing/extra messages or language files and duplicate native bindings fail.
 The loader writes nothing; production shared sources and native migration remain planned.
 
+`translation_renderers.py` builds requested native outputs entirely in memory.
+Android gets one `strings.xml` per configured qualifier, desktop gets one JSON file per language,
+and Apple gets one xcstrings table containing all configured languages. Native keys and values
+are sorted deterministically; source language and translated-unit metadata remain explicit.
+Android strings use AAPT quotes/escapes before XML encoding so whitespace, quotes, backslashes,
+newlines and literal reference prefixes survive. Byte/golden tests verify those boundaries;
+they do not replace actual Android resource compilation or native UI acceptance.
+The filesystem generation/check CLI and production migrations are not implemented yet.
+
 The planned shared language sources must preserve existing native keys and wording,
 mark platform-only contexts and keep semantic aliases explicit. Similar-looking text
 alone does not establish that two messages have the same meaning.
