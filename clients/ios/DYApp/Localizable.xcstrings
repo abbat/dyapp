@@ -1089,6 +1089,38 @@
         }
       }
     },
+    "favorites.empty": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No saved profiles yet. Save one from its profile page."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранённых анкет пока нет. Сохраните анкету на её странице."
+          }
+        }
+      }
+    },
+    "favorites.hide": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide saved profiles"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть сохранённые анкеты"
+          }
+        }
+      }
+    },
     "favorites.hint": {
       "localizations": {
         "en": {
@@ -1101,6 +1133,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "Отметка доступна только вашим устройствам. Владелец анкеты не получит ни симпатию, ни уведомление."
+          }
+        }
+      }
+    },
+    "favorites.listFailed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved profiles could not be loaded. Refresh to retry."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось прочитать сохранённые анкеты. Обновите список для повтора."
+          }
+        }
+      }
+    },
+    "favorites.listHint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This private list loads from your device. A profile is fetched only when you open its row."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приватный список читается с устройства. Анкета загружается только после нажатия на её строку."
+          }
+        }
+      }
+    },
+    "favorites.listLoading": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading saved profiles…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Читаем сохранённые анкеты…"
           }
         }
       }
@@ -1137,6 +1217,22 @@
         }
       }
     },
+    "favorites.refresh": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh saved profiles"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновить сохранённые анкеты"
+          }
+        }
+      }
+    },
     "favorites.remove": {
       "localizations": {
         "en": {
@@ -1149,6 +1245,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Убрать из сохранённых"
+          }
+        }
+      }
+    },
+    "favorites.removeNamed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove %1$@ from saved"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убрать %1$@ из сохранённых"
           }
         }
       }
@@ -1213,6 +1325,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сохраняем…"
+          }
+        }
+      }
+    },
+    "favorites.show": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show saved profiles"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать сохранённые анкеты"
           }
         }
       }

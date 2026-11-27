@@ -46,6 +46,13 @@ struct SearchView: View {
                 .id([feed.owner.uuidString, chat.peer])
             } else {
                 ScrollingForm {
+                    SavedProfilesBlock(feed: feed) { peer in
+                        guard session.context(for: candidate, peerId: peerId) == owner else {
+                            return
+                        }
+                        opened = OpenedProfile(peer: peer, known: nil)
+                    }
+                    .id(feed.owner)
                     Text("search.sample").font(.caption)
                     SearchFilterFields(inputs: $session.filters)
                     Button("search.run") {

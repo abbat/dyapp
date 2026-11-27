@@ -61,8 +61,11 @@ draft; publishing again shows it. Anyone with your Peer ID can still open it, an
 Another person's profile has a private save/remove action, independent of Like. It reads and writes
 this identity's favorites through the shared native session and stages synchronization only for its
 own devices; saving sends no Like or message to that person. An unreadable saved flag offers Retry
-without guessing its value, and a failed change keeps the last confirmed state. The standalone
-saved-profile list and its native runtime acceptance are still planned.
+without guessing its value, and a failed change keeps the last confirmed state. Search also offers
+a collapsible saved-profile list. Expanding or refreshing reads local IDs only; a row opens the
+public profile only after an explicit tap. Remove works without fetching that profile. Failed list
+reads remain errors rather than empty collections, and a failed removal keeps the last rows.
+Native runtime and rendered acceptance remain required.
 
 **Settings** lists the device's identities, marks the current one, and opens its network form.
 Once the network is set up it also holds **Notifications**: when iOS lets the closed app receive, new

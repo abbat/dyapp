@@ -55,7 +55,10 @@ workers allow removal, and later calls cannot resurrect the deleted directory.
 `FavoriteActionTests` directly controls read/write completions: duplicate admission, obsolete reads,
 independent presentation tickets, unknown-state Retry and typed blocked-save failure. These prove
 presentation behavior only; actual private persistence, no-Like staging, own-device sync and rendered
-iOS journeys remain separate native acceptance.
+iOS journeys remain separate native acceptance. `SavedProfilesTests` checks duplicate list admission,
+close/reopen tickets, stale row actions, failed-read versus empty-list distinction, retained rows after
+failed removal and a same-Peer-ID identity replacement under another slot. The production list reads
+only `favorite_peers`; public profile/media requests belong to an explicit Open action.
 The iOS registry suite drives collisions at the actual native `contains` callback: stranded
 credentials or a newly occupied directory must be skipped without overwriting their payload.
 Picker/invalid-pointer fixtures seed those states after atomic core creation, which already selects
