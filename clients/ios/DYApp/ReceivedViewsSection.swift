@@ -45,12 +45,15 @@ struct ReceivedViewsSection: View {
             if failed {
                 Text("privacy.views.failed").accessibilityIdentifier("received-views-error")
             }
-            Button("privacy.views.refresh") { Task { await refresh(opening: expected) } }
-                .disabled(busy)
+            Button("privacy.views.refresh") {
+                guard let context else { return }
+                Task { await refresh(context, opening: expected) }
+            }
+            .disabled(busy || context == nil)
         }
         .accessibilityIdentifier("received-views")
         .task(id: expected) {
-            if expanded { await refresh(opening: expected) }
+            if expanded, let context { await refresh(context, opening: expected) }
         }
         .onDisappear {
             opening = UUID()
@@ -65,8 +68,8 @@ struct ReceivedViewsSection: View {
         expanded = value
     }
 
-    private func refresh(opening expected: UUID) async {
-        guard opening == expected, expanded, !busy, !Task.isCancelled, let context = feed.context
+    private func refresh(_ context: ChatFeed.Context, opening expected: UUID) async {
+        guard feed.isCurrent(context), opening == expected, expanded, !busy, !Task.isCancelled
         else { return }
         busy = true
         let result = await feed.call(context) { try $0.receivedProfileViews() }
