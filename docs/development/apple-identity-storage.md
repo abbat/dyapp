@@ -129,7 +129,11 @@ selection and unacknowledged warnings. Startup, Retry, Create, Switch and Remove
 cancellation invalidates presentation effects without discarding a committed result. Changing the
 selection retires the old chat owner and navigation before rendering its successor. Picker reads
 carry replaceable tickets, and Settings continuations belong to a particular opening.
-Adopting shared operation leases throughout the remaining runtime remains planned.
+Chat work now opens through `MobileIdentityRegistry.open_chats` with the slot's existing-only
+Keychain store. Core bootstraps and verifies ancillary keys without replacing initialized state;
+its returned chat session owns registry and chat locks through the actual blocking operation.
+Swift does not generate or write `device.key` or `chat-state.key`. Do not acquire another identity
+lease around chat bootstrap. Shared-lease adoption for non-chat and escaped workers remains planned.
 The reserved `active-profile` value `none\n` means the user explicitly left no identity selected.
 Unlike an absent pointer, it opens the picker even if exactly one ready slot survives; an empty
 store still shows setup unless a legacy Keychain item is stranded. This marker is reserved for

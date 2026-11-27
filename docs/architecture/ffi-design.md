@@ -283,8 +283,10 @@ missing versus unavailable credentials and recoverable Peer IDs. Creation and se
 `durability_detail` reports unconfirmed directory persistence after that commit, rather than
 a failed selection. Construction does not create an identity. Native `remove` returns an
 optional persistence diagnostic only after visible completion; after a failure, resolve again
-to show interrupted cleanup. Android uses this registry and acknowledges committed persistence
-uncertainty on the resulting route without retrying; migration of the Swift slot adapter remains planned.
+to show interrupted cleanup. Android and iOS use this registry and acknowledge committed persistence
+uncertainty on the resulting route without retrying. The iOS app-owned coordinator serializes lifecycle
+commands off the UI actor, retains committed results across initiating-screen cancellation, and
+invalidates obsolete read completions.
 
 `Registry::operation` admits only a listed ready identity whose actual key matches the expected
 Peer ID. Its `IdentityOperation` retains a shared OS lock for the whole operation; create/select
@@ -326,7 +328,7 @@ and explicit `none\n` selection. Cleanup revalidates paths and keeps the empty d
 the final removal, so intermediate failures remain discoverable. The iOS tombstone goes last.
 `RemovalOutcome.durability_detail` distinguishes visibly completed deletion from unconfirmed
 directory persistence; it never reports a post-commit sync failure as an uncommitted removal.
-Android removal delegates to this API; the Swift adapter still needs migration.
+Android and iOS removal delegate to this API; iOS removal-review presentation adoption remains planned.
 
 `Registry::chat_operation` bootstraps wrapped mobile `device.key` and `chat-state.key`
 under the exclusive registry lock. It validates existing keys before creating any missing key,
@@ -352,8 +354,10 @@ The legacy explicit-key constructor remains for existing callers; those callers 
 gain registry protection until migrated. Native commands, construction and regression tests
 live in separate `chats` modules without changing the existing command signatures.
 Android `RustBridge.withChats` now uses this API directly with an existing-only store; Kotlin no
-longer generates or persists ancillary chat keys. Apple adoption remains planned; desktop
-system/file bootstrap continues through the existing desktop implementation.
+longer generates or persists ancillary chat keys. iOS `RustBridge.withChats` also calls `open_chats`
+directly with its existing-only Keychain store and retains the returned session through actual
+blocking completion. Swift no longer writes ancillary chat keys. Desktop system/file bootstrap
+continues through the existing desktop implementation.
 
 `ProfileSolve.for_slot(registry, id, expected_peer)` binds an idle proof handle to a verified
 identity without retaining a lock between steps. Every actual step reacquires the core operation

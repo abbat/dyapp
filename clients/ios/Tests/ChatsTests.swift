@@ -2,12 +2,57 @@
 import XCTest
 
 final class ChatsTests: XCTestCase {
-    func testWrappedKeyFileIsMadeOnce() throws {
-        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        addTeardownBlock { try? FileManager.default.removeItem(at: file) }
-        XCTAssertEqual(try wrappedKeyFile(file) { Data([1]) }, Data([1]))
+    func testNativeChatBootstrapNeverReplacesTheSavedWrappedKeys() throws {
+        let root = try identitySlotTestRoot()
+        let store = IdentitySlotStore(root: root, legacyStore: .forSlot(UUID()))
+        let created = try store.create()
+        let directory = root.appendingPathComponent("profiles")
+            .appendingPathComponent(created.slot.id.uuidString.lowercased())
+        try openChats(store, created.slot.id, peer: created.peerId)
+        let device = try Data(contentsOf: directory.appendingPathComponent("device.key"))
+        let state = try Data(contentsOf: directory.appendingPathComponent("chat-state.key"))
+        try openChats(store, created.slot.id, peer: created.peerId)
+        XCTAssertEqual(try Data(contentsOf: directory.appendingPathComponent("device.key")), device)
         XCTAssertEqual(
-            try wrappedKeyFile(file) { Data([2]) }, Data([1]), "a saved key is never replaced")
+            try Data(contentsOf: directory.appendingPathComponent("chat-state.key")), state)
+        XCTAssertEqual(try store.open(created.slot).peerId(), created.peerId)
+        let corrupt = Data("invalid existing device key".utf8)
+        try corrupt.write(to: directory.appendingPathComponent("device.key"), options: .atomic)
+        XCTAssertThrowsError(try openChats(store, created.slot.id, peer: created.peerId))
+        XCTAssertEqual(
+            try Data(contentsOf: directory.appendingPathComponent("device.key")), corrupt)
+        XCTAssertEqual(
+            try Data(contentsOf: directory.appendingPathComponent("chat-state.key")), state)
+    }
+
+    func testNativeChatBootstrapRefusesWrongOwnerAndMissingWrappingStoreBeforeWrites() throws {
+        let root = try identitySlotTestRoot()
+        let store = IdentitySlotStore(root: root, legacyStore: .forSlot(UUID()))
+        let created = try store.create()
+        let id = created.slot.id.uuidString.lowercased()
+        let directory = root.appendingPathComponent("profiles").appendingPathComponent(id)
+        let owner = try Data(contentsOf: directory.appendingPathComponent("identity.key"))
+        let absent = PlatformKeyStore.forSlot(UUID())
+        XCTAssertFalse(try absent.containsWrappingKey())
+        XCTAssertThrowsError(
+            try store.registry.openChats(
+                id: id, expectedPeer: created.peerId, store: absent.requiringExistingKey()))
+        XCTAssertFalse(try absent.containsWrappingKey())
+        XCTAssertThrowsError(try openChats(store, created.slot.id, peer: "wrong owner"))
+        for name in ["device.key", "chat-state.key", "client.db"] {
+            XCTAssertFalse(
+                FileManager.default.fileExists(atPath: directory.appendingPathComponent(name).path))
+        }
+        XCTAssertEqual(
+            try Data(contentsOf: directory.appendingPathComponent("identity.key")), owner)
+        XCTAssertEqual(try store.open(created.slot).peerId(), created.peerId)
+    }
+
+    private func openChats(_ store: IdentitySlotStore, _ id: UUID, peer: String) throws {
+        let session = try store.registry.openChats(
+            id: id.uuidString.lowercased(), expectedPeer: peer,
+            store: PlatformKeyStore.forSlot(id).requiringExistingKey())
+        XCTAssertTrue(try session.chatRows().isEmpty)
     }
 
     func testContactLabelPrefersTheLocalNameAndMarksAPublicOne() {
