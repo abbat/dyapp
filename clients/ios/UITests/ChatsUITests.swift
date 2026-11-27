@@ -135,10 +135,11 @@ final class ChatsUITests: XCTestCase {
         cards.firstMatch.tap()
         XCTAssertTrue(app.buttons["view-back"].waitForExistence(timeout: 30), app.debugDescription)
         reveal(app.buttons["view-share"], in: app).tap()
-        reveal(app.buttons["share-1"], in: app).tap()
-        XCTAssertTrue(
-            reveal(shownText("Profile sent.", in: app), in: app, timeout: 60, above: true).exists,
-            app.debugDescription)
+        let target = reveal(app.buttons["share-1"], in: app)
+        attachShareState("eligible-target", app: app, element: target)
+        target.tap()
+        let sent = reveal(shownText("Profile sent.", in: app), in: app, timeout: 60, above: true)
+        attachShareState("sent", app: app, element: sent)
         reveal(app.buttons["view-back"], in: app, above: true).tap()
         XCTAssertTrue(cards.element(boundBy: 1).waitForExistence(timeout: 30), app.debugDescription)
         XCTAssertTrue(
@@ -149,6 +150,20 @@ final class ChatsUITests: XCTestCase {
 }
 
 extension ChatsUITests {
+    private func attachShareState(_ state: String, app: XCUIApplication, element: XCUIElement) {
+        XCTAssertTrue(element.exists && element.isHittable)
+        let frame = element.frame
+        XCTAssertTrue(!frame.isEmpty && app.frame.intersects(frame))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "ios-profile-share-\(state)"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        let geometry = XCTAttachment(string: "element=\(frame) viewport=\(app.frame)")
+        geometry.name = "ios-profile-share-\(state)-geometry"
+        geometry.lifetime = .keepAlways
+        add(geometry)
+    }
+
     /// From Chats: opens the peer's first message and answers it.
     private func replyToTheRequest(_ app: XCUIApplication) {
         let requests = app.buttons["chats-requests"]

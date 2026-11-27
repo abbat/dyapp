@@ -2042,7 +2042,8 @@ retry is [flaky](README.md#flaky-tests): `xcodebuild test` retries a failed test
 (`-retry-tests-on-failure -test-iterations 3`, each try limited to 10 minutes by
 `-default-test-execution-time-allowance`, so a wedged test fails instead of using up the suite's
 70 minutes) and `check-flaky.py` reads the
-`xcresulttool get test-results tests` tree; `am instrument` has no retries, so the Android
+`xcresulttool get test-results tests` tree. The iOS profile-share UI test attaches native PNGs
+and viewport/element frames for the eligible target and sent confirmation to its xcresult; `am instrument` has no retries, so the Android
 run reruns up to twice, each time only the tests the failed run lists (`-e class`, checked
 with a minimum of one test), or the whole suite when it lists none. The tests listed by a
 failed run before a passing one are flaky (`android instrumentation` when a failed run lists
