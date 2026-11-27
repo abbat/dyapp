@@ -2,7 +2,7 @@
 
 Native catalogue generation is being implemented. Current production Android XML,
 desktop JSON and Apple xcstrings remain their existing sources until their migrations land.
-Do not assume a generated-output drift check exists yet.
+The generator is not wired into standard quality/CI yet.
 
 The implemented projection helper is `tools/scripts/translation_templates.py`.
 It accepts canonical text with named arguments, explicit string/integer argument types,
@@ -11,8 +11,8 @@ not user values; it never evaluates expressions.
 
 Canonical fields use `{name}`. Reordering or repeating fields in a translation preserves
 the declared arguments. Every declared argument must occur in each translation.
-Empty text, NUL, missing/unknown fields, attribute/index access, conversions and format
-expressions are refused. Double braces represent literal braces.
+Empty text, invalid Unicode/XML characters, missing/unknown fields, attribute/index access,
+conversions and format expressions are refused. Double braces represent literal braces.
 
 Android bindings use positional `%1$s` or `%1$d`; Apple bindings use `%1$@`,
 `%1$d` or `%1$lld`. Positions are unique and contiguous, and each token must match
@@ -45,7 +45,13 @@ are sorted deterministically; source language and translated-unit metadata remai
 Android strings use AAPT quotes/escapes before XML encoding so whitespace, quotes, backslashes,
 newlines and literal reference prefixes survive. Byte/golden tests verify those boundaries;
 they do not replace actual Android resource compilation or native UI acceptance.
-The filesystem generation/check CLI and production migrations are not implemented yet.
+Inside the Docker check container, `python3 -B tools/scripts/generate-translations.py` generates
+the selected native resources. `--root REPO` selects a source/output project (including a fixture
+under `build/`); repeat `--platform android|apple|desktop` to limit migration scope.
+`--check` writes nothing and returns 1 for differing/missing generated output; invalid sources,
+unsafe destinations and unmanaged native translation files return 2.
+Every source, output byte set and destination is validated before generation writes changed files.
+The tool never deletes unmanaged catalogues. Production source import and migrations remain planned.
 
 The planned shared language sources must preserve existing native keys and wording,
 mark platform-only contexts and keep semantic aliases explicit. Similar-looking text

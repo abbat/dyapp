@@ -8,6 +8,9 @@ from typing import Literal
 ArgumentType = Literal["string", "integer"]
 Arguments = Mapping[str, ArgumentType]
 NAME = re.compile(r"[A-Za-z][A-Za-z0-9_]*\Z")
+INVALID_TEXT = re.compile(
+    r"[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff\ufffe\uffff]"
+)
 TOKENS = {
     "android": re.compile(r"%([1-9][0-9]*)\$([sd])\Z"),
     "apple": re.compile(r"%([1-9][0-9]*)\$(@|d|lld)\Z"),
@@ -17,8 +20,8 @@ TOKENS = {
 
 def parts(text: str, arguments: Arguments) -> list[tuple[str, str | None]]:
     """Reject implicit fields, expressions and lost arguments."""
-    if not text.strip() or "\0" in text:
-        raise ValueError("Translation must contain nonempty, non-NUL text")
+    if not text.strip() or INVALID_TEXT.search(text) is not None:
+        raise ValueError("Translation must contain valid nonempty text")
     for name, kind in arguments.items():
         if NAME.fullmatch(name) is None or kind not in ("string", "integer"):
             raise ValueError(f"Invalid typed translation argument: {name}")
