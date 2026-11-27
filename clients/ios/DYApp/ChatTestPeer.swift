@@ -30,15 +30,21 @@
                     if likesFirst {
                         try retrying("like") { _ = try session.like(peerId: me, liked: true) }
                     } else {
-                        let answer =
-                            sharesProfile
-                            ? profileLinkText(peerId: me) ?? confirmation : confirmation
+                        let answer = try replyContent(to: me)
                         try converse(with: me, session: session, answer: answer)
                     }
                 } catch {
                     NSLog("ChatTestPeer stopped: %@", String(describing: error))
                 }
             }
+        }
+
+        private static func replyContent(to peer: String) throws -> String {
+            guard sharesProfile else { return confirmation }
+            guard let link = profileLinkText(peerId: peer) else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            return link
         }
 
         private static func published() throws -> (ChatSession, peer: String) {
