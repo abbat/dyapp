@@ -27,6 +27,11 @@ Windows/macOS execute the UI audits and retain receipts without claiming Linux-o
 Desktop CI retains these directories. Controlled IPC makes these presentation checks reproducible;
 actual core/native recovery authorization tests remain separate acceptance.
 
+Desktop `publication:<theme>:<scale>` uses the same locale/theme/text matrix and receipt contract
+under `publication-shots-*`. Its 16 Linux frames show the real editor after a controlled accepted
+publication with remaining local changes; the check asserts the pending status and preservation of
+raw editor input. Native publication/core outcome tests separately prove persistence and authority.
+
 The manual `android-node-fixture` workflow accepts an exact successful main Android producer run.
 It reuses that producer's validated host `dyappd`, generates a deliberately public test credential
 with 22-bit node proof, verifies it using production `probe-key`, and uploads it only after matching

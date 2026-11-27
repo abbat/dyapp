@@ -209,15 +209,16 @@
       throw new Error('new hide did not finish');
     await appBindings.showProfile();
   };
+  const openPublicationDialog = async () => {
+    appBindings.openPublishDialog({ draft: await appBindings.profileDraft() });
+    appBindings.profileAttested.checked = true;
+    appBindings.profileDisclosure.checked = true;
+    appBindings.publishConfirm.disabled = false;
+  };
   const checkStalePublishAndHide = async () => {
     const readyState = appBindings.current;
     const published = { published: 1, hidden: false, searchMinutes: null };
-    const openDialog = async () => {
-      appBindings.openPublishDialog({ draft: await appBindings.profileDraft() });
-      appBindings.profileAttested.checked = true;
-      appBindings.profileDisclosure.checked = true;
-      appBindings.publishConfirm.disabled = false;
-    };
+    const openDialog = openPublicationDialog;
     await openDialog();
     const finishOldPublishCall = smoke.pendingSmokeCall();
     const oldPublish = appBindings.confirmPublish((command) =>
@@ -242,7 +243,7 @@
     await checkPendingPublication(openDialog, published);
     await checkStaleProfileHide(readyState, published);
   };
-  const checkPendingPublication = async (openDialog, published) => {
+  const checkPendingPublication = async (openDialog, published, shot = smoke.shot) => {
     const name = byId('profile-name');
     const before = name.value;
     try {
@@ -263,11 +264,22 @@
         name.value !== 'Unsaved local name'
       )
         throw new Error('publication hid pending edits or replaced the raw editor');
-      await smoke.shot('profile-published-pending');
+      await shot('profile-published-pending');
     } finally {
       name.value = before;
     }
   };
+  smoke.checkPublicationCapture = (theme, scale) =>
+    smoke.withCaptureAppearance(theme, scale, async () => {
+      await openArea('profile-area');
+      const text = scale === '100' ? 'normal' : 'large';
+      const name = `publication-pending-${theme}-${text}`;
+      await checkPendingPublication(
+        openPublicationDialog,
+        { published: 1, hidden: false, searchMinutes: null },
+        () => smoke.waitForSignal(name, smoke.shot(name)),
+      );
+    });
   // Search-wait and elapsed timers must retain the identity generation that scheduled them.
   const checkStaleElapsedTimer = async (readyState) => {
     const originalInterval = globalThis.setInterval;

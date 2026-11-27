@@ -396,6 +396,7 @@ def client_panels(case: dc.CaseRunner, reports: Path, executable: str) -> None:
     moderation_panels(case, reports, executable)
     received_views(case, reports, executable)
     received_views(case, reports, executable, panel="link-review")
+    received_views(case, reports, executable, panel="publication")
 
 
 def received_views(
@@ -421,6 +422,8 @@ def received_views(
     )
     if panel == "link-review":
         states = ("choices", "photo-error", "preview", "saved")
+    elif panel == "publication":
+        states = ("pending",)
     elif panel != "received-views":
         raise ValueError("Unknown native capture panel")
     for language, theme, (scale, text) in product(

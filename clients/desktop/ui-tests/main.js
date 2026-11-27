@@ -746,6 +746,8 @@ const checkInitialSettingsStep = async (state, mode, step) => {
   if (step === 'settings-language') {
     await checkSettingsLanguage();
     await checkPrivacy(false);
+  } else if (step.startsWith('publication:')) {
+    await smoke.checkPublicationCapture(...step.slice('publication:'.length).split(':'));
   } else if (step.startsWith('link-review:')) {
     await smoke.checkLinkReviewCapture(...step.slice('link-review:'.length).split(':'));
   } else if (step.startsWith('received-views:')) {
@@ -756,6 +758,7 @@ const runSmokeFallbackStep = async (state, mode, existing, step, readySteps) => 
   if (
     ['settings-language', 'settings-moderation'].includes(step) ||
     step.startsWith('received-views:') ||
+    step.startsWith('publication:') ||
     step.startsWith('link-review:')
   ) {
     await checkInitialSettingsStep(state, mode, step);

@@ -51,19 +51,26 @@ class ReceivedViewEvidence(unittest.TestCase):
             with self.subTest(platform=platform, defect=defect):
                 self.exercise(platform, defect, panel="link-review")
 
+    def test_publication_capture_contract(self) -> None:
+        for platform, defect in (
+            ("linux", ""),
+            ("linux", "missing"),
+            ("linux", "empty"),
+            ("linux", "refused"),
+            ("win32", ""),
+            ("darwin", ""),
+        ):
+            with self.subTest(platform=platform, defect=defect):
+                self.exercise(platform, defect, panel="publication")
+
     def exercise(
         self, platform: str, defect: str, panel: str = "received-views"
     ) -> None:
-        states = (
-            STATES
-            if panel == "received-views"
-            else (
-                "choices",
-                "photo-error",
-                "preview",
-                "saved",
-            )
-        )
+        states = {
+            "received-views": STATES,
+            "link-review": ("choices", "photo-error", "preview", "saved"),
+            "publication": ("pending",),
+        }[panel]
         with tempfile.TemporaryDirectory(dir=ROOT / "build") as folder:
             root = Path(folder)
             binary = root / "app"
