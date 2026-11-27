@@ -1249,6 +1249,22 @@
         }
       }
     },
+    "devices.refresh": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh devices"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновить список устройств"
+          }
+        }
+      }
+    },
     "devices.title": {
       "localizations": {
         "en": {
@@ -1709,6 +1725,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Повторить"
+          }
+        }
+      }
+    },
+    "link.receive.check": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check for transfer"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить получение профиля"
           }
         }
       }
@@ -7437,22 +7469,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Удалить набор"
-          }
-        }
-      }
-    },
-    "sticker.pack.refresh": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Refresh status"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Обновить статус"
           }
         }
       }

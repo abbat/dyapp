@@ -27,7 +27,7 @@ struct LinkReceiveSection: View {
                 qr(invitation.matrix)
                 Text(verbatim: invitation.code).textSelection(.enabled)
                     .accessibilityIdentifier("link-receive-code")
-                Button("sticker.pack.refresh") { check(invitation) }
+                Button("link.receive.check") { check(invitation) }
                     .disabled(busy)
                     .accessibilityIdentifier("link-receive-check")
                 Button("search.cancel") {

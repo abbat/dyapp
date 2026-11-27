@@ -267,7 +267,7 @@ struct LinkedDevicesSection: View {
                 }
             }
             if failed { Text("devices.uncertain").font(.caption) }
-            Button("sticker.pack.refresh") { refresh() }.disabled(busy)
+            Button("devices.refresh") { refresh() }.disabled(busy)
         }
         .confirmationDialog("devices.disconnect", isPresented: $confirming) {
             Button("devices.disconnect", role: .destructive, action: revoke)
