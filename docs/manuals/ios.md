@@ -109,6 +109,10 @@ signed copy is yours, not an upstream release. The
 [release page](https://github.com/abbat/dyapp/releases) carries the file with `SHA256SUMS` and build
 provenance; no release has been published yet.
 
+## Linked devices
+
+In identity settings, refresh the device list to check the published profile. You can disconnect another device after confirmation. To receive a profile, create a link code and show its QR or copy the text to the device that already owns the profile. On that device, enter the code or choose its QR image, then confirm full control. Return to the receiving device and refresh the invitation to check for the transfer.
+
 ## Build from source
 
 You need a Mac with Xcode 16, Rust 1.99 (`rustup`) and [XcodeGen](https://github.com/yonaskolb/XcodeGen)
