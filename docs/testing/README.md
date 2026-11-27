@@ -697,6 +697,12 @@ file IO only; the shared core owns and tests authentication/counter policy. Exis
 `AppLockUITests` and `LockSetupTests` retain UI/OS-prompt acceptance. These Android instrumentation
 scenarios still need execution evidence; SDK compilation is insufficient.
 
+iOS `AppLockStoreTests` calls the real common native policy over an isolated in-memory protected
+IO adapter, including literal legacy Keychain framing, five attempts across reopened handles,
+failed counter-reset persistence, corrupt records and initial-only replacement refusal. It does
+not substitute a fake PIN verifier. Its existing `AppLockUITests` remains the OS/UI acceptance;
+both suites run in native iOS CI, without a local simulator.
+
 | Platform | Command | Runs where |
 |----------|---------|------------|
 | Android unit (1 JUnit) | `make ui-test-android` | Docker, local + CI |

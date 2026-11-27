@@ -1,17 +1,6 @@
 import Foundation
 import Security
 
-/// PIN work comes from the shared Rust FFI; unit tests use a deterministic fake.
-struct AppPinVerifier {
-    // Computed: a stored struct of closures is not Sendable, so Swift 6 refuses it as a static.
-    static var rust: Self {
-        Self(hash: { try hashAppPin(pin: $0) }, verify: { try verifyAppPin(pin: $0, record: $1) })
-    }
-
-    let hash: (String) throws -> Data
-    let verify: (String, Data) throws -> Bool
-}
-
 /// One protected item holding the whole app-lock record.
 protocol AppLockVault {
     func load() throws -> Data?
@@ -19,45 +8,20 @@ protocol AppLockVault {
     func delete() throws
 }
 
-enum PinAttempt { case unlocked, wrong, deviceCredentialRequired }
+typealias PinAttempt = MobilePinAttempt
+typealias StoredLock = MobileAppLockMode
 
-/// The saved app-lock choice: either a PIN or device biometrics, never both.
-enum StoredLock: UInt8 {
-    /// First launch: neither Skip nor a lock has been chosen. Never stored.
-    case new = 255
-    /// Skipped or turned off.
-    case off = 0
-    /// The app unlocks with its PIN.
-    case pin = 1
-    /// The app unlocks with device biometrics or the device passcode.
-    case biometric = 2
-}
-
-enum AppLockError: Error { case invalidRecord, notEnrolled, alreadyEnrolled, notEnabled }
-
-// ponytail: unchecked Sendable, callers serialise (the lock UI runs one call at a time off the
-// main thread for the KDF); add a lock if anything else calls it concurrently.
-
-/// App-wide PIN verifier, failure counter and lock choice in one `ThisDeviceOnly` Keychain item,
-/// apart from the identity Keychain items. The UI must authenticate with the OS before calling
-/// `resetAfterDeviceCredential`. Every attempted PIN is persisted before KDF work, so a process
-/// crash cannot erase a failed attempt. Layout: version, mode, failures, then the 49-byte Rust
-/// verifier for a PIN only.
+/// Platform ownership facade; the shared core owns record layout, counters and transitions.
+/// All calls block and belong off the UI thread. Recovery requires fresh OS authentication.
 final class AppLockStore: @unchecked Sendable {
-    private static let version: UInt8 = 1
-    private static let recordSize = 49
-    private static let maxFailures: UInt8 = 5
+    private static let ioLock = NSLock()
+    private let core: MobileAppLock
 
-    private let vault: AppLockVault
-    private let pin: AppPinVerifier
-
-    init(vault: AppLockVault, pin: AppPinVerifier) {
-        self.vault = vault
-        self.pin = pin
+    init(vault: AppLockVault) {
+        core = MobileAppLock(format: .ios, storage: AppLockProtectedStorage(vault: vault))
     }
 
-    /// Keychain items outlive an uninstall: a fresh install drops the item a previous one left,
-    /// recognised by a marker in the app's own `directory`, which an uninstall deletes.
+    /// Keychain items survive uninstall; a new installation discards only its old app-lock item.
     static func onDevice(directory: URL) throws -> AppLockStore {
         let vault = KeychainAppLockVault()
         let marker = directory.appendingPathComponent("app-lock-installed")
@@ -65,73 +29,78 @@ final class AppLockStore: @unchecked Sendable {
             try vault.delete()
             try Data().write(to: marker, options: .atomic)
         }
-        return AppLockStore(vault: vault, pin: .rust)
+        return AppLockStore(vault: vault)
     }
 
-    /// The saved choice; a corrupt record throws and must keep the app locked.
-    func mode() throws -> StoredLock { try read()?.mode ?? .new }
+    func mode() throws -> StoredLock { try withCore { try $0.mode() } }
 
-    /// Replace any PIN with the biometric mode. Call on first launch, with the lock off, or
-    /// after a fresh OS device-credential check.
-    func useBiometric() throws { try write(.biometric) }
-
-    /// Record the first-launch Skip choice; it leaves an existing lock in place.
-    func skip() throws {
-        if try read() == nil { try write(.off) }
+    /// Protected replacement requires a fresh successful platform device-credential check.
+    func useBiometric(afterDeviceCredential: Bool = false) throws {
+        try withCore {
+            if afterDeviceCredential {
+                try $0.useBiometric()
+            } else {
+                try $0.useBiometricInitial()
+            }
+        }
     }
 
-    /// Enrol on a fresh install only. A replacement requires `resetAfterDeviceCredential`.
+    func skip() throws { try withCore { try $0.skip() } }
+
     func enroll(_ pinValue: String) throws {
-        guard try read()?.mode != .pin else { throw AppLockError.alreadyEnrolled }
-        try write(.pin, record: pin.hash(pinValue))
+        try withCore { try $0.enrollInitial(pin: pinValue) }
     }
 
-    /// Consume and persist one attempt before verifying. Five failures require OS authentication.
     func attempt(_ pinValue: String) throws -> PinAttempt {
-        guard let state = try read(), state.mode == .pin else { throw AppLockError.notEnrolled }
-        if state.failures >= Self.maxFailures { return .deviceCredentialRequired }
-        let failures = state.failures + 1
-        try write(.pin, failures: failures, record: state.record)
-        if try pin.verify(pinValue, state.record) {
-            try write(.pin, record: state.record)
-            return .unlocked
-        }
-        return failures == Self.maxFailures ? .deviceCredentialRequired : .wrong
+        try withCore { try $0.attempt(pin: pinValue) }
     }
 
-    /// Settings: replace the PIN, or clear it when `newPin` is nil, only if `current` verifies.
     func change(current: String, newPin: String?) throws -> PinAttempt {
-        let result = try attempt(current)
-        if result == .unlocked { try resetAfterDeviceCredential(newPin) }
-        return result
+        try withCore { try $0.change(current: current, newPin: newPin) }
     }
 
-    /// Call only after a fresh OS device-credential or biometric check; it replaces the PIN or
-    /// the biometric mode with `newPin`, or turns the lock off when it is nil.
+    /// Invoke only after a fresh OS device-credential or biometric check.
     func resetAfterDeviceCredential(_ newPin: String?) throws {
-        guard let mode = try read()?.mode, mode != .off else { throw AppLockError.notEnabled }
-        if let newPin {
-            try write(.pin, record: pin.hash(newPin))
-        } else {
-            try write(.off)
-        }
+        try withCore { try $0.resetAfterDeviceCredential(newPin: newPin) }
     }
 
-    private func read() throws -> (mode: StoredLock, failures: UInt8, record: Data)? {
-        guard let data = try vault.load() else { return nil }
-        let bytes = [UInt8](data)
-        guard bytes.count >= 3, bytes[0] == Self.version, let mode = StoredLock(rawValue: bytes[1]),
-            mode != .new, bytes[2] <= Self.maxFailures,
-            bytes.count == (mode == .pin ? 3 + Self.recordSize : 3)
-        else { throw AppLockError.invalidRecord }
-        return (mode, bytes[2], Data(bytes[3...]))
+    private func withCore<T>(_ action: (MobileAppLock) throws -> T) rethrows -> T {
+        Self.ioLock.lock()
+        defer { Self.ioLock.unlock() }
+        return try action(core)
+    }
+}
+
+/// Protected IO only; all callbacks are serialized by their owning facade/core handle.
+private final class AppLockProtectedStorage: MobileAppLockStorage, @unchecked Sendable {
+    private let vault: AppLockVault
+
+    init(vault: AppLockVault) { self.vault = vault }
+
+    private static func failed() -> AppLockStorageError {
+        // Never pass arbitrary backend error descriptions containing credentials across FFI.
+        .Failed(reason: "App-lock protected storage unavailable")
     }
 
-    private func write(_ mode: StoredLock, failures: UInt8 = 0, record: Data = Data()) throws {
-        guard record.count == (mode == .pin ? Self.recordSize : 0) else {
-            throw AppLockError.invalidRecord
+    func readEntry(entry: MobileAppLockEntry) throws -> Data? {
+        try requireRecord(entry)
+        do { return try vault.load() } catch { throw Self.failed() }
+    }
+
+    func writeEntry(entry: MobileAppLockEntry, data: Data) throws {
+        try requireRecord(entry)
+        do { try vault.save(data) } catch { throw Self.failed() }
+    }
+
+    func removeEntry(entry: MobileAppLockEntry) throws {
+        try requireRecord(entry)
+        do { try vault.delete() } catch { throw Self.failed() }
+    }
+
+    private func requireRecord(_ entry: MobileAppLockEntry) throws {
+        guard entry == .record else {
+            throw AppLockStorageError.Failed(reason: "Unsupported iOS app-lock storage entry")
         }
-        try vault.save(Data([Self.version, mode.rawValue, failures]) + record)
     }
 }
 

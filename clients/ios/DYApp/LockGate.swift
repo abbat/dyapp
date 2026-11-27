@@ -233,9 +233,10 @@ final class LockModel: ObservableObject {
     /// Device biometrics in place of the PIN, on first launch, while the lock is off, or after a
     /// device-passcode check.
     func useBiometric() {
+        let authenticated = recovered
         recovered = false
         run { store in
-            try store.useBiometric()
+            try store.useBiometric(afterDeviceCredential: authenticated)
             return (true, nil)
         }
     }

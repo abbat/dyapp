@@ -1657,7 +1657,7 @@ Kotlin bindings throw it as `CoreException`, the Swift bindings as `CoreError`. 
 [FFI bindings](../development/ffi-bindings.md).
 
 The app's `KeyStore` throws `WrapError::Failed { reason }` instead (Kotlin
-`WrapException.Failed`, Swift `WrapError.failed`): a flat error cannot be lifted
+`WrapException.Failed`, Swift `WrapError.Failed`): a flat error cannot be lifted
 from foreign code. Rust turns it, and anything else the app throws, into
 `CoreError::Failed`.
 
@@ -1693,14 +1693,16 @@ The boundary is **not** secure today; see
   also zeroizes its owned verifier buffer. UI and UniFFI temporary copies remain platform-owned.
   The app must clear its input and protect the verifier. The core `app_lock::AppLock` implements
   mode/enroll/attempt/change/recovery/skip/biometric rules. Common native `MobileAppLock` exposes
-  those rules through protected local IO callbacks. Android `AppLockStore` now delegates to it
-  under the existing app-wide IO lock; Kotlin retains protected IO and UI enum projections.
-  iOS adoption is planned, and actual Android native/UI execution remains an acceptance gate.
+  those rules through protected local IO callbacks. Android and iOS `AppLockStore` delegate to it
+  under an app-wide IO lock. iOS selects the existing single-Keychain-item format and keeps its
+  device-only storage and installation marker; Swift does not decode records or count failures.
+  Its callbacks accept only the record entry and report storage errors without credential text.
+  Actual native/UI execution remains an acceptance gate for each changed platform.
   Initial-only `enroll_initial` and `use_biometric_initial` check New/Off and complete
   their writes under the same core operation guard. They reject an already protected mode
   without writing any records or resetting attempt counters. The separate authenticated
   recovery APIs retain their existing contract; platforms must not substitute a mode preflight
-  followed by an unrestricted mutation. Android setup and OFF settings use the initial-only
+  followed by an unrestricted mutation. Android and iOS setup and OFF settings use the initial-only
   calls; protected replacement captures the fresh OS-authorized settings route. Failures reread
   core mode off UI and reinstall a closed protected presentation when protection exists.
   The existing verifier-only API does not store state.
