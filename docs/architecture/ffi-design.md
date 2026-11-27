@@ -714,6 +714,9 @@ iOS sticker history uses the core's first-frame result, renders its straight RGB
 keeps emoji and pack name as its label. Own stickers can be deleted by their full message key
 after confirmation. The control stays disabled once deletion commits. Received-pack controls in
 iOS submit the generation attached to the current core status for retry, fresh request and stop.
+After a failed foreground receive, iOS asks the common device directory for verified revocation
+and reloads the identity registry after confirmed removal.
+
 The open-chat iOS picker pages through recent stickers and saved packs. It submits a saved sticker
 by pack ID and manifest index. iOS Settings imports TAR packs through the size-limited native file picker and shared
 archive validator. Settings lists saved packs and removes only the explicitly confirmed ID through

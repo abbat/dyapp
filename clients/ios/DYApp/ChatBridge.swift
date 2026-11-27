@@ -25,6 +25,22 @@ extension RustBridge {
         return try withExtendedLifetime(session) { try action(session) }
     }
 
+    /// The native probe must first establish authority for the original slot and device.
+    static func completeRevokedDevice(_ identity: ChatIdentity) -> Bool {
+        do {
+            let location = identity.candidate.location
+            let directory = try MobileDeviceDirectory(
+                registry: identityStore().registry, id: location.marker,
+                expectedPeer: identity.peerId,
+                store: keyStore(for: location).requiringExistingKey())
+            guard let revoked = try directory.revokedDevice() else { return false }
+            _ = try revoked.complete()
+            return true
+        } catch {
+            return false
+        }
+    }
+
     /// How `searcher` names `peers`; waits like a session, as it opens the same folder's database.
     static func contactNames(
         searcher: ProfileSearcher, peers: [String]

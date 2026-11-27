@@ -114,7 +114,11 @@ struct ContentView: View {
         .task(id: identity) { await loadPicker() }
         // On the root, as iOS cancels a task of a screen covered by a pushed one.
         .task(id: chatIdentity.map { $0.candidate.location.marker + ":" + $0.peerId }) {
-            if let chatIdentity { await chats.poll(chatIdentity) } else { chats.deactivate() }
+            if let chatIdentity {
+                await chats.poll(chatIdentity) { identities.reload() }
+            } else {
+                chats.deactivate()
+            }
         }
     }
 
