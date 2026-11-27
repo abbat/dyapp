@@ -251,7 +251,7 @@ fn native_forward_uploads_fresh_ciphertext_and_retains_the_source() {
         panic!("source submission was not accepted");
     };
     let initial = server.trace();
-    assert!(!initial.writes.is_empty());
+    assert_ne!(initial.writes.len(), 0);
     let item = only_photo(&f, &source_peer, &source_id, &initial, &photo.full);
     let source = crate::ChatForwardSource {
         peer_id: source_peer.clone(),
