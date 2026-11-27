@@ -75,9 +75,18 @@ final class ProfileDraftStoreTests: XCTestCase {
         try store.save(saved)
         XCTAssertEqual(try store.load(), saved)
 
-        saved.values["gender"] = 2
+        saved.interests = ["music"]
         try store.save(saved)
+        var unrelatedEdit = saved
+        unrelatedEdit.interests = nil
+        unrelatedEdit.values["gender"] = 2
+        try store.save(unrelatedEdit)
+        saved.values["gender"] = 2
         XCTAssertEqual(try store.load(), saved)
+
+        saved.interests = []
+        try store.save(saved)
+        XCTAssertEqual(try store.load()?.interests, [])
 
         var refused = saved
         for (change, status) in [
