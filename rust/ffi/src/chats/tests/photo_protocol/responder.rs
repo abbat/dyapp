@@ -174,25 +174,7 @@ fn route(
             },
             ..
         })) => {
-            let Mode::Forwarding(record) = mode else {
-                panic!("unexpected profile request");
-            };
-            assert!(matches!(
-                request.request,
-                Some(proto::profile_request::Request::Get(_))
-            ));
-            swarm
-                .behaviour_mut()
-                .profile
-                .send_response(
-                    channel,
-                    proto::ProfileResponse {
-                        status: proto::Status::Ok.into(),
-                        record: Some(record.clone()),
-                        ..Default::default()
-                    },
-                )
-                .unwrap();
+            profile(swarm, request, channel, mode);
             trace.lock().unwrap().steps.push("profile");
         }
         SwarmEvent::Behaviour(
@@ -203,6 +185,33 @@ fn route(
         _ => {}
     }
     false
+}
+
+fn profile(
+    swarm: &mut Swarm,
+    request: proto::ProfileRequest,
+    channel: ResponseChannel<proto::ProfileResponse>,
+    mode: &Mode,
+) {
+    let Mode::Forwarding(record) = mode else {
+        panic!("unexpected profile request");
+    };
+    assert!(matches!(
+        request.request,
+        Some(proto::profile_request::Request::Get(_))
+    ));
+    swarm
+        .behaviour_mut()
+        .profile
+        .send_response(
+            channel,
+            proto::ProfileResponse {
+                status: proto::Status::Ok.into(),
+                record: Some(record.clone()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
 }
 
 fn media(
@@ -219,22 +228,7 @@ fn media(
     };
     match request.request.unwrap() {
         proto::media_request::Request::Attach(record) => {
-            record.verify(Domain::MediaAttach).unwrap();
-            assert_eq!(record.public_key.as_slice(), owner.as_slice());
-            let attach = proto::MediaAttach::decode(record.payload.as_slice()).unwrap();
-            assert_eq!(attach.hashes.len(), 1);
-            response.missing = attach.hashes.clone();
-            let limit = if matches!(mode, Mode::Forwarding(_)) {
-                2
-            } else {
-                1
-            };
-            assert!(trace.attaches.len() < limit);
-            trace.attaches.push(attach);
-            trace.steps.push("attach");
-            if matches!(mode, Mode::AttachFull) {
-                response.status = proto::Status::Full.into();
-            }
+            attach(record, mode, owner, trace, &mut response);
         }
         proto::media_request::Request::Put(put) => {
             assert_eq!(put.owner, dyapp_identity::key_hash(owner));
@@ -272,6 +266,31 @@ fn media(
         .media
         .send_response(channel, response)
         .unwrap();
+}
+
+fn attach(
+    record: SignedRecord,
+    mode: &Mode,
+    owner: &[u8; 32],
+    trace: &mut Trace,
+    response: &mut proto::MediaResponse,
+) {
+    record.verify(Domain::MediaAttach).unwrap();
+    assert_eq!(record.public_key.as_slice(), owner.as_slice());
+    let attach = proto::MediaAttach::decode(record.payload.as_slice()).unwrap();
+    assert_eq!(attach.hashes.len(), 1);
+    response.missing = attach.hashes.clone();
+    let limit = if matches!(mode, Mode::Forwarding(_)) {
+        2
+    } else {
+        1
+    };
+    assert!(trace.attaches.len() < limit);
+    trace.attaches.push(attach);
+    trace.steps.push("attach");
+    if matches!(mode, Mode::AttachFull) {
+        response.status = proto::Status::Full.into();
+    }
 }
 
 fn mailbox(

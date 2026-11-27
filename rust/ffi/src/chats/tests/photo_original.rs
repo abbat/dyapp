@@ -142,8 +142,27 @@ fn populated_photo_history_and_cached_original_survive_native_reopen_offline() {
         .0
         .to_vec();
     let expected = vec![item.id.clone(), first[0].clone(), last];
-    let thread = f.chats.chat_thread(peer.clone()).unwrap();
-    let text = f.chats.chat_history(peer.clone()).unwrap();
+    assert_thread_projection(&f, &peer, &expected);
+    let file = keep(&f, &attachment, &bytes);
+    let sealed = std::fs::read(&file).unwrap();
+    assert!(sealed.len() > bytes.len());
+    assert_cached_download_policy(&f, &peer, &item, &bytes);
+    let before = snapshot(&f);
+
+    let f = f.reopen();
+    assert_eq!(ids(&f.chats.chat_items(peer.clone()).unwrap()), expected);
+    assert_eq!(
+        f.chats.chat_photos(peer.clone()).unwrap(),
+        std::slice::from_ref(&item)
+    );
+    assert_eq!(read(&f.chats, &peer, &item).unwrap(), bytes);
+    assert_eq!(snapshot(&f), before);
+    assert_eq!(std::fs::read(file).unwrap(), sealed);
+}
+
+fn assert_thread_projection(f: &Fixture, peer: &str, expected: &[Vec<u8>]) {
+    let thread = f.chats.chat_thread(peer.to_owned()).unwrap();
+    let text = f.chats.chat_history(peer.to_owned()).unwrap();
     assert_eq!(thread.state, text.state);
     assert_eq!(thread.muted, text.muted);
     assert_eq!(ids(&thread.items), expected);
@@ -156,12 +175,12 @@ fn populated_photo_history_and_cached_original_survive_native_reopen_offline() {
         })
         .collect();
     assert_eq!(projected_text, text.messages);
-    let file = keep(&f, &attachment, &bytes);
-    let sealed = std::fs::read(&file).unwrap();
-    assert!(sealed.len() > bytes.len());
+}
+
+fn assert_cached_download_policy(f: &Fixture, peer: &str, item: &ChatPhoto, bytes: &[u8]) {
     let automatic = || {
         f.chats.chat_photo_automatic(
-            peer.clone(),
+            peer.to_owned(),
             item.group_id.clone(),
             item.author.clone(),
             item.id.clone(),
@@ -174,20 +193,10 @@ fn populated_photo_history_and_cached_original_survive_native_reopen_offline() {
     f.chats
         .set_photo_download(crate::ChatPhotoDownload::OnTap)
         .unwrap();
-    let before = snapshot(&f);
+    let before = snapshot(f);
     assert_eq!(automatic().unwrap_err().to_string(), "onTap");
-    assert_eq!(read(&f.chats, &peer, &item).unwrap(), bytes);
-    assert_eq!(snapshot(&f), before);
-
-    let f = f.reopen();
-    assert_eq!(ids(&f.chats.chat_items(peer.clone()).unwrap()), expected);
-    assert_eq!(
-        f.chats.chat_photos(peer.clone()).unwrap(),
-        std::slice::from_ref(&item)
-    );
-    assert_eq!(read(&f.chats, &peer, &item).unwrap(), bytes);
-    assert_eq!(snapshot(&f), before);
-    assert_eq!(std::fs::read(file).unwrap(), sealed);
+    assert_eq!(read(&f.chats, peer, item).unwrap(), bytes);
+    assert_eq!(snapshot(f), before);
 }
 
 fn check_selectors(f: &Fixture, peer: &str, item: &ChatPhoto) {
