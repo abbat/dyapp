@@ -113,7 +113,7 @@
     "android.link.receive.source": {"arguments": {}, "bindings": {"android": {"link_receive_source": {}}}, "context": "Platform wording/context: android:link_receive_source"},
     "android.link.receive.start": {"arguments": {}, "bindings": {"android": {"link_receive_start": {}}, "apple": {"link.receive.start": {}}}, "context": "Platform wording/context: android:link_receive_start"},
     "android.link.receive.starting": {"arguments": {}, "bindings": {"android": {"link_receive_starting": {}}}, "context": "Platform wording/context: android:link_receive_starting"},
-    "android.link.receive.title": {"arguments": {}, "bindings": {"android": {"link_receive_title": {}}}, "context": "Platform wording/context: android:link_receive_title"},
+    "android.link.receive.title": {"arguments": {}, "bindings": {"android": {"link_receive_title": {}}, "apple": {"link.receive.title": {}}}, "context": "Platform wording/context: android:link_receive_title"},
     "android.link.receive.unconfirmed": {"arguments": {}, "bindings": {"android": {"link_receive_unconfirmed": {}}}, "context": "Platform wording/context: android:link_receive_unconfirmed"},
     "android.link.receive.waiting": {"arguments": {}, "bindings": {"android": {"link_receive_waiting": {}}}, "context": "Platform wording/context: android:link_receive_waiting"},
     "android.link.receive.wizard.intro": {"arguments": {}, "bindings": {"android": {"link_receive_wizard_intro": {}}}, "context": "Platform wording/context: android:link_receive_wizard_intro"},

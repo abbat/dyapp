@@ -4,6 +4,7 @@ import SwiftUI
 struct LinkReceiveSection: View {
     @Environment(\.displayScale) private var displayScale
     @ObservedObject var feed: ChatFeed
+    var wizard = false
     let installed: () -> Void
     @State private var invitation: Invitation?
     @State private var opening = UUID()
@@ -77,6 +78,7 @@ struct LinkReceiveSection: View {
     private func start() {
         guard !busy, let context = feed.context else { return }
         let ticket = opening
+        let wizard = wizard
         busy = true
         failed = false
         Task {
@@ -86,7 +88,7 @@ struct LinkReceiveSection: View {
                     let receiver = try MobileLinkReceiver.start(
                         registry: RustBridge.identityStore().registry,
                         id: identity.candidate.location.marker, expectedPeer: identity.peerId,
-                        wizard: false)
+                        wizard: wizard)
                     return try Invitation(
                         receiver: receiver, code: receiver.code(), matrix: receiver.qrMatrix(),
                         context: context)

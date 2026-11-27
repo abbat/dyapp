@@ -1761,6 +1761,22 @@
         }
       }
     },
+    "link.receive.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Receive a profile"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Получить профиль"
+          }
+        }
+      }
+    },
     "lock.back": {
       "localizations": {
         "en": {

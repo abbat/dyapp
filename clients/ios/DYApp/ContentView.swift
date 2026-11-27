@@ -44,6 +44,7 @@ struct ContentView: View {
     @State private var startLink: StartLink?
     @StateObject private var search = SearchSession()
     @StateObject private var chats = ChatFeed()
+    @State private var receivingFirstProfile = false
 
     /// The identity whose mailbox is polled; it takes an active network.
     private var chatIdentity: ChatIdentity? {
@@ -92,7 +93,7 @@ struct ContentView: View {
                         // Open the profile from the ready start screen: iOS never pushed from a hidden
                         // link on the setup root, and a macOS sidebar left on the setup form had no way
                         // to search or chats until a restart.
-                        profilePending = true
+                        profilePending = !receivingFirstProfile
                         activeNetwork = .ready
                     }
                 } else {
@@ -146,6 +147,15 @@ struct ContentView: View {
                 Button("identity.create") { Task { await createIdentity() } }
                     .disabled(identities.busy)
                     .accessibilityIdentifier("identity-create")
+                Button("link.receive.title") {
+                    receivingFirstProfile = true
+                    Task {
+                        await createIdentity()
+                        if pickerActionFailed { receivingFirstProfile = false }
+                    }
+                }
+                .disabled(identities.busy)
+                .accessibilityIdentifier("identity-receive")
                 if pickerActionFailed {
                     Text("settings.actionFailed").accessibilityIdentifier("identity-create-error")
                 }
@@ -167,6 +177,13 @@ struct ContentView: View {
                 case .ready:
                     if !ProcessInfo.processInfo.arguments.contains("--break-ui") {
                         Text("status.ready").accessibilityIdentifier("app-ready")
+                    }
+                    if receivingFirstProfile {
+                        LinkReceiveSection(feed: chats, wizard: true) {
+                            receivingFirstProfile = false
+                            identities.reload()
+                        }
+                        Button("search.cancel") { receivingFirstProfile = false }
                     }
                     startEntry(.network, "network.title", candidate, peerId)
                         .accessibilityIdentifier("network-edit")
