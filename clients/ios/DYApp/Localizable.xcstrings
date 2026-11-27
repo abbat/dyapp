@@ -7281,6 +7281,38 @@
         }
       }
     },
+    "stickerRequest.fresh": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Request fresh copy"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запросить свежую копию"
+          }
+        }
+      }
+    },
+    "stickerRequest.stop": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop waiting"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прекратить ожидание"
+          }
+        }
+      }
+    },
     "stickers.import": {
       "localizations": {
         "en": {

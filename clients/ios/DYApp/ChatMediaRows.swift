@@ -107,6 +107,19 @@ private struct ReceivedStickerPack: View {
         if let status, status.controls.contains(.request) {
             Button("sticker.pack.request") { update(.request) }.disabled(busy)
         }
+        if let status, let generation = status.generation {
+            if status.controls.contains(.retry) {
+                Button("search.retry") { update(.retry(generation: generation)) }.disabled(busy)
+            }
+            if status.controls.contains(.fresh) {
+                Button("stickerRequest.fresh") { update(.fresh(generation: generation)) }
+                    .disabled(busy)
+            }
+            if status.controls.contains(.stopWaiting) {
+                Button("stickerRequest.stop") { update(.stopWaiting(generation: generation)) }
+                    .disabled(busy)
+            }
+        }
         if failed || status?.controls.contains(.refresh) == true {
             Button("search.retry") { update(nil) }.disabled(busy)
         }
