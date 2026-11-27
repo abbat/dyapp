@@ -135,6 +135,22 @@ final class ChatFeed: ObservableObject {
         return outcome.result
     }
 
+    func forwardTargets(
+        _ message: ChatMessage, from peer: String, in context: Context
+    ) async -> Result<[String], Error> {
+        let source = ChatForwardSource(
+            peerId: peer, groupId: message.groupId, author: message.author, messageId: message.id)
+        return await call(context) { try $0.forwardTargets(source: source) }
+    }
+
+    func forward(
+        _ message: ChatMessage, from peer: String, to target: String, in context: Context
+    ) async -> Result<ChatSubmission, Error> {
+        let source = ChatForwardSource(
+            peerId: peer, groupId: message.groupId, author: message.author, messageId: message.id)
+        return await call(context) { try $0.forwardText(source: source, targetPeerId: target) }
+    }
+
     /// Failures stay quiet and keep the last rows: no network and an unpublished profile are normal.
     func read() async {
         guard let context else { return }
