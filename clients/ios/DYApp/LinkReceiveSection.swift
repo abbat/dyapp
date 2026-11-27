@@ -112,16 +112,22 @@ struct LinkReceiveSection: View {
         busy = true
         failed = false
         Task {
-            let result = await IdentityIO.performBlocking { Result { try value.receiver.poll() } }
-            busy = false
-            if case .success(.completed) = result {
-                invitation = nil
-                let receipt = try? value.receiver.result()
+            let (result, phase, detail) = await IdentityIO.performBlocking {
+                let result = Result { try value.receiver.poll() }
+                let phase = value.receiver.phase()
+                let receipt = phase == .completed ? try? value.receiver.result() : nil
+                let detail: String?
                 if case let .installed(selection)? = receipt {
-                    installed(selection.durabilityDetail)
+                    detail = selection.durabilityDetail
                 } else {
-                    installed(nil)
+                    detail = nil
                 }
+                return (result, phase, detail)
+            }
+            busy = false
+            if phase == .completed {
+                invitation = nil
+                installed(detail)
             } else if feed.isCurrent(value.context), invitation != nil {
                 switch result {
                 case .success(.waiting), .success(.receiving), .success(.installing):
