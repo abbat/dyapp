@@ -23,6 +23,11 @@ presentation owner. They exercise text revisions (including change-and-back), su
 held drafts, retired openings and missing/deleted/rotated targets without a clock or scheduler.
 `ChatOwnerTests` exercise real feed activation/deactivation, same-peer different-slot ownership,
 switch-away-and-back, and refusal of an obsolete request before any native action executes.
+The iOS real-peer sharing scenario opens an incoming ordinary link naming the app owner, shares
+that own profile into the distinct established conversation through the common native operation,
+and waits for the peer's acknowledgement of exactly one matching owner-authored link. Its fixture
+uses native IO completions and persisted readiness predicates with a fresh failure deadline per
+protocol stage; Accepted/Queued are committed and never retried as new text.
 Fresh-identity chat and receive fixtures use an owned `NativeSlotFixture` storage context;
 `skipNetworkEntry` alone reuses existing device identities and cannot establish empty storage.
 The chat empty-state test checks its native registry and chat rows, retains the no-badge assertion,

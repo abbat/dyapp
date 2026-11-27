@@ -22,12 +22,16 @@ struct SearchView: View {
                         chat = opened
                         self.opened = nil
                     },
+                    openChat: {
+                        chat = OpenedProfile(peer: $0, known: nil)
+                        self.opened = nil
+                    },
                     blocked: {
                         chat = nil
                         self.opened = nil
                     }
                 )
-                .id(opened.peer)
+                .id([feed.owner.uuidString, opened.peer])
             } else if let chat {
                 ChatView(
                     feed: feed, peer: chat.peer,

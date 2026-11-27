@@ -78,6 +78,12 @@ Cancel before selection sends nothing. This native dialog is not represented in
 the static prototype yet. Exact profile links in live messages render as buttons;
 only a press loads the verified profile, whose Back returns to the original chat.
 
+iOS shares both own and other profile cards through `submitProfileShare`; candidate destinations
+exclude the profile being shared and non-open chats. The inline chooser retains choices on failure,
+reports queued delivery separately, and offers navigation to the destination after commitment.
+Own cards expose sharing without like, pass or block. Captured feed ownership and the current
+page/chooser opening constrain asynchronous presentation; core admission remains authoritative.
+
 Control IDs and states for every screen of the Android client. The static prototype in
 `clients/android/prototype/` is the layout reference: Material 3 phone layout, light and dark,
 every state below, no logic, not shipped. It reuses the desktop prototype wording

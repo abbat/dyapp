@@ -21,12 +21,16 @@ struct ChatsView: View {
                         chat = opened.peer
                         self.opened = nil
                     },
+                    openChat: {
+                        chat = $0
+                        self.opened = nil
+                    },
                     blocked: {
                         chat = nil
                         self.opened = nil
                     }
                 )
-                .id(opened.peer)
+                .id([feed.owner.uuidString, opened.peer])
             } else if let chat {
                 ChatView(
                     feed: feed, peer: chat,

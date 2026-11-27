@@ -37,10 +37,14 @@ struct ProfileLikesBlock: View {
         }
         if likes?.matched != true { Text("view.firstHint").font(.caption) }
         if likes?.ours == true { Text("view.unlikeHint").font(.caption) }
-        status
+        ProfileActionStatus(page: page)
     }
+}
 
-    @ViewBuilder private var status: some View {
+struct ProfileActionStatus: View {
+    @ObservedObject var page: ProfilePage
+
+    @ViewBuilder var body: some View {
         if page.sending {
             Text("view.sending").font(.caption).accessibilityIdentifier("view-status")
         } else if let status = page.status ?? page.likesFailure {
@@ -58,30 +62,52 @@ struct ProfileLikesBlock: View {
 struct ProfileShareBlock: View {
     @ObservedObject var page: ProfilePage
     @ObservedObject var feed: ChatFeed
+    let openChat: (String) -> Void
     @State private var open = false
+    @State private var opening = UUID()
+    @State private var sentTo: String?
 
-    private var targets: [ChatRow] { feed.rows.filter { $0.state == .open } }
+    private var targets: [ChatRow] { profileShareTargets(feed.rows, sharedPeer: page.peer) }
 
     var body: some View {
-        Button("view.share") { open.toggle() }
-            .accessibilityIdentifier("view-share")
-            // A page opened from search comes before Chats has read any name.
-            .task(id: open) { if open { await feed.loadNames(targets.map(\.peerId)) } }
+        let expected = opening
+        let pageOpening = page.opening
+        Button("view.share") {
+            guard page.current(pageOpening), opening == expected, !page.sending else { return }
+            open.toggle()
+            opening = UUID()
+            sentTo = nil
+        }
+        .disabled(page.sending)
+        .accessibilityIdentifier("view-share")
+        // A page opened from search comes before Chats has read any name.
+        .task(id: open) { if open { await feed.loadNames(targets.map(\.peerId)) } }
         if open {
-            if targets.isEmpty {
-                Text("view.shareNone").font(.caption).accessibilityIdentifier("view-share-none")
-            }
-            ForEach(Array(targets.enumerated()), id: \.element.peerId) { index, row in
-                Button {
-                    Task {
-                        await page.share(to: row.peerId)
-                        open = false
-                    }
-                } label: {
-                    Text(verbatim: contactLabel(row.peerId, feed.names[row.peerId]))
+            if let sentTo {
+                Button("view.message") {
+                    guard open, opening == expected, self.sentTo == sentTo,
+                        page.current(pageOpening), !page.sending
+                    else { return }
+                    openChat(sentTo)
                 }
-                .disabled(page.sending)
-                .accessibilityIdentifier("share-\(index + 1)")
+                .accessibilityIdentifier("share-open-chat")
+            } else if targets.isEmpty {
+                Text("view.shareNone").font(.caption).accessibilityIdentifier("view-share-none")
+            } else {
+                ForEach(Array(targets.enumerated()), id: \.element.peerId) { index, row in
+                    Button {
+                        Task {
+                            guard open, opening == expected else { return }
+                            let committed = await page.share(to: row.peerId, opening: pageOpening)
+                            guard open, opening == expected else { return }
+                            if committed { sentTo = row.peerId }
+                        }
+                    } label: {
+                        Text(verbatim: contactLabel(row.peerId, feed.names[row.peerId]))
+                    }
+                    .disabled(page.sending)
+                    .accessibilityIdentifier("share-\(index + 1)")
+                }
             }
         }
     }

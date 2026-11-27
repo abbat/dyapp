@@ -129,14 +129,6 @@ final class ChatFeed: ObservableObject {
         version += 1
     }
 
-    /// Stores and sends `text`; nil when it went out, else the line to show.
-    func send(_ text: String, to peer: String) async -> ChatStatus? {
-        guard let context else {
-            return chatSendStatus(.failure(IdentitySlotError.peerIDMismatch))
-        }
-        return chatSendStatus(await submit(text, to: peer, in: context))
-    }
-
     func submit(_ text: String, to peer: String, in context: Context) async -> Result<
         ChatSubmission, Error
     > {

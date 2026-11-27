@@ -1690,6 +1690,8 @@ from foreign code. Rust turns it, and anything else the app throws, into
   an exact submitted draft after Accepted/Queued. The chat screen captures the feed identity before
   scheduling native work; switching away and back changes its owner token. Retiring an opening
   suppresses late presentation callbacks without treating cancellation as a native rollback.
+  iOS profile sharing invokes `submitProfileShare` with the captured identity and both full peer
+  IDs. It does not manufacture a generic text submission or infer commitment from error text.
 
 ## Security boundary
 

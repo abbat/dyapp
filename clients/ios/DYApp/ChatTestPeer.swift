@@ -7,6 +7,7 @@
         static let greeting = "Hello from the peer"
         static let reply = "Hello back"
         static let confirmation = "Got your reply"
+        static let sharedProfileReceived = "Shared profile received"
 
         static var enabled: Bool {
             ProcessInfo.processInfo.arguments.contains("--ui-test-chat-peer") || likesFirst
@@ -21,18 +22,18 @@
 
         /// Sends the first message once `me` has published, waits for the reply and confirms it. With
         /// the likes argument it likes `me` and stops instead; with the shares argument its confirmation
-        /// is the link to its own profile.
+        /// is an ordinary link naming the app owner, followed by an acknowledgement after receipt.
         static func start(me: String) {
             Thread.detachNewThread {
                 do {
-                    let (session, peer) = try published()
+                    let (session, _) = try published()
                     if likesFirst {
-                        retrying { _ = try session.like(peerId: me, liked: true) }
+                        try retrying("like") { _ = try session.like(peerId: me, liked: true) }
                     } else {
                         let answer =
                             sharesProfile
-                            ? profileLinkText(peerId: peer) ?? confirmation : confirmation
-                        converse(with: me, session: session, answer: answer)
+                            ? profileLinkText(peerId: me) ?? confirmation : confirmation
+                        try converse(with: me, session: session, answer: answer)
                     }
                 } catch {
                     NSLog("ChatTestPeer stopped: %@", String(describing: error))
@@ -52,7 +53,7 @@
                 dir: dir.path, key: key, draft: ProfileRustDraftStore.record(from: draft))
             let checker = try ConnectionCheck(dir: dir.path)
             // The local node runs the public network: an empty name.
-            retrying {
+            try retrying("network activation") {
                 _ = try checker.run(
                     draft: NetworkSettings(seeds: ["127.0.0.1:33445"], name: ""), waitMs: 15_000)
                 _ = try checker.activate()
@@ -71,37 +72,52 @@
                 dir: dir.path, key: key, deviceKey: try IdentityKey.generate(), store: store,
                 wrappedStateKey: newChatStateKey(store: store)
             )
-            retrying { _ = try session.publishProfile(attested: true) }
+            try retrying("profile publication") { _ = try session.publishProfile(attested: true) }
             return (session, key.peerId())
         }
 
-        private static func converse(with me: String, session: ChatSession, answer: String) {
-            // A failed send may have stored the text, and a second first message would be refused.
-            retrying {
-                if try session.chatHistory(peerId: me).messages.isEmpty {
-                    _ = try session.sendText(peerId: me, text: greeting)
-                }
+        private static func converse(with me: String, session: ChatSession, answer: String) throws {
+            // Accepted and Queued both committed; retry only a precommit failure.
+            try retrying("greeting commitment") {
+                _ = try session.submitText(peerId: me, text: greeting)
             }
-            retrying {
+            try retrying("owner reply") {
                 _ = try session.receive()
                 let messages = try session.chatHistory(peerId: me).messages
                 guard messages.contains(where: { $0.author == me && $0.text == reply }) else {
                     throw CocoaError(.fileReadNoSuchFile)
                 }
             }
-            retrying { _ = try session.sendText(peerId: me, text: answer) }
+            try retrying("answer commitment") {
+                _ = try session.submitText(peerId: me, text: answer)
+            }
+            if sharesProfile {
+                try retrying("shared owner profile receipt") {
+                    _ = try session.receive()
+                    let received = try session.chatHistory(peerId: me).messages.filter {
+                        $0.author == me && $0.text == answer && !$0.deleted
+                    }
+                    guard received.count == 1 else { throw CocoaError(.fileReadNoSuchFile) }
+                }
+                try retrying("profile receipt acknowledgement") {
+                    _ = try session.submitText(peerId: me, text: sharedProfileReceived)
+                }
+            }
         }
 
-        /// Runs until it works: the test's own wait ends a peer that never gets there.
-        private static func retrying(_ action: () throws -> Void) {
-            while true {
+        /// Native IO completion drives the next check; every protocol transition gets a new deadline.
+        private static func retrying(_ stage: String, _ action: () throws -> Void) throws {
+            let deadline = ProcessInfo.processInfo.systemUptime + 150
+            var failure: Error = CocoaError(.fileReadNoSuchFile)
+            repeat {
                 do {
                     return try action()
                 } catch {
-                    NSLog("ChatTestPeer retries: %@", String(describing: error))
-                    Thread.sleep(forTimeInterval: 2)
+                    failure = error
                 }
-            }
+            } while ProcessInfo.processInfo.systemUptime < deadline
+            NSLog("ChatTestPeer deadline for %@: %@", stage, String(describing: failure))
+            throw failure
         }
     }
 #endif

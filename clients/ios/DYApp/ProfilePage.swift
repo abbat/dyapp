@@ -29,19 +29,41 @@ final class ProfilePage: ObservableObject {
     @Published private(set) var status: ProfilePageStatus?
     let peer: String
     private let feed: ChatFeed
+    private let context: ChatFeed.Context?
+    private(set) var opening = UUID()
+    private var active = true
 
     init(peer: String, known: FoundProfile?, feed: ChatFeed) {
         self.peer = peer
         self.feed = feed
+        context = feed.context
         found = known
     }
 
+    func retire() {
+        active = false
+        opening = UUID()
+    }
+
+    func activate() {
+        guard !active else { return }
+        active = true
+        loading = false
+        sending = false
+    }
+
+    func current(_ expected: UUID) -> Bool {
+        active && opening == expected && context.map { feed.isCurrent($0) } == true
+    }
+
     func load() async {
-        guard found == nil, !loading else { return }
+        guard found == nil, !loading, let context, current(opening) else { return }
+        let expected = opening
         loading = true
         loadFailure = nil
         let peers = [peer]
-        let result = await feed.call { try $0.profiles(peerIds: peers) }
+        let result = await feed.call(context) { try $0.profiles(peerIds: peers) }
+        guard current(expected) else { return }
         loading = false
         switch result {
         case let .success(profiles):
@@ -56,8 +78,11 @@ final class ProfilePage: ObservableObject {
 
     /// Failures keep the last state; with none yet the buttons wait and the page says why.
     func readLikes() async {
+        guard let context, current(opening) else { return }
+        let expected = opening
         let peer = peer
-        let result = await feed.call { try $0.likes(peerId: peer) }
+        let result = await feed.call(context) { try $0.likes(peerId: peer) }
+        guard current(expected) else { return }
         switch result {
         case let .success(read):
             likes = read
@@ -72,18 +97,22 @@ final class ProfilePage: ObservableObject {
     }
 
     func like(_ liked: Bool) async {
-        guard !sending else { return }
+        guard !sending, let context, current(opening) else { return }
+        let expected = opening
         sending = true
         status = nil
         let peer = peer
-        let result = await feed.call { try $0.like(peerId: peer, liked: liked) }
+        let result = await feed.call(context) { try $0.like(peerId: peer, liked: liked) }
+        guard current(expected) else { return }
         await feed.read()
+        guard current(expected) else { return }
         switch result {
         case let .success(read):
             likes = read
 
         case let .failure(error):
             await readLikes()
+            guard current(expected) else { return }
             // The core keeps a like it could not send and sends it with the next receive.
             status =
                 likes?.ours == liked
@@ -94,12 +123,15 @@ final class ProfilePage: ObservableObject {
     }
 
     func pass(_ passed: Bool) async {
-        guard !sending else { return }
+        guard !sending, let context, current(opening) else { return }
+        let expected = opening
         sending = true
         status = nil
         let peer = peer
-        let result = await feed.call { try $0.setPassed(peerId: peer, passed: passed) }
+        let result = await feed.call(context) { try $0.setPassed(peerId: peer, passed: passed) }
+        guard current(expected) else { return }
         await feed.read()
+        guard current(expected) else { return }
         switch result {
         case let .success(read):
             likes = read
@@ -112,24 +144,44 @@ final class ProfilePage: ObservableObject {
     }
 
     /// Sends this page's link as a message in the chat with `target`.
-    func share(to target: String) async {
-        guard !sending, let link = profileLinkText(peerId: peer) else { return }
+    func share(to target: String, opening expected: UUID) async -> Bool {
+        guard !sending, let context, current(expected) else { return false }
+        let peer = peer
         sending = true
         status = nil
-        let failed = await feed.send(link, to: target)
-        status = ProfilePageStatus(key: failed?.key ?? "view.shared", details: failed?.details)
+        let result = await feed.call(context) {
+            try $0.submitProfileShare(peerId: target, sharedPeerId: peer)
+        }
+        guard current(expected) else { return false }
+        status = profileShareStatus(result)
+        await feed.read()
+        guard current(expected) else { return false }
         sending = false
+        guard case .success = result else { return false }
+        return true
     }
 
     /// True when the block held and the page should close.
     func block() async -> Bool {
-        guard !sending else { return false }
+        guard !sending, let context, current(opening) else { return false }
+        let expected = opening
         sending = true
         status = nil
-        let failed = await feed.block(peer)
+        let failed = await feed.block(peer, in: context)
+        guard current(expected) else { return false }
         sending = false
         guard let failed else { return true }
         status = ProfilePageStatus(key: failed.key, details: failed.details)
         return false
     }
+}
+
+/// Candidate rows are presentation only; submitProfileShare rechecks admission before staging.
+func profileShareTargets(_ rows: [ChatRow], sharedPeer: String) -> [ChatRow] {
+    rows.filter { $0.state == .open && $0.peerId != sharedPeer }
+}
+
+func profileShareStatus(_ result: Result<ChatSubmission, Error>) -> ProfilePageStatus {
+    let status = chatSendStatus(result)
+    return ProfilePageStatus(key: status?.key ?? "view.shared", details: status?.details)
 }

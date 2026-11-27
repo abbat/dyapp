@@ -2,12 +2,13 @@ import SwiftUI
 
 /// One peer's page: the public fields, the likes and the quiet actions. The lists swap it in for
 /// their form, because a navigation link in the macOS 12 detail column would leave no way back.
-/// Your own profile has no likes or actions.
+/// Your own profile can be shared but has no like, pass or block actions.
 struct FoundProfileView: View {
     @ObservedObject var feed: ChatFeed
     @StateObject private var page: ProfilePage
     let back: () -> Void
     let message: () -> Void
+    let openChat: (String) -> Void
     let blocked: () -> Void
 
     private var own: Bool { page.peer == feed.me }
@@ -23,12 +24,18 @@ struct FoundProfileView: View {
             if let found = page.found { PeerGallery(photos: feed.photos, found: found) }
             if !own {
                 ProfileLikesBlock(page: page, message: message)
-                ProfileShareBlock(page: page, feed: feed)
             }
+            ProfileShareBlock(page: page, feed: feed, openChat: openChat)
+            if own { ProfileActionStatus(page: page) }
             fields
             if !own { ProfileQuietActions(page: page, blocked: blocked) }
         }
-        .task { await page.load() }
+        .task {
+            page.activate()
+            await page.load()
+            if !own { await page.readLikes() }
+        }
+        .onDisappear { page.retire() }
         // The feed counts its reads, so a like that a receive brought shows here.
         .task(id: feed.version) { if !own { await page.readLikes() } }
     }
@@ -60,12 +67,14 @@ struct FoundProfileView: View {
 
     init(
         peer: String, known: FoundProfile?, feed: ChatFeed,
-        back: @escaping () -> Void, message: @escaping () -> Void, blocked: @escaping () -> Void
+        back: @escaping () -> Void, message: @escaping () -> Void,
+        openChat: @escaping (String) -> Void, blocked: @escaping () -> Void
     ) {
         self.feed = feed
         _page = StateObject(wrappedValue: ProfilePage(peer: peer, known: known, feed: feed))
         self.back = back
         self.message = message
+        self.openChat = openChat
         self.blocked = blocked
     }
 }

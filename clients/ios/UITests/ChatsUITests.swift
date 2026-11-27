@@ -130,10 +130,13 @@ final class ChatsUITests: XCTestCase {
         reveal(app.buttons["view-share"], in: app).tap()
         reveal(app.buttons["share-1"], in: app).tap()
         XCTAssertTrue(
-            reveal(shownText("Profile sent", in: app), in: app, timeout: 60, above: true).exists,
+            reveal(shownText("Profile sent.", in: app), in: app, timeout: 60, above: true).exists,
             app.debugDescription)
         reveal(app.buttons["view-back"], in: app, above: true).tap()
         XCTAssertTrue(cards.element(boundBy: 1).waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertTrue(
+            shownText("Shared profile received", in: app).waitForExistence(timeout: 150),
+            "The distinct peer must receive the exact owner link once")
     }
 
 }
