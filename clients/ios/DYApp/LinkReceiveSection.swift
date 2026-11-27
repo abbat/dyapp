@@ -37,7 +37,8 @@ struct LinkReceiveSection: View {
                 .accessibilityIdentifier("link-receive-cancel")
             } else {
                 Text("link.receive.intro").font(.caption)
-                Button("link.receive.start", action: start).disabled(busy)
+                Button("link.receive.start", action: start)
+                    .disabled(busy || feed.context == nil)
                     .accessibilityIdentifier("link-receive-start")
             }
             if busy { ProgressView() }
