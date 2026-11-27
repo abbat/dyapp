@@ -56,29 +56,34 @@ final class ChatsTests: XCTestCase {
         XCTAssertFalse(chatSendable(.open, String(repeating: "\u{44f}", count: 32_769)))
     }
 
-    func testAFailedSendThatStoredItsTextReadsAsQueued() {
-        let own = message(author: "me", id: 1)
-        XCTAssertTrue(stagedNew(before: [], after: [own], me: "me"))
-        XCTAssertFalse(stagedNew(before: [own], after: [own], me: "me"))
-        XCTAssertFalse(stagedNew(before: [], after: [message(author: "peer", id: 2)], me: "me"))
-
-        let offline = CoreError.Failed(message: "notConnected")
-        XCTAssertEqual(
-            chatSendStatus(offline, staged: true), ChatStatus(key: "chat.queued", details: nil))
-        XCTAssertEqual(chatSendStatus(offline, staged: false).key, "search.notConnected")
-        XCTAssertNotNil(chatSendStatus(offline, staged: false).details, "the draft stays")
-        XCTAssertEqual(
-            chatSendStatus(CoreError.Failed(message: "unpublished"), staged: false).key,
-            "chat.unpublished")
-        XCTAssertEqual(
-            chatSendStatus(CoreError.Failed(message: "other"), staged: false).key, "chat.sendFailed"
-        )
-        let edit = {
-            chatSendStatus(
-                offline, staged: $0, queued: "chat.editQueued", failed: "chat.editFailed")
+    func testNativeCommitmentDeterminesAcceptedAndQueuedPresentation() {
+        let accepted: Result<ChatSubmission, Error> = .success(.accepted(id: Data([1])))
+        let queued: Result<ChatSubmission, Error> = .success(
+            .queued(id: Data([1]), detail: "offline after commitment"))
+        XCTAssertNil(chatSendStatus(accepted))
+        XCTAssertEqual(chatSendStatus(queued), ChatStatus(key: "chat.queued", details: nil))
+        for operation in ["edit", "delete"] {
+            XCTAssertNil(chatSendStatus(accepted, queued: "chat.\(operation)Queued"))
+            XCTAssertEqual(
+                chatSendStatus(queued, queued: "chat.\(operation)Queued"),
+                ChatStatus(key: "chat.\(operation)Queued", details: nil))
         }
-        XCTAssertEqual(edit(true), ChatStatus(key: "chat.editQueued", details: nil))
-        XCTAssertEqual(edit(false).key, "search.notConnected", "as a send, no connection is named")
+    }
+
+    func testPrecommitFailureRetainsFailureDetails() {
+        let offline = CoreError.Failed(message: "notConnected")
+        XCTAssertEqual(chatSendStatus(.failure(offline))?.key, "search.notConnected")
+        XCTAssertNotNil(chatSendStatus(.failure(offline))?.details, "the draft stays")
+        XCTAssertEqual(
+            chatSendStatus(.failure(CoreError.Failed(message: "unpublished")))?.key,
+            "chat.unpublished")
+        for operation in ["send", "edit", "delete"] {
+            let failed = "chat.\(operation)Failed"
+            let outcome = chatSendStatus(
+                .failure(CoreError.Failed(message: "other")), failed: failed)
+            XCTAssertEqual(outcome?.key, failed)
+            XCTAssertNotNil(outcome?.details)
+        }
     }
 
     func testMetaOfADeletedMessageOmitsItsDelivery() {

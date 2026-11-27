@@ -222,7 +222,6 @@ struct ChatView: View {
         let target = messages.first { $0.threadKey == editing }
         // An edit whose message is gone must not go out as a new text.
         if editing != nil, target == nil { return }
-        let before = messages
         sending = true
         status = nil
         Task {
@@ -230,7 +229,7 @@ struct ChatView: View {
             if let target {
                 outcome = await feed.edit(target, text: text, peer: peer)
             } else {
-                outcome = await feed.send(text, to: peer, after: before)
+                outcome = await feed.send(text, to: peer)
             }
             sending = false
             status = outcome
@@ -366,18 +365,25 @@ func chatSendable(_ state: ChatState?, _ text: String) -> Bool {
     chatComposerPolicy(state: state, text: text).sendable
 }
 
-/// Whether a failed send still stored its text: another copy from the same draft must not go out.
-func stagedNew(before: [ChatMessage], after: [ChatMessage], me: String?) -> Bool {
-    let known = Set(before.map(\.id))
-    return after.contains { $0.author == me && !known.contains($0.id) }
+/// Localized presentation of an authoritative native commitment, never inferred from history.
+func chatSendStatus(
+    _ result: Result<ChatSubmission, Error>, queued: String = "chat.queued",
+    failed: String = "chat.sendFailed"
+) -> ChatStatus? {
+    switch result {
+    case .success(.accepted):
+        return nil
+
+    case .success(.queued):
+        return ChatStatus(key: queued, details: nil)
+
+    case let .failure(error):
+        return chatSendFailure(error, failed: failed)
+    }
 }
 
-/// A failure's line; a change that was `staged` reads as `queued` instead, and keeps no details.
-func chatSendStatus(
-    _ error: Error, staged: Bool, queued: String = "chat.queued", failed: String = "chat.sendFailed"
-) -> ChatStatus {
+private func chatSendFailure(_ error: Error, failed: String) -> ChatStatus {
     let details = String(describing: error)
-    if staged { return ChatStatus(key: queued, details: nil) }
     if details.contains("notConnected") {
         return ChatStatus(key: "search.notConnected", details: details)
     }

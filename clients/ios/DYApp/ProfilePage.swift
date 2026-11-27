@@ -116,9 +116,7 @@ final class ProfilePage: ObservableObject {
         guard !sending, let link = profileLinkText(peerId: peer) else { return }
         sending = true
         status = nil
-        let before =
-            (try? await feed.call { try $0.chatHistory(peerId: target) }.get())?.messages ?? []
-        let failed = await feed.send(link, to: target, after: before)
+        let failed = await feed.send(link, to: target)
         status = ProfilePageStatus(key: failed?.key ?? "view.shared", details: failed?.details)
         sending = false
     }

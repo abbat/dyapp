@@ -642,9 +642,10 @@ submission. The shared protocol limit is 65,536 UTF-8 bytes, inclusive. Blank te
 Linux desktop's ECMAScript trim semantics, including BOM as blank and excluding NEL from blank.
 The common `chat_composer_policy` native adapter converts states/results; Android and iOS delegate
 their composer controls to it, including UTF-8 boundaries and shared blank-text semantics.
-This presentation policy does not replace send authorization. Android
-text/edit/delete and photo actions consume the committed submission APIs below; projection reads
-refresh the UI and never determine whether an operation committed.
+This presentation policy does not replace send authorization. Android and iOS text/edit/delete
+actions, and Android photo actions, consume the committed submission APIs below; projection reads
+refresh the UI and never determine whether an operation committed. The iOS feed uses the returned
+native `Accepted`/`Queued` outcome rather than comparing history or edited/deleted projections.
 The session staging path separates preflight context, MLS preparation and atomic persistence;
 failures after MLS advancement invalidate the in-memory device/groups. Delivery retains token
 fallback replacements across ranked nodes, propagates local failures immediately, and records
