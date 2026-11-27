@@ -96,6 +96,16 @@ struct ContentView: View {
                         profilePending = !receivingFirstProfile
                         activeNetwork = .ready
                     }
+                } else if receivingFirstProfile, activeNetwork == .ready {
+                    ScrollingForm {
+                        Text("link.receive.title").font(.headline)
+                        LinkReceiveSection(feed: chats, wizard: true) { detail in
+                            receivingFirstProfile = false
+                            identities.reloadAfterLink(detail)
+                        }
+                        Button("search.cancel") { receivingFirstProfile = false }
+                            .accessibilityIdentifier("link-receive-exit")
+                    }
                 } else {
                     start
                 }
@@ -177,13 +187,6 @@ struct ContentView: View {
                 case .ready:
                     if !ProcessInfo.processInfo.arguments.contains("--break-ui") {
                         Text("status.ready").accessibilityIdentifier("app-ready")
-                    }
-                    if receivingFirstProfile {
-                        LinkReceiveSection(feed: chats, wizard: true) { detail in
-                            receivingFirstProfile = false
-                            identities.reloadAfterLink(detail)
-                        }
-                        Button("search.cancel") { receivingFirstProfile = false }
                     }
                     startEntry(.network, "network.title", candidate, peerId)
                         .accessibilityIdentifier("network-edit")
