@@ -151,7 +151,10 @@ struct ProfileProofControls: View {
                 candidate: candidate, peerId: peerId, publishedVersion: published?.version,
                 disabled: isSolving || isPublishing, onHidden: resetProofState)
         }
-        .onChange(of: resetToken) { _ in resetProofState() }
+        .onChange(of: resetToken) { _ in
+            cancelProof()
+            resetProofState()
+        }
         .onDisappear(perform: cancelProof)
     }
 
@@ -168,7 +171,7 @@ struct ProfileProofControls: View {
 
     @MainActor
     private func prepareProof() async {
-        guard canPrepare else { return }
+        guard canPrepare, !isSolving, !isPublishing else { return }
         let confirmedAdult = attested
         clearConfirmations()
         isSolving = true
@@ -189,8 +192,13 @@ struct ProfileProofControls: View {
             proofFailed = true
             return
         }
+        if cancelRequested {
+            opened.cancel()
+            isSolving = false
+            proofCancelled = true
+            return
+        }
         session = opened
-        if cancelRequested { opened.cancel() }
         await runSteps(opened, attested: confirmedAdult)
     }
 
