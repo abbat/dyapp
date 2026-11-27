@@ -23,6 +23,21 @@ final class SearchFiltersTests: XCTestCase {
         XCTAssertEqual(try inputs.conditions().map(\.strings), [["DE"], ["7"]])
     }
 
+    func testInterestUsesCoreNormalizationOnlyWhenOffered() throws {
+        var inputs = SearchFilterInputs()
+        inputs.interest = " E\u{301}COLE "
+        XCTAssertFalse(inputs.interestOffered)
+        XCTAssertTrue(try inputs.conditions().isEmpty)
+        inputs.offered = [19]
+        XCTAssertTrue(inputs.interestOffered)
+        XCTAssertEqual(try inputs.conditions().map(\.strings), [["école"]])
+
+        inputs.interest = "music\nother"
+        XCTAssertEqual(failure(inputs), "search.interestInvalid")
+        inputs.offered = []
+        XCTAssertTrue(try inputs.conditions().isEmpty)
+    }
+
     func testSelectedPlaceSurvivesHiddenCountryWithoutUsingTypedPlaceText() throws {
         var inputs = SearchFilterInputs()
         inputs.offered = [20]
