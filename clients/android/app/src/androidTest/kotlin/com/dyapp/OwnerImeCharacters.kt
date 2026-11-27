@@ -22,12 +22,7 @@ internal class OwnerImeCharacters(private val compose: ComposeContentTestRule, p
             compose.waitUntil(10_000) {
                 glyph = character(index)
                 visible = RectF(window.visibleFrame())
-                val layout = compose.onNodeWithTag("owner-code-input").textLayout()
-                val expected = layout.getBoundingBox(index)
-                val line = layout.getLineForOffset(index)
-                observation += " expectedGlyph=$expected line=$line start=${layout.getLineStart(line)}"
-                observation += " caret=${layout.getCursorRect(index)}"
-                if (index > 0) observation += " previousLine=${layout.getLineForOffset(index - 1)}"
+                val expected = expectedGlyph(index)
                 result = glyph?.takeIf {
                     !it.isEmpty && visible.contains(it) &&
                         it.width().roundToInt() >= expected.width.roundToInt() &&
@@ -45,6 +40,16 @@ internal class OwnerImeCharacters(private val compose: ComposeContentTestRule, p
             )
         }
         return checkNotNull(result)
+    }
+
+    private fun expectedGlyph(index: Int): androidx.compose.ui.geometry.Rect {
+        val layout = compose.onNodeWithTag("owner-code-input").textLayout()
+        val expected = layout.getBoundingBox(index)
+        val line = layout.getLineForOffset(index)
+        observation += " expectedGlyph=$expected line=$line start=${layout.getLineStart(line)}"
+        observation += " caret=${layout.getCursorRect(index)}"
+        if (index > 0) observation += " previousLine=${layout.getLineForOffset(index - 1)}"
+        return expected
     }
 
     private fun character(index: Int): RectF? {
