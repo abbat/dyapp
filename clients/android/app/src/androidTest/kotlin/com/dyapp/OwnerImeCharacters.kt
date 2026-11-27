@@ -22,8 +22,12 @@ internal class OwnerImeCharacters(private val compose: ComposeContentTestRule, p
             compose.waitUntil(10_000) {
                 glyph = character(index)
                 visible = RectF(window.visibleFrame())
-                val expected = compose.onNodeWithTag("owner-code-input").textLayout().getBoundingBox(index)
-                observation += " expectedGlyph=${expected.width}x${expected.height}"
+                val layout = compose.onNodeWithTag("owner-code-input").textLayout()
+                val expected = layout.getBoundingBox(index)
+                val line = layout.getLineForOffset(index)
+                observation += " expectedGlyph=$expected line=$line start=${layout.getLineStart(line)}"
+                observation += " caret=${layout.getCursorRect(index)}"
+                if (index > 0) observation += " previousLine=${layout.getLineForOffset(index - 1)}"
                 result = glyph?.takeIf {
                     !it.isEmpty && visible.contains(it) &&
                         it.width().roundToInt() >= expected.width.roundToInt() &&
@@ -32,6 +36,9 @@ internal class OwnerImeCharacters(private val compose: ComposeContentTestRule, p
                 result != null
             }
         } catch (failure: ComposeTimeoutException) {
+            val current = observation
+            val previous = if (glyph == null && index > 0) character(index - 1) else null
+            observation = "$current previousGlyph=$previous"
             throw AssertionError(
                 "IME glyph $index is unavailable or clipped: glyph=$glyph visible=$visible; $observation",
                 failure
