@@ -30,7 +30,7 @@ func revealViewport(_ app: XCUIApplication) -> CGRect {
     return area
 }
 
-/// Read one accessibility snapshot; never start a form drag inside an editable text subtree.
+/// Read one accessibility snapshot; labels and buttons are safe outside editable subtrees.
 @MainActor
 func revealAnchors(_ app: XCUIApplication, visible: CGRect) -> [RevealAnchor] {
     guard let snapshot = try? app.snapshot() else { return [] }
@@ -39,7 +39,8 @@ func revealAnchors(_ app: XCUIApplication, visible: CGRect) -> [RevealAnchor] {
         case .textView, .textField, .secureTextField:
             return []
 
-        case .staticText where !node.frame.isEmpty && visible.contains(node.frame):
+        case .staticText, .button:
+            guard !node.frame.isEmpty && visible.contains(node.frame) else { return [] }
             return [RevealAnchor(frame: node.frame, identity: "\(node.identifier)|\(node.label)")]
 
         default:

@@ -912,10 +912,12 @@ need native iOS CI; Swift formatting/lint alone does not prove binding execution
 
 `RevealGeometryTests` checks form-scroll planning against actual label rectangles, viewport edges,
 keyboard-reduced space and partially covered or oversized rows. These pure geometry cases run in
-native iOS CI. `reveal` accepts native hit-test readiness before planning a scroll, including
+native iOS CI. A real settings-screen calibration also requires its native Network button to
+provide a noneditable drag anchor and reveals the initially virtual Create control.
+`reveal` accepts native hit-test readiness before planning a scroll, including
 partially visible rows. Fully visible controls await readiness instead of unnecessary dragging.
 For each completed native drag it recalculates the viewport and noneditable accessibility-label
-anchors, resets its failure deadline only after changed geometry, and
+or native-button anchors, resets its failure deadline only after changed geometry, and
 rejects repeated/no-progress states. Switch helpers reveal the actual native control separately
 from its row label, await its enabled and hittable state, tap once, and observe the required value;
 publication never blindly toggles an
@@ -2515,15 +2517,14 @@ Swift compiles and lints only in CI, so these save a round trip of about 30 minu
   `.accessibilityElement(children: .contain)`.
 - Use the `reveal` and `flip` helpers in `UITests/Reveal.swift` for off-screen elements.
   `isHittable` is true for a row under the iOS navigation bar or past the form's end above the
-  App lock button and the keyboard, so `reveal` compares the row's frame with that visible area
-  and prints a `reveal:` line in `tests.log` for each row it has to move. A form row below the
-  screen or the keyboard does not exist, so reveal it before waiting on its state; a wait in place
-  times out, and its polls log `Capturing element debug description`. A row of a screen still
-  sliding in has an empty frame, on which `isHittable` fails the test, and so do `frame` and
-  `isHittable` on a row that vanished since `exists`. So `reveal` reads the row through
-  `snapshot()`, which throws instead, and calls `isHittable` only for a row it sees on screen.
-  When the drag that moves a row loses it, `reveal` first looks past the edge it moved the row
-  toward.
+  App lock button and the keyboard. Editable controls require their current bounds within that
+  visible area; ordinary controls retain native hit-test readiness. A virtual form row can be
+  absent until scrolling: reveal it before waiting on its state. `reveal` snapshots only existing
+  targets and uses the snapshot identifier in failure diagnostics, so reporting an absent row
+  does not trigger another unresolved native query. It plans completed drags from current fully
+  visible labels or buttons outside editable subtrees, then re-reads viewport/anchor geometry.
+  Missing safe anchors, repeated geometry and transitions with no scroll progress fail explicitly;
+  each successful move starts a fresh failure deadline.
 
 ## Not covered
 

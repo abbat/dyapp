@@ -7,6 +7,24 @@ final class RevealGeometryTests: XCTestCase {
         CGRect(x: 40, y: 480, width: 120, height: 20),
     ]
 
+    @MainActor
+    func testSettingsButtonProvidesANoneditableDragAnchor() {
+        continueAfterFailure = false
+        let app = unlockedApp()
+        app.launch()
+        defer { app.terminate() }
+        createIdentity(app)
+        app.buttons["settings-open"].tap()
+        reveal(app.buttons["settings-network"], in: app)
+        let visible = revealViewport(app)
+        let anchors = revealAnchors(app, visible: visible)
+        XCTAssertTrue(
+            anchors.contains { $0.identity.hasPrefix("settings-network|") },
+            "The current native button must be available to reveal virtual settings rows")
+        reveal(app.buttons["settings-create"], in: app)
+        XCTAssertTrue(app.buttons["settings-create"].isHittable)
+    }
+
     func testUnknownRowsUseLiveLabelsAndViewportEdgesInEitherDirection() throws {
         let up = try XCTUnwrap(
             revealDrag(anchors: labels, visible: viewport, target: nil, above: false))

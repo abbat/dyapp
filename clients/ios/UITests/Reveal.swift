@@ -12,7 +12,9 @@ func reveal(
     var visited = Set<String>()
     while Date() < deadline {
         let visible = revealViewport(app)
-        let frame = try? row.snapshot().frame
+        let snapshot = row.exists ? (try? row.snapshot()) : nil
+        let frame = snapshot?.frame
+        let name = snapshot?.identifier ?? "unmaterialized target"
         // Hittability may describe only an exposed fragment. Editable controls must also
         // expose their actual tap area above the current keyboard before native entry.
         if row.exists && row.isHittable
@@ -33,7 +35,7 @@ func reveal(
                 above: above)
         else {
             XCTFail(
-                "Cannot reveal \(row.identifier): frame=\(String(describing: frame)), viewport=\(visible)"
+                "Cannot reveal \(name): frame=\(String(describing: frame)), viewport=\(visible)"
             )
             return element
         }
@@ -47,12 +49,12 @@ func reveal(
         let nextVisible = revealViewport(app)
         let next = "\(nextVisible)|\(revealAnchors(app, visible: nextVisible))"
         guard next != state else {
-            XCTFail("Form made no scroll progress revealing \(row.identifier), viewport=\(visible)")
+            XCTFail("Form made no scroll progress revealing \(name), viewport=\(visible)")
             return element
         }
         deadline = Date().addingTimeInterval(timeout)
     }
-    XCTFail("Reveal deadline exceeded for \(row.identifier)")
+    XCTFail("Reveal deadline exceeded before the target became ready")
     return element
 }
 
