@@ -702,8 +702,10 @@ cannot discover remote revocations it has not received.
 
 The core `Session::submit_forwarded_photo` accepts a current stored photo selector and validated
 original bytes. It checks that the destination is a different open pair, then encrypts and uploads
-with fresh media credentials before committing a new forwarded message. Native acquisition and
-client presentation for photo forwarding remain planned.
+with fresh media credentials before committing a new forwarded message. `forward_photo_targets`
+projects eligible destinations offline. `forward_photo` retrieves the original from the active
+network even when this device has a cached copy. Only current chat photos are eligible. iOS
+presentation for photo forwarding remains planned.
 
 Desktop text, edit, delete, photo and forward commands project the same core `Submission` as
 `{ id, queued }`: `queued: null` means immediate node acceptance; a string means committed with

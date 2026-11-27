@@ -58,6 +58,11 @@ fn text(messages: &[ChatMessage], source: Source<'_>, id: [u8; 16]) -> Option<Ve
 /// Returns typed source/target/block errors, an absent/deleted/non-text message error,
 /// or storage failure. This performs no network access or writes.
 pub fn prepare(store: &Store, source: Source<'_>, target: &str) -> Result<Vec<u8>, Error> {
+    check_destination(store, source, target)?;
+    selected_text(store, source)
+}
+
+fn check_destination(store: &Store, source: Source<'_>, target: &str) -> Result<(), Error> {
     if source.peer == target || crate::private_peer::check(store, target).is_err() {
         return Err(Error::InvalidTarget);
     }
@@ -69,7 +74,7 @@ pub fn prepare(store: &Store, source: Source<'_>, target: &str) -> Result<Vec<u8
     if store.conversation(target)? != Conversation::Open {
         return Err(Error::InvalidTarget);
     }
-    selected_text(store, source)
+    Ok(())
 }
 
 fn source_identity(store: &Store, peer: &str) -> Result<(), Error> {
@@ -103,9 +108,53 @@ pub fn targets(store: &Store, source: Source<'_>) -> Result<Vec<String>, Error> 
     }
     source_conversation(store, source.peer)?;
     selected_text(store, source)?;
+    eligible_targets(store, source.peer)
+}
+
+/// Select a current photo after the same conversation checks as text forwarding.
+///
+/// # Errors
+/// Returns source, destination, block, selector or storage failures.
+pub fn prepare_photo(
+    store: &Store,
+    source: Source<'_>,
+    target: &str,
+) -> Result<crate::attachment::original::Snapshot, Error> {
+    check_destination(store, source, target)?;
+    selected_photo(store, source)
+}
+
+/// Project other open destinations for a current photo.
+///
+/// # Errors
+/// Returns source, block, selector or storage failures.
+pub fn photo_targets(store: &Store, source: Source<'_>) -> Result<Vec<String>, Error> {
+    source_identity(store, source.peer)?;
+    if store.blocked(source.peer)? {
+        return Err(Error::Blocked);
+    }
+    source_conversation(store, source.peer)?;
+    selected_photo(store, source)?;
+    eligible_targets(store, source.peer)
+}
+
+fn selected_photo(
+    store: &Store,
+    source: Source<'_>,
+) -> Result<crate::attachment::original::Snapshot, Error> {
+    use crate::attachment::original::{select, LookupError};
+
+    select(store, source.peer, source.group, source.author, source.id).map_err(|error| match error {
+        LookupError::Blocked => Error::Blocked,
+        LookupError::NotFound | LookupError::Corrupted => Error::UnknownMessage,
+        LookupError::Store(error) => Error::Store(error),
+    })
+}
+
+fn eligible_targets(store: &Store, source_peer: &str) -> Result<Vec<String>, Error> {
     let mut targets = Vec::new();
     for row in store.chat_rows()? {
-        if row.peer_id != source.peer
+        if row.peer_id != source_peer
             && row.state == Conversation::Open
             && crate::private_peer::check(store, &row.peer_id).is_ok()
             && !store.blocked(&row.peer_id)?

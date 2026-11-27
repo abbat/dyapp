@@ -115,6 +115,70 @@ impl ChatSession {
         forwarding::targets(session.store(), source.borrowed()).map_err(ChatForwardError::from)
     }
 
+    /// List other open chats eligible to receive the selected current photo.
+    ///
+    /// # Errors
+    /// Returns typed source/selection refusals or a session/storage failure.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
+    pub fn forward_photo_targets(
+        &self,
+        source: ChatForwardSource,
+    ) -> Result<Vec<String>, ChatForwardError> {
+        let session = self.session.lock().map_err(failed)?;
+        forwarding::photo_targets(session.store(), source.borrowed()).map_err(ChatForwardError::from)
+    }
+
+    /// Forward a current photo whose original is still retrievable from the network.
+    /// Queued delivery retains its committed ID.
+    ///
+    /// # Errors
+    /// Returns typed preflight/profile/network errors or pre-commit backend failure.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
+    pub fn forward_photo(
+        &self,
+        source: ChatForwardSource,
+        target_peer_id: String,
+    ) -> Result<ChatSubmission, ChatForwardError> {
+        let mut session = self.session.lock().map_err(failed)?;
+        let photo = forwarding::prepare_photo(session.store(), source.borrowed(), &target_peer_id)?;
+        let _own = listed_own(&session, &self.key.identity).map_err(ChatForwardError::from)?;
+        let network = active_network(&self.dir).map_err(ChatForwardError::from)?;
+        on_network_stack(|| {
+            Ok(self.runtime.block_on(async {
+                let mut node = connect_at(&self.dir, &network)
+                    .await
+                    .map_err(ChatForwardError::from)?;
+                let target = node.get_profile(&target_peer_id).await.map_err(failed)?;
+                if target.profile.deleted || target.profile.version == 0 {
+                    return Err(ChatForwardError::Unpublished);
+                }
+                let nodes = std::slice::from_mut(&mut node);
+                let original = dyapp_client::attachment::fetch(nodes, photo.attachment())
+                    .await
+                    .map_err(super::original::fetch_error)?;
+                session
+                    .submit_forwarded_photo(
+                        nodes,
+                        &self.key.identity,
+                        &photo,
+                        &original,
+                        &target_peer_id,
+                        &self.seal_key,
+                    )
+                    .await
+                    .map(ChatSubmission::from)
+                    .map_err(stage_error)
+            }))
+        })
+        .map_err(failed)?
+    }
+
     /// Forward a selected current local text as this identity into another open chat.
     /// Queued delivery retains its committed ID: do not submit a second copy.
     ///
