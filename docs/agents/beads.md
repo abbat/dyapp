@@ -156,6 +156,9 @@ JSON for offline reproduction. Keep these files outside tracked/public files.
 
 ## Current dependency evidence
 
+Pass the full parent ID to `bd list --parent`: the installed CLI does not expand shorthand for
+this filter and can silently return an empty list. Include `--all` when closed children matter.
+
 Hierarchical IDs survive reparenting. After changing a parent, inspect `bd dep list <id> --json`
 or the typed dependencies in `bd show`; do not infer current blocking links from an ID prefix or
 `bd list --parent` alone, which can still list a former hierarchical descendant.
