@@ -35,6 +35,7 @@ final class ProfilePage: ObservableObject {
     private(set) var opening = UUID()
     private var active = true
     private var viewOpening: ProfileViewOpening?
+    private var submittedView = false
 
     init(peer: String, known: FoundProfile?, feed: ChatFeed) {
         self.peer = peer
@@ -49,6 +50,7 @@ final class ProfilePage: ObservableObject {
         active = false
         viewOpening?.retire()
         viewOpening = nil
+        submittedView = false
         opening = UUID()
     }
 
@@ -73,7 +75,10 @@ final class ProfilePage: ObservableObject {
     }
 
     func discloseShownProfile(opening expected: UUID) async {
-        guard let context, current(expected), found != nil, let viewOpening else { return }
+        guard !Task.isCancelled, !submittedView, let context, current(expected), found != nil,
+            let viewOpening
+        else { return }
+        submittedView = true
         _ = await feed.call(context) { try $0.submitProfileView(opening: viewOpening) }
     }
 
