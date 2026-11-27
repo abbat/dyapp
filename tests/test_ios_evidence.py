@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,6 +18,25 @@ SPEC.loader.exec_module(APPLE)
 
 
 class IosEvidence(unittest.TestCase):
+    def test_export_rejects_a_different_checkout(self) -> None:
+        build = ROOT / "build"
+        build.mkdir(exist_ok=True)
+        with TemporaryDirectory(dir=build) as temporary:
+            reports = Path(temporary)
+            app = reports / "Debug-iphonesimulator" / "DYApp.app"
+            app.mkdir(parents=True)
+            (app / "DYApp").write_bytes(b"test executable")
+            (reports / "attachments").mkdir()
+            with (
+                patch.object(APPLE, "run"),
+                patch.object(APPLE, "validate_ios_attachments"),
+                patch.object(APPLE.subprocess, "check_output", return_value="checkout\n"),
+                patch.dict(APPLE.os.environ, {"GITHUB_SHA": "workflow"}),
+                self.assertRaisesRegex(RuntimeError, "differs from the CI source"),
+            ):
+                APPLE.export_ios_evidence(reports, reports / "test.xcresult", [app], "simulator")
+            self.assertFalse((reports / "attachments" / "provenance.json").exists())
+
     def test_unrelated_png_cannot_replace_the_missing_state(self) -> None:
         build = ROOT / "build"
         build.mkdir(exist_ok=True)
