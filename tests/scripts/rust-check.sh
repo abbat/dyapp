@@ -54,7 +54,7 @@ step() {
             check zizmor zizmor --offline --no-progress .github
             # Secrets in the whole git history (CI checks out with fetch-depth 0).
             check gitleaks env GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory \
-                GIT_CONFIG_VALUE_0="$PWD" gitleaks git --no-banner --redact .
+                GIT_CONFIG_VALUE_0="$PWD" gitleaks git --no-banner --redact --verbose .
             check typos typos
             check taplo taplo fmt --check
             step web-check

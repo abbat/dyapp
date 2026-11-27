@@ -7,3 +7,5 @@ a2c931fa6340d96af1b16ef97915c20d9041b30a:Cargo.lock:generic-api-key:2652
 ac6b8e85ce336df3d35050fdae7a1883fff481d3:clients/linux/Cargo.lock:generic-api-key:3350
 ac6b8e85ce336df3d35050fdae7a1883fff481d3:clients/windows/Cargo.lock:generic-api-key:3252
 0e3547819b47099de1ba5201ffcffeb93796793e:clients/macos/Cargo.lock:generic-api-key:3614
+# Public Android fixture key SHA-256 checksum, not a credential; historical commit is immutable.
+cf2cc56dbc7a65f3a1b2bbfefef2c95ea3326f55:tests/fixtures/android-worker-node/provenance.json:generic-api-key:10
