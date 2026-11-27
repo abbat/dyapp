@@ -2042,13 +2042,13 @@ retry is [flaky](README.md#flaky-tests): `xcodebuild test` retries a failed test
 (`-retry-tests-on-failure -test-iterations 3`, each try limited to 10 minutes by
 `-default-test-execution-time-allowance`, so a wedged test fails instead of using up the suite's
 70 minutes) and `check-flaky.py` reads the
-`xcresulttool get test-results tests` tree. The iOS profile-share UI test attaches native PNGs
+`xcresulttool get test-results tests` tree. The iOS profile-share UI test attaches native PNG files
 and viewport/element frames for the eligible target and sent confirmation to its xcresult. The
 English and Russian scenarios request Accessibility Medium text at launch.
 Native CI exports these attachments to `ios-screen-evidence`. For each locale, look up the
 semantic attachment names in `en/manifest.json` or `ru/manifest.json`. The root
 `provenance.json` records the source commit, simulator destination, executable SHA-256 and
-hashes of the named PNG and geometry files. Confirm the source commit before reviewing the PNGs.
+hashes of the named PNG and geometry files. Confirm the source commit before reviewing the screenshots.
 
 Android's `am instrument` has no retries, so CI reruns up to twice, each time only the tests
 the failed run lists (`-e class`, checked
