@@ -29,7 +29,9 @@ struct LinkReceiveSection: View {
                     self.invitation = nil
                 }
             } else {
+                Text("link.receive.intro").font(.caption)
                 Button("link.receive.start", action: start).disabled(busy)
+                    .accessibilityIdentifier("link-receive-start")
             }
             if busy { ProgressView() }
             if failed { Text("devices.uncertain").font(.caption) }

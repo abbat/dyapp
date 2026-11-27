@@ -97,7 +97,7 @@
     "android.link.receive.expired": {"arguments": {}, "bindings": {"android": {"link_receive_expired": {}}}, "context": "Platform wording/context: android:link_receive_expired"},
     "android.link.receive.expiry": {"arguments": {"date": "string"}, "bindings": {"android": {"link_receive_expiry": {"date": "%1$s"}}}, "context": "Platform wording/context: android:link_receive_expiry"},
     "android.link.receive.installing": {"arguments": {}, "bindings": {"android": {"link_receive_installing": {}}}, "context": "Platform wording/context: android:link_receive_installing"},
-    "android.link.receive.intro": {"arguments": {}, "bindings": {"android": {"link_receive_intro": {}}}, "context": "Platform wording/context: android:link_receive_intro"},
+    "android.link.receive.intro": {"arguments": {}, "bindings": {"android": {"link_receive_intro": {}}, "apple": {"link.receive.intro": {}}}, "context": "Platform wording/context: android:link_receive_intro"},
     "android.link.receive.invalidated": {"arguments": {}, "bindings": {"android": {"link_receive_invalidated": {}}}, "context": "Platform wording/context: android:link_receive_invalidated"},
     "android.link.receive.network.intro": {"arguments": {}, "bindings": {"android": {"link_receive_network_intro": {}}}, "context": "Platform wording/context: android:link_receive_network_intro"},
     "android.link.receive.network.title": {"arguments": {}, "bindings": {"android": {"link_receive_network_title": {}}}, "context": "Platform wording/context: android:link_receive_network_title"},

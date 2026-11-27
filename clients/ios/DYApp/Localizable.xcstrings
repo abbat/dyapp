@@ -1713,6 +1713,22 @@
         }
       }
     },
+    "link.receive.intro": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configure Network first. Show this code to a device with your profile, then approve linking there. Existing profiles on this phone are preserved."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сначала настройте сеть. Покажите код устройству с вашим профилем и подтвердите привязку на нём. Уже сохранённые профили этого телефона останутся."
+          }
+        }
+      }
+    },
     "link.receive.qr": {
       "localizations": {
         "en": {
