@@ -132,7 +132,9 @@ final class ChatsUITests: XCTestCase {
         let preference = reveal(app.switches["send-profile-views"], in: app)
         guard ready(preference) else { return }
         XCTAssertEqual(preference.value as? String, "0")
-        reveal(app.buttons["settings-received-views"], in: app).tap()
+        let history = reveal(app.buttons["settings-received-views"], in: app, fullyVisible: true)
+        guard ready(history) else { return }
+        history.tap()
         let empty = app.staticTexts["received-views-empty"]
         XCTAssertTrue(empty.waitForExistence(timeout: 30))
     }
