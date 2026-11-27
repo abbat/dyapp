@@ -18,6 +18,11 @@ use std::sync::Arc;
 fn setup(mode: Mode) -> (Fixture, String, Responder, PreparedPhoto) {
     let f = Fixture::new();
     let peer = establish(&f);
+    let (server, photo) = prepare_network(&f, mode);
+    (f, peer, server, photo)
+}
+
+fn prepare_network(f: &Fixture, mode: Mode) -> (Responder, PreparedPhoto) {
     f.chats
         .session
         .lock()
@@ -44,7 +49,7 @@ fn setup(mode: Mode) -> (Fixture, String, Responder, PreparedPhoto) {
     )
     .unwrap();
     let photo = prepare_photo(&[255, 0, 0, 255], 1, 1, Purpose::Chat).unwrap();
-    (f, peer, server, photo)
+    (server, photo)
 }
 
 fn submit(
@@ -233,6 +238,54 @@ fn accepted_native_submission_downloads_its_exact_blob_and_reopens_cached_origin
     assert_eq!(snapshot(&f), before);
     assert_eq!(f.chats.chat_photos(peer.clone()).unwrap().len(), 1);
     assert_photo_forward_preflight(&f, peer, item);
+}
+
+#[test]
+fn native_forward_uploads_fresh_ciphertext_and_retains_the_source() {
+    let f = Fixture::new();
+    let source_peer = establish(&f);
+    let (target_peer, profile) = super::offline::establish_with_profile(&f, [2; 16]);
+    let (server, photo) = prepare_network(&f, Mode::Forwarding(profile));
+    let ChatSubmission::Accepted { id: source_id } = submit(&f, &source_peer, &photo).unwrap()
+    else {
+        panic!("source submission was not accepted");
+    };
+    let initial = server.trace();
+    assert!(!initial.writes.is_empty());
+    let item = only_photo(&f, &source_peer, &source_id, &initial, &photo.full);
+    let source = crate::ChatForwardSource {
+        peer_id: source_peer.clone(),
+        group_id: item.group_id,
+        author: item.author,
+        message_id: source_id.clone(),
+    };
+    let ChatSubmission::Accepted { id } = f.chats.forward_photo(source, target_peer.clone()).unwrap()
+    else {
+        panic!("forwarded submission was not accepted");
+    };
+    assert_ne!(id, source_id);
+    let rows = f.chats.chat_photos(target_peer.clone()).unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].id, id);
+    assert!(rows[0].forwarded);
+    assert_eq!(original(&f, &target_peer, &rows[0]), photo.full);
+    let trace = server.finish();
+    assert!(trace.writes.len() > initial.writes.len());
+    assert_eq!(trace.attaches.len(), 2);
+    assert_eq!(trace.blobs.len(), 2);
+    assert_ne!(trace.attaches[0].hashes, trace.attaches[1].hashes);
+    assert_ne!(trace.attaches[0].release, trace.attaches[1].release);
+    let media_steps: Vec<_> = trace
+        .steps
+        .iter()
+        .copied()
+        .filter(|step| *step != "mailbox")
+        .collect();
+    assert_eq!(
+        media_steps,
+        ["attach", "blob", "profile", "get", "attach", "blob", "get"]
+    );
+    assert!(!only_photo(&f, &source_peer, &source_id, &trace, &photo.full).forwarded);
 }
 
 fn assert_photo_forward_preflight(f: &Fixture, peer: String, item: ChatPhoto) {

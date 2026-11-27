@@ -14,7 +14,6 @@ use tokio::time::{timeout, timeout_at, Instant};
 type Swarm = Box<libp2p::Swarm<Behaviour>>;
 const LIMIT: Duration = Duration::from_secs(20);
 
-#[derive(Clone, Copy)]
 pub(super) enum Mode {
     AttachFull,
     PutFull,
@@ -22,6 +21,7 @@ pub(super) enum Mode {
     MailboxFull,
     RetryMailboxFull,
     Accepted,
+    Forwarding(SignedRecord),
 }
 
 #[derive(Clone, Default)]
@@ -54,7 +54,7 @@ impl Responder {
                     .unwrap();
                 let (swarm, address) = runtime.block_on(listening());
                 ready.send(address).unwrap();
-                runtime.block_on(serve(swarm, stopped, mode, owner, copy));
+                runtime.block_on(serve(swarm, stopped, &mode, owner, copy));
             })
             .unwrap();
         Self {
@@ -116,7 +116,7 @@ async fn listening() -> (Swarm, libp2p::Multiaddr) {
 async fn serve(
     mut swarm: Swarm,
     mut stop: oneshot::Receiver<()>,
-    mode: Mode,
+    mode: &Mode,
     owner: [u8; 32],
     trace: Arc<Mutex<Trace>>,
 ) {
@@ -144,7 +144,7 @@ async fn serve(
 fn route(
     swarm: &mut Swarm,
     event: SwarmEvent<BehaviourEvent>,
-    mode: Mode,
+    mode: &Mode,
     owner: &[u8; 32],
     trace: &Mutex<Trace>,
 ) -> bool {
@@ -168,8 +168,36 @@ fn route(
             },
             ..
         })) => mailbox(swarm, request, channel, mode, &mut trace.lock().unwrap()),
+        SwarmEvent::Behaviour(BehaviourEvent::Profile(Event::Message {
+            message: Message::Request {
+                request, channel, ..
+            },
+            ..
+        })) => {
+            let Mode::Forwarding(record) = mode else {
+                panic!("unexpected profile request");
+            };
+            assert!(matches!(
+                request.request,
+                Some(proto::profile_request::Request::Get(_))
+            ));
+            swarm
+                .behaviour_mut()
+                .profile
+                .send_response(
+                    channel,
+                    proto::ProfileResponse {
+                        status: proto::Status::Ok.into(),
+                        record: Some(record.clone()),
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+            trace.lock().unwrap().steps.push("profile");
+        }
         SwarmEvent::Behaviour(
-            BehaviourEvent::Media(Event::ResponseSent { .. })
+            BehaviourEvent::Profile(Event::ResponseSent { .. })
+            | BehaviourEvent::Media(Event::ResponseSent { .. })
             | BehaviourEvent::Mailbox(Event::ResponseSent { .. }),
         ) => return true,
         _ => {}
@@ -181,7 +209,7 @@ fn media(
     swarm: &mut Swarm,
     request: proto::MediaRequest,
     channel: ResponseChannel<proto::MediaResponse>,
-    mode: Mode,
+    mode: &Mode,
     owner: &[u8; 32],
     trace: &mut Trace,
 ) {
@@ -196,7 +224,12 @@ fn media(
             let attach = proto::MediaAttach::decode(record.payload.as_slice()).unwrap();
             assert_eq!(attach.hashes.len(), 1);
             response.missing = attach.hashes.clone();
-            assert_eq!(trace.attaches.len(), 0);
+            let limit = if matches!(mode, Mode::Forwarding(_)) {
+                2
+            } else {
+                1
+            };
+            assert!(trace.attaches.len() < limit);
             trace.attaches.push(attach);
             trace.steps.push("attach");
             if matches!(mode, Mode::AttachFull) {
@@ -209,7 +242,7 @@ fn media(
                 dyapp_identity::sha256(&put.data).as_slice(),
                 trace.attaches.last().unwrap().hashes[0].as_slice()
             );
-            assert_eq!(trace.blobs.len(), 0);
+            assert_eq!(trace.attaches.len(), trace.blobs.len() + 1);
             trace.blobs.push(put.data);
             trace.steps.push("blob");
             response.status = match mode {
@@ -220,9 +253,15 @@ fn media(
             .into();
         }
         proto::media_request::Request::Get(get) => {
-            assert!(matches!(mode, Mode::Accepted | Mode::MailboxFull));
-            let blob = trace.blobs.last().unwrap();
-            assert_eq!(get.hash, dyapp_identity::sha256(blob));
+            assert!(matches!(
+                mode,
+                Mode::Accepted | Mode::MailboxFull | Mode::Forwarding(_)
+            ));
+            let blob = trace
+                .blobs
+                .iter()
+                .find(|blob| get.hash == dyapp_identity::sha256(blob))
+                .expect("fixture has the requested blob");
             response.data = blob.clone();
             trace.steps.push("get");
         }
@@ -239,7 +278,7 @@ fn mailbox(
     swarm: &mut Swarm,
     request: proto::MailboxRequest,
     channel: ResponseChannel<proto::MailboxResponse>,
-    mode: Mode,
+    mode: &Mode,
     trace: &mut Trace,
 ) {
     let Some(proto::mailbox_request::Request::Put(record)) = request.request else {
@@ -249,7 +288,7 @@ fn mailbox(
     if matches!(mode, Mode::MailboxFull) {
         assert_eq!(trace.writes.len(), 0);
     }
-    if !matches!(mode, Mode::RetryMailboxFull) {
+    if !matches!(mode, Mode::RetryMailboxFull | Mode::Forwarding(_)) {
         assert_eq!(trace.blobs.len(), 1);
     }
     let bytes = record.encode_to_vec();
