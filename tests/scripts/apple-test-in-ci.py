@@ -181,6 +181,30 @@ def keep_log(
             output.write("log show timed out\n")
 
 
+def validate_ios_attachments(directory: Path) -> None:
+    manifest = json.loads((directory / "manifest.json").read_text())
+    for state in ("eligible-target", "sent"):
+        name = f"ios-profile-share-{state}"
+        png = evidence_file(directory, manifest, name, ".png")
+        if not png.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"):
+            raise RuntimeError(f"Invalid PNG attachment: {name}")
+        geometry = evidence_file(directory, manifest, f"{name}-geometry", ".txt")
+        if not geometry.read_text().startswith("element="):
+            raise RuntimeError(f"Invalid geometry attachment: {name}")
+
+
+def evidence_file(directory: Path, manifest: list[dict], name: str, suffix: str) -> Path:
+    matches = [
+        Path(item["exportedFileName"])
+        for test in manifest
+        for item in test["attachments"]
+        if item.get("suggestedHumanReadableName") == f"{name}{suffix}"
+    ]
+    if len(matches) != 1 or matches[0].name != str(matches[0]):
+        raise RuntimeError(f"Expected exactly one exported attachment: {name}")
+    return directory / matches[0]
+
+
 def export_ios_evidence(reports: Path, result_bundle: Path, apps: list[Path], destination: str) -> None:
     attachments = reports / "attachments"
     run(
@@ -198,10 +222,7 @@ def export_ios_evidence(reports: Path, result_bundle: Path, apps: list[Path], de
         ],
         reports / "attachments.log",
     )
-    if not (attachments / "manifest.json").is_file():
-        raise RuntimeError("Missing iOS attachment manifest")
-    if len(list(attachments.glob("*.png"))) < 2:
-        raise RuntimeError("Missing iOS profile sharing screenshots in exported attachments")
+    validate_ios_attachments(attachments)
     binaries = [app / "DYApp" for app in apps if app.parent.name.endswith("-iphonesimulator")]
     if len(binaries) != 1:
         raise RuntimeError("Expected one tested iOS simulator application")
