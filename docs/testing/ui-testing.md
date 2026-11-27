@@ -43,6 +43,7 @@ artifacts: they may already retain an isolated test-node credential with suffici
 The worker emulator lane installs `tests/fixtures/android-worker-node/node.key` into fresh `0700`
 storage using its pinned SHA-256 and exclusive `0600` destination. This deliberately public fixture's
 `provenance.json` records its generator, producer, binary hash and required 22-bit proof.
+The raw protobuf key is marked binary in Git; it is not UTF-8 text.
 Production `dyappd keygen` recovers the installed key, validates that proof and writes its node ID;
 `probe-key` revalidates the key and binding, and startup requires the pinned public ID. Missing,
 altered or invalid data fails startup without fallback random proof search. Other emulator lanes
