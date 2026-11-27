@@ -92,6 +92,7 @@ struct ReceivedViewsSection: View {
                 Task { await refresh(context, opening: expected) }
             }
             .disabled(busy || context == nil)
+            .accessibilityIdentifier("received-views-refresh")
         }
         .accessibilityIdentifier("received-views")
         .task(id: expected) {

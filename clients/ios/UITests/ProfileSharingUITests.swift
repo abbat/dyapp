@@ -1,6 +1,39 @@
 import XCTest
 
 extension ChatsUITests {
+    func assertReceivedView() {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)",
+            "--ui-test-chat-peer-views",
+        ]
+        app.launch()
+        createIdentity(app)
+        connectLocalNode(app)
+        publishProfile(app)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        reveal(app.buttons["settings-open"], in: app).tap()
+        let preference = reveal(app.switches["send-profile-views"], in: app)
+        guard ready(preference) else { return }
+        XCTAssertEqual(preference.value as? String, "0")
+        reveal(app.buttons["settings-received-views"], in: app).tap()
+        let refresh = reveal(app.buttons["received-views-refresh"], in: app)
+        let row = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "received-view-")
+        ).firstMatch
+        let deadline = ProcessInfo.processInfo.systemUptime + 150
+        while !row.exists && ProcessInfo.processInfo.systemUptime < deadline {
+            guard ready(refresh) else { return }
+            refresh.tap()
+        }
+        guard row.exists else { return XCTFail("No profile view arrived") }
+        let peer = String(row.identifier.dropFirst("received-view-".count))
+        row.tap()
+        let profile = app.staticTexts["view-peer"]
+        XCTAssertTrue(profile.waitForExistence(timeout: 30))
+        XCTAssertTrue(profile.label.contains(peer))
+    }
+
     func assertProfileShare(language: String, locale: String, sentLabel: String) {
         let app = XCUIApplication()
         let configuration = [

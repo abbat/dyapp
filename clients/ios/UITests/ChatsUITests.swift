@@ -139,6 +139,10 @@ final class ChatsUITests: XCTestCase {
         XCTAssertTrue(empty.waitForExistence(timeout: 30))
     }
 
+    func testReceivedViewFromDistinctPeerWhileSendingDisabled() {
+        assertReceivedView()
+    }
+
     func testSharedProfileInRussian() {
         assertProfileShare(language: "ru", locale: "ru_RU", sentLabel: "Профиль отправлен.")
     }
