@@ -216,11 +216,11 @@ private struct ChatListRow: View {
             PeerAvatar(photos: photos, peer: row.peerId, hash: photo)
             VStack(alignment: .leading) {
                 Text(verbatim: label).font(.headline)
-                Text(verbatim: chatPreview(row.lastMessage)).lineLimit(1)
+                Text(verbatim: chatListPreview(row.preview)).lineLimit(1)
             }
             Spacer()
             VStack(alignment: .trailing) {
-                if let time = chatTime(row.lastMessage) { Text(verbatim: time).font(.caption) }
+                if let time = chatTime(row.preview.sentAtMs) { Text(verbatim: time).font(.caption) }
                 if row.unreadCount > 0 {
                     Text(verbatim: String(row.unreadCount)).accessibilityLabel(
                         Text(
@@ -276,7 +276,11 @@ func chatPreview(_ message: ChatMessage?) -> String {
 }
 
 func chatTime(_ message: ChatMessage?) -> String? {
-    guard let sent = message?.sentAtMs else { return nil }
+    chatTime(message?.sentAtMs)
+}
+
+private func chatTime(_ milliseconds: UInt64?) -> String? {
+    guard let sent = milliseconds else { return nil }
     return Date(timeIntervalSince1970: Double(sent) / 1_000).formatted(
         date: .numeric, time: .shortened)
 }
