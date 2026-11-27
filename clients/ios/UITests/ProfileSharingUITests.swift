@@ -35,7 +35,7 @@ extension ChatsUITests {
         let sent = app.staticTexts.matching(identifier: "view-status").matching(
             NSPredicate(format: "label == %@", sentLabel)
         ).firstMatch
-        reveal(sent, in: app, timeout: 60, above: true)
+        reveal(sent, in: app, timeout: 60, above: true, fullyVisible: true)
         attachShareState("\(language)-sent", app: app, element: sent, configuration: configuration)
         reveal(app.buttons["view-back"], in: app, above: true).tap()
         XCTAssertTrue(cards.element(boundBy: 1).waitForExistence(timeout: 30), app.debugDescription)
