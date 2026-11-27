@@ -5,6 +5,7 @@ from __future__ import annotations
 import typing
 
 from contextlib import contextmanager
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -347,6 +348,32 @@ def main() -> None:
     (reports / "artifacts.json").write_text(
         json.dumps([str(path) for path in apps])
     )
+    if platform == "ios":
+        attachments = reports / "attachments"
+        run(
+            [
+                "xcrun",
+                "xcresulttool",
+                "export",
+                "attachments",
+                "--path",
+                str(result_bundle),
+                "--output-path",
+                str(attachments),
+                "--test-id",
+                "ChatsUITests/testSharedProfileOpensFromItsCardAndSharesToAChat()",
+            ],
+            reports / "attachments.log",
+        )
+        binaries = [app / "DYApp" for app in apps if app.parent.name.endswith("-iphonesimulator")]
+        if len(binaries) != 1:
+            raise RuntimeError("Expected one tested iOS simulator application")
+        with binaries[0].open("rb") as binary:
+            binary_sha256 = hashlib.file_digest(binary, "sha256").hexdigest()
+        source = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+        (attachments / "provenance.json").write_text(
+            json.dumps({"source": source, "binary_sha256": binary_sha256, "destination": destination})
+        )
     print(f"{platform}: application artifacts and native tests verified")
 
 
