@@ -147,10 +147,8 @@ fn foreign_identity_snapshot_never_reveals_current_sender_or_body() {
 #[test]
 fn native_notice_label_cleans_controls_and_bounds_unicode_scalars() {
     assert_eq!(crate::mail_notice_line("Alice\nBob".into()), "Alice Bob");
-    let label = "Ж".repeat(1_000);
-    let formatted = crate::mail_notice_line(label);
-    assert!(formatted.starts_with('Ж'));
-    assert!(formatted.chars().count() < 1_000);
+    let expected = "Ж".repeat(dyapp_client::mail_notices::TEXT_CHARS);
+    assert_eq!(crate::mail_notice_line(format!("{expected}X")), expected);
 }
 
 #[test]
