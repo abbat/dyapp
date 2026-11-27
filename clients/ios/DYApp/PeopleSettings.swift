@@ -172,9 +172,9 @@ struct StickerImportSection: View {
                     let archive = try PhotoPrep.read(url, limit: stickerImportByteLimit())
                     return try chats.importStickerPack(archive: archive)
                 }
-                working = false
-                guard feed.isCurrent(context) else { return }
+                guard feed.isCurrent(context) else { working = false; return }
                 await refresh()
+                working = false
                 guard feed.isCurrent(context) else { return }
                 if case .success = outcome { saved = true } else { failed = true }
             }
