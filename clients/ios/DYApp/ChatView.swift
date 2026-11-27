@@ -376,7 +376,7 @@ private struct ChatBubble: View {
         }
         .fixedSize()
         .accessibilityLabel(Text("msg.menu"))
-        .accessibilityIdentifier("msg-menu")
+        .accessibilityIdentifier(own ? "msg-menu" : "msg-received-menu")
     }
 }
 
