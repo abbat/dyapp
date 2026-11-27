@@ -375,6 +375,7 @@ extension ProfileDraftView {
             let selectedPeer = peerId
             let ticket = UUID()
             (saveTicket, status, isSaving) = (ticket, "", true)
+            clearConfirmations()
             let refusal = await IdentityIO.performBlocking { () -> String? in
                 do {
                     try RustBridge.storeProfileDraft(
@@ -428,7 +429,7 @@ extension ProfileDraftView {
     private func checkEligibility() async {
         eligibilityRevision += 1
         let revision = eligibilityRevision
-        guard hasSavedDraft && !hasUnsavedEdits && !isLoading && !isSolving && !readFailed else {
+        guard hasSavedDraft, !hasUnsavedEdits, !isLoading, !isSaving, !isSolving, !readFailed else {
             isCheckingEligibility = false
             return
         }
@@ -470,7 +471,6 @@ extension ProfileDraftView {
 }
 
 extension ProfileDraftView {
-    // Swift infers the builder from View only in the declaration that states the conformance.
     @ViewBuilder var body: some View {
         #if os(macOS)
             // Swapped in by state, as a navigation link in the macOS 12 detail column leaves no way back.

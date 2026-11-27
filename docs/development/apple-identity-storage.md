@@ -211,7 +211,8 @@ failed validation or storage, so migration can be retried. The editor and previe
 on the native IO worker queue for editor loads, saves and publication eligibility checks. Corrupted
 data blocks the editor rather than replacing it. The editor keys its initial read by slot and Peer ID,
 and drops results from cancelled reads. A new draft load retires the prior save's presentation
-ticket while the admitted write finishes. Returning from a nested picker preserves edits.
+ticket while the admitted write finishes. Starting a save clears publication confirmations and
+invalidates pending eligibility results. Returning from a nested picker preserves edits.
 The new Rust `ProfilePublisher` takes this selected identity folder and uses only its activated
 network settings to find a node. A draft network is never used for publication. Connection
 preparation does not alter the profile draft. Swift `RustBridge.publishProfile` reopens the
