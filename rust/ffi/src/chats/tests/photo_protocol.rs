@@ -259,7 +259,8 @@ fn native_forward_uploads_fresh_ciphertext_and_retains_the_source() {
         author: item.author,
         message_id: source_id.clone(),
     };
-    let ChatSubmission::Accepted { id } = f.chats.forward_photo(source, target_peer.clone()).unwrap()
+    let ChatSubmission::Accepted { id } =
+        f.chats.forward_photo(source, target_peer.clone()).unwrap()
     else {
         panic!("forwarded submission was not accepted");
     };
