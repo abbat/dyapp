@@ -33,6 +33,10 @@ final class NativeSlotKeysTests: XCTestCase {
             try keys.openWrapped(slotId: id, wrapped: rewrapped)?.peerId(), original.peerId())
         XCTAssertEqual(
             try keys.openWrapped(slotId: id, wrapped: wrapped)?.peerId(), original.peerId())
+        try keys.erase(slotId: id)
+        XCTAssertFalse(try keys.contains(slotId: id))
+        XCTAssertNil(try keys.openWrapped(slotId: id, wrapped: wrapped))
+        XCTAssertThrowsError(try keys.wrapExisting(slotId: id, key: original))
     }
 
     func testLegacyAccountReopensWithoutMovingOrReplacingItsCredential() throws {
@@ -76,5 +80,23 @@ final class NativeSlotKeysTests: XCTestCase {
         }
         XCTAssertEqual(slot.id, created.slot.id)
         XCTAssertEqual(key.peerId(), created.key.peerId())
+    }
+
+    func testIsolatedLegacyRootRetainsItsOriginalCredentialBinding() throws {
+        let root = try identitySlotTestRoot()
+        let account = UUID()
+        let legacy = PlatformKeyStore.forSlot(account)
+        defer { try? PlatformKeyStore.eraseWrappingKey(forSlot: account) }
+        let owner = try IdentityKey.generate()
+        let blob = try owner.wrap(store: legacy)
+        try blob.write(to: root.appendingPathComponent("identity.key"), options: .atomic)
+        let registry = MobileIdentityRegistry(
+            root: root.path, layout: .ios, keys: NativeSlotKeys(legacy: legacy))
+        guard case let .ready(slot, key) = try registry.resolve() else {
+            return XCTFail("An isolated legacy root must use its injected account")
+        }
+        XCTAssertEqual(slot.id, "legacy-primary")
+        XCTAssertEqual(key.peerId(), owner.peerId())
+        XCTAssertEqual(try Data(contentsOf: root.appendingPathComponent("identity.key")), blob)
     }
 }

@@ -12,6 +12,8 @@ accounts. Fresh wrapping uses exclusive Keychain insertion; existing-only wrappi
 missing key instead of creating one. Missing credentials return absence, whereas access/unwrap
 failures remain errors. This adapter and real exported-registry conformance tests are implemented;
 the shell still uses `IdentitySlotStore` policy until its common-registry cutover is complete.
+Isolated UI roots pass their existing per-root legacy store to the callback. A controlled eraser
+can reproduce cleanup failure; the common registry must still verify credential absence itself.
 
 The iOS start screen now resolves a saved identity without creating
 one. A fresh install shows an explicit Create action and a key-loss warning; a
