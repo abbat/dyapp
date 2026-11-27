@@ -123,7 +123,7 @@ struct ProfilePhotosSection: View {
                     .buttonStyle(.borderless)
                     .disabled(locked || isFull)
                     .accessibilityIdentifier("profile-photo-add")
-                    .task(id: candidate.location.marker) {
+                    .task(id: candidate.location.marker + ":" + peerId) {
                         await apply(edits: false) { dir, key in
                             try profilePhotoSnapshot(dir: dir, key: key)
                         }
