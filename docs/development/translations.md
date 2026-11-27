@@ -1,8 +1,9 @@
 # Shared translation catalogue
 
-Native catalogue generation is being implemented. Current production Android XML,
-desktop JSON and Apple xcstrings remain their existing sources until their migrations land.
-The generator is not wired into standard quality/CI yet.
+Canonical language sources are `i18n/en.json` and `i18n/ru.json`, with typed native
+bindings in `i18n/catalogue.json`. Their import preserves every existing native text and key.
+Current production Android XML, desktop JSON and Apple xcstrings remain unchanged until
+their migrations land. The generator is not wired into standard quality/CI yet.
 
 The implemented projection helper is `tools/scripts/translation_templates.py`.
 It accepts canonical text with named arguments, explicit string/integer argument types,
@@ -37,7 +38,7 @@ Aliases are explicit. Android native keys retain existing mixed-case enum suffix
 (for example `profile_value_career_ambition_High`). Loading validates every language and placeholder:
 duplicate keys, non-finite numbers, unsupported schema/fields, unsafe qualifiers, symlink/oversized
 sources, missing/extra messages or language files and duplicate native bindings fail.
-The loader writes nothing; production shared sources and native migration remain planned.
+The loader writes nothing. Native migration and standard CI integration remain planned.
 
 `translation_renderers.py` builds requested native outputs entirely in memory.
 Android gets one `strings.xml` per configured qualifier, desktop gets one JSON file per language,
@@ -52,8 +53,14 @@ under `build/`); repeat `--platform android|apple|desktop` to limit migration sc
 `--check` writes nothing and returns 1 for differing/missing generated output; invalid sources,
 unsafe destinations and unmanaged native translation files return 2.
 Every source, output byte set and destination is validated before generation writes changed files.
-The tool never deletes unmanaged catalogues. Production source import and migrations remain planned.
+The tool never deletes unmanaged catalogues; Android consolidation must account for the old
+feature XML files before generation can write its single catalogue per locale.
 
-The planned shared language sources must preserve existing native keys and wording,
-mark platform-only contexts and keep semantic aliases explicit. Similar-looking text
-alone does not establish that two messages have the same meaning.
+Edit canonical language sources and their explicit native bindings, then generate the affected
+platforms in Docker. Shared messages use one semantic entry; platform wording/context is
+marked in `context` and scoped keys. Preserve native resource names and argument contracts.
+Similar-looking text alone does not establish equivalent meaning: enum values, object-specific
+actions and status referents can need separate entries even when their current text matches.
+Add a language to `languages` and provide its complete source dictionary; there is no two-language
+limit. Mapping metadata uses one complete entry per line to stay readable and within its bounded
+source size; language dictionaries use sorted, indented JSON.
