@@ -9,7 +9,8 @@ if [[ ${1:-} == --session ]]; then
     DYAPP_VIDEO_SMOKE=1 python3 "$root/tests/scripts/desktop-smoke.py" "$root/build/debug/dyapp-linux"
     # With screenshots on (DYAPP_UI_SHOTS), a second pass in Russian saves the -ru screenshots.
     if [[ -n ${DYAPP_UI_SHOTS:-} ]]; then
-        DYAPP_SMOKE_RU=1 DYAPP_VIDEO_SMOKE=1 python3 "$root/tests/scripts/desktop-smoke.py" "$root/build/debug/dyapp-linux"
+        RUNNER_TEMP="$DYAPP_UI_SHOTS/ru-results" DYAPP_SMOKE_RU=1 DYAPP_VIDEO_SMOKE=1 \
+            python3 "$root/tests/scripts/desktop-smoke.py" "$root/build/debug/dyapp-linux"
     fi
     # Last, as both take the keyring away.
     reach=(python3 "$root/tests/scripts/run-cargo-unit-binaries.py" "$root/build/unit-build.json"
