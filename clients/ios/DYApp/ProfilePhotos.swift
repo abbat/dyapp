@@ -16,15 +16,17 @@ extension RustBridge {
         for candidate: IdentityCandidate, peerId: String,
         change: (String, IdentityKey) throws -> [Data]
     ) throws -> ProfilePhotoRows {
-        let key = try identityStore().open(candidate.location)
-        guard key.peerId() == peerId else { throw IdentitySlotError.peerIDMismatch }
-        let dir = networkDirectory(root: try directory(), candidate: candidate).path
-        let hashes = try change(dir, key)
-        var previews: [Data: Rgba] = [:]
-        for hash in hashes {
-            previews[hash] = try? checkPreview(bytes: profilePhoto(dir: dir, key: key, hash: hash))
+        try withDraftLock {
+            try withIdentity(candidate, peerId: peerId) { dir, key in
+                let hashes = try change(dir, key)
+                var previews: [Data: Rgba] = [:]
+                for hash in hashes {
+                    previews[hash] = try? checkPreview(
+                        bytes: profilePhoto(dir: dir, key: key, hash: hash))
+                }
+                return ProfilePhotoRows(hashes: hashes, previews: previews)
+            }
         }
-        return ProfilePhotoRows(hashes: hashes, previews: previews)
     }
 }
 
@@ -123,9 +125,7 @@ struct ProfilePhotosSection: View {
             guard let index = removing else { return }
             Task {
                 await apply(edits: true) { dir, key in
-                    try RustBridge.withDraftLock {
-                        try removeProfilePhoto(dir: dir, key: key, index: UInt32(index))
-                    }
+                    try removeProfilePhoto(dir: dir, key: key, index: UInt32(index))
                 }
             }
         }
@@ -186,9 +186,7 @@ struct ProfilePhotosSection: View {
     private func move(_ from: Int, to: Int) {
         Task {
             await apply(edits: true) { dir, key in
-                try RustBridge.withDraftLock {
-                    try moveProfilePhoto(dir: dir, key: key, from: UInt32(from), to: UInt32(to))
-                }
+                try moveProfilePhoto(dir: dir, key: key, from: UInt32(from), to: UInt32(to))
             }
         }
     }
@@ -210,10 +208,12 @@ struct ProfilePhotosSection: View {
 
     private func add(_ read: @escaping @Sendable () throws -> Data) async {
         status = "profile.photoWorking"
-        await apply(edits: true) { dir, key in
-            // Encoding takes a while, so it stays outside the lock that a save waits on.
+        let selected = candidate
+        let peer = peerId
+        await perform(edits: true) {
+            // Decode/encode before draft serialization and native admission, never while holding either.
             let photo = try PhotoPrep.prepare(read())
-            return try RustBridge.withDraftLock {
+            return try RustBridge.changeProfilePhotos(for: selected, peerId: peer) { dir, key in
                 try addProfilePhoto(
                     dir: dir, key: key, full: photo.full, thumbnail: photo.thumbnail)
             }
@@ -223,14 +223,18 @@ struct ProfilePhotosSection: View {
     private func apply(
         edits: Bool, _ change: @escaping @Sendable (String, IdentityKey) throws -> [Data]
     ) async {
-        busy = true
         let selected = candidate
         let peer = peerId
-        let result = await Task.detached(priority: .userInitiated) {
-            Result {
-                try RustBridge.changeProfilePhotos(for: selected, peerId: peer, change: change)
-            }
-        }.value
+        await perform(edits: edits) {
+            try RustBridge.changeProfilePhotos(for: selected, peerId: peer, change: change)
+        }
+    }
+
+    private func perform(
+        edits: Bool, _ work: @escaping @Sendable () throws -> ProfilePhotoRows
+    ) async {
+        busy = true
+        let result = await IdentityIO.performBlocking { Result { try work() } }
         busy = false
         switch result {
         case let .success(fresh):
