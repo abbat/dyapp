@@ -67,6 +67,10 @@ before continuing its existing pass/unpass/match journey. Every transition waits
 or state readiness. The DEBUG peer creates a fresh identity on each process start, so this UI journey
 does not relaunch it as if it were a stable counterpart; persistence is checked separately by native
 session reopening. Actual own-device sync and rendered EN/RU/enlarged acceptance remain separate.
+`ContactNoteStateTests` controls private-note completions without clocks: unknown/read-failed stays
+noneditable, failed save/clear retains the text, submission freezes its exact value, and late reads
+or another opening's results cannot overwrite the current draft. This presentation model delegates
+all text/target policy to native errors; its UI/native adoption is verified separately.
 The iOS registry suite drives collisions at the actual native `contains` callback: stranded
 credentials or a newly occupied directory must be skipped without overwriting their payload.
 Picker/invalid-pointer fixtures seed those states after atomic core creation, which already selects
