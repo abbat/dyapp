@@ -138,8 +138,15 @@ impl ChatSession {
         if store.blocked(&peer_id).map_err(failed)? {
             return Err(failed("blocked"));
         }
-        let mode = store.auto_download().map_err(failed)?;
-        let contact = store.conversation(&peer_id).map_err(failed)? == Conversation::Open;
-        Ok(attachment::auto_download(mode, network_metered(), contact))
+        can_auto_download(store, &peer_id)
     }
+}
+
+pub(super) fn can_auto_download(
+    store: &dyapp_client::store::Store,
+    peer_id: &str,
+) -> Result<bool, CoreError> {
+    let mode = store.auto_download().map_err(failed)?;
+    let contact = store.conversation(peer_id).map_err(failed)? == Conversation::Open;
+    Ok(attachment::auto_download(mode, network_metered(), contact))
 }

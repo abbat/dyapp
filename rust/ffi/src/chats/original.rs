@@ -41,12 +41,46 @@ impl ChatSession {
         author: String,
         id: Vec<u8>,
     ) -> Result<Vec<u8>, CoreError> {
+        self.read_chat_photo(&peer_id, &group_id, &author, &id, false)
+    }
+
+    /// Loads an original only when the current automatic download policy allows it.
+    ///
+    /// # Errors
+    /// Returns onTap when automatic download is disabled, or the usual retrieval errors.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "UniFFI lifts owned arguments across the native language boundary"
+    )]
+    pub fn chat_photo_automatic(
+        &self,
+        peer_id: String,
+        group_id: Vec<u8>,
+        author: String,
+        id: Vec<u8>,
+    ) -> Result<Vec<u8>, CoreError> {
+        self.read_chat_photo(&peer_id, &group_id, &author, &id, true)
+    }
+}
+
+impl ChatSession {
+    fn read_chat_photo(
+        &self,
+        peer_id: &str,
+        group_id: &[u8],
+        author: &str,
+        id: &[u8],
+        automatic: bool,
+    ) -> Result<Vec<u8>, CoreError> {
         on_network_stack(|| {
             // Keep clear/block serialized with retrieval and cache writes.
             let session = self.session.lock().map_err(failed)?;
             let store = session.store();
-            let photo = attachment::original::select(store, &peer_id, &group_id, &author, &id)
+            let photo = attachment::original::select(store, peer_id, group_id, author, id)
                 .map_err(failed)?;
+            if automatic && !super::photos::can_auto_download(store, peer_id)? {
+                return Err(failed("onTap"));
+            }
             if let Some(bytes) = photo
                 .local(store, &self.dir, &self.seal_key)
                 .map_err(failed)?

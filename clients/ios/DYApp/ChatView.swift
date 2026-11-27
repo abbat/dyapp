@@ -526,10 +526,7 @@ private struct ChatPhotoPreview: View {
         }
         .task(id: network.metered) {
             guard original == nil else { return }
-            let peer = opening.source.peerId
-            let policy = await feed.call(opening.context) { try $0.chatPhotoAuto(peerId: peer) }
-            guard !Task.isCancelled, case .success(true) = policy else { return }
-            let loaded = await loadChatPhoto(feed: feed, opening: opening)
+            let loaded = await loadChatPhoto(feed: feed, opening: opening, automatic: true)
             guard !Task.isCancelled else { return }
             original = loaded
         }
@@ -582,10 +579,17 @@ private struct ChatPhotoViewer: View {
 }
 
 @MainActor
-private func loadChatPhoto(feed: ChatFeed, opening: PhotoOpening) async -> Image? {
+private func loadChatPhoto(
+    feed: ChatFeed, opening: PhotoOpening, automatic: Bool = false
+) async -> Image? {
     let source = opening.source
     let result = await feed.call(opening.context) {
-        try $0.chatPhotoOriginal(
+        if automatic {
+            return try $0.chatPhotoAutomatic(
+                peerId: source.peerId, groupId: source.groupId,
+                author: source.author, id: source.messageId)
+        }
+        return try $0.chatPhotoOriginal(
             peerId: source.peerId, groupId: source.groupId,
             author: source.author, id: source.messageId)
     }

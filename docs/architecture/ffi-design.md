@@ -715,7 +715,8 @@ The open-chat iOS picker pages through recent stickers and saved packs. It submi
 index. iOS Settings imports TAR packs through the size-limited native file picker and shared
 archive validator. Settings lists saved packs and removes only the explicitly confirmed ID through
 an admitted identity operation, then refreshes the list. Queued submissions hide the choices to prevent another send from the same opening. Photo rows
-check `chat_photo_auto` before requesting an original and recheck after network cost changes. Other
+request originals through `chat_photo_automatic`, which enforces the policy in the retrieval call,
+and retry the policy check when network cost changes. Other
 chats present an explicit load action. The iOS composer prepares the selected JPEG or PNG off the
 UI actor, shows a confirmation preview and passes the JPEG and its encoded dimensions to
 `submit_chat_photo`. Queued photo submissions use the existing committed-delivery status.
