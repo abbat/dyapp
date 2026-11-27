@@ -190,16 +190,24 @@ def validate_ios_attachments(directory: Path, language: str) -> dict[str, str]:
         png = evidence_file(directory, manifest, name, ".png")
         if not png.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"):
             raise RuntimeError(f"Invalid PNG attachment: {name}")
-        geometry = evidence_file(directory, manifest, f"{name}-geometry", ".txt")
+        geometry = evidence_file(
+            directory, manifest, f"{name}-geometry", ".txt"
+        )
         if not geometry.read_text().startswith("element="):
             raise RuntimeError(f"Invalid geometry attachment: {name}")
         for attachment in (png, geometry):
-            digests[attachment.name] = hashlib.sha256(attachment.read_bytes()).hexdigest()
+            digests[attachment.name] = hashlib.sha256(
+                attachment.read_bytes()
+            ).hexdigest()
     return digests
 
 
-def evidence_file(directory: Path, manifest: list[dict], name: str, suffix: str) -> Path:
-    exported_name = re.compile(rf"{re.escape(name)}(?:_\d+)*{re.escape(suffix)}")
+def evidence_file(
+    directory: Path, manifest: list[dict], name: str, suffix: str
+) -> Path:
+    exported_name = re.compile(
+        rf"{re.escape(name)}(?:_\d+)*{re.escape(suffix)}"
+    )
     matches = [
         Path(item["exportedFileName"])
         for test in manifest
@@ -211,7 +219,9 @@ def evidence_file(directory: Path, manifest: list[dict], name: str, suffix: str)
     return directory / matches[0]
 
 
-def export_ios_evidence(reports: Path, result_bundle: Path, apps: list[Path], destination: str) -> None:
+def export_ios_evidence(
+    reports: Path, result_bundle: Path, apps: list[Path], destination: str
+) -> None:
     attachments = reports / "attachments"
     attachments.mkdir(exist_ok=True)
     digests = {}
@@ -236,17 +246,29 @@ def export_ios_evidence(reports: Path, result_bundle: Path, apps: list[Path], de
             reports / f"attachments-{language}.log",
         )
         digests.update(
-            {f"{language}/{name}": digest
-             for name, digest in validate_ios_attachments(directory, language).items()}
+            {
+                f"{language}/{name}": digest
+                for name, digest in validate_ios_attachments(
+                    directory, language
+                ).items()
+            }
         )
-    binaries = [app / "DYApp" for app in apps if app.parent.name.endswith("-iphonesimulator")]
+    binaries = [
+        app / "DYApp"
+        for app in apps
+        if app.parent.name.endswith("-iphonesimulator")
+    ]
     if len(binaries) != 1:
         raise RuntimeError("Expected one tested iOS simulator application")
     with binaries[0].open("rb") as binary:
         binary_sha256 = hashlib.file_digest(binary, "sha256").hexdigest()
-    source = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    source = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], text=True
+    ).strip()
     if source != os.environ["GITHUB_SHA"]:
-        raise RuntimeError("Tested iOS checkout differs from the CI source commit")
+        raise RuntimeError(
+            "Tested iOS checkout differs from the CI source commit"
+        )
     (attachments / "provenance.json").write_text(
         json.dumps(
             {
