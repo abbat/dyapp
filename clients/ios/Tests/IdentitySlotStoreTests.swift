@@ -419,7 +419,9 @@ extension IdentitySlotStoreTests {
             .picker([
                 IdentityCandidate(location: .slot(survivor.slot.id), state: .ready)
             ]))
-        XCTAssertEqual(try reopened.select(.slot(survivor.slot.id)), survivor.peerId)
+        XCTAssertEqual(
+            try reopened.select(.slot(survivor.slot.id)).resolution,
+            .ready(survivorCandidate, survivor.peerId))
         XCTAssertEqual(try reopened.open(survivor.slot).peerId(), survivor.peerId)
         for file in [NetworkFile.draft, .active] {
             let settings = try XCTUnwrap(loadNetwork(dir: survivorDir.path, file: file))

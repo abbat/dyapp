@@ -66,6 +66,8 @@ requires admission immediately after return. Wrong Peer IDs and incomplete slots
 action and preserve original bytes; no competing mutation is started behind a held lease.
 DTO tests retain a known recovery
 Peer ID and committed persistence warnings without converting them into retryable failures.
+Slot-selection assertions compare the returned `IdentityUpdate.resolution` with the full ready
+candidate and Peer ID; the update itself is not a Peer-ID string.
 The iOS real-peer sharing scenario opens an incoming ordinary link naming the app owner, shares
 that own profile into the distinct established conversation through the common native operation,
 and waits for the peer's acknowledgement of exactly one matching owner-authored link. Its fixture
