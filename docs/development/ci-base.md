@@ -79,6 +79,10 @@ D8 is exercised; R8 is currently disabled in Gradle.
 
 ## Artifact size budgets
 
+The release workflow registers `sticker-webp-build` with the quiet runner before invoking Cargo.
+Compiler errors and source locations remain in its concise failure output and full captured log;
+measurement and artifact upload run under the existing workflow conditions.
+
 `tools/scripts/check-artifact-size.py <name> <file> --base <ancestor> --report <json>`
 compares file bytes with `tests/scripts/artifact-sizes.json`. Exactly 5% growth passes;
 one byte beyond the boundary needs a nonempty `Size-Increase: <reason>` commit

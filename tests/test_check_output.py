@@ -165,6 +165,16 @@ class CheckOutput(unittest.TestCase):
                 ("actionlint", ["actionlint", str(workflow)], "unknown"),
                 ("shellcheck", ["shellcheck", str(shell)], "SC2086"),
                 (
+                    "sticker-webp-build",
+                    [
+                        "rustc",
+                        str(crate / "src/main.rs"),
+                        "-o",
+                        str(root / "bin"),
+                    ],
+                    "E0308",
+                ),
+                (
                     "cargo",
                     [
                         "cargo",
