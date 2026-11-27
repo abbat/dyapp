@@ -84,6 +84,8 @@ struct ChatForwardPicker: View {
 
         case .failure:
             status = "chat.forwardFailed"
+            return
         }
+        await feed.read()
     }
 }
