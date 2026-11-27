@@ -11,11 +11,16 @@
 
         static var enabled: Bool {
             ProcessInfo.processInfo.arguments.contains("--ui-test-chat-peer") || likesFirst
+                || viewsFirst
                 || sharesProfile
         }
         private static var likesFirst: Bool {
             ProcessInfo.processInfo.arguments.contains("--ui-test-chat-peer-likes")
         }
+        private static var viewsFirst: Bool {
+            ProcessInfo.processInfo.arguments.contains("--ui-test-chat-peer-views")
+        }
+
         private static var sharesProfile: Bool {
             ProcessInfo.processInfo.arguments.contains("--ui-test-chat-peer-shares")
         }
@@ -27,7 +32,9 @@
             Thread.detachNewThread {
                 do {
                     let (session, _) = try published()
-                    if likesFirst {
+                    if viewsFirst {
+                        try sendView(to: me, session: session)
+                    } else if likesFirst {
                         try retrying("like") { _ = try session.like(peerId: me, liked: true) }
                     } else {
                         let answer = try replyContent(to: me)
@@ -36,6 +43,22 @@
                 } catch {
                     NSLog("ChatTestPeer stopped: %@", String(describing: error))
                 }
+            }
+        }
+
+        private static func sendView(to peer: String, session: ChatSession) throws {
+            try session.setProfileViewsEnabled(enabled: true)
+            try retrying("view recipient publication") {
+                guard try !session.profiles(peerIds: [peer]).isEmpty else {
+                    throw CocoaError(.fileReadNoSuchFile)
+                }
+            }
+            let opening = try session.profileViewOpening(peerId: peer)
+            guard let submission = try session.submitProfileView(opening: opening) else {
+                throw CocoaError(.fileWriteUnknown)
+            }
+            if case .queued = submission {
+                try retrying("view outbox") { _ = try session.receive() }
             }
         }
 
