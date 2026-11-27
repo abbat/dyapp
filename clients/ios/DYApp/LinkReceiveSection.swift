@@ -21,10 +21,14 @@ struct LinkReceiveSection: View {
     var body: some View {
         Section {
             if let invitation {
+                Text("link.receive.waiting").font(.caption)
+                    .accessibilityIdentifier("link-receive-waiting")
                 qr(invitation.matrix)
                 Text(verbatim: invitation.code).textSelection(.enabled)
                     .accessibilityIdentifier("link-receive-code")
-                Button("sticker.pack.refresh") { check(invitation) }.disabled(busy)
+                Button("sticker.pack.refresh") { check(invitation) }
+                    .disabled(busy)
+                    .accessibilityIdentifier("link-receive-check")
                 Button("search.cancel") {
                     _ = invitation.receiver.cancel()
                     self.invitation = nil

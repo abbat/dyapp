@@ -1777,6 +1777,22 @@
         }
       }
     },
+    "link.receive.waiting": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for approval on your other device."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ожидание подтверждения на другом устройстве."
+          }
+        }
+      }
+    },
     "lock.back": {
       "localizations": {
         "en": {
