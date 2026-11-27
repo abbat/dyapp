@@ -189,7 +189,8 @@ struct ChatView: View {
     }
 
     private func photoBubble(_ photo: ChatPhoto) -> some View {
-        HStack {
+        VStack(alignment: .leading) {
+            ChatPhotoPreview(bytes: photo.preview)
             if photo.forwarded {
                 Text(verbatim: String(
                     format: NSLocalizedString("chats.forwarded", comment: ""),
@@ -433,6 +434,30 @@ private struct ChatBubble: View {
         .fixedSize()
         .accessibilityLabel(Text("msg.menu"))
         .accessibilityIdentifier(own ? "msg-menu" : "msg-received-menu")
+    }
+}
+
+private struct ChatPhotoPreview: View {
+    let bytes: Data
+    @State private var image: Image?
+
+    var body: some View {
+        Group {
+            if let image {
+                image.resizable().scaledToFit().frame(maxWidth: 120, maxHeight: 120)
+                    .accessibilityHidden(true)
+            }
+        }
+        .task(id: bytes) {
+            image = nil
+            guard !bytes.isEmpty else { return }
+            let input = bytes
+            let decoded = await IdentityIO.performBlocking {
+                DecodedPhoto(image: (try? checkPreview(bytes: input)).flatMap(previewImage))
+            }
+            guard !Task.isCancelled else { return }
+            image = decoded.image
+        }
     }
 }
 

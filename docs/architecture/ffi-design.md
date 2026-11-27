@@ -708,7 +708,8 @@ network even when this device has a cached copy. Only current chat photos are el
 renders the common ordered history with photo placeholders and a forwarded label, and uses the
 same destination picker for text and photos. Explicit photo loading opens a viewer for the
 core-validated JPEG or PNG and bounds display decoding to 2048 px on the long side. In-thread
-previews and automatic original loading remain planned.
+previews use the shared bounded JPEG decoder on existing history bytes. Automatic original
+loading remains planned.
 
 Desktop text, edit, delete, photo and forward commands project the same core `Submission` as
 `{ id, queued }`: `queued: null` means immediate node acceptance; a string means committed with
