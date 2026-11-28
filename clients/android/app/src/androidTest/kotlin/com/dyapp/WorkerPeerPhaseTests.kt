@@ -28,7 +28,7 @@ class WorkerPeerPhaseTests {
         }
     }
 
-    private fun searchOutbox(context: Context, fixture: WorkerMailPair, phase: String) {
+    private fun searchOutbox(context: Context, fixture: WorkerMailPair, phase: String?) {
         when (phase) {
             "prepareSearchOutbox" -> prepareSearchOutbox(context, fixture)
             "verifySearchOutbox" -> WorkerSearchOutbox(context, fixture.reopenQueued()).verify()
