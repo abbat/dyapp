@@ -1555,9 +1555,11 @@ atomic record keeps the full public selector, original SHA-256 and dimensions.
 The queued reopen phases verify those exact bytes and dimensions while the host's
 external node is stopped, including after guest reboot and APK upgrade. Before taking the
 node offline, the worker fixture acknowledges one search projection and publishes a changed
-profile for the same owner within the ordinary retry window. The reboot probe verifies both
-persisted job registrations before instrumentation can recreate them. The offline phases
-compare the original owner's native search deadline across reboot and APK upgrade.
+profile for the same owner within the ordinary retry window. The independent PNG lifecycle
+runs during that window. After reboot, the probe waits for Android to report the current
+user unlocked and verifies both persisted jobs before instrumentation can recreate them.
+The offline phases compare the original owner's native search deadline across reboot and
+APK upgrade, with separate reports for the checks before and after reboot.
 During the reboot checks, a second test identity is temporarily selected to verify that
 selection does not retarget the original queue. After node recovery, instrumentation uses
 the recorded native deadline to dispatch the restored search job and checks its acknowledgement
