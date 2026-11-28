@@ -52,8 +52,8 @@ internal class WorkerSearchOutbox(private val context: Context, private val owne
     fun awaitDelivery(seeker: Opened.Ready) {
         val directory = RustBridge.withKey(owner) { dir, _ -> File(dir) }
         MailStorageSignal(directory).use { signal ->
-            requestDelivery()
             withOutbox { outbox ->
+                requestDelivery(outbox)
                 PeerTransition("search acknowledgement").awaitSignal(
                     ready = { outbox.status() == SearchOutboxStatus.Idle },
                     advance = signal::await
@@ -63,18 +63,22 @@ internal class WorkerSearchOutbox(private val context: Context, private val owne
         verifyDelivered(seeker)
     }
 
-    private fun requestDelivery() = runBlocking {
+    private fun requestDelivery(outbox: MobileSearchOutbox) = runBlocking {
         val readyAt = checkpoint.read().getString("readyAt").toLong()
         val remaining = readyAt * 1_000L - System.currentTimeMillis()
         check(remaining <= 600_000L) { "Unexpected search publication deadline: $readyAt" }
+        if (outbox.status() == SearchOutboxStatus.Idle) return@runBlocking
         if (remaining > 0) delay(remaining)
+        if (outbox.status() == SearchOutboxStatus.Idle) return@runBlocking
         // The guest can reach the node but Android does not validate the guest network.
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
         val command = "cmd jobscheduler run -f com.dyapp $SEARCH_OUTBOX_JOB_ID"
         val reply = ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand(command))
             .bufferedReader()
             .use { it.readText() }
-        check(reply.contains("Running job")) { "Search job dispatch failed: $reply" }
+        check(reply.contains("Running job") || outbox.status() == SearchOutboxStatus.Idle) {
+            "Search job dispatch failed: $reply"
+        }
     }
 
     private fun verifyDelivered(seeker: Opened.Ready) = withSearch(seeker) { searcher, filters ->
