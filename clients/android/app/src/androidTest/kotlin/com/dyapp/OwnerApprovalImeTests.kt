@@ -10,7 +10,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
-import androidx.compose.ui.test.performTextInputSelection
 import androidx.compose.ui.text.TextRange
 import androidx.test.espresso.Espresso.closeSoftKeyboard
 import androidx.test.platform.app.InstrumentationRegistry
@@ -89,7 +88,7 @@ class OwnerApprovalImeTests {
     ) {
         val glyphs = OwnerImeCharacters(compose, window)
         for (index in listOf(0, OWNER_VISUAL_CODE.length / 2, OWNER_VISUAL_CODE.length)) {
-            compose.onNodeWithTag("owner-code-input").performTextInputSelection(TextRange(index))
+            glyphs.select(index)
             awaitSelection(index)
             window.awaitVisible()
             val measured = OwnerImeMeasurement(

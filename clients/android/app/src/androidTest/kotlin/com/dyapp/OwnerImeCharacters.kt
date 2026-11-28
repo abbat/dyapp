@@ -14,6 +14,17 @@ import kotlin.math.roundToInt
 internal class OwnerImeCharacters(private val compose: ComposeContentTestRule, private val window: OwnerImeWindow) {
     private var observation = "not requested"
 
+    fun select(index: Int) {
+        val field = checkNotNull(editor()) { observation }
+        val arguments = Bundle().apply {
+            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, index)
+            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, index)
+        }
+        check(field.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, arguments)) {
+            "Android rejected selection $index: $observation"
+        }
+    }
+
     fun requireVisible(index: Int): RectF {
         var result: RectF? = null
         var glyph: RectF? = null
