@@ -185,7 +185,7 @@ def keep_log(
                 stdout=output,
                 stderr=subprocess.STDOUT,
                 check=False,
-                timeout=5 * 60,
+                timeout=60,
             )
         except subprocess.TimeoutExpired:
             output.write("log show timed out\n")
@@ -334,6 +334,13 @@ def export_ios_evidence(
 def failed_test_summary(bundle: Path, reports: Path) -> list[str]:
     if not bundle.is_dir():
         return []
+    try:
+        return read_failed_test_summary(bundle, reports)
+    except subprocess.TimeoutExpired:
+        return ["XCTest failure summary timed out"]
+
+
+def read_failed_test_summary(bundle: Path, reports: Path) -> list[str]:
     result = subprocess.run(
         [
             "xcrun",
@@ -347,6 +354,7 @@ def failed_test_summary(bundle: Path, reports: Path) -> list[str]:
         capture_output=True,
         text=True,
         check=False,
+        timeout=30,
     )
     if result.returncode:
         return []

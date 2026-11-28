@@ -2714,7 +2714,8 @@ not reported only as a process timeout; the two `add` cases allow 300 s for the 
 
 Apple hosted tests and core builds also use mapped results, with raw logs in the
 native artifacts. A failed or timed-out native command reports its last 4 KiB and
-the runner attempts to summarize XCTest failures from any available result bundle.
+the runner allows 30 seconds to summarize an available XCTest result bundle and
+60 seconds per simulator log query so diagnostics leave time for artifact upload.
 `apple-test-in-ci.sh` keeps its exit-2 rejection outside approved
 CI; the Python frontend likewise refuses local execution. `--raw` selects direct
 diagnostic output for these Apple entry points. Existing SDK-free command-plan
