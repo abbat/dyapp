@@ -216,7 +216,9 @@ class AndroidLifecycle(unittest.TestCase):
                 Step(CURRENT_USER, "unknown"),
             ]
         )
-        with self.assertRaisesRegex(RuntimeError, "Unexpected Android user ID"):
+        with self.assertRaisesRegex(
+            RuntimeError, "Unexpected Android user ID"
+        ):
             LIFECYCLE.AdbLifecycle(run=fake, now=fake.now).reboot(
                 "com.dyapp", 1, 10
             )
