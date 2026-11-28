@@ -302,7 +302,8 @@ extension ProfileUITests {
         XCTAssertEqual(XCTWaiter.wait(for: [retried], timeout: 30), .completed)
         reveal(app.buttons["settings-remove-cancel-offline"], in: app).tap()
         XCTAssertTrue(reveal(app.buttons["settings-remove"], in: app).exists)
-        let selected = reveal(app.descendants(matching: .any)["settings-active"], in: app)
+        let selected = reveal(
+            app.descendants(matching: .any)["settings-active"], in: app, above: true)
         guard ready(selected) else { return }
         XCTAssertTrue(selected.label.contains(expectedPeer))
         openWithdrawalFailure(app)
