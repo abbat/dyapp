@@ -51,6 +51,9 @@ final class ProfileUITests: XCTestCase {
             XCTAssertEqual(XCTWaiter.wait(for: [queued], timeout: 30), .completed)
             reveal(status, in: app, fullyVisible: true)
             attachSearchHideState(app, name: "search-hide-queued-\(language)")
+            if language == "en" {
+                checkOfflineSearchHideRetry(app, owner: firstOwner)
+            }
         }
 
         private func attachSearchHideState(_ app: XCUIApplication, name: String) {
@@ -457,4 +460,22 @@ extension ProfileUITests {
         link.tap()
         XCTAssertTrue(app.buttons["network-save"].waitForExistence(timeout: 10))
     }
+}
+
+extension ProfileUITests {
+    #if IOS_UI_FIXTURES
+        private func checkOfflineSearchHideRetry(_ app: XCUIApplication, owner: String) {
+            let retry = reveal(app.buttons["search-recovery-action"], in: app, fullyVisible: true)
+            guard ready(retry) else { return }
+            XCTAssertEqual(retry.label, "Retry delivery")
+            retry.tap()
+            let status = app.staticTexts["search-recovery-status"]
+            let retained = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "label CONTAINS %@", "Your saved data is retained"),
+                object: status)
+            XCTAssertEqual(XCTWaiter.wait(for: [retained], timeout: 30), .completed)
+            let currentOwner = app.staticTexts["search-recovery-owner"]
+            XCTAssertEqual(reveal(currentOwner, in: app, fullyVisible: true).label, owner)
+        }
+    #endif
 }
