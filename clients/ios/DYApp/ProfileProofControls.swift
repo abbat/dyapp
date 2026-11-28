@@ -185,14 +185,19 @@ private struct ProfileHideControls: View {
         switch error as? SearchRecoveryError {
         case .Closed, .Changed:
             return "searchRecovery.stale"
+
         case .ReviewRequired:
             return "searchRecovery.reviewRequired"
+
         case .LinkPending:
             return "searchRecovery.linkPending"
+
         case .VersionExhausted:
             return "searchRecovery.versionExhausted"
+
         case .WrongOwner:
             return "searchRecovery.wrongOwner"
+
         default:
             return "searchRecovery.error"
         }
