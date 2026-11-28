@@ -20,7 +20,9 @@ extension ChatsUITests {
         let row = app.buttons.matching(
             NSPredicate(format: "identifier BEGINSWITH %@", "received-view-")
         ).firstMatch
-        guard ready(reveal(row, in: app, timeout: 150)) else { return }
+        // The first incoming row is absent until the remote event is received and loaded.
+        XCTAssertTrue(row.waitForExistence(timeout: 150), app.debugDescription)
+        guard ready(reveal(row, in: app)) else { return }
         let peer = String(row.identifier.dropFirst("received-view-".count))
         row.tap()
         let profile = app.staticTexts["view-peer"]
