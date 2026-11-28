@@ -232,23 +232,24 @@ case "${1:?suite required}" in
                 -e "$argument" "$phase" -e class "com.dyapp.$test_class" || return
             python3 /app/tests/scripts/check-instrumentation-results.py "$report_dir/$fixture-peer-$phase.txt" 1
         }
-        probe_worker_mail() {
+        probe_worker_job() {
             timeout 60 adb -s emulator-5554 shell cmd jobscheduler get-job-state \
-                --user current com.dyapp 1 > "$report_dir/worker-$1-job.txt" 2>&1 &&
-                test -s "$report_dir/worker-$1-job.txt"
+                --user current com.dyapp "$1" > "$report_dir/worker-$2-job.txt" 2>&1 &&
+                test -s "$report_dir/worker-$2-job.txt"
         }
         reboot_worker() {
-            probe_worker_mail before-reboot || return
+            probe_worker_job 1 before-reboot || return
             python3 /app/tests/scripts/android_lifecycle.py --job-id 2 \
                 --report "$report_dir/worker-reboot.json" > "$report_dir/worker-reboot.txt" 2>&1 || return
-            probe_worker_mail after-reboot
+            probe_worker_job 1 after-reboot
         }
         upgrade_worker() {
             timeout 300 adb -s emulator-5554 install --no-streaming -r \
                 /app/build/android/lifecycle/app-upgrade.apk \
                 > "$report_dir/worker-upgrade.txt" 2>&1 || return
             # Probe before instrumentation/Application.onCreate can recreate a lost registration.
-            probe_worker_mail upgrade || return
+            probe_worker_job 1 upgrade || return
+            probe_worker_job 2 upgrade-search || return
             peer_phase worker upgraded
         }
         offline_worker_phases() {

@@ -50,7 +50,7 @@ class WorkerPeerPhaseTests {
     private fun upgraded(context: Context, fixture: WorkerMailPair): Opened.Ready {
         val before = versionCheckpoint(context).read().getLong("version")
         check(installedVersion(context) > before) { "Installed APK version did not increase" }
-        return fixture.reopenQueued()
+        return fixture.reopenQueued().also { WorkerSearchOutbox(context, it).verify() }
     }
 
     private fun versionCheckpoint(context: Context) =
