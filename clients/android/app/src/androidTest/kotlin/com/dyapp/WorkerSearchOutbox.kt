@@ -31,6 +31,7 @@ internal class WorkerSearchOutbox(private val context: Context, private val owne
         check(job.isPersisted && job.service == ComponentName(context, MailJob::class.java)) {
             "Search job must persist and target the production MailJob"
         }
+        checkNotNull(job.requiredNetwork) { "Search job must wait for network availability" }
         checkpoint.write(JSONObject().put("owner", owner.peerId).put("readyAt", scheduled.readyAt.toString()))
     }
 
