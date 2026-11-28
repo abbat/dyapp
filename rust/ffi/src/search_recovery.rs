@@ -132,6 +132,15 @@ impl MobileSearchRecovery {
     /// # Errors
     /// Returns existing-only admission, owner-review or storage failures.
     pub fn prepare(&self) -> Result<Option<Arc<SearchWithdrawalReview>>, SearchRecoveryError> {
+        // A fresh slot has neither a database nor existing chat credentials.
+        {
+            let slot = self.owner.slot.operation()?;
+            match std::fs::symlink_metadata(slot.operation.slot().dir.join("client.db")) {
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+                Err(error) => return Err(network_failed(error)),
+                Ok(_) => {}
+            }
+        }
         let admitted = self.owner.open()?;
         let Some(plan) = admitted.store.prepare_search_withdrawal_recovery()? else {
             return Ok(None);

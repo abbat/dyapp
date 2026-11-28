@@ -78,6 +78,22 @@ fn create_while_review_is_idle(registry: &Arc<MobileIdentityRegistry>) -> Mobile
 }
 
 #[test]
+fn fresh_slot_has_no_recovery_and_creates_no_database() {
+    let f = Fixture::new(MobileSlotLayout::Ios);
+    let fresh = f.registry.create().unwrap();
+    let worker = MobileSearchRecovery::new(
+        Arc::clone(&f.registry),
+        fresh.slot.id,
+        fresh.key.peer_id(),
+        Arc::new(Wrapping),
+    );
+    let dir = PathBuf::from(fresh.slot.directory);
+    assert!(worker.prepare().unwrap().is_none());
+    assert!(!dir.join("client.db").exists());
+    assert!(!dir.join("chat-state.key").exists());
+}
+
+#[test]
 fn both_layouts_release_idle_admission_and_confirm_only_the_original_slot() {
     for layout in [MobileSlotLayout::Android, MobileSlotLayout::Ios] {
         let f = Fixture::new(layout);
