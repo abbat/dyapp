@@ -56,7 +56,7 @@ struct ReceivedViewsSection: View {
         let context = feed.context
         DisclosureGroup(
             "privacy.views.received.title",
-            isExpanded: Binding(get: { expanded }, set: setExpanded)
+            isExpanded: Binding<Bool>(get: { expanded }, set: { value in setExpanded(value) })
         ) {
             Text("privacy.views.received.hint").font(.caption)
             if let rows {
