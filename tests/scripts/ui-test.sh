@@ -17,9 +17,9 @@ elif [[ ${DYAPP_VERBOSE:-0} != 1 ]]; then
 fi
 case "${1:-help}" in
     help|--help|-h)
-        echo 'Usage: ui-test.sh android|android-emulator|android-permissions|linux|prototype|prototype-android|all|prepare|shell [platform]'
+        echo 'Usage: ui-test.sh android|android-emulator|android-lifecycle|android-permissions|linux|prototype|prototype-android|all|prepare|shell [platform]'
         exit 0 ;;
-    android|android-emulator|android-permissions|linux|prototype|prototype-android|all|prepare) ;;
+    android|android-emulator|android-lifecycle|android-permissions|linux|prototype|prototype-android|all|prepare) ;;
     shell) case "${2:-android}" in
         android|linux) ;;
         *) echo "Unknown platform: $2" >&2; exit 2 ;;
@@ -36,12 +36,17 @@ fi
 # The Linux run saves its screenshots here; stale ones would be kept, so start empty.
 shots() { mkdir -p build/ux-research/current && rm -f build/ux-research/current/*.png; }
 run() {
-    python3 tools/scripts/docker-local.py "${compose[@]}" --profile all run --pull never "$1"
+    python3 tools/scripts/docker-local.py "${compose[@]}" --profile all run --pull never "$@"
 }
 case "${1:-help}" in
     # CI sets DYAPP_ANDROID_SKIP_BUILD=1 after the first stage to avoid three Gradle startups.
     android) [[ ${DYAPP_ANDROID_SKIP_BUILD:-0} == 1 ]] || run android-build; run android-unit-test ;;
-    android-emulator) [[ ${DYAPP_ANDROID_SKIP_BUILD:-0} == 1 ]] || run android-build; run android-emulator-test ;;
+    android-emulator|android-lifecycle)
+        [[ ${DYAPP_ANDROID_SKIP_BUILD:-0} == 1 ]] || run android-build
+        phase=${DYAPP_ANDROID_UI_PHASE:-all}
+        [[ $1 != android-lifecycle ]] || phase=lifecycle
+        run -e "DYAPP_ANDROID_UI_PHASE=$phase" android-emulator-test
+        ;;
     android-permissions) [[ ${DYAPP_ANDROID_SKIP_BUILD:-0} == 1 ]] || run android-build; run android-permission-test ;;
     linux) shots; run linux-test ;;
     prototype)
@@ -71,6 +76,6 @@ case "${1:-help}" in
         esac
         DYAPP_VERBOSE=1 python3 tools/scripts/docker-local.py -f tests/docker/compose.ui.yml --profile all run --no-deps "$service" bash
         ;;
-    help|--help|-h) echo 'Usage: ui-test.sh android|android-emulator|android-permissions|linux|prototype|prototype-android|all|prepare|shell [platform]' ;;
+    help|--help|-h) echo 'Usage: ui-test.sh android|android-emulator|android-lifecycle|android-permissions|linux|prototype|prototype-android|all|prepare|shell [platform]' ;;
     *) echo "Unknown or unsupported command: $1" >&2; exit 2 ;;
 esac

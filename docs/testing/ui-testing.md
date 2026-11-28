@@ -2243,6 +2243,10 @@ read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID
     `am instrument -w com.dyapp.test/androidx.test.runner.AndroidJUnitRunner`, validates the
     output, and pulls the app's `files/ui-ready.png` screenshot (must be non-empty). On failure it
     also captures `failure.png` and `window.txt`; `logcat.txt` is always captured.
+  - CI runs the primary instrumentation, legacy permissions and forged search in `android-emulator`
+    and the retained-peer, worker reboot/upgrade and incoming PNG scenarios in `android-lifecycle`.
+    Both start fresh emulators using the same prebuilt runtime artifact and keep their own 30-minute
+    budget and reports. The local `android-emulator` command still runs both phases.
   - The emulator container is started as a dependency; `docker-local.py` runs
     `docker compose stop` when the test run ends, so it is stopped but not removed.
   - Manual launcher check (e.g. the app icon): start the emulator alone with

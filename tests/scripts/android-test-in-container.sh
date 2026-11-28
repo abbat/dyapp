@@ -162,132 +162,140 @@ case "${1:?suite required}" in
         timeout 60 adb -s emulator-5554 shell ime disable com.android.inputmethod.latin/.LatinIME
         # The broadcast waits for every receiver; a software-emulated API 31 needs minutes.
         timeout 300 adb -s emulator-5554 shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS
-        bash /app/tests/scripts/android-lan-permission-phases.sh legacy "$report_dir" "10.0.2.2:33445"
-        # am instrument has no retries: rerun the failed tests twice; failures before a passing
-        # run are flaky (practice B5). A failed run that names no test reruns the whole suite.
-        # These fixtures run below or in the permission lane with their required arguments.
-        phase_only=com.dyapp.LocalNetworkPermissionPhaseTests
-        phase_only+=,com.dyapp.RetainedPeerPhaseTests,com.dyapp.WorkerPeerPhaseTests
-        phase_only+=,com.dyapp.SearchTests#forgedResultsAreDroppedAndListed
-        phase_only+=,com.dyapp.NativeIncomingPngPhaseTests
-        phase_only+=,com.dyapp.OwnerApprovalVisualTests,com.dyapp.OwnerApprovalImeTests,com.dyapp.ReceiveVisualTests
-        phase_only+=,com.dyapp.LinkReviewVisualTests,com.dyapp.ReceivedViewsVisualTests
-        phase_only+=,com.dyapp.UpdateNoticeVisualTests,com.dyapp.PresenceVisualTests,com.dyapp.SearchRecoveryVisualTests
-        phase_only+=,com.dyapp.ChatLinksVisualTests
-        failed=() only=() minimum=3
-        for attempt in 1 2 3; do
-            # Retry only finished JUnit failures, never an uncertain remote invocation.
-            run_instrumentation "$report_dir/instrumentation.txt" 900 -e notClass "$phase_only" "${only[@]}"
-            if python3 /app/tests/scripts/check-instrumentation-results.py "$report_dir/instrumentation.txt" "$minimum"; then
-                break
-            fi
-            [[ $attempt != 3 ]] || exit 1
-            cp -f "$report_dir/instrumentation.txt" "$report_dir/instrumentation-$attempt.txt"
-            failed+=("$report_dir/instrumentation-$attempt.txt")
-            # The same pattern as check-flaky.py; adb shell passes the list to a device shell,
-            # so it is single-quoted for nested classes ($).
-            tests=$(sed -nE 's/^[0-9]+\) ([A-Za-z0-9_]+)\(([A-Za-z0-9_.$]+)\)$/\2#\1/p' \
-                "$report_dir/instrumentation-$attempt.txt" | paste -sd, -)
-            listed=$(grep -cE '^[0-9]+\) ' "$report_dir/instrumentation-$attempt.txt" || true)
-            if [[ -n $tests && $(tr , '\n' <<< "$tests" | wc -l) == "$listed" ]]; then
-                only=(-e class "'$tests'") minimum=1
-            else
-                only=() minimum=3
-            fi
-        done
-        python3 /app/tests/scripts/check-flaky.py "${failed[@]}"
-        # Explicit phases own the real host peer; never retry an uncertain submission.
-        node_action() {
-            timeout 30 bash /app/tests/scripts/android-node-control.sh command /reports/node "$1" \
-                > "$report_dir/${2:-node}-$1.txt"
-        }
-        sha256sum /app/build/debug/examples/android_photo_fixture > "$report_dir/photo-host-binary.sha256"
-        stop_photo_host() {
-            timeout 30 bash /app/tests/scripts/android-node-control.sh command /reports/node/photo-host stop \
-                > "$report_dir/photo-host-stop.txt"
-        }
-        png_phase() {
-            local phase=$1 deadline=300 report
-            [[ $phase != prepare ]] || deadline=900
-            report="$report_dir/instrumentation-incoming-png-$phase.txt"
-            (run_instrumentation "$report" "$deadline" \
-                -e incomingPngPhase "$phase" -e class com.dyapp.NativeIncomingPngPhaseTests) || return
-            python3 /app/tests/scripts/check-instrumentation-results.py "$report" 1
-        }
-        # shellcheck source=tests/scripts/android-png-phases.sh
-        source /app/tests/scripts/android-png-phases.sh
-        # Separate invocations exercise isolated and actual-worker native registries.
-        peer_phase() {
-            local fixture=$1 phase=$2 argument test_class deadline=300
-            local report="$report_dir/$fixture-peer-${3:-$phase}.txt"
-            case "$fixture:$phase" in
-                worker:prepare|worker:catchUpScheduled|worker:catchUpSearchOutbox) deadline=900 ;;
-            esac
-            case "$fixture" in
-                retained) argument=retainedPeerPhase; test_class=RetainedPeerPhaseTests ;;
-                worker) argument=workerPeerPhase; test_class=WorkerPeerPhaseTests ;;
-                *) return 2 ;;
-            esac
-            run_instrumentation "$report" "$deadline" \
-                -e "$argument" "$phase" -e class "com.dyapp.$test_class" || return
-            python3 /app/tests/scripts/check-instrumentation-results.py "$report" 1
-        }
-        probe_worker_job() {
-            timeout 60 adb -s emulator-5554 shell cmd jobscheduler get-job-state \
-                --user current com.dyapp "$1" > "$report_dir/worker-$2-job.txt" 2>&1 &&
-                test -s "$report_dir/worker-$2-job.txt"
-        }
-        reboot_worker() {
-            probe_worker_job 1 before-reboot || return
-            python3 /app/tests/scripts/android_lifecycle.py --job-id 2 \
-                --report "$report_dir/worker-reboot.json" > "$report_dir/worker-reboot.txt" 2>&1 || return
-            probe_worker_job 1 after-reboot
-        }
-        upgrade_worker() {
-            timeout 300 adb -s emulator-5554 install --no-streaming -r \
-                /app/build/android/lifecycle/app-upgrade.apk \
-                > "$report_dir/worker-upgrade.txt" 2>&1 || return
-            # Probe before instrumentation/Application.onCreate can recreate a lost registration.
-            probe_worker_job 1 upgrade || return
-            probe_worker_job 2 upgrade-search || return
-            peer_phase worker upgraded
-        }
-        offline_worker_phases() {
-            peer_phase worker prepareSearchOutbox || return
-            # Exercise the independent PNG lifecycle while the signed search update matures.
-            run_png_phases || return
-            node_action stop || return
-            if peer_phase worker queue &&
-                peer_phase worker verifySearchOutbox verifySearchOutbox-before-reboot &&
-                reboot_worker &&
-                peer_phase worker verifySearchOutbox verifySearchOutbox-after-reboot &&
-                upgrade_worker; then
-                node_action start || return
-                peer_phase worker catchUpScheduled && peer_phase worker catchUpSearchOutbox
-            else
-                node_action start || true
-                return 1
-            fi
-        }
-        for fixture in retained worker; do
-            if peer_phase "$fixture" prepare && peer_phase "$fixture" reopen; then
-                if [[ $fixture == worker ]] && ! offline_worker_phases; then
-                    peer_phase worker cleanup || true
+        phase=${DYAPP_ANDROID_UI_PHASE:-all}
+        case "$phase" in all|primary|lifecycle) ;; *) exit 2 ;; esac
+        if [[ $phase != lifecycle ]]; then
+            bash /app/tests/scripts/android-lan-permission-phases.sh legacy "$report_dir" "10.0.2.2:33445"
+            # am instrument has no retries: rerun the failed tests twice; failures before a passing
+            # run are flaky (practice B5). A failed run that names no test reruns the whole suite.
+            # These fixtures run below or in the permission lane with their required arguments.
+            phase_only=com.dyapp.LocalNetworkPermissionPhaseTests
+            phase_only+=,com.dyapp.RetainedPeerPhaseTests,com.dyapp.WorkerPeerPhaseTests
+            phase_only+=,com.dyapp.SearchTests#forgedResultsAreDroppedAndListed
+            phase_only+=,com.dyapp.NativeIncomingPngPhaseTests
+            phase_only+=,com.dyapp.OwnerApprovalVisualTests,com.dyapp.OwnerApprovalImeTests,com.dyapp.ReceiveVisualTests
+            phase_only+=,com.dyapp.LinkReviewVisualTests,com.dyapp.ReceivedViewsVisualTests
+            phase_only+=,com.dyapp.UpdateNoticeVisualTests,com.dyapp.PresenceVisualTests,com.dyapp.SearchRecoveryVisualTests
+            phase_only+=,com.dyapp.ChatLinksVisualTests
+            failed=() only=() minimum=3
+            for attempt in 1 2 3; do
+                # Retry only finished JUnit failures, never an uncertain remote invocation.
+                run_instrumentation "$report_dir/instrumentation.txt" 900 -e notClass "$phase_only" "${only[@]}"
+                if python3 /app/tests/scripts/check-instrumentation-results.py "$report_dir/instrumentation.txt" "$minimum"; then
+                    break
+                fi
+                [[ $attempt != 3 ]] || exit 1
+                cp -f "$report_dir/instrumentation.txt" "$report_dir/instrumentation-$attempt.txt"
+                failed+=("$report_dir/instrumentation-$attempt.txt")
+                # The same pattern as check-flaky.py; adb shell passes the list to a device shell,
+                # so it is single-quoted for nested classes ($).
+                tests=$(sed -nE 's/^[0-9]+\) ([A-Za-z0-9_]+)\(([A-Za-z0-9_.$]+)\)$/\2#\1/p' \
+                    "$report_dir/instrumentation-$attempt.txt" | paste -sd, -)
+                listed=$(grep -cE '^[0-9]+\) ' "$report_dir/instrumentation-$attempt.txt" || true)
+                if [[ -n $tests && $(tr , '\n' <<< "$tests" | wc -l) == "$listed" ]]; then
+                    only=(-e class "'$tests'") minimum=1
+                else
+                    only=() minimum=3
+                fi
+            done
+            python3 /app/tests/scripts/check-flaky.py "${failed[@]}"
+        fi
+        if [[ $phase != primary ]]; then
+            # Explicit phases own the real host peer; never retry an uncertain submission.
+            node_action() {
+                timeout 30 bash /app/tests/scripts/android-node-control.sh command /reports/node "$1" \
+                    > "$report_dir/${2:-node}-$1.txt"
+            }
+            sha256sum /app/build/debug/examples/android_photo_fixture > "$report_dir/photo-host-binary.sha256"
+            stop_photo_host() {
+                timeout 30 bash /app/tests/scripts/android-node-control.sh command /reports/node/photo-host stop \
+                    > "$report_dir/photo-host-stop.txt"
+            }
+            png_phase() {
+                local phase=$1 deadline=300 report
+                [[ $phase != prepare ]] || deadline=900
+                report="$report_dir/instrumentation-incoming-png-$phase.txt"
+                (run_instrumentation "$report" "$deadline" \
+                    -e incomingPngPhase "$phase" -e class com.dyapp.NativeIncomingPngPhaseTests) || return
+                python3 /app/tests/scripts/check-instrumentation-results.py "$report" 1
+            }
+            # shellcheck source=tests/scripts/android-png-phases.sh
+            source /app/tests/scripts/android-png-phases.sh
+            # Separate invocations exercise isolated and actual-worker native registries.
+            peer_phase() {
+                local fixture=$1 phase=$2 argument test_class deadline=300
+                local report="$report_dir/$fixture-peer-${3:-$phase}.txt"
+                case "$fixture:$phase" in
+                    worker:prepare|worker:catchUpScheduled|worker:catchUpSearchOutbox) deadline=900 ;;
+                esac
+                case "$fixture" in
+                    retained) argument=retainedPeerPhase; test_class=RetainedPeerPhaseTests ;;
+                    worker) argument=workerPeerPhase; test_class=WorkerPeerPhaseTests ;;
+                    *) return 2 ;;
+                esac
+                run_instrumentation "$report" "$deadline" \
+                    -e "$argument" "$phase" -e class "com.dyapp.$test_class" || return
+                python3 /app/tests/scripts/check-instrumentation-results.py "$report" 1
+            }
+            probe_worker_job() {
+                timeout 60 adb -s emulator-5554 shell cmd jobscheduler get-job-state \
+                    --user current com.dyapp "$1" > "$report_dir/worker-$2-job.txt" 2>&1 &&
+                    test -s "$report_dir/worker-$2-job.txt"
+            }
+            reboot_worker() {
+                probe_worker_job 1 before-reboot || return
+                python3 /app/tests/scripts/android_lifecycle.py --job-id 2 \
+                    --report "$report_dir/worker-reboot.json" > "$report_dir/worker-reboot.txt" 2>&1 || return
+                probe_worker_job 1 after-reboot
+            }
+            upgrade_worker() {
+                timeout 300 adb -s emulator-5554 install --no-streaming -r \
+                    /app/build/android/lifecycle/app-upgrade.apk \
+                    > "$report_dir/worker-upgrade.txt" 2>&1 || return
+                # Probe before instrumentation/Application.onCreate can recreate a lost registration.
+                probe_worker_job 1 upgrade || return
+                probe_worker_job 2 upgrade-search || return
+                peer_phase worker upgraded
+            }
+            offline_worker_phases() {
+                peer_phase worker prepareSearchOutbox || return
+                # Exercise the independent PNG lifecycle while the signed search update matures.
+                run_png_phases || return
+                node_action stop || return
+                if peer_phase worker queue &&
+                    peer_phase worker verifySearchOutbox verifySearchOutbox-before-reboot &&
+                    reboot_worker &&
+                    peer_phase worker verifySearchOutbox verifySearchOutbox-after-reboot &&
+                    upgrade_worker; then
+                    node_action start || return
+                    peer_phase worker catchUpScheduled && peer_phase worker catchUpSearchOutbox
+                else
+                    node_action start || true
+                    return 1
+                fi
+            }
+            for fixture in retained worker; do
+                if peer_phase "$fixture" prepare && peer_phase "$fixture" reopen; then
+                    if [[ $fixture == worker ]] && ! offline_worker_phases; then
+                        peer_phase worker cleanup || true
+                        exit 1
+                    fi
+                    peer_phase "$fixture" cleanup
+                else
+                    peer_phase "$fixture" cleanup || true
                     exit 1
                 fi
-                peer_phase "$fixture" cleanup
-            else
-                peer_phase "$fixture" cleanup || true
-                exit 1
-            fi
-        done
-        # Forged-result fixture: with every indexed signature flipped, a search must list no profile.
-        python3 /app/tests/scripts/forge-search-index.py /reports/node/storage
-        run_instrumentation "$report_dir/forged.txt" 300 -e forged 1 \
-            -e class com.dyapp.SearchTests#forgedResultsAreDroppedAndListed
-        python3 /app/tests/scripts/check-instrumentation-results.py "$report_dir/forged.txt" 1
-        timeout 60 adb -s emulator-5554 exec-out run-as com.dyapp cat files/ui-ready.png > "$report_dir/ready.png"
-        test -s "$report_dir/ready.png"
+            done
+        fi
+        if [[ $phase != lifecycle ]]; then
+            # Forged-result fixture: with every indexed signature flipped, a search must list no profile.
+            python3 /app/tests/scripts/forge-search-index.py /reports/node/storage
+            run_instrumentation "$report_dir/forged.txt" 300 -e forged 1 \
+                -e class com.dyapp.SearchTests#forgedResultsAreDroppedAndListed
+            python3 /app/tests/scripts/check-instrumentation-results.py "$report_dir/forged.txt" 1
+            timeout 60 adb -s emulator-5554 exec-out run-as com.dyapp cat files/ui-ready.png > "$report_dir/ready.png"
+            test -s "$report_dir/ready.png"
+        fi
         ;;
     *) echo "Unknown suite: $1" >&2; exit 2 ;;
 esac

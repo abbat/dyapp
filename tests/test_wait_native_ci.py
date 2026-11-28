@@ -27,7 +27,7 @@ def job(
 MACOS, IOS = "native - macos", "native - ios"
 ANDROID = "docker - android-emulator"
 PERMISSIONS = "docker - android-permissions"
-REQUIRED = (MACOS, IOS, ANDROID, PERMISSIONS)
+REQUIRED = (MACOS, IOS, ANDROID, "docker - android-lifecycle", PERMISSIONS)
 
 
 def native_run(*changes: "Job") -> "list[Job]":

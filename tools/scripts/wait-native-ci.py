@@ -25,6 +25,7 @@ REQUIRED = {
     "native - macos",
     "native - ios",
     "docker - android-emulator",
+    "docker - android-lifecycle",
     "docker - android-permissions",
 }
 POLL_SECONDS = 60

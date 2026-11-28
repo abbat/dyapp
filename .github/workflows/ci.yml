@@ -125,6 +125,14 @@ jobs:
             image_service: android-build
             image: dyapp:android-tools
             artifact: android-check-output
+            phase: primary
+            budget: 30
+          - lane: android-lifecycle
+            emulator_service: android-emulator
+            image_service: android-build
+            image: dyapp:android-tools
+            artifact: android-lifecycle-check-output
+            phase: lifecycle
             budget: 30
           - lane: android-permissions
             emulator_service: android-permission-emulator
@@ -170,6 +178,7 @@ jobs:
         env:
           DYAPP_KVM: "1"
           DYAPP_ANDROID_SKIP_BUILD: "1"
+          DYAPP_ANDROID_UI_PHASE: ${{ matrix.phase }}
         run: |
           timeout --kill-after=30s "${{ matrix.budget }}m" bash tests/scripts/ui-test.sh ${{ matrix.lane }}
       - name: logs
