@@ -19,6 +19,11 @@ class WorkerPeerPhaseTests {
         when (phase) {
             "prepare" -> assertActive(context, prepare(context, fixture))
             "reopen" -> assertActive(context, fixture.reopen())
+            "prepareSearchOutbox" -> {
+                workerTestPolicy()
+                WorkerSearchOutbox(context, fixture.reopen()).prepare()
+            }
+            "verifySearchOutbox" -> WorkerSearchOutbox(context, fixture.reopenQueued()).verify()
             "queue" -> assertActive(context, fixture.queueOffline())
             "reopenQueued" -> assertActive(context, fixture.reopenQueued())
             "upgraded" -> assertActive(context, upgraded(context, fixture))

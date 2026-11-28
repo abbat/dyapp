@@ -232,24 +232,30 @@ case "${1:?suite required}" in
                 -e "$argument" "$phase" -e class "com.dyapp.$test_class" || return
             python3 /app/tests/scripts/check-instrumentation-results.py "$report_dir/$fixture-peer-$phase.txt" 1
         }
+        probe_worker_mail() {
+            timeout 60 adb -s emulator-5554 shell cmd jobscheduler get-job-state \
+                --user current com.dyapp 1 > "$report_dir/worker-$1-job.txt" 2>&1 &&
+                test -s "$report_dir/worker-$1-job.txt"
+        }
         reboot_worker() {
-            python3 /app/tests/scripts/android_lifecycle.py \
-                --report "$report_dir/worker-reboot.json" > "$report_dir/worker-reboot.txt" 2>&1
+            probe_worker_mail before-reboot || return
+            python3 /app/tests/scripts/android_lifecycle.py --job-id 2 \
+                --report "$report_dir/worker-reboot.json" > "$report_dir/worker-reboot.txt" 2>&1 || return
+            probe_worker_mail after-reboot
         }
         upgrade_worker() {
             timeout 300 adb -s emulator-5554 install --no-streaming -r \
                 /app/build/android/lifecycle/app-upgrade.apk \
                 > "$report_dir/worker-upgrade.txt" 2>&1 || return
             # Probe before instrumentation/Application.onCreate can recreate a lost registration.
-            timeout 60 adb -s emulator-5554 shell cmd jobscheduler get-job-state \
-                --user current com.dyapp 1 > "$report_dir/worker-upgrade-job.txt" 2>&1 || return
-            test -s "$report_dir/worker-upgrade-job.txt" || return
+            probe_worker_mail upgrade || return
             peer_phase worker upgraded
         }
         offline_worker_phases() {
+            peer_phase worker prepareSearchOutbox || return
             node_action stop || return
-            if peer_phase worker queue && peer_phase worker reopenQueued &&
-                reboot_worker && peer_phase worker reopenQueued && upgrade_worker; then
+            if peer_phase worker queue && peer_phase worker verifySearchOutbox &&
+                reboot_worker && peer_phase worker verifySearchOutbox && upgrade_worker; then
                 node_action start || return
                 peer_phase worker catchUpScheduled
             else

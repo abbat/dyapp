@@ -21,15 +21,19 @@ internal fun publishWorkerPeer(ready: Opened.Ready) {
         ProfileDraft(values = mapOf(GENDER to 1, BIRTH_YEAR to 1990, BIRTH_MONTH to 1, BIRTH_DAY to 1))
     )
     activateWorkerPeer(ready)
+    solveWorkerProfile(ready)
+    check(!RustBridge.withChats(ready) { it.publishProfile(true) }.pending) {
+        "Worker profile publication left a pending target"
+    }
+}
+
+internal fun solveWorkerProfile(ready: Opened.Ready) {
     ready.profileSolver().use { solver ->
         var solved = false
         PeerTransition("worker profile proof").await(
             ready = { solved },
             advance = { solved = solver.runStep(true).solved }
         )
-    }
-    check(!RustBridge.withChats(ready) { it.publishProfile(true) }.pending) {
-        "Worker profile publication left a pending target"
     }
 }
 

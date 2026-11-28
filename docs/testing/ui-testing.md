@@ -1552,8 +1552,12 @@ metadata or offline reopening.
 The retained worker fixture prepares a separate incoming JPEG through the shared core,
 fetches it through JNI and decodes it with the production Android decoder. Its pair-bound
 atomic record keeps the full public selector, original SHA-256 and dimensions.
-Existing `reopenQueued` phases verify those exact bytes and dimensions while the host's
-external node is stopped, including after guest reboot and APK upgrade. The existing
+The queued reopen phases verify those exact bytes and dimensions while the host's
+external node is stopped, including after guest reboot and APK upgrade. Before taking the
+node offline, the worker fixture acknowledges one search projection and publishes a changed
+profile for the same owner within the ordinary retry window. The reboot probe verifies both
+persisted job registrations before instrumentation can recreate them. The offline phases
+compare the original owner's native search deadline across reboot. The existing
 queued-text, identity/inventory and scheduled-worker checks remain. After both peers initialize and
 publish, the record also captures their current public device keys through the offline native device
 directory. Every reopen compares both keys; absent, replaced or swapped proof fails without creating
