@@ -23,23 +23,32 @@ def run(
     env: "typing.Mapping[str, str] | None" = None,
     timeout: "float | None" = None,
 ) -> None:
-    with log.open("w") as output:
-        result = subprocess.run(
-            arguments,
-            stdout=output,
-            stderr=subprocess.STDOUT,
-            check=False,
-            env=env,
-            timeout=timeout,
-        )
-    text = log.read_text()
-    print(text)
+    try:
+        with log.open("w") as output:
+            result = subprocess.run(
+                arguments,
+                stdout=output,
+                stderr=subprocess.STDOUT,
+                check=False,
+                env=env,
+                timeout=timeout,
+            )
+    except subprocess.TimeoutExpired as error:
+        raise RuntimeError(
+            f"Command timed out after {timeout}s: {arguments}\n{log_tail(log)}"
+        ) from error
     if result.returncode:
         # The check wrapper shows only this error, so it carries the log tail.
         raise RuntimeError(
             f"Command failed ({result.returncode}): {arguments}\n"
-            f"{text[-4096:]}"
+            f"{log_tail(log)}"
         )
+
+
+def log_tail(log: Path) -> str:
+    with log.open("rb") as output:
+        output.seek(max(0, log.stat().st_size - 4096))
+        return output.read().decode(errors="replace")
 
 
 @contextmanager

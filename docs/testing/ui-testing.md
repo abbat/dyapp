@@ -2711,7 +2711,9 @@ check that does not finish in 100 s fails with its own name, so a stub that neve
 not reported only as a process timeout; the two `add` cases allow 300 s for the whole step.
 
 Apple hosted tests and core builds also use mapped results, with raw logs in the
-native artifacts. `apple-test-in-ci.sh` keeps its exit-2 rejection outside approved
+native artifacts. A failed or timed-out native command reports its last 4 KiB and
+the runner attempts to summarize XCTest failures from any available result bundle.
+`apple-test-in-ci.sh` keeps its exit-2 rejection outside approved
 CI; the Python frontend likewise refuses local execution. `--raw` selects direct
 diagnostic output for these Apple entry points. Existing SDK-free command-plan
 tests use raw mode; actual native builds/tests run only in the approved CI.
