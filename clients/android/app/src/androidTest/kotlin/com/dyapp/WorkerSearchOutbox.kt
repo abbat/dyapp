@@ -3,10 +3,15 @@ package com.dyapp
 import android.app.job.JobScheduler
 import android.content.ComponentName
 import android.content.Context
+import android.os.ParcelFileDescriptor
+import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import uniffi.dyapp.MobileIdentityRegistry
 import uniffi.dyapp.MobileSearchOutbox
 import uniffi.dyapp.MobileSlotLayout
+import uniffi.dyapp.ProfileSearcher
 import uniffi.dyapp.SearchOutboxStatus
 import java.io.File
 
@@ -38,16 +43,57 @@ internal class WorkerSearchOutbox(private val context: Context, private val owne
         )
     }
 
-    fun verifyNotIndexed(seeker: Opened.Ready) {
+    fun verifyNotIndexed(seeker: Opened.Ready) = withSearch(seeker) { searcher, filters ->
+        check(completeSearch(searcher, filters).profiles.isEmpty()) {
+            "Queued update reached the index before its deadline"
+        }
+    }
+
+    fun awaitDelivery(seeker: Opened.Ready) {
+        val directory = RustBridge.withKey(owner) { dir, _ -> File(dir) }
+        MailStorageSignal(directory).use { signal ->
+            requestDelivery()
+            withOutbox { outbox ->
+                PeerTransition("search acknowledgement").awaitSignal(
+                    ready = { outbox.status() == SearchOutboxStatus.Idle },
+                    advance = signal::await
+                )
+            }
+        }
+        verifyDelivered(seeker)
+    }
+
+    private fun requestDelivery() = runBlocking {
+        val readyAt = checkpoint.read().getString("readyAt").toLong()
+        val remaining = readyAt * 1_000L - System.currentTimeMillis()
+        check(remaining <= 600_000L) { "Unexpected search publication deadline: $readyAt" }
+        if (remaining > 0) delay(remaining)
+        // The guest can reach the node but Android does not validate the guest network.
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        val command = "cmd jobscheduler run -f com.dyapp $SEARCH_OUTBOX_JOB_ID"
+        val reply = ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand(command))
+            .bufferedReader().use { it.readText() }
+        check(reply.contains("Running job")) { "Search job dispatch failed: $reply" }
+    }
+
+    private fun verifyDelivered(seeker: Opened.Ready) = withSearch(seeker) { searcher, filters ->
+        val found = completeSearch(searcher, filters, owner.peerId).profiles.single()
+        check(found.peerId == owner.peerId && found.draft.interests == listOf(filters.interest)) {
+            "Search node did not return the queued projection for its owner"
+        }
+    }
+
+    private fun withSearch(
+        seeker: Opened.Ready,
+        checkIndex: (ProfileSearcher, SearchFilters) -> Unit,
+    ) {
         val tag = checkpoint.read().getString("tag")
         seeker.profileSearcher().use { searcher ->
             val filters = SearchFilters(emptyList())
             filters.offered = completeSearch(searcher, filters).offered
             check(19u in filters.offered) { "Worker node does not offer interest search" }
             filters.interest = tag
-            check(completeSearch(searcher, filters).profiles.isEmpty()) {
-                "Queued update reached the index before its deadline"
-            }
+            checkIndex(searcher, filters)
         }
     }
 

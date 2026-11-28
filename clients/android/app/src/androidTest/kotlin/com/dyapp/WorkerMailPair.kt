@@ -92,6 +92,10 @@ internal class WorkerMailPair(private val context: Context) {
         return owner
     }
 
+    fun catchUpSearchOutbox() {
+        WorkerSearchOutbox(context, reopen()).awaitDelivery(counterpart.reopen())
+    }
+
     fun cleanup() {
         val other = runCatching { counterpart.cleanup() }
         val owner = runCatching { worker.cleanup() }

@@ -221,7 +221,7 @@ case "${1:?suite required}" in
         peer_phase() {
             local fixture=$1 phase=$2 argument test_class deadline=300
             case "$fixture:$phase" in
-                worker:prepare|worker:catchUpScheduled) deadline=900 ;;
+                worker:prepare|worker:catchUpScheduled|worker:catchUpSearchOutbox) deadline=900 ;;
             esac
             case "$fixture" in
                 retained) argument=retainedPeerPhase; test_class=RetainedPeerPhaseTests ;;
@@ -258,7 +258,7 @@ case "${1:?suite required}" in
             if peer_phase worker queue && peer_phase worker verifySearchOutbox &&
                 reboot_worker && peer_phase worker verifySearchOutbox && upgrade_worker; then
                 node_action start || return
-                peer_phase worker catchUpScheduled
+                peer_phase worker catchUpScheduled && peer_phase worker catchUpSearchOutbox
             else
                 node_action start || true
                 return 1
