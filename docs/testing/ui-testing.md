@@ -518,7 +518,8 @@ response without a published version. Both must preserve the accepted version an
 
 The native iOS debug CI enables `DYAPP_IOS_UI_FIXTURES=1` for Swift binding generation, the
 linked Rust core and XCTest. The legacy search Hide fixture creates a fresh isolated identity
-with existing chat credentials and uses the Rust store to seed its old withdrawal. The UI
+with existing chat credentials and uses the Rust store to seed its old withdrawal. Its active
+network points to the CI loopback listener that never completes the peer handshake. The UI
 test dismisses the review, relaunches the same slot, and checks that confirmation saves a pending
 request while offline. Both EN and RU run at the Accessibility Medium text size and check full
 visibility of the controls and queued status using the current viewport. XCTest retains the

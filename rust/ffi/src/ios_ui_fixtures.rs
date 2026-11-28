@@ -2,6 +2,7 @@
 
 use crate::{CoreError, IdentityKey};
 use dyapp_client::store::Store;
+use dyapp_identity::network::{self, Network, Settings};
 use dyapp_profile::Profile;
 use std::{path::Path, sync::Arc};
 
@@ -21,6 +22,16 @@ pub fn seed_legacy_search_hide(dir: String, key: Arc<IdentityKey>) -> Result<(),
     if store.profile_draft().map_err(failed)?.is_some() {
         return Err(CoreError::Failed("Expected a fresh fixture slot".into()));
     }
+    network::save(
+        Path::new(&dir),
+        Settings::Active,
+        &Network {
+            // The Apple CI endpoint accepts TCP but never completes a peer handshake.
+            seeds: vec!["127.0.0.1:33447".into()],
+            name: String::new(),
+        },
+    )
+    .map_err(failed)?;
     store
         .save_profile_draft(&Profile {
             version: 2,
@@ -50,6 +61,10 @@ mod tests {
         assert!(seed_legacy_search_hide(directory.clone(), Arc::clone(&key)).is_err());
         let store = Store::open(&dir.path().join("client.db"), &key.identity).unwrap();
         seed_legacy_search_hide(directory.clone(), Arc::clone(&key)).unwrap();
+        let active = super::network::load(dir.path(), super::Settings::Active)
+            .unwrap()
+            .unwrap();
+        assert_eq!(active.seeds, ["127.0.0.1:33447"]);
         let draft = store.profile_draft().unwrap().unwrap();
         assert_eq!(draft.version, 2);
         assert_eq!(draft.name, "Original private draft");
