@@ -518,8 +518,9 @@ with existing chat credentials and uses the Rust store to seed its old withdrawa
 test dismisses the review, relaunches the same slot, and checks that confirmation saves a pending
 request while offline. Both EN and RU run at the Accessibility Medium text size and check full
 visibility of the controls and queued status using the current viewport. XCTest retains the
-confirmation and queued-state screenshots for visual review. Release builds omit the fixture
-entry point.
+confirmation and queued-state screenshots for visual review. The English case also retries
+offline and verifies that the original owner remains selected and the UI reports that saved data
+was retained. Release builds omit the fixture entry point.
 
 The prototype keyboard fixture calibrates requested switcher visibility against both the real
 visible menu and a controlled hidden sidebar. It must reject all three missing identity actions;
