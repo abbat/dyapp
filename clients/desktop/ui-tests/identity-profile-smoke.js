@@ -268,6 +268,8 @@
         }
       };
       assertPending();
+      name.dispatchEvent(new Event('input', { bubbles: true }));
+      assertPending();
       await shot('profile-published-pending', () => {
         assertPending();
         const bounds = appBindings.profileStatus.getBoundingClientRect();

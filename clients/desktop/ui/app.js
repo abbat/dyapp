@@ -501,8 +501,10 @@ const statusMessage = (status, open, key, detail) => {
   domById(open, HTMLElement).hidden = !offline;
 };
 /** @param {string} key */
-const profileMessage = (key, detail = '') =>
+const profileMessage = (key, detail = '') => {
+  profileStatus.dataset.statusKey = key;
   statusMessage(profileStatus, 'profile-open-network', key, detail);
+};
 // While the search window holds the published profile, say when it reaches search and send it
 // once the window ends. A due profile no node took waits for the next publish or app start.
 const searchWait = domById('profile-search-wait', HTMLParagraphElement);
@@ -718,7 +720,8 @@ const profileFailure = (error) => {
   profileMessage('profile.publishFailed', code);
 };
 profileForm.addEventListener('input', () => {
-  if (!profileBusy) profileMessage('profile.draft');
+  if (!profileBusy && profileStatus.dataset.statusKey !== 'profile.publishedPending')
+    profileMessage('profile.draft');
 });
 const submitProfile = async (save = saveProfile) => {
   if (profileBusy || !profileFormValid()) return;

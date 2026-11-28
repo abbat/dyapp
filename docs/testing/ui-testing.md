@@ -511,6 +511,7 @@ The Linux capture drives the actual webview with X11 Tab and Return events via `
 It waits for trusted focus and activation events before asserting paging and profile return.
 The desktop publication capture rechecks the accepted version, unsaved editor text and status
 visibility after the accessibility audit and each native resize, immediately before the snapshot.
+An editor input event leaves the accepted-publication notice visible while newer edits are pending.
 
 The native iOS debug CI enables `DYAPP_IOS_UI_FIXTURES=1` for Swift binding generation, the
 linked Rust core and XCTest. The legacy search Hide fixture creates a fresh isolated identity
