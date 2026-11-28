@@ -168,6 +168,44 @@ const peerSteps = {
       throw new Error('the reply did not move the row');
     }
   },
+  'profile-view-send': async (peer) => {
+    const privacy = await appBindings.invoke('privacy_settings');
+    await appBindings.invoke('set_privacy', { privacy: { ...privacy, sendViews: true } });
+    try {
+      await liveFound(peer);
+      await appApi.profileViewDone;
+    } finally {
+      await appBindings.invoke('set_privacy', { privacy });
+    }
+  },
+  'profile-view-receive': async (peer) => {
+    if ((await appBindings.invoke('privacy_settings')).sendViews)
+      throw new Error('the receiver must have profile view sending off');
+    const deadline = performance.now() + 20_000;
+    const receive = async () => {
+      while (performance.now() < deadline) {
+        await appBindings.invoke('receive_mail');
+        const page = await appBindings.invoke('received_profile_views', {
+          query: peer,
+          cursor: null,
+        });
+        if (page.entries.some((entry) => entry.target === peer)) return;
+      }
+      throw new Error('the private profile view did not arrive');
+    };
+    await smoke.waitForSignal('private profile view delivery', receive());
+    await openArea('settings', 'views');
+    await appApi.receivedViews.viewsShown;
+    if (!document.getElementById('received-views-rows').textContent.includes(peer))
+      throw new Error('the received profile view was not shown');
+    const likes = await appBindings.invoke('peer_likes', { peerId: peer });
+    const rows = await appBindings.invoke('chat_rows');
+    const liked = await appBindings.invoke('liked_you');
+    if (likes.ours || likes.matched || rows.some((row) => row.peerId === peer))
+      throw new Error('a private view changed chat or match state');
+    if (liked.some((profile) => profile.peerId === peer))
+      throw new Error('a private view created an incoming like');
+  },
   'chat-open': async (peer) => {
     await liveChats(
       () => liveRow('chat-list', peer)?.textContent.includes('reply text'),

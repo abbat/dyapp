@@ -204,8 +204,10 @@ opening factories must complete before its release, then rejects both original t
 context invalidation. Core observer controls retain unique-generation/ABA and fail-closed poison
 checks; no elapsed delay establishes capture readiness. `node tools/web-lint/profile-view-fixtures.mjs` exercises the exact dependency-free
 browser controller with held Promise completions and per-case failure deadlines. The native
-desktop smoke additionally drives the actual profile page and verifies close/area retirement;
-none of these controls substitutes for encrypted two-peer delivery and received-list acceptance.
+desktop smoke drives the actual profile page and verifies close/area retirement. Its two-peer
+journey opens a profile before either client likes the other, then checks encrypted delivery and
+the rendered received list with the recipient's sending off. The view must leave likes, matches
+and chat rows untouched.
 The Android received-list hint uses `profile_views_received_hint`; the privacy policy uses
 `profile_views_hint`. Keep these resource names distinct across all `values*` XML files. The repository checker rejects
 duplicate main string declarations, including aliases, within each qualifier across feature XML files;

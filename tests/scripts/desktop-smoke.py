@@ -683,11 +683,12 @@ class DesktopSmoke:
             )
         check_profile_readback(node, seed, other_peer, env, peer_root)
         check_profile_readback(node, seed, peer_id, env, storage)
-        # Two identities on one node. Every step relaunches its client,
-        # so state it reads back survived a restart.
+        # Each step relaunches one of two identities on the same node.
         alice, bob = (profile, other_peer), (peer_root, peer_id)
         for (root, peer), step in (
             (alice, "photo-seen"),
+            (alice, "profile-view-send"),
+            (bob, "profile-view-receive"),
             (alice, "like"),
             (alice, "like-restart"),
             (bob, "liked-you"),
