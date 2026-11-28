@@ -217,7 +217,7 @@ const audit = (() => {
   };
 })();
 // Audit first, then capture each requested size through the native WebKit snapshot callback.
-smoke.shot = async (name) => {
+smoke.shot = async (name, beforeCapture = () => {}) => {
   await audit(name);
   const widths = await invokeTest('ui_test_shot', { name });
   if (!widths.length) return;
@@ -230,6 +230,7 @@ smoke.shot = async (name) => {
         width: Math.round(width * devicePixelRatio),
         height: Math.round(1400 * devicePixelRatio),
       });
+      beforeCapture();
       await invokeTest('ui_test_shot', { name, width });
     }
   } finally {

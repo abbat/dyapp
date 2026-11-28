@@ -258,13 +258,30 @@
               publicationPending: true,
             }),
       );
-      if (
-        appBindings.profileStatus.textContent !==
-          `${appApi.strings['profile.publishedPending']} 1` ||
-        name.value !== 'Unsaved local name'
-      )
-        throw new Error('publication hid pending edits or replaced the raw editor');
-      await shot('profile-published-pending');
+      const assertPending = () => {
+        const status = appBindings.profileStatus.textContent;
+        if (
+          status !== `${appApi.strings['profile.publishedPending']} 1` ||
+          name.value !== 'Unsaved local name'
+        ) {
+          throw new Error(`pending publication state lost: ${status}`);
+        }
+      };
+      assertPending();
+      await shot('profile-published-pending', () => {
+        assertPending();
+        const bounds = appBindings.profileStatus.getBoundingClientRect();
+        if (
+          bounds.width <= 0 ||
+          bounds.height <= 0 ||
+          bounds.top < 0 ||
+          bounds.bottom > window.innerHeight ||
+          bounds.left < 0 ||
+          bounds.right > window.innerWidth
+        ) {
+          throw new Error(`pending publication status outside viewport: ${JSON.stringify(bounds)}`);
+        }
+      });
     } finally {
       name.value = before;
     }
@@ -277,7 +294,7 @@
       await checkPendingPublication(
         openPublicationDialog,
         { published: 1, hidden: false, searchMinutes: null },
-        () => smoke.waitForSignal(name, smoke.shot(name)),
+        (_, assertPending) => smoke.waitForSignal(name, smoke.shot(name, assertPending)),
       );
     });
   // Search-wait and elapsed timers must retain the identity generation that scheduled them.
