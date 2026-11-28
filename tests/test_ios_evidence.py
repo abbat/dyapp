@@ -21,6 +21,16 @@ SPEC.loader.exec_module(APPLE)
 
 
 class IosEvidence(unittest.TestCase):
+    def test_failure_summary_timeout_returns_a_diagnostic(self) -> None:
+        with patch.object(
+            APPLE.subprocess,
+            "run",
+            side_effect=APPLE.subprocess.TimeoutExpired("xcresulttool", 30),
+        ) as command:
+            summary = APPLE.failed_test_summary(ROOT / "tests", ROOT / "build")
+        self.assertEqual(command.call_args.kwargs["timeout"], 30)
+        self.assertEqual(summary, ["XCTest failure summary timed out"])
+
     def test_timeout_reports_only_the_captured_tail(self) -> None:
         build = ROOT / "build"
         build.mkdir(exist_ok=True)
