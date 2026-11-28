@@ -19,17 +19,22 @@ class WorkerPeerPhaseTests {
         when (phase) {
             "prepare" -> assertActive(context, prepare(context, fixture))
             "reopen" -> assertActive(context, fixture.reopen())
-            "prepareSearchOutbox" -> {
-                workerTestPolicy()
-                WorkerSearchOutbox(context, fixture.reopen()).prepare()
-            }
-            "verifySearchOutbox" -> WorkerSearchOutbox(context, fixture.reopenQueued()).verify()
+            "prepareSearchOutbox", "verifySearchOutbox" -> searchOutbox(context, fixture, phase)
             "queue" -> assertActive(context, fixture.queueOffline())
             "reopenQueued" -> assertActive(context, fixture.reopenQueued())
             "upgraded" -> assertActive(context, upgraded(context, fixture))
             "catchUpScheduled" -> assertActive(context, fixture.catchUpScheduled())
             "cleanup" -> fixture.cleanup()
             else -> error("Unknown worker peer phase: $phase")
+        }
+    }
+
+    private fun searchOutbox(context: Context, fixture: WorkerMailPair, phase: String) {
+        if (phase == "prepareSearchOutbox") {
+            workerTestPolicy()
+            WorkerSearchOutbox(context, fixture.reopen()).prepare()
+        } else {
+            WorkerSearchOutbox(context, fixture.reopenQueued()).verify()
         }
     }
 
