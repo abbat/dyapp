@@ -39,7 +39,8 @@ pub(crate) fn check_capture_bounds(
     size: tauri::PhysicalSize<u32>,
 ) -> Result<(), String> {
     let actual = bounds(window)?;
-    if actual.width == size.width && actual.height == size.height && actual.x == 0 && actual.y == 0 {
+    if actual.width == size.width && actual.height == size.height && actual.x == 0 && actual.y == 0
+    {
         return Ok(());
     }
     Err(format!(
