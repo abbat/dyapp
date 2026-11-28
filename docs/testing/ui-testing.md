@@ -515,6 +515,8 @@ visibility after the accessibility audit and each native resize, immediately bef
 An editor input event leaves the accepted-publication notice visible while newer edits are pending.
 The smoke releases an older background search response after publication, then sends a fresh
 response without a published version. Both must preserve the accepted version and unsaved input.
+The recovery metadata refresh also preserves the accepted notice when its readback has neither a
+published version nor a hidden profile.
 
 The native iOS debug CI enables `DYAPP_IOS_UI_FIXTURES=1` for Swift binding generation, the
 linked Rust core and XCTest. The legacy search Hide fixture creates a fresh isolated identity

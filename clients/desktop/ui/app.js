@@ -510,7 +510,6 @@ const profileMessage = (key, detail = '') => {
   profileStatus.dataset.statusKey = key;
   statusMessage(profileStatus, 'profile-open-network', key, detail);
 };
-// Deliver when the search window ends. Unaccepted profiles wait for publication or app restart.
 const searchWait = domById('profile-search-wait', HTMLParagraphElement);
 /** @type {number | undefined} */
 let searchWaitTimer;
@@ -548,7 +547,8 @@ const showSearchWait = (view, send = sendSearchProfile) => {
 /** @param {profileFieldsModule.ProfileView} view */
 const profileRecoveryMetadata = (view) => {
   showSearchWait(view);
-  showHidden(view);
+  const pending = profileStatus.dataset.statusKey === 'profile.publishedPending';
+  if (!pending || view.published || view.hidden) showHidden(view);
 };
 const showProfile = async (call = invoke) => {
   const generation = identityState.generation;
