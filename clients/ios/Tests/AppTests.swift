@@ -3,6 +3,17 @@ import UserNotifications
 import XCTest
 
 final class AppTests: XCTestCase {
+    func testEarlierSearchDeadlineAdvancesMailRefresh() async {
+        let now = Date(timeIntervalSince1970: 1_000)
+        let deadline = now.addingTimeInterval(42)
+        let requests = RefreshRequests()
+        let refresh = MailRefresh(poll: { deadline }, submit: requests.append)
+        await refresh.schedule(now: now)
+        await refresh.wake()
+        await refresh.schedule(now: now)
+        XCTAssertEqual(requests.dates, [now.addingTimeInterval(MailRefresh.period), deadline])
+    }
+
     func testBackgroundReceiveIsPermitted() {
         let info =
             Bundle.main.object(forInfoDictionaryKey: "BGTaskSchedulerPermittedIdentifiers")
@@ -49,4 +60,13 @@ final class AppTests: XCTestCase {
             Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
             "0.0.1")
     }
+}
+
+private final class RefreshRequests: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [Date] = []
+
+    var dates: [Date] { lock.withLock { values } }
+
+    func append(_ date: Date) { lock.withLock { values.append(date) } }
 }

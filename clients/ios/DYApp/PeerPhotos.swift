@@ -23,6 +23,7 @@ final class NetworkType: ObservableObject {
         #endif
         monitor.pathUpdateHandler = { path in
             let metered = path.status != .satisfied || path.isExpensive || path.isConstrained
+            if path.status == .satisfied { MailJob.wakeSearch() }
             Task { @MainActor in shared.report(metered: metered) }
         }
         monitor.start(queue: DispatchQueue(label: "com.dyapp.network-type"))

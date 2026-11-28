@@ -11,11 +11,14 @@ struct DYAppApp: App {
         WindowGroup {
             LockGate(identities: identities)
         }
-        .onChange(of: phase) { if $0 == .background { MailJob.schedule() } }
+        .onChange(of: phase) {
+            if $0 == .background { MailJob.schedule() }
+            if $0 == .active { MailJob.wakeSearch() }
+        }
     }
 
     init() {
-        NetworkType.startReporting()
         MailJob.register()
+        NetworkType.startReporting()
     }
 }

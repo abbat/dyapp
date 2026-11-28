@@ -18,14 +18,62 @@ private final class TaskEnd: @unchecked Sendable {
     }
 }
 
+/// Serializes use of the single refresh identifier and coalesces concurrent outbox passes.
+actor MailRefresh {
+    static let period: TimeInterval = 15 * 60
+
+    private let poll: @Sendable () -> Date?
+    private let submit: @Sendable (Date) throws -> Void
+    private var pending: Date?
+    private var worker: Task<Void, Never>?
+
+    init(poll: @escaping @Sendable () -> Date?, submit: @escaping @Sendable (Date) throws -> Void) {
+        self.poll = poll
+        self.submit = submit
+    }
+
+    func schedule(now: Date = Date()) {
+        schedule(at: now.addingTimeInterval(Self.period))
+    }
+
+    func backgroundStarted() {
+        pending = nil
+        schedule()
+    }
+
+    func wake() async {
+        if let worker {
+            await worker.value
+            return
+        }
+        let poll = self.poll
+        let pass = Task {
+            let deadline = await Task.detached(priority: .utility) { poll() }.value
+            if let deadline { schedule(at: deadline) }
+            worker = nil
+        }
+        worker = pass
+        await pass.value
+    }
+
+    private func schedule(at date: Date) {
+        guard pending.map({ date < $0 }) ?? true else { return }
+        do {
+            try submit(date)
+            pending = date
+        } catch {
+            // Background refresh is unavailable, for example on the simulator.
+        }
+    }
+}
+
 /// Receives the active identity's mail in the windows iOS gives a closed app, as Android's job does.
 /// The key opens after the first unlock, so this also runs while the app lock is on; that lock only
 /// covers the screens.
 enum MailJob {
     /// Also listed in Info.plist: iOS stops the app when it registers one that is not.
     static let identifier = "com.dyapp.ios.mail"
-    /// As on Android; iOS decides the real time from how the app is used.
-    private static let period: TimeInterval = 15 * 60
+    private static let refresh = MailRefresh(poll: pollSearch, submit: submit)
 
     /// Call during launch: iOS allows registering only until launch ends.
     static func register() {
@@ -34,19 +82,43 @@ enum MailJob {
 
     /// A simulator refuses and a user may turn background refresh off; the app then receives while open.
     static func schedule() {
+        Task { await refresh.schedule() }
+    }
+
+    static func wakeSearch() {
+        Task { await refresh.wake() }
+    }
+
+    private static func submit(at date: Date) throws {
         let request = BGAppRefreshTaskRequest(identifier: identifier)
-        request.earliestBeginDate = Date(timeIntervalSinceNow: period)
-        try? BGTaskScheduler.shared.submit(request)
+        request.earliestBeginDate = date
+        try BGTaskScheduler.shared.submit(request)
+    }
+
+    private static func pollSearch() -> Date? {
+        guard let store = try? RustBridge.identityStore() else { return nil }
+        switch try? MobileSearchOutboxes(registry: store.registry).poll() {
+        case let .at(readyAt, _):
+            return Date(timeIntervalSince1970: TimeInterval(readyAt))
+
+        case .retry, nil:
+            return Date(timeIntervalSinceNow: MailRefresh.period)
+
+        case .idle:
+            return nil
+        }
     }
 
     private static func run(_ task: BGTask) {
-        schedule()
         let end = TaskEnd(task)
         // shortcut: a receive in Rust cannot be interrupted, so one longer than the window of about 30 s
         // waits suspended and its notice may be lost; measure a receive on a device if notices go missing.
         task.expirationHandler = { end(success: false) }
         Task.detached(priority: .utility) {
+            await refresh.backgroundStarted()
+            async let search: Void = refresh.wake()
             await receiveMail()
+            await search
             end(success: true)
         }
     }
