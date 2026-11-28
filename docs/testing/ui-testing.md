@@ -516,7 +516,9 @@ The native iOS debug CI enables `DYAPP_IOS_UI_FIXTURES=1` for Swift binding gene
 linked Rust core and XCTest. The legacy search Hide fixture creates a fresh isolated identity
 with existing chat credentials and uses the Rust store to seed its old withdrawal. The UI
 test dismisses the review, relaunches the same slot, and checks that confirmation saves a pending
-request while offline. Release builds omit the fixture entry point.
+request while offline. Both EN and RU run at the Accessibility Medium text size and check full
+visibility of the controls and queued status using the current viewport. Release builds omit
+the fixture entry point.
 
 The prototype keyboard fixture calibrates requested switcher visibility against both the real
 visible menu and a controlled hidden sidebar. It must reject all three missing identity actions;

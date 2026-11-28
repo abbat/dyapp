@@ -10,10 +10,21 @@ final class ProfileUITests: XCTestCase {
 
     #if IOS_UI_FIXTURES
         func testLegacySearchHideRequiresConfirmationAfterDismissal() {
+            checkLegacySearchHide(
+                language: "en", locale: "en_US", savedText: "saved and waiting for delivery")
+        }
+
+        func testLegacySearchHideAtRussianAccessibilityTextSize() {
+            checkLegacySearchHide(
+                language: "ru", locale: "ru_RU", savedText: "сохранён и ожидает отправки")
+        }
+
+        private func checkLegacySearchHide(language: String, locale: String, savedText: String) {
             let app = unlockedApp()
             app.launchArguments += [
                 "--ui-test-identity-fixture=legacy-search-hide",
-                "-AppleLanguages", "(en)", "-AppleLocale", "en_US",
+                "-AppleLanguages", "(\(language))", "-AppleLocale", locale,
+                "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityM",
             ]
             app.launch()
             openProfile(app)
@@ -28,9 +39,10 @@ final class ProfileUITests: XCTestCase {
             XCTAssertEqual(reveal(owner, in: app, fullyVisible: true).label, firstOwner)
             reveal(app.buttons["search-recovery-action"], in: app, fullyVisible: true).tap()
             let status = app.staticTexts["search-recovery-status"]
-            let saved = NSPredicate(format: "label CONTAINS %@", "saved and waiting for delivery")
+            let saved = NSPredicate(format: "label CONTAINS %@", savedText)
             let queued = XCTNSPredicateExpectation(predicate: saved, object: status)
             XCTAssertEqual(XCTWaiter.wait(for: [queued], timeout: 30), .completed)
+            reveal(status, in: app, fullyVisible: true)
         }
     #endif
 
