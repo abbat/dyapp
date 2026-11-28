@@ -2081,7 +2081,7 @@ the main suite and long worker phases). The monitor has no aggregate suite timer
 has its separate outer 30-minute command budget. Only matched start/completion records advance progress,
 including failed or skipped test outcomes; logs, repeated statuses and partial lines do not.
 Each monitored invocation flushes validated start/completion events with exact test identity,
-completed count, outcome code and monotonic elapsed seconds into its matching `.progress.jsonl`
+completed count, outcome code, monotonic elapsed seconds and a Unix timestamp into its matching `.progress.jsonl`
 sidecar. Appending `runner_started`/`runner_finished` markers separates invocations and retains
 completed JUnit retry attempts. An outer deadline can stop a healthy long suite too: compare its
 last exact completion/start timings before diagnosing a stalled test. Timing events never establish

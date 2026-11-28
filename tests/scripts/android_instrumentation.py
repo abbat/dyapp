@@ -15,6 +15,7 @@ from typing import BinaryIO, TextIO, TypedDict
 class ProgressEvent(TypedDict):
     event: str
     elapsed_seconds: float
+    unix_time: float
     completed: int
     current: str
     test_class: str
@@ -65,6 +66,7 @@ class Progress:
             {
                 "event": kind,
                 "elapsed_seconds": self.now() - self.started,
+                "unix_time": time.time(),
                 "completed": self.completed,
                 "current": test[0],
                 "test_class": test[1],
