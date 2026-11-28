@@ -37,7 +37,8 @@ internal class WorkerSearchOutbox(private val context: Context, private val owne
 
     fun verifyWithAnotherSelection() {
         val alternate = WorkerPeerFixture(
-            context.noBackupFilesDir, File(context.filesDir, "worker-search-alternate.json")
+            context.noBackupFilesDir,
+            File(context.filesDir, "worker-search-alternate.json")
         )
         val selected = alternate.prepare()
         try {
