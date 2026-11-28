@@ -13,6 +13,7 @@ import uniffi.dyapp.MobileSearchOutbox
 import uniffi.dyapp.MobileSlotLayout
 import uniffi.dyapp.ProfileSearcher
 import uniffi.dyapp.SearchOutboxStatus
+import uniffi.dyapp.setTestProfilePowBits
 import java.io.File
 
 /** Prepares a real signed queue and records the native deadline for the reboot assertions. */
@@ -101,6 +102,8 @@ internal class WorkerSearchOutbox(private val context: Context, private val owne
     }
 
     private fun verifyDelivered(seeker: Opened.Ready) = withSearch(seeker) { searcher, filters ->
+        // The fixture publishes with four-bit proof; keep production defaults through worker acknowledgement.
+        setTestProfilePowBits(4u)
         val found = completeSearch(searcher, filters, owner.peerId).profiles.single()
         check(found.peerId == owner.peerId && found.draft.interests == listOf(filters.interest)) {
             "Search node did not return the queued projection for its owner"

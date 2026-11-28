@@ -43,16 +43,26 @@ internal fun completeSearch(
     expectedPeer: String? = null,
 ): ProfileSearchResult {
     var result: ProfileSearchResult? = null
-    PeerTransition("completed native interest search for " + filters.interest).await(
-        ready = {
-            result?.let { completed ->
-                !completed.partial && completed.failures.isEmpty() &&
-                    (expectedPeer == null || completed.profiles.any { it.peerId == expectedPeer })
-            } == true
-        },
-        advance = {
-            result = searcher.searchSlot(filters.conditions(), filters.employer.employer(), 0u)
-        }
-    )
+    val transition = PeerTransition("completed native interest search for " + filters.interest)
+    try {
+        transition.await(
+            ready = {
+                result?.let { completed ->
+                    !completed.partial && completed.failures.isEmpty() &&
+                        (expectedPeer == null || completed.profiles.any { it.peerId == expectedPeer })
+                } == true
+            },
+            advance = {
+                result = searcher.searchSlot(filters.conditions(), filters.employer.employer(), 0u)
+            }
+        )
+    } catch (failure: IllegalStateException) {
+        val last = result
+        throw IllegalStateException(
+            "Interest search did not converge: partial=${last?.partial}, " +
+                "failures=${last?.failures}, profiles=${last?.profiles?.size}",
+            failure
+        )
+    }
     return requireNotNull(result)
 }
