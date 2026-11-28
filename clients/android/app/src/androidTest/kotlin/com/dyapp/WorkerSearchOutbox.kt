@@ -57,7 +57,13 @@ internal class WorkerSearchOutbox(private val context: Context, private val owne
                 requestDelivery(outbox, signal)
                 PeerTransition("search acknowledgement").awaitSignal(
                     ready = { outbox.status() == SearchOutboxStatus.Idle },
-                    advance = signal::await
+                    advance = { remaining ->
+                        check(signal.awaitChange(remaining)) {
+                            val pending = context.getSystemService(JobScheduler::class.java)
+                                .getPendingJob(SEARCH_OUTBOX_JOB_ID)
+                            "No search acknowledgement signal: status=${outbox.status()}, job=$pending"
+                        }
+                    }
                 )
             }
         }
