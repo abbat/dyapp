@@ -14,8 +14,11 @@ internal fun ChatLinkHosts(message: ChatMessage) {
     val text = message.text?.takeUnless { message.deleted } ?: return
     val hosts = remember(text) { chatLinkHosts(text) }
     if (hosts.isEmpty()) return
+    val destinations = hosts.joinToString(", ") { host ->
+        host.unicode?.let { "${host.ascii} ($it)" } ?: host.ascii
+    }
     Caption(
-        stringResource(R.string.chat_link_hosts, hosts.joinToString(", ") { it.ascii }),
+        stringResource(R.string.chat_link_hosts, destinations),
         Modifier.testTag("chat-link-hosts")
     )
 }

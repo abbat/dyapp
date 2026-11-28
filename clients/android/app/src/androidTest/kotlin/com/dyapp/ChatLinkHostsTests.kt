@@ -28,7 +28,7 @@ class ChatLinkHostsTests {
     val compose = createComposeRule()
 
     private val current = mutableStateOf(message("peer", ""))
-    private val destinations = "safe.example, evil.example, xn--bcher-kva.example:8443"
+    private val destinations = "safe.example, evil.example, xn--bcher-kva.example:8443 (b\u00fccher.example:8443)"
 
     private fun show(language: String, fontScale: Float = 1f): Context {
         val base = InstrumentationRegistry.getInstrumentation().targetContext

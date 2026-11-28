@@ -170,7 +170,7 @@ a nonzero exit stops startup. Existing destinations are never replaced. Installe
 do not establish native cryptographic proof or actual emulator acceptance.
 
 `ChatLinkHostsTests` renders actual message bubbles through the shared JNI URL projection. EN/RU
-captions retain ASCII/Punycode, nondefault ports and first-occurrence deduplication, exclude misleading
+captions retain ASCII/Punycode, the additional Unicode spelling, nondefault ports and deduplication, exclude misleading
 credentials, update after edits, and disappear for deleted/null/no-web-link text. Normal and 200%
 font cases check actual text layout; completion uses Compose synchronization, without sleeps,
 network requests or a Kotlin parser fixture. Full native visual review remains separate acceptance.

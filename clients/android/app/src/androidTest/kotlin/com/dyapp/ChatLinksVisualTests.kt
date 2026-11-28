@@ -74,7 +74,7 @@ class ChatLinksVisualTests {
         } else {
             compose.awaitNode(hasTestTag("chat-link-hosts"))
             val hosts = if (scene.state == ChatLinksVisualState.LIVE) {
-                "evil.example, xn--bcher-kva.example:8443"
+                "evil.example, xn--bcher-kva.example:8443 (b\u00fccher.example:8443)"
             } else {
                 "changed.example"
             }

@@ -610,10 +610,9 @@ The common `chat_link_hosts` adapter only converts these results to `ChatLinkHos
 Desktop message projections use the core ASCII destinations as `linkHosts` in history and list
 records, recomputed from current live text and empty for deleted/media entries. JavaScript only
 renders the supplied captions, without URL parsing or extra IPC. Android message bubbles call the
-same pure `chat_link_hosts` projection for current live text and display its ASCII/Punycode hosts
-under the message, without credentials or opening/fetching a URL. Edited text recomputes the
-projection; deleted, null-text and no-web-link messages show no host line. Kotlin only joins the
-returned ASCII names into a localized caption. iOS host-line presentation remains planned.
+same pure `chat_link_hosts` projection for current live text, as do iOS message bubbles. Both show
+the ASCII/Punycode host followed by the additional Unicode spelling when present. Edited text
+recomputes the caption. Deleted, null-text and no-web-link messages show no host line.
 
 ## Shared mail notification content
 
