@@ -22,8 +22,9 @@ extension ChatsUITests {
         input.typeText("[shown.example](https://xn--bcher-kva.example/)")
         app.buttons["chat-send"].tap()
 
+        let expected = "xn--bcher-kva.example (b\u{FC}cher.example)"
         let hosts = app.staticTexts.matching(identifier: "chat-link-hosts")
-            .matching(NSPredicate(format: "label == %@", "xn--bcher-kva.example (b\u{FC}cher.example)"))
+            .matching(NSPredicate(format: "label == %@", expected))
             .firstMatch
         XCTAssertTrue(hosts.waitForExistence(timeout: 30))
     }
