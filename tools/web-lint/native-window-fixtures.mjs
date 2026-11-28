@@ -18,7 +18,7 @@ test('contrast placement uses current nested content space and retains oversized
     getComputedStyle: (element) => element.style,
   };
   vm.runInNewContext(
-    contrastSource + '\nglobalThis.alignContrast = contrastScrollAlignment;',
+    `${contrastSource}\nglobalThis.alignContrast = contrastScrollAlignment;`,
     context,
   );
   const outer = { clientHeight: 500, style: { paddingTop: '20px', paddingBottom: '30px' } };
