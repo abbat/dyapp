@@ -2,6 +2,7 @@ package com.dyapp
 
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
@@ -68,7 +69,9 @@ internal class OwnerVisualDriver(private val compose: ComposeContentTestRule) {
 
     private fun activate(tag: String) {
         compose.awaitNode(hasTestTag("owner-cancel") and isFocused())
-        compose.awaitNode(hasTestTag(tag) and isEnabled()).performScrollTo().performClick()
+        val action = compose.awaitNode(hasTestTag(tag) and isEnabled())
+        compose.waitUntil(5_000) { action.isDisplayed() }
+        action.performClick()
     }
 
     private fun awaitDirectory(backend: OwnerVisualBackend) =
