@@ -91,7 +91,8 @@ fn reopening_android_registry_retains_signed_queue_and_deadline() {
     let test_dir = dyapp_test_support::test_dir().unwrap();
     let root = test_dir.to_path_buf().to_str().unwrap().to_owned();
     let keys = Arc::new(Keys::default());
-    let registry = MobileIdentityRegistry::new(root.clone(), MobileSlotLayout::Android, keys.clone());
+    let registry =
+        MobileIdentityRegistry::new(root.clone(), MobileSlotLayout::Android, keys.clone());
     let owner = queue(&registry, u64::MAX);
     let database = Path::new(&owner.slot.directory).join("client.db");
     let pending = || {
@@ -107,7 +108,10 @@ fn reopening_android_registry_retains_signed_queue_and_deadline() {
     let reopened = MobileIdentityRegistry::new(root, MobileSlotLayout::Android, keys);
     assert!(matches!(
         MobileSearchOutboxes::new(reopened).poll().unwrap(),
-        SearchOutboxWake::At { ready_at: u64::MAX, .. }
+        SearchOutboxWake::At {
+            ready_at: u64::MAX,
+            ..
+        }
     ));
     assert_eq!(pending(), before);
 }
