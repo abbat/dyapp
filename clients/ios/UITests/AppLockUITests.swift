@@ -216,8 +216,17 @@ final class AppLockUITests: XCTestCase {
     private func enter(_ app: XCUIApplication, _ field: String, _ text: String) {
         let input = app.secureTextFields[field]
         XCTAssertTrue(input.waitForExistence(timeout: 10))
+        revealEditable(input, in: app)
         input.tap()
         input.typeText(text)
+        let populated = XCTNSPredicateExpectation(
+            predicate: NSPredicate { object, _ in
+                guard let field = object as? XCUIElement, let value = field.value as? String else {
+                    return false
+                }
+                return value.count == text.count && value != field.placeholderValue
+            }, object: input)
+        XCTAssertEqual(XCTWaiter.wait(for: [populated], timeout: 10), .completed, field)
     }
 
     private func label(_ element: XCUIElement, _ text: String) -> Bool {
