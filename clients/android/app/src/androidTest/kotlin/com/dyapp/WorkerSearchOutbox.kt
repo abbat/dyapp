@@ -72,7 +72,8 @@ internal class WorkerSearchOutbox(private val context: Context, private val owne
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
         val command = "cmd jobscheduler run -f com.dyapp $SEARCH_OUTBOX_JOB_ID"
         val reply = ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand(command))
-            .bufferedReader().use { it.readText() }
+            .bufferedReader()
+            .use { it.readText() }
         check(reply.contains("Running job")) { "Search job dispatch failed: $reply" }
     }
 

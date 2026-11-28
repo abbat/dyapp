@@ -35,7 +35,6 @@ class NativeInterestSearchTests {
             }
         }
     }
-
 }
 
 internal fun completeSearch(
