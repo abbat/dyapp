@@ -216,7 +216,6 @@ case "${1:?suite required}" in
         }
         # shellcheck source=tests/scripts/android-png-phases.sh
         source /app/tests/scripts/android-png-phases.sh
-        run_png_phases
         # Separate invocations exercise isolated and actual-worker native registries.
         peer_phase() {
             local fixture=$1 phase=$2 argument test_class deadline=300
@@ -255,6 +254,8 @@ case "${1:?suite required}" in
         }
         offline_worker_phases() {
             peer_phase worker prepareSearchOutbox || return
+            # Exercise the independent PNG lifecycle while the signed search update matures.
+            run_png_phases || return
             node_action stop || return
             if peer_phase worker queue &&
                 peer_phase worker verifySearchOutbox verifySearchOutbox-before-reboot &&
