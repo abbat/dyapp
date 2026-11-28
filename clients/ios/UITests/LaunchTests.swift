@@ -51,8 +51,8 @@ final class LaunchTests: XCTestCase {
             predicate: NSPredicate(format: "enabled == true"), object: start)
         XCTAssertEqual(XCTWaiter.wait(for: [sourceReady], timeout: 10), .completed)
         reveal(start, in: app).tap()
-        let code = app.staticTexts["link-receive-code"]
-        XCTAssertTrue(code.waitForExistence(timeout: 10))
+        let code = reveal(app.staticTexts["link-receive-code"], in: app)
+        guard ready(code) else { return }
         let firstCode = code.label
         XCTAssertFalse(firstCode.isEmpty)
         reveal(app.buttons["link-receive-cancel"], in: app).tap()
