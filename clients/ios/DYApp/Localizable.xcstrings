@@ -7073,6 +7073,230 @@
         }
       }
     },
+    "searchRecovery.close": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрыть"
+          }
+        }
+      }
+    },
+    "searchRecovery.confirm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm hiding"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подтвердить скрытие"
+          }
+        }
+      }
+    },
+    "searchRecovery.error": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The operation could not be confirmed. Your saved data is retained."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось подтвердить выполнение. Сохранённые данные остались на месте."
+          }
+        }
+      }
+    },
+    "searchRecovery.linkPending": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Complete setup of this linked device before restoring search hiding. Saved data is retained."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сначала завершите настройку этого подключённого устройства, затем восстановите скрытие. Сохранённые данные остались на месте."
+          }
+        }
+      }
+    },
+    "searchRecovery.pending": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The hiding request is saved and waiting for delivery."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запрос скрытия сохранён и ожидает отправки."
+          }
+        }
+      }
+    },
+    "searchRecovery.refresh": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read current state"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прочитать текущее состояние"
+          }
+        }
+      }
+    },
+    "searchRecovery.retry": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry delivery"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повторить отправку"
+          }
+        }
+      }
+    },
+    "searchRecovery.review": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The old hiding request needs your confirmation. Your private profile edits and device access stay unchanged."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Старый запрос скрытия требует вашего подтверждения. Личные правки анкеты и доступ устройств сохранятся."
+          }
+        }
+      }
+    },
+    "searchRecovery.reviewRequired": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The profile visibility needs review. Check the draft before publishing or hiding it again."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Видимость анкеты требует проверки. Проверьте черновик перед повторной публикацией или скрытием."
+          }
+        }
+      }
+    },
+    "searchRecovery.sent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delivery of the hiding request is confirmed. Other nodes may still hold an older search entry."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доставка запроса скрытия подтверждена. На других узлах ещё может оставаться старая запись поиска."
+          }
+        }
+      }
+    },
+    "searchRecovery.stale": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This review has changed. Read the current state before confirming again."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Состояние изменилось. Прочитайте его заново перед новым подтверждением."
+          }
+        }
+      }
+    },
+    "searchRecovery.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore search hiding"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Восстановить скрытие из поиска"
+          }
+        }
+      }
+    },
+    "searchRecovery.versionExhausted": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recovery cannot advance this profile version. Saved data is retained."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для восстановления нельзя повысить версию этой анкеты. Сохранённые данные остались на месте."
+          }
+        }
+      }
+    },
+    "searchRecovery.wrongOwner": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The profile credentials changed. Reopen the intended profile before reviewing this request."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ключи профиля изменились. Заново откройте нужный профиль перед проверкой этого запроса."
+          }
+        }
+      }
+    },
     "settings.actionFailed": {
       "localizations": {
         "en": {

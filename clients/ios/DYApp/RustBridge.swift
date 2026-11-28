@@ -228,6 +228,15 @@ enum RustBridge {
     }
 
     /// Whether this identity has published and is hidden from search now.
+    static func searchRecovery(for candidate: IdentityCandidate, peerId: String) throws
+        -> MobileSearchRecovery
+    {
+        let location = candidate.location
+        return try MobileSearchRecovery(
+            registry: identityStore().registry, id: location.marker, expectedPeer: peerId,
+            store: keyStore(for: location).requiringExistingKey())
+    }
+
     static func visibility(for candidate: IdentityCandidate, peerId: String) throws
         -> ProfileVisibility
     {

@@ -30,49 +30,188 @@ private struct ProfileHideControls: View {
     @State private var visibility: ProfileVisibility?
     @State private var isHiding = false
     @State private var errorKey: String?
+    @State private var opening = UUID()
+    @State private var review: SearchWithdrawalReview?
+    @State private var recovered: SearchRecoverySaved?
+    @State private var recoveryError: String?
+    @State private var recovering = false
 
     var body: some View {
         VStack(alignment: .leading) {
-            if visibility?.hidden == true {
+            if review != nil || recovered != nil || recoveryError != nil {
+                recoveryControls
+            } else if visibility?.hidden == true {
                 Text("profile.hiddenNotice")
                     .accessibilityIdentifier("profile-hidden-notice")
             } else {
-                Button("profile.hide") { Task { await hide() } }
-                    .disabled(disabled || isHiding || (visibility?.version ?? 0) == 0)
+                Button("profile.hide") {
+                    let expected = opening
+                    Task { await hide(in: expected) }
+                }
+                    .disabled(disabled || isHiding || recovering || (visibility?.version ?? 0) == 0)
                     .accessibilityIdentifier("profile-hide")
                 Text("profile.hideHint")
                     .font(.caption)
             }
-            if isHiding { ProgressView() }
+            if isHiding || recovering { ProgressView() }
             if let errorKey {
                 Text(LocalizedStringKey(errorKey))
                     .accessibilityIdentifier("profile-hide-error")
             }
         }
         .task(id: publishedVersion) { await load() }
+        .onDisappear { closeRecovery() }
+    }
+
+    private var recoveryControls: some View {
+        VStack(alignment: .leading) {
+            Text("searchRecovery.title")
+            Text(verbatim: peerId)
+                .textSelection(.enabled)
+                .accessibilityIdentifier("search-recovery-owner")
+            Text(LocalizedStringKey(recoveryError ?? recoveryStatus))
+                .accessibilityIdentifier("search-recovery-status")
+            if recovered?.searchPending != false {
+                Button(LocalizedStringKey(recoveryAction)) {
+                    let expected = opening
+                    Task { await advanceRecovery(in: expected) }
+                }
+                .disabled(disabled || isHiding || recovering)
+                .accessibilityIdentifier("search-recovery-action")
+            }
+            Button("searchRecovery.close") { closeRecovery() }
+                .disabled(recovering)
+                .accessibilityIdentifier("search-recovery-close")
+        }
+    }
+
+    private var recoveryStatus: String {
+        guard let recovered else { return "searchRecovery.review" }
+        return recovered.searchPending ? "searchRecovery.pending" : "searchRecovery.sent"
+    }
+
+    private var recoveryAction: String {
+        if canRetryRecovery { return "searchRecovery.retry" }
+        return recoveryError == nil ? "searchRecovery.confirm" : "searchRecovery.refresh"
+    }
+
+    private var canRetryRecovery: Bool {
+        recovered?.searchPending == true
+            && (recoveryError == nil || recoveryError == "searchRecovery.error")
     }
 
     @MainActor
     private func load() async {
+        let expected = opening
         let selected = candidate
         let selectedPeer = peerId
-        let read = await IdentityIO.performBlocking {
+        let read = await IdentityIO.performProfile {
             try? RustBridge.visibility(for: selected, peerId: selectedPeer)
         }
-        guard !Task.isCancelled else { return }
+        guard opening == expected, !Task.isCancelled else { return }
         visibility = read
+        if review == nil && recovered == nil && recoveryError == nil {
+            await prepareRecovery(in: expected)
+        }
     }
 
     @MainActor
-    private func hide() async {
+    private func prepareRecovery(in expected: UUID) async {
+        guard opening == expected, !isHiding, !recovering, !Task.isCancelled else { return }
+        recovering = true
+        let selected = candidate
+        let selectedPeer = peerId
+        let result = await IdentityIO.performProfile {
+            Result { try RustBridge.searchRecovery(for: selected, peerId: selectedPeer).prepare() }
+        }
+        guard opening == expected else { return }
+        recovering = false
+        guard !Task.isCancelled else { return }
+        switch result {
+        case .success(let prepared):
+            retireReview()
+            review = prepared
+            recoveryError = nil
+
+        case .failure(let error):
+            recoveryError = recoveryErrorKey(error)
+        }
+    }
+
+    @MainActor
+    private func advanceRecovery(in expected: UUID) async {
+        guard opening == expected, !disabled, !isHiding, !recovering else { return }
+        let retry = canRetryRecovery
+        guard let review, retry || recoveryError == nil else {
+            recovered = nil
+            await prepareRecovery(in: expected)
+            return
+        }
+        recovering = true
+        let result = await IdentityIO.performProfile {
+            Result { retry ? try review.retry() : try review.confirm() }
+        }
+        guard opening == expected else { return }
+        recovering = false
+        switch result {
+        case .success(let saved):
+            recovered = saved
+            recoveryError = nil
+            visibility = ProfileVisibility(version: saved.version, hidden: saved.hidden)
+
+        case .failure(let error):
+            recoveryError = recoveryErrorKey(error)
+        }
+    }
+
+    @MainActor
+    private func closeRecovery() {
+        opening = UUID()
+        isHiding = false
+        recovering = false
+        recovered = nil
+        recoveryError = nil
+        retireReview()
+    }
+
+    @MainActor
+    private func retireReview() {
+        guard let oldReview = review else { return }
+        review = nil
+        IdentityIO.enqueueProfile { _ = try? oldReview.dismiss() }
+    }
+
+    private func recoveryErrorKey(_ error: Error) -> String {
+        switch error as? SearchRecoveryError {
+        case .Closed, .Changed:
+            return "searchRecovery.stale"
+        case .ReviewRequired:
+            return "searchRecovery.reviewRequired"
+        case .LinkPending:
+            return "searchRecovery.linkPending"
+        case .VersionExhausted:
+            return "searchRecovery.versionExhausted"
+        case .WrongOwner:
+            return "searchRecovery.wrongOwner"
+        default:
+            return "searchRecovery.error"
+        }
+    }
+
+    @MainActor
+    private func hide(in expected: UUID) async {
+        guard opening == expected, !disabled, !isHiding, !recovering, review == nil,
+            recovered == nil, recoveryError == nil, (visibility?.version ?? 0) > 0
+        else { return }
         isHiding = true
         errorKey = nil
         let selected = candidate
         let selectedPeer = peerId
-        let outcome = await IdentityIO.performBlocking {
+        let outcome = await IdentityIO.performProfile {
             () -> Result<ProfileVisibility, Error> in
             Result { try RustBridge.hideProfile(for: selected, peerId: selectedPeer) }
         }
+        guard opening == expected else { return }
         isHiding = false
         switch outcome {
         case .success(let hidden):
@@ -152,6 +291,7 @@ struct ProfileProofControls: View {
             ProfileHideControls(
                 candidate: candidate, peerId: peerId, publishedVersion: published?.version,
                 disabled: isSolving || isPublishing, onHidden: resetProofState)
+                .id(candidate.location.marker + ":" + peerId)
         }
         .onChange(of: resetToken) { _ in
             cancelProof()

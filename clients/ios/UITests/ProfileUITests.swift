@@ -76,6 +76,18 @@ final class ProfileUITests: XCTestCase {
             XCTAssertTrue(texts.contains(text), "\(texts)")
         }
         XCTAssertFalse(texts.contains("Birth year (optional)"), "\(texts)")
+        assertOrdinaryHideAvailable(app)
+        removePublishedIdentity(app)
+        app.terminate()
+    }
+
+    private func assertOrdinaryHideAvailable(_ app: XCUIApplication) {
+        let hide = reveal(app.buttons["profile-hide"], in: app)
+        XCTAssertTrue(ready(hide), app.debugDescription)
+        XCTAssertFalse(app.buttons["search-recovery-action"].exists)
+    }
+
+    private func removePublishedIdentity(_ app: XCUIApplication) {
         app.navigationBars.buttons.element(boundBy: 0).tap()
         let settings = app.buttons["settings-open"]
         XCTAssertTrue(settings.waitForExistence(timeout: 10))
@@ -89,7 +101,6 @@ final class ProfileUITests: XCTestCase {
             ).firstMatch.exists)
         confirmation.buttons["Remove permanently"].tap()
         XCTAssertTrue(app.buttons["identity-create"].waitForExistence(timeout: 30))
-        app.terminate()
     }
 
     /// Only a suggested place saves; the preview names the country and the picked place.

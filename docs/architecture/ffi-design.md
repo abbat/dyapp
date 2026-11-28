@@ -950,6 +950,9 @@ draft, pending link or exhausted version requires explicit resolution. Opening n
 re-signs state. Common native exports `MobileSearchRecovery.prepare` return an optional opaque
 `SearchWithdrawalReview`; `confirm` reacquires existing original-slot credentials and binding,
 then delegates the local commit to core. Idle handles retain no keys, sessions or leases.
+The iOS profile editor prepares recovery on a worker under the original slot. Its inline
+confirmation shows the owner and distinguishes queued and acknowledged delivery. Retry uses the
+retained review. Closing the editor retires that opening, and status refresh does not reload drafts.
 Tauri recovery commands likewise retain opaque original-owner/directory/generation handles and
 return structured errors with a `kind`: `closed`, `changed`, `reviewRequired`, `linkPending`,
 `versionExhausted`, `wrongOwner`, or `failed` with a diagnostic `reason`. Presentation must use
