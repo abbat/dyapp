@@ -370,6 +370,15 @@ def read_failed_test_summary(bundle: Path, reports: Path) -> list[str]:
     ]
 
 
+def xctest_timeout(deadline: str | None, now: float) -> float:
+    remaining = (
+        70 * 60 if deadline is None else min(70 * 60, int(deadline) - now)
+    )
+    if remaining <= 0:
+        raise RuntimeError("iOS CI preparation exhausted the XCTest budget")
+    return remaining
+
+
 def main() -> None:
     if os.environ.get("GITHUB_ACTIONS") != "true":
         raise RuntimeError("Native Apple tests require approved macOS CI")
@@ -470,7 +479,9 @@ def main() -> None:
                     "test",
                 ],
                 reports / "tests.log",
-                timeout=70 * 60,
+                timeout=xctest_timeout(
+                    os.environ.get("DYAPP_IOS_TEST_DEADLINE"), time.time()
+                ),
             )
     except RuntimeError as error:
         failures = failed_test_summary(result_bundle, reports)

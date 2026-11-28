@@ -21,6 +21,15 @@ SPEC.loader.exec_module(APPLE)
 
 
 class IosEvidence(unittest.TestCase):
+    def test_xctest_budget_accounts_for_job_preparation(self) -> None:
+        self.assertEqual(APPLE.xctest_timeout(None, 100), 4200)
+        self.assertEqual(APPLE.xctest_timeout("5000", 100), 4200)
+        self.assertEqual(APPLE.xctest_timeout("5000", 1400), 3600)
+        with self.assertRaisesRegex(
+            RuntimeError, "exhausted the XCTest budget"
+        ):
+            APPLE.xctest_timeout("5000", 5000)
+
     def test_failure_summary_timeout_returns_a_diagnostic(self) -> None:
         with patch.object(
             APPLE.subprocess,

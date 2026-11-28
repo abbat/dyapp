@@ -2640,6 +2640,8 @@ Swift compiles and lints only in CI, so these save a round trip of about 30 minu
 - A new Swift file goes into both `project.yml` files. The macOS unit test target lists its files;
   the other test targets take whole folders.
 - A push cancels the running `ci`, so hold it while a run is the evidence you are waiting for.
+  The iOS job reserves its last ten minutes for diagnostics and artifact upload by capping XCTest
+  at a deadline set before checkout. The XCTest subprocess also has its own 70-minute ceiling.
   The job log prints only failures and the first line of a multi-line `app.debugDescription`; the
   element tree is in `tests.log` of the `apple-<platform>` artifact. That artifact holds thousands
   of files, so read the one log in seconds with `python3 -I -B tools/scripts/artifact-member.py
