@@ -149,7 +149,7 @@ private struct ProfileHideControls: View {
         }
         recovering = true
         let result = await IdentityIO.performProfile {
-            Result { retry ? try review.retry() : try review.confirm() }
+            Result { retry ? try review.retry() : try RustBridge.confirmSearchRecovery(review) }
         }
         guard opening == expected else { return }
         recovering = false

@@ -227,7 +227,6 @@ enum RustBridge {
             draft: ProfileRustDraftStore.values(from: result.draft))
     }
 
-    /// Whether this identity has published and is hidden from search now.
     static func searchRecovery(for candidate: IdentityCandidate, peerId: String) throws
         -> MobileSearchRecovery
     {
@@ -237,6 +236,15 @@ enum RustBridge {
             store: keyStore(for: location).requiringExistingKey())
     }
 
+    static func confirmSearchRecovery(_ review: SearchWithdrawalReview) throws
+        -> SearchRecoverySaved
+    {
+        let saved = try review.confirm()
+        if saved.searchPending { MailJob.wakeSearch(afterQueueChange: true) }
+        return saved
+    }
+
+    /// Whether this identity has published and is hidden from search now.
     static func visibility(for candidate: IdentityCandidate, peerId: String) throws
         -> ProfileVisibility
     {
