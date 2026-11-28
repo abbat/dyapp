@@ -241,6 +241,7 @@ tauri,clients/desktop/main.rs#stickers::send::send_saved_sticker,allow-list,clie
 tauri,clients/desktop/main.rs#storage_options,allow-list,clients/desktop/main.rs#GENERATED_COMMAND_HANDLER
 tauri,clients/desktop/main.rs#tray::quit,allow-list,clients/desktop/main.rs#GENERATED_COMMAND_HANDLER
 tauri,clients/desktop/main.rs#ui_smoke::window::ui_test_focus,allow-list,clients/desktop/main.rs#GENERATED_COMMAND_HANDLER
+tauri,clients/desktop/main.rs#ui_smoke::window::ui_test_key,allow-list,clients/desktop/ui-tests/window.rs#ui_test_key
 tauri,clients/desktop/main.rs#ui_smoke::window::ui_test_hide,allow-list,clients/desktop/main.rs#GENERATED_COMMAND_HANDLER
 tauri,clients/desktop/main.rs#ui_smoke::window::ui_test_restored,allow-list,clients/desktop/main.rs#GENERATED_COMMAND_HANDLER
 tauri,clients/desktop/main.rs#ui_smoke::window::ui_test_window,allow-list,clients/desktop/main.rs#GENERATED_COMMAND_HANDLER
