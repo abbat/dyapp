@@ -38,6 +38,19 @@ internal class WorkerSearchOutbox(private val context: Context, private val owne
         )
     }
 
+    fun verifyNotIndexed(seeker: Opened.Ready) {
+        val tag = checkpoint.read().getString("tag")
+        seeker.profileSearcher().use { searcher ->
+            val filters = SearchFilters(emptyList())
+            filters.offered = completeSearch(searcher, filters).offered
+            check(19u in filters.offered) { "Worker node does not offer interest search" }
+            filters.interest = tag
+            check(completeSearch(searcher, filters).profiles.isEmpty()) {
+                "Queued update reached the index before its deadline"
+            }
+        }
+    }
+
     fun verifyWithAnotherSelection() {
         val alternate = WorkerPeerFixture(
             context.noBackupFilesDir,

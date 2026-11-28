@@ -36,23 +36,24 @@ class NativeInterestSearchTests {
         }
     }
 
-    private fun completeSearch(
-        searcher: ProfileSearcher,
-        filters: SearchFilters,
-        expectedPeer: String? = null,
-    ): ProfileSearchResult {
-        var result: ProfileSearchResult? = null
-        PeerTransition("completed native interest search for " + filters.interest).await(
-            ready = {
-                result?.let { completed ->
-                    !completed.partial && completed.failures.isEmpty() &&
-                        (expectedPeer == null || completed.profiles.any { it.peerId == expectedPeer })
-                } == true
-            },
-            advance = {
-                result = searcher.searchSlot(filters.conditions(), filters.employer.employer(), 0u)
-            }
-        )
-        return requireNotNull(result)
-    }
+}
+
+internal fun completeSearch(
+    searcher: ProfileSearcher,
+    filters: SearchFilters,
+    expectedPeer: String? = null,
+): ProfileSearchResult {
+    var result: ProfileSearchResult? = null
+    PeerTransition("completed native interest search for " + filters.interest).await(
+        ready = {
+            result?.let { completed ->
+                !completed.partial && completed.failures.isEmpty() &&
+                    (expectedPeer == null || completed.profiles.any { it.peerId == expectedPeer })
+            } == true
+        },
+        advance = {
+            result = searcher.searchSlot(filters.conditions(), filters.employer.employer(), 0u)
+        }
+    )
+    return requireNotNull(result)
 }

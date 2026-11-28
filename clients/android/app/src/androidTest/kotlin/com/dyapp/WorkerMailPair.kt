@@ -45,6 +45,13 @@ internal class WorkerMailPair(private val context: Context) {
         return owner
     }
 
+    fun prepareSearchOutbox() {
+        WorkerSearchOutbox(context, reopen()).apply {
+            prepare()
+            verifyNotIndexed(counterpart.reopen())
+        }
+    }
+
     fun queueOffline(): Opened.Ready {
         val owner = reopen()
         val other = counterpart.reopen()
