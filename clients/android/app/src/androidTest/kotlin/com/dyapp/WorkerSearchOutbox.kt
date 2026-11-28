@@ -1,5 +1,7 @@
 package com.dyapp
 
+import android.app.job.JobScheduler
+import android.content.ComponentName
 import android.content.Context
 import org.json.JSONObject
 import uniffi.dyapp.MobileIdentityRegistry
@@ -22,6 +24,13 @@ internal class WorkerSearchOutbox(private val context: Context, private val owne
         }
         check(published.draft.about == draft.about) { "Updated profile was not accepted by the node" }
         val scheduled = requireScheduled(outbox.status())
+        val scheduler = context.getSystemService(JobScheduler::class.java)
+        val job = checkNotNull(scheduler.getPendingJob(SEARCH_OUTBOX_JOB_ID)) {
+            "Queue-changing publication did not register the search job"
+        }
+        check(job.isPersisted && job.service == ComponentName(context, MailJob::class.java)) {
+            "Search job must persist and target the production MailJob"
+        }
         checkpoint.write(JSONObject().put("owner", owner.peerId).put("readyAt", scheduled.readyAt.toString()))
     }
 
