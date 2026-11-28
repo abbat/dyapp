@@ -131,6 +131,36 @@ mod tests {
     }
 
     #[test]
+    fn native_filter_returns_range_then_choice_with_wire_values() {
+        let ranges = SearchRangeInputs {
+            height_min: "160".into(),
+            height_max: "180".into(),
+            ..SearchRangeInputs::default()
+        };
+        let choices = crate::SearchChoiceInputs {
+            country: "DE".into(),
+            ..crate::SearchChoiceInputs::default()
+        };
+        assert_eq!(
+            search_filter_conditions(vec![4, 46], ranges, choices).unwrap(),
+            vec![
+                SearchCondition {
+                    field: 46,
+                    op: SearchOp::Range,
+                    ints: vec![160, 180],
+                    strings: vec![],
+                },
+                SearchCondition {
+                    field: 4,
+                    op: SearchOp::Eq,
+                    ints: vec![],
+                    strings: vec!["DE".into()],
+                },
+            ]
+        );
+    }
+
+    #[test]
     fn native_filter_reports_invalid_range_before_invalid_interest() {
         let ranges = SearchRangeInputs {
             age_min: "invalid".into(),
