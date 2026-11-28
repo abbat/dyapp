@@ -238,12 +238,17 @@ extension IdentitySettingsView {
         let currentOpening = opening
         let result = await IdentityIO.performBlocking { () -> InventoryLoad in
             do {
-                let review = try RustBridge.identityStore().removalReview(
+                let items = try RustBridge.identityInventory()
+                let review = try? RustBridge.identityStore().removalReview(
                     current.location, peerId: currentPeerID)
                 // Unknown publication state must never authorize skipping withdrawal.
-                let version = try RustBridge.visibility(for: current, peerId: currentPeerID).version
+                guard let review,
+                    let visibility = try? RustBridge.visibility(for: current, peerId: currentPeerID)
+                else {
+                    return .loaded(items, published: false, allowed: false, otherCopy: false)
+                }
                 return .loaded(
-                    try RustBridge.identityInventory(), published: version > 0,
+                    items, published: visibility.version > 0,
                     allowed: review.allowed, otherCopy: review.hasOtherCopy)
             } catch { return .failed }
         }
