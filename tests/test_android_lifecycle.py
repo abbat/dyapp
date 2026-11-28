@@ -67,6 +67,29 @@ def setup_steps() -> list[Step]:
 
 
 class AndroidLifecycle(unittest.TestCase):
+    def test_search_job_is_probed_on_both_sides_of_reboot(self) -> None:
+        search_job = [*JOB[:-1], "2"]
+        fake = FakeAdb(
+            [
+                Step(BOOT, OLD),
+                Step(search_job, "waiting"),
+                Step(["reboot"]),
+                Step(WAIT),
+                Step(BOOT, NEW),
+                Step(WAIT),
+                Step(PROP, "1"),
+                Step(WAIT),
+                Step(PACKAGE, "package:/framework.apk"),
+                Step(search_job, "waiting"),
+            ]
+        )
+        report = LIFECYCLE.AdbLifecycle(run=fake, now=fake.now).reboot(
+            "com.dyapp", 2, 10
+        )
+        self.assertEqual(report["before_job"], "waiting")
+        self.assertEqual(report["job"], "waiting")
+        self.assertFalse(fake.steps)
+
     def test_old_transport_and_transient_boot_states_cannot_pass_as_a_reboot(
         self,
     ) -> None:
