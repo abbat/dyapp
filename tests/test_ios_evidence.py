@@ -4,6 +4,7 @@ import importlib.util
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import TextIO
 import unittest
 from unittest.mock import patch
 
@@ -20,6 +21,27 @@ SPEC.loader.exec_module(APPLE)
 
 
 class IosEvidence(unittest.TestCase):
+    def test_timeout_reports_only_the_captured_tail(self) -> None:
+        build = ROOT / "build"
+        build.mkdir(exist_ok=True)
+        with TemporaryDirectory(dir=build) as temporary:
+            log = Path(temporary) / "tests.log"
+
+            def timeout(
+                arguments: list[str], *, stdout: TextIO, **_options: object
+            ) -> None:
+                stdout.write(f"Earlier output\n{'x' * 4096}\nLast test\n")
+                raise APPLE.subprocess.TimeoutExpired(arguments, 1)
+
+            with (
+                patch.object(APPLE.subprocess, "run", side_effect=timeout),
+                self.assertRaisesRegex(RuntimeError, "Command timed out") as caught,
+            ):
+                APPLE.run(["xcodebuild"], log, timeout=1)
+            self.assertIn("Last test", str(caught.exception))
+            self.assertNotIn("Earlier output", str(caught.exception))
+            self.assertTrue(log.read_text().startswith("Earlier output"))
+
     def test_export_rejects_a_different_checkout(self) -> None:
         build = ROOT / "build"
         build.mkdir(exist_ok=True)
