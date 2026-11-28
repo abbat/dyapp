@@ -70,6 +70,10 @@ final class ChatsUITests: XCTestCase {
         toggleReceiptsAndUnblock(app)
     }
 
+    func testForwardedTextReachesAnIndependentChat() {
+        assertForwardedTextReachesAnIndependentChat()
+    }
+
     func testLinkDestinationsInEnglish() {
         assertLinkDestinations(language: "en", locale: "en_US")
     }
@@ -282,13 +286,13 @@ extension ChatsUITests {
             app.staticTexts["blocked-none"].waitForExistence(timeout: 30), app.debugDescription)
     }
 
-    private func waitGone(_ element: XCUIElement, in app: XCUIApplication) {
+    func waitGone(_ element: XCUIElement, in app: XCUIApplication) {
         let gone = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "exists == false"), object: element)
         XCTAssertEqual(XCTWaiter.wait(for: [gone], timeout: 60), .completed, app.debugDescription)
     }
 
-    private func menuItem(
+    func menuItem(
         _ id: String, label: String, opener: String = "msg-menu", in app: XCUIApplication
     ) -> XCUIElement {
         let menu = app.buttons[opener].firstMatch

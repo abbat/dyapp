@@ -61,9 +61,12 @@
                     try retrying("forward destination receipt") {
                         _ = try session.receive()
                         let messages = try session.chatHistory(peerId: me).messages
-                        guard messages.contains(where: {
-                            $0.author == me && $0.forwarded && $0.text == confirmation && !$0.deleted
-                        }) else {
+                        guard
+                            messages.contains(where: {
+                                $0.author == me && $0.forwarded && $0.text == greeting
+                                    && !$0.deleted
+                            })
+                        else {
                             throw CocoaError(.fileReadNoSuchFile)
                         }
                     }
