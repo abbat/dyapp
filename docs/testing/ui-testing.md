@@ -117,9 +117,9 @@ physical-pixel precision; mere nonempty containment is insufficient. Stale pre-k
 geometry cannot establish readiness or obscure a persistent enlarged-text layout defect.
 The owner code editor keeps its bounded multiline layout and internal scrolling, retaining the
 complete code. Capture the AlertDialog body's `maxHeight` in its `BoxWithConstraints` scope before
-entering `ColumnScope`, then pass that value to the editor. Its maximum height follows those
-actual body constraints, so enlarged
-fonts and the real IME cannot make its own viewport taller than the enclosing body. The real-IME
+entering `ColumnScope`, then pass that value to the editor. The editor follows the current body
+height down to Material's outlined-field minimum. Below that minimum, the outer body scrolls
+while the field retains room for its padding. The real-IME
 matrix still requires start/middle/end glyphs and both actions inside the live viewport.
 
 Scrollable contrast rechecks center a text block when it fits the current nested content space,

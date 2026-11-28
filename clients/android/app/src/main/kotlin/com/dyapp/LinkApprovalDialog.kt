@@ -12,6 +12,7 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldLabelPosition
 import androidx.compose.runtime.Composable
@@ -82,7 +83,11 @@ private fun LinkApprovalInput(
     OutlinedTextField(
         state = draft,
         // The real IME and font scale can leave less room than four intrinsic text lines.
-        modifier = Modifier.fillMaxWidth().heightIn(max = viewportHeight).testTag("owner-code-input"),
+        // Keep room for Material's padding when the title and footer nearly fill the dialog.
+        // The outer body remains scrollable when its viewport is smaller than the field.
+        modifier = Modifier.fillMaxWidth()
+            .heightIn(max = maxOf(viewportHeight, OutlinedTextFieldDefaults.MinHeight))
+            .testTag("owner-code-input"),
         enabled = !view.busy && !view.retired,
         label = { Text(stringResource(R.string.owner_code_label)) },
         labelPosition = TextFieldLabelPosition.Above(),
