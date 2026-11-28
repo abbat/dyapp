@@ -14,7 +14,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextFieldLabelPosition
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -23,6 +22,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
@@ -80,6 +81,8 @@ private fun LinkApprovalInput(
     viewportHeight: Dp
 ) {
     Text(stringResource(R.string.owner_intro))
+    val label = stringResource(R.string.owner_code_label)
+    Text(label)
     OutlinedTextField(
         state = draft,
         // The real IME and font scale can leave less room than four intrinsic text lines.
@@ -87,10 +90,9 @@ private fun LinkApprovalInput(
         // The outer body remains scrollable when its viewport is smaller than the field.
         modifier = Modifier.fillMaxWidth()
             .heightIn(max = maxOf(viewportHeight, OutlinedTextFieldDefaults.MinHeight))
+            .semantics { contentDescription = label }
             .testTag("owner-code-input"),
         enabled = !view.busy && !view.retired,
-        label = { Text(stringResource(R.string.owner_code_label)) },
-        labelPosition = TextFieldLabelPosition.Above(),
         lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 4, maxHeightInLines = 4),
         inputTransformation = {
             val current = session.state.value
