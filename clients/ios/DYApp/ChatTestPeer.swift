@@ -12,7 +12,11 @@
         static var enabled: Bool {
             ProcessInfo.processInfo.arguments.contains("--ui-test-chat-peer") || likesFirst
                 || viewsFirst
-                || sharesProfile
+                || sharesProfile || forwardsToPeer
+        }
+
+        private static var forwardsToPeer: Bool {
+            ProcessInfo.processInfo.arguments.contains("--ui-test-chat-forward")
         }
         private static var likesFirst: Bool {
             ProcessInfo.processInfo.arguments.contains("--ui-test-chat-peer-likes")
@@ -39,9 +43,35 @@
                     } else {
                         let answer = try replyContent(to: me)
                         try converse(with: me, session: session, answer: answer)
+                        if forwardsToPeer { startForwardDestination(me: me) }
                     }
                 } catch {
                     NSLog("ChatTestPeer stopped: %@", String(describing: error))
+                }
+            }
+        }
+
+        private static func startForwardDestination(me: String) {
+            Thread.detachNewThread {
+                do {
+                    let (session, _) = try published()
+                    try retrying("forward destination greeting") {
+                        _ = try session.submitText(peerId: me, text: "Forward destination")
+                    }
+                    try retrying("forward destination receipt") {
+                        _ = try session.receive()
+                        let messages = try session.chatHistory(peerId: me).messages
+                        guard messages.contains(where: {
+                            $0.author == me && $0.forwarded && $0.text == confirmation && !$0.deleted
+                        }) else {
+                            throw CocoaError(.fileReadNoSuchFile)
+                        }
+                    }
+                    try retrying("forward destination acknowledgement") {
+                        _ = try session.submitText(peerId: me, text: "Forwarded text received")
+                    }
+                } catch {
+                    NSLog("ChatTestPeer forward destination stopped: %@", String(describing: error))
                 }
             }
         }
