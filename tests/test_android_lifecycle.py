@@ -29,7 +29,8 @@ JOB = [
 WAIT = ["wait-for-device"]
 PROP = ["shell", "getprop", "sys.boot_completed"]
 PACKAGE = ["shell", "cmd", "package", "path", "android"]
-USER_STATE = ["shell", "am", "get-started-user-state", "current"]
+CURRENT_USER = ["shell", "am", "get-current-user"]
+USER_STATE = ["shell", "am", "get-started-user-state", "10"]
 
 
 class Step(NamedTuple):
@@ -81,6 +82,7 @@ class AndroidLifecycle(unittest.TestCase):
                 Step(PROP, "1"),
                 Step(WAIT),
                 Step(PACKAGE, "package:/framework.apk"),
+                Step(CURRENT_USER, "10"),
                 Step(WAIT),
                 Step(USER_STATE, "RUNNING_LOCKED"),
                 Step(WAIT),
@@ -115,6 +117,7 @@ class AndroidLifecycle(unittest.TestCase):
                 Step(PACKAGE, status=1, elapsed=3),
                 Step(WAIT),
                 Step(PACKAGE, "package:/dynamic/framework.apk", elapsed=3),
+                Step(CURRENT_USER, "10"),
                 Step(WAIT),
                 Step(USER_STATE, "RUNNING_UNLOCKED"),
                 Step(JOB, "pending ready"),
@@ -182,6 +185,7 @@ class AndroidLifecycle(unittest.TestCase):
                 Step(PROP, "1"),
                 Step(WAIT),
                 Step(PACKAGE, "package:/framework.apk"),
+                Step(CURRENT_USER, "10"),
                 Step(WAIT),
                 Step(USER_STATE, "RUNNING_UNLOCKED"),
                 Step(JOB, "no such job", status=23),

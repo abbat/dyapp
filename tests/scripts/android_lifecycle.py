@@ -108,8 +108,11 @@ class AdbLifecycle:
             "package manager",
             timeout,
         )
+        user = self._checked(["shell", "am", "get-current-user"], timeout)
+        if not user.isascii() or not user.isdecimal():
+            raise RuntimeError(f"Unexpected Android user ID: {user}")
         self._wait(
-            ["shell", "am", "get-started-user-state", "current"],
+            ["shell", "am", "get-started-user-state", user],
             lambda value: value == "RUNNING_UNLOCKED",
             "Android user unlocked",
             timeout,
