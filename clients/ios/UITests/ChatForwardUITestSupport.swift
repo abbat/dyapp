@@ -51,7 +51,10 @@ extension ChatsUITests {
 
     private func openForwardDestination(_ app: XCUIApplication) {
         let request = app.buttons["request-1"]
-        guard ready(reveal(request, in: app, timeout: 150)) else { return }
+        guard request.waitForExistence(timeout: 150) else {
+            return XCTFail("The forwarding destination did not send its request")
+        }
+        guard ready(reveal(request, in: app)) else { return }
         request.tap()
         XCTAssertTrue(shownText("Forward destination", in: app).waitForExistence(timeout: 30))
         let input = app.textFields["chat-input"]
