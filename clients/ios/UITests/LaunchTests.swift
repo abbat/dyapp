@@ -42,9 +42,9 @@ final class LaunchTests: XCTestCase {
         typeSlowly("127.0.0.1:33445", into: seeds)
         reveal(app.buttons["network-check"], in: app).tap()
         let next = reveal(app.buttons["network-continue"], in: app)
-        let ready = XCTNSPredicateExpectation(
+        let networkReady = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "enabled == true"), object: next)
-        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 30), .completed)
+        XCTAssertEqual(XCTWaiter.wait(for: [networkReady], timeout: 30), .completed)
         reveal(next, in: app).tap()
         XCTAssertTrue(start.waitForExistence(timeout: 10))
         let sourceReady = XCTNSPredicateExpectation(
