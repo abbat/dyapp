@@ -25,6 +25,11 @@ case $profile in
     release) cargo_profile=(--release) ;;
     *) echo "unknown Apple core profile: $profile" >&2; exit 2 ;;
 esac
+ffi_features=()
+if [[ ${DYAPP_IOS_UI_FIXTURES:-0} == 1 ]]; then
+    [[ $profile == debug && ${1:-all} == ios ]] || exit 2
+    ffi_features=(--features ios-ui-fixtures)
+fi
 # One slice per platform; lipo merges the architectures of one platform. No associative arrays:
 # macOS ships bash 3.2.
 targets() {
@@ -36,7 +41,7 @@ targets() {
 
 # iOS library-mode bindgen still needs the host macOS dylib. It is not an XCFramework slice.
 host=$(rustc -vV | sed -n 's/^host: //p')
-cargo build --locked -p dyapp-ffi --target "$host"
+cargo build --locked -p dyapp-ffi --target "$host" ${ffi_features[@]+"${ffi_features[@]}"}
 rm -rf "$out"
 mkdir -p "$out/headers"
 "build/$host/debug/uniffi-bindgen" generate --library "build/$host/debug/libdyapp_ffi.dylib" \
@@ -48,7 +53,7 @@ args=()
 for slice in "${slices[@]}"; do
     libs=()
     for target in $(targets "$slice"); do
-        cargo rustc "${cargo_profile[@]}" --locked -p dyapp-ffi --lib --crate-type staticlib --target "$target"
+        cargo rustc "${cargo_profile[@]}" --locked -p dyapp-ffi --lib --crate-type staticlib --target "$target" ${ffi_features[@]+"${ffi_features[@]}"}
         libs+=("build/$target/$profile/libdyapp_ffi.a")
     done
     mkdir -p "$out/$slice"

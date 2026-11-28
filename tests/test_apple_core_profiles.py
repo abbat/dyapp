@@ -46,12 +46,13 @@ elif tool == "xcodebuild":
 class AppleCoreProfiles(unittest.TestCase):
     def test_release_device_and_default_simulator_command_plans(self) -> None:
         cases = [
-            ("ios-device", "release", 1),
-            ("ios", "debug", 3),
-            ("all", "release", 3),
+            ("ios-device", "release", 1, False),
+            ("ios", "debug", 3, False),
+            ("ios", "debug", 3, True),
+            ("all", "release", 3, False),
         ]
-        for scope, profile, count in cases:
-            with self.subTest(scope=scope, profile=profile):
+        for scope, profile, count, fixtures in cases:
+            with self.subTest(scope=scope, profile=profile, fixtures=fixtures):
                 with tempfile.TemporaryDirectory() as directory:
                     root = Path(directory)
                     scripts = root / "scripts"
@@ -67,6 +68,7 @@ class AppleCoreProfiles(unittest.TestCase):
                         tool.chmod(0o755)
                     log = root / "calls.jsonl"
                     env = dict(os.environ, DYAPP_APPLE_TEST_LOG=str(log))
+                    env["DYAPP_IOS_UI_FIXTURES"] = str(int(fixtures))
                     env["PATH"] = str(tools) + os.pathsep + env["PATH"]
                     arguments = ["bash", str(script), "--raw", scope]
                     if profile == "release":
@@ -90,6 +92,8 @@ class AppleCoreProfiles(unittest.TestCase):
                             "--release" in row, profile == "release"
                         )
                     for row in calls:
+                        if row[0] == "cargo":
+                            self.assertEqual("ios-ui-fixtures" in row, fixtures)
                         if row[0] == "lipo":
                             sources = row[2 : row.index("-output")]
                             self.assertTrue(

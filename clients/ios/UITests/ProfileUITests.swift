@@ -8,6 +8,32 @@ final class ProfileUITests: XCTestCase {
         continueAfterFailure = false
     }
 
+    #if IOS_UI_FIXTURES
+        func testLegacySearchHideRequiresConfirmationAfterDismissal() {
+            let app = unlockedApp()
+            app.launchArguments += [
+                "--ui-test-identity-fixture=legacy-search-hide",
+                "-AppleLanguages", "(en)", "-AppleLocale", "en_US",
+            ]
+            app.launch()
+            openProfile(app)
+            let owner = app.staticTexts["search-recovery-owner"]
+            let firstOwner = reveal(owner, in: app, fullyVisible: true).label
+            XCTAssertFalse(firstOwner.isEmpty)
+            reveal(app.buttons["search-recovery-close"], in: app, fullyVisible: true).tap()
+            reveal(app.staticTexts["profile-hidden-notice"], in: app)
+            app.terminate()
+            app.launch()
+            openProfile(app)
+            XCTAssertEqual(reveal(owner, in: app, fullyVisible: true).label, firstOwner)
+            reveal(app.buttons["search-recovery-action"], in: app, fullyVisible: true).tap()
+            let status = app.staticTexts["search-recovery-status"]
+            let saved = NSPredicate(format: "label CONTAINS %@", "saved and waiting for delivery")
+            let queued = XCTNSPredicateExpectation(predicate: saved, object: status)
+            XCTAssertEqual(XCTWaiter.wait(for: [queued], timeout: 30), .completed)
+        }
+    #endif
+
     /// An optional birth part survives restart; failed publishes show localized errors and ask for
     /// new confirmations; a later launch reuses the proof and shows the signed loopback readback.
     func testProfileDraftRestartFailedPublishAndSignedReadback() {

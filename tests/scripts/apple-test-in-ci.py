@@ -334,6 +334,8 @@ def main() -> None:
         "-derivedDataPath",
         str(derived),
     ]
+    if platform == "ios" and os.environ.get("DYAPP_IOS_UI_FIXTURES") == "1":
+        common.append("OTHER_SWIFT_FLAGS=$(inherited) -DIOS_UI_FIXTURES")
     unsigned = ["CODE_SIGNING_ALLOWED=NO"]
     build = common + unsigned
     # The iOS Simulator refuses an unsigned app the Keychain (OSStatus

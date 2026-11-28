@@ -371,6 +371,19 @@ enum RustBridge {
             guard try store.candidates().isEmpty else { return }
             let root = try directory()
             let fixture = String(argument.dropFirst(prefix.count))
+            #if IOS_UI_FIXTURES
+                if fixture == "legacy-search-hide" {
+                    let created = try store.create()
+                    let location = IdentityLocation.slot(created.slot.id)
+                    _ = try store.registry.openChats(
+                        id: location.marker, expectedPeer: created.peerId,
+                        store: keyStore(for: location).requiringExistingKey())
+                    try store.withIdentity(location, peerId: created.peerId) { dir, key in
+                        try seedLegacySearchHide(dir: dir, key: key)
+                    }
+                    return
+                }
+            #endif
             switch fixture {
             case "legacy":
                 try IdentityKey.generate().wrap(store: keyStore(for: .legacy))

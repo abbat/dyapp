@@ -41,6 +41,10 @@ pub use chats::{
     StickerPackSaveAttempt, StickerPackSaveControl, StickerPackSaveFailure, StickerPackSaveState,
     StickerPackSaveStatus, StickerPickerEntry,
 };
+#[cfg(feature = "ios-ui-fixtures")]
+mod ios_ui_fixtures;
+#[cfg(feature = "ios-ui-fixtures")]
+pub use ios_ui_fixtures::seed_legacy_search_hide;
 mod link_review;
 pub use link_review::{
     LinkReviewChoice, LinkReviewError, LinkReviewField, LinkReviewPhoto, LinkReviewProfile,

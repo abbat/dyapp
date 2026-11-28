@@ -286,6 +286,8 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: build core
         if: matrix.platform == 'ios'
+        env:
+          DYAPP_IOS_UI_FIXTURES: '1'
         run: bash tools/scripts/build-apple-core.sh "${{ matrix.platform }}"
       - name: prepare xcode
         if: matrix.platform == 'ios'
@@ -298,6 +300,7 @@ jobs:
         if: matrix.platform == 'ios'
         env:
           APP_PLATFORM: ${{ matrix.platform }}
+          DYAPP_IOS_UI_FIXTURES: '1'
         run: bash tests/scripts/apple-test-in-ci.sh
       - name: Tauri macOS tests
         if: matrix.platform == 'macos'

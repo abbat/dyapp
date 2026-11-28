@@ -6,6 +6,9 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 
+[features]
+ios-ui-fixtures = []
+
 [dependencies]
 getrandom = "0.4"
 uniffi = { version = "0.32", features = ["cli"] }
