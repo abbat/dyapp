@@ -114,14 +114,7 @@
     await activate(row, nativeKeys);
     await appApi.receivedViews.viewOpened;
     await appApi.profileViewDone;
-    check(
-      test.calls.filter(([command]) => command === 'shared_profile').length === 1,
-      'Open fetched another profile',
-    );
-    check(
-      test.calls.filter(([command]) => command === 'submit_profile_view').length === 1,
-      'explicit opening did not submit once',
-    );
+    checkViewSubmission(test.calls);
     const back = byId('view-back');
     if (nativeKeys) back.focus();
     await activate(back, nativeKeys);
@@ -135,6 +128,19 @@
       'Back did not focus the current row',
     );
     await afterReturn();
+    await checkRetiredReceivedView(test);
+  };
+  const checkViewSubmission = (calls) => {
+    check(
+      calls.filter(([command]) => command === 'shared_profile').length === 1,
+      'Open fetched another profile',
+    );
+    check(
+      calls.filter(([command]) => command === 'submit_profile_view').length === 1,
+      'explicit opening did not submit once',
+    );
+  };
+  const checkRetiredReceivedView = async (test) => {
     const stale = byId('received-views-rows').querySelector('button');
     const held = smoke.pendingSmokeCall();
     test.setRead(held.call);
