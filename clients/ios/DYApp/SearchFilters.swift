@@ -56,18 +56,15 @@ struct SearchFilterInputs {
 
     /// The shared core refuses a reversed age or height range with the same errors as a bad number.
     func conditions() throws -> [SearchCondition] {
-        let found = try searchCheckedChoiceConditions(
+        try searchFilterConditions(
             offered: offered,
-            inputs: SearchChoiceInputs(
+            ranges: SearchRangeInputs(
+                ageMin: ageMin, ageMax: ageMax, heightMin: heightMin, heightMax: heightMax
+            ),
+            choices: SearchChoiceInputs(
                 picked: picked.mapValues { Int64($0) }, country: country, interest: interest,
                 place: place
             ))
-        let ranges = try searchRangeConditions(
-            offered: offered,
-            inputs: SearchRangeInputs(
-                ageMin: ageMin, ageMax: ageMax, heightMin: heightMin, heightMax: heightMax
-            ))
-        return found + ranges
     }
 
     func employer() -> SearchEmployer {

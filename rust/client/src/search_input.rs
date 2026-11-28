@@ -10,6 +10,27 @@ pub use ranges::range_conditions;
 mod visibility;
 pub use visibility::visible_filter_fields;
 
+/// Build node conditions in range-first order using the requested UTC date.
+///
+/// # Errors
+/// Reports the first invalid offered range or interest.
+pub fn filter_conditions(
+    offered: &[u32],
+    ranges: &dyapp_profile::search_input::SearchRangeInputs,
+    choices: &SearchChoiceInputs,
+    date: dyapp_profile::CivilDate,
+) -> Result<Vec<dyapp_p2p_net::proto::Condition>, dyapp_profile::search_input::SearchInputError> {
+    use dyapp_profile::search_input::SearchInputError;
+
+    let mut conditions = range_conditions(offered, ranges, date)?;
+    conditions.extend(
+        choices
+            .checked_conditions(offered)
+            .map_err(|_| SearchInputError::Interest)?,
+    );
+    Ok(conditions)
+}
+
 /// The selected local employer-filter mode before interpreting its text field.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum EmployerMode {

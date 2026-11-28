@@ -34,8 +34,7 @@ import uniffi.dyapp.ProfileScale
 import uniffi.dyapp.SearchChoiceInputs
 import uniffi.dyapp.SearchCondition
 import uniffi.dyapp.SearchRangeInputs
-import uniffi.dyapp.searchCheckedChoiceConditions
-import uniffi.dyapp.searchRangeConditions
+import uniffi.dyapp.searchFilterConditions
 import uniffi.dyapp.searchVisibleFields
 
 // Node field numbers, as the desktop page uses them.
@@ -69,14 +68,12 @@ internal class SearchFilters(private val scales: List<ProfileScale>) {
      * a height that is no whole number or an impossible range as `invalid search height`.
      */
     fun conditions(): List<SearchCondition> =
-        searchCheckedChoiceConditions(
+        searchFilterConditions(
             offered,
+            SearchRangeInputs(ageMin, ageMax, heightMin, heightMax),
             // PlacePicker stores UInt32 IDs as Int; toUInt restores all bits, including the sign bit.
             SearchChoiceInputs(picked.mapValues { it.value.toLong() }, place.country, interest, place.place?.toUInt())
-        ) + ranges()
-
-    private fun ranges(): List<SearchCondition> =
-        searchRangeConditions(offered, SearchRangeInputs(ageMin, ageMax, heightMin, heightMax))
+        )
 }
 
 /**

@@ -60,6 +60,60 @@ pub fn search_range_conditions(
     conditions(&offered, &inputs, today()?)
 }
 
+/// Build the native search form's conditions in the shared range-first order.
+///
+/// # Errors
+/// Reports the first invalid offered range or interest, an unsupported date,
+/// or an unsupported comparison in the resulting conditions.
+#[uniffi::export]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "UniFFI lifts owned records and sequences across the native boundary"
+)]
+pub fn search_filter_conditions(
+    offered: Vec<u32>,
+    ranges: SearchRangeInputs,
+    choices: crate::SearchChoiceInputs,
+) -> Result<Vec<SearchCondition>, CoreError> {
+    filter_conditions_at(&offered, ranges, choices, today()?)
+}
+
+fn filter_conditions_at(
+    offered: &[u32],
+    ranges: SearchRangeInputs,
+    choices: crate::SearchChoiceInputs,
+    date: CivilDate,
+) -> Result<Vec<SearchCondition>, CoreError> {
+    use dyapp_p2p_net::proto::Op;
+
+    let ranges = dyapp_profile::search_input::SearchRangeInputs {
+        age_min: ranges.age_min,
+        age_max: ranges.age_max,
+        height_min: ranges.height_min,
+        height_max: ranges.height_max,
+    };
+    let conditions =
+        dyapp_client::search_input::filter_conditions(offered, &ranges, &choices.into(), date)
+            .map_err(|error| CoreError::Failed(error.to_string()))?;
+    conditions
+        .into_iter()
+        .map(|condition| {
+            let op = match condition.op() {
+                Op::Eq => SearchOp::Eq,
+                Op::In => SearchOp::In,
+                Op::Range => SearchOp::Range,
+                Op::Unspecified => return Err(CoreError::Failed("invalid search operator".into())),
+            };
+            Ok(SearchCondition {
+                field: condition.field,
+                op,
+                ints: condition.ints,
+                strings: condition.strings,
+            })
+        })
+        .collect()
+}
+
 /// Project offered fields to displayable search controls using shared prerequisites.
 #[must_use]
 #[uniffi::export]
@@ -74,6 +128,31 @@ mod tests {
 
     fn date() -> CivilDate {
         CivilDate::new(2026, 11, 10).expect("fixed valid date")
+    }
+
+    #[test]
+    fn native_filter_reports_invalid_range_before_invalid_interest() {
+        let ranges = SearchRangeInputs {
+            age_min: "invalid".into(),
+            ..SearchRangeInputs::default()
+        };
+        let choices = crate::SearchChoiceInputs {
+            interest: "music\nother".into(),
+            ..crate::SearchChoiceInputs::default()
+        };
+        let offered = [1001, 19];
+        assert_eq!(
+            filter_conditions_at(&offered, ranges, choices.clone(), date())
+                .unwrap_err()
+                .to_string(),
+            "invalid search age"
+        );
+        assert_eq!(
+            filter_conditions_at(&offered, SearchRangeInputs::default(), choices, date())
+                .unwrap_err()
+                .to_string(),
+            "invalid search interest"
+        );
     }
 
     #[test]

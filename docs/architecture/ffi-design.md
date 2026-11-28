@@ -154,9 +154,10 @@ clock hints never change age or birthday interpretation.
 `dyapp_client::search_input::range_conditions` converts offered raw age/height inputs into
 protocol conditions at an explicit civil date. Shared parsing runs first; semantic validation
 then preserves age-before-height errors and condition order, hidden-field behavior and defaults.
-Both Tauri search and the common UniFFI `search_range_conditions` delegate to it. The native
-adapter converts records/errors only; Kotlin and Swift continue supplying their raw form values.
-The native API and existing field-specific error strings are unchanged.
+Tauri and UniFFI `search_filter_conditions` use the same core assembly. It validates ranges
+before offered choices and returns the first invalid offered field. Conditions likewise list
+ranges before choices. Kotlin and Swift supply raw form values and translate field-specific
+errors for display.
 
 ## Search filter visibility
 

@@ -110,7 +110,7 @@ impl Query {
     /// height, then the offered choices. Errors are `invalid search age`, `invalid search height`
     /// or `invalidInterests`.
     fn conditions(&self, today: CivilDate) -> Result<Vec<proto::Condition>, String> {
-        let mut out = dyapp_client::search_input::range_conditions(
+        dyapp_client::search_input::filter_conditions(
             &self.offered,
             &SearchRangeInputs {
                 age_min: self.age_min.clone(),
@@ -118,21 +118,18 @@ impl Query {
                 height_min: self.height_min.clone(),
                 height_max: self.height_max.clone(),
             },
+            &SearchChoiceInputs {
+                picked: self.picked.clone(),
+                country: self.country.clone(),
+                interest: self.interest.clone(),
+                place: self.place,
+            },
             today,
         )
-        .map_err(|error| error.to_string())?;
-        let choices = SearchChoiceInputs {
-            picked: self.picked.clone(),
-            country: self.country.clone(),
-            interest: self.interest.clone(),
-            place: self.place,
-        };
-        out.extend(
-            choices
-                .checked_conditions(&self.offered)
-                .map_err(|error| error.to_string())?,
-        );
-        Ok(out)
+        .map_err(|error| match error {
+            dyapp_profile::search_input::SearchInputError::Interest => "invalidInterests".into(),
+            _ => error.to_string(),
+        })
     }
 
     fn employer(&self) -> Employer {

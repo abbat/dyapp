@@ -26,7 +26,7 @@ pub struct SearchRanges {
     pub max_height: Option<u32>,
 }
 
-/// The field whose entered number or resulting range is invalid.
+/// The field whose search input is invalid.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum SearchInputError {
     /// An age bound cannot be parsed or forms no valid birth-date range.
@@ -35,6 +35,9 @@ pub enum SearchInputError {
     /// A height bound cannot be parsed or the resulting bounds are reversed.
     #[error("invalid search height")]
     Height,
+    /// An offered interest cannot be published in canonical form.
+    #[error("invalid search interest")]
+    Interest,
 }
 
 fn number(text: &str, error: SearchInputError) -> Result<Option<u32>, SearchInputError> {
