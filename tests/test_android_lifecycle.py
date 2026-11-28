@@ -29,6 +29,7 @@ JOB = [
 WAIT = ["wait-for-device"]
 PROP = ["shell", "getprop", "sys.boot_completed"]
 PACKAGE = ["shell", "cmd", "package", "path", "android"]
+USER_STATE = ["shell", "am", "get-started-user-state", "current"]
 
 
 class Step(NamedTuple):
@@ -80,6 +81,10 @@ class AndroidLifecycle(unittest.TestCase):
                 Step(PROP, "1"),
                 Step(WAIT),
                 Step(PACKAGE, "package:/framework.apk"),
+                Step(WAIT),
+                Step(USER_STATE, "RUNNING_LOCKED"),
+                Step(WAIT),
+                Step(USER_STATE, "RUNNING_UNLOCKED"),
                 Step(search_job, "waiting"),
             ]
         )
@@ -110,6 +115,8 @@ class AndroidLifecycle(unittest.TestCase):
                 Step(PACKAGE, status=1, elapsed=3),
                 Step(WAIT),
                 Step(PACKAGE, "package:/dynamic/framework.apk", elapsed=3),
+                Step(WAIT),
+                Step(USER_STATE, "RUNNING_UNLOCKED"),
                 Step(JOB, "pending ready"),
             ]
         )
@@ -175,6 +182,8 @@ class AndroidLifecycle(unittest.TestCase):
                 Step(PROP, "1"),
                 Step(WAIT),
                 Step(PACKAGE, "package:/framework.apk"),
+                Step(WAIT),
+                Step(USER_STATE, "RUNNING_UNLOCKED"),
                 Step(JOB, "no such job", status=23),
             ]
         )
@@ -185,7 +194,7 @@ class AndroidLifecycle(unittest.TestCase):
         self.assertFalse(fake.steps)
         self.assertFalse(
             any(
-                "instrument" in command or "am" in command
+                "instrument" in command or "start" in command
                 for command in fake.calls
             )
         )

@@ -108,6 +108,12 @@ class AdbLifecycle:
             "package manager",
             timeout,
         )
+        self._wait(
+            ["shell", "am", "get-started-user-state", "current"],
+            lambda value: value == "RUNNING_UNLOCKED",
+            "Android user unlocked",
+            timeout,
+        )
         state = self._job_state(package, job_id, timeout)
         return {
             "before": before,
