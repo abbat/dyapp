@@ -31,7 +31,7 @@ class WorkerPeerPhaseTests {
     private fun searchOutbox(context: Context, fixture: WorkerMailPair, phase: String?) {
         when (phase) {
             "prepareSearchOutbox" -> prepareSearchOutbox(context, fixture)
-            "verifySearchOutbox" -> WorkerSearchOutbox(context, fixture.reopenQueued()).verify()
+            "verifySearchOutbox" -> WorkerSearchOutbox(context, fixture.reopenQueued()).verifyWithAnotherSelection()
             else -> error("Unknown worker peer phase: $phase")
         }
     }

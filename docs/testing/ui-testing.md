@@ -1557,7 +1557,9 @@ external node is stopped, including after guest reboot and APK upgrade. Before t
 node offline, the worker fixture acknowledges one search projection and publishes a changed
 profile for the same owner within the ordinary retry window. The reboot probe verifies both
 persisted job registrations before instrumentation can recreate them. The offline phases
-compare the original owner's native search deadline across reboot and APK upgrade. The existing
+compare the original owner's native search deadline across reboot and APK upgrade.
+During the reboot checks, a second test identity is temporarily selected to verify that
+selection does not retarget the original queue. The existing
 queued-text, identity/inventory and scheduled-worker checks remain. After both peers initialize and
 publish, the record also captures their current public device keys through the offline native device
 directory. Every reopen compares both keys; absent, replaced or swapped proof fails without creating

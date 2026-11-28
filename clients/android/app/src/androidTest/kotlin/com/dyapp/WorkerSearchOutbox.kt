@@ -35,6 +35,19 @@ internal class WorkerSearchOutbox(private val context: Context, private val owne
         checkpoint.write(JSONObject().put("owner", owner.peerId).put("readyAt", scheduled.readyAt.toString()))
     }
 
+    fun verifyWithAnotherSelection() {
+        val alternate = WorkerPeerFixture(
+            context.noBackupFilesDir, File(context.filesDir, "worker-search-alternate.json")
+        )
+        val selected = alternate.prepare()
+        try {
+            check(selected.peerId != owner.peerId) { "Expected a distinct active identity" }
+            verify()
+        } finally {
+            alternate.cleanup()
+        }
+    }
+
     fun verify() = withOutbox { outbox ->
         val saved = checkpoint.read()
         check(saved.getString("owner") == owner.peerId) { "Search outbox owner changed" }
