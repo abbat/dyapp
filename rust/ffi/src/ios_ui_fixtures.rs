@@ -37,3 +37,24 @@ pub fn seed_legacy_search_hide(dir: String, key: Arc<IdentityKey>) -> Result<(),
 fn failed(error: impl std::fmt::Display) -> CoreError {
     CoreError::Failed(error.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{seed_legacy_search_hide, Arc, IdentityKey, Store};
+
+    #[test]
+    fn seeds_only_an_existing_empty_slot_with_the_legacy_review() {
+        let dir = dyapp_test_support::test_dir().unwrap();
+        let directory = dir.path().to_str().unwrap().to_owned();
+        let key = IdentityKey::generate().unwrap();
+        assert!(seed_legacy_search_hide(directory.clone(), Arc::clone(&key)).is_err());
+        let store = Store::open(&dir.path().join("client.db"), &key.identity).unwrap();
+        seed_legacy_search_hide(directory.clone(), Arc::clone(&key)).unwrap();
+        let draft = store.profile_draft().unwrap().unwrap();
+        assert_eq!(draft.version, 2);
+        assert_eq!(draft.name, "Original private draft");
+        assert!(store.search_visibility().unwrap().hidden);
+        assert!(store.prepare_search_withdrawal_recovery().unwrap().is_some());
+        assert!(seed_legacy_search_hide(directory, key).is_err());
+    }
+}
