@@ -82,6 +82,8 @@ internal class OwnerImeCharacters(private val compose: ComposeContentTestRule, p
                 val bounds = android.graphics.Rect()
                 node.getBoundsInScreen(bounds)
                 observation += " bounds=$bounds selection=${node.textSelectionStart}..${node.textSelectionEnd}"
+                val characterLocationKey = AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY
+                observation += " characterLocationAdvertised=${characterLocationKey in node.availableExtraData}"
                 return node
             }
             for (index in 0 until node.childCount) node.getChild(index)?.let(pending::addLast)
