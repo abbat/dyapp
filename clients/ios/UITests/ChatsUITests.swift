@@ -70,8 +70,8 @@ final class ChatsUITests: XCTestCase {
         toggleReceiptsAndUnblock(app)
     }
 
-    func testForwardedTextReachesAnIndependentChat() {
-        assertForwardedTextReachesAnIndependentChat()
+    func testForwardedTextAndPhotoReachAnIndependentChat() {
+        assertForwardedTextAndPhotoReachAnIndependentChat()
     }
 
     func testLinkDestinationsInEnglish() {

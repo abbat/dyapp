@@ -1,7 +1,7 @@
 import XCTest
 
 extension ChatsUITests {
-    func assertForwardedTextReachesAnIndependentChat() {
+    func assertForwardedTextAndPhotoReachAnIndependentChat() {
         let app = XCUIApplication()
         app.launchArguments = [
             "--app-lock-off", "--ui-test-slot-root=\(UUID().uuidString)", "--ui-test-chat-forward",
@@ -20,8 +20,23 @@ extension ChatsUITests {
         openForwardDestination(app)
         app.navigationBars.buttons.element(boundBy: 0).tap()
 
-        openForwardChat("Got your reply", in: app)
+        openForwardChat("Photo", in: app)
         menuItem("msg-forward", label: "Forward", opener: "msg-received-menu", in: app).tap()
+        selectForwardTarget(app)
+        let photoMenu = app.buttons["msg-photo-menu"]
+        guard ready(reveal(photoMenu, in: app, timeout: 150)) else { return }
+        menuItem("msg-forward", label: "Forward", opener: "msg-photo-menu", in: app).tap()
+        selectForwardTarget(app)
+
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        openForwardChat("Forwarded photo received", in: app)
+        XCTAssertTrue(
+            shownText("Forwarded · Hello from the peer", in: app).waitForExistence(timeout: 30))
+        XCTAssertTrue(
+            app.staticTexts["msg-photo-forwarded"].waitForExistence(timeout: 30))
+    }
+
+    private func selectForwardTarget(_ app: XCUIApplication) {
         let target = app.buttons.matching(
             NSPredicate(format: "identifier BEGINSWITH %@", "forward-target-")
         )
@@ -32,10 +47,6 @@ extension ChatsUITests {
         let cancel = app.buttons["forward-cancel"]
         if cancel.exists { cancel.tap() }
         waitGone(cancel, in: app)
-        app.navigationBars.buttons.element(boundBy: 0).tap()
-        openForwardChat("Forwarded text received", in: app)
-        XCTAssertTrue(
-            shownText("Forwarded · Hello from the peer", in: app).waitForExistence(timeout: 30))
     }
 
     private func openForwardDestination(_ app: XCUIApplication) {
