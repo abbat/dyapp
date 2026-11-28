@@ -233,6 +233,7 @@
         get('status').textContent.includes(appApi.strings['stickers.saved']) && get('hint').hidden,
         'Import lacks a single local confirmation',
       );
+      await smoke.shot('stickers-import-confirmation');
     } catch (error) {
       fixture.close();
       throw error;

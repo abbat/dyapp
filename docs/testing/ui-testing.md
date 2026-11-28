@@ -2326,6 +2326,8 @@ read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID
 Linux CI sets this variable for the EN/RU smoke runs and includes their PNG files under
 `linux-smoke-shots` in the `linux-check-output` artifact. The Russian smoke report is in
 `linux-smoke-shots/ru-results/desktop-ui-results.json`; the English report keeps its existing path.
+The shared sticker smoke captures `stickers-import-confirmation` after checking that the saved
+notice is visible and the initial hint is hidden.
   States: `setup`, `wizard-network`, `picker`, `ready`, `settings`, `storage`,
   `settings-storage`, `remove`, `remove-offline`, `recovery`, `recovery-details`,
   `network-empty`, `network-failure`, `network-connected`, `profile-edit`,
