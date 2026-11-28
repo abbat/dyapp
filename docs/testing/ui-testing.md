@@ -512,6 +512,8 @@ It waits for trusted focus and activation events before asserting paging and pro
 The desktop publication capture rechecks the accepted version, unsaved editor text and status
 visibility after the accessibility audit and each native resize, immediately before the snapshot.
 An editor input event leaves the accepted-publication notice visible while newer edits are pending.
+The smoke also releases an older background search response after publication and checks that it
+preserves the accepted version and unsaved input.
 
 The native iOS debug CI enables `DYAPP_IOS_UI_FIXTURES=1` for Swift binding generation, the
 linked Rust core and XCTest. The legacy search Hide fixture creates a fresh isolated identity
