@@ -4,10 +4,9 @@ import android.app.job.JobScheduler
 import android.content.ComponentName
 import android.content.Context
 import android.os.ParcelFileDescriptor
+import android.os.SystemClock
 import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import uniffi.dyapp.MobileIdentityRegistry
 import uniffi.dyapp.MobileSearchOutbox
@@ -54,7 +53,7 @@ internal class WorkerSearchOutbox(private val context: Context, private val owne
         val directory = RustBridge.withKey(owner) { dir, _ -> File(dir) }
         MailStorageSignal(directory).use { signal ->
             withOutbox { outbox ->
-                requestDelivery(outbox)
+                requestDelivery(outbox, signal)
                 PeerTransition("search acknowledgement").awaitSignal(
                     ready = { outbox.status() == SearchOutboxStatus.Idle },
                     advance = signal::await
@@ -65,14 +64,30 @@ internal class WorkerSearchOutbox(private val context: Context, private val owne
         verifyDelivered(seeker)
     }
 
-    private fun requestDelivery(outbox: MobileSearchOutbox) = runBlocking {
+    private fun requestDelivery(outbox: MobileSearchOutbox, signal: MailStorageSignal) {
         val readyAt = checkpoint.read().getString("readyAt").toLong()
         val remaining = readyAt * 1_000L - System.currentTimeMillis()
         check(remaining <= 600_000L) { "Unexpected search publication deadline: $readyAt" }
-        if (outbox.status() == SearchOutboxStatus.Idle) return@runBlocking
         Log.i("WorkerSearchOutbox", "Remaining native search window: ${remaining.coerceAtLeast(0)} ms")
-        if (remaining > 0) delay(remaining)
-        if (outbox.status() == SearchOutboxStatus.Idle) return@runBlocking
+        val deadline = SystemClock.elapsedRealtime() + remaining.coerceAtLeast(0)
+        if (awaitEarlyAcknowledgement(deadline, outbox, signal)) return
+        dispatchSearchJob(outbox)
+    }
+
+    private fun awaitEarlyAcknowledgement(
+        deadline: Long,
+        outbox: MobileSearchOutbox,
+        signal: MailStorageSignal
+    ): Boolean {
+        while (outbox.status() != SearchOutboxStatus.Idle) {
+            val remaining = deadline - SystemClock.elapsedRealtime()
+            if (remaining <= 0) return false
+            signal.awaitChange(remaining)
+        }
+        return true
+    }
+
+    private fun dispatchSearchJob(outbox: MobileSearchOutbox) {
         // The guest can reach the node but Android does not validate the guest network.
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
         val command = "cmd jobscheduler run -f com.dyapp $SEARCH_OUTBOX_JOB_ID"

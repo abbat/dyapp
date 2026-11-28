@@ -19,10 +19,13 @@ internal class MailStorageSignal(directory: File) : AutoCloseable {
     }
 
     fun await(remainingMs: Long) {
-        check(changes.poll(remainingMs, TimeUnit.MILLISECONDS) != null) {
+        check(awaitChange(remainingMs)) {
             "No mail storage change before the transition deadline"
         }
     }
+
+    fun awaitChange(remainingMs: Long): Boolean =
+        changes.poll(remainingMs, TimeUnit.MILLISECONDS) != null
 
     override fun close() = observer.stopWatching()
 }

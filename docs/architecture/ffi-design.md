@@ -978,6 +978,8 @@ owner-review-required and the exact Unix-second send deadline in one read snapsh
 remains available for explicit owner recovery. Reading the schedule never signs or migrates state.
 Common native `MobileSearchOutbox` retains only original-slot coordinates; `status` reopens the
 existing database and returns `Idle`, `ReviewRequired` or `Scheduled { readyAt }` in Unix seconds.
+The Android lifecycle test observes database writes while waiting for that deadline and proceeds
+immediately if it reads a durable acknowledgement.
 `poll` reacquires the original owner, checks core readiness before network access, and dispatches
 already signed bytes on the dedicated network stack. Missing databases remain idle without creation;
 legacy records remain blocked and no MLS/chat credentials are created. Network errors leave the
