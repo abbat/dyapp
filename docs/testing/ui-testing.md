@@ -2318,9 +2318,8 @@ read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID
   without platform offsets. Geometry sampling and resizing get separate failure deadlines. The
   admitted CSS viewport must match the requested physical size minus those insets at current DPR;
   an expired sampling phase cannot issue a late resize.
-  Two animation frames then paint the admitted geometry before `ui_test_shot` runs ImageMagick
-  `import -window root`. The native capture command rechecks the current window bounds against
-  its requested crop before invoking ImageMagick. Narrow overflow audits and window restoration
+  On Linux, `ui_test_shot` rechecks the window bounds, waits for the WebKit visible snapshot callback,
+  and verifies the resulting PNG dimensions before retaining it. Narrow overflow audits and window restoration
   use the same readiness. The
   Xvfb screen is 1280x1400. Files are
   `<state>-<lang>-<width>.png`; the first capture of a state wins. After the English pass,

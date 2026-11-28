@@ -635,8 +635,7 @@ fn ui_test_step() -> String {
 
 /// UI test screenshots at 440 and 1280 px wide, 1400 px high, when `DYAPP_UI_SHOTS=<dir>` is set.
 /// Without `width` it returns the widths still missing; existing files are kept, empty ones fail.
-/// With `width` it captures the top-left screen area: the caller has already placed the window
-/// there and waited for the webview to paint at that size.
+/// With `width` it captures the visible Linux webview after the caller resizes the window.
 #[cfg(feature = "ui-smoke")]
 #[tauri::command]
 async fn ui_test_shot(
@@ -676,16 +675,14 @@ async fn ui_test_shot(
     let scale = window.scale_factor().map_err(|e| e.to_string())?;
     let size: tauri::PhysicalSize<u32> = tauri::LogicalSize::new(width, 1400).to_physical(scale);
     ui_smoke::window::check_capture_bounds(&window, &name, size)?;
-    let crop = format!("{}x{}+0+0", size.width, size.height);
-    let file = file(width);
-    let shot = std::process::Command::new("import")
-        .args(["-window", "root", "-crop", &crop, "+repage"])
-        .arg(&file)
-        .status();
-    if shot.is_ok_and(|s| s.success()) && filled(&file) {
+    #[cfg(target_os = "linux")]
+    {
+        ui_smoke::window::capture_webview(&window, &file(width), size).await?;
         Ok(Vec::new())
-    } else {
-        Err(format!("screenshot {} failed or is empty", file.display()))
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        Err("native screenshot capture requires Linux".into())
     }
 }
 

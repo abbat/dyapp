@@ -216,8 +216,7 @@ const audit = (() => {
     if (problems.length) throw new Error(`accessibility ${name}: ${problems.join('; ')}`);
   };
 })();
-// Audits the current screen, then saves its screenshots when the run asks for them. The native
-// resize waits for the new bounds; two frames let the webview paint at that size before capture.
+// Audit first, then capture each requested size through the native WebKit snapshot callback.
 smoke.shot = async (name) => {
   await audit(name);
   const widths = await invokeTest('ui_test_shot', { name });
@@ -231,7 +230,6 @@ smoke.shot = async (name) => {
         width: Math.round(width * devicePixelRatio),
         height: Math.round(1400 * devicePixelRatio),
       });
-      await frames();
       await invokeTest('ui_test_shot', { name, width });
     }
   } finally {

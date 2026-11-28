@@ -48,6 +48,57 @@ pub(crate) fn check_capture_bounds(
     ))
 }
 
+#[cfg(target_os = "linux")]
+pub(crate) async fn capture_webview(
+    window: &tauri::Window,
+    file: &std::path::Path,
+    size: tauri::PhysicalSize<u32>,
+) -> Result<(), String> {
+    use webkit2gtk::{SnapshotOptions, SnapshotRegion, WebViewExt};
+
+    let webview = window
+        .get_webview_window(window.label())
+        .ok_or("screenshot webview is unavailable")?;
+    let (complete, result) = tokio::sync::oneshot::channel();
+    webview
+        .with_webview(move |handle| {
+            handle.inner().snapshot(
+                SnapshotRegion::Visible,
+                SnapshotOptions::NONE,
+                None::<&webkit2gtk::gio::Cancellable>,
+                move |surface| {
+                    let png = surface
+                        .map_err(|error| error.to_string())
+                        .and_then(|surface| snapshot_png(&surface));
+                    let _ = complete.send(png);
+                },
+            );
+        })
+        .map_err(|error| error.to_string())?;
+    let bytes = tokio::time::timeout(Duration::from_secs(20), result)
+        .await
+        .map_err(|_| "webview snapshot timed out")?
+        .map_err(|error| error.to_string())??;
+    let decoder = image::codecs::png::PngDecoder::new(std::io::Cursor::new(&bytes))
+        .map_err(|error| error.to_string())?;
+    let dimensions = image::ImageDecoder::dimensions(&decoder);
+    if dimensions != (size.width, size.height) {
+        return Err(format!(
+            "webview snapshot expected {size:?}, got {dimensions:?}"
+        ));
+    }
+    std::fs::write(file, bytes).map_err(|error| error.to_string())
+}
+
+#[cfg(target_os = "linux")]
+fn snapshot_png(surface: &cairo::Surface) -> Result<Vec<u8>, String> {
+    let mut bytes = Vec::new();
+    surface
+        .write_to_png(&mut bytes)
+        .map_err(|error| error.to_string())?;
+    Ok(bytes)
+}
+
 pub(crate) fn publish(window: &tauri::Window) {
     let visible = window.is_visible().ok();
     if let Some(signals) = window.try_state::<Signals>() {

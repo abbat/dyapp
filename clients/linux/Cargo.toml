@@ -6,6 +6,8 @@ rust-version = "1.99"
 license = "MIT"
 
 [dependencies]
+cairo-rs = { version = "=0.18.5", features = ["png"], optional = true }
+webkit2gtk = { version = "=2.0.2", features = ["v2_2"], optional = true }
 tauri = { version = "=2.12.3", features = ["tray-icon"] }
 tauri-plugin-clipboard-manager = "=2.5.0"
 dyapp-bootstrap = { path = "../../rust/bootstrap" }
@@ -31,13 +33,14 @@ tokio = { version = "1", features = ["macros", "rt", "time"] }
 tauri-build = { version = "=2.7.2", features = [] }
 
 [features]
-ui-smoke = []
+ui-smoke = ["dep:cairo-rs", "dep:webkit2gtk"]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
 
 [package.metadata.cargo-shear]
 # src/main.rs includes ../../desktop/main.rs, which cargo-shear 1.14.0 does not follow.
 ignored = [
+    "cairo-rs",
     "dbus-secret-service",
     "dyapp-bootstrap",
     "dyapp-client",
@@ -53,6 +56,7 @@ ignored = [
     "tauri",
     "tauri-plugin-clipboard-manager",
     "tokio",
+    "webkit2gtk",
     "zbus",
     "zeroize",
 ]
