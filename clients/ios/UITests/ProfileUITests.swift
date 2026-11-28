@@ -43,12 +43,21 @@ final class ProfileUITests: XCTestCase {
             let enabled = XCTNSPredicateExpectation(
                 predicate: NSPredicate(format: "enabled == true"), object: confirm)
             XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 30), .completed)
+            attachSearchHideState(app, name: "search-hide-confirmation-\(language)")
             confirm.tap()
             let status = app.staticTexts["search-recovery-status"]
             let saved = NSPredicate(format: "label CONTAINS %@", savedText)
             let queued = XCTNSPredicateExpectation(predicate: saved, object: status)
             XCTAssertEqual(XCTWaiter.wait(for: [queued], timeout: 30), .completed)
             reveal(status, in: app, fullyVisible: true)
+            attachSearchHideState(app, name: "search-hide-queued-\(language)")
+        }
+
+        private func attachSearchHideState(_ app: XCUIApplication, name: String) {
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = name
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
         }
     #endif
 

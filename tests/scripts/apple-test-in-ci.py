@@ -222,6 +222,42 @@ def evidence_file(
     return directory / matches[0]
 
 
+def export_search_hide_evidence(
+    attachments: Path, result_bundle: Path
+) -> dict[str, str]:
+    digests = {}
+    for language, test in (
+        ("en", "testLegacySearchHideRequiresConfirmationAfterDismissal"),
+        ("ru", "testLegacySearchHideAtRussianAccessibilityTextSize"),
+    ):
+        directory = attachments / f"search-hide-{language}"
+        run(
+            [
+                "xcrun",
+                "xcresulttool",
+                "export",
+                "attachments",
+                "--path",
+                str(result_bundle),
+                "--output-path",
+                str(directory),
+                "--test-id",
+                f"ProfileUITests/{test}()",
+            ],
+            attachments.parent / f"attachments-search-hide-{language}.log",
+        )
+        manifest = json.loads((directory / "manifest.json").read_text())
+        for state in ("confirmation", "queued"):
+            name = f"search-hide-{state}-{language}"
+            png = evidence_file(directory, manifest, name, ".png")
+            data = png.read_bytes()
+            if not data.startswith(b"\x89PNG\r\n\x1a\n"):
+                raise RuntimeError(f"Invalid PNG attachment: {name}")
+            digest = hashlib.sha256(data).hexdigest()
+            digests[f"{directory.name}/{png.name}"] = digest
+    return digests
+
+
 def export_ios_evidence(
     reports: Path, result_bundle: Path, apps: list[Path], destination: str
 ) -> None:
@@ -256,6 +292,8 @@ def export_ios_evidence(
                 ).items()
             }
         )
+    if os.environ.get("DYAPP_IOS_UI_FIXTURES") == "1":
+        digests.update(export_search_hide_evidence(attachments, result_bundle))
     binaries = [
         app / "DYApp"
         for app in apps
