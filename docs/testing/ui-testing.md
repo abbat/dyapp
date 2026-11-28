@@ -1586,6 +1586,10 @@ desktop photo-identity regression holds one original response while completing t
 then releases it and redraws both from a warm cache; it checks full IPC selectors and routing
 through completion promises without sleeps or pixel-color locators.
 
+The link-destination cases in Apple's `ChatsUITests` send a message whose link label differs from
+its target in English and Russian. They wait for the rendered host caption and check the ASCII
+and Unicode forms of the target.
+
 The Apple two-peer test (`ChatsUITests`) cannot reach the FFI from the XCUITest process, so the DEBUG
 launch argument `--ui-test-chat-peer` hosts the second identity inside the app under test
 (`ChatTestPeer.swift`) and shortens the mailbox poll to 5 s. The peer sends a first message once the

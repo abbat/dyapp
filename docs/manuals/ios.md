@@ -10,6 +10,7 @@ identity. Counts come from local data, and the app checks the mailbox once a min
 A row opens its chat; **Chats** at the top of the chat goes back. A first message waits for a reply
 before you can write more. Text that could not go out yet stays queued and is not sent twice. The
 **...** button beside your own message edits it, or deletes it for both sides after a confirmation.
+Messages with web links show the destination hosts below the text, including both spellings for internationalized hosts.
 The menu at the top right of a chat names the person on this device, compares the safety number, clears
 this device's copy, mutes notifications and blocks the person. **Compare safety number** shows the 60
 digits and the QR code of the pair to check with that person; this app does not scan a code or record

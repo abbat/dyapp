@@ -26,6 +26,17 @@ struct ChatBubble: View {
                 } else {
                     Text(verbatim: chatPreview(message)).textSelection(.enabled)
                         .accessibilityIdentifier("msg-text")
+                    if !message.deleted, let text = message.text {
+                        let hosts = chatLinkHosts(text).map { host in
+                            host.unicode.map { "\(host.ascii) (\($0))" } ?? host.ascii
+                        }
+                        if !hosts.isEmpty {
+                            Text(verbatim: hosts.joined(separator: ", "))
+                                .font(.caption)
+                                .textSelection(.enabled)
+                                .accessibilityIdentifier("chat-link-hosts")
+                        }
+                    }
                 }
                 let meta = chatMeta(message)
                 if !meta.isEmpty { Text(verbatim: meta).font(.caption) }

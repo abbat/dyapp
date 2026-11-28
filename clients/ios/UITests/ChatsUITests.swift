@@ -70,6 +70,14 @@ final class ChatsUITests: XCTestCase {
         toggleReceiptsAndUnblock(app)
     }
 
+    func testLinkDestinationsInEnglish() {
+        assertLinkDestinations(language: "en", locale: "en_US")
+    }
+
+    func testLinkDestinationsInRussian() {
+        assertLinkDestinations(language: "ru", locale: "ru_RU")
+    }
+
     /// The DEBUG peer likes this identity; passing is undone, and liking back opens a chat from the match.
     func testLikeBackFromLikedYouMatchesAndMessageOpensTheChat() {
         let app = XCUIApplication()
