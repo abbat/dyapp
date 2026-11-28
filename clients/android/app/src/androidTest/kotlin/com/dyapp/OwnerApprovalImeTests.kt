@@ -91,9 +91,15 @@ class OwnerApprovalImeTests {
             glyphs.select(index)
             awaitSelection(index)
             window.awaitVisible()
+            val glyph = try {
+                glyphs.requireVisible(index.coerceAtMost(OWNER_VISUAL_CODE.lastIndex))
+            } catch (failure: AssertionError) {
+                runCatching { evidence.captureFailure(host, index) }.exceptionOrNull()?.let(failure::addSuppressed)
+                throw failure
+            }
             val measured = OwnerImeMeasurement(
                 RectF(window.visibleFrame()),
-                glyphs.requireVisible(index.coerceAtMost(OWNER_VISUAL_CODE.lastIndex)),
+                glyph,
                 window.requireControl("owner-cancel"),
                 window.requireControl("owner-code-next")
             )

@@ -37,14 +37,7 @@ internal class OwnerImeEvidence(private val source: String, private val width: I
         val scale = if (scene.fontScale == 2f) 200 else 100
         val name = "owner-ime-$language-$width-$theme-$scale-$index.png"
         val density = NativeVisualGeometry(host.compose, "owner-dialog").density(scene.fontScale)
-        val file = File(directory, name)
-        check(file.createNewFile())
-        val bitmap = host.compose.onNodeWithTag("owner-dialog").captureToImage().asAndroidBitmap()
-        try {
-            file.outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
-        } finally {
-            bitmap.recycle()
-        }
+        screenshot(host, name)
         frames.put(
             JSONObject().put("file", name).put("selection", index)
                 .put("font_percent", scale)
@@ -56,6 +49,21 @@ internal class OwnerImeEvidence(private val source: String, private val width: I
                 .put("next_screen_px", rectangle(measured.next))
         )
         manifest(false)
+    }
+
+    fun captureFailure(host: OwnerVisualHost, index: Int) {
+        screenshot(host, "failure-selection-$index.png")
+    }
+
+    private fun screenshot(host: OwnerVisualHost, name: String) {
+        val file = File(directory, name)
+        check(file.createNewFile())
+        val bitmap = host.compose.onNodeWithTag("owner-dialog").captureToImage().asAndroidBitmap()
+        try {
+            file.outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+        } finally {
+            bitmap.recycle()
+        }
     }
 
     fun finish() {
