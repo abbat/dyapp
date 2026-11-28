@@ -4,6 +4,7 @@ import android.app.job.JobScheduler
 import android.content.ComponentName
 import android.content.Context
 import android.os.ParcelFileDescriptor
+import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -60,6 +61,7 @@ internal class WorkerSearchOutbox(private val context: Context, private val owne
                 )
             }
         }
+        Log.i("WorkerSearchOutbox", "Search acknowledgement observed")
         verifyDelivered(seeker)
     }
 
@@ -68,6 +70,7 @@ internal class WorkerSearchOutbox(private val context: Context, private val owne
         val remaining = readyAt * 1_000L - System.currentTimeMillis()
         check(remaining <= 600_000L) { "Unexpected search publication deadline: $readyAt" }
         if (outbox.status() == SearchOutboxStatus.Idle) return@runBlocking
+        Log.i("WorkerSearchOutbox", "Remaining native search window: ${remaining.coerceAtLeast(0)} ms")
         if (remaining > 0) delay(remaining)
         if (outbox.status() == SearchOutboxStatus.Idle) return@runBlocking
         // The guest can reach the node but Android does not validate the guest network.
@@ -79,6 +82,7 @@ internal class WorkerSearchOutbox(private val context: Context, private val owne
         check(reply.contains("Running job") || outbox.status() == SearchOutboxStatus.Idle) {
             "Search job dispatch failed: $reply"
         }
+        Log.i("WorkerSearchOutbox", "Search job dispatch completed")
     }
 
     private fun verifyDelivered(seeker: Opened.Ready) = withSearch(seeker) { searcher, filters ->
