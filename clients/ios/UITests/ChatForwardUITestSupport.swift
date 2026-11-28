@@ -50,10 +50,17 @@ extension ChatsUITests {
     }
 
     private func openForwardDestination(_ app: XCUIApplication) {
-        let request = app.buttons["request-1"]
-        guard request.waitForExistence(timeout: 150) else {
-            return XCTFail("The forwarding destination did not send its request")
-        }
+        let requests = reveal(app.buttons["chats-requests"], in: app)
+        let arrived = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value != nil AND value != %@", "0"), object: requests)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [arrived], timeout: 150), .completed, app.debugDescription)
+        if !requests.isSelected { requests.tap() }
+        let request = app.buttons.matching(
+            NSPredicate(
+                format: "identifier BEGINSWITH %@ AND label CONTAINS %@",
+                "request-", "Forward destination")
+        ).firstMatch
         guard ready(reveal(request, in: app)) else { return }
         request.tap()
         XCTAssertTrue(shownText("Forward destination", in: app).waitForExistence(timeout: 30))
