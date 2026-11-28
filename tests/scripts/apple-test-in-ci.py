@@ -284,6 +284,37 @@ def export_ios_evidence(
     )
 
 
+def failed_test_summary(bundle: Path, reports: Path) -> list[str]:
+    if not bundle.is_dir():
+        return []
+    result = subprocess.run(
+        [
+            "xcrun",
+            "xcresulttool",
+            "get",
+            "test-results",
+            "summary",
+            "--path",
+            str(bundle),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode:
+        return []
+    (reports / "summary.json").write_text(result.stdout)
+    try:
+        issues = json.loads(result.stdout).get("testFailures", [])
+    except json.JSONDecodeError:
+        return []
+    return [
+        f"XCTest failure: {issue.get('testName')}: "
+        f"{str(issue.get('failureText'))[:600]}"
+        for issue in issues[:10]
+    ]
+
+
 def main() -> None:
     if os.environ.get("GITHUB_ACTIONS") != "true":
         raise RuntimeError("Native Apple tests require approved macOS CI")
@@ -384,6 +415,9 @@ def main() -> None:
                 reports / "tests.log",
                 timeout=70 * 60,
             )
+    except RuntimeError as error:
+        failures = failed_test_summary(result_bundle, reports)
+        raise RuntimeError("\n".join([*failures, str(error)])) from error
     finally:
         # The test peer's NSLog reaches neither tests.log nor the xcresult.
         keep_log(

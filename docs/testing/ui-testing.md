@@ -2557,6 +2557,8 @@ These run only in `ci.yml`; see [ci-matrix.md](../development/ci-matrix.md#ciyml
 - **iOS:** XcodeGen 2.46.0 generates `clients/ios/DYApp.xcodeproj` after
   `build-apple-core.sh ios`. `apple-test-in-ci.py` builds the device app and runs
   XCTest/XCUITest on an available iPhone simulator, signed ad hoc for Keychain.
+On XCTest failure, the runner saves the result summary when available and prints up to ten bounded
+failure messages in the CI log.
   `check-apple-results.py` and `check-flaky.py` validate its nonempty inventory.
   The artifact also keeps the runner's `DYApp*` crash reports in `crash-reports/`: a test
   that ends with "application is not running" says nothing about why, and the report does.
