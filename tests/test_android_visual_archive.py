@@ -31,6 +31,25 @@ def add(archive: tarfile.TarFile, name: str, content: bytes) -> None:
 
 
 class AndroidVisualArchive(TestCase):
+    def test_extract_failed_ime_frame_without_passing_validation(self) -> None:
+        build = Path(__file__).resolve().parents[1] / "build"
+        build.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=build) as temporary:
+            root = Path(temporary)
+            source = root / "ime.tar"
+            output = root / "frames"
+            name = "owner-ime-failure-en-360-light-100-76.png"
+            prefix = "files/owner-approval-ime/360"
+            with tarfile.open(source, "w") as archive:
+                add(archive, f"{prefix}/{name}", b"diagnostic")
+                add(archive, f"{prefix}/manifest.json", b'{"complete":false}')
+            ARCHIVE.unpack(source, output, 360, "ime")
+            self.assertEqual((output / name).read_bytes(), b"diagnostic")
+            with self.assertRaisesRegex(
+                ValueError, "Incomplete or mismatched"
+            ):
+                ARCHIVE.validate_ime(output, 360, SOURCE)
+
     def test_rejects_unexpected_paths_links_and_duplicate_entries(
         self,
     ) -> None:
