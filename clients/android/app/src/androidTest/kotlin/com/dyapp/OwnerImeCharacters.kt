@@ -3,6 +3,7 @@ package com.dyapp
 import android.graphics.RectF
 import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ComposeTimeoutException
@@ -12,7 +13,7 @@ import androidx.core.os.BundleCompat
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlin.math.roundToInt
 
-/** Accessibility supplies actual on-screen glyph rectangles, including the editor's own scrolling. */
+/** Measure the glyph in the placed inner text layout, including scroll and ancestor clipping. */
 internal class OwnerImeCharacters(private val compose: ComposeContentTestRule, private val window: OwnerImeWindow) {
     private var observation = "not requested"
 
@@ -37,9 +38,9 @@ internal class OwnerImeCharacters(private val compose: ComposeContentTestRule, p
         var visible = RectF()
         try {
             compose.waitUntil(10_000) {
-                glyph = character(index)
-                visible = RectF(window.visibleFrame())
                 val expected = expectedGlyph(index)
+                glyph = renderedGlyph(expected)
+                visible = RectF(window.visibleFrame())
                 result = glyph?.takeIf {
                     !it.isEmpty && visible.contains(it) &&
                         it.width().roundToInt() >= expected.width.roundToInt() &&
@@ -48,7 +49,7 @@ internal class OwnerImeCharacters(private val compose: ComposeContentTestRule, p
                 result != null
             }
         } catch (failure: ComposeTimeoutException) {
-            val current = observation
+            val current = "$observation accessibilityGlyph=${character(index)}"
             val lineSamples = sampleLineStarts()
             observation = "$current lineStartScreenBounds=$lineSamples ${scrollPosition()}"
             throw AssertionError(
@@ -57,6 +58,22 @@ internal class OwnerImeCharacters(private val compose: ComposeContentTestRule, p
             )
         }
         return checkNotNull(result)
+    }
+
+    private fun renderedGlyph(glyph: androidx.compose.ui.geometry.Rect): RectF? {
+        val node = compose.onNodeWithTag("owner-code-input").fetchSemanticsNode()
+        return compose.runOnIdle {
+            val coordinates = node.layoutInfo.coordinates
+            if (!coordinates.isAttached) return@runOnIdle null
+            val topLeft = coordinates.localToWindow(glyph.topLeft)
+            val bottomRight = coordinates.localToWindow(glyph.bottomRight)
+            val bounds = coordinates.boundsInWindow()
+            if (!bounds.contains(topLeft) || bottomRight.x > bounds.right || bottomRight.y > bounds.bottom) {
+                return@runOnIdle null
+            }
+            val screen = coordinates.localToScreen(glyph.topLeft)
+            RectF(screen.x, screen.y, screen.x + glyph.width, screen.y + glyph.height)
+        }
     }
 
     private fun sampleLineStarts(): List<RectF?> {
@@ -76,7 +93,7 @@ internal class OwnerImeCharacters(private val compose: ComposeContentTestRule, p
         val layout = compose.onNodeWithTag("owner-code-input").textLayout()
         val expected = layout.getBoundingBox(index)
         val line = layout.getLineForOffset(index)
-        observation += " expectedGlyph=$expected line=$line start=${layout.getLineStart(line)}"
+        observation = "expectedGlyph=$expected line=$line start=${layout.getLineStart(line)}"
         observation += " caret=${layout.getCursorRect(index)}"
         if (index > 0) observation += " previousLine=${layout.getLineForOffset(index - 1)}"
         return expected
