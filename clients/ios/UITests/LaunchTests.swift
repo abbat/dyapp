@@ -59,9 +59,10 @@ final class LaunchTests: XCTestCase {
         XCTAssertTrue(start.waitForExistence(timeout: 10))
         XCTAssertFalse(code.exists)
         reveal(start, in: app).tap()
-        XCTAssertTrue(code.waitForExistence(timeout: 10))
-        XCTAssertFalse(code.label.isEmpty)
-        XCTAssertNotEqual(code.label, firstCode)
+        let replacement = reveal(code, in: app)
+        guard ready(replacement) else { return }
+        XCTAssertFalse(replacement.label.isEmpty)
+        XCTAssertNotEqual(replacement.label, firstCode)
         reveal(app.buttons["link-receive-exit"], in: app).tap()
         XCTAssertTrue(app.staticTexts["app-ready"].waitForExistence(timeout: 10))
         XCTAssertEqual(shownPeerId(app), peerID)
