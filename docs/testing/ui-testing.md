@@ -497,8 +497,8 @@ points run the existing text/accessibility checks on the synchronization hints i
 The focused `settings-moderation` step runs independently in EN/RU on all three native desktops.
 Linux additionally retains the loaded panels at 440/1280 widths in a fresh `moderation-shots-*`
 directory; a receipt binds all eight required PNG files to their hashes and the executable hash.
-Missing/empty captures fail the exposure. CI uploads this directory with native diagnostics;
-its Linux setup includes the same ImageMagick capture tool already used by the Docker test image.
+Missing or empty captures fail the exposure. CI uploads this directory with native diagnostics.
+Linux captures the visible WebKit surface and checks its dimensions before saving each PNG.
 
 Native desktop received-view capture cases exercise loading, populated, empty, initial-error,
 retained-error, no-query-match, next-page and profile-return states in EN/RU, both themes and
