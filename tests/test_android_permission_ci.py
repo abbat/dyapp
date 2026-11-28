@@ -98,8 +98,12 @@ class AndroidPermissionCi(unittest.TestCase):
         self.assertFalse(lanes["strategy"]["fail-fast"])
         matrix = lanes["strategy"]["matrix"]["include"]
         self.assertEqual(
-            {item["lane"] for item in matrix},
-            {"android-emulator", "android-permissions"},
+            {item["lane"]: item.get("phase") for item in matrix},
+            {
+                "android-emulator": "primary",
+                "android-lifecycle": "lifecycle",
+                "android-permissions": None,
+            },
         )
         self.assertEqual(
             {item["budget"] for item in matrix},
