@@ -44,8 +44,8 @@
                         let answer = try replyContent(to: me)
                         try converse(with: me, session: session, answer: answer)
                         if forwardsToPeer {
-                            try sendForwardSourcePhoto(to: me, session: session)
                             startForwardDestination(me: me)
+                            try sendForwardSourcePhoto(to: me, session: session)
                         }
                     }
                 } catch {
