@@ -270,7 +270,7 @@ fn preparation_never_bootstraps_missing_chat_credentials_or_database() {
         slot.key.peer_id(),
         Arc::new(Wrapping),
     );
-    assert!(worker.prepare().is_err());
+    assert!(worker.prepare().unwrap().is_none());
     let dir = PathBuf::from(slot.slot.directory);
     for name in ["client.db", "device.key", "chat-state.key"] {
         assert!(!dir.join(name).exists());
