@@ -51,8 +51,11 @@ internal class OwnerImeEvidence(private val source: String, private val width: I
         manifest(false)
     }
 
-    fun captureFailure(host: OwnerVisualHost, index: Int) {
-        screenshot(host, "failure-selection-$index.png")
+    fun captureFailure(host: OwnerVisualHost, scene: OwnerVisualScene, index: Int) {
+        val language = scene.context.resources.configuration.locales[0].language
+        val theme = if (scene.dark) "dark" else "light"
+        val scale = if (scene.fontScale == 2f) 200 else 100
+        screenshot(host, "owner-ime-failure-$language-$width-$theme-$scale-$index.png")
     }
 
     private fun screenshot(host: OwnerVisualHost, name: String) {

@@ -94,7 +94,9 @@ class OwnerApprovalImeTests {
             val glyph = try {
                 glyphs.requireVisible(index.coerceAtMost(OWNER_VISUAL_CODE.lastIndex))
             } catch (failure: AssertionError) {
-                runCatching { evidence.captureFailure(host, index) }.exceptionOrNull()?.let(failure::addSuppressed)
+                runCatching { evidence.captureFailure(host, scene, index) }
+                    .exceptionOrNull()
+                    ?.let(failure::addSuppressed)
                 throw failure
             }
             val measured = OwnerImeMeasurement(
