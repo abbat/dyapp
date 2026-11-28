@@ -31,7 +31,7 @@ extension ChatsUITests {
         app.navigationBars.buttons.element(boundBy: 0).tap()
         openForwardChat("Forwarded photo received", in: app)
         XCTAssertTrue(
-            shownText("Forwarded · Hello from the peer", in: app).waitForExistence(timeout: 30))
+            shownText("Forwarded \u{00B7} Hello from the peer", in: app).waitForExistence(timeout: 30))
         XCTAssertTrue(
             app.staticTexts["msg-photo-forwarded"].waitForExistence(timeout: 30))
     }
