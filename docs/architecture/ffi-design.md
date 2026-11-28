@@ -61,8 +61,8 @@ use opaque prepare/submit/retire commands over the same core opening and staging
 explicit profile page captures through its current photo searcher, submits through its own chat
 context after the profile resolves, and retires the token when the page disappears. iOS settings
 expose the saved send preference and a received-views collection that reads the core's
-local list and UTC dates. It refreshes after the foreground feed updates. Only a row action
-opens a profile.
+local list and UTC dates. It refreshes after the foreground feed updates, including updates that
+arrive during an active list read. Only a row action opens a profile.
 The Android received-view collection uses the common local pager and existing full-identifier rows;
 read failures retain known data, disposal retires actions and explicit row selection opens the
 original profile through the shell. Tauri received-view UI remains planned; native

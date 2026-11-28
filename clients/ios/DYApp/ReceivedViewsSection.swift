@@ -119,10 +119,19 @@ struct ReceivedViewsSection: View {
         guard feed.isCurrent(context), opening == expected, expanded, !busy, !Task.isCancelled
         else { return }
         busy = true
-        let result = await feed.call(context) { try $0.receivedProfileViews() }
-        guard opening == expected, feed.isCurrent(context) else { return }
+        while !Task.isCancelled && expanded {
+            let version = feed.version
+            let result = await feed.call(context) { try $0.receivedProfileViews() }
+            guard opening == expected, feed.isCurrent(context) else { return }
+            guard !Task.isCancelled else { break }
+            apply(result)
+            // A feed update during the read may have been skipped while busy.
+            if feed.version == version { break }
+        }
         busy = false
-        guard !Task.isCancelled, expanded else { return }
+    }
+
+    private func apply(_ result: Result<[ReceivedProfileView], Error>) {
         switch result {
         case let .success(read):
             rows = read
