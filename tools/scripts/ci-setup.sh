@@ -27,7 +27,7 @@ case "${1:?usage: ci-setup.sh rust|linux|rust-build|linux-build}" in
                   libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev)
         components=()
         if [[ $1 == linux ]]; then
-            packages+=(xvfb xauth dbus-x11 gnome-keyring libsecret-tools imagemagick)
+            packages+=(xvfb xauth dbus-x11 gnome-keyring libsecret-tools imagemagick xdotool)
             components=(--component "rustfmt,clippy")
         fi
         ;;

@@ -100,12 +100,18 @@
     await appApi.receivedViews.viewsShown;
     check(!byId('received-views-rows').children.length, 'explicit empty retry retained stale rows');
   };
-  const checkReceivedViewOpening = async (afterReturn = async () => {}) => {
+  const checkReceivedViewOpening = async (afterReturn = async () => {}, nativeKeys = false) => {
     await openArea('settings', 'views');
     const test = fixture();
     await appApi.receivedViews.showReceivedViews(test.call);
     await query('retained-query');
-    byId('received-views-rows').querySelector('button').click();
+    const row = byId('received-views-rows').querySelector('button');
+    if (nativeKeys) {
+      await documentFocused();
+      byId('received-views-query').focus();
+      await pressKey('Tab', 'focusin', row);
+    }
+    await activate(row, nativeKeys);
     await appApi.receivedViews.viewOpened;
     await appApi.profileViewDone;
     check(
@@ -116,7 +122,9 @@
       test.calls.filter(([command]) => command === 'submit_profile_view').length === 1,
       'explicit opening did not submit once',
     );
-    byId('view-back').click();
+    const back = byId('view-back');
+    if (nativeKeys) back.focus();
+    await activate(back, nativeKeys);
     await appApi.receivedViews.viewsReturned;
     check(
       !byId('settings-views').hidden && byId('received-views-query').value === 'retained-query',
@@ -196,6 +204,29 @@
   };
   smoke.withCaptureAppearance = withCaptureAppearance;
   const transition = (name, action) => smoke.timedChecks({ [name]: action })[name]();
+  const pressKey = async (key, eventType, target) => {
+    const listener = new AbortController();
+    try {
+      const accepted = new Promise((resolve) => {
+        target.addEventListener(
+          eventType,
+          (event) => {
+            if (event.isTrusted) resolve(undefined);
+          },
+          { signal: listener.signal },
+        );
+      });
+      await transition(`received-views-key-${key}-${target.id || target.dataset.peerId}`, () =>
+        Promise.all([accepted, invokeTest('ui_test_key', { key })]),
+      );
+    } finally {
+      listener.abort();
+    }
+  };
+  const activate = async (button, nativeKeys) => {
+    if (nativeKeys) await pressKey('Return', 'click', button);
+    else button.click();
+  };
   const captureLoading = async (shot) => {
     const held = smoke.pendingSmokeCall();
     const loading = fixture();
@@ -233,7 +264,7 @@
     byId('received-views-query').value = 'missing-target';
     await expose('no-query-match', Promise.resolve({ ...emptyPage, total: 71 }));
   };
-  const captureNextPage = async (shot) => {
+  const captureNextPage = async (shot, nativeKeys) => {
     byId('received-views-query').value = '';
     const page = fixture();
     await transition('received-views-page-ready', () =>
@@ -247,13 +278,20 @@
         next: null,
       }),
     );
-    byId('received-views-next').click();
+    const next = byId('received-views-next');
+    if (nativeKeys) {
+      await documentFocused();
+      byId('received-views-rows').querySelector('button').focus();
+      await pressKey('Tab', 'focusin', next);
+    }
+    await activate(next, nativeKeys);
     await transition('received-views-next-completed', () => appApi.receivedViews.viewsShown);
     check(page.calls.at(-1)[1].cursor === page.cursor, 'capture lost the core cursor');
     await shot('page-transition');
   };
   smoke.checkReceivedViewsCapture = (theme, scale) =>
     withCaptureAppearance(theme, scale, async () => {
+      const nativeKeys = navigator.platform.startsWith('Linux');
       const textMode = scale === '100' ? 'normal' : 'large';
       const shot = (state) => {
         const name = `received-views-${state}-${theme}-${textMode}`;
@@ -264,9 +302,9 @@
         byId('received-views-query').value = '';
         await captureLoading(shot);
         await captureEmptyStates(shot);
-        await captureNextPage(shot);
+        await captureNextPage(shot, nativeKeys);
         await transition('received-views-profile-return-completed', () =>
-          checkReceivedViewOpening(() => shot('profile-return')),
+          checkReceivedViewOpening(() => shot('profile-return'), nativeKeys),
         );
       } finally {
         byId('received-views-query').value = '';

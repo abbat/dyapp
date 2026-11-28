@@ -878,6 +878,8 @@ const GENERATED_COMMAND_HANDLER: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = ta
     ui_smoke::window::ui_test_restored,
     #[cfg(feature = "ui-smoke")]
     ui_smoke::window::ui_test_focus,
+    #[cfg(all(feature = "ui-smoke", target_os = "linux"))]
+    ui_smoke::window::ui_test_key,
     #[cfg(feature = "ui-smoke")]
     ui_test_result,
     #[cfg(all(feature = "ui-smoke", target_os = "linux", debug_assertions))]

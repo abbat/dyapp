@@ -507,6 +507,8 @@ measured 100/200-percent text. Linux retains all 128 required 440/1280 PNG files
 `received-views-shots-*` directory with source SHA, executable and image hashes. Other desktops run
 the same actual-pane accessibility checks without the Linux capture tool. Held callbacks and
 controller completion signals establish states; capture evidence still requires rendered review.
+The Linux capture drives the actual webview with X11 Tab and Return events via `xdotool`.
+It waits for trusted focus and activation events before asserting paging and profile return.
 
 The prototype keyboard fixture calibrates requested switcher visibility against both the real
 visible menu and a controlled hidden sidebar. It must reject all three missing identity actions;

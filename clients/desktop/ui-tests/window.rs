@@ -163,6 +163,28 @@ pub(crate) fn ui_test_focus(window: tauri::Window) -> Result<(), String> {
     window.set_focus().map_err(|error| error.to_string())
 }
 
+/// Sends one X11 keyboard event through the same input path as a physical keyboard.
+#[cfg(target_os = "linux")]
+#[tauri::command]
+pub(crate) async fn ui_test_key(key: String) -> Result<(), String> {
+    ensure_test()?;
+    if !matches!(key.as_str(), "Tab" | "Return") {
+        return Err("unsupported smoke key".into());
+    }
+    let status = tauri::async_runtime::spawn_blocking(move || {
+        std::process::Command::new("xdotool")
+            .args(["key", "--clearmodifiers", &key])
+            .status()
+    })
+    .await
+    .map_err(|error| error.to_string())?
+    .map_err(|error| error.to_string())?;
+    if !status.success() {
+        return Err(format!("xdotool key failed: {status}"));
+    }
+    Ok(())
+}
+
 /// Waits until the window is visible; the watch keeps the last state, so an earlier restore counts.
 #[tauri::command]
 pub(crate) async fn ui_test_restored(window: tauri::Window) -> Result<(), String> {
