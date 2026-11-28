@@ -998,9 +998,10 @@ running callbacks are keyed by namespace and ID (namespace is absent before API 
 callback follows the completion decision for debug-only framework instrumentation; release has no
 configurable probe or backend.
 iOS polls `MobileSearchOutboxes` when the scene becomes active, when the network monitor reports
-a usable path and during its existing mail refresh. An earlier core search deadline can advance
-the single refresh request. Failed
-polls use the periodic refresh interval. The operating system decides when the app runs.
+a usable path and during its existing mail refresh. Publish, hide, withdraw and network activation
+request a fresh pass after the operation returns. An earlier core search deadline can advance the
+single refresh request. Failed polls use the periodic refresh interval. The operating system
+decides when the app runs.
 Common Tauri commands `prepare_search_recovery`,
 `confirm_search_recovery`, `retry_search_recovery` and `dismiss_search_recovery` use opaque string
 handles and the same core policy. Idle desktop state retains only owner/path/generation and the

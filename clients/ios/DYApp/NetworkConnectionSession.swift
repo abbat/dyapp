@@ -104,6 +104,7 @@ final class NetworkConnectionSession: @unchecked Sendable {
     /// Only the Rust checker that reached a compatible node can write active settings.
     func activate() throws {
         guard !isCancelled else { throw CheckError.Cancelled }
+        defer { MailJob.wakeSearch(afterQueueChange: true) }
         _ = try checker.activate()
     }
 

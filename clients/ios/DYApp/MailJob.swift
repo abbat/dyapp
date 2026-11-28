@@ -26,6 +26,7 @@ actor MailRefresh {
     private let submit: @Sendable (Date) throws -> Void
     private var pending: Date?
     private var worker: Task<Void, Never>?
+    private var queueChanged = false
 
     init(poll: @escaping @Sendable () -> Date?, submit: @escaping @Sendable (Date) throws -> Void) {
         self.poll = poll
@@ -41,15 +42,19 @@ actor MailRefresh {
         schedule()
     }
 
-    func wake() async {
+    func wake(afterQueueChange: Bool = false) async {
         if let worker {
+            if afterQueueChange { queueChanged = true }
             await worker.value
             return
         }
         let poll = self.poll
         let pass = Task {
-            let deadline = await Task.detached(priority: .utility) { poll() }.value
-            if let deadline { schedule(at: deadline) }
+            repeat {
+                queueChanged = false
+                let deadline = await Task.detached(priority: .utility) { poll() }.value
+                if let deadline { schedule(at: deadline) }
+            } while queueChanged
             worker = nil
         }
         worker = pass
@@ -85,8 +90,8 @@ enum MailJob {
         Task { await refresh.schedule() }
     }
 
-    static func wakeSearch() {
-        Task { await refresh.wake() }
+    static func wakeSearch(afterQueueChange: Bool = false) {
+        Task { await refresh.wake(afterQueueChange: afterQueueChange) }
     }
 
     private static func submit(at date: Date) throws {

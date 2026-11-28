@@ -215,6 +215,7 @@ enum RustBridge {
                 throw CoreError.Failed(message: "notConnected")
             }
         #endif
+        defer { MailJob.wakeSearch(afterQueueChange: true) }
         // Only a chat session lists this device and its key packages; without them nobody can write here.
         let result = try withDraftLock {
             try withChats(ChatIdentity(candidate: candidate, peerId: peerId)) { session in
@@ -239,7 +240,8 @@ enum RustBridge {
     static func hideProfile(for candidate: IdentityCandidate, peerId: String) throws
         -> ProfileVisibility
     {
-        try withDraftLock {
+        defer { MailJob.wakeSearch(afterQueueChange: true) }
+        return try withDraftLock {
             try withIdentity(candidate, peerId: peerId) { dir, key in
                 try ProfilePublisher(dir: dir).hide(key: key)
             }
@@ -254,6 +256,7 @@ enum RustBridge {
                 throw CoreError.Failed(message: "notConnected")
             }
         #endif
+        defer { MailJob.wakeSearch(afterQueueChange: true) }
         try withDraftLock {
             try withIdentity(candidate, peerId: peerId) { dir, key in
                 _ = try ProfilePublisher(dir: dir).withdraw(key: key)
