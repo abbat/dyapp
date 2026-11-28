@@ -13,14 +13,17 @@ from test_android_instrumentation import MONITOR, ROOT, status
 
 class InstrumentationTiming(TestCase):
     def test_wall_clock_does_not_change_deadline(self) -> None:
-        events: list[MONITOR.ProgressEvent] = []
+        output = io.StringIO()
         with mock.patch.object(
             MONITOR.time, "time", side_effect=[100.0, 90.0]
         ):
             progress = MONITOR.Progress(
-                10, now=lambda: 0.0, emit=events.append
+                10,
+                now=lambda: 0.0,
+                emit=lambda event: MONITOR.write_event(output, event),
             )
             progress.feed(status(1, 1))
+        events = [json.loads(line) for line in output.getvalue().splitlines()]
         self.assertEqual(
             [event["unix_time"] for event in events], [100.0, 90.0]
         )
