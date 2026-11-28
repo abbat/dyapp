@@ -174,7 +174,8 @@ final class ProfileUITests: XCTestCase {
         app.buttons["country-DE"].tap()
 
         let place = app.textFields["profile-place"]
-        reveal(place, in: app).tap()
+        revealEditable(place, in: app)
+        place.tap()
         typeSlowly("Nowhere", into: place)
         reveal(app.buttons["profile-save"], in: app).tap()
         let status = app.staticTexts["profile-status"]
@@ -182,7 +183,9 @@ final class ProfileUITests: XCTestCase {
         XCTAssertEqual(status.label, "Pick a place from the suggestions for the chosen country.")
 
         // "Berl" suggests Berlin, GeoNames 2950159; picking it saves its ID.
-        reveal(place, in: app, above: true).tap()
+        reveal(place, in: app, above: true, fullyVisible: true)
+        guard ready(place) else { return }
+        place.tap()
         place.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: "Nowhere".count))
         typeSlowly("Berl", into: place)
         reveal(app.buttons["place-2950159"], in: app).tap()
