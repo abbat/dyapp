@@ -87,6 +87,32 @@ fn all_owner_queues_are_visited_without_changing_selection() {
 }
 
 #[test]
+fn reopening_android_registry_retains_signed_queue_and_deadline() {
+    let test_dir = dyapp_test_support::test_dir().unwrap();
+    let root = test_dir.to_path_buf().to_str().unwrap().to_owned();
+    let keys = Arc::new(Keys::default());
+    let registry = MobileIdentityRegistry::new(root.clone(), MobileSlotLayout::Android, keys.clone());
+    let owner = queue(&registry, u64::MAX);
+    let database = Path::new(&owner.slot.directory).join("client.db");
+    let pending = || {
+        Store::open(&database, &owner.key.identity)
+            .unwrap()
+            .due_search_profile(u64::MAX)
+            .unwrap()
+            .unwrap()
+    };
+    let before = pending();
+    drop(registry);
+
+    let reopened = MobileIdentityRegistry::new(root, MobileSlotLayout::Android, keys);
+    assert!(matches!(
+        MobileSearchOutboxes::new(reopened).poll().unwrap(),
+        SearchOutboxWake::At { ready_at: u64::MAX, .. }
+    ));
+    assert_eq!(pending(), before);
+}
+
+#[test]
 fn a_failed_due_owner_does_not_prevent_another_owner_from_being_visited() {
     let test_dir = dyapp_test_support::test_dir().unwrap();
     for layout in [MobileSlotLayout::Android, MobileSlotLayout::Ios] {
