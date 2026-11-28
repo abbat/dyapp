@@ -78,6 +78,15 @@ fn create_while_review_is_idle(registry: &Arc<MobileIdentityRegistry>) -> Mobile
 }
 
 #[test]
+fn an_unreadable_database_is_not_treated_as_absent() {
+    let metadata = Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied));
+    assert!(matches!(
+        database_present(metadata),
+        Err(SearchRecoveryError::Failed { .. })
+    ));
+}
+
+#[test]
 fn fresh_slot_has_no_recovery_and_creates_no_database() {
     let f = Fixture::new(MobileSlotLayout::Ios);
     let fresh = f.registry.create().unwrap();

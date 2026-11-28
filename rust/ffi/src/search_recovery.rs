@@ -135,10 +135,10 @@ impl MobileSearchRecovery {
         // A fresh slot has neither a database nor existing chat credentials.
         {
             let slot = self.owner.slot.operation()?;
-            match std::fs::symlink_metadata(slot.operation.slot().dir.join("client.db")) {
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-                Err(error) => return Err(network_failed(error)),
-                Ok(_) => {}
+            if !database_present(std::fs::symlink_metadata(
+                slot.operation.slot().dir.join("client.db"),
+            ))? {
+                return Ok(None);
             }
         }
         let admitted = self.owner.open()?;
@@ -150,6 +150,14 @@ impl MobileSearchRecovery {
             binding: admitted.operation.binding(),
             plan: Mutex::new(Some(plan)),
         })))
+    }
+}
+
+fn database_present(metadata: std::io::Result<std::fs::Metadata>) -> Result<bool, SearchRecoveryError> {
+    match metadata {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(network_failed(error)),
+        Ok(_) => Ok(true),
     }
 }
 
