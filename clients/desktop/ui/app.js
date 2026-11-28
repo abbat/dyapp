@@ -510,8 +510,7 @@ const profileMessage = (key, detail = '') => {
   profileStatus.dataset.statusKey = key;
   statusMessage(profileStatus, 'profile-open-network', key, detail);
 };
-// While the search window holds the published profile, say when it reaches search and send it
-// once the window ends. A due profile no node took waits for the next publish or app start.
+// Deliver when the search window ends. Unaccepted profiles wait for publication or app restart.
 const searchWait = domById('profile-search-wait', HTMLParagraphElement);
 /** @type {number | undefined} */
 let searchWaitTimer;
@@ -766,7 +765,6 @@ for (const box of [profileAttested, profileDisclosure]) {
     publishConfirm.disabled = !(profileAttested.checked && profileDisclosure.checked);
   });
 }
-// Cancel stops the puzzle while it runs and otherwise closes the dialog; the draft stays.
 profileCancel.addEventListener('click', () => {
   if (!profileBusy) return publishDialog.close();
   const generation = identityState.generation;
@@ -821,7 +819,6 @@ const confirmPublish = async (call = invoke) => {
 publishConfirm.addEventListener('click', () => {
   controller.publishDone = confirmPublish();
 });
-// On hides the profile with a tombstone; off publishes the saved draft again through the dialog.
 const hideProfile = async (call = invoke) => {
   if (!profileHidden.checked) {
     profileHidden.checked = true;
