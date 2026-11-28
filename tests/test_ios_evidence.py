@@ -35,7 +35,9 @@ class IosEvidence(unittest.TestCase):
 
             with (
                 patch.object(APPLE.subprocess, "run", side_effect=timeout),
-                self.assertRaisesRegex(RuntimeError, "Command timed out") as caught,
+                self.assertRaisesRegex(
+                    RuntimeError, "Command timed out"
+                ) as caught,
             ):
                 APPLE.run(["xcodebuild"], log, timeout=1)
             self.assertIn("Last test", str(caught.exception))
