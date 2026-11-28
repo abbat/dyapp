@@ -83,7 +83,10 @@ struct PhotoDownloadSection: View {
     var body: some View {
         Section {
             if let mode {
-                Picker("photos.mode", selection: Binding(get: { mode }, set: save)) {
+                let selection = Binding<ChatPhotoDownload>(
+                    get: { mode }, set: { value in save(value) }
+                )
+                Picker("photos.mode", selection: selection) {
                     Text("photos.byNetwork").tag(ChatPhotoDownload.byNetwork)
                     Text("photos.always").tag(ChatPhotoDownload.always)
                     Text("photos.onTap").tag(ChatPhotoDownload.onTap)
