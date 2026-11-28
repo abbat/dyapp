@@ -1,5 +1,23 @@
 use super::*;
-use dyapp_profile::{Profile, VerifiedProfile};
+use dyapp_profile::search_input::SearchRangeInputs;
+use dyapp_profile::{CivilDate, Profile, VerifiedProfile};
+
+#[test]
+fn search_filter_contract_keeps_ranges_before_offered_choices() {
+    let ranges = SearchRangeInputs {
+        height_min: "160".into(),
+        height_max: "180".into(),
+        ..SearchRangeInputs::default()
+    };
+    let choices = SearchChoiceInputs {
+        country: "DE".into(),
+        ..SearchChoiceInputs::default()
+    };
+    let date = CivilDate::new(2026, 11, 10).unwrap();
+    let conditions = filter_conditions(&[4, 46], &ranges, &choices, date).unwrap();
+    let fields: Vec<_> = conditions.iter().map(|condition| condition.field).collect();
+    assert_eq!(fields, [46, 4]);
+}
 
 #[test]
 fn blank_text_and_any_mode_preserve_the_desktop_contract() {
