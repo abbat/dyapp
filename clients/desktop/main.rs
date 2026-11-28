@@ -675,6 +675,7 @@ async fn ui_test_shot(
     }
     let scale = window.scale_factor().map_err(|e| e.to_string())?;
     let size: tauri::PhysicalSize<u32> = tauri::LogicalSize::new(width, 1400).to_physical(scale);
+    ui_smoke::window::check_capture_bounds(&window, &name, size)?;
     let crop = format!("{}x{}+0+0", size.width, size.height);
     let file = file(width);
     let shot = std::process::Command::new("import")

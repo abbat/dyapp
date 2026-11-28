@@ -2317,7 +2317,9 @@ read-only root, `cap_drop: ALL`, the host user's UID/GID (`DYAPP_UID`/`DYAPP_GID
   admitted CSS viewport must match the requested physical size minus those insets at current DPR;
   an expired sampling phase cannot issue a late resize.
   Two animation frames then paint the admitted geometry before `ui_test_shot` runs ImageMagick
-  `import -window root`. Narrow overflow audits and window restoration use the same readiness; the
+  `import -window root`. The native capture command rechecks the current window bounds against
+  its requested crop before invoking ImageMagick. Narrow overflow audits and window restoration
+  use the same readiness. The
   Xvfb screen is 1280x1400. Files are
   `<state>-<lang>-<width>.png`; the first capture of a state wins. After the English pass,
   `linux-test.sh` runs `desktop-smoke.py` again with `DYAPP_SMOKE_RU=1` (every case gets

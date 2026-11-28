@@ -33,6 +33,20 @@ fn bounds(window: &tauri::Window) -> Result<Rect, String> {
     })
 }
 
+pub(crate) fn check_capture_bounds(
+    window: &tauri::Window,
+    name: &str,
+    size: tauri::PhysicalSize<u32>,
+) -> Result<(), String> {
+    let actual = bounds(window)?;
+    if actual.width == size.width && actual.height == size.height && actual.x == 0 && actual.y == 0 {
+        return Ok(());
+    }
+    Err(format!(
+        "screenshot {name}: expected {size:?} at root origin, got {actual:?}"
+    ))
+}
+
 pub(crate) fn publish(window: &tauri::Window) {
     let visible = window.is_visible().ok();
     if let Some(signals) = window.try_state::<Signals>() {
