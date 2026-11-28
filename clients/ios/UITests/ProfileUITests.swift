@@ -37,7 +37,11 @@ final class ProfileUITests: XCTestCase {
             app.launch()
             openProfile(app)
             XCTAssertEqual(reveal(owner, in: app, fullyVisible: true).label, firstOwner)
-            reveal(app.buttons["search-recovery-action"], in: app, fullyVisible: true).tap()
+            let confirm = reveal(app.buttons["search-recovery-action"], in: app, fullyVisible: true)
+            let enabled = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "enabled == true"), object: confirm)
+            XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 30), .completed)
+            confirm.tap()
             let status = app.staticTexts["search-recovery-status"]
             let saved = NSPredicate(format: "label CONTAINS %@", savedText)
             let queued = XCTNSPredicateExpectation(predicate: saved, object: status)
