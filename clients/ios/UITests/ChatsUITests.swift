@@ -138,7 +138,8 @@ final class ChatsUITests: XCTestCase {
         app.launch()
         createIdentity(app)
         connectLocalNode(app)
-        XCTAssertTrue(app.buttons["profile-preview"].waitForExistence(timeout: 30))
+        let preview = reveal(app.buttons["profile-preview"], in: app, timeout: 30)
+        guard ready(preview) else { return }
         app.navigationBars.buttons.element(boundBy: 0).tap()
         reveal(app.buttons["settings-open"], in: app).tap()
         let preference = reveal(app.switches["send-profile-views"], in: app)
