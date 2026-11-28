@@ -598,7 +598,6 @@ const showProfile = async (call = invoke) => {
     view.maxProfilePhotos,
   );
 };
-// The switch works once a version is published; hidden, the status and notice say so.
 /** @param {profileFieldsModule.ProfileView} view */
 const showHidden = (view) => {
   profilePublished = Boolean(view.published);
@@ -984,6 +983,7 @@ export {
   saveProfile,
   sections,
   sendSearchProfile,
+  profileRecoveryMetadata,
   setProfileBusy,
   setTray,
   show,
