@@ -55,6 +55,9 @@ const appBindings = {
   get act() {
     return appModule.act;
   },
+  get controller() {
+    return appModule.controller;
+  },
   get activeChat() {
     return chatStateModule.chatState.activeChat;
   },
