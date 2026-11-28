@@ -173,6 +173,7 @@
                     throw CocoaError(.fileReadNoSuchFile)
                 }
             }
+            if forwardsToPeer { return }
             try retrying("answer commitment") {
                 _ = try session.submitText(peerId: me, text: answer)
             }

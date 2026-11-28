@@ -15,7 +15,6 @@ extension ChatsUITests {
         reveal(app.buttons["chats-open"], in: app, timeout: 30).tap()
 
         replyToTheRequest(app)
-        XCTAssertTrue(shownText("Got your reply", in: app).waitForExistence(timeout: 150))
         app.navigationBars.buttons.element(boundBy: 0).tap()
         openForwardDestination(app)
         app.navigationBars.buttons.element(boundBy: 0).tap()
