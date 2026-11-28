@@ -67,8 +67,16 @@ class DesktopSmokeFeatureTest(unittest.TestCase):
     def test_feature_is_explicit_in_both_native_manifests(self) -> None:
         for platform in ("linux", "windows"):
             manifest = ROOT / "clients" / platform / "Cargo.toml"
-            features = tomllib.loads(manifest.read_text())["features"]
-            self.assertEqual(features["ui-smoke"], [])
+            data = tomllib.loads(manifest.read_text())
+            features = data["features"]
+            dependencies = (
+                ("cairo-rs", "webkit2gtk") if platform == "linux" else ()
+            )
+            self.assertEqual(
+                features["ui-smoke"], [f"dep:{name}" for name in dependencies]
+            )
+            for name in dependencies:
+                self.assertTrue(data["dependencies"][name]["optional"])
             self.assertNotIn("ui-smoke", features["default"])
 
     def test_actual_module_gate_omits_script_bytes_without_feature(
