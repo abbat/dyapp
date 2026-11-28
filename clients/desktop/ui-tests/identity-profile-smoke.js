@@ -243,9 +243,17 @@
     await checkPendingPublication(openDialog, published);
     await checkStaleProfileHide(readyState, published);
   };
+  const tracePublication = () => {
+    const transitions = [];
+    appBindings.controller.profileStatusChanged = (key) => {
+      transitions.push(`${key}: ${new Error().stack}`);
+    };
+    return () => transitions.slice(-2).join('\n');
+  };
   const checkPendingPublication = async (openDialog, published, shot = smoke.shot) => {
     const name = byId('profile-name');
     const before = name.value;
+    const trace = tracePublication();
     try {
       name.value = 'Unsaved local name';
       await openDialog();
@@ -269,7 +277,7 @@
           status !== `${appApi.strings['profile.publishedPending']} 1` ||
           name.value !== 'Unsaved local name'
         ) {
-          throw new Error(`pending publication state lost ${phase}: ${status}`);
+          throw new Error(`pending publication state lost ${phase}: ${status}\n${trace()}`);
         }
       };
       assertPending('after completion');
@@ -297,6 +305,7 @@
         }
       });
     } finally {
+      delete appBindings.controller.profileStatusChanged;
       name.value = before;
     }
   };

@@ -24,6 +24,8 @@ import { openSearchRecovery } from './search-recovery-host.js';
 import { controller as settingsController } from './settings.js';
 import { progress } from './ui-progress.js';
 export const controller = {};
+/** @type {((key: string) => void) | undefined} */
+controller.profileStatusChanged = undefined;
 /** @type {Promise<void> | undefined} */
 controller.settingsShown = undefined;
 /** @type {Promise<void> | undefined} */
@@ -503,6 +505,7 @@ const statusMessage = (status, open, key, detail) => {
 };
 /** @param {string} key */
 const profileMessage = (key, detail = '') => {
+  controller.profileStatusChanged?.(key);
   profileStatusRevision += 1;
   profileStatus.dataset.statusKey = key;
   statusMessage(profileStatus, 'profile-open-network', key, detail);
