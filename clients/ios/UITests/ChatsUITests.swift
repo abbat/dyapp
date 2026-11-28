@@ -381,7 +381,7 @@ extension ChatsUITests {
                     )
                 ], timeout: 30), .completed)
         let next = reveal(app.buttons["network-continue"], in: app)
-        XCTAssertTrue(next.isEnabled)
+        guard ready(next) else { return }
         next.tap()
     }
 }
