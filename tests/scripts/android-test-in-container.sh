@@ -220,6 +220,7 @@ case "${1:?suite required}" in
         # Separate invocations exercise isolated and actual-worker native registries.
         peer_phase() {
             local fixture=$1 phase=$2 argument test_class deadline=300
+            local report="$report_dir/$fixture-peer-${3:-$phase}.txt"
             case "$fixture:$phase" in
                 worker:prepare|worker:catchUpScheduled|worker:catchUpSearchOutbox) deadline=900 ;;
             esac
@@ -228,9 +229,9 @@ case "${1:?suite required}" in
                 worker) argument=workerPeerPhase; test_class=WorkerPeerPhaseTests ;;
                 *) return 2 ;;
             esac
-            run_instrumentation "$report_dir/$fixture-peer-$phase.txt" "$deadline" \
+            run_instrumentation "$report" "$deadline" \
                 -e "$argument" "$phase" -e class "com.dyapp.$test_class" || return
-            python3 /app/tests/scripts/check-instrumentation-results.py "$report_dir/$fixture-peer-$phase.txt" 1
+            python3 /app/tests/scripts/check-instrumentation-results.py "$report" 1
         }
         probe_worker_job() {
             timeout 60 adb -s emulator-5554 shell cmd jobscheduler get-job-state \
@@ -255,8 +256,11 @@ case "${1:?suite required}" in
         offline_worker_phases() {
             peer_phase worker prepareSearchOutbox || return
             node_action stop || return
-            if peer_phase worker queue && peer_phase worker verifySearchOutbox &&
-                reboot_worker && peer_phase worker verifySearchOutbox && upgrade_worker; then
+            if peer_phase worker queue &&
+                peer_phase worker verifySearchOutbox verifySearchOutbox-before-reboot &&
+                reboot_worker &&
+                peer_phase worker verifySearchOutbox verifySearchOutbox-after-reboot &&
+                upgrade_worker; then
                 node_action start || return
                 peer_phase worker catchUpScheduled && peer_phase worker catchUpSearchOutbox
             else
