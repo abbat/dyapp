@@ -27,7 +27,7 @@ struct ChatBubble: View {
                     Text(verbatim: chatPreview(message)).textSelection(.enabled)
                         .accessibilityIdentifier("msg-text")
                     if !message.deleted, let text = message.text {
-                        let hosts = chatLinkHosts(text).map { host in
+                        let hosts = chatLinkHosts(text: text).map { host in
                             host.unicode.map { "\(host.ascii) (\($0))" } ?? host.ascii
                         }
                         if !hosts.isEmpty {
