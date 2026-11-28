@@ -48,8 +48,8 @@ private struct ProfileHideControls: View {
                     let expected = opening
                     Task { await hide(in: expected) }
                 }
-                    .disabled(disabled || isHiding || recovering || (visibility?.version ?? 0) == 0)
-                    .accessibilityIdentifier("profile-hide")
+                .disabled(disabled || isHiding || recovering || (visibility?.version ?? 0) == 0)
+                .accessibilityIdentifier("profile-hide")
                 Text("profile.hideHint")
                     .font(.caption)
             }
@@ -295,8 +295,9 @@ struct ProfileProofControls: View {
             }
             ProfileHideControls(
                 candidate: candidate, peerId: peerId, publishedVersion: published?.version,
-                disabled: isSolving || isPublishing, onHidden: resetProofState)
-                .id(candidate.location.marker + ":" + peerId)
+                disabled: isSolving || isPublishing, onHidden: resetProofState
+            )
+            .id(candidate.location.marker + ":" + peerId)
         }
         .onChange(of: resetToken) { _ in
             cancelProof()
