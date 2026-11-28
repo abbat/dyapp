@@ -16,13 +16,14 @@ internal class WorkerSearchOutbox(private val context: Context, private val owne
 
     fun prepare() = withOutbox { outbox ->
         check(outbox.poll() == SearchOutboxStatus.Idle) { "Initial search publication was not acknowledged" }
-        val draft = loadDraft(owner).copy(about = "Search outbox reboot fixture")
+        val tag = "outbox-${owner.peerId.takeLast(16).lowercase()}"
+        val draft = loadDraft(owner).copy(interests = listOf(tag))
         saveDraft(owner, draft)
         solveWorkerProfile(owner)
         val published = withSearchOutboxChange {
             RustBridge.withChats(owner) { it.publishProfile(true) }
         }
-        check(published.draft.about == draft.about) { "Updated profile was not accepted by the node" }
+        check(published.draft.interests == listOf(tag)) { "Updated profile was not accepted by the node" }
         val scheduled = requireScheduled(outbox.status())
         val scheduler = context.getSystemService(JobScheduler::class.java)
         val job = checkNotNull(scheduler.getPendingJob(SEARCH_OUTBOX_JOB_ID)) {
@@ -32,7 +33,9 @@ internal class WorkerSearchOutbox(private val context: Context, private val owne
             "Search job must persist and target the production MailJob"
         }
         checkNotNull(job.requiredNetwork) { "Search job must wait for network availability" }
-        checkpoint.write(JSONObject().put("owner", owner.peerId).put("readyAt", scheduled.readyAt.toString()))
+        checkpoint.write(
+            JSONObject().put("owner", owner.peerId).put("readyAt", scheduled.readyAt.toString()).put("tag", tag)
+        )
     }
 
     fun verifyWithAnotherSelection() {
