@@ -93,7 +93,9 @@ class AppleCoreProfiles(unittest.TestCase):
                         )
                     for row in calls:
                         if row[0] == "cargo":
-                            self.assertEqual("ios-ui-fixtures" in row, fixtures)
+                            self.assertEqual(
+                                "ios-ui-fixtures" in row, fixtures
+                            )
                         if row[0] == "lipo":
                             sources = row[2 : row.index("-output")]
                             self.assertTrue(
