@@ -54,7 +54,10 @@ mod tests {
         assert_eq!(draft.version, 2);
         assert_eq!(draft.name, "Original private draft");
         assert!(store.search_visibility().unwrap().hidden);
-        assert!(store.prepare_search_withdrawal_recovery().unwrap().is_some());
+        assert!(store
+            .prepare_search_withdrawal_recovery()
+            .unwrap()
+            .is_some());
         assert!(seed_legacy_search_hide(directory, key).is_err());
     }
 }
