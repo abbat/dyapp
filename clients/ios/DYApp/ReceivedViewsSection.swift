@@ -94,7 +94,7 @@ struct ReceivedViewsSection: View {
             .disabled(busy || context == nil)
             .accessibilityIdentifier("received-views-refresh")
         }
-        .accessibilityIdentifier("received-views")
+        // Tag the rows individually so the disclosure group cannot replace their identifiers.
         .task(id: expected) {
             if expanded, let context { await refresh(context, opening: expected) }
         }

@@ -61,7 +61,7 @@ final class ChatsUITests: XCTestCase {
             app.debugDescription)
         menuItem("msg-forward", label: "Forward", opener: "msg-received-menu", in: app).tap()
         let empty = app.staticTexts["No other open chats are available."]
-        XCTAssertTrue(empty.waitForExistence(timeout: 30))
+        XCTAssertTrue(empty.waitForExistence(timeout: 30), app.debugDescription)
         app.buttons["forward-cancel"].tap()
         waitGone(empty, in: app)
         editAndDeleteTheReply(app, input: app.textFields["chat-input"])
