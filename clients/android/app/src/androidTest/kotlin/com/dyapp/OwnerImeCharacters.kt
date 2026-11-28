@@ -3,6 +3,8 @@ package com.dyapp
 import android.graphics.RectF
 import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -47,14 +49,27 @@ internal class OwnerImeCharacters(private val compose: ComposeContentTestRule, p
             }
         } catch (failure: ComposeTimeoutException) {
             val current = observation
-            val previous = if (glyph == null && index > 0) character(index - 1) else null
-            observation = "$current previousGlyph=$previous"
+            val lineSamples = sampleLineStarts()
+            observation = "$current lineStartScreenBounds=$lineSamples ${scrollPosition()}"
             throw AssertionError(
                 "IME glyph $index is unavailable or clipped: glyph=$glyph visible=$visible; $observation",
                 failure
             )
         }
         return checkNotNull(result)
+    }
+
+    private fun sampleLineStarts(): List<RectF?> {
+        val layout = compose.onNodeWithTag("owner-code-input").textLayout()
+        return (0 until layout.lineCount).map { character(layout.getLineStart(it)) }
+    }
+
+    private fun scrollPosition(): String = listOf("owner-code-input", "owner-body").joinToString { tag ->
+        val node = compose.onNodeWithTag(tag).fetchSemanticsNode()
+        compose.runOnIdle {
+            val range = node.config.getOrNull(SemanticsProperties.VerticalScrollAxisRange)
+            "$tag scroll=${range?.value?.invoke()}/${range?.maxValue?.invoke()} bounds=${node.boundsInWindow}"
+        }
     }
 
     private fun expectedGlyph(index: Int): androidx.compose.ui.geometry.Rect {

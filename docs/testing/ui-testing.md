@@ -463,8 +463,8 @@ retains full glyph/action containment at each selection and the original per-tra
 The code field uses an external visible label and exposes that label as its accessible name.
 The owner code editor uses the Material 3 label above the field and retains the native editable
 text semantics used by the glyph checks. A glyph failure reports the editor's screen bounds,
-visual line and cursor geometry, plus the
-preceding glyph rectangle when the selected glyph has no accessibility location.
+visual line and cursor geometry, the screen rectangle reported at the start of each rendered
+line, and the current editor and dialog-body scroll ranges and bounds.
 
 Android stale-callback checks capture the installed `applicationClickKey` action, rather than a
 Compose `SemanticsActions.OnClick` wrapper: modifier nodes may reuse that wrapper for a new opening
