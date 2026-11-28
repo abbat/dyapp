@@ -456,6 +456,7 @@ nodeForm.addEventListener('submit', (event) => {
 const profileForm = domById('profile', HTMLFormElement);
 const profileScales = domById('profile-scales', HTMLDivElement);
 const profileStatus = domById('profile-status', HTMLParagraphElement);
+let profileStatusRevision = 0;
 const publishDialog = domById('publish-dialog', HTMLDialogElement);
 const publishConfirm = domById('profile-publish-confirm', HTMLButtonElement);
 const profileHidden = domById('profile-hidden', HTMLInputElement);
@@ -502,6 +503,7 @@ const statusMessage = (status, open, key, detail) => {
 };
 /** @param {string} key */
 const profileMessage = (key, detail = '') => {
+  profileStatusRevision += 1;
   profileStatus.dataset.statusKey = key;
   statusMessage(profileStatus, 'profile-open-network', key, detail);
 };
@@ -512,11 +514,12 @@ const searchWait = domById('profile-search-wait', HTMLParagraphElement);
 let searchWaitTimer;
 const sendSearchProfile = (generation = identityState.generation, call = invoke) => {
   if (!identityCurrent(generation)) return Promise.resolve();
+  const statusRevision = profileStatusRevision;
   return call('send_search_profile').then(
     (view) => {
       if (!identityCurrent(generation)) return;
       showSearchWait(view);
-      showHidden(view);
+      if (statusRevision === profileStatusRevision) showHidden(view);
     },
     () => {},
   );

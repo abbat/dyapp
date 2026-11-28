@@ -249,6 +249,11 @@
     try {
       name.value = 'Unsaved local name';
       await openDialog();
+      const delayedSearch = smoke.pendingSmokeCall();
+      const search = appBindings.sendSearchProfile(
+        appBindings.identityGeneration,
+        delayedSearch.call,
+      );
       await appBindings.confirmPublish((command) =>
         command === 'solve_profile'
           ? Promise.resolve()
@@ -258,20 +263,23 @@
               publicationPending: true,
             }),
       );
-      const assertPending = () => {
+      const assertPending = (phase) => {
         const status = appBindings.profileStatus.textContent;
         if (
           status !== `${appApi.strings['profile.publishedPending']} 1` ||
           name.value !== 'Unsaved local name'
         ) {
-          throw new Error(`pending publication state lost: ${status}`);
+          throw new Error(`pending publication state lost ${phase}: ${status}`);
         }
       };
-      assertPending();
+      assertPending('after completion');
+      delayedSearch.resolve({ published: 0, hidden: false, searchMinutes: null });
+      await search;
+      assertPending('after delayed search delivery');
       name.dispatchEvent(new Event('input', { bubbles: true }));
-      assertPending();
+      assertPending('after editor input');
       await shot('profile-published-pending', () => {
-        assertPending();
+        assertPending('before snapshot');
         const bounds = appBindings.profileStatus.getBoundingClientRect();
         if (
           bounds.width <= 0 ||
