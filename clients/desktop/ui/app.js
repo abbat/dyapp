@@ -519,7 +519,9 @@ const sendSearchProfile = (generation = identityState.generation, call = invoke)
     (view) => {
       if (!identityCurrent(generation)) return;
       showSearchWait(view);
-      if (statusRevision === profileStatusRevision) showHidden(view);
+      const pending = profileStatus.dataset.statusKey === 'profile.publishedPending';
+      if (statusRevision === profileStatusRevision && (!pending || view.published))
+        showHidden(view);
     },
     () => {},
   );

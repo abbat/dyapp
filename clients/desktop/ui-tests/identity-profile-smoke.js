@@ -276,6 +276,10 @@
       delayedSearch.resolve({ published: 0, hidden: false, searchMinutes: null });
       await search;
       assertPending('after delayed search delivery');
+      await appBindings.sendSearchProfile(appBindings.identityGeneration, () =>
+        Promise.resolve({ published: 0, hidden: false, searchMinutes: null }),
+      );
+      assertPending('after search without published readback');
       name.dispatchEvent(new Event('input', { bubbles: true }));
       assertPending('after editor input');
       await shot('profile-published-pending', () => {
