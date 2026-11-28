@@ -78,8 +78,13 @@ final class AppLockUITests: XCTestCase {
         XCTAssertTrue(label(app.staticTexts["lock-mode"], "App lock: off"))
         enter(app, "lock-pin", pin)
         enter(app, "lock-pin-repeat", pin)
-        app.buttons["lock-set"].tap()
-        XCTAssertTrue(label(app.staticTexts["lock-mode"], "App lock: PIN"))
+        let save = reveal(app.buttons["lock-set"], in: app, fullyVisible: true)
+        guard ready(save) else { return }
+        save.tap()
+        let feedback = app.staticTexts["lock-notice"]
+        XCTAssertTrue(
+            label(app.staticTexts["lock-mode"], "App lock: PIN"),
+            feedback.exists ? feedback.label : "PIN settings did not enter PIN mode")
         enter(app, "lock-pin-current", "000000")
         app.buttons["lock-off"].tap()
         XCTAssertEqual(notice(app), "Wrong PIN.")
