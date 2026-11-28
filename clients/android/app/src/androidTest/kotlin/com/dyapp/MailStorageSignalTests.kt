@@ -18,6 +18,7 @@ class MailStorageSignalTests {
         ).apply { check(mkdir()) }
         val data = File(directory, "data").apply { writeText("") }
         MailStorageSignal(directory).use { signal ->
+            assertFalse(signal.awaitChange(0))
             data.appendText("committed")
             signal.await(PEER_WAIT_MS)
             assertEquals("committed", data.readText())
