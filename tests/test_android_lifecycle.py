@@ -203,6 +203,26 @@ class AndroidLifecycle(unittest.TestCase):
             )
         )
 
+    def test_invalid_current_user_stops_before_probing_the_job(self) -> None:
+        fake = FakeAdb(
+            setup_steps()
+            + [
+                Step(WAIT),
+                Step(BOOT, NEW),
+                Step(WAIT),
+                Step(PROP, "1"),
+                Step(WAIT),
+                Step(PACKAGE, "package:/framework.apk"),
+                Step(CURRENT_USER, "unknown"),
+            ]
+        )
+        with self.assertRaisesRegex(RuntimeError, "Unexpected Android user ID"):
+            LIFECYCLE.AdbLifecycle(run=fake, now=fake.now).reboot(
+                "com.dyapp", 1, 10
+            )
+        self.assertFalse(fake.steps)
+        self.assertEqual(fake.calls.count(JOB), 1)
+
     def test_transport_failure_does_not_repeat_the_reboot(self) -> None:
         fake = FakeAdb(setup_steps() + [Step(WAIT, status=1)])
         with self.assertRaisesRegex(RuntimeError, "transport"):
