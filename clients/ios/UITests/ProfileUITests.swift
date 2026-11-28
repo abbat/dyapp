@@ -15,8 +15,9 @@ final class ProfileUITests: XCTestCase {
         }
 
         func testLegacySearchHideAtRussianAccessibilityTextSize() {
-            checkLegacySearchHide(
-                language: "ru", locale: "ru_RU", savedText: "сохранён и ожидает отправки")
+            let waiting = "\u{43e}\u{436}\u{438}\u{434}\u{430}\u{435}\u{442}"
+            let delivery = "\u{43e}\u{442}\u{43f}\u{440}\u{430}\u{432}\u{43a}\u{438}"
+            checkLegacySearchHide(language: "ru", locale: "ru_RU", savedText: "\(waiting) \(delivery)")
         }
 
         private func checkLegacySearchHide(language: String, locale: String, savedText: String) {
