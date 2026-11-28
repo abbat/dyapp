@@ -153,7 +153,9 @@ impl MobileSearchRecovery {
     }
 }
 
-fn database_present(metadata: std::io::Result<std::fs::Metadata>) -> Result<bool, SearchRecoveryError> {
+fn database_present(
+    metadata: std::io::Result<std::fs::Metadata>,
+) -> Result<bool, SearchRecoveryError> {
     match metadata {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
         Err(error) => Err(network_failed(error)),
