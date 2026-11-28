@@ -259,7 +259,7 @@ uniffi,rust/ffi/src/chats/mail_pass.rs#mail_notice_line,limit,rust/client/src/ma
 uniffi,rust/ffi/src/editor_input.rs#parse_profile_height,allow-list,rust/ffi/src/editor_input.rs#parse_profile_height
 uniffi,rust/ffi/src/editor_input.rs#parse_profile_interests,allow-list,rust/ffi/src/editor_input.rs#parse_profile_interests
 uniffi,rust/ffi/src/editor_input.rs#parse_profile_seeking,allow-list,rust/ffi/src/editor_input.rs#parse_profile_seeking
-uniffi,rust/ffi/src/ios_ui_fixtures.rs#seed_legacy_search_hide,allow-list,clients/ios/DYApp/RustBridge.swift#seedUITestIdentity
+uniffi,rust/ffi/src/ios_ui_fixtures.rs#seed_legacy_search_hide,allow-list,rust/ffi/src/ios_ui_fixtures.rs#seed_legacy_search_hide
 uniffi,rust/ffi/src/lib.rs#place_name,allow-list,rust/ffi/src/lib.rs#place_name
 uniffi,rust/ffi/src/lib.rs#search_places,allow-list,rust/ffi/src/lib.rs#search_places
 uniffi,rust/ffi/src/link_approval.rs#device_link_code_status,allow-list,rust/ffi/src/link_approval.rs#device_link_code_status
