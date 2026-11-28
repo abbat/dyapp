@@ -333,6 +333,26 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    #[cfg(windows)]
+    #[test]
+    fn a_committed_windows_selection_reopens_with_unconfirmed_durability() {
+        let root = temp_root();
+        let (first, _, _) = create(&root, "file").unwrap();
+        let (second, _, _) = create(&root, "file").unwrap();
+        assert_ne!(first.id, second.id);
+        let (selected, durability) = select(&root, &first.id).unwrap();
+        assert!(matches!(
+            durability,
+            SelectionDurability::Unconfirmed { .. }
+        ));
+        assert!(matches!(&selected, Opened::Ready(slot, _) if slot.id == first.id));
+        assert_eq!(
+            describe_opened(&resolve(&root).unwrap()),
+            describe_opened(&selected)
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
     #[test]
     fn the_device_key_is_made_once_per_ready_slot() {
         use std::cell::RefCell;
