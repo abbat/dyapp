@@ -44,6 +44,11 @@ internal class WorkerSearchOutbox(private val context: Context, private val owne
         try {
             check(selected.peerId != owner.peerId) { "Expected a distinct active identity" }
             verify()
+            WorkerSearchOutbox(context, selected).withOutbox { outbox ->
+                check(outbox.status() == SearchOutboxStatus.Idle) {
+                    "The selected identity unexpectedly acquired search work"
+                }
+            }
         } finally {
             alternate.cleanup()
         }
