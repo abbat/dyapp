@@ -210,8 +210,8 @@ extension LaunchTests {
         app.launch()
         createIdentity(app)
         app.buttons["settings-open"].tap()
-        let selected = app.descendants(matching: .any)["settings-active"]
-        XCTAssertTrue(selected.waitForExistence(timeout: 10))
+        let selected = reveal(app.descendants(matching: .any)["settings-active"], in: app)
+        guard ready(selected) else { return }
         XCTAssertTrue(
             selected.label.contains(
                 "\u{41a}\u{43b}\u{44e}\u{447} "
